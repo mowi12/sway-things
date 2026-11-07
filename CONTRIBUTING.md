@@ -63,8 +63,8 @@ in American English.
 
 ## Engineering rules (non-negotiable)
 
-Rules 1–7 protect users' systems; rules 8–9 keep the code base consistent. Details and reasons are in
-[wiki/Architecture.md](wiki/Architecture.md).
+Rules 1–7 protect users' systems; rules 8–10 keep the code base consistent and the supply chain safe. Details and
+reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
    (gsettings/dconf, D-Bus services). The user's sway config is never touched.
@@ -83,6 +83,11 @@ Rules 1–7 protect users' systems; rules 8–9 keep the code base consistent. D
    SPDX-FileCopyrightText: 2026 Sway Things contributors
    SPDX-License-Identifier: GPL-3.0-or-later
    ```
+
+10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
+    `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
+    current. Give every workflow job only the `permissions` it needs. Workflow, job and step names use Title Case
+    (`Preview Label Changes`).
 
 ## Checks
 
