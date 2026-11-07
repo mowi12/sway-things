@@ -1,0 +1,96 @@
+name: Bug Report
+description: Something in Sway Things doesn't work as intended
+title: "[Bug]: <title>"
+labels: ["kind:bug"]
+
+body:
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please check whether this bug has already been reported.
+      options:
+        - label: I have searched the existing issues
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug. Which page or command?
+      placeholder: e.g. "Changing the touchpad scroll speed has no effect after a sway reload."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Mouse & Touchpad page
+        2. Change '...'
+        3. Run `swaymsg reload`
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: What did you expect?
+      placeholder: e.g. "The new scroll speed is kept."
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Sway Things version
+      description: Output of `sway-things --version`, or the commit you built from.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: compositor
+    attributes:
+      label: Compositor
+      options:
+        - sway
+        - SwayFX
+    validations:
+      required: true
+
+  - type: input
+    id: compositor-version
+    attributes:
+      label: Compositor version
+      description: Output of `sway --version`.
+    validations:
+      required: true
+
+  - type: input
+    id: distribution
+    attributes:
+      label: Distribution
+      placeholder: e.g. openSUSE Tumbleweed, Arch Linux, Debian 13
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `sway-things doctor`
+      description: It checks the setup, missing tools and conflicts. Remove anything you consider private.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Anything else?
+      description: |
+        Relevant lines of your sway config, logs, screenshots, or other context that helps us debug the issue.
+
+        Tip: You can drag and drop files here.
+    validations:
+      required: false

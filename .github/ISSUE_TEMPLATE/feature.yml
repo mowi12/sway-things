@@ -1,0 +1,106 @@
+name: Feature Request
+description: Suggest a new setting, page or improvement
+title: "[Feature]: <title>"
+labels: ["kind:feature"]
+
+body:
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please check whether this feature has already been requested.
+      options:
+        - label: I have searched the existing issues
+          required: true
+
+  - type: dropdown
+    id: page
+    attributes:
+      label: Which page does this belong to?
+      options:
+        - Mouse & Touchpad
+        - Keyboard
+        - Cursor & Tablet
+        - Displays
+        - Sound
+        - Bluetooth & Network
+        - Windows (incl. SwayFX effects)
+        - Wallpaper
+        - Apps Look & Feel
+        - Bar
+        - Window Behavior
+        - Workspaces
+        - Keyboard Shortcuts
+        - Notifications
+        - Apps & Autostart
+        - Screenshots & Clipboard
+        - Power & Lock
+        - Brightness & Night Light
+        - Region & Time
+        - Accessibility
+        - Environment
+        - About & Maintenance
+        - App-wide (shell, search, CLI, …)
+        - A new page / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: in-catalog
+    attributes:
+      label: Is it in the Feature Catalog?
+      description: >-
+        The planned scope is listed in the
+        [Feature Catalog](https://github.com/mowi12/sway-things/wiki/Feature-Catalog).
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your request related to a problem? Please describe.
+      description: A clear description of what you're trying to do.
+      placeholder: I always have to look up [...] in the man page.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: What should Sway Things do or show?
+      placeholder: A slider on the [...] page that [...]
+    validations:
+      required: true
+
+  - type: input
+    id: directive
+    attributes:
+      label: Sway directive or tool involved
+      description: The sway command, config option or companion tool this would configure, if you know it.
+      placeholder: e.g. `input type:touchpad dwt`, waybar, kanshi
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Other solutions or workarounds, e.g. how you configure this today.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Anything else?
+      description: |
+        Screenshots of how other settings apps do it, mockups, or other context.
+
+        Tip: You can drag and drop files here.
+    validations:
+      required: false
