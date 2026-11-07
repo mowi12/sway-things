@@ -15,8 +15,9 @@ privately as described in `SECURITY.md`, never in public issues.
 - **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue
   when you start or plan an item, not before.
 - Use the **issue forms** (Bug, Feature, Docs, Refactor). Blank issues are disabled.
-- **Labels** are defined in `.github/labels.yml` and synced automatically: `kind:`, `area:`, `page:`, `effort:`, `status:`,
-  `compat:swayfx`, plus `good first issue` and `help wanted`.
+- **Labels** are defined in [.github/labels.yml](.github/labels.yml): `kind:`, `area:`, `page:`, `effort:`, `status:`,
+  `compat:swayfx`, plus `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview,
+  and `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
 - **Milestones** are releases. Only `v0.1` exists for now.
 - **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
   large.

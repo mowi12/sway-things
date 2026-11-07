@@ -28,7 +28,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── core/        # no GTK: settings registry, state, generators, sway config parser, IPC, backends
 │   ├── cli/         # `sway-things` binary: get/set/open/doctor/hook
 │   └── gui/         # `sway-things-gui`: gtk4-rs app, rows built from the registry, custom pages
-├── scripts/         # one script per check (check-fmt.sh, check-lint.sh, …): the ONLY place a check command lives
+├── scripts/         # one script per check (check-fmt.sh, …): the ONLY place a check command lives; sync-labels.sh
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
 ├── .github/
@@ -77,6 +77,7 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Async: glib main loop + async-io based crates (zbus, swayipc-async, async-process). No tokio; `crates/core` stays
   executor-agnostic.
 - License: `GPL-3.0-or-later`. New dependencies must be GPL-compatible (enforced by cargo-deny).
+- Labels: edit `.github/labels.yml`, never labels on github.com (the sync deletes unknown labels).
 
 ## Where to look
 
