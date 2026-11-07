@@ -15,3 +15,17 @@ updates:
       prefix: ci
       include: scope
     labels: ["kind:maintenance", "area:ci"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      cargo:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+    labels: ["kind:maintenance"]
