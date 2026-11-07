@@ -95,8 +95,8 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
-    current. Give every workflow job only the `permissions` it needs. Workflow, job and step names use Title Case
-    (`Preview Label Changes`).
+    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum. Give every
+    workflow job only the `permissions` it needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
 
 ## Checks
 

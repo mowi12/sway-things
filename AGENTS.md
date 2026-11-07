@@ -85,8 +85,9 @@ Never break these, even if a task seems to ask for it. Ask instead.
   executor-agnostic.
 - License: `GPL-3.0-or-later`. New dependencies must be GPL-compatible (enforced by cargo-deny).
 - Workflows: pin every action to a full commit SHA with a version comment (`@<sha> # v7.0.1`), set `permissions: {}` at
-  the top and grant each job only what it needs. Every workflow, job and step `name` is in Title Case
-  (`Preview Label Changes`, `Check Out Repository`).
+  the top and grant each job only what it needs. Downloaded tools are pinned to a version and verified against their
+  SHA-256 checksum. Every workflow, job and step `name` is in Title Case (`Preview Label Changes`,
+  `Check Out Repository`).
 - Labels: edit `.github/labels.yml`, never labels on github.com (the sync deletes unknown labels).
 
 ## Where to look

@@ -316,7 +316,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
 | Parser exploits | `unsafe_code` forbidden in every crate, fuzzing, never executes during parsing |
-| Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions |
+| Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions, CI tools and dprint plugins pinned with checksums |
 
 ## Platform floor
 
