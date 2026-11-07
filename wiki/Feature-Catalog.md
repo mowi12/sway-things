@@ -16,8 +16,8 @@ Each page also lists **Maybe** items: ideas that weren't selected, kept for late
 
 ### Mouse & Touchpad
 
-`man sway-input`. Settings apply to all devices of a type (`type:pointer`, `type:touchpad`) or to one device
-(per-device scope → host overlay by default).
+`man sway-input`. Settings apply to all devices of a type (`type:pointer`, `type:touchpad`) or to one device (per-device
+scope → host overlay by default).
 
 - 🟢 Pointer speed (`pointer_accel`, −1.0 … 1.0)
 - 🟢 Acceleration profile: flat / adaptive (`accel_profile`)
@@ -61,9 +61,8 @@ Each page also lists **Maybe** items: ideas that weren't selected, kept for late
 
 ### Displays
 
-The requirements below include the proven ideas
-from kanshi_gui. Display profile backend: kanshi (reference); without kanshi, static `output` lines in our include
-(no profiles).
+The requirements below include the proven ideas from kanshi_gui. Display profile backend: kanshi (reference); without
+kanshi, static `output` lines in our include (no profiles).
 
 **Layout editor**
 
@@ -84,8 +83,7 @@ from kanshi_gui. Display profile backend: kanshi (reference); without kanshi, st
 - 🟢 One-click profile switching
 - 🟡 First run: detect the current layout and suggest a profile name
 - 🟢 Flicker-free reload (`kanshictl reload` → `SIGHUP` → restart kanshi only as a last resort)
-- 🟢 Generate `exec kanshi` / `exec_always kanshictl reload` into **our** sway include when kanshi isn't started
-  yet
+- 🟢 Generate `exec kanshi` / `exec_always kanshictl reload` into **our** sway include when kanshi isn't started yet
 
 **Workspace placement (opt-in)**
 
@@ -99,14 +97,12 @@ from kanshi_gui. Display profile backend: kanshi (reference); without kanshi, st
   `bindswitch` lines in our include call `sway-things hook lid closed|open`
 
 **Maybe:** 🟡 adaptive sync / VRR per output · 🟡 sway-only output options (allow tearing, 10-bit, subpixel, scale
-filter, ICC profile) · 🟡 custom modes / modelines · 🟡 match outputs by make/model/serial instead of connector
-(stable across docks) · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡
-shikane backend
+filter, ICC profile) · 🟡 custom modes / modelines · 🟡 match outputs by make/model/serial instead of connector (stable
+across docks) · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡 shikane backend
 
 ### Sound
 
-Native basics, delegate advanced cases. Backend:
-PulseAudio API via pipewire-pulse.
+Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pulse.
 
 - 🟡 Output and input device selection
 - 🟡 Master volume and mute, microphone level
@@ -128,8 +124,8 @@ PulseAudio API via pipewire-pulse.
 
 ### Windows
 
-- 🟢 Focused window colors: border, background, text, indicator, child border (`client.focused`). The child border
-  also drives the app accent
+- 🟢 Focused window colors: border, background, text, indicator, child border (`client.focused`). The child border also
+  drives the app accent
 - 🟢 Colors for unfocused / focused-inactive / urgent / placeholder (`client.*`)
 - 🟢 Border style: normal / pixel / none, plus width (`default_border`, `default_floating_border`)
 - 🟢 Hide edge borders / smart borders (`hide_edge_borders`, `smart_borders`)
@@ -231,8 +227,8 @@ swaybar via our sway include.
 
 - 🟢 Do Not Disturb toggle (`swaync-client -d`, `makoctl mode`)
 - 🟢 SwayFX: blur behind notifications (`layer_effects`)
-- **Maybe:** 🟡 choose the daemon (mako / swaync / dunst) · 🟡 position, timeout, max visible, width · 🟡 colors and font
-  synced with the window colors · 🟡 per-app rules
+- **Maybe:** 🟡 choose the daemon (mako / swaync / dunst) · 🟡 position, timeout, max visible, width · 🟡 colors and
+  font synced with the window colors · 🟡 per-app rules
 
 ### Apps & Autostart
 
@@ -240,10 +236,9 @@ swaybar via our sway include.
   generate, so we generate the matching bindings
 - 🟢 Default apps: browser, file manager, mail, image viewer, PDF, video, via our `sway-mimeapps.list`
 
-- 🟡 Autostart as one hybrid list: our entries (editable,
-  `exec` lines in our include), hand-written `exec` lines (read-only, file:line), XDG autostart entries (with "runner
-  active?" status and an offer to enable `xdg-desktop-autostart.target` or `dex -a`; system entries disabled via our own
-  `Hidden=true` override)
+- 🟡 Autostart as one hybrid list: our entries (editable, `exec` lines in our include), hand-written `exec` lines
+  (read-only, file:line), XDG autostart entries (with "runner active?" status and an offer to enable
+  `xdg-desktop-autostart.target` or `dex -a`; system entries disabled via our own `Hidden=true` override)
 - **Maybe:** 🟡 launcher appearance (fuzzel INI, wofi CSS)
 
 ### Screenshots & Clipboard

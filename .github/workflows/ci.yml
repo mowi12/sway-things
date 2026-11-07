@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fmt:
+    name: Check Formatting
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Install dprint
+        env:
+          DPRINT_VERSION: 0.64.3
+          DPRINT_SHA256: f71cb7e22d6776439eba168d5cb296092d6413fea7148fe4d70684a2702a4fee
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/dprint.zip" \
+            "https://github.com/dprint/dprint/releases/download/$DPRINT_VERSION/dprint-x86_64-unknown-linux-gnu.zip"
+          echo "$DPRINT_SHA256  $RUNNER_TEMP/dprint.zip" | sha256sum --check --quiet
+          unzip -q "$RUNNER_TEMP/dprint.zip" -d "$RUNNER_TEMP/dprint"
+          echo "$RUNNER_TEMP/dprint" >> "$GITHUB_PATH"
+      - name: Check Formatting
+        run: scripts/check-fmt.sh

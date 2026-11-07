@@ -1,7 +1,7 @@
 # Security policy
 
-Sway Things changes the configuration of your desktop session and talks to system services, so we take security
-reports seriously.
+Sway Things changes the configuration of your desktop session and talks to system services, so we take security reports
+seriously.
 
 ## Supported versions
 
@@ -22,14 +22,14 @@ Please include:
 
 ## What to expect
 
-Sway Things is a volunteer project, so responses are best effort. We'll confirm that we received your report, discuss
-it with you in the private advisory, and publish the advisory once a fix is released. We credit reporters in the
-advisory unless you prefer otherwise.
+Sway Things is a volunteer project, so responses are best effort. We'll confirm that we received your report, discuss it
+with you in the private advisory, and publish the advisory once a fix is released. We credit reporters in the advisory
+unless you prefer otherwise.
 
 ## Especially relevant
 
-The [security model](https://github.com/mowi12/sway-things/wiki/Architecture#security-model) describes what Sway
-Things defends against. Reports in these areas are particularly welcome:
+The [security model](https://github.com/mowi12/sway-things/wiki/Architecture#security-model) describes what Sway Things
+defends against. Reports in these areas are particularly welcome:
 
 - injection into generated config or commands through external strings (device names, SSIDs, Bluetooth names, file
   names, window titles);

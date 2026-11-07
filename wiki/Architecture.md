@@ -1,7 +1,7 @@
 # Architecture
 
-> Status: **design, no code yet.** Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on
-> 2026-11-07 against their man pages, source and releases (sway 1.12, SwayFX 0.6).
+> Status: **design, no code yet.** Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on 2026-11-07
+> against their man pages, source and releases (sway 1.12, SwayFX 0.6).
 
 ## Overview
 
@@ -30,8 +30,8 @@ flowchart LR
     SWAY -->|include| FILES
 ```
 
-The core idea: **apply live over IPC, persist to our own state file, generate our own include files, and only ever
-read the user's files.**
+The core idea: **apply live over IPC, persist to our own state file, generate our own include files, and only ever read
+the user's files.**
 
 ## Cargo workspace
 
@@ -93,8 +93,8 @@ $XDG_STATE_HOME/sway-things/
 └── history/               # timestamped snapshots of settings files (restore, undo)
 ```
 
-- **Sparse:** only settings the user changed are stored. A missing key means *not managed by Sway Things*: the
-  user's own config or the sway default applies.
+- **Sparse:** only settings the user changed are stored. A missing key means _not managed by Sway Things_: the user's
+  own config or the sway default applies.
 - **Host overlay:** `settings.d/<hostname>.toml` overrides `settings.toml` key by key. Settings with scope per-device or
   per-output default to the overlay. The UI shows a "this machine only" toggle per setting.
 - **Hand edits allowed:** a file watcher reloads the state when either file changes. Invalid values are reported, not
@@ -102,14 +102,13 @@ $XDG_STATE_HOME/sway-things/
 - **Schema version:** a top-level `version = 1` key, for migrations.
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
-- **Export / import:** `settings.toml` (plus overlays) *is* the export format.
+- **Export / import:** `settings.toml` (plus overlays) _is_ the export format.
 - **Backups:** we never write user files, so we never need to back them up. `history/` covers our own state.
 
 ## Generated files and the file rule
 
-**Rule: Sway Things only writes files it created**. A
-file we created carries a header and is recorded in `manifest.toml`. If its hash no longer matches, someone edited it.
-The app shows a warning and asks before overwriting.
+**Rule: Sway Things only writes files it created**. A file we created carries a header and is recorded in
+`manifest.toml`. If its hash no longer matches, someone edited it. The app shows a warning and asks before overwriting.
 
 ### sway
 
@@ -171,9 +170,9 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 2. The core builds the sway command with the **typed builder** and sends it over IPC (`RUN_COMMAND`) → instant effect.
 3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
 4. The generators regenerate the affected files:
-   - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files
-     → atomic rename. This works without a running session (checked with sway 1.12); errors are reported per file
-     and line, so they can be mapped back to settings;
+   - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files →
+     atomic rename. This works without a running session (checked with sway 1.12); errors are reported per file and
+     line, so they can be mapped back to settings;
    - update the hash in `manifest.toml`.
 5. Conflict detection re-runs for that setting and updates the indicators.
 
@@ -182,13 +181,12 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 Display mode, disabling an output or input device, keyboard layout changes:
 
 1. Snapshot the current value and apply live.
-2. Show the *Keep / Revert* banner with a 15 s countdown.
-3. **Nothing is persisted until the user presses *Keep*.** Revert or timeout re-applies the snapshot over IPC.
+2. Show the _Keep / Revert_ banner with a 15 s countdown.
+3. **Nothing is persisted until the user presses _Keep_.** Revert or timeout re-applies the snapshot over IPC.
 4. Lockout protection: the last enabled output and the last enabled keyboard can't be disabled.
 
-**From the CLI**: in an interactive terminal,
-`sway-things set` applies live, asks `Keep? [y/N]` with the same countdown, and saves only on `y`. Without a TTY it
-refuses unless `--yes` is given, so scripts and hooks never hang.
+**From the CLI**: in an interactive terminal, `sway-things set` applies live, asks `Keep? [y/N]` with the same
+countdown, and saves only on `y`. Without a TTY it refuses unless `--yes` is given, so scripts and hooks never hang.
 
 ### Apply modes
 
@@ -202,9 +200,9 @@ refuses unless `--yes` is given, so scripts and hooks never hang.
 
 ## Reading the current state
 
-- **IPC:** `GET_VERSION`, `GET_INPUTS`, `GET_OUTPUTS`, `GET_SEATS`, `GET_BINDING_MODES`, `GET_BINDING_STATE`, `GET_TREE`,
-  `GET_CONFIG`. Event subscriptions for `input`, `output`, `mode`, `workspace`, `shutdown`, `tick`, so hotplugged
-  devices and outputs appear immediately.
+- **IPC:** `GET_VERSION`, `GET_INPUTS`, `GET_OUTPUTS`, `GET_SEATS`, `GET_BINDING_MODES`, `GET_BINDING_STATE`,
+  `GET_TREE`, `GET_CONFIG`. Event subscriptions for `input`, `output`, `mode`, `workspace`, `shutdown`, `tick`, so
+  hotplugged devices and outputs appear immediately.
 - **`GET_CONFIG` only returns the main config text**, not included files. Many values (all `client.*` colors, `gaps`,
   `font`, bindings) aren't exposed over IPC at all. So the core has its own **read-only parser**.
 
@@ -213,8 +211,8 @@ refuses unless `--yes` is given, so scripts and hooks never hang.
 - Reads the main config and **resolves includes**: `~`, `$HOME`/environment variables and globs, in sway's order.
 - **Never executes anything.** Paths that need command substitution are reported as "unresolved include".
 - Handles `set $var` (variables are substituted **when each line is processed**, see `config_command` in sway's
-  `commands.c`, so a later `set` doesn't change earlier lines), quoting, line continuations, comments and nested blocks (`input {}`, `output {}`, `bar {}`,
-  `mode {}`, `seat {}`).
+  `commands.c`, so a later `set` doesn't change earlier lines), quoting, line continuations, comments and nested blocks
+  (`input {}`, `output {}`, `bar {}`, `mode {}`, `seat {}`).
 - Outputs a list of directives with `file:line`, block context and resolved arguments.
 - It's best-effort by design (reading, not round-tripping), and it's **fuzzed**.
 
@@ -231,11 +229,11 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 
 Per-directive semantics come from the registry: `input` blocks merge per identifier, `exec` accumulates, duplicate
 `bindsym` overrides with a warning, `client.*` replaces. Actions on a conflict: **Open in editor at line**
-(`$VISUAL`/`$EDITOR`, otherwise the default text editor), **Copy line**, **Let my config win** (removes the setting
-from our state).
+(`$VISUAL`/`$EDITOR`, otherwise the default text editor), **Copy line**, **Let my config win** (removes the setting from
+our state).
 
-Bindings defined in the user's config can still be changed from the app: our include comes later, so it can
-`unbindsym` and re-bind without touching their file.
+Bindings defined in the user's config can still be changed from the app: our include comes later, so it can `unbindsym`
+and re-bind without touching their file.
 
 ## Backends
 
@@ -271,13 +269,12 @@ trait Backend {
 | Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
 
 If an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh` line), `detect()`
-reports **managed externally by file:line**. The page explains this and offers a handover. It never fights the
-script.
+reports **managed externally by file:line**. The page explains this and offers a handover. It never fights the script.
 
 ## No daemon: the CLI as a hook
 
-Sway Things keeps nothing running. Behavior that has to happen
-without the window goes to existing tools, and where glue is needed, generated config calls the CLI briefly:
+Sway Things keeps nothing running. Behavior that has to happen without the window goes to existing tools, and where glue
+is needed, generated config calls the CLI briefly:
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
@@ -302,8 +299,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 ## Version and fork gating
 
 - `GET_VERSION` tells sway from SwayFX and gives the version. Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and
-  **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1,
-  0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
+  **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1, 0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
 - Registry entries carry `min_sway(...)` / `swayfx_only()`. Controls the running compositor doesn't support show as
   disabled with a reason, instead of disappearing.
 - SwayFX settings go to `90-effects.conf`, which is written only while SwayFX runs.
@@ -320,7 +316,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
 | Parser exploits | `unsafe_code` forbidden in every crate, fuzzing, never executes during parsing |
-| Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions |
+| Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions, CI tools and dprint plugins pinned with checksums |
 
 ## Platform floor
 
@@ -338,17 +334,16 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
   `sway-things open <page>[/<setting>]` activates the running window.
 - Generic row widgets (`ToggleRow`, `SliderRow`, `ComboRow`, `ColorRow`, `EntryRow`) are built from registry entries.
   Custom pages are GObject subclasses.
-- Our own CSS covers structure only. Colors come from the GTK theme, and the accent comes from the sway
-  `client.focused` child border color (live).
-- **Concurrency**: one event loop. Futures run on
-  the GTK main context (`glib::spawn_future_local`); I/O uses executor-agnostic, async-io based crates (zbus,
-  swayipc-async, async-process); the CLI uses `async_io::block_on`. No tokio. `crates/core` must not depend on a
-  specific executor.
+- Our own CSS covers structure only. Colors come from the GTK theme, and the accent comes from the sway `client.focused`
+  child border color (live).
+- **Concurrency**: one event loop. Futures run on the GTK main context (`glib::spawn_future_local`); I/O uses
+  executor-agnostic, async-io based crates (zbus, swayipc-async, async-process); the CLI uses `async_io::block_on`. No
+  tokio. `crates/core` must not depend on a specific executor.
 
 ## Internationalization
 
-gettext from day one. Source strings (msgids) are American English; en_GB and other languages are translations. Registry titles,
-subtitles and keywords are translatable, and search matches both the translated and the English keywords.
+gettext from day one. Source strings (msgids) are American English; en_GB and other languages are translations. Registry
+titles, subtitles and keywords are translatable, and search matches both the translated and the English keywords.
 
 ## Testing
 

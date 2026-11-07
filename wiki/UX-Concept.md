@@ -1,7 +1,7 @@
 # UX Concept
 
-GNOME Settings and macOS System Settings are the model for **structure and behavior**, not for the look. Sway
-Things looks like the user's other GTK4 apps and takes its accent color from sway.
+GNOME Settings and macOS System Settings are the model for **structure and behavior**, not for the look. Sway Things
+looks like the user's other GTK4 apps and takes its accent color from sway.
 
 ## Window layout
 
@@ -29,10 +29,10 @@ Things looks like the user's other GTK4 apps and takes its accent color from swa
 ```
 
 - **Sidebar** with grouped pages and the search field at the top. The **content pane** on the right.
-- A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the file
-  that page writes to.
-- A **setting row** has a title, optional subtitle, the control on the right, and for sway settings the **sway
-  directive in monospace** as the subtitle (`pointer_accel 0.30`), so users learn the config language as they go.
+- A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the file that
+  page writes to.
+- A **setting row** has a title, optional subtitle, the control on the right, and for sway settings the **sway directive
+  in monospace** as the subtitle (`pointer_accel 0.30`), so users learn the config language as they go.
 
 ### Sidebar groups
 
@@ -45,14 +45,14 @@ Things looks like the user's other GTK4 apps and takes its accent color from swa
 
 ## Navigation and search
 
-- **Search finds individual settings, not just pages.** Each registry entry has a title, keywords and synonyms
-  ("dpi", "sensitivity" → *Pointer speed*; "caps lock" → *XKB options*). Choosing a result opens the page, scrolls to
-  the setting and highlights it briefly.
-- **Keyboard-first:** typing anywhere (or `Ctrl+F`) focuses search; arrow keys move through the sidebar; `Enter`
-  opens; `Esc` clears the search or goes back. Every control is reachable with `Tab`.
-- **Narrow mode:** sway often gives the window half a screen or less. Below a width threshold the app shows one
-  pane at a time: sidebar, then the page with a back button. The threshold is decided while building the shell in
-  v0.1, from real page widths.
+- **Search finds individual settings, not just pages.** Each registry entry has a title, keywords and synonyms ("dpi",
+  "sensitivity" → _Pointer speed_; "caps lock" → _XKB options_). Choosing a result opens the page, scrolls to the
+  setting and highlights it briefly.
+- **Keyboard-first:** typing anywhere (or `Ctrl+F`) focuses search; arrow keys move through the sidebar; `Enter` opens;
+  `Esc` clears the search or goes back. Every control is reachable with `Tab`.
+- **Narrow mode:** sway often gives the window half a screen or less. Below a width threshold the app shows one pane at
+  a time: sidebar, then the page with a back button. The threshold is decided while building the shell in v0.1, from
+  real page widths.
 - **Deep links:** `sway-things open displays`, `sway-things open keyboard/repeat-rate`. Waybar modules, bindings and
   launchers can jump straight to a page or setting.
 - **Single instance:** starting the app again focuses the existing window and switches page.
@@ -71,7 +71,7 @@ Things looks like the user's other GTK4 apps and takes its accent color from swa
   └──────────────────────────────────────────────────────────┘
   ```
 
-  Nothing is saved until *Keep*. The last output and the last keyboard can't be disabled.
+  Nothing is saved until _Keep_. The last output and the last keyboard can't be disabled.
 - **Badges** for settings that can't apply live: "Applies after re-login" (environment variables), "Applies after
   reload".
 
@@ -117,9 +117,9 @@ The app **never** adds the include line itself. On first run (or whenever the li
 - A file watcher and the parser detect the line, including one written by hand earlier or in an included file.
 - If the line exists but isn't last, the app explains the consequence (some of the user's lines win) instead of
   demanding a change.
-- **Read-only until enabled**: the welcome screen
-  can be dismissed, after which a persistent banner remains. All pages show current values (from IPC + parser),
-  conflicts and the generated-config preview. Controls are disabled with "Add the include line to change settings".
+- **Read-only until enabled**: the welcome screen can be dismissed, after which a persistent banner remains. All pages
+  show current values (from IPC + parser), conflicts and the generated-config preview. Controls are disabled with "Add
+  the include line to change settings".
 
   ```text
   ┌ ⓘ Not enabled yet: add one line to your sway config to change settings. ┐
@@ -155,9 +155,9 @@ For tools with include support (sway, kanshi), the flow is the same as the first
 
 ## SwayFX
 
-With SwayFX detected, the Windows page gets an **Effects** section (corner radius, smart corners, blur, shadows,
-dim inactive) and the live window preview renders those effects. The Bar and Notifications pages get layer-effect
-toggles (blur behind waybar or notifications). On vanilla sway these controls show "Requires SwayFX".
+With SwayFX detected, the Windows page gets an **Effects** section (corner radius, smart corners, blur, shadows, dim
+inactive) and the live window preview renders those effects. The Bar and Notifications pages get layer-effect toggles
+(blur behind waybar or notifications). On vanilla sway these controls show "Requires SwayFX".
 
 ## Accessibility
 

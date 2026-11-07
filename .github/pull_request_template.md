@@ -29,5 +29,5 @@ Either tick an item or cross it out (`~~like this~~`) and give a reason why it d
       [engineering rules](https://github.com/mowi12/sway-things/blob/main/CONTRIBUTING.md#engineering-rules-non-negotiable)
       are respected. Checks cover the rest; these need a human eye: no writes to files Sway Things didn't create,
       generated sway config validated before it replaces the old file, no shell strings, external strings only through
-      the typed command builders, no privileged code, no network access or telemetry, no tokio, least-privilege
-      workflow permissions
+      the typed command builders, no privileged code, no network access or telemetry, no tokio, least-privilege workflow
+      permissions

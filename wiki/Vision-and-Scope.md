@@ -12,16 +12,16 @@ takes over and rewrites the config.
 > One settings app for sway, its companion tools and the everyday system basics. It feels like the settings app of a
 > mainstream desktop, and it respects a hand-written config completely.
 
-"Feels like GNOME Settings or macOS System Settings" refers to the **structure and behavior** (sidebar of pages,
-search, instant apply, safety net), **not the look**. Sway Things follows the user's GTK theme and uses the sway
-focus color as its accent.
+"Feels like GNOME Settings or macOS System Settings" refers to the **structure and behavior** (sidebar of pages, search,
+instant apply, safety net), **not the look**. Sway Things follows the user's GTK theme and uses the sway focus color as
+its accent.
 
 ## Target users
 
 **Both newcomers and experienced users, layered**.
 
-- Experienced users (hand-written config, often in a dotfiles repo) are the **first design check**. If they
-  trust Sway Things on their setup, it works for everyone.
+- Experienced users (hand-written config, often in a dotfiles repo) are the **first design check**. If they trust Sway
+  Things on their setup, it works for everyone.
 - Newcomers get the same app, starting from an empty config.
 
 **Acceptance test for every feature:** a sway veteran can enable Sway Things on an existing dotfiles setup, and not a
@@ -35,10 +35,9 @@ single hand-written line changes.
    wallpaper, launchers) through **pluggable, auto-detected backends**.
 3. **Cover the system basics natively** (sound, Bluetooth, Wi-Fi, power profile, battery, time zone). "Advanced…"
    buttons hand off to specialist tools.
-4. **Be safe**: memory-safe code, no privileged code, no shell strings, never write user files, a 15 s revert for
-   risky changes.
-5. **Be transparent**: every generated line is visible, every conflict points to file:line, every setting can be
-   reset.
+4. **Be safe**: memory-safe code, no privileged code, no shell strings, never write user files, a 15 s revert for risky
+   changes.
+5. **Be transparent**: every generated line is visible, every conflict points to file:line, every setting can be reset.
 6. **Be packaged properly**: native packages for openSUSE, Fedora, Debian, Ubuntu (via OBS) and Arch (AUR), aiming for
    the official distro repositories after 1.0.
 
