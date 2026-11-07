@@ -1,0 +1,129 @@
+# Contributing to Sway Things
+
+Thanks for your interest! Sway Things is in the **planning phase**. There's no code yet, but the design is written
+down and open for discussion. Please follow our Code of Conduct (`CODE_OF_CONDUCT.md`), and report security issues
+privately as described in `SECURITY.md`, never in public issues.
+
+## Read first
+
+1. [wiki/Home.md](wiki/Home.md): the developer documentation index
+2. [wiki/Vision-and-Scope.md](wiki/Vision-and-Scope.md): what we build and what we deliberately don't
+3. [wiki/Architecture.md](wiki/Architecture.md): how it works, including the security rules
+
+## Issues
+
+- **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue
+  when you start or plan an item, not before.
+- Use the **issue forms** (Bug, Feature, Docs, Refactor). Blank issues are disabled.
+- **Labels** are defined in `.github/labels.yml` and synced automatically: `kind:`, `area:`, `page:`, `effort:`, `status:`,
+  `compat:swayfx`, plus `good first issue` and `help wanted`.
+- **Milestones** are releases. Only `v0.1` exists for now.
+- **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
+  large.
+
+## Pull requests
+
+- **Trunk-based.** `main` is the only long-lived branch and is always green.
+- **Every change goes through a pull request**:
+  - all required CI checks must pass, and **nobody can bypass them**;
+  - **one approving review** is required (the repository owner may bypass the review, never CI);
+  - linear history; no force pushes to `main`.
+- **Rebase merge only**: every commit of your PR lands on `main`
+  as is. Keep commits meaningful and conventional, and clean them up with an interactive rebase before merging.
+  Branches are deleted automatically after merge.
+- Keep PRs small and fill in the PR template checklist (tick each item, or cross it out with a reason).
+
+## Commit messages
+
+We use [Conventional Commits](https://www.conventionalcommits.org/). The allowed types and their meaning are defined
+in [.conventional-commit-types.json](.conventional-commit-types.json):
+
+| Type | Use for |
+|---|---|
+| `feat` | Adds, adjusts or removes a feature of the API or UI |
+| `fix` | Fixes an API or UI bug introduced by an earlier `feat` |
+| `refactor` | Restructures code without changing API or UI behavior |
+| `perf` | A refactor that specifically improves performance |
+| `style` | Formatting only (whitespace, formatting), no behavior change |
+| `test` | Adds or corrects tests |
+| `docs` | Changes only documentation |
+| `build` | Build tools, dependencies, project version |
+| `ci` | CI configuration and scripts |
+| `chore` | Maintenance, e.g. `.gitignore` |
+
+The JSON file is the source of truth. If the two disagree, the JSON wins. CI checks **every commit** of a PR against
+it.
+
+**Scope** is a page id or an area: `feat(keyboard): add layout reordering`, `fix(core): quote device identifiers`,
+`docs(wiki): describe conflict detection`. Mark breaking changes with `!` (`feat(cli)!: rename get to show`).
+
+Commit messages feed the generated `CHANGELOG.md` ([git-cliff](https://git-cliff.org/)), so write them for users,
+in American English.
+
+## Engineering rules (non-negotiable)
+
+Rules 1–7 protect users' systems; rules 8–9 keep the code base consistent. Details and reasons are in
+[wiki/Architecture.md](wiki/Architecture.md).
+
+1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
+   (gsettings/dconf, D-Bus services). The user's sway config is never touched.
+2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`.
+3. **Treat external strings as data.** Device names, SSIDs, Bluetooth names, file names and window titles can be
+   attacker-controlled. Escape them with the typed sway command builders. Never interpolate them.
+4. **No `unsafe`.** Every crate has `#![forbid(unsafe_code)]`.
+5. **No panics in non-test code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by clippy. Handle errors.
+6. **No privileged code.** System changes only go through existing polkit-guarded D-Bus services.
+7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
+   Writes are atomic. **No network access, no telemetry.**
+8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop.
+9. **REUSE headers.** Every source file (`.rs`, scripts) starts with:
+
+   ```text
+   SPDX-FileCopyrightText: 2026 Sway Things contributors
+   SPDX-License-Identifier: GPL-3.0-or-later
+   ```
+
+## Checks
+
+**Every check is one script in `scripts/`, and that script is the only place its command is written
+down**. CI calls the scripts directly; the `justfile` just
+wraps them for convenience. There are no git hooks. Run checks yourself before pushing:
+
+```sh
+just check              # run every check, like CI
+scripts/check-fmt.sh    # or run a single check directly
+```
+
+| Check | Tools |
+|---|---|
+| Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
+| Rust lints | `clippy` with `-D warnings`, pedantic + safety picks |
+| Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
+| Spelling | `typos`, locale en-US |
+| Links | `lychee --offline` (relative links + anchors); external links weekly |
+| Licensing | `reuse lint` |
+| Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
+| Tests | unit + golden-file tests on MSRV **1.85** and stable |
+| Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest |
+| Commits | every PR commit against `.conventional-commit-types.json` |
+| Fuzzing | sway config parser (scheduled) |
+
+Editors pick up indentation and line endings from `.editorconfig`.
+
+## Documentation
+
+- Developer documentation lives in [`wiki/`](wiki/Home.md) and gets published to the GitHub wiki by CI. Edit the files
+  in the repo, never on github.com.
+- Write in **American English**.
+- Update the wiki in the same change as the code it describes.
+
+## Releases
+
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. Pushing a version tag triggers
+the release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the
+changelog generated from the commits.
+
+## AI-assisted contributions
+
+AI agents follow [AGENTS.md](AGENTS.md). The same rules, checks and review standards apply to human and AI-written
+code.

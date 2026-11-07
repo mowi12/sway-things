@@ -1,0 +1,88 @@
+# AGENTS
+
+## Overview
+
+Sway Things is a GTK4 settings app for the sway Wayland compositor (and SwayFX), written in Rust. The project is in the
+**planning phase**: the design is documented, and there is no code yet.
+
+Prefer the wiki and existing docs over restating them. If you summarize, keep it short and link the canonical page.
+
+## Canonical documentation
+
+- `README.md`: user-facing overview (what, why, planned features)
+- `CONTRIBUTING.md`: workflow, commit convention, engineering rules, quality gates
+- `.conventional-commit-types.json`: the allowed commit types, source of truth
+- `wiki/Home.md`: developer documentation index
+- `wiki/Vision-and-Scope.md`: goals, target users, non-goals, prior art
+- `wiki/Architecture.md`: crates, registry, state files, generators, parser, conflict detection, backends, CLI,
+  security model, testing
+- `wiki/UX-Concept.md`: window layout, navigation, apply model, indicators, first run, theming
+- `wiki/Roadmap.md`: v0.1 scope and what comes after
+- `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
+
+## Planned structure
+
+```text
+.
+├── crates/
+│   ├── core/        # no GTK: settings registry, state, generators, sway config parser, IPC, backends
+│   ├── cli/         # `sway-things` binary: get/set/open/doctor/hook
+│   └── gui/         # `sway-things-gui`: gtk4-rs app, rows built from the registry, custom pages
+├── scripts/         # one script per check (check-fmt.sh, check-lint.sh, …): the ONLY place a check command lives
+├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
+├── LICENSES/        # REUSE license texts
+├── .github/
+│   ├── workflows/   # install tools, then call scripts/ (no check logic in YAML)
+│   ├── ISSUE_TEMPLATE/  # forms: bug, feature, docs, refactor + config.yml
+│   ├── labels.yml   # label taxonomy, synced to GitHub
+│   ├── dependabot.yml
+│   └── pull_request_template.md
+├── justfile         # convenience wrapper around scripts/ (`just check`)
+├── REUSE.toml, dprint.json, .markdownlint-cli2.yaml, _typos.toml, lychee.toml, deny.toml, cliff.toml, .editorconfig
+└── .conventional-commit-types.json
+```
+
+Most of this doesn't exist yet.
+
+## Hard rules
+
+Never break these, even if a task seems to ask for it. Ask instead.
+
+1. **Never write a file Sway Things didn't create**, especially the user's `~/.config/sway/config`. Generated
+   files carry a header and live in directories we own.
+2. **Never build shell strings.** Use `std::process::Command` with argument arrays. Never `sh -c`.
+3. **External strings are data.** Device names, SSIDs, Bluetooth names, file and window names go through the typed sway
+   command builders.
+4. **`#![forbid(unsafe_code)]`** in every crate. **No `unwrap`/`expect`/`panic!`/`todo!`/`dbg!`** outside tests
+   (clippy denies them).
+5. **No privileged code, no daemon, no network access, no telemetry.**
+6. **Generated sway config must pass `sway --validate`** before it atomically replaces the old file.
+7. **New settings start in the registry** (`crates/core`). UI rows, search, CLI keys and defaults all derive from it.
+8. **Check commands live only in `scripts/`.** Never duplicate a check command in a workflow or the justfile; call
+   the script.
+
+## Conventions
+
+- Commits: Conventional Commits with the types from `.conventional-commit-types.json`, scope = page id or area
+  (`feat(keyboard): …`, `fix(core): …`). PRs are **rebase-merged**, so every commit must be conventional and
+  meaningful on its own.
+- Pull requests: required for every change, 1 approving review, all checks green. Fill in the PR template checklist.
+- Language: American English everywhere (code, UI strings, docs, commits).
+- Every source file (`.rs`, scripts) starts with the REUSE SPDX header (`SPDX-FileCopyrightText: 2026 Sway Things
+  contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`).
+- Before finishing a change, run `just check` (or the relevant `scripts/check-*.sh`).
+- Docs: update `wiki/` in the same change, so the docs always describe the current state.
+- Target platform: sway ≥ 1.10 and SwayFX ≥ 0.5; GTK ≥ 4.18; Rust MSRV 1.85 (Debian 13). Don't use language
+  features or crates that need a newer rustc unless the maintainers agree to raise the MSRV.
+- Async: glib main loop + async-io based crates (zbus, swayipc-async, async-process). No tokio; `crates/core` stays
+  executor-agnostic.
+- License: `GPL-3.0-or-later`. New dependencies must be GPL-compatible (enforced by cargo-deny).
+
+## Where to look
+
+| Task | Location |
+|---|---|
+| What is in scope? | `wiki/Vision-and-Scope.md`, `wiki/Feature-Catalog.md` |
+| How does a setting flow from UI to sway? | `wiki/Architecture.md` → "Data flow" |
+| How must a page behave? | `wiki/UX-Concept.md` |
+| What's next? | `wiki/Roadmap.md` |

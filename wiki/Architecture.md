@@ -1,0 +1,366 @@
+# Architecture
+
+> Status: **design, no code yet.** Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on
+> 2026-11-07 against their man pages, source and releases (sway 1.12, SwayFX 0.6).
+
+## Overview
+
+```mermaid
+flowchart LR
+    subgraph app[Sway Things]
+        GUI["sway-things-gui<br/>(gtk4-rs)"]
+        CLI["sway-things<br/>(CLI, hooks)"]
+        subgraph core[crates/core]
+            REG["Settings registry"]
+            ST["State<br/>settings.toml + host overlay"]
+            GEN["Generators"]
+            PAR["Sway config parser<br/>+ conflict detection"]
+            BE["Backends<br/>kanshi, waybar, swayidle, ..."]
+        end
+    end
+
+    GUI --> core
+    CLI --> core
+    ST --> GEN
+    GEN -->|"own files only"| FILES[("Generated files<br/>~/.config/sway/sway-things/*.conf<br/>~/.config/sway-things/...")]
+    core -->|"IPC: run, get_*, subscribe"| SWAY["sway / SwayFX"]
+    PAR -->|"read only"| USERCFG[("User's hand-written<br/>sway config")]
+    BE -->|"D-Bus, polkit"| SYS["timedated, localed, NetworkManager,<br/>BlueZ, UPower, power-profiles-daemon, logind"]
+    BE -->|"reload signals / ctl tools"| TOOLS["kanshi, waybar, swaync, mako, ..."]
+    SWAY -->|include| FILES
+```
+
+The core idea: **apply live over IPC, persist to our own state file, generate our own include files, and only ever
+read the user's files.**
+
+## Cargo workspace
+
+| Crate | Binary | Depends on GTK | Responsibility |
+|---|---|---|---|
+| `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
+| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
+| `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
+
+The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
+`sway-things` with no arguments, or `sway-things open <page>`, starts or activates the GUI.
+
+## Settings registry
+
+Every setting is **defined once** in `crates/core/src/registry/`. Everything else derives from that definition:
+
+| Derived from the registry | Example |
+|---|---|
+| GUI rows (toggle, slider, dropdown, color, entry) | auto-built for standard settings |
+| Search index | title, subtitle, keywords, synonyms (translatable + English) |
+| CLI keys | `sway-things set input.touchpad.tap true` |
+| TOML schema and validation | type, range, enum values |
+| Defaults and "Reset to default" | `default(true)` |
+| Generator output | `.sway(\|v\| …)` produces the sway directive |
+| Conflict detection | which sway directives and block contexts the setting maps to |
+| Version and fork gating | `min_sway("1.11")`, `swayfx_only()` |
+| Scope | global / per-host / per-device / per-output (decides the host-overlay default) |
+| Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
+| Requirements | `requires_tool("swayidle")` → "Requires swayidle" indicator plus install hints |
+
+```rust
+// crates/core/src/registry/input.rs (illustrative)
+Setting::toggle("input.touchpad.tap")
+    .title("Tap to click")
+    .keywords(&["touchpad", "click", "tap"])
+    .default(true)
+    .scope(Scope::PerDevice)
+    .apply(Apply::Live)
+    .sway(|v| SwayCmd::input_block("type:touchpad").set("tap", on_off(v)))
+```
+
+Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
+layout editor and the window preview. They still read and write settings through the registry.
+
+## State
+
+```text
+$XDG_CONFIG_HOME/sway-things/
+├── settings.toml          # shared values: commit to dotfiles
+└── settings.d/
+    └── <hostname>.toml    # per-machine overrides (optional)
+
+$XDG_STATE_HOME/sway-things/
+├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
+└── history/               # timestamped snapshots of settings files (restore, undo)
+```
+
+- **Sparse:** only settings the user changed are stored. A missing key means *not managed by Sway Things*: the
+  user's own config or the sway default applies.
+- **Host overlay:** `settings.d/<hostname>.toml` overrides `settings.toml` key by key. Settings with scope per-device or
+  per-output default to the overlay. The UI shows a "this machine only" toggle per setting.
+- **Hand edits allowed:** a file watcher reloads the state when either file changes. Invalid values are reported, not
+  silently dropped.
+- **Schema version:** a top-level `version = 1` key, for migrations.
+- **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
+  registry entries.
+- **Export / import:** `settings.toml` (plus overlays) *is* the export format.
+- **Backups:** we never write user files, so we never need to back them up. `history/` covers our own state.
+
+## Generated files and the file rule
+
+**Rule: Sway Things only writes files it created**. A
+file we created carries a header and is recorded in `manifest.toml`. If its hash no longer matches, someone edited it.
+The app shows a warning and asks before overwriting.
+
+### sway
+
+```text
+$XDG_CONFIG_HOME/sway/sway-things/
+├── 10-input.conf
+├── 20-output.conf         # only when kanshi is not the display backend
+├── 30-appearance.conf
+├── 40-behavior.conf
+├── 50-bindings.conf
+├── 60-idle.conf           # swayidle exec line, if the user handed idle over
+├── 70-autostart.conf
+├── 80-hooks.conf          # bindswitch lid → sway-things hook lid …
+└── 90-effects.conf        # SwayFX only; empty on vanilla sway
+```
+
+```text
+# Generated by Sway Things from ~/.config/sway-things/settings.toml. DO NOT EDIT.
+# Change settings in the app or with `sway-things set`. Hand edits are overwritten.
+input type:touchpad {
+    tap enabled
+    natural_scroll enabled
+}
+```
+
+The user adds **one line** to their own config, normally as the last line:
+
+```text
+include ~/.config/sway/sway-things/*.conf
+```
+
+The app never adds this line itself. It shows the line with a copy button and detects it via the parser.
+
+### Other tools
+
+| Tool | Include support | Strategy |
+|---|---|---|
+| kanshi | yes (`include`, wordexp) | Our file `~/.config/kanshi/sway-things.conf`; the user adds `include` to their kanshi config. With no kanshi config at all, we create `~/.config/kanshi/config` ourselves |
+| waybar | `include` exists, but **the first definition wins**, so included files can only add, never override | **Handover:** our complete config + CSS in `~/.config/sway-things/waybar/`; the user starts waybar with `-c`/`-s` (instructions), or we create `~/.config/waybar/config.jsonc` if none exists. "Import as starting point" reads their file into our state |
+| swaylock | no | Our config `~/.config/sway-things/swaylock/config`; our generated swayidle line calls `swaylock -C <path>` |
+| swayidle | n/a (started via `exec`) | Our generated `60-idle.conf` holds the `exec swayidle …` line. If the user's config already starts swayidle, the page shows "managed externally" plus a handover explanation |
+| mako | yes (`include=`, absolute or `~/` path; later definitions win) | Our file `~/.config/mako/sway-things`; the user adds `include=` at the end of their mako config. With no mako config at all, we create it |
+| swaync | no, but `-c` / `-s` flags | Handover: our `config.json` + `style.css` in `~/.config/sway-things/swaync/`; the user starts swaync with `-c`/`-s` |
+| gammastep / wlsunset | gammastep has a config file; wlsunset uses arguments | Own config file or our generated `exec` line |
+| environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf` |
+| default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`; the user's `mimeapps.list` is never touched |
+| GTK look, fonts, dark mode | dconf database | Written via gsettings/GIO (official API, allowed) |
+| electron/chromium flags | text files | Create if missing, otherwise handover |
+| XDG autostart | directory of `.desktop` files | Our entries are `exec` lines in `70-autostart.conf`. To disable a system entry we create **our own** override `~/.config/autostart/<name>.desktop` with `Hidden=true` (only if no user file of that name exists). The runner (`xdg-desktop-autostart.target` or `dex -a`) is started from our include |
+
+**Handover** means we generate our own complete file and the user switches the tool to it once (an instruction with a
+copy button). Alternatively the user deletes or renames their own file, and we create the standard one.
+
+## Data flow
+
+### Changing a normal setting
+
+1. The user flips a toggle (or runs `sway-things set …`).
+2. The core builds the sway command with the **typed builder** and sends it over IPC (`RUN_COMMAND`) → instant effect.
+3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
+4. The generators regenerate the affected files:
+   - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files
+     → atomic rename. This works without a running session (checked with sway 1.12); errors are reported per file
+     and line, so they can be mapped back to settings;
+   - update the hash in `manifest.toml`.
+5. Conflict detection re-runs for that setting and updates the indicators.
+
+### Risky settings (safety net)
+
+Display mode, disabling an output or input device, keyboard layout changes:
+
+1. Snapshot the current value and apply live.
+2. Show the *Keep / Revert* banner with a 15 s countdown.
+3. **Nothing is persisted until the user presses *Keep*.** Revert or timeout re-applies the snapshot over IPC.
+4. Lockout protection: the last enabled output and the last enabled keyboard can't be disabled.
+
+**From the CLI**: in an interactive terminal,
+`sway-things set` applies live, asks `Keep? [y/N]` with the same countdown, and saves only on `y`. Without a TTY it
+refuses unless `--yes` is given, so scripts and hooks never hang.
+
+### Apply modes
+
+| Mode | Example | Mechanism |
+|---|---|---|
+| live | gaps, colors, input options | IPC command + persist |
+| reload | settings sway only honors at load | persist + `swaymsg reload` (with confirmation if disruptive) |
+| tool reload | kanshi, waybar, swaync | `kanshictl reload`, `SIGUSR2` to waybar, `swaync-client -R`, … |
+| re-login | environment.d | persist + "takes effect after re-login" badge |
+| risky | see above | live + safety net, persist on *Keep* |
+
+## Reading the current state
+
+- **IPC:** `GET_VERSION`, `GET_INPUTS`, `GET_OUTPUTS`, `GET_SEATS`, `GET_BINDING_MODES`, `GET_BINDING_STATE`, `GET_TREE`,
+  `GET_CONFIG`. Event subscriptions for `input`, `output`, `mode`, `workspace`, `shutdown`, `tick`, so hotplugged
+  devices and outputs appear immediately.
+- **`GET_CONFIG` only returns the main config text**, not included files. Many values (all `client.*` colors, `gaps`,
+  `font`, bindings) aren't exposed over IPC at all. So the core has its own **read-only parser**.
+
+### Sway config parser
+
+- Reads the main config and **resolves includes**: `~`, `$HOME`/environment variables and globs, in sway's order.
+- **Never executes anything.** Paths that need command substitution are reported as "unresolved include".
+- Handles `set $var` (variables are substituted **when each line is processed**, see `config_command` in sway's
+  `commands.c`, so a later `set` doesn't change earlier lines), quoting, line continuations, comments and nested blocks (`input {}`, `output {}`, `bar {}`,
+  `mode {}`, `seat {}`).
+- Outputs a list of directives with `file:line`, block context and resolved arguments.
+- It's best-effort by design (reading, not round-tripping), and it's **fuzzed**.
+
+### Conflict detection
+
+Sway evaluates config top to bottom, and for most settings the last definition wins. The parser knows where our
+`include` sits in the user's config.
+
+| User line is… | Effect | Indicator |
+|---|---|---|
+| before our include | our value wins, the user's line is dead | "Overridden: your config line N is no longer in effect" |
+| after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
+| our include missing | nothing we generate is active | app-wide **read-only** mode with the include instructions |
+
+Per-directive semantics come from the registry: `input` blocks merge per identifier, `exec` accumulates, duplicate
+`bindsym` overrides with a warning, `client.*` replaces. Actions on a conflict: **Open in editor at line**
+(`$VISUAL`/`$EDITOR`, otherwise the default text editor), **Copy line**, **Let my config win** (removes the setting
+from our state).
+
+Bindings defined in the user's config can still be changed from the app: our include comes later, so it can
+`unbindsym` and re-bind without touching their file.
+
+## Backends
+
+Each area that has competing tools defines a backend trait:
+
+```rust
+trait Backend {
+    fn detect(&self) -> Availability;   // installed? running? version? managed externally by file:line?
+    fn read(&self) -> Result<Values>;
+    fn apply(&self, change: &Change) -> Result<()>;
+    fn generate(&self, state: &State) -> Vec<GeneratedFile>;
+}
+```
+
+| Area | Backends (reference first) |
+|---|---|
+| Display profiles | kanshi; fallback without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
+| Bar | waybar, swaybar (`bar {}` block) |
+| Idle / lock | swayidle + swaylock |
+| Notifications | swaync, mako, dunst (Do Not Disturb first) |
+| Night light | gammastep, wlsunset |
+| Wallpaper | swaybg via `output * bg`; swww later |
+| Launcher | fuzzel, wofi, rofi(-wayland), tofi |
+| Screenshots | grim + slurp (grimshot), swappy / satty |
+| Clipboard history | cliphist, clipman |
+| Auto dark mode | darkman |
+| Audio | PulseAudio API via pipewire-pulse (`libpulse-binding` + `libpulse-glib-binding`) |
+| Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection |
+| Bluetooth | BlueZ (D-Bus) |
+| Network | NetworkManager (D-Bus) |
+| Power | power-profiles-daemon / tuned-ppd, UPower (D-Bus) |
+| Brightness | logind `Session.SetBrightness` (no root needed) / brightnessctl; ddcutil for external monitors |
+| Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
+
+If an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh` line), `detect()`
+reports **managed externally by file:line**. The page explains this and offers a handover. It never fights the
+script.
+
+## No daemon: the CLI as a hook
+
+Sway Things keeps nothing running. Behavior that has to happen
+without the window goes to existing tools, and where glue is needed, generated config calls the CLI briefly:
+
+```text
+# ~/.config/kanshi/sway-things.conf (generated)
+profile office {
+    output eDP-1 disable
+    output "Dell Inc. DELL U2723QE <serial>" mode 3840x2160@60Hz scale 1.5
+    exec sway-things hook workspaces --profile office
+}
+
+# ~/.config/sway/sway-things/80-hooks.conf (generated)
+bindswitch --reload --locked lid:on  exec sway-things hook lid closed
+bindswitch --reload --locked lid:off exec sway-things hook lid open
+```
+
+Our generated files can also contain the `exec kanshi` / `exec_always kanshictl reload` lines. They're our files, so
+that needs no edit of the user's config.
+
+**SwayFX switching edge case:** `90-effects.conf` is only regenerated when the app or CLI runs. On most distros the
+`swayfx` and `sway` packages conflict, so switching means reinstalling. After switching to vanilla sway, sway reports
+unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor` detects and fixes this.
+
+## Version and fork gating
+
+- `GET_VERSION` tells sway from SwayFX and gives the version. Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and
+  **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1,
+  0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
+- Registry entries carry `min_sway(...)` / `swayfx_only()`. Controls the running compositor doesn't support show as
+  disabled with a reason, instead of disappearing.
+- SwayFX settings go to `90-effects.conf`, which is written only while SwayFX runs.
+
+## Security model
+
+**Runs as the user. No privileged code, no daemon, no network**.
+
+| Threat | Mitigation |
+|---|---|
+| Command injection via external strings (device names, **SSIDs**, **Bluetooth names**, file names, workspace names, window titles) | Typed sway command builders with escaping and quoting; processes started with argument arrays, never `sh -c` |
+| Malicious or broken `settings.toml` from shared dotfiles | Schema validation; `exec`/`bindsym … exec` lines shown verbatim in "Show generated config"; generated sway config validated with `sway --validate` |
+| Corrupting the user's config | We never write user files; atomic writes; manifest hashes detect foreign edits to our files |
+| Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
+| Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
+| Parser exploits | `#![forbid(unsafe_code)]`, fuzzing, never executes during parsing |
+| Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs |
+
+## Platform floor
+
+| Component | Minimum | Reason |
+|---|---|---|
+| sway | 1.10 | Debian 13 (trixie) ships 1.10.1 |
+| GTK | 4.18 | Debian 13 ships 4.18.6 |
+| Rust (MSRV) | 1.85 | Debian 13 ships 1.85.1. Raised only on demand, at most to trixie-backports (currently 1.96) |
+
+## UI architecture
+
+- Plain **gtk4-rs**. No libadwaita, because it overrides the user's GTK theme. No Relm4, because standard rows are
+  generated from the registry anyway, and custom widgets need plain gtk-rs.
+- `GtkApplication` with app_id **`io.github.mowi12.SwayThings`**. It handles single instance and D-Bus activation;
+  `sway-things open <page>[/<setting>]` activates the running window.
+- Generic row widgets (`ToggleRow`, `SliderRow`, `ComboRow`, `ColorRow`, `EntryRow`) are built from registry entries.
+  Custom pages are GObject subclasses.
+- Our own CSS covers structure only. Colors come from the GTK theme, and the accent comes from the sway
+  `client.focused` child border color (live).
+- **Concurrency**: one event loop. Futures run on
+  the GTK main context (`glib::spawn_future_local`); I/O uses executor-agnostic, async-io based crates (zbus,
+  swayipc-async, async-process); the CLI uses `async_io::block_on`. No tokio. `crates/core` must not depend on a
+  specific executor.
+
+## Internationalization
+
+gettext from day one. Source strings (msgids) are American English; en_GB and other languages are translations. Registry titles,
+subtitles and keywords are translatable, and search matches both the translated and the English keywords.
+
+## Testing
+
+| Level | What |
+|---|---|
+| Unit | registry invariants, state merge (shared + overlay), command builders and escaping |
+| Golden files | every generator: state in → exact file out |
+| Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest**: apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX) |
+| GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
+
+## Packaging
+
+- **openSUSE Build Service** builds openSUSE, Fedora, Debian and Ubuntu packages from one project (one `.spec`, one
+  `debian/` dir, vendored crates, offline build). **AUR**: release and `-git` packages.
+- Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
+  shell completions (`clap_complete`), translations.
+- No Flatpak. Aim for official distro repositories after 1.0.
+- License: `GPL-3.0-or-later`.
