@@ -91,6 +91,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
    SPDX-License-Identifier: GPL-3.0-or-later
    ```
 
+   Files that can't carry a header (Markdown, YAML, JSON, TOML, …) are covered by [REUSE.toml](REUSE.toml). A new
+   file type without a header gets a pattern there, otherwise `reuse lint` fails.
+
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
     current. Give every workflow job only the `permissions` it needs. Workflow, job and step names use Title Case

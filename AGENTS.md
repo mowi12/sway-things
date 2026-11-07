@@ -73,7 +73,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
   Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR.
 - Language: American English everywhere (code, UI strings, docs, commits).
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header (`SPDX-FileCopyrightText: 2026 Sway Things
-  contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`).
+  contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`). Everything else is covered by `REUSE.toml`; add a
+  pattern there for a new file type without a header.
 - Before finishing a change, run `just check` (or the relevant `scripts/check-*.sh`).
 - Docs: update `wiki/` in the same change, so the docs always describe the current state.
 - Target platform: sway ≥ 1.10 and SwayFX ≥ 0.5; GTK ≥ 4.18; Rust MSRV 1.85 (Debian 13). Don't use language

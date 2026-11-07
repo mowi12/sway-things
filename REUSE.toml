@@ -1,0 +1,21 @@
+version = 1
+
+[[annotations]]
+path = [
+  "**.md",
+  "**.yml",
+  "**.json",
+  "**.toml",
+  "Cargo.lock",
+  ".gitignore",
+  ".editorconfig",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = ["Contributor Covenant contributors", "2026 Sway Things contributors"]
+SPDX-License-Identifier = "CC-BY-4.0"

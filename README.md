@@ -95,4 +95,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The developer documentation lives in the
 
 ## License
 
-[GPL-3.0-or-later](LICENSE)
+[GPL-3.0-or-later](LICENSE). Every file declares its copyright and license following [REUSE](https://reuse.software/).
