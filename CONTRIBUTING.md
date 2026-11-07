@@ -125,6 +125,7 @@ Each script names the tools it needs in its header.
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest |
 | Commits | every PR commit against `.conventional-commit-types.json` |
 | Fuzzing | sway config parser (scheduled) |
+| Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
 
 Editors pick up indentation and line endings from `.editorconfig`.
 
