@@ -37,12 +37,11 @@ Milestones on GitHub correspond to releases.
 
 ### Definition of done
 
-- Running it on real setups with hand-written configs in dotfiles repos changes **no** hand-written file (checked
-  with `git status` on the dotfiles repos).
-- Every setting on the four pages can be set from the GUI and the CLI, survives a sway reload, and shows conflicts
-  with hand-written lines correctly.
-- All CI checks are green, including the integration matrix (sway 1.10, sway latest, SwayFX latest) and the MSRV
-  job.
+- Running it on real setups with hand-written configs in dotfiles repos changes **no** hand-written file (checked with
+  `git status` on the dotfiles repos).
+- Every setting on the four pages can be set from the GUI and the CLI, survives a sway reload, and shows conflicts with
+  hand-written lines correctly.
+- All CI checks are green, including the integration matrix (sway 1.10, sway latest, SwayFX latest) and the MSRV job.
 - Installable from OBS (at least openSUSE Tumbleweed) and the AUR (`-git`).
 
 ## After v0.1

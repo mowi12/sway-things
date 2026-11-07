@@ -6,8 +6,8 @@ GTK4. Linux only. Supports sway ≥ 1.10 and SwayFX.
 
 This wiki is for developers, human and AI. The user-facing overview is the [README](../README.md).
 
-> The source of these pages is the `wiki/` folder in the repository. CI publishes it to the GitHub wiki. Edit the
-> files in the repo, never on github.com.
+> The source of these pages is the `wiki/` folder in the repository. CI publishes it to the GitHub wiki. Edit the files
+> in the repo, never on github.com.
 
 ## Pages
 

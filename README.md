@@ -10,21 +10,21 @@ hand-written config.
 
 ## Why
 
-Sway is configured entirely through text files. That's great, until you want to try a different pointer speed, find
-the XKB option that turns Caps Lock into Escape, or arrange three monitors. Today's graphical tools each cover one
-area, or come as an all-in-one shell that rewrites your config.
+Sway is configured entirely through text files. That's great, until you want to try a different pointer speed, find the
+XKB option that turns Caps Lock into Escape, or arrange three monitors. Today's graphical tools each cover one area, or
+come as an all-in-one shell that rewrites your config.
 
-Sway Things covers sway itself, its usual companion tools (kanshi, waybar, swayidle, swaylock, notification daemons,
-…) and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
+Sway Things covers sway itself, its usual companion tools (kanshi, waybar, swayidle, swaylock, notification daemons, …)
+and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 
 ## Principles
 
-- **Your config stays yours.** Sway Things never edits a file it didn't create. It writes its own include files, and
-  you add a single `include` line to your sway config yourself. The app shows you exactly which line.
-- **Instant, with a safety net.** Changes apply live. Risky ones (display mode, turning off an output, keyboard
-  layout) revert after 15 seconds unless you press *Keep*.
-- **Transparent.** See every file the app generates, which of your own config lines conflict with a setting, and
-  reset any setting to its default.
+- **Your config stays yours.** Sway Things never edits a file it didn't create. It writes its own include files, and you
+  add a single `include` line to your sway config yourself. The app shows you exactly which line.
+- **Instant, with a safety net.** Changes apply live. Risky ones (display mode, turning off an output, keyboard layout)
+  revert after 15 seconds unless you press _Keep_.
+- **Transparent.** See every file the app generates, which of your own config lines conflict with a setting, and reset
+  any setting to its default.
 - **Made for sway.** Built for sway and SwayFX, not ported from another desktop. It follows your GTK theme, and its
   accent color is your sway focus color.
 - **No root, no daemon.** It runs as your user. System changes go through polkit, and nothing keeps running in the
@@ -74,20 +74,20 @@ sway-things get appearance.gaps.inner     # read a setting
 sway-things doctor                        # check setup, missing tools and conflicts
 ```
 
-*(Planned interface. Key names may still change.)*
+_(Planned interface. Key names may still change.)_
 
 ## Requirements (planned)
 
 - sway ≥ 1.10, or SwayFX ≥ 0.5
 - GTK 4
-- Optional companion tools unlock their pages, for example kanshi, swayidle, swaylock, waybar, mako or swaync,
-  gammastep or wlsunset, brightnessctl, PipeWire, NetworkManager and BlueZ. Pages for missing tools stay visible and
-  tell you how to install them.
+- Optional companion tools unlock their pages, for example kanshi, swayidle, swaylock, waybar, mako or swaync, gammastep
+  or wlsunset, brightnessctl, PipeWire, NetworkManager and BlueZ. Pages for missing tools stay visible and tell you how
+  to install them.
 
 ## Installation
 
-Not released yet. Planned: native packages for openSUSE, Fedora, Debian and Ubuntu via the openSUSE Build Service,
-plus the AUR for Arch Linux.
+Not released yet. Planned: native packages for openSUSE, Fedora, Debian and Ubuntu via the openSUSE Build Service, plus
+the AUR for Arch Linux.
 
 ## Contributing
 

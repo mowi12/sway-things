@@ -1,8 +1,8 @@
 # Contributing to Sway Things
 
-Thanks for your interest! Sway Things is in the **planning phase**. There's no code yet, but the design is written
-down and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues
-privately as described in [SECURITY.md](SECURITY.md), never in public issues.
+Thanks for your interest! Sway Things is in the **planning phase**. There's no code yet, but the design is written down
+and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues privately
+as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Read first
 
@@ -12,8 +12,8 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Issues
 
-- **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue
-  when you start or plan an item, not before.
+- **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue when
+  you start or plan an item, not before.
 - Use the **issue forms** (Bug, Feature, Docs, Refactor). Blank issues are disabled.
 - **Labels** are defined in [.github/labels.yml](.github/labels.yml): `kind:`, `area:`, `page:`, `effort:`, `status:`,
   `compat:swayfx`, plus `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview,
@@ -25,8 +25,8 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 ## Pull requests
 
 - **Trunk-based.** `main` is the only long-lived branch and is always green.
-- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main
-  purpose: `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`.
+- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose:
+  `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`.
 - **Every change goes through a pull request**:
   - all required CI checks must pass, and **nobody can bypass them**;
   - **one approving review** is required (the repository owner may bypass the review, never CI);
@@ -43,8 +43,8 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Commit messages
 
-We use [Conventional Commits](https://www.conventionalcommits.org/). The allowed types and their meaning are defined
-in [.conventional-commit-types.json](.conventional-commit-types.json):
+We use [Conventional Commits](https://www.conventionalcommits.org/). The allowed types and their meaning are defined in
+[.conventional-commit-types.json](.conventional-commit-types.json):
 
 | Type | Use for |
 |---|---|
@@ -59,14 +59,13 @@ in [.conventional-commit-types.json](.conventional-commit-types.json):
 | `ci` | CI configuration and scripts |
 | `chore` | Maintenance, e.g. `.gitignore` |
 
-The JSON file is the source of truth. If the two disagree, the JSON wins. CI checks **every commit** of a PR against
-it.
+The JSON file is the source of truth. If the two disagree, the JSON wins. CI checks **every commit** of a PR against it.
 
 **Scope** is a page id or an area: `feat(keyboard): add layout reordering`, `fix(core): quote device identifiers`,
 `docs(wiki): describe conflict detection`. Mark breaking changes with `!` (`feat(cli)!: rename get to show`).
 
-Commit messages feed the generated `CHANGELOG.md` ([git-cliff](https://git-cliff.org/)), so write them for users,
-in American English.
+Commit messages feed the generated `CHANGELOG.md` ([git-cliff](https://git-cliff.org/)), so write them for users, in
+American English.
 
 ## Engineering rules (non-negotiable)
 
@@ -91,8 +90,8 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
    SPDX-License-Identifier: GPL-3.0-or-later
    ```
 
-   Files that can't carry a header (Markdown, YAML, JSON, TOML, …) are covered by [REUSE.toml](REUSE.toml). A new
-   file type without a header gets a pattern there, otherwise `reuse lint` fails.
+   Files that can't carry a header (Markdown, YAML, JSON, TOML, …) are covered by [REUSE.toml](REUSE.toml). A new file
+   type without a header gets a pattern there, otherwise `reuse lint` fails.
 
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
@@ -101,9 +100,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 ## Checks
 
-**Every check is one script in `scripts/`, and that script is the only place its command is written
-down**. CI calls the scripts directly; the `justfile` just
-wraps them for convenience. There are no git hooks. Run checks yourself before pushing:
+**Every check is one script in `scripts/`, and that script is the only place its command is written down**. CI calls the
+scripts directly; the `justfile` just wraps them for convenience. There are no git hooks. Run checks yourself before
+pushing:
 
 ```sh
 just check              # run every check, like CI
@@ -138,11 +137,10 @@ Editors pick up indentation and line endings from `.editorconfig`.
 
 ## Releases
 
-Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. Pushing a version tag triggers
-the release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the
-changelog generated from the commits.
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. Pushing a version tag triggers the
+release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
+generated from the commits.
 
 ## AI-assisted contributions
 
-AI agents follow [AGENTS.md](AGENTS.md). The same rules, checks and review standards apply to human and AI-written
-code.
+AI agents follow [AGENTS.md](AGENTS.md). The same rules, checks and review standards apply to human and AI-written code.
