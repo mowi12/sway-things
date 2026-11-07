@@ -41,6 +41,10 @@ read the user's files.**
 | `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
 
+All crates share the package metadata and lints of the root `Cargo.toml`: edition 2024, MSRV 1.85, `unsafe_code`
+forbidden, clippy pedantic, and no `unwrap`, `expect`, `panic!`, `todo!` or `dbg!` outside tests. The core also denies
+`println!` and requires docs for its public API.
+
 The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
 `sway-things` with no arguments, or `sway-things open <page>`, starts or activates the GUI.
 
@@ -315,7 +319,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 | Corrupting the user's config | We never write user files; atomic writes; manifest hashes detect foreign edits to our files |
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
-| Parser exploits | `#![forbid(unsafe_code)]`, fuzzing, never executes during parsing |
+| Parser exploits | `unsafe_code` forbidden in every crate, fuzzing, never executes during parsing |
 | Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions |
 
 ## Platform floor

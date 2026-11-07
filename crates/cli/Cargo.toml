@@ -1,0 +1,16 @@
+[package]
+name = "sway-things-cli"
+description = "Command-line interface of Sway Things"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "sway-things"
+path = "src/main.rs"
+
+[lints]
+workspace = true
