@@ -1,8 +1,8 @@
 # Contributing to Sway Things
 
 Thanks for your interest! Sway Things is in the **planning phase**. There's no code yet, but the design is written
-down and open for discussion. Please follow our Code of Conduct (`CODE_OF_CONDUCT.md`), and report security issues
-privately as described in `SECURITY.md`, never in public issues.
+down and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues
+privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Read first
 
