@@ -78,7 +78,7 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`.
 3. **Treat external strings as data.** Device names, SSIDs, Bluetooth names, file names and window titles can be
    attacker-controlled. Escape them with the typed sway command builders. Never interpolate them.
-4. **No `unsafe`.** Every crate has `#![forbid(unsafe_code)]`.
+4. **No `unsafe`.** The root `Cargo.toml` forbids `unsafe_code` for every crate.
 5. **No panics in non-test code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by clippy. Handle errors.
 6. **No privileged code.** System changes only go through existing polkit-guarded D-Bus services.
 7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
@@ -110,7 +110,7 @@ scripts/check-fmt.sh    # or run a single check directly
 | Check | Tools |
 |---|---|
 | Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
-| Rust lints | `clippy` with `-D warnings`, pedantic + safety picks |
+| Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
 | Spelling | `typos`, locale en-US |
 | Links | `lychee --offline` (relative links + anchors); external links weekly |

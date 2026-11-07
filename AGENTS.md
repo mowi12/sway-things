@@ -38,6 +38,8 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── dependabot.yml
 │   └── pull_request_template.md
 ├── justfile         # convenience wrapper around scripts/ (`just check`)
+├── Cargo.toml       # workspace: shared package metadata and lints; Cargo.lock is committed
+├── clippy.toml      # lets tests use unwrap/expect/panic
 ├── REUSE.toml, dprint.json, .markdownlint-cli2.yaml, _typos.toml, lychee.toml, deny.toml, cliff.toml, .editorconfig
 └── .conventional-commit-types.json
 ```
@@ -53,8 +55,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
 2. **Never build shell strings.** Use `std::process::Command` with argument arrays. Never `sh -c`.
 3. **External strings are data.** Device names, SSIDs, Bluetooth names, file and window names go through the typed sway
    command builders.
-4. **`#![forbid(unsafe_code)]`** in every crate. **No `unwrap`/`expect`/`panic!`/`todo!`/`dbg!`** outside tests
-   (clippy denies them).
+4. **No `unsafe`** (`unsafe_code = "forbid"` in `[workspace.lints]`). **No `unwrap`/`expect`/`panic!`/`todo!`/`dbg!`**
+   outside tests (clippy denies them). Never weaken the workspace lints; a needed `#[allow]` states its `reason`.
 5. **No privileged code, no daemon, no network access, no telemetry.**
 6. **Generated sway config must pass `sway --validate`** before it atomically replaces the old file.
 7. **New settings start in the registry** (`crates/core`). UI rows, search, CLI keys and defaults all derive from it.
@@ -76,6 +78,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Docs: update `wiki/` in the same change, so the docs always describe the current state.
 - Target platform: sway ≥ 1.10 and SwayFX ≥ 0.5; GTK ≥ 4.18; Rust MSRV 1.85 (Debian 13). Don't use language
   features or crates that need a newer rustc unless the maintainers agree to raise the MSRV.
+- Crates: every crate in `crates/` inherits the `[workspace.package]` fields and sets `[lints] workspace = true`.
+  Shared dependency versions go in `[workspace.dependencies]`.
 - Async: glib main loop + async-io based crates (zbus, swayipc-async, async-process). No tokio; `crates/core` stays
   executor-agnostic.
 - License: `GPL-3.0-or-later`. New dependencies must be GPL-compatible (enforced by cargo-deny).
