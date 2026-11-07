@@ -1,0 +1,57 @@
+name: Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/labels.yml
+      - .github/workflows/labels.yml
+      - scripts/sync-labels.sh
+  pull_request:
+    paths:
+      - .github/labels.yml
+      - .github/workflows/labels.yml
+      - scripts/sync-labels.sh
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  preview:
+    name: Preview Label Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Preview Label Changes
+        run: scripts/sync-labels.sh --dry-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
+  sync:
+    name: Sync Labels
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: labels
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sync Labels
+        run: scripts/sync-labels.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
