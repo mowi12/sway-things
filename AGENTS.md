@@ -75,7 +75,7 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header (`SPDX-FileCopyrightText: 2026 Sway Things
   contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`). Everything else is covered by `REUSE.toml`; add a
   pattern there for a new file type without a header.
-- Before finishing a change, run `just check` (or the relevant `scripts/check-*.sh`).
+- Before finishing a change, run `just fmt` and `just check` (or the relevant `scripts/check-*.sh`).
 - Docs: update `wiki/` in the same change, so the docs always describe the current state.
 - Target platform: sway ≥ 1.10 and SwayFX ≥ 0.5; GTK ≥ 4.18; Rust MSRV 1.85 (Debian 13). Don't use language
   features or crates that need a newer rustc unless the maintainers agree to raise the MSRV.

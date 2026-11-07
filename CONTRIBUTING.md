@@ -108,7 +108,10 @@ wraps them for convenience. There are no git hooks. Run checks yourself before p
 ```sh
 just check              # run every check, like CI
 scripts/check-fmt.sh    # or run a single check directly
+just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
+
+Each script names the tools it needs in its header.
 
 | Check | Tools |
 |---|---|
