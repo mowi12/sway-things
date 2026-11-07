@@ -1,0 +1,49 @@
+name: Documentation Issue
+description: Report unclear, wrong or missing documentation
+title: "[Docs]: <title>"
+labels: ["kind:docs"]
+
+body:
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please check whether an issue already exists for this documentation topic.
+      options:
+        - label: I have searched the existing issues
+          required: true
+
+  - type: input
+    id: affected-docs
+    attributes:
+      label: Which documentation is affected?
+      placeholder: e.g. README.md, wiki/Architecture.md, `sway-things --help`
+    validations:
+      required: false
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: What is unclear, wrong or missing?
+      description: Describe the documentation problem as precisely as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: What should be changed?
+      description: Describe the improvement you suggest.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Anything else?
+      description: |
+        Links, screenshots, or other context that helps us improve the docs.
+
+        Tip: You can drag and drop files here.
+    validations:
+      required: false
