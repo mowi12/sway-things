@@ -1,0 +1,52 @@
+[
+  {
+    "Name": "Feature",
+    "Type": "feat",
+    "Description": "Adds, adjusts or removes a feature to/of/from the API or UI"
+  },
+  {
+    "Name": "Bug Fix",
+    "Type": "fix",
+    "Description": "Fixes an API or UI bug of a preceded feat commit"
+  },
+  {
+    "Name": "Refactor",
+    "Type": "refactor",
+    "Description": "Rewrites or restructures code without altering API or UI behavior"
+  },
+  {
+    "Name": "Performance",
+    "Type": "perf",
+    "Description": "A special kind of refactor that specifically improves performance"
+  },
+  {
+    "Name": "Style",
+    "Type": "style",
+    "Description": "Code style changes (whitespace, formatting, missing semicolons) that do not affect behavior"
+  },
+  {
+    "Name": "Test",
+    "Type": "test",
+    "Description": "Adds missing tests or corrects existing ones"
+  },
+  {
+    "Name": "Docs",
+    "Type": "docs",
+    "Description": "Changes that exclusively affect documentation"
+  },
+  {
+    "Name": "Build",
+    "Type": "build",
+    "Description": "Changes to build tools, dependencies, project version, etc."
+  },
+  {
+    "Name": "CI",
+    "Type": "ci",
+    "Description": "Changes to CI configuration files and scripts (e.g. GitHub Actions workflows)"
+  },
+  {
+    "Name": "Chore",
+    "Type": "chore",
+    "Description": "Maintenance tasks like modifying .gitignore or the initial commit"
+  }
+]
