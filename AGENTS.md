@@ -64,9 +64,11 @@ Never break these, even if a task seems to ask for it. Ask instead.
 ## Conventions
 
 - Commits: Conventional Commits with the types from `.conventional-commit-types.json`, scope = page id or area
-  (`feat(keyboard): …`, `fix(core): …`). PRs are **rebase-merged**, so every commit must be conventional and
-  meaningful on its own.
+  (`feat(keyboard): …`, `fix(core): …`). PRs land as **merge commits** and every PR commit stays in the history, so
+  each one must be conventional and meaningful on its own. Update branches by rebasing, never by merging `main` in.
+- Branches: `<type>/<issue>-<slug>` (`feat/23-keyboard-repeat-rate`), type = the PR's main purpose.
 - Pull requests: required for every change, 1 approving review, all checks green. Fill in the PR template checklist.
+  Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR.
 - Language: American English everywhere (code, UI strings, docs, commits).
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header (`SPDX-FileCopyrightText: 2026 Sway Things
   contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`).

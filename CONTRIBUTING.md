@@ -25,14 +25,21 @@ privately as described in `SECURITY.md`, never in public issues.
 ## Pull requests
 
 - **Trunk-based.** `main` is the only long-lived branch and is always green.
+- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main
+  purpose: `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`.
 - **Every change goes through a pull request**:
   - all required CI checks must pass, and **nobody can bypass them**;
   - **one approving review** is required (the repository owner may bypass the review, never CI);
-  - linear history; no force pushes to `main`.
-- **Rebase merge only**: every commit of your PR lands on `main`
-  as is. Keep commits meaningful and conventional, and clean them up with an interactive rebase before merging.
-  Branches are deleted automatically after merge.
+  - new commits dismiss earlier approvals, and all review conversations must be resolved;
+  - no force pushes to `main`.
+- **Merge commits only**: a PR lands as a merge commit ("Merge pull request #N from …"), and every commit of the PR
+  stays in the history as is. Keep commits meaningful and conventional, and clean them up with an interactive rebase
+  before merging. Branches are deleted automatically after merge.
+- **Updating your branch:** when `main` has moved on, use **Update with rebase** (or rebase locally), never a merge
+  commit. A "Merge branch 'main' into …" commit would end up in the history and isn't a conventional commit.
+- **Auto-merge** is available: enable it, and the PR merges once it's approved and all checks are green.
 - Keep PRs small and fill in the PR template checklist (tick each item, or cross it out with a reason).
+- **Labels and milestones go on the issue**, not on the PR. Link the issue in the PR description with `Closes #N`.
 
 ## Commit messages
 
