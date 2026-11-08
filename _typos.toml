@@ -1,0 +1,10 @@
+[default]
+locale = "en-us"
+
+[default.extend-identifiers]
+# Relm4, named in wiki/Architecture.md as the GUI library we don't use
+Relm4 = "Relm4"
+
+[default.extend-words]
+# systemd-localed, the D-Bus service for locale and keyboard layout
+localed = "localed"

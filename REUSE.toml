@@ -8,6 +8,7 @@ path = [
   "**.json",
   "**.toml",
   "Cargo.lock",
+  "tools/requirements.*",
   ".gitignore",
   ".editorconfig",
 ]

@@ -126,3 +126,46 @@ jobs:
           sudo apt-get install -qq -y --no-install-recommends desktop-file-utils appstream
       - name: Validate Metadata
         run: scripts/check-metadata.sh
+
+  spelling:
+    name: Check Spelling
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install typos
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TYPOS_VERSION: 1.51.1
+          TYPOS_SHA256: 93c301fd4120ff076e2cc2a6d6a61cab4a4bdb81899287c0938b452e56d1f454
+        run: |
+          gh release download "v$TYPOS_VERSION" --repo crate-ci/typos \
+            --pattern "typos-v$TYPOS_VERSION-x86_64-unknown-linux-musl.tar.gz" --output "$RUNNER_TEMP/typos.tar.gz"
+          echo "$TYPOS_SHA256  $RUNNER_TEMP/typos.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/typos"
+          tar -xzf "$RUNNER_TEMP/typos.tar.gz" -C "$RUNNER_TEMP/typos" ./typos
+          echo "$RUNNER_TEMP/typos" >> "$GITHUB_PATH"
+      - name: Check Spelling
+        run: scripts/check-spelling.sh
+
+  licenses:
+    name: Check Licenses
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install reuse
+        run: |
+          python3 -m venv "$RUNNER_TEMP/reuse"
+          "$RUNNER_TEMP/reuse/bin/pip" install --quiet --require-hashes --no-deps -r tools/requirements.txt
+          echo "$RUNNER_TEMP/reuse/bin" >> "$GITHUB_PATH"
+      - name: Check Licenses
+        run: scripts/check-licenses.sh
