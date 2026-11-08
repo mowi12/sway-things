@@ -1,0 +1,3 @@
+config:
+  # GitHub renders every line break in a PR description, so the PR template isn't wrapped.
+  line-length: false
