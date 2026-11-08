@@ -12,7 +12,7 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 ## Pages
 
 | Page | What it covers |
-|---|---|
+| --- | --- |
 | [Vision & Scope](Vision-and-Scope.md) | Problem, target users, goals, non-goals, prior art |
 | [Architecture](Architecture.md) | Crates, settings registry, state files, generators, parser, conflicts, backends, CLI, security, testing, packaging |
 | [UX Concept](UX-Concept.md) | Window layout, navigation, search, apply model, indicators, first run, theming |

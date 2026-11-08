@@ -2,7 +2,7 @@
 
 The complete planned scope, per page, **unordered**. Open a GitHub issue when you start or plan an item.
 
-**Effort legend**
+## Effort legend
 
 - 🟢 Easy: native sway option, applied live over IPC and generated into our include
 - 🟡 Medium: another tool's config, D-Bus, parsing, or a custom widget
@@ -64,7 +64,7 @@ scope → host overlay by default).
 The requirements below include the proven ideas from kanshi_gui. Display profile backend: kanshi (reference); without
 kanshi, static `output` lines in our include (no profiles).
 
-**Layout editor**
+#### Layout editor
 
 - 🟡 Drag-and-drop arrangement on a canvas, with smart snapping (guide lines, edge/corner/center alignment, a magnet
   that backs off)
@@ -76,7 +76,7 @@ kanshi, static `output` lines in our include (no profiles).
 - 🟢 Identify displays (numbers flashed on each screen)
 - 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode
 
-**Profiles (kanshi backend)**
+#### Profiles (kanshi backend)
 
 - 🟡 Create, rename, delete profiles; generated into our kanshi include
 
@@ -85,13 +85,13 @@ kanshi, static `output` lines in our include (no profiles).
 - 🟢 Flicker-free reload (`kanshictl reload` → `SIGHUP` → restart kanshi only as a last resort)
 - 🟢 Generate `exec kanshi` / `exec_always kanshictl reload` into **our** sway include when kanshi isn't started yet
 
-**Workspace placement (opt-in)**
+#### Workspace placement (opt-in)
 
 - 🟡 Visual map of the screens with workspace numbers: drag a number to another screen
 - 🟢 Presets: left-to-right, one block per screen, current placement, custom
 - 🟡 Apply at profile switch via the CLI hook `sway-things hook workspaces --profile <name>`
 
-**Laptop lid (opt-in)**
+#### Laptop lid (opt-in)
 
 - 🟡 Lid closed with another screen active → turn off the built-in panel and move its workspaces; restore on open.
   `bindswitch` lines in our include call `sway-things hook lid closed|open`

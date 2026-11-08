@@ -29,7 +29,7 @@ Milestones on GitHub correspond to releases.
 ### Four pages
 
 | Page | What it proves |
-|---|---|
+| --- | --- |
 | Mouse & Touchpad | per-device scope and host overlay, input hotplug events, device disable with safety net and lockout protection, registry row builder at volume |
 | Keyboard | safety net for layout changes, reorderable list widget, XKB rules parsing |
 | Windows (incl. SwayFX effects) | conflict detection on `client.*`, live accent theming of the app, live preview widget, SwayFX gating + `90-effects.conf` |

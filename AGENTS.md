@@ -93,7 +93,7 @@ Never break these, even if a task seems to ask for it. Ask instead.
 ## Where to look
 
 | Task | Location |
-|---|---|
+| --- | --- |
 | What is in scope? | `wiki/Vision-and-Scope.md`, `wiki/Feature-Catalog.md` |
 | How does a setting flow from UI to sway? | `wiki/Architecture.md` → "Data flow" |
 | How must a page behave? | `wiki/UX-Concept.md` |

@@ -37,7 +37,7 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 ### Sidebar groups
 
 | Group | Pages |
-|---|---|
+| --- | --- |
 | **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth & Network |
 | **Appearance** | Windows · Wallpaper · Apps Look & Feel · Bar |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard |
@@ -78,12 +78,12 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 ## Per-setting indicators
 
 | Indicator | When | Actions |
-|---|---|---|
+| --- | --- | --- |
 | **Reset to default** | the setting is stored in Sway Things | reset this setting / the whole page |
 | **Overridden** | the user's config line before our include is now dead | Open in editor at line · Copy · Let my config win |
 | **Your config wins** | the user's config line after our include overrides us | Open in editor at line · Copy · Let my config win |
 | **This machine only** | toggle per setting; default on for device- and output-bound settings | moves the value between `settings.toml` and the host overlay |
-| **Requires *tool*** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman |
+| **Requires _tool_** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman |
 | **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover |
 | **Requires SwayFX** | SwayFX-only setting on vanilla sway | disabled with explanation |
 | **Requires sway ≥ x.y** | setting is newer than the running sway | disabled with explanation |

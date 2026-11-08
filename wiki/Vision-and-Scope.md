@@ -44,7 +44,7 @@ single hand-written line changes.
 ## Non-goals
 
 | Not doing | Why |
-|---|---|
+| --- | --- |
 | Editing the user's sway config or other hand-written files | Core trust promise |
 | Other compositors (Hyprland, niri, Wayfire, river) | Focus. SwayFX is the only fork in scope |
 | Non-Linux systems, cross-platform toolkits | Sway only runs on Linux (and the BSDs) |
@@ -59,7 +59,7 @@ single hand-written line changes.
 ## Scope by sidebar group
 
 | Group | Pages | Depth |
-|---|---|---|
+| --- | --- | --- |
 | **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth & Network | sway-native pages are complete; Sound and Bluetooth & Network cover the basics natively, then delegate |
 | **Appearance** | Windows (incl. SwayFX effects) · Wallpaper · Apps Look & Feel · Bar | complete, through backends |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard | complete, through backends |
@@ -72,7 +72,7 @@ The item-level scope is in the [Feature Catalog](Feature-Catalog.md).
 Researched on 2026-10-17. Not re-verified.
 
 | Project | Covers | Stack | Difference from Sway Things |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | [SwaySettings](https://github.com/ErikReider/SwaySettings) | Inputs, keyboard layout, wallpaper, GTK theme, default apps, autostart, lock screen | Vala, GTK4, libadwaita | Similar idea and include pattern; small scope; AUR only |
 | [Sway Input Configurator](https://flathub.org/apps/io.github.Sunderland93.sway-input-config) | Keyboard, touchpad, pointer | Python, Qt | Inputs only |
 | [nwg-shell](https://wiki.archlinux.org/title/Nwg-shell) | Full GTK shell (displays, look, panel, config) | Python/Go, GTK3 | All-or-nothing; the installer can overwrite the sway config |
