@@ -121,7 +121,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
 | Spelling | `typos`, locale en-US |
-| Links | `lychee --offline` (relative links + anchors); external links weekly |
+| Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a `kind:docs` issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable |

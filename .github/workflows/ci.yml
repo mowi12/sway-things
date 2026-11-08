@@ -169,3 +169,29 @@ jobs:
           echo "$RUNNER_TEMP/reuse/bin" >> "$GITHUB_PATH"
       - name: Check Licenses
         run: scripts/check-licenses.sh
+
+  links:
+    name: Check Links
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install lychee
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LYCHEE_VERSION: 0.24.2
+          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        run: |
+          gh release download "lychee-v$LYCHEE_VERSION" --repo lycheeverse/lychee \
+            --pattern lychee-x86_64-unknown-linux-gnu.tar.gz --output "$RUNNER_TEMP/lychee.tar.gz"
+          echo "$LYCHEE_SHA256  $RUNNER_TEMP/lychee.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/lychee"
+          tar -xzf "$RUNNER_TEMP/lychee.tar.gz" -C "$RUNNER_TEMP/lychee" --strip-components 1 \
+            lychee-x86_64-unknown-linux-gnu/lychee
+          echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+      - name: Check Links
+        run: scripts/check-links.sh
