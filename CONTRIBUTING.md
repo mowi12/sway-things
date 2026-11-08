@@ -110,7 +110,8 @@ scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
 
-Each script names the tools it needs in its header.
+Each script names the tools it needs in its header. Tools from npm are pinned in `tools/package-lock.json`;
+`npm ci --prefix tools` installs them where the scripts find them.
 
 | Check | Tools |
 | --- | --- |

@@ -222,3 +222,6 @@ tags
 
 # End of https://www.toptal.com/developers/gitignore/api/linux,git,rust,visualstudiocode,jetbrains+all,vim,emacs
 
+
+### Node (check tools in tools/) ###
+/tools/node_modules/

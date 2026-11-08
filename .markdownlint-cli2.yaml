@@ -1,0 +1,8 @@
+config:
+  line-length:
+    line_length: 120
+    tables: false
+  table-column-style:
+    style: compact
+  # The PR template, CLAUDE.md and the wiki sidebar and footer have no title.
+  first-line-heading: false

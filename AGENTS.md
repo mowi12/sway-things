@@ -29,6 +29,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── cli/         # `sway-things` binary: get/set/open/doctor/hook
 │   └── gui/         # `sway-things-gui`: gtk4-rs app, rows built from the registry, custom pages
 ├── scripts/         # one script per check (check-fmt.sh, …): the ONLY place a check command lives; sync-labels.sh
+├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
 ├── .github/
