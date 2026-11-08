@@ -222,3 +222,26 @@ jobs:
           echo "$RUNNER_TEMP/cargo-deny" >> "$GITHUB_PATH"
       - name: Check Dependencies
         run: scripts/check-deps.sh
+
+  tests:
+    name: Run Tests (${{ matrix.toolchain }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.85", stable]
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        env:
+          TOOLCHAIN: ${{ matrix.toolchain }}
+        run: |
+          rustup toolchain install "$TOOLCHAIN" --profile minimal --no-self-update
+          rustup default "$TOOLCHAIN"
+      - name: Run Tests
+        run: scripts/check-tests.sh
