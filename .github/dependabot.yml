@@ -57,3 +57,17 @@ updates:
       prefix: ci
       include: scope
     labels: ["kind:maintenance", "area:ci"]
+
+  - package-ecosystem: docker
+    directories: ["/ci/containers/*"]
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: ["kind:maintenance", "area:ci"]

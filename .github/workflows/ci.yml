@@ -262,3 +262,31 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: scripts/check-commits.sh "origin/$BASE_REF"
+
+  integration:
+    name: Run Integration Tests (${{ matrix.compositor }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        compositor: [sway-1.10, sway-latest, swayfx]
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Provide a Virtual Render Node
+        if: matrix.compositor == 'swayfx'
+        run: |
+          if ! sudo modprobe vgem; then
+            sudo apt-get update -qq
+            sudo apt-get install -qq -y --no-install-recommends "linux-modules-extra-$(uname -r)"
+            sudo modprobe vgem
+          fi
+          ls -l /dev/dri
+      - name: Run Integration Tests
+        env:
+          COMPOSITOR: ${{ matrix.compositor }}
+        run: scripts/check-integration.sh --container "$COMPOSITOR"
