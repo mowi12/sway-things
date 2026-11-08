@@ -151,3 +151,21 @@ jobs:
           echo "$RUNNER_TEMP/typos" >> "$GITHUB_PATH"
       - name: Check Spelling
         run: scripts/check-spelling.sh
+
+  licenses:
+    name: Check Licenses
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install reuse
+        run: |
+          python3 -m venv "$RUNNER_TEMP/reuse"
+          "$RUNNER_TEMP/reuse/bin/pip" install --quiet --require-hashes --no-deps -r tools/requirements.txt
+          echo "$RUNNER_TEMP/reuse/bin" >> "$GITHUB_PATH"
+      - name: Check Licenses
+        run: scripts/check-licenses.sh

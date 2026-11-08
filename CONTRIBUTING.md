@@ -111,8 +111,9 @@ scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
 
-Each script names the tools it needs in its header. Tools from npm are pinned in `tools/package-lock.json`;
-`npm ci --prefix tools` installs them where the scripts find them.
+Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
+`npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
+environment with `pip install --require-hashes -r tools/requirements.txt`.
 
 | Check | Tools |
 | --- | --- |

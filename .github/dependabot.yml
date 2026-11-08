@@ -43,3 +43,17 @@ updates:
       prefix: ci
       include: scope
     labels: ["kind:maintenance", "area:ci"]
+
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      pip:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: ["kind:maintenance", "area:ci"]
