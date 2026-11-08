@@ -28,6 +28,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── core/        # no GTK: settings registry, state, generators, sway config parser, IPC, backends
 │   ├── cli/         # `sway-things` binary: get/set/open/doctor/hook
 │   └── gui/         # `sway-things-gui`: gtk4-rs app, rows built from the registry, custom pages
+├── ci/              # containers (sway 1.10, sway latest, SwayFX) and sample configs for the integration tests
 ├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like sync-labels.sh
 ├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI

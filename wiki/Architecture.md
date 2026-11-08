@@ -352,7 +352,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 | Unit | registry invariants, state merge (shared + overlay), command builders and escaping |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest**: apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX) |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX) |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
