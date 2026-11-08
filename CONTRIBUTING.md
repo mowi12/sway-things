@@ -136,6 +136,8 @@ Editors pick up indentation and line endings from `.editorconfig`.
 
 - Developer documentation lives in [`wiki/`](wiki/Home.md) and gets published to the GitHub wiki by CI. Edit the files
   in the repo, never on github.com.
+- Link wiki pages as files (`Architecture.md#security-model`, `../README.md`), so the links work in the repo. The
+  publish workflow rewrites them for the wiki.
 - Write in **American English**.
 - Update the wiki in the same change as the code it describes.
 
