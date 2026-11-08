@@ -20,7 +20,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 - `wiki/Roadmap.md`: v0.1 scope and what comes after
 - `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
 
-## Planned structure
+## Structure
 
 ```text
 .
@@ -46,8 +46,6 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 └── .conventional-commit-types.json
 ```
 
-Most of this doesn't exist yet.
-
 ## Hard rules
 
 Never break these, even if a task seems to ask for it. Ask instead.
@@ -72,7 +70,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
   one must be conventional and meaningful on its own. Update branches by rebasing, never by merging `main` in.
 - Branches: `<type>/<issue>-<slug>` (`feat/23-keyboard-repeat-rate`), type = the PR's main purpose.
 - Pull requests: required for every change, 1 approving review, all checks green. Fill in the PR template checklist.
-  Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR.
+  Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR. Don't hard-wrap PR descriptions,
+  issue bodies or comments: GitHub renders every line break there.
 - Language: American English everywhere (code, UI strings, docs, commits).
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header
   (`SPDX-FileCopyrightText: 2026 Sway Things contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`). Everything
