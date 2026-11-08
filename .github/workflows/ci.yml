@@ -94,3 +94,16 @@ jobs:
           echo "$RUNNER_TEMP/actionlint" >> "$GITHUB_PATH"
       - name: Lint Workflows
         run: scripts/check-workflows.sh
+
+  shell:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint Shell Scripts
+        run: scripts/check-shell.sh
