@@ -47,7 +47,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). The allowed
 [.conventional-commit-types.json](.conventional-commit-types.json):
 
 | Type | Use for |
-|---|---|
+| --- | --- |
 | `feat` | Adds, adjusts or removes a feature of the API or UI |
 | `fix` | Fixes an API or UI bug introduced by an earlier `feat` |
 | `refactor` | Restructures code without changing API or UI behavior |
@@ -95,8 +95,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
-    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum. Give every
-    workflow job only the `permissions` it needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
+    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum; packages
+    from Ubuntu's signed repositories need no pin. Give every workflow job only the `permissions` it needs. Workflow,
+    job and step names use Title Case (`Preview Label Changes`).
 
 ## Checks
 
@@ -110,10 +111,11 @@ scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
 
-Each script names the tools it needs in its header.
+Each script names the tools it needs in its header. Tools from npm are pinned in `tools/package-lock.json`;
+`npm ci --prefix tools` installs them where the scripts find them.
 
 | Check | Tools |
-|---|---|
+| --- | --- |
 | Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |

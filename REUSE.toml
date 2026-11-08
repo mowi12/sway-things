@@ -4,6 +4,7 @@ version = 1
 path = [
   "**.md",
   "**.yml",
+  "**.yaml",
   "**.json",
   "**.toml",
   "Cargo.lock",

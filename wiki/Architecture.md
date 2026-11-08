@@ -36,7 +36,7 @@ the user's files.**
 ## Cargo workspace
 
 | Crate | Binary | Depends on GTK | Responsibility |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
 | `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
@@ -53,7 +53,7 @@ The CLI deliberately has no GTK dependency, so hooks that run at login or on hot
 Every setting is **defined once** in `crates/core/src/registry/`. Everything else derives from that definition:
 
 | Derived from the registry | Example |
-|---|---|
+| --- | --- |
 | GUI rows (toggle, slider, dropdown, color, entry) | auto-built for standard settings |
 | Search index | title, subtitle, keywords, synonyms (translatable + English) |
 | CLI keys | `sway-things set input.touchpad.tap true` |
@@ -145,7 +145,7 @@ The app never adds this line itself. It shows the line with a copy button and de
 ### Other tools
 
 | Tool | Include support | Strategy |
-|---|---|---|
+| --- | --- | --- |
 | kanshi | yes (`include`, wordexp) | Our file `~/.config/kanshi/sway-things.conf`; the user adds `include` to their kanshi config. With no kanshi config at all, we create `~/.config/kanshi/config` ourselves |
 | waybar | `include` exists, but **the first definition wins**, so included files can only add, never override | **Handover:** our complete config + CSS in `~/.config/sway-things/waybar/`; the user starts waybar with `-c`/`-s` (instructions), or we create `~/.config/waybar/config.jsonc` if none exists. "Import as starting point" reads their file into our state |
 | swaylock | no | Our config `~/.config/sway-things/swaylock/config`; our generated swayidle line calls `swaylock -C <path>` |
@@ -191,12 +191,12 @@ countdown, and saves only on `y`. Without a TTY it refuses unless `--yes` is giv
 ### Apply modes
 
 | Mode | Example | Mechanism |
-|---|---|---|
+| --- | --- | --- |
 | live | gaps, colors, input options | IPC command + persist |
 | reload | settings sway only honors at load | persist + `swaymsg reload` (with confirmation if disruptive) |
 | tool reload | kanshi, waybar, swaync | `kanshictl reload`, `SIGUSR2` to waybar, `swaync-client -R`, … |
 | re-login | environment.d | persist + "takes effect after re-login" badge |
-| risky | see above | live + safety net, persist on *Keep* |
+| risky | see above | live + safety net, persist on _Keep_ |
 
 ## Reading the current state
 
@@ -222,7 +222,7 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 `include` sits in the user's config.
 
 | User line is… | Effect | Indicator |
-|---|---|---|
+| --- | --- | --- |
 | before our include | our value wins, the user's line is dead | "Overridden: your config line N is no longer in effect" |
 | after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
 | our include missing | nothing we generate is active | app-wide **read-only** mode with the include instructions |
@@ -249,7 +249,7 @@ trait Backend {
 ```
 
 | Area | Backends (reference first) |
-|---|---|
+| --- | --- |
 | Display profiles | kanshi; fallback without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
@@ -309,7 +309,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 **Runs as the user. No privileged code, no daemon, no network**.
 
 | Threat | Mitigation |
-|---|---|
+| --- | --- |
 | Command injection via external strings (device names, **SSIDs**, **Bluetooth names**, file names, workspace names, window titles) | Typed sway command builders with escaping and quoting; processes started with argument arrays, never `sh -c` |
 | Malicious or broken `settings.toml` from shared dotfiles | Schema validation; `exec`/`bindsym … exec` lines shown verbatim in "Show generated config"; generated sway config validated with `sway --validate` |
 | Corrupting the user's config | We never write user files; atomic writes; manifest hashes detect foreign edits to our files |
@@ -321,7 +321,7 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 ## Platform floor
 
 | Component | Minimum | Reason |
-|---|---|---|
+| --- | --- | --- |
 | sway | 1.10 | Debian 13 (trixie) ships 1.10.1 |
 | GTK | 4.18 | Debian 13 ships 4.18.6 |
 | Rust (MSRV) | 1.85 | Debian 13 ships 1.85.1. Raised only on demand, at most to trixie-backports (currently 1.96) |
@@ -348,7 +348,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 ## Testing
 
 | Level | What |
-|---|---|
+| --- | --- |
 | Unit | registry invariants, state merge (shared + overlay), command builders and escaping |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |

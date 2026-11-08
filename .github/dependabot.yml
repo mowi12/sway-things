@@ -29,3 +29,17 @@ updates:
       prefix: build
       include: scope
     labels: ["kind:maintenance"]
+
+  - package-ecosystem: npm
+    directory: /tools
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: ["kind:maintenance", "area:ci"]

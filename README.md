@@ -33,7 +33,7 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 
 ## Planned features
 
-**Devices**
+### Devices
 
 - **Mouse & Touchpad:** speed, acceleration, scrolling, tap to click, per-device settings, a test area
 - **Keyboard:** layouts and variants, layout switching shortcut, Caps Lock and other XKB options, key repeat
@@ -42,19 +42,19 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 - **Sound:** output and input devices, volume, per-app volume
 - **Bluetooth & Network:** pairing devices, Wi-Fi
 
-**Appearance**
+### Appearance
 
 - **Windows:** focus colors, borders, gaps, title bars, color themes, SwayFX effects (blur, shadows, rounded corners)
 - **Wallpaper:** per output, with a folder browser
 - **Apps Look & Feel:** GTK and Qt themes, icons, fonts, dark mode
 - **Bar:** waybar or swaybar layout, modules and style
 
-**Desktop**
+### Desktop
 
 - **Window Behavior** · **Workspaces** · **Keyboard Shortcuts** (with conflict detection and a printable cheat sheet)
 - **Notifications** (Do Not Disturb) · **Apps & Autostart** · **Screenshots & Clipboard**
 
-**System**
+### System
 
 - **Power & Lock:** idle timeouts, lock screen, power profile, battery
 - **Brightness & Night Light** · **Region & Time** · **Accessibility**
@@ -74,7 +74,7 @@ sway-things get appearance.gaps.inner     # read a setting
 sway-things doctor                        # check setup, missing tools and conflicts
 ```
 
-_(Planned interface. Key names may still change.)_
+_Planned interface. Key names may still change._
 
 ## Requirements (planned)
 
