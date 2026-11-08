@@ -20,7 +20,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 - `wiki/Roadmap.md`: v0.1 scope and what comes after
 - `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
 
-## Planned structure
+## Structure
 
 ```text
 .
@@ -45,8 +45,6 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 ├── REUSE.toml, dprint.json, .markdownlint-cli2.yaml, _typos.toml, lychee.toml, deny.toml, cliff.toml, .editorconfig
 └── .conventional-commit-types.json
 ```
-
-Most of this doesn't exist yet.
 
 ## Hard rules
 
