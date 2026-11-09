@@ -235,9 +235,10 @@ So `SwayCmd::render` has two targets:
 - **Leading criteria:** `SwayCmd::with_criteria` builds `[app_id="…"] opacity 0.8`, which applies a command to open
   windows. It only works over IPC, and sway reports a failure if no window matches. Per-app settings use it for the live
   change and `for_window` for windows that open later.
-- **Availability:** some commands work only in config files (`xwayland`, `xkb_numlock`), others only over IPC. While
-  sway reads the config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later runs
-  them through the IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
+- **Availability:** some commands work only in config files (`xwayland`, `xkb_numlock`, `workspace_layout`,
+  `default_orientation`), so settings built on them apply with a reload instead of live. Others work only over IPC.
+  While sway reads the config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later
+  runs them through the IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
 - **Minimum version:** a command records the oldest sway that understands it (`SwayCmd::min_sway`, by default sway
   1.10), and for SwayFX directives the oldest SwayFX (`SwayCmd::min_swayfx`, `None` if vanilla sway understands it).
   Rendering doesn't check either; the registry compares them with the running compositor (SwayFX by its base sway
@@ -256,6 +257,9 @@ on numbers taken from sway's and SwayFX's own checks:
   thickness and a thickness above the vertical padding, so the order of those two commands matters.
 - `command::effects` builds the SwayFX effects with the names and ranges of SwayFX 0.5; `animation_duration_ms` needs
   SwayFX 0.6. `corner_radius` raises the horizontal title bar padding to at least the radius.
+- `command::behavior` builds focus, layout, floating, dragging, popup, Xwayland and idle inhibition settings.
+  `floating_minimum_size` and `floating_maximum_size` take each dimension as no limit (`-1`), sway's automatic value
+  (`0`) or pixels. `inhibit_idle`, like `opacity`, is wrapped in `for_window` or leading criteria for per-app rules.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
 arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)
