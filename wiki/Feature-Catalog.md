@@ -27,7 +27,7 @@ scope → host overlay by default).
 - 🟢 Middle-click emulation (`middle_emulation`)
 - 🟢 Scroll method: two-finger / edge / on-button-down / none (`scroll_method`, `scroll_button`)
 - 🟢 Touchpad: tap to click (`tap`), tap button map lrm / lmr (`tap_button_map`)
-- 🟢 Touchpad: tap-and-drag, drag lock (`drag`, `drag_lock`)
+- 🟢 Touchpad: tap-and-drag, drag lock (`drag`, `drag_lock`; sticky drag lock needs sway ≥ 1.11)
 - 🟢 Touchpad: disable while typing / while trackpointing (`dwt`, `dwtp`)
 - 🟢 Touchpad: click method, button areas vs. clickfinger (`click_method`, `clickfinger_button_map`)
 - 🟢 Disable touchpad while an external mouse is connected (`events disabled_on_external_mouse`)
