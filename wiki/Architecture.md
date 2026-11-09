@@ -171,9 +171,11 @@ copy button). Alternatively the user deletes or renames their own file, and we c
    (`RUN_COMMAND`) → instant effect.
 3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
 4. The generators regenerate the affected files:
-   - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files →
-     atomic rename. This works without a running session (checked with sway 1.12); errors are reported per file and
-     line, so they can be mapped back to settings;
+   - write to a temp file → `sway --validate -c <staged file>` for each staged file → atomic rename. Each file is
+     validated as a main config of its own: sway ignores errors in included files (`cmd_include` in sway 1.10 – 1.12),
+     and `--validate` only reports the main file, so a wrapper config that includes the staged files would always pass.
+     This works without a running session (checked with sway 1.12); errors are reported per line, so they can be mapped
+     back to settings;
    - update the hash in `manifest.toml`.
 5. Conflict detection re-runs for that setting and updates the indicators.
 
@@ -230,13 +232,22 @@ So `SwayCmd::render` has two targets:
 - **`for_window`:** sway stores the inner command and parses it again, like an IPC command, when a window appears. So
   its text is quoted twice over IPC, and its `$` doubled twice in a config line. The inner command can't contain
   criteria or another `for_window`.
-- **Availability:** some commands work only in config files (`xwayland`), others only over IPC. While sway reads the
-  config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later runs them through the
-  IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
+- **Availability:** some commands work only in config files (`xwayland`, `xkb_numlock`), others only over IPC. While
+  sway reads the config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later runs
+  them through the IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
+- **Minimum version:** a command records the oldest sway that understands it (`SwayCmd::min_sway`, by default sway
+  1.10). Rendering doesn't check it; the registry compares it with the running sway, or SwayFX's base version.
+
+On top of `SwayCmd`, typed builders cover the directives of each page: `command::input` builds `input <identifier> …`
+for every device (`*`), a device type (`type:touchpad`) or one device by its `GET_INPUTS` identifier, with an enum per
+set of values and range checks on numbers (`pointer_accel` −1 … 1, `scroll_factor` ≥ 0). `drag_lock enabled_sticky`
+needs sway 1.11, and a sway built against a libinput that supports it; otherwise sway reads it as `disabled` without an
+error.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
-arrives unchanged in both targets. The integration test feeds generated fixtures (`ci/integration/escaping*`) to real
-sway 1.10, sway latest and SwayFX and reads every value back.
+arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)
+go to real sway 1.10, sway latest and SwayFX: every generated config file must pass `sway --validate` on its own, every
+IPC command must succeed, and the escaping fixtures read every value back.
 
 ## Reading the current state
 
@@ -340,8 +351,9 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 
 - `GET_VERSION` tells sway from SwayFX and gives the version. Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and
   **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1, 0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
-- Registry entries carry `min_sway(...)` / `swayfx_only()`. Controls the running compositor doesn't support show as
-  disabled with a reason, instead of disappearing.
+- Registry entries carry `min_sway(...)` / `swayfx_only()`, and every built command its minimum sway version (some
+  values need a newer sway than their directive). Controls the running compositor doesn't support show as disabled with
+  a reason, instead of disappearing.
 - SwayFX settings go to `90-effects.conf`, which is written only while SwayFX runs.
 
 ## Security model
@@ -392,7 +404,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 | Unit | registry invariants, state merge (shared + overlay), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); hostile strings from the command builders, set as bar IDs from a config and as seat names over IPC, come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
