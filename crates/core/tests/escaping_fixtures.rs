@@ -86,7 +86,7 @@ fn for_window_lines(target: Target, out: &mut String) -> Result<()> {
 /// One `bar` block per name: sway keeps the current bar across one-line `bar` commands while it
 /// reads the config, so only a block starts a new bar.
 fn config_fixture() -> Result<String> {
-    let mut out = common::header("escaping_fixtures.rs");
+    let mut out = common::header("escaping_fixtures.rs", false);
     for value in NAMES {
         let id = SwayCmd::new("id").text(SwayText::new(name("config", value))?);
         let command = SwayCmd::new("swaybar_command").keyword("true");
@@ -101,7 +101,7 @@ fn config_fixture() -> Result<String> {
 }
 
 fn ipc_fixture() -> Result<String> {
-    let mut out = common::header("escaping_fixtures.rs");
+    let mut out = common::header("escaping_fixtures.rs", false);
     for value in NAMES {
         let cmd = SwayCmd::new("seat")
             .text(SwayText::new(name("ipc", value))?)
@@ -115,7 +115,7 @@ fn ipc_fixture() -> Result<String> {
 
 fn list_fixture(mut names: Vec<String>) -> String {
     names.sort();
-    let mut out = common::header("escaping_fixtures.rs");
+    let mut out = common::header("escaping_fixtures.rs", false);
     for name in names {
         push_line(&mut out, &name);
     }
