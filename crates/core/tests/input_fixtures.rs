@@ -127,7 +127,7 @@ fn fixture(commands: &[SwayCmd], target: Target) -> Result<String> {
         Target::Ipc => Availability::ConfigOnly,
         Target::Config => Availability::RuntimeOnly,
     };
-    let mut out = common::header("input_fixtures.rs");
+    let mut out = common::header("input_fixtures.rs", false);
     for cmd in commands
         .iter()
         .filter(|cmd| cmd.availability() != unavailable)

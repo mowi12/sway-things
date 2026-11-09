@@ -126,7 +126,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 
 - 🟢 Focused window colors: border, background, text, indicator, child border (`client.focused`). The child border also
   drives the app accent
-- 🟢 Colors for unfocused / focused-inactive / urgent / placeholder (`client.*`)
+- 🟢 Colors for unfocused / focused-inactive / urgent windows and the focused tab title (`client.*`)
 - 🟢 Border style: normal / pixel / none, plus width (`default_border`, `default_floating_border`)
 - 🟢 Hide edge borders / smart borders (`hide_edge_borders`, `smart_borders`)
 - 🟢 Gaps inner/outer, global and per workspace (`gaps`)
@@ -135,7 +135,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - 🟢 Title alignment and padding (`title_align`, `titlebar_padding`, `titlebar_border_thickness`)
 - 🟢 Color presets (e.g. Catppuccin, Nord, Gruvbox) applied in one click
 - 🟡 Match the accent color to the wallpaper (palette extraction)
-- 🟢 Per-app window opacity (`for_window [...] opacity`)
+- 🟢 Per-app window opacity (`for_window [...] opacity` for new windows, `[...] opacity` for open ones)
 - 🟡 Live preview of focused and unfocused windows (colors, borders, gaps, title bars)
 
 **Effects (SwayFX only)**, generated into `90-effects.conf`

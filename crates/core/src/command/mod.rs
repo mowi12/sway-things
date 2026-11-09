@@ -11,16 +11,18 @@
 
 mod color;
 mod criteria;
+pub mod effects;
 pub mod input;
 #[cfg(test)]
 mod model;
 #[cfg(test)]
 mod tests;
 mod text;
+pub mod window;
 
 use std::fmt;
 
-use crate::version::SwayVersion;
+use crate::version::{SwayFxVersion, SwayVersion};
 
 pub use color::{Color, ColorError};
 pub use criteria::{Criteria, CriteriaKey};
@@ -122,6 +124,8 @@ pub struct SwayCmd {
     parts: Vec<Part>,
     availability: Availability,
     min_sway: SwayVersion,
+    min_swayfx: Option<SwayFxVersion>,
+    criteria: Option<Criteria>,
 }
 
 impl SwayCmd {
@@ -131,6 +135,8 @@ impl SwayCmd {
             parts: vec![Part::Keyword(name)],
             availability: Availability::Anywhere,
             min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
+            criteria: None,
         }
     }
 
@@ -147,19 +153,8 @@ impl SwayCmd {
     /// ([`CommandError::NestedCriteria`]) and must work at runtime
     /// ([`CommandError::Unavailable`]).
     pub fn for_window(criteria: Criteria, command: Self) -> Result<Self, CommandError> {
-        if command
-            .parts
-            .iter()
-            .any(|part| matches!(part, Part::Criteria(_) | Part::Command(_)))
-        {
-            return Err(CommandError::NestedCriteria);
-        }
-        if command.availability == Availability::ConfigOnly {
-            return Err(CommandError::Unavailable {
-                target: Target::Ipc,
-            });
-        }
-        let min_sway = command.min_sway;
+        command.check_inner()?;
+        let (min_sway, min_swayfx) = (command.min_sway, command.min_swayfx);
         Ok(Self {
             parts: vec![
                 Part::Keyword("for_window"),
@@ -168,7 +163,44 @@ impl SwayCmd {
             ],
             availability: Availability::Anywhere,
             min_sway,
+            min_swayfx,
+            criteria: None,
         })
+    }
+
+    /// `<criteria> <command>`: runs `command` now on every open window that matches `criteria`,
+    /// e.g. `[app_id="^firefox\z"] opacity 0.8`. Only works over IPC; sway reports a failure if no
+    /// window matches.
+    ///
+    /// # Errors
+    ///
+    /// Like [`SwayCmd::for_window`]: the command can't contain criteria or `for_window`, and must
+    /// work at runtime.
+    pub fn with_criteria(criteria: Criteria, command: Self) -> Result<Self, CommandError> {
+        command.check_inner()?;
+        Ok(Self {
+            availability: Availability::RuntimeOnly,
+            criteria: Some(criteria),
+            ..command
+        })
+    }
+
+    /// Checks that `self` can run inside `for_window` or after leading criteria.
+    fn check_inner(&self) -> Result<(), CommandError> {
+        if self.criteria.is_some()
+            || self
+                .parts
+                .iter()
+                .any(|part| matches!(part, Part::Criteria(_) | Part::Command(_)))
+        {
+            return Err(CommandError::NestedCriteria);
+        }
+        if self.availability == Availability::ConfigOnly {
+            return Err(CommandError::Unavailable {
+                target: Target::Ipc,
+            });
+        }
+        Ok(())
     }
 
     /// Appends a keyword, e.g. `tap` or `type:touchpad`. Only ASCII letters, digits and `_ . : * +
@@ -247,6 +279,22 @@ impl SwayCmd {
         self.min_sway
     }
 
+    /// Records that the command only works on SwayFX, at least `version`. Keeps the higher
+    /// requirement if one is already set.
+    #[must_use]
+    pub fn requires_swayfx(mut self, version: SwayFxVersion) -> Self {
+        self.min_swayfx = Some(
+            self.min_swayfx
+                .map_or(version, |current| current.max(version)),
+        );
+        self
+    }
+
+    /// The oldest SwayFX that understands the command, or `None` if vanilla sway does too.
+    pub fn min_swayfx(&self) -> Option<SwayFxVersion> {
+        self.min_swayfx
+    }
+
     /// Renders the command for `target`.
     ///
     /// # Errors
@@ -262,10 +310,15 @@ impl SwayCmd {
             }
             _ => {}
         }
-        self.render_as(match target {
+        let command = self.render_as(match target {
             Target::Ipc => Rendering::Ipc,
             Target::Config => Rendering::Config,
-        })
+        })?;
+        match &self.criteria {
+            Some(criteria) if criteria.is_empty() => Err(CommandError::EmptyCriteria),
+            Some(criteria) => Ok(format!("{} {command}", criteria.render(target))),
+            None => Ok(command),
+        }
     }
 
     fn render_as(&self, rendering: Rendering) -> Result<String, CommandError> {
@@ -354,7 +407,7 @@ pub enum CommandError {
     NotFinite,
     /// Criteria have no match.
     EmptyCriteria,
-    /// The inner command of `for_window` contains criteria or another `for_window`.
+    /// The command of `for_window` or after leading criteria contains criteria or `for_window`.
     NestedCriteria,
     /// A command whose arguments sway doesn't unquote has a text argument.
     TextKeepsQuotes {
@@ -376,7 +429,7 @@ impl fmt::Display for CommandError {
             Self::NotFinite => f.write_str("number is not finite"),
             Self::EmptyCriteria => f.write_str("criteria have no match"),
             Self::NestedCriteria => {
-                f.write_str("the command of for_window can't contain criteria or for_window")
+                f.write_str("a command after criteria can't contain criteria or for_window")
             }
             Self::TextKeepsQuotes { command } => write!(f, "{command} can't take a text argument"),
         }
@@ -384,3 +437,37 @@ impl fmt::Display for CommandError {
 }
 
 impl std::error::Error for CommandError {}
+
+/// A number is outside the range sway accepts (or NaN).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OutOfRange {
+    /// The option, e.g. `pointer_accel`.
+    pub option: &'static str,
+    /// The smallest accepted value.
+    pub min: f64,
+    /// The largest accepted value.
+    pub max: f64,
+}
+
+impl OutOfRange {
+    /// Checks that `value` is within `min ..= max`.
+    pub(crate) fn check(option: &'static str, value: f64, min: f64, max: f64) -> Result<(), Self> {
+        if (min..=max).contains(&value) {
+            Ok(())
+        } else {
+            Err(Self { option, min, max })
+        }
+    }
+}
+
+impl fmt::Display for OutOfRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} must be between {} and {}",
+            self.option, self.min, self.max
+        )
+    }
+}
+
+impl std::error::Error for OutOfRange {}

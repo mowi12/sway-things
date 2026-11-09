@@ -232,22 +232,36 @@ So `SwayCmd::render` has two targets:
 - **`for_window`:** sway stores the inner command and parses it again, like an IPC command, when a window appears. So
   its text is quoted twice over IPC, and its `$` doubled twice in a config line. The inner command can't contain
   criteria or another `for_window`.
+- **Leading criteria:** `SwayCmd::with_criteria` builds `[app_id="…"] opacity 0.8`, which applies a command to open
+  windows. It only works over IPC, and sway reports a failure if no window matches. Per-app settings use it for the live
+  change and `for_window` for windows that open later.
 - **Availability:** some commands work only in config files (`xwayland`, `xkb_numlock`), others only over IPC. While
   sway reads the config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later runs
   them through the IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
 - **Minimum version:** a command records the oldest sway that understands it (`SwayCmd::min_sway`, by default sway
-  1.10). Rendering doesn't check it; the registry compares it with the running sway, or SwayFX's base version.
+  1.10), and for SwayFX directives the oldest SwayFX (`SwayCmd::min_swayfx`, `None` if vanilla sway understands it).
+  Rendering doesn't check either; the registry compares them with the running compositor (SwayFX by its base sway
+  version for `min_sway`).
 
-On top of `SwayCmd`, typed builders cover the directives of each page: `command::input` builds `input <identifier> …`
-for every device (`*`), a device type (`type:touchpad`) or one device by its `GET_INPUTS` identifier, with an enum per
-set of values and range checks on numbers (`pointer_accel` −1 … 1, `scroll_factor` ≥ 0). `drag_lock enabled_sticky`
-needs sway 1.11, and a sway built against a libinput that supports it; otherwise sway reads it as `disabled` without an
-error.
+On top of `SwayCmd`, typed builders cover the directives of each page, with an enum per set of values and range checks
+on numbers taken from sway's and SwayFX's own checks:
+
+- `command::input` builds `input <identifier> …` for every device (`*`), a device type (`type:touchpad`) or one device
+  by its `GET_INPUTS` identifier. `drag_lock enabled_sticky` needs sway 1.11, and a sway built against a libinput that
+  supports it; otherwise sway reads it as `disabled` without an error.
+- `command::window` builds colors (`client.*`; sway ignores `client.background` and `client.placeholder`, so they have
+  no builder), borders, gaps, the title bar and `opacity`. `gaps <which> <px>` only changes the default for new
+  workspaces, and `gaps <which> all|current set <px>` (runtime-only) only open workspaces, including those with gaps of
+  their own from `workspace <name> gaps`; the registry combines them. sway rejects a title bar padding below the border
+  thickness and a thickness above the vertical padding, so the order of those two commands matters.
+- `command::effects` builds the SwayFX effects with the names and ranges of SwayFX 0.5; `animation_duration_ms` needs
+  SwayFX 0.6. `corner_radius` raises the horizontal title bar padding to at least the radius.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
 arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)
 go to real sway 1.10, sway latest and SwayFX: every generated config file must pass `sway --validate` on its own, every
-IPC command must succeed, and the escaping fixtures read every value back.
+IPC command must succeed, and the escaping fixtures read every value back. Fixtures marked `# Needs SwayFX.` only run on
+SwayFX.
 
 ## Reading the current state
 
@@ -352,8 +366,8 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 - `GET_VERSION` tells sway from SwayFX and gives the version. Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and
   **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1, 0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
 - Registry entries carry `min_sway(...)` / `swayfx_only()`, and every built command its minimum sway version (some
-  values need a newer sway than their directive). Controls the running compositor doesn't support show as disabled with
-  a reason, instead of disappearing.
+  values need a newer sway than their directive) and, for SwayFX directives, its minimum SwayFX version. Controls the
+  running compositor doesn't support show as disabled with a reason, instead of disappearing.
 - SwayFX settings go to `90-effects.conf`, which is written only while SwayFX runs.
 
 ## Security model

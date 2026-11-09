@@ -8,6 +8,7 @@ use super::model::{self, Bytes, Parsed};
 use super::{
     BoolStyle, Color, CommandError, Criteria, CriteriaKey, SwayCmd, SwayText, Target, TextError,
 };
+use crate::version::SwayFxVersion;
 
 fn text(value: &str) -> SwayText {
     SwayText::new(value).unwrap()
@@ -351,6 +352,31 @@ fn for_window_rejects_what_sway_would_parse_again() {
     assert_eq!(empty.render(Target::Ipc), Err(CommandError::EmptyCriteria));
 }
 
+#[test]
+fn leading_criteria_render_over_ipc_only() {
+    let criteria = Criteria::new().exact(CriteriaKey::AppId, "org.gnome.Nautilus");
+    let cmd = SwayCmd::with_criteria(criteria, SwayCmd::new("opacity").float(0.8)).unwrap();
+    assert_eq!(
+        cmd.render(Target::Ipc).unwrap(),
+        r#"[app_id="^org\x{2e}gnome\x{2e}Nautilus\z"] opacity 0.8"#
+    );
+    assert_eq!(
+        cmd.render(Target::Config),
+        Err(CommandError::Unavailable {
+            target: Target::Config
+        })
+    );
+    let criteria = || Criteria::new().exact(CriteriaKey::AppId, "x");
+    let twice = SwayCmd::with_criteria(criteria(), cmd.clone());
+    assert_eq!(twice, Err(CommandError::NestedCriteria));
+    assert_eq!(
+        SwayCmd::for_window(criteria(), cmd),
+        Err(CommandError::NestedCriteria)
+    );
+    let empty = SwayCmd::with_criteria(Criteria::new(), SwayCmd::new("kill")).unwrap();
+    assert_eq!(empty.render(Target::Ipc), Err(CommandError::EmptyCriteria));
+}
+
 // --- Round trips through the model ---
 
 const SPECIAL_CHARS: &[char] = &[
@@ -430,6 +456,23 @@ proptest! {
     }
 
     #[test]
+    fn leading_criteria_and_text_arrive_unchanged(app_id in any_value(), mark in sway_text()) {
+        let criteria = Criteria::new().exact(CriteriaKey::AppId, app_id.clone());
+        let inner = SwayCmd::new("mark").keyword("--add").text(mark.clone());
+        let cmd = SwayCmd::with_criteria(criteria, inner).unwrap();
+        let rendered = cmd.render(Target::Ipc).unwrap();
+        let commands = model::execute_command(rendered.as_bytes()).map_err(TestCaseError::fail)?;
+        prop_assert_eq!(commands.len(), 1);
+        let Some(pairs) = &commands[0].criteria else {
+            return Err(TestCaseError::fail("criteria missing"));
+        };
+        prop_assert_eq!(strings(&commands[0].argv), ["mark", "--add", mark.as_str()]);
+        prop_assert_eq!(pairs.len(), 1);
+        let regex = Regex::new(std::str::from_utf8(&pairs[0].1).unwrap()).unwrap();
+        prop_assert!(regex.is_match(&app_id));
+    }
+
+    #[test]
     fn for_window_text_arrives_unchanged(
         target in target(),
         first in sway_text(),
@@ -444,4 +487,18 @@ proptest! {
         let (_, inner) = for_window_parts(target, &cmd.render(target).unwrap());
         prop_assert_eq!(inner, ["mark", first.as_str(), "--add", second.as_str()]);
     }
+}
+
+#[test]
+fn swayfx_requirement_keeps_the_highest_version() {
+    let plain = SwayCmd::new("opacity").float(0.5);
+    assert_eq!(plain.min_swayfx(), None);
+    let effect = SwayCmd::new("blur")
+        .keyword("enable")
+        .requires_swayfx(SwayFxVersion::new(0, 6, 0))
+        .requires_swayfx(SwayFxVersion::OLDEST_SUPPORTED);
+    assert_eq!(effect.min_swayfx(), Some(SwayFxVersion::new(0, 6, 0)));
+    let criteria = Criteria::new().exact(CriteriaKey::AppId, "x");
+    let wrapped = SwayCmd::for_window(criteria, effect).unwrap();
+    assert_eq!(wrapped.min_swayfx(), Some(SwayFxVersion::new(0, 6, 0)));
 }
