@@ -9,6 +9,7 @@
 //! commands and config lines differently, so the two targets render the same value differently. The
 //! rules are described in the wiki (Architecture → Sway command builders).
 
+pub mod behavior;
 mod color;
 mod criteria;
 pub mod effects;
