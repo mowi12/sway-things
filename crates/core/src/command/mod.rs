@@ -17,6 +17,7 @@ mod model;
 #[cfg(test)]
 mod tests;
 mod text;
+pub mod window;
 
 use std::fmt;
 
