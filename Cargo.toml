@@ -24,3 +24,7 @@ panic = "deny"
 todo = "deny"
 dbg_macro = "deny"
 allow_attributes_without_reason = "deny"
+
+[workspace.dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
+regex = "1"
