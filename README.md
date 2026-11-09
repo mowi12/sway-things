@@ -25,8 +25,8 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
   revert after 15 seconds unless you press _Keep_.
 - **Transparent.** See every file the app generates, which of your own config lines conflict with a setting, and reset
   any setting to its default.
-- **Made for sway.** Built for sway and SwayFX, not ported from another desktop. It follows your GTK theme, and its
-  accent color is your sway focus color.
+- **Made for sway.** Built for sway and SwayFX, not ported from another desktop. It follows your GTK theme (light or
+  dark), and its accent color is your sway focus color.
 - **No root, no daemon.** It runs as your user. System changes go through polkit, and nothing keeps running in the
   background.
 - **Shareable.** One settings file you can keep in your dotfiles, with optional per-machine overrides.
