@@ -19,6 +19,8 @@ mod text;
 
 use std::fmt;
 
+use crate::version::SwayVersion;
+
 pub use color::{Color, ColorError};
 pub use criteria::{Criteria, CriteriaKey};
 pub use text::{SwayText, TextError};
@@ -118,6 +120,7 @@ enum Part {
 pub struct SwayCmd {
     parts: Vec<Part>,
     availability: Availability,
+    min_sway: SwayVersion,
 }
 
 impl SwayCmd {
@@ -126,6 +129,7 @@ impl SwayCmd {
         Self {
             parts: vec![Part::Keyword(name)],
             availability: Availability::Anywhere,
+            min_sway: SwayVersion::OLDEST_SUPPORTED,
         }
     }
 
@@ -154,6 +158,7 @@ impl SwayCmd {
                 target: Target::Ipc,
             });
         }
+        let min_sway = command.min_sway;
         Ok(Self {
             parts: vec![
                 Part::Keyword("for_window"),
@@ -161,6 +166,7 @@ impl SwayCmd {
                 Part::Command(Box::new(command)),
             ],
             availability: Availability::Anywhere,
+            min_sway,
         })
     }
 
@@ -223,6 +229,21 @@ impl SwayCmd {
     /// Where the command can be used.
     pub fn availability(&self) -> Availability {
         self.availability
+    }
+
+    /// Records that the command needs at least `version`, e.g. because of a value that older
+    /// versions don't know. Rendering doesn't check it; whoever applies the command compares it
+    /// with the running sway. Keeps the higher requirement if one is already set.
+    #[must_use]
+    pub fn requires_sway(mut self, version: SwayVersion) -> Self {
+        self.min_sway = self.min_sway.max(version);
+        self
+    }
+
+    /// The oldest sway that understands the command
+    /// ([`SwayVersion::OLDEST_SUPPORTED`] unless raised with [`SwayCmd::requires_sway`]).
+    pub fn min_sway(&self) -> SwayVersion {
+        self.min_sway
     }
 
     /// Renders the command for `target`.
