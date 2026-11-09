@@ -171,9 +171,11 @@ copy button). Alternatively the user deletes or renames their own file, and we c
    (`RUN_COMMAND`) → instant effect.
 3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
 4. The generators regenerate the affected files:
-   - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files →
-     atomic rename. This works without a running session (checked with sway 1.12); errors are reported per file and
-     line, so they can be mapped back to settings;
+   - write to a temp file → `sway --validate -c <staged file>` for each staged file → atomic rename. Each file is
+     validated as a main config of its own: sway ignores errors in included files (`cmd_include` in sway 1.10 – 1.12),
+     and `--validate` only reports the main file, so a wrapper config that includes the staged files would always pass.
+     This works without a running session (checked with sway 1.12); errors are reported per line, so they can be mapped
+     back to settings;
    - update the hash in `manifest.toml`.
 5. Conflict detection re-runs for that setting and updates the indicators.
 
