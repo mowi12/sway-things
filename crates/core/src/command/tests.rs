@@ -8,6 +8,7 @@ use super::model::{self, Bytes, Parsed};
 use super::{
     BoolStyle, Color, CommandError, Criteria, CriteriaKey, SwayCmd, SwayText, Target, TextError,
 };
+use crate::version::SwayFxVersion;
 
 fn text(value: &str) -> SwayText {
     SwayText::new(value).unwrap()
@@ -444,4 +445,18 @@ proptest! {
         let (_, inner) = for_window_parts(target, &cmd.render(target).unwrap());
         prop_assert_eq!(inner, ["mark", first.as_str(), "--add", second.as_str()]);
     }
+}
+
+#[test]
+fn swayfx_requirement_keeps_the_highest_version() {
+    let plain = SwayCmd::new("opacity").float(0.5);
+    assert_eq!(plain.min_swayfx(), None);
+    let effect = SwayCmd::new("blur")
+        .keyword("enable")
+        .requires_swayfx(SwayFxVersion::new(0, 6, 0))
+        .requires_swayfx(SwayFxVersion::OLDEST_SUPPORTED);
+    assert_eq!(effect.min_swayfx(), Some(SwayFxVersion::new(0, 6, 0)));
+    let criteria = Criteria::new().exact(CriteriaKey::AppId, "x");
+    let wrapped = SwayCmd::for_window(criteria, effect).unwrap();
+    assert_eq!(wrapped.min_swayfx(), Some(SwayFxVersion::new(0, 6, 0)));
 }

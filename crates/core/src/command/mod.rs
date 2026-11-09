@@ -20,7 +20,7 @@ mod text;
 
 use std::fmt;
 
-use crate::version::SwayVersion;
+use crate::version::{SwayFxVersion, SwayVersion};
 
 pub use color::{Color, ColorError};
 pub use criteria::{Criteria, CriteriaKey};
@@ -122,6 +122,7 @@ pub struct SwayCmd {
     parts: Vec<Part>,
     availability: Availability,
     min_sway: SwayVersion,
+    min_swayfx: Option<SwayFxVersion>,
 }
 
 impl SwayCmd {
@@ -131,6 +132,7 @@ impl SwayCmd {
             parts: vec![Part::Keyword(name)],
             availability: Availability::Anywhere,
             min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
         }
     }
 
@@ -159,7 +161,7 @@ impl SwayCmd {
                 target: Target::Ipc,
             });
         }
-        let min_sway = command.min_sway;
+        let (min_sway, min_swayfx) = (command.min_sway, command.min_swayfx);
         Ok(Self {
             parts: vec![
                 Part::Keyword("for_window"),
@@ -168,6 +170,7 @@ impl SwayCmd {
             ],
             availability: Availability::Anywhere,
             min_sway,
+            min_swayfx,
         })
     }
 
@@ -245,6 +248,22 @@ impl SwayCmd {
     /// ([`SwayVersion::OLDEST_SUPPORTED`] unless raised with [`SwayCmd::requires_sway`]).
     pub fn min_sway(&self) -> SwayVersion {
         self.min_sway
+    }
+
+    /// Records that the command only works on SwayFX, at least `version`. Keeps the higher
+    /// requirement if one is already set.
+    #[must_use]
+    pub fn requires_swayfx(mut self, version: SwayFxVersion) -> Self {
+        self.min_swayfx = Some(
+            self.min_swayfx
+                .map_or(version, |current| current.max(version)),
+        );
+        self
+    }
+
+    /// The oldest SwayFX that understands the command, or `None` if vanilla sway does too.
+    pub fn min_swayfx(&self) -> Option<SwayFxVersion> {
+        self.min_swayfx
     }
 
     /// Renders the command for `target`.
