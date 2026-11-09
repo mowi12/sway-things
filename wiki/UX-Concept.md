@@ -147,6 +147,9 @@ For tools with include support (sway, kanshi), the flow is the same as the first
 ## Theming
 
 - Follows the user's **GTK theme**, **system font** and **dark/light preference**.
+- **Light and dark are both required.** Every page, dialog, banner and indicator is designed and checked in both, and
+  switches live when the preference changes. Our own CSS uses theme colors (named colors or the theme's tokens), never
+  hard-coded light or dark values, so a custom GTK theme keeps working.
 - **Accent = sway's focus color** (`client.focused` child border, default `#285577`). Changing it on the Windows page
   recolors the app live. An app preference switches back to the theme's accent.
 - **App preferences** (accent source, safety-net timeout, editor command, show sway directives) are a "Sway Things"
@@ -163,4 +166,5 @@ inactive) and the live window preview renders those effects. The Bar and Notific
 
 - Every control has an accessible name (AT-SPI via GTK); icon-only buttons get labels.
 - Full keyboard operation, visible focus, no information carried by color alone (indicators have icons and text).
+- Text and indicator contrast meets WCAG AA (4.5:1) in light **and** dark, including on the sway accent color.
 - Respects text scaling and the user's font.
