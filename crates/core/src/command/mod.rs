@@ -11,6 +11,7 @@
 
 mod color;
 mod criteria;
+pub mod effects;
 pub mod input;
 #[cfg(test)]
 mod model;
