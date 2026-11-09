@@ -5,7 +5,7 @@ use super::{
     AccelProfile, ButtonMap, ClickMethod, DragLock, Input, InputError, InputSelector, InputType,
     ScrollButton, ScrollMethod, SendEvents, XkbSwitch,
 };
-use crate::command::{CommandError, Criteria, CriteriaKey, SwayCmd, Target, TextError};
+use crate::command::{CommandError, Criteria, CriteriaKey, OutOfRange, SwayCmd, Target, TextError};
 use crate::version::SwayVersion;
 
 fn touchpad() -> Input {
@@ -237,11 +237,11 @@ fn numbers_are_range_checked() {
     for speed in [-1.01, 1.01, f64::NAN, f64::INFINITY] {
         assert_eq!(
             t.pointer_accel(speed),
-            Err(InputError::OutOfRange {
+            Err(InputError::OutOfRange(OutOfRange {
                 option: "pointer_accel",
                 min: -1.0,
                 max: 1.0
-            }),
+            })),
             "{speed}"
         );
     }
@@ -249,10 +249,10 @@ fn numbers_are_range_checked() {
         assert!(
             matches!(
                 t.scroll_factor(factor),
-                Err(InputError::OutOfRange {
+                Err(InputError::OutOfRange(OutOfRange {
                     option: "scroll_factor",
                     ..
-                })
+                }))
             ),
             "{factor}"
         );

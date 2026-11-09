@@ -21,7 +21,7 @@
 
 use std::fmt;
 
-use super::{BoolStyle, SwayCmd, SwayText, TextError};
+use super::{BoolStyle, OutOfRange, SwayCmd, SwayText, TextError};
 use crate::version::SwayVersion;
 
 /// A device type, for `type:<type>` selectors.
@@ -218,7 +218,7 @@ impl Input {
     ///
     /// [`InputError::OutOfRange`] outside -1.0 … 1.0 or for NaN.
     pub fn pointer_accel(&self, speed: f64) -> Result<SwayCmd, InputError> {
-        check_range("pointer_accel", speed, -1.0, 1.0)?;
+        OutOfRange::check("pointer_accel", speed, -1.0, 1.0)?;
         Ok(self.command("pointer_accel").float(speed))
     }
 
@@ -242,7 +242,7 @@ impl Input {
     /// [`InputError::OutOfRange`] for negative values, NaN, or values sway can't store as a 32-bit
     /// float.
     pub fn scroll_factor(&self, factor: f64) -> Result<SwayCmd, InputError> {
-        check_range("scroll_factor", factor, 0.0, f64::from(f32::MAX))?;
+        OutOfRange::check("scroll_factor", factor, 0.0, f64::from(f32::MAX))?;
         Ok(self.command("scroll_factor").float(factor))
     }
 
@@ -446,26 +446,11 @@ const fn button_map(map: ButtonMap) -> &'static str {
     }
 }
 
-fn check_range(option: &'static str, value: f64, min: f64, max: f64) -> Result<(), InputError> {
-    if (min..=max).contains(&value) {
-        Ok(())
-    } else {
-        Err(InputError::OutOfRange { option, min, max })
-    }
-}
-
 /// Why an `input` command can't be built.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputError {
     /// A number is outside the range sway accepts (or NaN).
-    OutOfRange {
-        /// The option, e.g. `pointer_accel`.
-        option: &'static str,
-        /// The smallest accepted value.
-        min: f64,
-        /// The largest accepted value.
-        max: f64,
-    },
+    OutOfRange(OutOfRange),
     /// The string isn't a device identifier of the form `<vendor>:<product>:<name>`.
     NotADeviceIdentifier,
     /// An XKB list is empty.
@@ -491,6 +476,12 @@ pub enum InputError {
     Text(TextError),
 }
 
+impl From<OutOfRange> for InputError {
+    fn from(error: OutOfRange) -> Self {
+        Self::OutOfRange(error)
+    }
+}
+
 impl From<TextError> for InputError {
     fn from(error: TextError) -> Self {
         Self::Text(error)
@@ -500,9 +491,7 @@ impl From<TextError> for InputError {
 impl fmt::Display for InputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::OutOfRange { option, min, max } => {
-                write!(f, "{option} must be between {min} and {max}")
-            }
+            Self::OutOfRange(error) => error.fmt(f),
             Self::NotADeviceIdentifier => {
                 f.write_str("expected a device identifier like 1133:16500:Logitech_G305")
             }
@@ -521,6 +510,7 @@ impl fmt::Display for InputError {
 impl std::error::Error for InputError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::OutOfRange(error) => Some(error),
             Self::Text(error) => Some(error),
             _ => None,
         }

@@ -384,3 +384,37 @@ impl fmt::Display for CommandError {
 }
 
 impl std::error::Error for CommandError {}
+
+/// A number is outside the range sway accepts (or NaN).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OutOfRange {
+    /// The option, e.g. `pointer_accel`.
+    pub option: &'static str,
+    /// The smallest accepted value.
+    pub min: f64,
+    /// The largest accepted value.
+    pub max: f64,
+}
+
+impl OutOfRange {
+    /// Checks that `value` is within `min ..= max`.
+    pub(crate) fn check(option: &'static str, value: f64, min: f64, max: f64) -> Result<(), Self> {
+        if (min..=max).contains(&value) {
+            Ok(())
+        } else {
+            Err(Self { option, min, max })
+        }
+    }
+}
+
+impl fmt::Display for OutOfRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} must be between {} and {}",
+            self.option, self.min, self.max
+        )
+    }
+}
+
+impl std::error::Error for OutOfRange {}
