@@ -14,7 +14,7 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 | Page | What it covers |
 | --- | --- |
 | [Vision & Scope](Vision-and-Scope.md) | Problem, target users, goals, non-goals, prior art |
-| [Architecture](Architecture.md) | Crates, settings registry, state files, generators, parser, conflicts, backends, CLI, security, testing, packaging |
+| [Architecture](Architecture.md) | Crates, settings registry, state files, generators, command builders, parser, conflicts, backends, CLI, security, testing, packaging |
 | [UX Concept](UX-Concept.md) | Window layout, navigation, search, apply model, indicators, first run, theming |
 | [Roadmap](Roadmap.md) | v0.1 scope and what comes after |
 | [Feature Catalog](Feature-Catalog.md) | The complete feature scope, per page, unordered |

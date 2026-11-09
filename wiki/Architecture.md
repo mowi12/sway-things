@@ -167,7 +167,8 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 ### Changing a normal setting
 
 1. The user flips a toggle (or runs `sway-things set …`).
-2. The core builds the sway command with the **typed builder** and sends it over IPC (`RUN_COMMAND`) → instant effect.
+2. The core builds the sway command with the [**typed builder**](#sway-command-builders) and sends it over IPC
+   (`RUN_COMMAND`) → instant effect.
 3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
 4. The generators regenerate the affected files:
    - write to a temp file → `sway --validate -c <wrapper>` on a wrapper config that includes only the staged files →
@@ -197,6 +198,45 @@ countdown, and saves only on `y`. Without a TTY it refuses unless `--yes` is giv
 | tool reload | kanshi, waybar, swaync | `kanshictl reload`, `SIGUSR2` to waybar, `swaync-client -R`, … |
 | re-login | environment.d | persist + "takes effect after re-login" badge |
 | risky | see above | live + safety net, persist on _Keep_ |
+
+## Sway command builders
+
+Every sway command, sent over IPC or written into a generated file, is a `SwayCmd` from `crates/core/src/command/`. A
+command is a list of typed parts: keywords (static strings from our code, only ASCII letters, digits and `_ . : * + -`),
+integers, finite decimals, booleans in the directive's spelling (`enabled`, `yes`, `on`, …), colors (`#rrggbb`,
+`#rrggbbaa`), text and criteria. External strings only enter as `SwayText` or as criteria values, never as a raw string.
+
+sway parses IPC commands and config lines differently (`execute_command` and `config_command` in `sway/commands.c`,
+helpers in `common/stringop.c`; unchanged from 1.10 to 1.12):
+
+| | IPC (`RUN_COMMAND`) | Config line |
+| --- | --- | --- |
+| Command separators | `;` and `,` outside quotes | none, one command per line |
+| `$variables` | replaced in each argument, after unquoting | replaced in the whole line, before unquoting |
+| Quotes | stripped from arguments that start with one (not for `exec`, `mode`) | the same (also not for `bindsym`, `set`, `for_window`, …) |
+| Backslashes | kept, but still escape the next quote | unescaped (`\"`, `\\`, `\n`, …) |
+
+So `SwayCmd::render` has two targets:
+
+- **Text over IPC:** quoted with `"`, or with `'` around a run that contains `"`; every `$` is doubled.
+  `Dell "U2415" $1` becomes `'Dell "U2415" $$1'`.
+- **Text in a config line:** quoted with `"`, inner `"` become `\"`, every `$` is doubled: `"Dell \"U2415\" $$1"`.
+- **What text can't contain:** `SwayText` rejects empty text, control characters (they end a config line or change how
+  sway splits it) and backslashes. sway's IPC splitter keeps its escape flag across `\'` and then misreads the next
+  quote, so a backslash next to a quote can't be represented reliably.
+- **Criteria** match exactly. Each value becomes an anchored PCRE2 regex `^…\z` in which every character except ASCII
+  letters, digits and `_` is written as `\x{hex}`, so criteria never contain a quote, `$`, `]` or whitespace. Config
+  lines double the backslashes, because sway unescapes them.
+- **`for_window`:** sway stores the inner command and parses it again, like an IPC command, when a window appears. So
+  its text is quoted twice over IPC, and its `$` doubled twice in a config line. The inner command can't contain
+  criteria or another `for_window`.
+- **Availability:** some commands work only in config files (`xwayland`), others only over IPC. While sway reads the
+  config it defers commands such as `xkb_switch_layout`, `focus` and `workspace <name>` and later runs them through the
+  IPC parser, so their builders are runtime-only. Rendering for the wrong target is an error.
+
+A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
+arrives unchanged in both targets. The integration test feeds generated fixtures (`ci/integration/escaping*`) to real
+sway 1.10, sway latest and SwayFX and reads every value back.
 
 ## Reading the current state
 
@@ -349,10 +389,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | registry invariants, state merge (shared + overlay), command builders and escaping |
+| Unit | registry invariants, state merge (shared + overlay), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX) |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); hostile strings from the command builders, set as bar IDs from a config and as seat names over IPC, come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging

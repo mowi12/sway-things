@@ -12,7 +12,7 @@ Milestones on GitHub correspond to releases.
 
 - [ ] Settings registry with the first entries
 - [ ] State: `settings.toml` + host overlay + `[app]` preferences, file watcher, schema version, history snapshots
-- [ ] Typed sway command builders with escaping
+- [x] Typed sway command builders with escaping
 - [ ] IPC client (async-io based): run command, `get_*`, event subscriptions; sway vs. SwayFX detection
 - [ ] Generators with header, manifest hashes, atomic writes, `sway --validate`
 - [ ] Sway config parser (includes, variables, blocks, file:line) + conflict detection
