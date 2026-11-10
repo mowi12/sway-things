@@ -15,6 +15,7 @@ use async_process::Command;
 
 use super::{GeneratedFile, Manifest, Ownership, Source};
 use crate::atomic;
+use crate::ipc::Compositor;
 use crate::registry::ConfigFile;
 use crate::state::{PathsError, xdg_dir};
 
@@ -108,6 +109,26 @@ impl SwayValidator {
         Self {
             program: program.into(),
         }
+    }
+}
+
+impl SwayValidator {
+    /// The compositor this binary is, from `sway --version`: the one to generate for when no
+    /// session is running to ask over IPC. `None` if the output isn't a version of sway or
+    /// SwayFX.
+    ///
+    /// # Errors
+    ///
+    /// The I/O error if the binary can't be run.
+    pub async fn compositor(&self) -> io::Result<Option<Compositor>> {
+        let output = Command::new(&self.program)
+            .arg("--version")
+            .stdin(Stdio::null())
+            .output()
+            .await?;
+        Ok(Compositor::from_version_output(&String::from_utf8_lossy(
+            &output.stdout,
+        )))
     }
 }
 

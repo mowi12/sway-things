@@ -96,6 +96,36 @@ impl Compositor {
         Ok(())
     }
 
+    /// Reads the compositor from the output of `sway --version`: `sway version 1.10.1`, or
+    /// `swayfx version 0.5.3 (based on sway 1.11.0)`. A development build has more after the
+    /// number (`1.12-dev-2a2a8ad (…)`), which is ignored.
+    ///
+    /// This is the compositor that is installed, for when none is running to ask over IPC.
+    pub fn from_version_output(output: &str) -> Option<Self> {
+        /// The version number at the start of `text`.
+        fn number(text: &str) -> &str {
+            let end = text
+                .find(|char: char| !char.is_ascii_digit() && char != '.')
+                .unwrap_or(text.len());
+            text[..end].trim_end_matches('.')
+        }
+        let line = output.lines().next()?.trim();
+        if let Some(rest) = line.strip_prefix("swayfx version ") {
+            let (_, base) = rest.split_once("(based on sway ")?;
+            // Older SwayFX wrote "based on sway version".
+            let base = base.strip_prefix("version ").unwrap_or(base);
+            Some(Self::SwayFx {
+                version: number(rest).parse().ok()?,
+                base: number(base).parse().ok()?,
+            })
+        } else {
+            let version = number(line.strip_prefix("sway version ")?);
+            Some(Self::Sway {
+                version: version.parse().ok()?,
+            })
+        }
+    }
+
     /// Reads the compositor from the reply to `GET_VERSION`.
     pub(super) fn from_reply(reply: &VersionReply) -> Result<Self, InvalidVersion> {
         let number = |number: i64| u16::try_from(number).map_err(|_| InvalidVersion);
@@ -229,6 +259,49 @@ mod tests {
         assert_eq!(swayfx.swayfx_version(), Some(SwayFxVersion::new(0, 5, 3)));
         assert!(swayfx.is_swayfx());
         assert_eq!(swayfx.to_string(), "SwayFX 0.5.3 (based on sway 1.11)");
+    }
+
+    #[test]
+    fn the_installed_compositor_is_read_from_sway_version() {
+        let read = Compositor::from_version_output;
+        assert_eq!(read("sway version 1.10.1\n"), Some(SWAY_1_10));
+        assert_eq!(
+            read("sway version 1.12"),
+            Some(Compositor::Sway {
+                version: SwayVersion::new(1, 12, 0)
+            })
+        );
+        assert_eq!(
+            read("sway version 1.12-dev-2a2a8ad (Nov  7 2026, branch 'master')\n"),
+            Some(Compositor::Sway {
+                version: SwayVersion::new(1, 12, 0)
+            })
+        );
+        assert_eq!(
+            read("swayfx version 0.6 (based on sway 1.12.0)\n"),
+            Some(Compositor::SwayFx {
+                version: SwayFxVersion::new(0, 6, 0),
+                base: SwayVersion::new(1, 12, 0)
+            })
+        );
+        assert_eq!(
+            read("swayfx version 0.5.3-1a2b3c4 (Nov  7 2026) (based on sway version 1.11.0)"),
+            Some(Compositor::SwayFx {
+                version: SwayFxVersion::new(0, 5, 3),
+                base: SwayVersion::new(1, 11, 0)
+            })
+        );
+        for output in [
+            "",
+            "sway",
+            "sway version",
+            "sway version dev",
+            "swayfx version 0.6",
+            "swayfx version 0.6 (based on sway )",
+            "i3 version 4.23",
+        ] {
+            assert_eq!(read(output), None, "{output:?}");
+        }
     }
 
     #[test]

@@ -37,8 +37,10 @@ fn generated_files_pass_sway_and_are_written() -> Result<()> {
             &dir.path().join("config/sway/sway-things"),
             &dir.path().join("state"),
         );
-        // What runs decides what is generated: the effects only on SwayFX.
+        // What runs decides what is generated: the effects only on SwayFX. Without a session,
+        // the installed binary says the same.
         let compositor = Client::connect().await?.compositor();
+        assert_eq!(SwayValidator::new().compositor().await?, Some(compositor));
         let files = generate(Registry::builtin(), &state, compositor);
         let effects = &files[3];
         assert_eq!(
