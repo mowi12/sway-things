@@ -14,11 +14,13 @@ workspace = true
 [dependencies]
 async-channel.workspace = true
 async-io.workspace = true
+async-process.workspace = true
 futures-lite.workspace = true
 notify.workspace = true
 rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 swayipc-types.workspace = true
 toml_edit.workspace = true
 

@@ -96,7 +96,11 @@ impl Paths {
 
 /// The XDG base directory in `variable` if it is an absolute path (the specification says to
 /// ignore relative ones), else `fallback` in `$HOME`.
-fn xdg_dir(variable: Option<OsString>, home: Option<OsString>, fallback: &str) -> Option<PathBuf> {
+pub(crate) fn xdg_dir(
+    variable: Option<OsString>,
+    home: Option<OsString>,
+    fallback: &str,
+) -> Option<PathBuf> {
     let absolute = |dir: OsString| Some(PathBuf::from(dir)).filter(|dir| dir.is_absolute());
     variable
         .and_then(absolute)

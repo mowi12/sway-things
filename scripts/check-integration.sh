@@ -6,12 +6,14 @@
 # talks to it over IPC. SwayFX gets the SwayFX sample config. The fixtures that crates/core/tests/*_fixtures.rs generate
 # from the command builders plug in here: their .conf files are included from the sample config, every command in a
 # *-ipc.txt file must succeed, and the escaping fixtures check that hostile strings reach sway unchanged, from the
-# config and over IPC. Then the IPC client's own tests (crates/core/tests/ipc.rs) run against that sway.
+# config and over IPC. Then the tests that need a real sway run against it: the IPC client (crates/core/tests/ipc.rs)
+# and the write path of the generators (crates/core/tests/generate_sway.rs). The files generated from the sample settings
+# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
 #
 # Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
 # --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
 # The host's DRM render nodes are passed into the containers, because SwayFX needs one even to validate a config (CI
-# loads the vgem module for a virtual one). The images hold a Rust toolchain and build the IPC client's tests with
+# loads the vgem module for a virtual one). The images hold a Rust toolchain and build the tests that need sway with
 # --build when the image is built, so the tests are built on the system they run on.
 #
 # Usage: scripts/check-integration.sh [--container NAME|all | --build]
@@ -25,8 +27,8 @@ usage() {
   exit 2
 }
 
-# The IPC client's tests need a running sway, so a plain `cargo test` skips them.
-ipc_tests=(cargo test --locked --package sway-things-core --test ipc)
+# The tests that need a running sway, so a plain `cargo test` skips them.
+sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway)
 
 container=""
 build=false
@@ -40,7 +42,7 @@ esac
 cd "$(dirname "$0")/.."
 
 if $build; then
-  "${ipc_tests[@]}" --no-run
+  "${sway_tests[@]}" --no-run
   exit
 fi
 
@@ -129,6 +131,16 @@ for fixture in ci/integration/*.conf; do
   fi
 done
 
+# The files the generators make from the sample settings: those for sway everywhere, those for SwayFX only there.
+generated=(ci/integration/generated/sway/*.conf)
+if $swayfx; then
+  generated+=(ci/integration/generated/swayfx/*.conf)
+fi
+for file in "${generated[@]}"; do
+  echo "Validating $file"
+  sway --validate --config "$PWD/$file"
+done
+
 echo "Starting sway headless"
 sway --config "$config" >"$runtime/sway.log" 2>&1 &
 pid=$!
@@ -193,8 +205,8 @@ if [[ $actual != "$expected" ]]; then
   exit 1
 fi
 
-echo "Running the IPC client tests"
-SWAYSOCK=$socket SWAY_THINGS_SWAY_VERSION=$(sway --version) "${ipc_tests[@]}" -- --ignored
+echo "Running the tests that need sway"
+SWAYSOCK=$socket SWAY_THINGS_SWAY_VERSION=$(sway --version) "${sway_tests[@]}" -- --ignored
 
 # sway quits before it answers, so swaymsg reports an error; the exit status of sway itself counts.
 swaymsg --socket "$socket" exit >/dev/null 2>&1 || true

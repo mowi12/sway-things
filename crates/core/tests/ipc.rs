@@ -68,6 +68,28 @@ fn the_compositor_and_its_version_are_detected() -> Result<()> {
 
 #[test]
 #[ignore = "needs a running sway; run scripts/check-integration.sh"]
+fn many_clients_connect_at_once() -> Result<()> {
+    // More than sway queues before it accepts them.
+    let clients: Vec<_> = (0..32)
+        .map(|_| {
+            std::thread::spawn(|| {
+                run(async {
+                    let mut sway = Client::connect().await?;
+                    assert_eq!(sway.binding_state().await?, "default");
+                    Ok(())
+                })
+                .map_err(|error| error.to_string())
+            })
+        })
+        .collect();
+    for client in clients {
+        client.join().map_err(|_| "a client panicked")??;
+    }
+    Ok(())
+}
+
+#[test]
+#[ignore = "needs a running sway; run scripts/check-integration.sh"]
 fn a_command_takes_effect_and_can_be_read_back() -> Result<()> {
     run(async {
         let mut sway = Client::connect().await?;
