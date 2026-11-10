@@ -15,7 +15,7 @@ mod criteria;
 pub mod effects;
 pub mod input;
 #[cfg(test)]
-mod model;
+pub(crate) mod model;
 #[cfg(test)]
 mod tests;
 mod text;

@@ -6,9 +6,11 @@
 # talks to it over IPC. SwayFX gets the SwayFX sample config. The fixtures that crates/core/tests/*_fixtures.rs generate
 # from the command builders plug in here: their .conf files are included from the sample config, every command in a
 # *-ipc.txt file must succeed, and the escaping fixtures check that hostile strings reach sway unchanged, from the
-# config and over IPC. Then the tests that need a real sway run against it: the IPC client (crates/core/tests/ipc.rs)
-# and the write path of the generators (crates/core/tests/generate_sway.rs). The files generated from the sample settings
-# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
+# config and over IPC. Then the tests that need a real sway run against it: the IPC client (crates/core/tests/ipc.rs),
+# the write path of the generators (crates/core/tests/generate_sway.rs) and the config parser, which must find the
+# modes of ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs). The files generated
+# from the sample settings (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include
+# them.
 #
 # Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
 # --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
@@ -28,7 +30,7 @@ usage() {
 }
 
 # The tests that need a running sway, so a plain `cargo test` skips them.
-sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway)
+sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway --test sway_config_sway)
 
 container=""
 build=false
