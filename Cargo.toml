@@ -28,3 +28,6 @@ allow_attributes_without_reason = "deny"
 [workspace.dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }
 regex = "1"
+rustix = { version = "1", default-features = false, features = ["std", "system"] }
+tempfile = "3"
+toml_edit = "0.25"

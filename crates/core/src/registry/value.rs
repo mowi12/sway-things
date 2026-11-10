@@ -217,6 +217,8 @@ pub enum ValueError {
         /// The largest accepted value.
         max: f64,
     },
+    /// The text isn't a color in `#rrggbb` or `#rrggbbaa` notation.
+    NotAColor,
     /// The value isn't one of the setting's choices.
     UnknownChoice {
         /// The choices the setting has.
@@ -236,6 +238,7 @@ impl fmt::Display for ValueError {
             Self::DecimalOutOfRange { min, max } => {
                 write!(f, "must be between {min} and {max}")
             }
+            Self::NotAColor => f.write_str("must be a color like #rrggbb or #rrggbbaa"),
             Self::UnknownChoice { choices } => {
                 f.write_str("must be one of: ")?;
                 for (index, choice) in choices.iter().enumerate() {
