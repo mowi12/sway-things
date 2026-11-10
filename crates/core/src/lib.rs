@@ -10,6 +10,7 @@
 
 mod atomic;
 pub mod command;
+pub mod generate;
 pub mod ipc;
 pub mod registry;
 pub mod state;
