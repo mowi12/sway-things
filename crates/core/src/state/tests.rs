@@ -1053,3 +1053,39 @@ fn without_a_snapshot_nothing_is_replaced() {
     assert_eq!(fixture.text(Layer::Shared), "version = 1\n");
     assert!(matches!(state.snapshots(), Err(StateError::Io { .. })));
 }
+
+#[test]
+fn the_watcher_reports_outside_changes_and_our_own_saves() {
+    let fixture = Fixture::new(Some("version = 1\n"), None);
+    let mut state = fixture.load();
+    let watcher = state.watch().unwrap();
+
+    // Our own save is reported, but the reload finds nothing new.
+    state.set(GAPS, None, Value::Integer(4), None).unwrap();
+    state
+        .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
+        .unwrap();
+    state.save().unwrap();
+    let mut reported = Vec::new();
+    while reported.len() < 2 {
+        reported.extend(watcher.changed_blocking().unwrap());
+        assert_eq!(state.reload(), Changes::default());
+    }
+    reported.sort();
+    assert_eq!(
+        reported,
+        [fixture.path(Layer::Host), fixture.path(Layer::Shared)]
+    );
+
+    // A hand edit is reported, and the reload picks it up.
+    fs::write(
+        fixture.path(Layer::Shared),
+        "version = 1\n[windows.gaps]\ninner = 8\n",
+    )
+    .unwrap();
+    assert_eq!(
+        watcher.changed_blocking().unwrap(),
+        [fixture.path(Layer::Shared)]
+    );
+    assert_eq!(state.reload().keys, [changed(None, GAPS)]);
+}

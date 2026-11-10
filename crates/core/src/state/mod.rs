@@ -58,6 +58,7 @@ use std::time::SystemTime;
 
 use crate::command::input::InputSelector;
 use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
+use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
 
 pub use history::Snapshot;
@@ -322,6 +323,20 @@ impl State {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect()
+    }
+
+    /// Watches both files for changes made outside, e.g. a hand edit or a `git pull` of the
+    /// dotfiles. Call [`State::reload`] on each report; it tells apart real changes from the
+    /// state's own saves, which the watcher reports too.
+    ///
+    /// # Errors
+    ///
+    /// [`WatchError`] if the system refuses to watch.
+    pub fn watch(&self) -> Result<Watcher, WatchError> {
+        Watcher::new(
+            Layer::ALL.map(|layer| self.paths.path(layer).to_owned()),
+            watch::DEBOUNCE,
+        )
     }
 
     /// The values in effect, by device and key.
