@@ -8,8 +8,9 @@
 use std::io;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
+use std::time::Duration;
 
-use async_io::Async;
+use async_io::{Async, Timer};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 
 const MAGIC: &[u8; 6] = b"i3-ipc";
@@ -17,6 +18,10 @@ const HEADER_LENGTH: usize = MAGIC.len() + 8;
 
 /// A reply longer than this is a broken message, not a big tree: nothing is allocated for it.
 const MAX_PAYLOAD: u32 = 64 * 1024 * 1024;
+
+/// How often and how long apart a connection is tried while sway's queue is full: 2 seconds.
+const CONNECT_ATTEMPTS: u32 = 200;
+const CONNECT_PAUSE: Duration = Duration::from_millis(10);
 
 /// The message types, which a reply repeats.
 pub(super) const RUN_COMMAND: u32 = 0;
@@ -41,10 +46,30 @@ pub(super) struct Connection {
 }
 
 impl Connection {
+    /// Connects to `socket`.
+    ///
+    /// sway queues only a few connections it hasn't accepted yet. While that queue is full, a
+    /// non-blocking connect ends with a socket that isn't connected, so the connection is checked
+    /// and tried again for a short while.
     pub(super) async fn open(socket: &Path) -> io::Result<Self> {
-        Ok(Self {
-            stream: Async::<UnixStream>::connect(socket).await?,
-        })
+        for _ in 0..CONNECT_ATTEMPTS {
+            let attempt = async {
+                let stream = Async::<UnixStream>::connect(socket).await?;
+                stream.get_ref().peer_addr()?;
+                io::Result::Ok(stream)
+            };
+            match attempt.await {
+                Ok(stream) => return Ok(Self { stream }),
+                Err(error) if error.kind() == io::ErrorKind::NotConnected => {
+                    Timer::after(CONNECT_PAUSE).await;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "sway doesn't accept the connection",
+        ))
     }
 
     pub(super) async fn send(&mut self, kind: u32, payload: &[u8]) -> Result<(), WireError> {
