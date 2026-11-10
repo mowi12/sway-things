@@ -12,6 +12,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+async-channel.workspace = true
+notify.workspace = true
 rustix.workspace = true
 toml_edit.workspace = true
 
