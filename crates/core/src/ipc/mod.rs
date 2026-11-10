@@ -10,6 +10,7 @@
 //! ```no_run
 //! use sway_things_core::command::behavior;
 //! use sway_things_core::ipc::Client;
+//! use sway_things_core::ipc::types::{Event, EventType};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut sway = Client::connect().await?;
@@ -18,11 +19,20 @@
 //! for input in sway.inputs().await? {
 //!     println!("{}", input.identifier);
 //! }
+//!
+//! // Hotplugged devices arrive as events.
+//! let mut events = sway.subscribe(&[EventType::Input]).await?;
+//! while let Some(event) = events.next().await {
+//!     if let Event::Input(event) = event? {
+//!         println!("{:?}: {}", event.change, event.input.identifier);
+//!     }
+//! }
 //! # Ok(())
 //! # }
 //! ```
 
 mod compositor;
+mod events;
 #[cfg(test)]
 mod tests;
 mod wire;
@@ -40,6 +50,7 @@ use compositor::VersionReply;
 use wire::{Connection, WireError};
 
 pub use compositor::{Compositor, Unmet};
+pub use events::Events;
 /// The types of sway's replies, from the `swayipc-types` crate.
 pub use swayipc_types as types;
 

@@ -9,6 +9,7 @@ use std::thread;
 
 use async_io::block_on;
 
+use super::types::{Event, EventType, ShutdownChange};
 use super::{Client, Compositor, IpcError, Unmet, socket_from, wire};
 use crate::command::input::{DragLock, Input, InputSelector, InputType};
 use crate::command::{CommandError, Target, behavior, effects, window};
@@ -415,4 +416,79 @@ fn answers_that_are_not_ipc_replies_are_errors() {
         block_on(Client::connect_to(&sway.socket)),
         Err(IpcError::Protocol(_))
     ));
+}
+
+#[test]
+fn subscribed_events_arrive_in_order() {
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, payload| {
+        assert_eq!(kind, wire::SUBSCRIBE);
+        assert_eq!(payload, r#"["tick","mode","shutdown","input"]"#);
+        let mut answer = HANG_UP.to_vec();
+        answer.extend(message(kind, r#"{"success": true}"#));
+        for (event, payload) in [
+            (0x07, r#"{"first": true, "payload": ""}"#),
+            (0x02, r#"{"change": "resize", "pango_markup": false}"#),
+            // An event that can't be read doesn't end the subscription.
+            (0x07, r#"{"first": "no"}"#),
+            // Neither does one this client doesn't know.
+            (0x63, r#"{"future": true}"#),
+            (0x07, r#"{"first": false, "payload": "ping"}"#),
+            (0x06, r#"{"change": "exit"}"#),
+        ] {
+            answer.extend(message(wire::EVENT | event, payload));
+        }
+        answer
+    });
+    let client = sway.connect();
+    let mut events = block_on(client.subscribe(&[
+        EventType::Tick,
+        EventType::Mode,
+        EventType::Shutdown,
+        EventType::Input,
+    ]))
+    .unwrap();
+    let mut next = || block_on(events.next());
+    assert!(matches!(next(), Some(Ok(Event::Tick(tick))) if tick.first));
+    assert!(matches!(next(), Some(Ok(Event::Mode(mode))) if mode.change == "resize"));
+    assert!(matches!(
+        next(),
+        Some(Err(IpcError::InvalidReply {
+            request: "an event",
+            ..
+        }))
+    ));
+    assert!(matches!(next(), Some(Ok(Event::Tick(tick))) if tick.payload == "ping"));
+    assert!(matches!(
+        next(),
+        Some(Ok(Event::Shutdown(shutdown))) if shutdown.change == ShutdownChange::Exit
+    ));
+    // sway closed the connection.
+    assert!(next().is_none());
+    assert!(next().is_none());
+}
+
+#[test]
+fn a_refused_or_broken_subscription_is_an_error() {
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, _| message(kind, r#"{"success": false}"#));
+    assert!(matches!(
+        block_on(sway.connect().subscribe(&[EventType::Tick])),
+        Err(IpcError::Protocol(_))
+    ));
+
+    // A reply where an event should be ends the events.
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, _| {
+        let mut answer = message(kind, r#"{"success": true}"#);
+        answer.extend(message(wire::GET_TREE, "{}"));
+        answer.extend(message(
+            wire::EVENT | 0x07,
+            r#"{"first": true, "payload": ""}"#,
+        ));
+        answer
+    });
+    let mut events = block_on(sway.connect().subscribe(&[EventType::Tick])).unwrap();
+    assert!(matches!(
+        block_on(events.next()),
+        Some(Err(IpcError::Protocol(_)))
+    ));
+    assert!(block_on(events.next()).is_none());
 }

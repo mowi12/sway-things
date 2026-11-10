@@ -20,6 +20,7 @@ const MAX_PAYLOAD: u32 = 64 * 1024 * 1024;
 
 /// The message types, which a reply repeats.
 pub(super) const RUN_COMMAND: u32 = 0;
+pub(super) const SUBSCRIBE: u32 = 2;
 pub(super) const GET_OUTPUTS: u32 = 3;
 pub(super) const GET_TREE: u32 = 4;
 pub(super) const GET_VERSION: u32 = 7;
@@ -29,6 +30,9 @@ pub(super) const SEND_TICK: u32 = 10;
 pub(super) const GET_BINDING_STATE: u32 = 12;
 pub(super) const GET_INPUTS: u32 = 100;
 pub(super) const GET_SEATS: u32 = 101;
+
+/// Set in the type of a message that is an event, not a reply.
+pub(super) const EVENT: u32 = 1 << 31;
 
 /// A connection to the IPC socket.
 #[derive(Debug)]
