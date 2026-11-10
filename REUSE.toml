@@ -16,6 +16,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Generated sway config files start with the fixed header of Sway Things, not with an SPDX header.
+[[annotations]]
+path = "ci/integration/generated/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 [[annotations]]
 path = "CODE_OF_CONDUCT.md"
 precedence = "override"

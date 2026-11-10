@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Sample settings for the generator tests: crates/core/tests/generate_fixtures.rs turns them into the files in
+# ../generated/, and scripts/check-integration.sh feeds those to a real sway.
+
+version = 1
+
+[input.touchpad]
+tap = true
+pointer_accel = 0.3
+
+[input.keyboard]
+repeat_delay = 300
+xkb_layout = ["us", "de"]
+
+[windows]
+font = "Noto Sans 11"
+
+[windows.gaps]
+inner = 8
+
+[windows.focused]
+text = "#eeeeee"
+child_border = "#3b6e4f"
+
+[effects]
+corner_radius = 8
+
+[behavior]
+focus_follows_mouse = "always"
+workspace_layout = "tabbed"
+
+[app]
+safety_net_timeout = 20

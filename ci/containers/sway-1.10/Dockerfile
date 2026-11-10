@@ -16,6 +16,6 @@ COPY --chown=tester Cargo.toml Cargo.lock /work/
 COPY --chown=tester crates/ /work/crates/
 USER tester
 WORKDIR /work
-# The IPC client's tests are built on the system they run on.
+# The tests that need sway are built on the system they run on.
 RUN scripts/check-integration.sh --build
 CMD ["scripts/check-integration.sh"]

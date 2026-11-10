@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# The host overlay of the sample settings: it wins over settings.toml, and holds the values for one device.
+
+version = 1
+
+[windows.gaps]
+inner = 6
+
+[device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
+tap = false
