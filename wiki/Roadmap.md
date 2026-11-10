@@ -10,7 +10,7 @@ Milestones on GitHub correspond to releases.
 
 ### Core
 
-- [ ] Settings registry with the first entries
+- [x] Settings registry with the first entries
 - [ ] State: `settings.toml` + host overlay + `[app]` preferences, file watcher, schema version, history snapshots
 - [x] Typed sway command builders with escaping
 - [ ] IPC client (async-io based): run command, `get_*`, event subscriptions; sway vs. SwayFX detection

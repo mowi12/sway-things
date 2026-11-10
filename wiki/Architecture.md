@@ -52,30 +52,59 @@ The CLI deliberately has no GTK dependency, so hooks that run at login or on hot
 
 Every setting is **defined once** in `crates/core/src/registry/`. Everything else derives from that definition:
 
-| Derived from the registry | Example |
+| Derived from the registry | From |
 | --- | --- |
-| GUI rows (toggle, slider, dropdown, color, entry) | auto-built for standard settings |
-| Search index | title, subtitle, keywords, synonyms (translatable + English) |
-| CLI keys | `sway-things set input.touchpad.tap true` |
-| TOML schema and validation | type, range, enum values |
-| Defaults and "Reset to default" | `default(true)` |
-| Generator output | `.sway(\|v\| …)` produces the sway directive |
-| Conflict detection | which sway directives and block contexts the setting maps to |
-| Version and fork gating | `min_sway("1.11")`, `swayfx_only()` |
+| GUI rows (toggle, slider, dropdown, color, entry) | the value type; auto-built for standard settings, on the setting's page |
+| Search index | title, subtitle, keywords and synonyms (translatable source strings, also matched in English) |
+| CLI keys | the key: `sway-things set input.touchpad.tap true` |
+| TOML schema and validation | the key is the path in `settings.toml`; the value type has the range or the choices |
+| Defaults and "Reset to default" | the default of the value type |
+| Generator output | the render function builds the commands, the mapping names the generated file |
+| Conflict detection | the sway directive and block context the setting maps to |
+| Version and fork gating | `min_sway(…)`, `swayfx_only(…)` |
 | Scope | global / per-host / per-device / per-output (decides the host-overlay default) |
 | Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
-| Requirements | `requires_tool("swayidle")` → "Requires swayidle" indicator plus install hints |
+| Requirements | `requires_tools(&["swayidle"])` → "Requires swayidle" indicator plus install hints |
 
 ```rust
-// crates/core/src/registry/input.rs (illustrative)
-Setting::toggle("input.touchpad.tap")
+// crates/core/src/registry/input.rs
+Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
     .title("Tap to click")
-    .keywords(&["touchpad", "click", "tap"])
-    .default(true)
-    .scope(Scope::PerDevice)
-    .apply(Apply::Live)
-    .sway(|v| SwayCmd::input_block("type:touchpad").set("tap", on_off(v)))
+    .subtitle("Tap the touchpad instead of pressing it")
+    .keywords(&["touchpad", "trackpad"])
+    .scope(Scope::PerDevice(InputType::Touchpad))
+    .sway(Directive::input("tap"), ConfigFile::Input, |ctx| {
+        Ok(vec![ctx.input()?.tap(ctx.bool("input.touchpad.tap")?)])
+    })
+    .build()
 ```
+
+- **Value types:** boolean, integer and decimal (each with a range), choice (ids with translatable labels), color, text
+  and list of texts. `Setting::check` validates a `Value` against the type. What sway accepts inside a text or a list
+  depends on the directive, so the command builders check that when the setting is rendered.
+- **Defaults are sway's own:** the default is what sway, libinput or SwayFX does with nothing configured (tap off, no
+  gaps, `client.focused` child border `#285577`). A setting that isn't stored therefore shows what is in effect without
+  Sway Things, and a reset removes the key from the state. libinput defaults that depend on the device are the common
+  ones.
+- **Rendering:** `Registry::render(setting, values, device, target)` returns the `SwayCmd`s for one target. The render
+  function reads values through a `Context`, which checks each stored value against its setting and falls back to the
+  default. Over IPC a setting can need more commands than in the config: `windows.gaps.inner` renders `gaps inner 8` for
+  both, and over IPC also `gaps inner all set 8` for the workspaces that are already open.
+- **One setting per value:** a directive with several values is several settings. The five colors of `client.focused`
+  are `windows.focused.border`, `….background`, `….text`, `….indicator` and `….child_border`. Settings with the same
+  directive form a group (`Registry::group`) with one render function that reads all of them, so storing one color
+  writes the whole line with the defaults of the others.
+- **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
+  (`input type:touchpad tap enabled`), with one for that device's identifier.
+- **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
+  name covers independent values, the first argument (`gaps` + `inner`).
+- **Apply mode:** live by default. A setting built on a config-only command (`workspace_layout`) must use reload.
+- **Preferences of Sway Things itself** (`app.safety_net_timeout`) are settings without a sway mapping.
+
+Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
+setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
+commands force the reload mode, and the declared requirements equal those of the built commands (SwayFX settings go to
+`90-effects.conf`, nothing else does).
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
 layout editor and the window preview. They still read and write settings through the registry.
