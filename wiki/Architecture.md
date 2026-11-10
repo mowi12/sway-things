@@ -119,7 +119,10 @@ $XDG_CONFIG_HOME/sway-things/
 
 $XDG_STATE_HOME/sway-things/
 ├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
-└── history/               # timestamped snapshots of settings files (restore, undo)
+└── history/               # snapshots of the settings files (restore, undo)
+    └── 20261110T142355Z/  # both files as they were before a save, named after the UTC time
+        ├── settings.toml
+        └── settings.d/<hostname>.toml
 ```
 
 ```toml
@@ -151,11 +154,14 @@ tap = false
   file removes the one in the overlay, which would hide it otherwise.
 - **Per-device values** are stored below `device."<identifier>"` (the identifier from `GET_INPUTS`) at the same key as
   the value for all devices of the type. A device without a value of its own uses the value of its type.
-- **Hand edits allowed:** a file watcher reloads the state when either file changes. Whatever doesn't fit the registry
-  is reported with file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong
-  type or out of range, entries of `device` that aren't device identifiers, and settings in a device table that can't be
-  set per device. The lines stay in the file. A save only changes the lines of the settings that changed; comments,
-  order, formatting and unknown keys survive.
+- **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
+  whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
+  settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
+  that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
+  file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
+  range, entries of `device` that aren't device identifiers, and settings in a device table that can't be set per
+  device. The lines stay in the file. A save only changes the lines of the settings that changed; comments, order,
+  formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
@@ -165,7 +171,29 @@ tap = false
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
 - **Export / import:** `settings.toml` (plus overlays) _is_ the export format.
+- **History:** before a save replaces anything, both files as they are on disk go to `history/` as one snapshot, also if
+  they were changed outside in the meantime. A snapshot equal to the newest one is skipped, and the newest 50 are kept.
+  If the snapshot can't be written, nothing is replaced. Restoring a snapshot loads both files from it, comments and
+  unknown keys included (a file that didn't exist then becomes empty), and is written by a normal save, which takes a
+  snapshot in turn, so a restore can be undone. A snapshot of a file that can't be loaded can't be restored.
 - **Backups:** we never write user files, so we never need to back them up. `history/` covers our own state.
+
+### File watcher
+
+`crates/core/src/watch.rs` watches a set of files for any part of the app: the settings files now, the sway config files
+for the include detection later.
+
+- It uses the `notify` crate (inotify on Linux, kqueue on the BSDs) and watches **directories**, not files: the
+  directory of each file, or the nearest one above it that exists. That covers a file that is created later, deleted, or
+  replaced by a rename (how editors and `git` save), and a directory that appears or goes away. For a file that is a
+  symbolic link, the directory of its target is watched too.
+- Events about other files in those directories and reads are ignored.
+- **Debounce:** a burst of events becomes one report once the watched files have been quiet for 200 ms (after 2 s at the
+  latest), so a reader doesn't see a half-written file.
+- A report only says that a file _may_ have changed; the reader decides. That keeps self-write suppression out of the
+  watcher.
+- The watcher debounces on its own thread and hands reports over through a channel. It needs no particular executor:
+  await the next report on the glib main loop, or block on it in the CLI.
 
 ## Generated files and the file rule
 
@@ -481,7 +509,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | registry invariants, state merge (shared + overlay), command builders and escaping (property tests against a port of sway's parser) |
+| Unit | registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
