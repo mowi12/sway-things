@@ -122,13 +122,46 @@ $XDG_STATE_HOME/sway-things/
 └── history/               # timestamped snapshots of settings files (restore, undo)
 ```
 
+```toml
+# settings.toml
+version = 1
+
+[input.touchpad]
+tap = true
+
+[windows.focused]
+child_border = "#3b6e4f"
+
+# settings.d/laptop.toml
+version = 1
+
+[device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
+tap = false
+```
+
 - **Sparse:** only settings the user changed are stored. A missing key means _not managed by Sway Things_: the user's
-  own config or the sway default applies.
-- **Host overlay:** `settings.d/<hostname>.toml` overrides `settings.toml` key by key. Settings with scope per-device or
-  per-output default to the overlay. The UI shows a "this machine only" toggle per setting.
-- **Hand edits allowed:** a file watcher reloads the state when either file changes. Invalid values are reported, not
-  silently dropped.
-- **Schema version:** a top-level `version = 1` key, for migrations.
+  own config or the sway default applies. A reset removes the key (and tables that are empty afterwards).
+- **Keys are TOML paths:** the registry key `input.touchpad.tap` is `tap` in the table `[input.touchpad]`. Colors are
+  strings (`#rrggbb`, `#rrggbbaa`), choices are their id, lists are arrays of strings, and a decimal setting also takes
+  a whole number.
+- **Host overlay:** `settings.d/<hostname>.toml` overrides `settings.toml` key by key. The host name is the kernel's
+  (`uname -n`). New values go to the shared file, except those bound to this machine's hardware (a value for one device,
+  per-host and per-output settings), which go to the overlay. A changed value stays in the file it is in. The UI shows a
+  "this machine only" toggle per setting, which moves the value between the two files. A value written to the shared
+  file removes the one in the overlay, which would hide it otherwise.
+- **Per-device values** are stored below `device."<identifier>"` (the identifier from `GET_INPUTS`) at the same key as
+  the value for all devices of the type. A device without a value of its own uses the value of its type.
+- **Hand edits allowed:** a file watcher reloads the state when either file changes. Whatever doesn't fit the registry
+  is reported with file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong
+  type or out of range, entries of `device` that aren't device identifiers, and settings in a device table that can't be
+  set per device. The lines stay in the file. A save only changes the lines of the settings that changed; comments,
+  order, formatting and unknown keys survive.
+- **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
+  save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
+  nothing in it is in effect, and it is never written. The other file keeps working.
+- **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it. If the file is a
+  symbolic link (into a dotfiles repository), the link stays and its target is replaced. File access is synchronous
+  (`std::fs`): the files are small, and only loading and saving touch the disk.
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
 - **Export / import:** `settings.toml` (plus overlays) _is_ the export format.
