@@ -11,6 +11,11 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+rustix.workspace = true
+toml_edit.workspace = true
+
 [dev-dependencies]
 proptest.workspace = true
 regex.workspace = true
+tempfile.workspace = true
