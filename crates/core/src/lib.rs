@@ -14,5 +14,6 @@ pub mod generate;
 pub mod ipc;
 pub mod registry;
 pub mod state;
+pub mod sway_config;
 pub mod version;
 pub mod watch;
