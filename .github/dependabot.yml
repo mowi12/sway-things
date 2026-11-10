@@ -14,7 +14,7 @@ updates:
     commit-message:
       prefix: ci
       include: scope
-    labels: ["kind:maintenance", "area:ci"]
+    labels: ["area:ci"]
 
   - package-ecosystem: cargo
     directory: /
@@ -28,7 +28,7 @@ updates:
     commit-message:
       prefix: build
       include: scope
-    labels: ["kind:maintenance"]
+    labels: []
 
   - package-ecosystem: npm
     directory: /tools
@@ -42,7 +42,7 @@ updates:
     commit-message:
       prefix: ci
       include: scope
-    labels: ["kind:maintenance", "area:ci"]
+    labels: ["area:ci"]
 
   - package-ecosystem: pip
     directory: /tools
@@ -56,7 +56,7 @@ updates:
     commit-message:
       prefix: ci
       include: scope
-    labels: ["kind:maintenance", "area:ci"]
+    labels: ["area:ci"]
 
   - package-ecosystem: docker
     directories: ["/ci/containers/*"]
@@ -70,4 +70,4 @@ updates:
     commit-message:
       prefix: ci
       include: scope
-    labels: ["kind:maintenance", "area:ci"]
+    labels: ["area:ci"]
