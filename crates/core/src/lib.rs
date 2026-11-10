@@ -8,6 +8,7 @@
 #![warn(missing_docs)]
 #![deny(clippy::print_stdout)]
 
+mod atomic;
 pub mod command;
 pub mod ipc;
 pub mod registry;

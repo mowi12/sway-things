@@ -12,8 +12,8 @@ use std::path::Path;
 /// directories are created.
 ///
 /// If `path` is a symbolic link, the file it points to is replaced and the link stays, so a
-/// settings file that lives in a dotfiles repository keeps living there.
-pub(super) fn atomically(path: &Path, text: &str) -> io::Result<()> {
+/// file that lives in a dotfiles repository keeps living there.
+pub(crate) fn write(path: &Path, text: &str) -> io::Result<()> {
     // Only an existing path can be a link; `canonicalize` follows it to the real file.
     let target = match fs::canonicalize(path) {
         Ok(target) => target,

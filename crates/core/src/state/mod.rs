@@ -48,7 +48,6 @@ mod history;
 mod paths;
 #[cfg(test)]
 mod tests;
-mod write;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -56,6 +55,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use crate::atomic;
 use crate::command::input::InputSelector;
 use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
 use crate::watch::{self, WatchError, Watcher};
@@ -631,7 +631,7 @@ impl State {
                 continue;
             };
             let path = self.paths.path(layer);
-            write::atomically(path, &text).map_err(|source| StateError::Io {
+            atomic::write(path, &text).map_err(|source| StateError::Io {
                 path: path.to_owned(),
                 source,
             })?;
