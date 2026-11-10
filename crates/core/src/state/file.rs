@@ -181,6 +181,16 @@ impl SettingsFile {
         &self.problems
     }
 
+    /// Whether the file could be read. Only such a file is ever written.
+    pub(super) fn is_usable(&self) -> bool {
+        self.document.is_some()
+    }
+
+    /// Marks the file as different from the one on disk.
+    pub(super) fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
     pub(super) fn is_dirty(&self) -> bool {
         self.dirty
     }

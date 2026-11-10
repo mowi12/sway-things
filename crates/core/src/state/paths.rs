@@ -78,6 +78,16 @@ impl Paths {
         }
     }
 
+    /// The path of the file of `layer` relative to the config directory, which is also its path
+    /// in a snapshot.
+    pub(super) fn relative(&self, layer: Layer) -> PathBuf {
+        let name = self.path(layer).file_name().unwrap_or_default();
+        match layer {
+            Layer::Shared => PathBuf::from(name),
+            Layer::Host => Path::new("settings.d").join(name),
+        }
+    }
+
     /// The directory with the snapshots of the settings files.
     pub fn history(&self) -> &Path {
         &self.history

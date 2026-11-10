@@ -20,6 +20,8 @@
 //!
 //! The files may be edited by hand. Loading reports what doesn't fit the registry as
 //! [`Problem`]s and loads the rest; saving keeps comments, order and unknown keys.
+//! [`State::reload`] picks up changes made outside, and every save first keeps the files it
+//! replaces as a [`Snapshot`] that [`State::restore`] brings back.
 //!
 //! ```
 //! use sway_things_core::registry::{Registry, Value};
@@ -42,6 +44,7 @@
 //! ```
 
 mod file;
+mod history;
 mod paths;
 #[cfg(test)]
 mod tests;
@@ -51,11 +54,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::command::input::InputSelector;
 use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
 use file::{FileError, SettingsFile};
 
+pub use history::Snapshot;
 pub use paths::{Paths, PathsError};
 
 /// One of the two settings files.
@@ -237,10 +242,11 @@ impl Disk {
     }
 }
 
-/// What a [`State::reload`] changed.
+/// What a [`State::reload`] or a [`State::restore`] changed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Changes {
-    /// The files that were loaded again. Their [problems](State::problems) may have changed.
+    /// The files that were replaced in memory. Their [problems](State::problems) may have
+    /// changed.
     pub layers: Vec<Layer>,
     /// The settings whose value in effect changed, was added or was removed, ordered by device
     /// (those without one first) and key.
@@ -248,7 +254,7 @@ pub struct Changes {
 }
 
 impl Changes {
-    /// Whether no file changed on disk.
+    /// Whether no file was replaced.
     pub fn is_empty(&self) -> bool {
         self.layers.is_empty()
     }
@@ -299,16 +305,23 @@ impl State {
         if layers.is_empty() {
             return Changes::default();
         }
+        Changes {
+            layers,
+            keys: self.changed_since(&before),
+        }
+    }
+
+    /// The settings whose value in effect differs from the one in `before`.
+    fn changed_since(&self, before: &BTreeMap<ChangedKey, Value>) -> Vec<ChangedKey> {
         let after = self.in_effect();
-        let keys = before
+        before
             .iter()
             .filter(|(key, value)| after.get(*key) != Some(*value))
             .chain(after.iter().filter(|(key, _)| !before.contains_key(*key)))
             .map(|(key, _)| key.clone())
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .collect();
-        Changes { layers, keys }
+            .collect()
     }
 
     /// The values in effect, by device and key.
@@ -568,11 +581,33 @@ impl State {
     /// the new one. A file that is a symbolic link (into a dotfiles repository) stays one; its
     /// target is replaced.
     ///
+    /// Before anything is replaced, both files as they are on disk go to the history as one
+    /// [`Snapshot`], unless the newest snapshot already holds the same contents. The history
+    /// keeps the newest 50 snapshots.
+    ///
     /// # Errors
     ///
-    /// [`StateError::Io`] if a file can't be written; the files before it are written, and the
-    /// state stays dirty.
+    /// [`StateError::Io`] if the snapshot or a file can't be written. Without the snapshot
+    /// nothing is replaced; files written before a failing one stay written. The state stays
+    /// dirty.
     pub fn save(&mut self) -> Result<(), StateError> {
+        if !self.is_dirty() {
+            return Ok(());
+        }
+        let on_disk = Layer::ALL.map(|layer| {
+            let content = match Disk::read(self.paths.path(layer)) {
+                Disk::Text(text) => Some(text),
+                Disk::Missing | Disk::Unreadable(_) => None,
+            };
+            (self.paths.relative(layer), content)
+        });
+        history::take(
+            self.paths.history(),
+            &on_disk,
+            SystemTime::now(),
+            history::LIMIT,
+        )
+        .map_err(|source| self.history_error(source))?;
         for layer in Layer::ALL {
             if !self.file(layer).is_dirty() {
                 continue;
@@ -589,6 +624,71 @@ impl State {
             *self.disk_mut(layer) = Disk::Text(text);
         }
         Ok(())
+    }
+
+    fn history_error(&self, source: io::Error) -> StateError {
+        StateError::Io {
+            path: self.paths.history().to_owned(),
+            source,
+        }
+    }
+
+    /// The snapshots in the history, newest first.
+    ///
+    /// # Errors
+    ///
+    /// [`StateError::Io`] if the history can't be read.
+    pub fn snapshots(&self) -> Result<Vec<Snapshot>, StateError> {
+        history::list(self.paths.history()).map_err(|source| self.history_error(source))
+    }
+
+    /// Replaces both files in memory with their contents in the snapshot `id`, comments and
+    /// unknown keys included, and returns what changed. A file that didn't exist when the
+    /// snapshot was taken becomes empty.
+    ///
+    /// Like any other change, the restore is written by [`State::save`], which first takes a
+    /// snapshot of the files it replaces. So a restore can be undone by restoring that one.
+    ///
+    /// # Errors
+    ///
+    /// [`StateError::UnknownSnapshot`] if there is no snapshot `id`,
+    /// [`StateError::UnusableSnapshot`] if it holds a file that can't be loaded (it was taken
+    /// of a file with a syntax error or another version), [`StateError::Io`] if it can't be
+    /// read. The state is unchanged then.
+    pub fn restore(&mut self, id: &str) -> Result<Changes, StateError> {
+        let relative = Layer::ALL.map(|layer| self.paths.relative(layer));
+        let paths = relative.each_ref().map(PathBuf::as_path);
+        let contents = history::read(self.paths.history(), id, &paths).map_err(|source| {
+            if source.kind() == io::ErrorKind::NotFound {
+                StateError::UnknownSnapshot { id: id.to_owned() }
+            } else {
+                self.history_error(source)
+            }
+        })?;
+        let mut files = Vec::new();
+        for (layer, content) in Layer::ALL.into_iter().zip(contents) {
+            let mut file = SettingsFile::parse(content.as_deref().unwrap_or(""), self.registry);
+            if !file.is_usable() {
+                return Err(StateError::UnusableSnapshot { id: id.to_owned() });
+            }
+            let same_as_disk = match self.disk(layer) {
+                Disk::Missing => content.is_none(),
+                Disk::Text(text) => content.as_ref() == Some(text),
+                Disk::Unreadable(_) => false,
+            };
+            if !same_as_disk {
+                file.mark_dirty();
+            }
+            files.push((layer, file));
+        }
+        let before = self.in_effect();
+        for (layer, file) in files {
+            *self.file_mut(layer) = file;
+        }
+        Ok(Changes {
+            layers: Layer::ALL.to_vec(),
+            keys: self.changed_since(&before),
+        })
     }
 }
 
@@ -642,7 +742,17 @@ pub enum StateError {
         /// The file.
         path: PathBuf,
     },
-    /// The file can't be written.
+    /// The history has no snapshot with this id.
+    UnknownSnapshot {
+        /// The id.
+        id: String,
+    },
+    /// The snapshot holds a file that can't be loaded.
+    UnusableSnapshot {
+        /// The id.
+        id: String,
+    },
+    /// A settings file can't be written, or the history can't be read or written.
     Io {
         /// The file.
         path: PathBuf,
@@ -669,7 +779,11 @@ impl fmt::Display for StateError {
                 "{}: a value is in the way of the table for {key}",
                 show(path)
             ),
-            Self::Io { path, source } => write!(f, "can't write {}: {source}", show(path)),
+            Self::UnknownSnapshot { id } => write!(f, "there is no snapshot {id}"),
+            Self::UnusableSnapshot { id } => {
+                write!(f, "snapshot {id} holds a file that can't be loaded")
+            }
+            Self::Io { path, source } => write!(f, "{}: {source}", show(path)),
         }
     }
 }

@@ -894,3 +894,162 @@ fn a_file_that_breaks_and_gets_fixed_reloads() {
     assert_eq!(state.reload().keys, [changed(None, GAPS)]);
     assert_eq!(state.problems(), []);
 }
+
+fn snapshot_ids(state: &State) -> Vec<String> {
+    state
+        .snapshots()
+        .unwrap()
+        .iter()
+        .map(|snapshot| snapshot.id().to_owned())
+        .collect()
+}
+
+#[test]
+fn a_save_keeps_the_replaced_files_in_the_history() {
+    let fixture = Fixture::new(None, None);
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(4), None).unwrap();
+    state.save().unwrap();
+    // There was nothing to replace.
+    assert_eq!(snapshot_ids(&state), Vec::<String>::new());
+
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    state
+        .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
+        .unwrap();
+    state.save().unwrap();
+    let ids = snapshot_ids(&state);
+    assert_eq!(ids.len(), 1);
+    let snapshot = fixture.state_dir.path().join("history").join(&ids[0]);
+    assert_eq!(
+        fs::read_to_string(snapshot.join("settings.toml")).unwrap(),
+        "version = 1\n\n[windows.gaps]\ninner = 4\n"
+    );
+    // The overlay didn't exist yet.
+    assert_eq!(file_names(&snapshot), ["settings.toml"]);
+
+    // Nothing to save, nothing to keep.
+    state.save().unwrap();
+    assert_eq!(snapshot_ids(&state).len(), 1);
+
+    state.reset(TAP, Some(TOUCHPAD)).unwrap();
+    state.save().unwrap();
+    let ids = snapshot_ids(&state);
+    assert_eq!(ids.len(), 2);
+    assert!(ids[0] > ids[1], "newest first: {ids:?}");
+    let snapshot = fixture.state_dir.path().join("history").join(&ids[0]);
+    assert_eq!(
+        fs::read_to_string(snapshot.join("settings.d/laptop.toml")).unwrap(),
+        format!("version = 1\n\n[device.\"{TOUCHPAD}\".input.touchpad]\ntap = true\n")
+    );
+}
+
+#[test]
+fn a_save_keeps_a_file_that_changed_outside() {
+    let fixture = Fixture::new(Some("version = 1\n"), None);
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(4), None).unwrap();
+    // A hand edit the state hasn't loaded: the save replaces it, the history has it.
+    fs::write(fixture.path(Layer::Shared), "# by hand\nversion = 1\n").unwrap();
+    state.save().unwrap();
+    let ids = snapshot_ids(&state);
+    assert_eq!(
+        fs::read_to_string(
+            fixture
+                .state_dir
+                .path()
+                .join("history")
+                .join(&ids[0])
+                .join("settings.toml")
+        )
+        .unwrap(),
+        "# by hand\nversion = 1\n"
+    );
+}
+
+#[test]
+fn a_snapshot_restores_both_files_and_can_be_undone() {
+    let shared = "# mine\nversion = 1\n\n[windows.gaps]\ninner = 4 # roomy\n\n[future]\nkey = 1\n";
+    let fixture = Fixture::new(Some(shared), None);
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    state.move_to(GAPS, None, Layer::Host).unwrap();
+    state.set(TAP, None, Value::Bool(true), None).unwrap();
+    state.save().unwrap();
+    let after = (fixture.text(Layer::Shared), fixture.text(Layer::Host));
+    let ids = snapshot_ids(&state);
+    assert_eq!(ids.len(), 1);
+
+    let changes = state.restore(&ids[0]).unwrap();
+    assert_eq!(changes.layers, [Layer::Shared, Layer::Host]);
+    assert_eq!(changes.keys, [changed(None, TAP), changed(None, GAPS)]);
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(4)));
+    assert_eq!(state.layer(GAPS, None), Some(Layer::Shared));
+    assert_eq!(state.get(TAP, None), None);
+    assert!(state.is_dirty());
+    // Nothing is on disk until the save.
+    assert_eq!(fixture.text(Layer::Shared), after.0);
+    state.save().unwrap();
+    assert_eq!(fixture.text(Layer::Shared), shared);
+    // The overlay didn't exist in the snapshot, so it is empty now.
+    assert_eq!(fixture.text(Layer::Host), "");
+    assert_eq!(state.reload(), Changes::default());
+
+    // The save kept what the restore replaced, so the restore can be undone.
+    let ids = snapshot_ids(&state);
+    assert_eq!(ids.len(), 2);
+    let changes = state.restore(&ids[0]).unwrap();
+    assert_eq!(changes.keys, [changed(None, TAP), changed(None, GAPS)]);
+    state.save().unwrap();
+    assert_eq!(
+        (fixture.text(Layer::Shared), fixture.text(Layer::Host)),
+        after
+    );
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(8)));
+
+    // Restoring what is on disk already changes nothing.
+    let ids = snapshot_ids(&state);
+    assert_eq!(ids.len(), 3);
+    state.restore(&ids[1]).unwrap();
+    assert!(!state.is_dirty());
+}
+
+#[test]
+fn a_snapshot_that_cannot_be_restored_leaves_the_state_alone() {
+    let fixture = Fixture::new(Some("version = 1\n[windows.gaps]\ninner = 4\n"), None);
+    let mut state = fixture.load();
+    for id in ["20200101T000000Z", "../history", ""] {
+        assert!(matches!(
+            state.restore(id),
+            Err(StateError::UnknownSnapshot { id: unknown }) if unknown == id
+        ));
+    }
+
+    // A file broken by hand is kept in the history, but there is nothing in it to restore.
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    fs::write(fixture.path(Layer::Shared), "[windows.gaps\n").unwrap();
+    state.save().unwrap();
+    let ids = snapshot_ids(&state);
+    assert!(matches!(
+        state.restore(&ids[0]),
+        Err(StateError::UnusableSnapshot { .. })
+    ));
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(8)));
+    assert!(!state.is_dirty());
+}
+
+#[test]
+fn without_a_snapshot_nothing_is_replaced() {
+    let fixture = Fixture::new(Some("version = 1\n"), None);
+    // A file is where the history directory should be.
+    fs::write(fixture.state_dir.path().join("history"), "").unwrap();
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    assert!(matches!(
+        state.save(),
+        Err(StateError::Io { path, .. }) if path == fixture.state_dir.path().join("history")
+    ));
+    assert!(state.is_dirty());
+    assert_eq!(fixture.text(Layer::Shared), "version = 1\n");
+    assert!(matches!(state.snapshots(), Err(StateError::Io { .. })));
+}
