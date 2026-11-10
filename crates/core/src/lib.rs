@@ -9,6 +9,7 @@
 #![deny(clippy::print_stdout)]
 
 pub mod command;
+pub mod ipc;
 pub mod registry;
 pub mod state;
 pub mod version;
