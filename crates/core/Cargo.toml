@@ -13,8 +13,13 @@ workspace = true
 
 [dependencies]
 async-channel.workspace = true
+async-io.workspace = true
+futures-lite.workspace = true
 notify.workspace = true
 rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+swayipc-types.workspace = true
 toml_edit.workspace = true
 
 [dev-dependencies]

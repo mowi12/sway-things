@@ -6,32 +6,43 @@
 # talks to it over IPC. SwayFX gets the SwayFX sample config. The fixtures that crates/core/tests/*_fixtures.rs generate
 # from the command builders plug in here: their .conf files are included from the sample config, every command in a
 # *-ipc.txt file must succeed, and the escaping fixtures check that hostile strings reach sway unchanged, from the
-# config and over IPC.
+# config and over IPC. Then the IPC client's own tests (crates/core/tests/ipc.rs) run against that sway.
 #
 # Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
 # --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
 # The host's DRM render nodes are passed into the containers, because SwayFX needs one even to validate a config (CI
-# loads the vgem module for a virtual one).
+# loads the vgem module for a virtual one). The images hold a Rust toolchain and build the IPC client's tests with
+# --build when the image is built, so the tests are built on the system they run on.
 #
-# Usage: scripts/check-integration.sh [--container NAME|all]
+# Usage: scripts/check-integration.sh [--container NAME|all | --build]
 #
-# Needs sway and swaymsg; for --container, docker or podman (CONTAINER_ENGINE overrides the choice).
+# Needs sway, swaymsg and cargo; for --container, docker or podman (CONTAINER_ENGINE overrides the choice).
 
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 [--container NAME|all]" >&2
+  echo "usage: $0 [--container NAME|all | --build]" >&2
   exit 2
 }
 
+# The IPC client's tests need a running sway, so a plain `cargo test` skips them.
+ipc_tests=(cargo test --locked --package sway-things-core --test ipc)
+
 container=""
+build=false
 case "${1-}" in
   "") ;;
   --container) container=${2:-$(usage)} ;;
+  --build) build=true ;;
   *) usage ;;
 esac
 
 cd "$(dirname "$0")/.."
+
+if $build; then
+  "${ipc_tests[@]}" --no-run
+  exit
+fi
 
 if [[ -n $container ]]; then
   engine=${CONTAINER_ENGINE:-$(command -v docker || command -v podman || true)}
@@ -59,7 +70,8 @@ if [[ -n $container ]]; then
     echo "==> $name"
     # Only the files the image needs go into the build context.
     context=$(mktemp -d)
-    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh | tar -x -C "$context"
+    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh Cargo.toml Cargo.lock crates |
+      tar -x -C "$context"
     "$engine" build --quiet --tag "sway-things-ci:$name" --file "$context/ci/containers/$name/Dockerfile" "$context" \
       >/dev/null
     rm -rf "$context"
@@ -68,7 +80,7 @@ if [[ -n $container ]]; then
   exit
 fi
 
-for tool in sway swaymsg; do
+for tool in sway swaymsg cargo; do
   if ! command -v "$tool" >/dev/null; then
     echo "error: needs $tool" >&2
     exit 1
@@ -180,6 +192,9 @@ if [[ $actual != "$expected" ]]; then
   printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
   exit 1
 fi
+
+echo "Running the IPC client tests"
+SWAYSOCK=$socket SWAY_THINGS_SWAY_VERSION=$(sway --version) "${ipc_tests[@]}" -- --ignored
 
 # sway quits before it answers, so swaymsg reports an error; the exit status of sway itself counts.
 swaymsg --socket "$socket" exit >/dev/null 2>&1 || true

@@ -125,7 +125,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable |
-| Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`); locally `scripts/check-integration.sh --container all` |
+| Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests; locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
 | Fuzzing | sway config parser (scheduled) |
 | Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
