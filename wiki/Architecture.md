@@ -361,9 +361,31 @@ SwayFX.
 
 - **IPC:** `GET_VERSION`, `GET_INPUTS`, `GET_OUTPUTS`, `GET_SEATS`, `GET_BINDING_MODES`, `GET_BINDING_STATE`,
   `GET_TREE`, `GET_CONFIG`. Event subscriptions for `input`, `output`, `mode`, `workspace`, `shutdown`, `tick`, so
-  hotplugged devices and outputs appear immediately.
+  hotplugged devices and outputs appear immediately. See [IPC client](#ipc-client).
 - **`GET_CONFIG` only returns the main config text**, not included files. Many values (all `client.*` colors, `gaps`,
   `font`, bindings) aren't exposed over IPC at all. So the core has its own **read-only parser**.
+
+### IPC client
+
+`crates/core/src/ipc/` talks to the compositor over the socket in `$SWAYSOCK` (`man 7 sway-ipc`).
+
+- **Transport:** the wire format (the magic string `i3-ipc`, payload length, message type, JSON payload) is implemented
+  in the core on async-io's Unix socket, so the client runs on any executor. Replies and events are read into the types
+  of the `swayipc-types` crate (`ipc::types`). Those types are strict: a value they don't know makes that reply an
+  error, not a guess.
+- **Without a session:** an unset `SWAYSOCK` ("not in a sway session") and a socket nobody answers on ("sway is not
+  running") are different errors, so the CLI and the read-only parts can say which it is and carry on.
+- **Compositor detection:** connecting sends `GET_VERSION`. SwayFX is the compositor that sends `sway_original_version`,
+  the sway it is based on; its own version is in the version numbers then. A compositor below sway 1.10 or SwayFX 0.5 is
+  refused, with what was detected in the error.
+- **Commands:** `Client::run` takes a `SwayCmd`, renders it for IPC and sends it in a `RUN_COMMAND` message of its own,
+  so the result belongs to that command. A rejected command returns sway's error message and whether it was a parse
+  error. A command that needs a newer sway or SwayFX than the running one isn't sent at all: sway doesn't reject every
+  value it doesn't know (`drag_lock enabled_sticky` on sway 1.10 means `disabled`).
+- **Events:** `Client::subscribe` opens a second connection, so replies and events don't mix, and `Events::next` returns
+  them in order. An event that can't be read is an error for that event only, an unknown event type is skipped, and the
+  events end when sway closes the connection (after a `shutdown` event, if subscribed).
+- After an I/O or protocol error a connection is out of step and has to be replaced.
 
 ### Sway config parser
 
@@ -457,8 +479,9 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
 
 ## Version and fork gating
 
-- `GET_VERSION` tells sway from SwayFX and gives the version. Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and
-  **SwayFX 0.5**. SwayFX bases: 0.5 → sway 1.10.1, 0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
+- `GET_VERSION` tells sway from SwayFX and gives the version; SwayFX also reports the sway it is based on
+  (`sway_original_version`). Minimum: **sway 1.10** (Debian 13 ships 1.10.1) and **SwayFX 0.5**. SwayFX bases: 0.5 →
+  sway 1.10.1, 0.5.2/0.5.3 → 1.11, 0.6 → 1.12 (adds animations).
 - Registry entries carry `min_sway(...)` / `swayfx_only()`, and every built command its minimum sway version (some
   values need a newer sway than their directive) and, for SwayFX directives, its minimum SwayFX version. Controls the
   running compositor doesn't support show as disabled with a reason, instead of disappearing.
@@ -509,10 +532,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the IPC client's tests (`crates/core/tests/ipc.rs`, built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
