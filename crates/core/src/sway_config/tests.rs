@@ -7,7 +7,8 @@ use proptest::prelude::*;
 
 use super::line::{self, Variable};
 use super::{
-    Diagnostic, DiagnosticKind, Disk, ExpandError, MemoryFiles, SwayConfig, default_path, parse,
+    Diagnostic, DiagnosticKind, Directive, Disk, ExpandError, MemoryFiles, SwayConfig,
+    default_path, parse,
 };
 use crate::command::model;
 
@@ -517,6 +518,59 @@ fn the_default_config_is_found_in_sways_order() {
     let system_only = MemoryFiles::new().file("/etc/sway/config", "");
     assert_eq!(found(&system_only).as_deref(), Some("/etc/sway/config"));
     assert_eq!(found(&MemoryFiles::new()), None);
+}
+
+#[test]
+fn the_sample_and_generated_configs_parse() {
+    let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
+    for (main, expected_files) in [("sway.conf", 9), ("swayfx.conf", 12)] {
+        let config = parse(&integration.join(main), &Disk);
+        assert_eq!(config.diagnostics, [], "{main}");
+        assert_eq!(config.files.len(), expected_files, "{main}");
+        assert!(config.directives.len() > 100, "{main}");
+    }
+
+    // What the generators write comes back as the settings it was made from.
+    let config = parse(&integration.join("sway.conf"), &Disk);
+    let generated: Vec<&Directive> = config
+        .directives
+        .iter()
+        .filter(|directive| {
+            directive
+                .file
+                .to_string_lossy()
+                .contains("/generated/sway/")
+        })
+        .collect();
+    let find = |block: &[&str], name: &str| {
+        generated
+            .iter()
+            .find(|directive| directive.is(block, name))
+            .map(|directive| directive.args.join(" "))
+    };
+    assert_eq!(generated.len(), 10);
+    assert_eq!(
+        find(&["input", "type:touchpad"], "tap").as_deref(),
+        Some("enabled")
+    );
+    assert_eq!(
+        find(
+            &["input", "1267:12377:ELAN1300:00_04F3:3059_Touchpad"],
+            "tap"
+        )
+        .as_deref(),
+        Some("disabled")
+    );
+    assert_eq!(
+        find(&["input", "type:keyboard"], "xkb_layout").as_deref(),
+        Some("us,de")
+    );
+    assert_eq!(find(&[], "gaps").as_deref(), Some("inner 6"));
+    assert_eq!(find(&[], "font").as_deref(), Some("Noto Sans 11"));
+    assert_eq!(
+        find(&[], "client.focused").as_deref(),
+        Some("#4c7899 #285577 #eeeeee #2e9ef4 #3b6e4f")
+    );
 }
 
 proptest! {
