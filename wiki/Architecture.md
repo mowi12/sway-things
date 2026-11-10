@@ -422,13 +422,38 @@ SwayFX.
 
 ### Sway config parser
 
-- Reads the main config and **resolves includes**: `~`, `$HOME`/environment variables and globs, in sway's order.
-- **Never executes anything.** Paths that need command substitution are reported as "unresolved include".
-- Handles `set $var` (variables are substituted **when each line is processed**, see `config_command` in sway's
-  `commands.c`, so a later `set` doesn't change earlier lines), quoting, line continuations, comments and nested blocks
-  (`input {}`, `output {}`, `bar {}`, `mode {}`, `seat {}`).
-- Outputs a list of directives with `file:line`, block context and resolved arguments.
-- It's best-effort by design (reading, not round-tripping), and it's **fuzzed**.
+`crates/core/src/sway_config/` reads the user's config the way sway's `read_config` does, and only reads.
+
+- **Which file:** `parse` takes the path of the main config. In a session, `GET_VERSION` names the loaded one; otherwise
+  `default_path` follows sway's search order: `~/.sway/config`, `$XDG_CONFIG_HOME/sway/config`, `~/.i3/config`,
+  `$XDG_CONFIG_HOME/i3/config`, `/etc/sway/config`, `/etc/i3/config`.
+- **Lines:** a line starting with `#` is a comment (there are no comments at the end of a line), a backslash at the end
+  joins the next line, and a `{` on a line of its own belongs to the line before it.
+- **Blocks:** like sway, the parser puts the line that opened a block in front of every line inside it. A directive
+  carries its block as words: `["input", "type:touchpad"]`, `["bar", "colors"]`, `["mode", "resize"]`. `input`, `output`
+  and `seat` settings written on one line (`input type:touchpad tap enabled`) get the same block, so both spellings read
+  the same.
+- **Variables:** `set $var` is applied **when each line is read** (see `config_command` in sway's `commands.c`), so a
+  later `set` doesn't change earlier lines. Longer names are tried first, `$$` is a literal `$`, and the command itself
+  can come from a variable. Variables carry over into included files.
+- **Arguments** are what the command gets: variables replaced, quotes removed and escapes resolved. `exec`,
+  `exec_always`, `bindsym`, `bindcode`, `bindswitch`, `bindgesture`, `mode`, `set` and `for_window` keep their quotes,
+  as in sway.
+- **Includes** are read in place, relative to the directory of the including file, each file at most once (which also
+  ends cycles). sway expands the path with `wordexp`; the parser does the same itself: words split at blanks, quotes
+  removed, `~` and `$VAR` / `${VAR}` replaced from the environment, globs matched with the rules of `glob(3)` (sorted,
+  no hidden files unless the pattern starts with a dot, a pattern that matches nothing stands for itself).
+- **Never executes anything.** An include with `$(…)` or backticks, `~user`, a `${VAR…}` operator or something `wordexp`
+  rejects is reported as an unresolved include; what such a file would set is unknown.
+- **Output:** the directives in the order sway runs them, each with file, first line, block, command, resolved arguments
+  and the text as written; every `include` with the paths it stood for and the files read because of it; and diagnostics
+  (unreadable file, unresolved include, include not found, file already included, unbalanced braces, nesting or size
+  beyond the limits). No diagnostic stops the parser.
+- **Best-effort by design:** the parser doesn't know which commands exist or what they do; that is for conflict
+  detection and the registry. It reads through a `Files` trait, with the real file system or files in memory.
+- **Robustness:** every step is linear in the length of the input, include depth, directive count and file size are
+  bounded, and property tests feed it arbitrary bytes and compare its line splitting with the port of sway's parser that
+  the command builders are tested against. It's built to be **fuzzed**.
 
 ### Conflict detection
 
@@ -566,10 +591,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the IPC client's tests (`crates/core/tests/ipc.rs`; both built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
