@@ -523,9 +523,17 @@ fn the_default_config_is_found_in_sways_order() {
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
-    for (main, expected_files) in [("sway.conf", 9), ("swayfx.conf", 12)] {
+    for (main, expected_files) in [("sway.conf", 14), ("swayfx.conf", 17)] {
         let config = parse(&integration.join(main), &Disk);
-        assert_eq!(config.diagnostics, [], "{main}");
+        // parser.conf includes one file twice and one that doesn't exist, on purpose.
+        assert_eq!(
+            kinds(&config)
+                .iter()
+                .map(|(line, _)| *line)
+                .collect::<Vec<_>>(),
+            [43, 45],
+            "{main}"
+        );
         assert_eq!(config.files.len(), expected_files, "{main}");
         assert!(config.directives.len() > 100, "{main}");
     }
