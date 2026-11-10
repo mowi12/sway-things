@@ -12,3 +12,4 @@ pub mod command;
 pub mod registry;
 pub mod state;
 pub mod version;
+pub mod watch;

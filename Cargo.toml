@@ -26,6 +26,8 @@ dbg_macro = "deny"
 allow_attributes_without_reason = "deny"
 
 [workspace.dependencies]
+async-channel = "2"
+notify = { version = "8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 regex = "1"
 rustix = { version = "1", default-features = false, features = ["std", "system"] }
