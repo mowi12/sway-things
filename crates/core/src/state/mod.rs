@@ -47,6 +47,7 @@ mod paths;
 mod tests;
 mod write;
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -204,25 +205,137 @@ pub struct State {
     paths: Paths,
     shared: SettingsFile,
     host: SettingsFile,
+    shared_disk: Disk,
+    host_disk: Disk,
+}
+
+/// What was on disk when a file was last loaded or saved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Disk {
+    Missing,
+    Text(String),
+    Unreadable(String),
+}
+
+impl Disk {
+    fn read(path: &Path) -> Self {
+        match std::fs::read_to_string(path) {
+            Ok(text) => Self::Text(text),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Self::Missing,
+            Err(error) => Self::Unreadable(error.to_string()),
+        }
+    }
+
+    fn parse(&self, registry: &'static Registry) -> SettingsFile {
+        match self {
+            Self::Missing => SettingsFile::empty(),
+            Self::Text(text) => SettingsFile::parse(text, registry),
+            Self::Unreadable(message) => SettingsFile::unusable(ProblemKind::Unreadable {
+                message: message.clone(),
+            }),
+        }
+    }
+}
+
+/// What a [`State::reload`] changed.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Changes {
+    /// The files that were loaded again. Their [problems](State::problems) may have changed.
+    pub layers: Vec<Layer>,
+    /// The settings whose value in effect changed, was added or was removed, ordered by device
+    /// (those without one first) and key.
+    pub keys: Vec<ChangedKey>,
+}
+
+impl Changes {
+    /// Whether no file changed on disk.
+    pub fn is_empty(&self) -> bool {
+        self.layers.is_empty()
+    }
+}
+
+/// A setting whose stored value changed.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ChangedKey {
+    /// The input device the value is for, or `None` for the whole session or input type.
+    pub device: Option<String>,
+    /// The key of the setting.
+    pub key: &'static str,
 }
 
 impl State {
     /// Loads both files. A file that doesn't exist is empty; whatever can't be used is in
     /// [`State::problems`].
     pub fn load(registry: &'static Registry, paths: Paths) -> Self {
-        let read = |layer| match std::fs::read_to_string(paths.path(layer)) {
-            Ok(text) => SettingsFile::parse(&text, registry),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => SettingsFile::empty(),
-            Err(error) => SettingsFile::unusable(ProblemKind::Unreadable {
-                message: error.to_string(),
-            }),
-        };
-        let (shared, host) = (read(Layer::Shared), read(Layer::Host));
+        let shared_disk = Disk::read(paths.path(Layer::Shared));
+        let host_disk = Disk::read(paths.path(Layer::Host));
         Self {
             registry,
+            shared: shared_disk.parse(registry),
+            host: host_disk.parse(registry),
+            shared_disk,
+            host_disk,
             paths,
-            shared,
-            host,
+        }
+    }
+
+    /// Loads the files that changed on disk since they were last loaded or saved, e.g. after a
+    /// hand edit or a `git pull` of the dotfiles, and returns what changed. A file this state
+    /// wrote itself hasn't changed, so a reload after [`State::save`] does nothing.
+    ///
+    /// The file on disk wins: changes to a reloaded file that weren't saved yet are dropped, and
+    /// their keys are among the changed ones.
+    pub fn reload(&mut self) -> Changes {
+        let before = self.in_effect();
+        let mut layers = Vec::new();
+        for layer in Layer::ALL {
+            let disk = Disk::read(self.paths.path(layer));
+            if disk != *self.disk(layer) {
+                *self.file_mut(layer) = disk.parse(self.registry);
+                *self.disk_mut(layer) = disk;
+                layers.push(layer);
+            }
+        }
+        if layers.is_empty() {
+            return Changes::default();
+        }
+        let after = self.in_effect();
+        let keys = before
+            .iter()
+            .filter(|(key, value)| after.get(*key) != Some(*value))
+            .chain(after.iter().filter(|(key, _)| !before.contains_key(*key)))
+            .map(|(key, _)| key.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        Changes { layers, keys }
+    }
+
+    /// The values in effect, by device and key.
+    fn in_effect(&self) -> BTreeMap<ChangedKey, Value> {
+        self.entries()
+            .into_iter()
+            .map(|entry| {
+                let key = ChangedKey {
+                    device: entry.device.map(ToOwned::to_owned),
+                    key: entry.setting.key(),
+                };
+                (key, entry.value.clone())
+            })
+            .collect()
+    }
+
+    fn disk(&self, layer: Layer) -> &Disk {
+        match layer {
+            Layer::Shared => &self.shared_disk,
+            Layer::Host => &self.host_disk,
+        }
+    }
+
+    fn disk_mut(&mut self, layer: Layer) -> &mut Disk {
+        match layer {
+            Layer::Shared => &mut self.shared_disk,
+            Layer::Host => &mut self.host_disk,
         }
     }
 
@@ -473,6 +586,7 @@ impl State {
                 source,
             })?;
             self.file_mut(layer).mark_saved();
+            *self.disk_mut(layer) = Disk::Text(text);
         }
         Ok(())
     }

@@ -6,7 +6,7 @@ use std::path::Path;
 
 use tempfile::TempDir;
 
-use super::{Layer, Paths, ProblemKind, State, StateError};
+use super::{ChangedKey, Changes, Layer, Paths, ProblemKind, State, StateError};
 use crate::command::input::InputSelector;
 use crate::command::{Color, Target};
 use crate::registry::{Registry, Value, ValueError, Values};
@@ -770,4 +770,125 @@ fn a_failed_save_keeps_the_state_dirty() {
     assert!(matches!(state.save(), Err(StateError::Io { .. })));
     assert!(state.is_dirty());
     assert_eq!(file_names(fixture.dir.path()), ["settings.toml"]);
+}
+
+fn changed(device: Option<&str>, key: &'static str) -> ChangedKey {
+    ChangedKey {
+        device: device.map(ToOwned::to_owned),
+        key,
+    }
+}
+
+#[test]
+fn a_reload_reports_the_keys_that_changed_on_disk() {
+    let fixture = Fixture::new(
+        Some("version = 1\n[input.touchpad]\ntap = true\n[windows.gaps]\ninner = 4\n"),
+        None,
+    );
+    let mut state = fixture.load();
+    assert_eq!(state.reload(), Changes::default());
+
+    // A hand edit of the shared file, and an overlay that appears.
+    fs::write(
+        fixture.path(Layer::Shared),
+        "version = 1\n[input.touchpad]\ntap = true\n[windows.gaps]\ninner = 8\n[windows]\nfont = 3\n",
+    )
+    .unwrap();
+    fs::create_dir(fixture.dir.path().join("settings.d")).unwrap();
+    fs::write(
+        fixture.path(Layer::Host),
+        format!("[device.\"{TOUCHPAD}\".input.touchpad]\ntap = false\n"),
+    )
+    .unwrap();
+    let changes = state.reload();
+    assert!(!changes.is_empty());
+    assert_eq!(changes.layers, [Layer::Shared, Layer::Host]);
+    assert_eq!(
+        changes.keys,
+        [changed(None, GAPS), changed(Some(TOUCHPAD), TAP)]
+    );
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(8)));
+    assert_eq!(state.get(TAP, Some(TOUCHPAD)), Some(&Value::Bool(false)));
+    // The invalid value is reported, not dropped.
+    assert_eq!(state.problems().len(), 1);
+    assert_eq!(state.reload(), Changes::default());
+
+    // The overlay now hides a shared value; then it goes away again.
+    fs::write(fixture.path(Layer::Host), "[windows.gaps]\ninner = 8\n").unwrap();
+    let changes = state.reload();
+    assert_eq!(changes.layers, [Layer::Host]);
+    assert_eq!(changes.keys, [changed(Some(TOUCHPAD), TAP)]);
+    fs::remove_file(fixture.path(Layer::Host)).unwrap();
+    let changes = state.reload();
+    assert_eq!(changes.layers, [Layer::Host]);
+    assert_eq!(changes.keys, []);
+    assert_eq!(state.layer(GAPS, None), Some(Layer::Shared));
+}
+
+#[test]
+fn a_reload_after_our_own_save_does_nothing() {
+    let fixture = Fixture::new(Some("version = 1\n"), None);
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    state
+        .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
+        .unwrap();
+    // Unsaved changes survive as long as the files on disk are the same.
+    assert_eq!(state.reload(), Changes::default());
+    assert!(state.is_dirty());
+    state.save().unwrap();
+    assert_eq!(state.reload(), Changes::default());
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(8)));
+}
+
+#[test]
+fn the_file_on_disk_wins_over_unsaved_changes() {
+    let fixture = Fixture::new(
+        Some("version = 1\n[windows.gaps]\ninner = 4\n"),
+        Some("version = 1\n"),
+    );
+    let mut state = fixture.load();
+    state.set(GAPS, None, Value::Integer(8), None).unwrap();
+    state.set(TAP, None, Value::Bool(true), None).unwrap();
+    state
+        .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
+        .unwrap();
+    fs::write(
+        fixture.path(Layer::Shared),
+        "version = 1\n[windows.gaps]\ninner = 6\n",
+    )
+    .unwrap();
+    let changes = state.reload();
+    assert_eq!(changes.layers, [Layer::Shared]);
+    assert_eq!(changes.keys, [changed(None, TAP), changed(None, GAPS)]);
+    assert_eq!(state.get(GAPS, None), Some(&Value::Integer(6)));
+    assert_eq!(state.get(TAP, None), None);
+    // The overlay didn't change on disk, so its unsaved change is still there.
+    assert_eq!(state.get(TAP, Some(TOUCHPAD)), Some(&Value::Bool(true)));
+    assert!(state.is_dirty());
+    state.save().unwrap();
+    assert_eq!(
+        fixture.text(Layer::Shared),
+        "version = 1\n[windows.gaps]\ninner = 6\n"
+    );
+}
+
+#[test]
+fn a_file_that_breaks_and_gets_fixed_reloads() {
+    let fixture = Fixture::new(Some("version = 1\n[windows.gaps]\ninner = 4\n"), None);
+    let mut state = fixture.load();
+    fs::write(fixture.path(Layer::Shared), "[windows.gaps\n").unwrap();
+    let changes = state.reload();
+    assert_eq!(changes.keys, [changed(None, GAPS)]);
+    assert!(matches!(
+        &problems(&state)[..],
+        [(Layer::Shared, ProblemKind::Syntax { .. })]
+    ));
+    fs::write(
+        fixture.path(Layer::Shared),
+        "version = 1\n[windows.gaps]\ninner = 4\n",
+    )
+    .unwrap();
+    assert_eq!(state.reload().keys, [changed(None, GAPS)]);
+    assert_eq!(state.problems(), []);
 }
