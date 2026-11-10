@@ -90,6 +90,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
   SHA-256 checksum; packages from Ubuntu's signed repositories need no pin. Every workflow, job and step `name` is in
   Title Case (`Preview Label Changes`, `Check Out Repository`).
 - Labels: edit `.github/labels.yml`, never labels on github.com (the sync deletes unknown labels).
+- Issues: the issue type (Bug, Feature, Maintenance, Docs, Security) says what sort of work it is and the Effort field
+  (Easy, Medium, Hard) how big it is. Neither is a label, and titles carry no `[Type]:` prefix.
 
 ## Where to look
 

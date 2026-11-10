@@ -15,9 +15,13 @@ as described in [SECURITY.md](SECURITY.md), never in public issues.
 - **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue when
   you start or plan an item, not before.
 - Use the **issue forms** (Bug, Feature, Docs, Refactor). Blank issues are disabled.
-- **Labels** are defined in [.github/labels.yml](.github/labels.yml): `kind:`, `area:`, `page:`, `effort:`, `status:`,
-  `compat:swayfx`, plus `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview,
-  and `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
+- The **issue type** says what sort of work it is: Bug, Feature, Maintenance, Docs or Security. The forms set it, so
+  titles carry no prefix.
+- The **Effort** field (Easy, Medium, Hard) is the expected effort, as in the Feature Catalog. Maintainers set it;
+  **Start date** and **Target date** are optional.
+- **Labels** are defined in [.github/labels.yml](.github/labels.yml): `area:`, `page:`, `status:`, `compat:swayfx`, plus
+  `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview, and
+  `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
 - **Milestones** are releases. Only `v0.1` exists for now.
 - **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
   large.
@@ -121,7 +125,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
 | Spelling | `typos`, locale en-US |
-| Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a `kind:docs` issue |
+| Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable |
