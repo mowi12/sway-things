@@ -26,8 +26,8 @@
 //! use sway_things_core::state::{Layer, Paths, State};
 //!
 //! # let dir = tempfile::tempdir()?;
-//! # let config_dir = dir.path();
-//! let paths = Paths::new(config_dir, "laptop")?;
+//! # let (config_dir, state_dir) = (&dir.path().join("config"), &dir.path().join("state"));
+//! let paths = Paths::new(config_dir, state_dir, "laptop")?;
 //! let mut state = State::load(Registry::builtin(), paths);
 //! state.set("windows.gaps.inner", None, Value::Integer(8), None)?;
 //! state.save()?;

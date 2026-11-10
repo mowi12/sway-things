@@ -18,12 +18,14 @@ const GAPS: &str = "windows.gaps.inner";
 /// A config directory with the given contents of the shared file and the host overlay.
 struct Fixture {
     dir: TempDir,
+    state_dir: TempDir,
 }
 
 impl Fixture {
     fn new(shared: Option<&str>, host: Option<&str>) -> Self {
         let fixture = Self {
             dir: tempfile::tempdir().unwrap(),
+            state_dir: tempfile::tempdir().unwrap(),
         };
         if let Some(shared) = shared {
             fs::write(fixture.path(Layer::Shared), shared).unwrap();
@@ -36,7 +38,7 @@ impl Fixture {
     }
 
     fn paths(&self) -> Paths {
-        Paths::new(self.dir.path(), "laptop").unwrap()
+        Paths::new(self.dir.path(), self.state_dir.path(), "laptop").unwrap()
     }
 
     fn path(&self, layer: Layer) -> std::path::PathBuf {
