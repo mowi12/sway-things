@@ -10,7 +10,7 @@
 //! It works on bytes like the C code. Where sway would look up a `$variable`, the model fails
 //! instead, because an argument must never depend on the user's variables.
 
-pub(super) type Bytes = Vec<u8>;
+pub(crate) type Bytes = Vec<u8>;
 
 /// A command as sway's handler sees it.
 #[derive(Debug, PartialEq, Eq)]
@@ -390,7 +390,7 @@ pub(super) fn execute_command(payload: &[u8]) -> Result<Vec<Parsed>, String> {
 }
 
 /// One line of a config file through `read_config` and `config_command`, up to the handler call.
-pub(super) fn config_command(line: &[u8]) -> Result<Vec<Bytes>, String> {
+pub(crate) fn config_command(line: &[u8]) -> Result<Vec<Bytes>, String> {
     if line.contains(&b'\n') || line.contains(&0) {
         return Err("more than one line".to_owned());
     }
