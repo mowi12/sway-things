@@ -1,7 +1,6 @@
 name: Bug Report
 description: Something in Sway Things doesn't work as intended
-title: "[Bug]: <title>"
-labels: ["kind:bug"]
+type: Bug
 
 body:
   - type: checkboxes

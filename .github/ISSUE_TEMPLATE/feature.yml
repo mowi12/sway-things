@@ -1,7 +1,6 @@
 name: Feature Request
 description: Suggest a new setting, page or improvement
-title: "[Feature]: <title>"
-labels: ["kind:feature"]
+type: Feature
 
 body:
   - type: checkboxes

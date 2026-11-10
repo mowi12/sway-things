@@ -2,23 +2,6 @@
 # aliases (optional): old names. A label with an old name gets renamed, so issues keep it.
 # Each group has its own hue; the shade within a group carries meaning (see the group comments).
 
-# kind: what sort of work (one per issue). Blue, darker = more urgent
-- name: "kind:security"
-  color: "0a3069"
-  description: "Security hardening (report vulnerabilities privately, see SECURITY.md)"
-- name: "kind:bug"
-  color: "0550ae"
-  description: "Something doesn't work as intended"
-- name: "kind:feature"
-  color: "218bff"
-  description: "New or changed functionality"
-- name: "kind:maintenance"
-  color: "54aeff"
-  description: "Refactoring, tooling, CI or dependencies"
-- name: "kind:docs"
-  color: "b6e3ff"
-  description: "README, wiki or other documentation"
-
 # area: which part of the code base. Purple, darker = lower layer
 - name: "area:core"
   color: "3e1f79"
@@ -104,17 +87,6 @@
 - name: "page:about"
   color: "99f6e4"
   description: "About & Maintenance page"
-
-# effort: expected effort, as in the Feature Catalog. Traffic light, like 🟢 🟡 🔴
-- name: "effort:easy"
-  color: "2da44e"
-  description: "🟢 Native sway option or small, well-understood change"
-- name: "effort:medium"
-  color: "eac54f"
-  description: "🟡 Another tool's config, D-Bus, parsing or a custom widget"
-- name: "effort:hard"
-  color: "cf222e"
-  description: "🔴 Big effort, fragile, or only partly possible on sway"
 
 # status: why an issue can't move right now. Gray, darker = more stuck
 - name: "status:blocked"

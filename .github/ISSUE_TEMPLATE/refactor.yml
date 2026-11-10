@@ -1,7 +1,6 @@
 name: Refactoring Request
 description: Suggest restructuring code, tooling or CI without changing behavior
-title: "[Refactor]: <title>"
-labels: ["kind:maintenance"]
+type: Maintenance
 
 body:
   - type: checkboxes

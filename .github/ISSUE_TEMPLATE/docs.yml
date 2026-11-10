@@ -1,7 +1,6 @@
 name: Documentation Issue
 description: Report unclear, wrong or missing documentation
-title: "[Docs]: <title>"
-labels: ["kind:docs"]
+type: Docs
 
 body:
   - type: checkboxes

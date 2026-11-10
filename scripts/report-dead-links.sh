@@ -17,7 +17,7 @@ if (($# != 1)); then
   exit 2
 fi
 
-readonly title="[Docs]: Dead external links"
+readonly title="Dead external links"
 
 # lychee's report: a summary table, then "### Errors in <file>" with one bullet per dead link. Keep the files and
 # bullets, as bold lines so they don't clash with the form's headings.
@@ -28,7 +28,7 @@ if [[ -z $errors || -z $files ]]; then
   exit 1
 fi
 
-existing=$(gh issue list --state open --label kind:docs --limit 100 --json number,title \
+existing=$(gh issue list --state open --limit 100 --json number,title \
   --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
 
 if [[ -n $existing ]]; then
@@ -40,7 +40,7 @@ BODY
   exit
 fi
 
-gh issue create --title "$title" --label kind:docs --body-file - <<BODY
+gh issue create --title "$title" --type Docs --body-file - <<BODY
 ### Is there an existing issue for this?
 
 - [X] I have searched the existing issues
