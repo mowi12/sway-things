@@ -1,9 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::cell::RefCell;
 use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
-use super::{GeneratedFile, HEADER, Source, generate};
+use async_io::block_on;
+
+use super::{
+    ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Outcome, Source,
+    Validate, WriteError, generate, parse_error, write,
+};
 use crate::ipc::Compositor;
 use crate::registry::{ConfigFile, Registry};
 use crate::state::{Paths, State};
@@ -234,4 +242,326 @@ fn a_line_number_leads_back_to_its_settings() {
         source(1, 3),
         global(&["windows.focused.text", "windows.focused.child_border"])
     );
+}
+
+/// Stands in for sway: records the staged files it is shown, and finds `errors` in them or
+/// can't run at all.
+#[derive(Default)]
+struct FakeValidator {
+    errors: Vec<ConfigError>,
+    missing: bool,
+    /// The name and content of each staged file.
+    staged: RefCell<Vec<(String, String)>>,
+}
+
+impl Validate for FakeValidator {
+    fn validate(&self, staged: &Path) -> impl Future<Output = io::Result<Vec<ConfigError>>> {
+        let result = if self.missing {
+            Err(io::ErrorKind::NotFound.into())
+        } else {
+            fs::read_to_string(staged).map(|content| {
+                let name = staged.file_name().unwrap().to_str().unwrap().to_owned();
+                self.staged.borrow_mut().push((name, content));
+                self.errors.clone()
+            })
+        };
+        std::future::ready(result)
+    }
+}
+
+/// The sample state with the places its files are written to.
+struct Written {
+    dir: tempfile::TempDir,
+    files: Vec<GeneratedFile>,
+    locations: Locations,
+}
+
+impl Written {
+    fn new() -> Self {
+        let (dir, state) = sample();
+        let locations = Locations::new(
+            &dir.path().join("config/sway/sway-things"),
+            &dir.path().join("state"),
+        );
+        Self {
+            files: generate(Registry::builtin(), &state, SWAYFX_0_5),
+            dir,
+            locations,
+        }
+    }
+
+    fn write(&self, validator: &FakeValidator, overwrite: &[ConfigFile]) -> Vec<Outcome> {
+        block_on(write(&self.files, &self.locations, validator, overwrite))
+            .unwrap()
+            .into_iter()
+            .map(|(_, outcome)| outcome)
+            .collect()
+    }
+
+    fn path(&self, file: ConfigFile) -> PathBuf {
+        self.locations.path(file)
+    }
+
+    fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(self.locations.directory())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+}
+
+const ALL_FILES: [&str; 4] = [
+    "10-input.conf",
+    "30-appearance.conf",
+    "40-behavior.conf",
+    "90-effects.conf",
+];
+
+#[test]
+fn files_are_validated_then_written_and_recorded() {
+    let written = Written::new();
+    let validator = FakeValidator::default();
+    assert_eq!(
+        written.write(&validator, &[]),
+        [const { Outcome::Written }; 4]
+    );
+    assert_eq!(written.names(), ALL_FILES);
+    for file in &written.files {
+        let path = written.path(file.file());
+        assert_eq!(fs::read_to_string(&path).unwrap(), file.text());
+        assert!(Manifest::load(written.locations.manifest()).contains(&path));
+    }
+    // Each file was staged under a name the include `*.conf` doesn't match, with its content.
+    let staged = validator.staged.borrow();
+    assert_eq!(staged.len(), 4);
+    for ((name, content), file) in staged.iter().zip(&written.files) {
+        assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
+        assert!(name.ends_with(".staged"), "{name}");
+        assert_eq!(*content, file.text());
+    }
+    drop(staged);
+
+    // Nothing changed: nothing is validated or written again.
+    let validator = FakeValidator::default();
+    assert_eq!(
+        written.write(&validator, &[]),
+        [const { Outcome::Unchanged }; 4]
+    );
+    assert!(validator.staged.borrow().is_empty());
+}
+
+#[test]
+fn an_invalid_file_keeps_its_old_content_and_names_the_settings() {
+    let mut written = Written::new();
+    written.write(&FakeValidator::default(), &[]);
+    let old = fs::read_to_string(written.path(ConfigFile::Input)).unwrap();
+
+    // The state changes, and sway rejects line 4 of every staged file.
+    let (_dir, state) = state("[input.touchpad]\ntap = false\npointer_accel = 0.5\n", "");
+    written.files = generate(Registry::builtin(), &state, SWAYFX_0_5);
+    let validator = FakeValidator {
+        errors: vec![ConfigError {
+            line: 4,
+            message: "Invalid pointer_accel".to_owned(),
+        }],
+        ..FakeValidator::default()
+    };
+    let outcomes = written.write(&validator, &[]);
+    assert_eq!(
+        outcomes[0],
+        Outcome::Invalid(vec![InvalidLine {
+            line: 4,
+            message: "Invalid pointer_accel".to_owned(),
+            source: Some(Source {
+                keys: vec!["input.touchpad.pointer_accel"],
+                device: None
+            }),
+        }])
+    );
+    assert_eq!(
+        fs::read_to_string(written.path(ConfigFile::Input)).unwrap(),
+        old
+    );
+    // The files that are empty now have nothing to validate against line 4, but sway said no.
+    assert!(matches!(&outcomes[1], Outcome::Invalid(lines) if lines[0].source.is_none()));
+    assert_eq!(written.names(), ALL_FILES);
+}
+
+#[test]
+fn without_a_validator_nothing_is_replaced() {
+    let written = Written::new();
+    let validator = FakeValidator {
+        missing: true,
+        ..FakeValidator::default()
+    };
+    let error = block_on(write(&written.files, &written.locations, &validator, &[])).unwrap_err();
+    assert!(matches!(error, WriteError::Validator(_)));
+    assert!(
+        error
+            .to_string()
+            .starts_with("can't run sway to validate: ")
+    );
+    // Not even the staged file is left.
+    assert_eq!(written.names(), Vec::<String>::new());
+}
+
+#[test]
+fn a_file_changed_outside_is_only_replaced_when_asked_to() {
+    let written = Written::new();
+    written.write(&FakeValidator::default(), &[]);
+    let input = written.path(ConfigFile::Input);
+    fs::write(&input, format!("{HEADER}input * tap enabled\n")).unwrap();
+
+    let outcomes = written.write(&FakeValidator::default(), &[]);
+    assert_eq!(outcomes[0], Outcome::EditedOutside);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 3]);
+    assert!(
+        fs::read_to_string(&input)
+            .unwrap()
+            .ends_with("input * tap enabled\n")
+    );
+
+    // The user agreed to replace this file; that says nothing about the others.
+    let outcomes = written.write(&FakeValidator::default(), &[ConfigFile::Behavior]);
+    assert_eq!(outcomes[0], Outcome::EditedOutside);
+    let outcomes = written.write(&FakeValidator::default(), &[ConfigFile::Input]);
+    assert_eq!(outcomes[0], Outcome::Written);
+    assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
+    assert_eq!(
+        written.write(&FakeValidator::default(), &[]),
+        [const { Outcome::Unchanged }; 4]
+    );
+}
+
+#[test]
+fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() {
+    let written = Written::new();
+    fs::create_dir_all(written.locations.directory()).unwrap();
+    // Synced with the dotfiles: generated elsewhere, not in this machine's manifest.
+    let same = written.path(ConfigFile::Input);
+    let different = written.path(ConfigFile::Appearance);
+    let foreign = written.path(ConfigFile::Behavior);
+    fs::write(&same, written.files[0].text()).unwrap();
+    fs::write(&different, format!("{HEADER}gaps inner 2\n")).unwrap();
+    fs::write(&foreign, "focus_follows_mouse no\n").unwrap();
+
+    let all = [
+        ConfigFile::Input,
+        ConfigFile::Appearance,
+        ConfigFile::Behavior,
+        ConfigFile::Effects,
+    ];
+    assert_eq!(
+        written.write(&FakeValidator::default(), &[]),
+        [
+            Outcome::Unchanged,
+            Outcome::EditedOutside,
+            Outcome::Foreign,
+            Outcome::Written
+        ]
+    );
+    let manifest = Manifest::load(written.locations.manifest());
+    assert!(manifest.contains(&same));
+    assert!(!manifest.contains(&different));
+    assert!(!manifest.contains(&foreign));
+
+    // Even when asked to overwrite everything, the foreign file stays.
+    assert_eq!(
+        written.write(&FakeValidator::default(), &all),
+        [
+            Outcome::Unchanged,
+            Outcome::Written,
+            Outcome::Foreign,
+            Outcome::Unchanged
+        ]
+    );
+    assert_eq!(
+        fs::read_to_string(&foreign).unwrap(),
+        "focus_follows_mouse no\n"
+    );
+}
+
+#[test]
+fn empty_files_are_not_created_but_existing_ones_are_emptied() {
+    let mut written = Written::new();
+    let (_dir, gaps) = state("[windows.gaps]\ninner = 8\n", "");
+    written.files = generate(Registry::builtin(), &gaps, SWAY_1_10);
+    let not_created = Outcome::NotCreated;
+    assert_eq!(
+        written.write(&FakeValidator::default(), &[]),
+        [
+            not_created.clone(),
+            Outcome::Written,
+            not_created.clone(),
+            not_created.clone()
+        ]
+    );
+    assert_eq!(written.names(), ["30-appearance.conf"]);
+
+    // The last setting of the file is reset: the file stays, with only the header.
+    let (_dir, empty) = state("", "");
+    written.files = generate(Registry::builtin(), &empty, SWAY_1_10);
+    assert_eq!(
+        written.write(&FakeValidator::default(), &[])[1],
+        Outcome::Written
+    );
+    assert_eq!(
+        fs::read_to_string(written.path(ConfigFile::Appearance)).unwrap(),
+        HEADER
+    );
+}
+
+#[test]
+fn a_linked_generated_file_stays_a_link() {
+    let written = Written::new();
+    let dotfiles = tempfile::tempdir().unwrap();
+    let real = dotfiles.path().join("10-input.conf");
+    fs::write(&real, HEADER).unwrap();
+    fs::create_dir_all(written.locations.directory()).unwrap();
+    let link = written.path(ConfigFile::Input);
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    // Header only, so it is ours but edited; the user agreed.
+    assert_eq!(
+        written.write(&FakeValidator::default(), &[ConfigFile::Input])[0],
+        Outcome::Written
+    );
+    assert!(
+        fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(fs::read_to_string(&real).unwrap(), written.files[0].text());
+    drop(written.dir);
+}
+
+#[test]
+fn sways_errors_are_read_from_its_log() {
+    let parsed = |log: &str, config: &str| {
+        parse_error(log, Path::new(config)).map(|error| (error.line, error.message))
+    };
+    assert_eq!(
+        parsed(
+            "00:00:00.004 [ERROR] [sway/config.c:865] Error on line 3 'corner_radius 8': \
+             Unknown/invalid command 'corner_radius' (/tmp/.90-effects.conf.12.staged)",
+            "/tmp/.90-effects.conf.12.staged"
+        ),
+        Some((3, "Unknown/invalid command 'corner_radius'".to_owned()))
+    );
+    // A config line that looks like the separator, and a path with parentheses.
+    assert_eq!(
+        parsed(
+            "Error on line 12 'font \"a': b\"': Invalid font (x) (/home/me (old)/f.conf)",
+            "/home/me (old)/f.conf"
+        ),
+        Some((12, "Invalid font (x)".to_owned()))
+    );
+    assert_eq!(
+        parsed("00:00:00.001 [INFO] [sway/main.c:338] Starting sway", "/c"),
+        None
+    );
+    assert_eq!(parsed("Error on line x 'a': b", "/c"), None);
 }

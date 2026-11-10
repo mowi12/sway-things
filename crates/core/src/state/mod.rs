@@ -62,6 +62,7 @@ use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
 
 pub use history::Snapshot;
+pub(crate) use paths::xdg_dir;
 pub use paths::{Paths, PathsError};
 
 /// One of the two settings files.

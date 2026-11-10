@@ -28,6 +28,7 @@ allow_attributes_without_reason = "deny"
 [workspace.dependencies]
 async-channel = "2"
 async-io = "2"
+async-process = "2"
 futures-lite = { version = "2", default-features = false, features = ["std"] }
 notify = { version = "8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }

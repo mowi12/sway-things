@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 async-channel.workspace = true
 async-io.workspace = true
+async-process.workspace = true
 futures-lite.workspace = true
 notify.workspace = true
 rustix.workspace = true
