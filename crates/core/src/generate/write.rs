@@ -213,6 +213,34 @@ pub enum Outcome {
     Invalid(Vec<InvalidLine>),
 }
 
+impl Outcome {
+    /// What went wrong with `file`, in words for the app and the command line, or `None` if
+    /// nothing did.
+    pub fn problem(&self, file: ConfigFile) -> Option<String> {
+        let name = file.file_name();
+        match self {
+            Self::Written | Self::Unchanged | Self::NotCreated => None,
+            Self::EditedOutside => Some(format!(
+                "{name} was changed outside Sway Things, so it was left alone"
+            )),
+            Self::Foreign => Some(format!(
+                "{name} wasn't made by Sway Things, so it is never written"
+            )),
+            Self::Invalid(lines) => {
+                let first = lines
+                    .first()
+                    .map_or_else(String::new, |line| match line.line {
+                        0 => format!(": {}", line.message),
+                        number => format!(": line {number}: {}", line.message),
+                    });
+                Some(format!(
+                    "sway rejected the new {name}, so the old one stays{first}"
+                ))
+            }
+        }
+    }
+}
+
 /// The files in the order they were given, each with what happened to it.
 pub type Report = Vec<(ConfigFile, Outcome)>;
 
