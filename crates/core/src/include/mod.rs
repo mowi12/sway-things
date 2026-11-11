@@ -10,7 +10,8 @@
 //!
 //! The line counts in any spelling sway resolves to the generated files (`~`, `$HOME`, an
 //! absolute path, a glob), in the main config or in a file it includes, and only if it covers
-//! every file Sway Things can generate, also those that weren't written yet.
+//! every file Sway Things can generate, also those that weren't written yet. An
+//! [`IncludeWatch`] keeps the status current while the user edits the config.
 //!
 //! ```
 //! use std::path::Path;
@@ -46,6 +47,7 @@ mod instructions;
 mod overlay;
 #[cfg(test)]
 mod tests;
+mod watch;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -54,6 +56,7 @@ use std::path::{Path, PathBuf};
 pub use instructions::Instructions;
 use instructions::tilde;
 use overlay::Overlay;
+pub use watch::{IncludeWatch, MainConfig};
 
 use crate::generate::Locations;
 use crate::registry::ConfigFile;
