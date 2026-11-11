@@ -100,6 +100,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   name covers independent values, the first argument (`gaps` + `inner`).
 - **Apply mode:** live by default. A setting built on a config-only command (`workspace_layout`) must use reload.
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`) are settings without a sway mapping.
+- **Pages:** `Page::ALL` lists every page of the app in sidebar order, each with its id, sidebar group (`Group`), title
+  and one-line description. The id is what deep links and the CLI use (`sway-things open mouse-touchpad`). Every setting
+  names its page, and the registry lists the settings in page order.
 
 Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
 setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
@@ -664,8 +667,13 @@ unknown commands (non-fatal) until `sway-things` runs once. `sway-things doctor`
   `sway-things open <page>[/<setting>]` activates the running window.
 - Generic row widgets (`ToggleRow`, `SliderRow`, `ComboRow`, `ColorRow`, `EntryRow`) are built from registry entries.
   Custom pages are GObject subclasses.
-- Our own CSS covers structure only. Colors come from the GTK theme, and the accent comes from the sway `client.focused`
-  child border color (live).
+- **Components:** every building block is a widget in `crates/gui/src/widgets/`, a GObject subclass written in Rust (no
+  `.ui` files) with its own CSS node name (`st-sidebar`, `st-page-header`, …). The shell is made of them: `Sidebar` (the
+  pages of `Page::ALL` under their group headings), and per page a `PageView` (header, body, scrolled, at most 760 px
+  wide through `Clamp`); a page that isn't built yet shows a `Placeholder`.
+- Our own CSS (`crates/gui/src/style.css`) covers structure only. Colors come from the GTK theme, and the accent comes
+  from the sway `client.focused` child border color (live). Secondary text uses `.st-dim` (opacity 0.75) instead of the
+  theme's `.dim-label` (0.55), which stays below 4.5:1 in GTK's own theme.
 - **Concurrency**: one event loop. Futures run on the GTK main context (`glib::spawn_future_local`); I/O uses
   executor-agnostic, async-io based crates (zbus, swayipc-async, async-process); the CLI uses `async_io::block_on`. No
   tokio. `crates/core` must not depend on a specific executor.
@@ -683,7 +691,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
-| GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
+| GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open, drawn in GTK's own theme in light and dark, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
 
