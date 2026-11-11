@@ -250,11 +250,49 @@ fn render(window: &gtk::Window) -> Result<gsk::RenderNode, String> {
         .ok_or_else(|| "nothing was drawn".to_owned())
 }
 
-/// Opens `page`, checks every text drawn in the window and saves a screenshot if asked.
+/// Opens `page`, checks every text drawn in the window and saves a screenshot if asked. A page
+/// longer than the window is scrolled through, a window height at a time.
 fn check_page(window: &Window, page: Page, screenshots: Option<&Path>, scheme: &str) -> Outcome {
     window.show_page(page);
     settle(window)?;
-    wait_for_paint(window)?;
+    let scroller = window
+        .content()
+        .and_then(|content| find::<gtk::ScrolledWindow>(&content))
+        .ok_or_else(|| "  the page has no scrolled window".to_owned())?;
+    let adjustment = scroller.vadjustment();
+    adjustment.set_value(0.0);
+    let mut problems = String::new();
+    let mut screen = 0;
+    loop {
+        wait_for_paint(window)?;
+        let name = match screen {
+            0 => format!("{}--{scheme}.png", page.id()),
+            _ => format!("{}--{scheme}-{screen}.png", page.id()),
+        };
+        problems.push_str(&check_screen(
+            window,
+            screenshots.map(|dir| dir.join(&name)),
+        )?);
+        let bottom = adjustment.upper() - adjustment.page_size();
+        if adjustment.value() >= bottom {
+            break;
+        }
+        // A little overlap, so text cut at the edge is seen whole on the next screen.
+        adjustment.set_value((adjustment.value() + adjustment.page_size() * 0.8).min(bottom));
+        settle(window)?;
+        screen += 1;
+    }
+    adjustment.set_value(0.0);
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// Checks every text drawn in the window as it is now, and saves it to `screenshot` if given.
+/// Returns the problems, one per line.
+fn check_screen(window: &Window, screenshot: Option<PathBuf>) -> Result<String, String> {
     let node = render(window.upcast_ref())?;
     // The viewport starts at the window's origin, so pixels and node coordinates line up.
     #[expect(
@@ -269,8 +307,7 @@ fn check_page(window: &Window, page: Page, screenshots: Option<&Path>, scheme: &
             &node,
             Some(&gtk::graphene::Rect::new(0.0, 0.0, width, height)),
         );
-    if let Some(directory) = screenshots {
-        let path = directory.join(format!("{}--{scheme}.png", page.id()));
+    if let Some(path) = screenshot {
         save_png(&texture, &path)?;
     }
     let pixels = contrast::Pixels::new(&texture, width);
@@ -284,11 +321,22 @@ fn check_page(window: &Window, page: Page, screenshots: Option<&Path>, scheme: &
             let _ = writeln!(problems, "  {problem}");
         }
     }
-    if problems.is_empty() {
-        Ok(())
-    } else {
-        Err(problems)
+    Ok(problems)
+}
+
+/// The first widget of type `T` in `widget` and below it.
+fn find<T: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Option<T> {
+    if let Ok(found) = widget.clone().downcast::<T>() {
+        return Some(found);
     }
+    let mut child = widget.first_child();
+    while let Some(widget) = child {
+        if let Some(found) = find(&widget) {
+            return Some(found);
+        }
+        child = widget.next_sibling();
+    }
+    None
 }
 
 fn problem(sample: &TextSample) -> Option<String> {
