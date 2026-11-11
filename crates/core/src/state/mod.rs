@@ -21,18 +21,27 @@
 //! The files may be edited by hand. Loading reports what doesn't fit the registry as
 //! [`Problem`]s and loads the rest; saving keeps comments, order and unknown keys.
 //! [`State::reload`] picks up changes made outside, and every save first keeps the files it
-//! replaces as a [`Snapshot`] that [`State::restore`] brings back.
+//! replaces as a [`Snapshot`] that [`State::restore`] brings back. Saving needs a
+//! [`WriteAccess`], which exists only while the user's sway config includes the generated files.
 //!
 //! ```
+//! use sway_things_core::include::IncludeStatus;
 //! use sway_things_core::registry::{Registry, Value};
 //! use sway_things_core::state::{Layer, Paths, State};
 //!
 //! # let dir = tempfile::tempdir()?;
 //! # let (config_dir, state_dir) = (&dir.path().join("config"), &dir.path().join("state"));
+//! # let generated = config_dir.join("sway/sway-things");
+//! # let locations = sway_things_core::generate::Locations::new(&generated, state_dir);
+//! # let sway_config = config_dir.join("sway/config");
+//! # std::fs::create_dir_all(config_dir.join("sway"))?;
+//! # std::fs::write(&sway_config, format!("include {}/*.conf\n", generated.display()))?;
+//! # let files = sway_things_core::sway_config::Disk;
 //! let paths = Paths::new(config_dir, state_dir, "laptop")?;
 //! let mut state = State::load(Registry::builtin(), paths);
 //! state.set("windows.gaps.inner", None, Value::Integer(8), None)?;
-//! state.save()?;
+//! let status = IncludeStatus::detect(Some(&sway_config), &files, &locations);
+//! state.save(&status.write_access()?)?;
 //!
 //! assert_eq!(state.get("windows.gaps.inner", None), Some(&Value::Integer(8)));
 //! assert_eq!(state.layer("windows.gaps.inner", None), Some(Layer::Shared));
@@ -57,6 +66,7 @@ use std::time::SystemTime;
 
 use crate::atomic;
 use crate::command::input::InputSelector;
+use crate::include::WriteAccess;
 use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
 use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
@@ -601,12 +611,16 @@ impl State {
     /// [`Snapshot`], unless the newest snapshot already holds the same contents. The history
     /// keeps the newest 50 snapshots.
     ///
+    /// Saving needs the [`WriteAccess`] of an
+    /// [`IncludeStatus`](crate::include::IncludeStatus): while the user's sway config doesn't
+    /// include the generated files, nothing is saved.
+    ///
     /// # Errors
     ///
     /// [`StateError::Io`] if the snapshot or a file can't be written. Without the snapshot
     /// nothing is replaced; files written before a failing one stay written. The state stays
     /// dirty.
-    pub fn save(&mut self) -> Result<(), StateError> {
+    pub fn save(&mut self, _access: &WriteAccess) -> Result<(), StateError> {
         if !self.is_dirty() {
             return Ok(());
         }

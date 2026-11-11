@@ -165,6 +165,8 @@ tap = false
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
+- **Saving needs the include line:** `State::save` takes the write permission that only an active
+  [include status](#include-detection) hands out. Loading, changing values in memory and reading need none.
 - **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it. If the file is a
   symbolic link (into a dotfiles repository), the link stays and its target is replaced. File access is synchronous
   (`std::fs`): the files are small, and only loading and saving touch the disk.
@@ -180,14 +182,16 @@ tap = false
 
 ### File watcher
 
-`crates/core/src/watch.rs` watches a set of files for any part of the app: the settings files now, the sway config files
-for the include detection later.
+`crates/core/src/watch.rs` watches a set of files for any part of the app: the settings files, and the sway config files
+for the [include detection](#include-detection).
 
 - It uses the `notify` crate (inotify on Linux, kqueue on the BSDs) and watches **directories**, not files: the
   directory of each file, or the nearest one above it that exists. That covers a file that is created later, deleted, or
   replaced by a rename (how editors and `git` save), and a directory that appears or goes away. For a file that is a
   symbolic link, the directory of its target is watched too.
 - Events about other files in those directories and reads are ignored.
+- It can also watch a **directory** for the files directly in it (created, changed, renamed, deleted), which is how a
+  glob such as `include config.d/*` is followed.
 - **Debounce:** a burst of events becomes one report once the watched files have been quiet for 200 ms (after 2 s at the
   latest), so a reader doesn't see a half-written file.
 - A report only says that a file _may_ have changed; the reader decides. That keeps self-write suppression out of the
@@ -254,6 +258,8 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
   A generated file that isn't recorded came with the dotfiles from another machine, or the manifest was lost; that is
   why the header counts. A manifest that is missing or broken is empty.
 - A file that loses its last setting keeps existing with only the header.
+- **Writing needs the include line:** like saving the state, `generate::write` takes the write permission of an active
+  [include status](#include-detection). `generate` needs none, so the preview works while read-only.
 
 The user adds **one line** to their own config, normally as the last line:
 
@@ -261,7 +267,8 @@ The user adds **one line** to their own config, normally as the last line:
 include ~/.config/sway/sway-things/*.conf
 ```
 
-The app never adds this line itself. It shows the line with a copy button and detects it via the parser.
+The app never adds this line itself. It shows the line with a copy button and detects it via the parser, see
+[Include detection](#include-detection).
 
 ### Other tools
 
@@ -455,6 +462,42 @@ SwayFX.
   bounded, and property tests feed it arbitrary bytes and compare its line splitting with the port of sway's parser that
   the command builders are tested against. It's built to be **fuzzed**.
 
+### Include detection
+
+`crates/core/src/include/` answers whether the user's config includes the generated files, and where.
+
+- **How:** `IncludeStatus::detect` parses the user's config through a view of the file system in which every file Sway
+  Things can generate exists and holds one marker directive. Where the markers turn up is where sway reads the files. So
+  the line counts in any spelling sway resolves to them (`~`, `$HOME`, an absolute or relative path, a glob, through
+  symbolic links), in the main config or an included file, and also before a file was ever written.
+- **The files on disk decide,** not what the running sway loaded: the line counts as soon as it is saved. Live changes
+  go over IPC anyway, and the next reload reads the generated files.
+- **Status:**
+
+  | Status | Meaning | Settings |
+  | --- | --- | --- |
+  | active | every generated file is included | can be changed |
+  | partial | only some files are included (one file by name, a narrower glob); the status names the others | read-only |
+  | unknown | the line wasn't found, but part of the config can't be followed: an include that needs a shell command, an unreadable file, includes nested too deeply | read-only |
+  | missing | no include of the generated files, or no config | read-only |
+
+- **Position:** for each generated file the status knows how many of the user's directives sway runs before it. The
+  user's lines after the first generated file are listed: they win where they set the same thing. With the line at the
+  end of the main config there are none. The status also holds the user's config without the generated files, for
+  conflict detection.
+- **Write permission:** an active status hands out a `WriteAccess`, which `State::save` and `generate::write` require.
+  So neither the CLI nor the GUI nor a hook can persist anything without having checked, and the refusal carries the
+  text to show ("Add the include line to change settings", the explanation and the instructions). The permission says
+  the line was there when the config was last read; callers get a new one for each change.
+- **Instructions:** the line to copy and the file it goes into come from the core, so the GUI and the CLI show the same.
+  The line is written with `~` when the generated files are in the home directory, escaped where the path needs it, and
+  checked by parsing it back. If sway reads the config of the system (`/etc/sway/config`) or none, the instructions say
+  to create `$XDG_CONFIG_HOME/sway/config` first.
+- **Watching:** `IncludeWatch` keeps the status current. It watches the main config, every included file, include paths
+  that don't exist yet and the directories the includes point into, reads the config again after each report, and
+  reports only when the status differs. Without a session it looks up sway's default config again on every change, so a
+  config created later is found. The writes of Sway Things to its own files change nothing and aren't reported.
+
 ### Conflict detection
 
 Sway evaluates config top to bottom, and for most settings the last definition wins. The parser knows where our
@@ -464,7 +507,7 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 | --- | --- | --- |
 | before our include | our value wins, the user's line is dead | "Overridden: your config line N is no longer in effect" |
 | after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
-| our include missing | nothing we generate is active | app-wide **read-only** mode with the include instructions |
+| our include missing, partial or unknown | nothing we generate is reliably active | app-wide **read-only** mode with the include instructions |
 
 Per-directive semantics come from the registry: `input` blocks merge per identifier, `exec` accumulates, duplicate
 `bindsym` overrides with a warning, `client.*` replaces. Actions on a conflict: **Open in editor at line**
@@ -591,7 +634,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |

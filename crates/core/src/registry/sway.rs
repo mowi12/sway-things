@@ -78,6 +78,9 @@ pub enum ConfigFile {
 }
 
 impl ConfigFile {
+    /// Every generated file, in the order of their names, which is the order sway reads them in.
+    pub const ALL: [Self; 4] = [Self::Input, Self::Appearance, Self::Behavior, Self::Effects];
+
     /// The file name.
     pub const fn file_name(self) -> &'static str {
         match self {

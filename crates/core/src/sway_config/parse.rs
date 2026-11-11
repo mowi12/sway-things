@@ -142,6 +142,13 @@ pub struct SwayConfig {
 ///
 /// In a running session, `GET_VERSION` names the loaded config, which is the better source.
 pub fn default_path(files: &dyn Files) -> Option<PathBuf> {
+    default_paths(files)
+        .into_iter()
+        .find(|path| files.exists(path))
+}
+
+/// The paths [`default_path`] tries, in sway's order, whether they exist or not.
+pub fn default_paths(files: &dyn Files) -> Vec<PathBuf> {
     let home = files.env("HOME").filter(|home| !home.is_empty());
     let config_home = files
         .env("XDG_CONFIG_HOME")
@@ -163,7 +170,7 @@ pub fn default_path(files: &dyn Files) -> Option<PathBuf> {
             prefix.as_ref()?
         )))
     })
-    .find(|path| files.exists(path))
+    .collect()
 }
 
 /// Reads the config at `main` and everything it includes. Nothing is executed and nothing is

@@ -12,6 +12,7 @@ use super::{
     ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Outcome, Source,
     Validate, WriteError, generate, parse_error, write,
 };
+use crate::include::WriteAccess;
 use crate::ipc::Compositor;
 use crate::registry::{ConfigFile, Registry};
 use crate::state::{Paths, State};
@@ -291,11 +292,17 @@ impl Written {
     }
 
     fn write(&self, validator: &FakeValidator, overwrite: &[ConfigFile]) -> Vec<Outcome> {
-        block_on(write(&self.files, &self.locations, validator, overwrite))
-            .unwrap()
-            .into_iter()
-            .map(|(_, outcome)| outcome)
-            .collect()
+        block_on(write(
+            &self.files,
+            &self.locations,
+            validator,
+            overwrite,
+            &WriteAccess::for_tests(),
+        ))
+        .unwrap()
+        .into_iter()
+        .map(|(_, outcome)| outcome)
+        .collect()
     }
 
     fn path(&self, file: ConfigFile) -> PathBuf {
@@ -396,7 +403,14 @@ fn without_a_validator_nothing_is_replaced() {
         missing: true,
         ..FakeValidator::default()
     };
-    let error = block_on(write(&written.files, &written.locations, &validator, &[])).unwrap_err();
+    let error = block_on(write(
+        &written.files,
+        &written.locations,
+        &validator,
+        &[],
+        &WriteAccess::for_tests(),
+    ))
+    .unwrap_err();
     assert!(matches!(error, WriteError::Validator(_)));
     assert!(
         error

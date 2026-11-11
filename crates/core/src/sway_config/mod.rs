@@ -44,4 +44,6 @@ mod tests;
 
 pub use expand::{ExpandError, expand};
 pub use files::{Disk, Files, MemoryFiles};
-pub use parse::{Diagnostic, DiagnosticKind, Directive, Include, SwayConfig, default_path, parse};
+pub use parse::{
+    Diagnostic, DiagnosticKind, Directive, Include, SwayConfig, default_path, default_paths, parse,
+};

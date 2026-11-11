@@ -63,14 +63,6 @@ pub const HEADER: &str = "\
 # Change settings in the app or with `sway-things set`. Hand edits are overwritten.
 ";
 
-/// The files in the order of their names.
-const FILES: [ConfigFile; 4] = [
-    ConfigFile::Input,
-    ConfigFile::Appearance,
-    ConfigFile::Behavior,
-    ConfigFile::Effects,
-];
-
 /// The stored settings a line of a generated file comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
@@ -142,7 +134,7 @@ impl GeneratedFile {
 /// stays stored and comes back when the compositor supports it. The same happens to a value the
 /// command builders reject, such as a font description with a backslash.
 pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> Vec<GeneratedFile> {
-    let mut files = FILES.map(|file| GeneratedFile {
+    let mut files = ConfigFile::ALL.map(|file| GeneratedFile {
         file,
         lines: Vec::new(),
     });

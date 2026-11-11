@@ -11,6 +11,7 @@
 mod atomic;
 pub mod command;
 pub mod generate;
+pub mod include;
 pub mod ipc;
 pub mod registry;
 pub mod state;

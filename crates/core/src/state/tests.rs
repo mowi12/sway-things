@@ -9,6 +9,7 @@ use tempfile::TempDir;
 use super::{ChangedKey, Changes, Layer, Paths, ProblemKind, State, StateError};
 use crate::command::input::InputSelector;
 use crate::command::{Color, Target};
+use crate::include::WriteAccess;
 use crate::registry::{Registry, Value, ValueError, Values};
 
 const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
@@ -79,7 +80,7 @@ fn missing_files_are_an_empty_state() {
     assert!(state.entries().is_empty());
     assert_eq!(state.get(TAP, None), None);
     assert!(!state.is_dirty());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(file_names(fixture.dir.path()), Vec::<String>::new());
 }
 
@@ -417,7 +418,7 @@ fn a_file_of_another_version_is_reported_and_left_alone() {
         state
             .set(TAP, None, Value::Bool(false), Some(Layer::Host))
             .unwrap();
-        state.save().unwrap();
+        state.save(&WriteAccess::for_tests()).unwrap();
         assert_eq!(fixture.text(Layer::Shared), text);
         assert_eq!(
             fixture.text(Layer::Host),
@@ -444,7 +445,7 @@ fn a_file_with_a_syntax_error_is_reported_and_left_alone() {
         Err(StateError::Unusable { .. })
     ));
     assert!(!state.is_dirty());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(fixture.text(Layer::Host), text);
 }
 
@@ -464,7 +465,7 @@ fn a_new_value_goes_to_the_file_of_its_scope() {
         .set(TAP, Some(TOUCHPAD), Value::Bool(false), None)
         .unwrap();
     assert!(state.is_dirty());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert!(!state.is_dirty());
     assert_eq!(
         fixture.text(Layer::Shared),
@@ -501,7 +502,7 @@ fn a_changed_value_stays_in_its_file() {
     state.set(TAP, None, Value::Bool(false), None).unwrap();
     assert_eq!(state.layer(GAPS, None), Some(Layer::Host));
     assert_eq!(state.layer(TAP, None), Some(Layer::Shared));
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         fixture.text(Layer::Host),
         "version = 1\n[windows.gaps]\ninner = 6\n"
@@ -519,7 +520,7 @@ fn this_machine_only_moves_the_value() {
     assert!(state.move_to(GAPS, None, Layer::Host).unwrap());
     assert_eq!(state.layer(GAPS, None), Some(Layer::Host));
     assert_eq!(state.get(GAPS, None), Some(&Value::Integer(4)));
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(fixture.text(Layer::Shared), "version = 1\n");
     assert_eq!(
         fixture.text(Layer::Host),
@@ -527,7 +528,7 @@ fn this_machine_only_moves_the_value() {
     );
 
     assert!(state.move_to(GAPS, None, Layer::Shared).unwrap());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         fixture.text(Layer::Shared),
         "version = 1\n\n[windows.gaps]\ninner = 4\n"
@@ -553,7 +554,7 @@ fn a_value_for_the_shared_file_replaces_the_one_in_the_overlay() {
     state
         .set(GAPS, None, Value::Integer(2), Some(Layer::Host))
         .unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         fixture.text(Layer::Shared),
         "version = 1\n\n[windows.gaps]\ninner = 8\n"
@@ -580,7 +581,7 @@ fn reset_removes_the_key_from_both_files() {
     assert_eq!(state.problems(), []);
     assert_eq!(state.get(GAPS, None), None);
     assert!(state.entries().iter().all(|entry| entry.device.is_none()));
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     // Tables that are empty now go away too.
     assert_eq!(
         fixture.text(Layer::Shared),
@@ -618,7 +619,7 @@ setting = "kept"
     );
 
     // Nothing changed: nothing is written, not even the version.
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(fixture.text(Layer::Shared), text);
 
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
@@ -648,7 +649,7 @@ setting = "kept"
             None,
         )
         .unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         fixture.text(Layer::Shared),
         r##"# My sway settings, shared between laptop and desktop.
@@ -734,7 +735,7 @@ fn a_linked_file_stays_a_link() {
 
     let mut state = fixture.load();
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert!(
         fs::symlink_metadata(fixture.path(Layer::Shared))
             .unwrap()
@@ -769,7 +770,10 @@ fn a_failed_save_keeps_the_state_dirty() {
     let mut state = fixture.load();
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
     fs::create_dir(fixture.path(Layer::Shared)).unwrap();
-    assert!(matches!(state.save(), Err(StateError::Io { .. })));
+    assert!(matches!(
+        state.save(&WriteAccess::for_tests()),
+        Err(StateError::Io { .. })
+    ));
     assert!(state.is_dirty());
     assert_eq!(file_names(fixture.dir.path()), ["settings.toml"]);
 }
@@ -838,7 +842,7 @@ fn a_reload_after_our_own_save_does_nothing() {
     // Unsaved changes survive as long as the files on disk are the same.
     assert_eq!(state.reload(), Changes::default());
     assert!(state.is_dirty());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(state.reload(), Changes::default());
     assert_eq!(state.get(GAPS, None), Some(&Value::Integer(8)));
 }
@@ -868,7 +872,7 @@ fn the_file_on_disk_wins_over_unsaved_changes() {
     // The overlay didn't change on disk, so its unsaved change is still there.
     assert_eq!(state.get(TAP, Some(TOUCHPAD)), Some(&Value::Bool(true)));
     assert!(state.is_dirty());
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         fixture.text(Layer::Shared),
         "version = 1\n[windows.gaps]\ninner = 6\n"
@@ -909,7 +913,7 @@ fn a_save_keeps_the_replaced_files_in_the_history() {
     let fixture = Fixture::new(None, None);
     let mut state = fixture.load();
     state.set(GAPS, None, Value::Integer(4), None).unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     // There was nothing to replace.
     assert_eq!(snapshot_ids(&state), Vec::<String>::new());
 
@@ -917,7 +921,7 @@ fn a_save_keeps_the_replaced_files_in_the_history() {
     state
         .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
         .unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let ids = snapshot_ids(&state);
     assert_eq!(ids.len(), 1);
     let snapshot = fixture.state_dir.path().join("history").join(&ids[0]);
@@ -929,11 +933,11 @@ fn a_save_keeps_the_replaced_files_in_the_history() {
     assert_eq!(file_names(&snapshot), ["settings.toml"]);
 
     // Nothing to save, nothing to keep.
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(snapshot_ids(&state).len(), 1);
 
     state.reset(TAP, Some(TOUCHPAD)).unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let ids = snapshot_ids(&state);
     assert_eq!(ids.len(), 2);
     assert!(ids[0] > ids[1], "newest first: {ids:?}");
@@ -951,7 +955,7 @@ fn a_save_keeps_a_file_that_changed_outside() {
     state.set(GAPS, None, Value::Integer(4), None).unwrap();
     // A hand edit the state hasn't loaded: the save replaces it, the history has it.
     fs::write(fixture.path(Layer::Shared), "# by hand\nversion = 1\n").unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let ids = snapshot_ids(&state);
     assert_eq!(
         fs::read_to_string(
@@ -975,7 +979,7 @@ fn a_snapshot_restores_both_files_and_can_be_undone() {
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
     state.move_to(GAPS, None, Layer::Host).unwrap();
     state.set(TAP, None, Value::Bool(true), None).unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let after = (fixture.text(Layer::Shared), fixture.text(Layer::Host));
     let ids = snapshot_ids(&state);
     assert_eq!(ids.len(), 1);
@@ -989,7 +993,7 @@ fn a_snapshot_restores_both_files_and_can_be_undone() {
     assert!(state.is_dirty());
     // Nothing is on disk until the save.
     assert_eq!(fixture.text(Layer::Shared), after.0);
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(fixture.text(Layer::Shared), shared);
     // The overlay didn't exist in the snapshot, so it is empty now.
     assert_eq!(fixture.text(Layer::Host), "");
@@ -1000,7 +1004,7 @@ fn a_snapshot_restores_both_files_and_can_be_undone() {
     assert_eq!(ids.len(), 2);
     let changes = state.restore(&ids[0]).unwrap();
     assert_eq!(changes.keys, [changed(None, TAP), changed(None, GAPS)]);
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     assert_eq!(
         (fixture.text(Layer::Shared), fixture.text(Layer::Host)),
         after
@@ -1028,7 +1032,7 @@ fn a_snapshot_that_cannot_be_restored_leaves_the_state_alone() {
     // A file broken by hand is kept in the history, but there is nothing in it to restore.
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
     fs::write(fixture.path(Layer::Shared), "[windows.gaps\n").unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let ids = snapshot_ids(&state);
     assert!(matches!(
         state.restore(&ids[0]),
@@ -1046,7 +1050,7 @@ fn without_a_snapshot_nothing_is_replaced() {
     let mut state = fixture.load();
     state.set(GAPS, None, Value::Integer(8), None).unwrap();
     assert!(matches!(
-        state.save(),
+        state.save(&WriteAccess::for_tests()),
         Err(StateError::Io { path, .. }) if path == fixture.state_dir.path().join("history")
     ));
     assert!(state.is_dirty());
@@ -1065,7 +1069,7 @@ fn the_watcher_reports_outside_changes_and_our_own_saves() {
     state
         .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
         .unwrap();
-    state.save().unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
     let mut reported = Vec::new();
     while reported.len() < 2 {
         reported.extend(watcher.changed_blocking().unwrap());
