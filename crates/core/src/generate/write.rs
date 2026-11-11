@@ -15,6 +15,7 @@ use async_process::Command;
 
 use super::{GeneratedFile, Manifest, Ownership, Source};
 use crate::atomic;
+use crate::include::WriteAccess;
 use crate::ipc::Compositor;
 use crate::registry::ConfigFile;
 use crate::state::{PathsError, xdg_dir};
@@ -226,6 +227,9 @@ pub type Report = Vec<(ConfigFile, Outcome)>;
 /// without the header that isn't in the manifest is never written. A file without content is not
 /// created, but an existing one is emptied down to the header.
 ///
+/// Writing needs the [`WriteAccess`] of an [`IncludeStatus`](crate::include::IncludeStatus):
+/// while the user's sway config doesn't include the generated files, none is written.
+///
 /// # Errors
 ///
 /// [`WriteError`] if a file or the manifest can't be read or written, or the validator can't
@@ -235,6 +239,7 @@ pub async fn write(
     locations: &Locations,
     validator: &impl Validate,
     overwrite: &[ConfigFile],
+    _access: &WriteAccess,
 ) -> Result<Report, WriteError> {
     let mut manifest = Manifest::load(locations.manifest());
     let mut report = Vec::with_capacity(files.len());

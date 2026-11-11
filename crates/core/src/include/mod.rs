@@ -349,6 +349,14 @@ pub struct WriteAccess {
     _private: (),
 }
 
+#[cfg(test)]
+impl WriteAccess {
+    /// For the tests of what requires it.
+    pub(crate) fn for_tests() -> Self {
+        Self { _private: () }
+    }
+}
+
 /// Settings can't be changed, because the user's sway config doesn't include the generated
 /// files.
 #[derive(Debug, Clone, PartialEq, Eq)]
