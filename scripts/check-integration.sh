@@ -10,7 +10,9 @@
 # the write path of the generators (crates/core/tests/generate_sway.rs), the config parser, which must find the modes
 # of ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs), and a setting that is changed
 # end to end and must survive a reload (crates/core/tests/apply_sway.rs). The files generated from the sample settings
-# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
+# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them. Last, the GUI tests
+# (crates/gui/tests/gui.rs: contrast in light and dark, keyboard navigation) open their windows on the headless sway
+# (not on SwayFX, see below).
 #
 # Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
 # --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
@@ -32,6 +34,8 @@ usage() {
 # The tests that need a running sway, so a plain `cargo test` skips them.
 sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway --test sway_config_sway
   --test apply_sway)
+# The tests that need a display.
+gui_tests=(cargo test --locked --package sway-things-gui --test gui)
 
 container=""
 build=false
@@ -46,6 +50,7 @@ cd "$(dirname "$0")/.."
 
 if $build; then
   "${sway_tests[@]}" --no-run
+  "${gui_tests[@]}" --no-run
   exit
 fi
 
@@ -144,6 +149,8 @@ for file in "${generated[@]}"; do
   sway --validate --config "$PWD/$file"
 done
 
+# `sway --validate` leaves its Wayland sockets behind; without them the live sway's socket is the only one.
+rm -f "$runtime"/wayland-*
 echo "Starting sway headless"
 sway --config "$config" >"$runtime/sway.log" 2>&1 &
 pid=$!
@@ -163,6 +170,14 @@ if [[ -z $socket ]]; then
 fi
 
 swaymsg --socket "$socket" --type get_version
+
+# sway's Wayland socket, for the GUI tests. Taken now: the tests that run `sway --validate` add sockets of their own.
+display=$(compgen -G "$runtime/wayland-[0-9]" | head -n 1 || true)
+if [[ -z $display ]]; then
+  echo "error: sway has no Wayland socket in $runtime" >&2
+  exit 1
+fi
+display=${display##*/}
 
 # Escaping round trip: escaping.conf set one bar ID per hostile name, the IPC commands set one seat name per hostile
 # name, and every name must come back unchanged.
@@ -210,6 +225,20 @@ fi
 
 echo "Running the tests that need sway"
 SWAYSOCK=$socket SWAY_THINGS_SWAY_VERSION=$(sway --version) "${sway_tests[@]}" -- --ignored
+
+# GTK draws with the CPU (cairo), so no GPU is needed. SwayFX gets no frames drawn in a container: its renderer needs
+# a render node, and Mesa's software rendering can only allocate buffers on a primary node, so no window would ever
+# paint. The tests check the app, not the compositor, so sway covers them.
+if $swayfx; then
+  echo "Skipping the GUI tests: SwayFX can't draw frames here"
+else
+  echo "Running the GUI tests on $display"
+  if ! WAYLAND_DISPLAY=$display GDK_BACKEND=wayland GSK_RENDERER=cairo "${gui_tests[@]}" -- --ignored; then
+    echo "sway's log:" >&2
+    cat "$runtime/sway.log" >&2
+    exit 1
+  fi
+fi
 
 # sway quits before it answers, so swaymsg reports an error; the exit status of sway itself counts.
 swaymsg --socket "$socket" exit >/dev/null 2>&1 || true
