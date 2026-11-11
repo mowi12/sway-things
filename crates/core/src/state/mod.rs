@@ -378,6 +378,11 @@ impl State {
         }
     }
 
+    /// The registry the files are checked against.
+    pub fn registry(&self) -> &'static Registry {
+        self.registry
+    }
+
     /// The paths of the two files.
     pub fn paths(&self) -> &Paths {
         &self.paths
