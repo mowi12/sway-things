@@ -35,7 +35,7 @@ mod compositor;
 mod events;
 #[cfg(test)]
 pub(crate) mod tests;
-mod wire;
+pub(crate) mod wire;
 
 use std::ffi::OsString;
 use std::fmt;

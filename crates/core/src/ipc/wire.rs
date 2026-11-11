@@ -33,7 +33,7 @@ pub(super) const GET_BINDING_MODES: u32 = 8;
 pub(super) const GET_CONFIG: u32 = 9;
 pub(super) const SEND_TICK: u32 = 10;
 pub(super) const GET_BINDING_STATE: u32 = 12;
-pub(super) const GET_INPUTS: u32 = 100;
+pub(crate) const GET_INPUTS: u32 = 100;
 pub(super) const GET_SEATS: u32 = 101;
 
 /// Set in the type of a message that is an event, not a reply.

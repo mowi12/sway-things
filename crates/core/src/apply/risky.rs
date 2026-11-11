@@ -1,0 +1,388 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The safety net for settings that can lock the user out (a keyboard layout, a device switched
+//! off): they are tried live, and stored only once the user keeps them.
+//!
+//! [`Applier::try_risky`] checks the change, refuses one that would leave no keyboard or no
+//! pointing device, notes what is in effect now, sends the new value and returns a
+//! [`Countdown`]. [`Applier::keep`] stores the value like any other change;
+//! [`Applier::revert`], which the caller runs when the countdown has elapsed too, sends the old
+//! one again. Nothing is stored before `keep`, so if the app or the command line ends in between,
+//! the next reload of sway brings back the old value.
+
+use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
+
+use super::{Applied, Applier, ApplyError, Effect, render};
+use crate::command::input::InputType;
+use crate::command::{SwayCmd, Target};
+use crate::devices::{Devices, Lockout, Sending};
+use crate::generate::Validate;
+use crate::include::{IncludeStatus, WriteAccess};
+use crate::ipc::Client;
+use crate::registry::{Apply, Block, Scope, Setting, Value};
+use crate::state::StateError;
+use crate::view::SettingView;
+
+/// The preference that says how long a risky change waits to be kept.
+const TIMEOUT: &str = "app.safety_net_timeout";
+
+/// When a risky change that wasn't kept is reverted. It only measures time: the caller reverts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Countdown {
+    deadline: Instant,
+}
+
+impl Countdown {
+    /// When the change is reverted.
+    pub fn deadline(self) -> Instant {
+        self.deadline
+    }
+
+    /// The time left, for the banner or the prompt.
+    pub fn remaining(self) -> Duration {
+        self.deadline.saturating_duration_since(Instant::now())
+    }
+
+    /// Waits until the deadline. It works with any executor (`async_io` keeps the time), so the
+    /// app and the command line wait for it alike.
+    pub async fn elapsed(self) {
+        async_io::Timer::at(self.deadline).await;
+    }
+}
+
+/// A risky change that was sent and waits to be kept or reverted.
+#[derive(Debug, Clone)]
+pub struct Pending {
+    key: &'static str,
+    device: Option<String>,
+    value: Value,
+    sent: Vec<String>,
+    undo: Vec<SwayCmd>,
+    countdown: Countdown,
+}
+
+impl Pending {
+    /// The key of the setting.
+    pub fn key(&self) -> &'static str {
+        self.key
+    }
+
+    /// The device the change is for, or `None` for the whole session or input type.
+    pub fn device(&self) -> Option<&str> {
+        self.device.as_deref()
+    }
+
+    /// The new value.
+    pub fn value(&self) -> &Value {
+        &self.value
+    }
+
+    /// When it is reverted unless it is kept.
+    pub fn countdown(&self) -> Countdown {
+        self.countdown
+    }
+}
+
+/// What [`Applier::try_risky`] did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Trial {
+    /// The commands that were sent, as sent over IPC.
+    pub commands: Vec<String>,
+    /// When the change is reverted unless it is kept.
+    pub countdown: Countdown,
+}
+
+impl<V: Validate> Applier<V> {
+    /// The risky change that waits to be kept or reverted, if there is one.
+    pub fn pending(&self) -> Option<&Pending> {
+        self.pending.as_ref()
+    }
+
+    /// Tries `value` for the risky setting `key`, for the whole session or input type, or for
+    /// one input `device`: sends it to the session without storing it, and returns when it is
+    /// reverted unless [kept](Applier::keep). What is in effect now (as in
+    /// [`SettingView`], with the user's config from `status`) is what [`Applier::revert`]
+    /// restores.
+    ///
+    /// # Errors
+    ///
+    /// Nothing was sent then:
+    /// [`ApplyError::NotRisky`] for a setting without the safety net (use [`Applier::set`]),
+    /// [`ApplyError::PendingChange`] while another change waits to be kept or reverted,
+    /// [`ApplyError::NoSession`] without a session to try it in, [`ApplyError::Lockout`] if it
+    /// would leave no keyboard or no pointing device, and the errors of [`Applier::set`]. If a
+    /// command fails, the commands sent before it are undone.
+    pub async fn try_risky(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        value: Value,
+        status: &IncludeStatus,
+        _access: &WriteAccess,
+    ) -> Result<Trial, ApplyError> {
+        if let Some(pending) = &self.pending {
+            return Err(ApplyError::PendingChange { key: pending.key });
+        }
+        let setting = self.risky_setting(key)?;
+        // The state as it would be, which also checks the key, the device and the value.
+        let mut tried = self.state.clone();
+        tried.set(key, device, value.clone(), None)?;
+        let requirements = setting.requirements();
+        self.compositor
+            .check(requirements.min_sway, requirements.min_swayfx)
+            .map_err(|unmet| ApplyError::Unsupported {
+                key: setting.key(),
+                unmet,
+            })?;
+        let commands = render(&tried, &BTreeMap::new(), setting, device, Target::Ipc)?;
+        // What is in effect now, for every setting of the directive.
+        let registry = self.state.registry();
+        let snapshot: BTreeMap<String, Value> = registry
+            .group(setting)
+            .map(|member| {
+                let view = SettingView::of(member, device, &self.state, status, self.compositor);
+                (member.key().to_owned(), view.value)
+            })
+            .collect();
+        let undo = render(&self.state, &snapshot, setting, device, Target::Ipc)?;
+
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession { key: setting.key() });
+        };
+        let switches = switches_devices(setting, &value);
+        let sent = send_guarded(client, setting, device, switches, &commands, &undo).await?;
+
+        let countdown = Countdown {
+            deadline: Instant::now() + self.timeout(),
+        };
+        self.pending = Some(Pending {
+            key: setting.key(),
+            device: device.map(str::to_owned),
+            value,
+            sent: sent.clone(),
+            undo,
+            countdown,
+        });
+        Ok(Trial {
+            commands: sent,
+            countdown,
+        })
+    }
+
+    /// Keeps the pending risky change: stores its value like any other change, to be saved with
+    /// [`Applier::persist`]. Nothing is sent; the value is in effect already.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NothingPending`] if no change waits, and [`ApplyError::State`] if the value
+    /// can't be stored (the change still waits then).
+    pub fn keep(&mut self, _access: &WriteAccess) -> Result<Applied, ApplyError> {
+        let pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
+        if let Err(error) = self.state.set(
+            pending.key,
+            pending.device.as_deref(),
+            pending.value.clone(),
+            None,
+        ) {
+            self.pending = Some(pending);
+            return Err(error.into());
+        }
+        self.unsaved_since = Some(Instant::now());
+        Ok(Applied {
+            changed: true,
+            effect: Effect::Live {
+                commands: pending.sent,
+            },
+        })
+    }
+
+    /// Reverts the pending risky change: sends the value that was in effect before it again.
+    /// Call it when the user says so and when the [`Countdown`] has elapsed.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NothingPending`] if no change waits, [`ApplyError::NoSession`] if the
+    /// session is gone, and [`ApplyError::Ipc`] if sway rejects a command; the change no longer
+    /// waits then, and a reload of sway brings back the stored value.
+    pub async fn revert(&mut self) -> Result<Effect, ApplyError> {
+        let pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession { key: pending.key });
+        };
+        let mut sent = Vec::with_capacity(pending.undo.len());
+        for command in &pending.undo {
+            client.run(command).await.map_err(ApplyError::Ipc)?;
+            sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+        }
+        Ok(Effect::Live { commands: sent })
+    }
+
+    /// Changes the risky setting `key` without the safety net, for `sway-things set --yes` in
+    /// scripts: sends the value if there is a session, and stores it. The lockout protection
+    /// still applies: against the connected devices, or without a session, to switching off a
+    /// whole type of keyboards or pointing devices.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NotRisky`], [`ApplyError::PendingChange`] and [`ApplyError::Lockout`] as for
+    /// [`Applier::try_risky`], and the errors of [`Applier::set`]. Nothing is stored if sway
+    /// rejects the value.
+    pub async fn set_risky_unchecked(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        value: Value,
+        _access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        if let Some(pending) = &self.pending {
+            return Err(ApplyError::PendingChange { key: pending.key });
+        }
+        let setting = self.risky_setting(key)?;
+        let mut changed = self.state.clone();
+        changed.set(key, device, value.clone(), None)?;
+        let requirements = setting.requirements();
+        self.compositor
+            .check(requirements.min_sway, requirements.min_swayfx)
+            .map_err(|unmet| ApplyError::Unsupported {
+                key: setting.key(),
+                unmet,
+            })?;
+        let commands = render(&changed, &BTreeMap::new(), setting, device, Target::Ipc)?;
+        let undo =
+            render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
+        let switches = switches_devices(setting, &value);
+        let effect = if let Some(client) = &mut self.client {
+            let sent = send_guarded(client, setting, device, switches, &commands, &undo).await?;
+            Effect::Live { commands: sent }
+        } else {
+            if let Some(lockout) =
+                switches.and_then(|(kind, sending)| Lockout::without_devices(kind, device, sending))
+            {
+                return Err(ApplyError::Lockout {
+                    key: setting.key(),
+                    lockout,
+                });
+            }
+            Effect::NoSession
+        };
+        let stored = self.state.get(key, device) != Some(&value);
+        self.state = changed;
+        if stored {
+            self.unsaved_since = Some(Instant::now());
+        }
+        Ok(Applied {
+            changed: stored,
+            effect,
+        })
+    }
+
+    /// The risky setting `key`.
+    fn risky_setting(&self, key: &str) -> Result<&'static Setting, ApplyError> {
+        let setting = self
+            .state
+            .registry()
+            .get(key)
+            .ok_or_else(|| StateError::UnknownKey {
+                key: key.to_owned(),
+            })?;
+        if setting.apply() == Apply::Risky {
+            Ok(setting)
+        } else {
+            Err(ApplyError::NotRisky { key: setting.key() })
+        }
+    }
+
+    /// How long a risky change waits to be kept: the user's preference, or its default.
+    fn timeout(&self) -> Duration {
+        let seconds = self.state.get(TIMEOUT, None).cloned().or_else(|| {
+            self.state
+                .registry()
+                .get(TIMEOUT)
+                .map(Setting::default_value)
+        });
+        match seconds {
+            Some(Value::Integer(seconds)) => {
+                Duration::from_secs(u64::try_from(seconds).unwrap_or(0))
+            }
+            _ => Duration::from_secs(15),
+        }
+    }
+}
+
+/// Refuses a change that `switches` devices if it would leave the session without a keyboard or
+/// a pointing device, then sends `commands`. After a command failed, `undo` restores what was
+/// sent before it, as far as sway allows. Returns the commands as sent.
+async fn send_guarded(
+    client: &mut Client,
+    setting: &Setting,
+    device: Option<&str>,
+    switches: Option<(InputType, Sending)>,
+    commands: &[SwayCmd],
+    undo: &[SwayCmd],
+) -> Result<Vec<String>, ApplyError> {
+    if let Some((kind, sending)) = switches {
+        let devices = Devices::new(&client.inputs().await.map_err(ApplyError::Ipc)?);
+        if let Some(lockout) = devices.lockout(kind, device, sending) {
+            return Err(ApplyError::Lockout {
+                key: setting.key(),
+                lockout,
+            });
+        }
+    }
+    let mut sent = Vec::with_capacity(commands.len());
+    for command in commands {
+        if let Err(error) = client.run(command).await {
+            if !sent.is_empty() {
+                // Best effort: the error of the command that failed is what counts.
+                let _ = client.run_all(undo).await;
+            }
+            return Err(ApplyError::Ipc(error));
+        }
+        sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+    }
+    Ok(sent)
+}
+
+/// The input type and the sending mode, if `value` of `setting` switches input devices on or off
+/// (sway's `events` option).
+fn switches_devices(setting: &Setting, value: &Value) -> Option<(InputType, Sending)> {
+    let mapping = setting.sway()?;
+    let directive = mapping.directive();
+    if directive.block != Block::Input || directive.name != "events" {
+        return None;
+    }
+    let Scope::PerDevice(kind) = setting.scope() else {
+        return None;
+    };
+    let sending = match value {
+        Value::Bool(true) => Sending::Enabled,
+        Value::Bool(false) => Sending::Disabled,
+        Value::Choice(id) => match id.as_str() {
+            "disabled" => Sending::Disabled,
+            "disabled_on_external_mouse" => Sending::DisabledOnExternalMouse,
+            _ => Sending::Enabled,
+        },
+        _ => return None,
+    };
+    Some((kind, sending))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::Countdown;
+
+    #[test]
+    fn a_countdown_elapses_at_its_deadline() {
+        let countdown = Countdown {
+            deadline: Instant::now() + Duration::from_millis(20),
+        };
+        assert!(countdown.remaining() > Duration::ZERO);
+        async_io::block_on(countdown.elapsed());
+        assert_eq!(countdown.remaining(), Duration::ZERO);
+        assert!(Instant::now() >= countdown.deadline());
+    }
+}

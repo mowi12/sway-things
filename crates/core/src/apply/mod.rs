@@ -37,8 +37,11 @@
 //! # }
 //! ```
 
+mod risky;
 #[cfg(test)]
 mod tests;
+
+pub use risky::{Countdown, Pending, Trial};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -48,6 +51,7 @@ use std::time::{Duration, Instant};
 use crate::command::input::InputSelector;
 use crate::command::{CommandError, SwayCmd, Target};
 use crate::conflict;
+use crate::devices::Lockout;
 use crate::generate::{
     self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate, WriteError,
 };
@@ -148,6 +152,8 @@ pub struct Applier<V = SwayValidator> {
     compositor: Compositor,
     /// When the state last changed without being persisted.
     unsaved_since: Option<Instant>,
+    /// The risky change that waits to be kept or reverted.
+    pending: Option<Pending>,
 }
 
 impl Applier<SwayValidator> {
@@ -187,6 +193,7 @@ impl<V: Validate> Applier<V> {
             locations,
             validator,
             unsaved_since: None,
+            pending: None,
         }
     }
 
@@ -205,6 +212,7 @@ impl<V: Validate> Applier<V> {
             locations,
             validator,
             unsaved_since: None,
+            pending: None,
         }
     }
 
@@ -607,6 +615,30 @@ pub enum ApplyError {
     /// There is no session, and the installed `sway` doesn't say what it is either: it can't be
     /// run (with the error), or it prints no version.
     NoCompositor(Option<io::Error>),
+    /// The setting has no safety net: it changes with [`Applier::set`].
+    NotRisky {
+        /// The key.
+        key: &'static str,
+    },
+    /// A risky change waits to be kept or reverted, and another one can't be tried before.
+    PendingChange {
+        /// The key of the change that waits.
+        key: &'static str,
+    },
+    /// No risky change waits to be kept or reverted.
+    NothingPending,
+    /// A risky change can only be tried in a running session.
+    NoSession {
+        /// The key.
+        key: &'static str,
+    },
+    /// The change would leave the user without a keyboard or a pointing device.
+    Lockout {
+        /// The key.
+        key: &'static str,
+        /// What would be left out.
+        lockout: Lockout,
+    },
 }
 
 impl From<StateError> for ApplyError {
@@ -643,6 +675,17 @@ impl fmt::Display for ApplyError {
             Self::NoCompositor(None) => {
                 f.write_str("not in a sway session, and `sway --version` prints no version")
             }
+            Self::NotRisky { key } => write!(f, "{key} has no safety net; change it directly"),
+            Self::PendingChange { key } => {
+                write!(f, "keep or revert the change of {key} first")
+            }
+            Self::NothingPending => f.write_str("no change waits to be kept or reverted"),
+            Self::NoSession { key } => write!(
+                f,
+                "{key} can lock you out, so it is only tried in a running sway session, where it \
+                 can be reverted"
+            ),
+            Self::Lockout { key, lockout } => write!(f, "{key} wasn't changed: {lockout}"),
         }
     }
 }
@@ -659,7 +702,12 @@ impl std::error::Error for ApplyError {
             Self::NoCompositor(error) => error
                 .as_ref()
                 .map(|error| error as &(dyn std::error::Error + 'static)),
-            Self::Risky { .. } => None,
+            Self::Risky { .. }
+            | Self::NotRisky { .. }
+            | Self::PendingChange { .. }
+            | Self::NothingPending
+            | Self::NoSession { .. }
+            | Self::Lockout { .. } => None,
         }
     }
 }
