@@ -404,3 +404,26 @@ fn symbolic_links_lead_to_the_same_files() {
     fs::write(&main, "include other/*.conf\n").unwrap();
     assert!(!IncludeStatus::detect(Some(&main), &Disk, &locations).is_active());
 }
+
+#[test]
+fn the_explanation_is_the_message_without_the_line() {
+    for main in [
+        "gaps inner 8\n",
+        "include ~/.config/sway/sway-things/10-input.conf\n",
+    ] {
+        let status = status(main);
+        let explanation = status.explanation();
+        assert!(explanation.ends_with(':'), "{explanation}");
+        assert!(!explanation.contains(LINE), "{explanation}");
+        assert_eq!(
+            status.message(),
+            format!("{explanation}\n\n    {}", status.instructions().line())
+        );
+    }
+    let active = status(&format!("{LINE}\n"));
+    assert_eq!(active.explanation(), active.message());
+    assert_eq!(
+        active.instructions().text(),
+        format!("{}\n\n    {LINE}", active.instructions().explanation())
+    );
+}
