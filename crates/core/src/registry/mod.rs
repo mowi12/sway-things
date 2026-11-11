@@ -52,7 +52,7 @@ use crate::command::{SwayCmd, Target};
 
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
-pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder};
+pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder, Slider};
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
 };
@@ -138,5 +138,32 @@ impl Registry {
             device,
             target,
         })
+    }
+
+    /// The line of the generated file that sets `setting` to its value in `values`, for showing
+    /// it in the app: what [`Registry::render`] builds for the config, without the
+    /// `input <selector>` an option of an `input` block starts with (`pointer_accel 0.3`).
+    ///
+    /// # Errors
+    ///
+    /// Like [`Registry::render`], and [`RenderError::Command`] if a command can't be written as a
+    /// config line.
+    pub fn config_line(
+        &self,
+        setting: &Setting,
+        values: &dyn Values,
+        device: Option<&InputSelector>,
+    ) -> Result<String, RenderError> {
+        let skip = match setting.sway().map(|mapping| mapping.directive().block) {
+            Some(Block::Input) => 2,
+            Some(Block::Top) | None => 0,
+        };
+        let lines = self
+            .render(setting, values, device, Target::Config)?
+            .iter()
+            .map(|command| command.render_from(Target::Config, skip))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RenderError::Command)?;
+        Ok(lines.join("\n"))
     }
 }

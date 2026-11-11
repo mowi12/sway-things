@@ -12,7 +12,7 @@ use super::setting::Scope;
 use super::value::{Kind, Value, ValueError};
 use crate::command::input::{Input, InputError, InputSelector};
 use crate::command::window::WindowError;
-use crate::command::{Color, OutOfRange, SwayCmd, Target};
+use crate::command::{Color, CommandError, OutOfRange, SwayCmd, Target};
 use crate::sway_config;
 
 /// Where a directive stands in a sway config.
@@ -368,6 +368,8 @@ pub enum RenderError {
     Window(WindowError),
     /// A command builder rejected a number.
     OutOfRange(OutOfRange),
+    /// A built command can't be written as a config line.
+    Command(CommandError),
 }
 
 impl From<InputError> for RenderError {
@@ -398,6 +400,7 @@ impl fmt::Display for RenderError {
             Self::Input(error) => error.fmt(f),
             Self::Window(error) => error.fmt(f),
             Self::OutOfRange(error) => error.fmt(f),
+            Self::Command(error) => error.fmt(f),
         }
     }
 }
@@ -409,6 +412,7 @@ impl std::error::Error for RenderError {
             Self::Input(error) => Some(error),
             Self::Window(error) => Some(error),
             Self::OutOfRange(error) => Some(error),
+            Self::Command(error) => Some(error),
             Self::UnknownKey { .. } | Self::NotASwaySetting { .. } | Self::NotPerDevice => None,
         }
     }

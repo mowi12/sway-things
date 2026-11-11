@@ -322,7 +322,32 @@ impl SwayCmd {
         }
     }
 
+    /// The command for `target` from its word `first` on, e.g. without `input <selector>` (the
+    /// first two words) to show only the option. Criteria aren't included.
+    ///
+    /// # Errors
+    ///
+    /// Like [`SwayCmd::render`].
+    pub fn render_from(&self, target: Target, first: usize) -> Result<String, CommandError> {
+        match (self.availability, target) {
+            (Availability::ConfigOnly, Target::Ipc)
+            | (Availability::RuntimeOnly, Target::Config) => {
+                return Err(CommandError::Unavailable { target });
+            }
+            _ => {}
+        }
+        let words = self.render_words(match target {
+            Target::Ipc => Rendering::Ipc,
+            Target::Config => Rendering::Config,
+        })?;
+        Ok(words.get(first..).unwrap_or_default().join(" "))
+    }
+
     fn render_as(&self, rendering: Rendering) -> Result<String, CommandError> {
+        Ok(self.render_words(rendering)?.join(" "))
+    }
+
+    fn render_words(&self, rendering: Rendering) -> Result<Vec<String>, CommandError> {
         if let Some(Part::Keyword(name)) = self.parts.first() {
             if KEEPS_QUOTES.contains(name)
                 && self.parts.iter().any(|part| matches!(part, Part::Text(_)))
@@ -370,7 +395,7 @@ impl SwayCmd {
                 },
             });
         }
-        Ok(rendered.join(" "))
+        Ok(rendered)
     }
 }
 

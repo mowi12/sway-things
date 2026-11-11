@@ -3,13 +3,18 @@
 
 //! A page in the content pane: header and body, scrollable, at a readable width.
 
+use std::collections::BTreeSet;
+
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::registry::Page;
+use sway_things_core::registry::{Msg, Page, Registry};
 
-use super::{Clamp, PageHeader, Placeholder};
+use super::setting_row::tilde;
+use super::{Clamp, PageHeader, Placeholder, SettingRow};
 use crate::i18n::tr;
+use crate::model::Model;
+use crate::style;
 
 /// The widest a page's content gets, in pixels.
 pub const MAXIMUM_WIDTH: i32 = 760;
@@ -90,8 +95,85 @@ impl PageView {
         )
     }
 
+    /// The page view of `page` built from its settings in the registry: a section for each of
+    /// their sections, with a row per setting, and the generated files the page writes to below.
+    /// `device` selects one input device for the per-device settings. `None` if the page has no
+    /// settings with a row.
+    pub fn for_settings(model: &Model, page: Page, device: Option<&str>) -> Option<Self> {
+        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let mut section: Option<(Msg, gtk::ListBox)> = None;
+        let mut files = BTreeSet::new();
+        for setting in Registry::builtin()
+            .iter()
+            .filter(|setting| setting.page() == page)
+        {
+            let Some(row) = SettingRow::new(model, setting, device) else {
+                continue;
+            };
+            if let Some(mapping) = setting.sway() {
+                files.insert(mapping.file());
+            }
+            let list = match &section {
+                Some((title, list)) if *title == setting.section() => list.clone(),
+                _ => {
+                    let list = section_list(&body, setting.section(), section.is_none());
+                    section = Some((setting.section(), list.clone()));
+                    list
+                }
+            };
+            let item = gtk::ListBoxRow::new();
+            item.set_activatable(false);
+            item.set_focusable(false);
+            item.set_child(Some(&row));
+            list.append(&item);
+        }
+        section.as_ref()?;
+        if let (Some(locations), false) = (model.locations(), files.is_empty()) {
+            let paths: Vec<String> = files
+                .into_iter()
+                .map(|file| tilde(&locations.path(file)))
+                .collect();
+            let footer = gtk::Label::new(Some(&paths.join("\n")));
+            footer.set_xalign(0.0);
+            footer.set_wrap(true);
+            footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            footer.set_selectable(true);
+            footer.add_css_class("monospace");
+            footer.add_css_class("st-page-footer");
+            footer.add_css_class(style::DIM);
+            footer.update_property(&[gtk::accessible::Property::Label(&format!(
+                "Written to {}",
+                paths.join(", ")
+            ))]);
+            body.append(&footer);
+        }
+        Some(Self::new(tr(page.title()), tr(page.description()), &body))
+    }
+
     /// The header of the page.
     pub fn header(&self) -> Option<&PageHeader> {
         self.imp().header.get()
     }
+}
+
+/// Adds the heading of a section titled `title` to `body`, and the list for its rows.
+fn section_list(body: &gtk::Box, title: Msg, first: bool) -> gtk::ListBox {
+    let heading = gtk::Label::builder()
+        .label(tr(title).to_uppercase())
+        .xalign(0.0)
+        .accessible_role(gtk::AccessibleRole::Heading)
+        .build();
+    heading.update_property(&[gtk::accessible::Property::Label(tr(title))]);
+    heading.add_css_class("st-section-heading");
+    heading.add_css_class(style::DIM);
+    if first {
+        heading.add_css_class("st-first");
+    }
+    let list = gtk::ListBox::new();
+    list.set_selection_mode(gtk::SelectionMode::None);
+    list.add_css_class("st-section");
+    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
+    body.append(&heading);
+    body.append(&list);
+    list
 }

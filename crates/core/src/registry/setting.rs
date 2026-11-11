@@ -77,6 +77,19 @@ pub struct Requirements {
     pub tools: &'static [&'static str],
 }
 
+/// The range a slider covers for a number setting, and the step it moves in. It can be narrower
+/// than the values the setting accepts: sway takes a repeat delay of a minute, but a slider over
+/// that would be useless.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Slider {
+    /// The value at the left end.
+    pub min: f64,
+    /// The value at the right end.
+    pub max: f64,
+    /// The step between two positions.
+    pub step: f64,
+}
+
 /// The definition of one setting. Everything about a setting derives from it: the row in the app,
 /// the search entry, the command line key, the checks on stored values, the default, the sway
 /// commands and the config lines.
@@ -91,6 +104,8 @@ pub struct Setting {
     subtitle: Option<Msg>,
     keywords: &'static [&'static str],
     page: Page,
+    section: Msg,
+    slider: Option<Slider>,
     scope: Scope,
     apply: Apply,
     requirements: Requirements,
@@ -106,6 +121,8 @@ impl Setting {
             subtitle: None,
             keywords: &[],
             page,
+            section: Msg::new(""),
+            slider: None,
             scope: Scope::Global,
             apply: Apply::Live,
             requirements: Requirements {
@@ -213,6 +230,36 @@ impl Setting {
         self.page
     }
 
+    /// The section of the page the setting is shown in, e.g. "Touchpad". Settings of a section
+    /// are next to each other in the registry.
+    pub fn section(&self) -> Msg {
+        self.section
+    }
+
+    /// The slider of a number setting: the range given with [`SettingBuilder::slider`], or else
+    /// the setting's whole range, in steps of 1 for whole numbers and of a hundredth of the range
+    /// for decimals. `None` for other value types.
+    pub fn slider(&self) -> Option<Slider> {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "the ranges of whole-number settings are far below 2^52"
+        )]
+        let whole = |min: i64, max: i64| Slider {
+            min: min as f64,
+            max: max as f64,
+            step: 1.0,
+        };
+        match self.kind {
+            Kind::Integer { min, max, .. } => Some(self.slider.unwrap_or_else(|| whole(min, max))),
+            Kind::Decimal { min, max, .. } => Some(self.slider.unwrap_or(Slider {
+                min,
+                max,
+                step: (max - min) / 100.0,
+            })),
+            _ => None,
+        }
+    }
+
     /// What the setting applies to.
     pub fn scope(&self) -> Scope {
         self.scope
@@ -270,6 +317,19 @@ impl SettingBuilder {
     /// Sets the explanation under the title (translatable).
     pub fn subtitle(mut self, subtitle: &'static str) -> Self {
         self.0.subtitle = Some(Msg::new(subtitle));
+        self
+    }
+
+    /// Sets the section of the page the setting is shown in (translatable), e.g. "Touchpad".
+    pub fn section(mut self, section: &'static str) -> Self {
+        self.0.section = Msg::new(section);
+        self
+    }
+
+    /// The range and step of the slider of a number setting, if narrower than the values the
+    /// setting accepts (which stay valid, e.g. typed into the row's number field).
+    pub fn slider(mut self, min: f64, max: f64, step: f64) -> Self {
+        self.0.slider = Some(Slider { min, max, step });
         self
     }
 

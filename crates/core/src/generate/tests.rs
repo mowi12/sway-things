@@ -579,3 +579,28 @@ fn sways_errors_are_read_from_its_log() {
     );
     assert_eq!(parsed("Error on line x 'a': b", "/c"), None);
 }
+
+#[test]
+fn problems_with_generated_files_read_well() {
+    use super::write::InvalidLine;
+    assert_eq!(Outcome::Written.problem(ConfigFile::Input), None);
+    assert_eq!(Outcome::Unchanged.problem(ConfigFile::Input), None);
+    assert_eq!(
+        Outcome::EditedOutside
+            .problem(ConfigFile::Appearance)
+            .as_deref(),
+        Some("30-appearance.conf was changed outside Sway Things, so it was left alone")
+    );
+    let invalid = Outcome::Invalid(vec![InvalidLine {
+        line: 4,
+        message: "Unknown/invalid command 'gaps'".to_owned(),
+        source: None,
+    }]);
+    assert_eq!(
+        invalid.problem(ConfigFile::Appearance).as_deref(),
+        Some(
+            "sway rejected the new 30-appearance.conf, so the old one stays: line 4: \
+             Unknown/invalid command 'gaps'"
+        )
+    );
+}

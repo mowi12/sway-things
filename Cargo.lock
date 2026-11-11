@@ -1122,6 +1122,7 @@ version = "0.0.0"
 dependencies = [
  "gtk4",
  "sway-things-core",
+ "tempfile",
 ]
 
 [[package]]

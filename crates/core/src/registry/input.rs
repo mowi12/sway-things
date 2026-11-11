@@ -20,6 +20,7 @@ pub(super) fn settings() -> Vec<Setting> {
     let keyboard = Scope::PerDevice(InputType::Keyboard);
     vec![
         Setting::toggle(TAP, Page::MouseTouchpad, false)
+            .section("Touchpad")
             .title("Tap to click")
             .subtitle("Tap the touchpad instead of pressing it")
             .keywords(&["touchpad", "trackpad"])
@@ -33,7 +34,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::decimal(POINTER_ACCEL, Page::MouseTouchpad, 0.0, -1.0, 1.0)
+            .section("Touchpad")
             .title("Pointer speed")
+            .slider(-1.0, 1.0, 0.05)
             .keywords(&["touchpad", "trackpad", "acceleration", "sensitivity"])
             .scope(touchpad)
             .sway(
@@ -57,7 +60,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 0, i64::from(u16::MAX))
+            .section("Typing")
             .title("Repeat delay")
+            .slider(100.0, 2000.0, 10.0)
             .subtitle("Milliseconds a key is held before it repeats")
             .keywords(&["keyboard", "typing"])
             .scope(keyboard)
@@ -74,6 +79,7 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::list(XKB_LAYOUT, Page::Keyboard, &["us"])
+            .section("Layouts")
             .title("Layouts")
             .keywords(&["keyboard", "language", "xkb"])
             .scope(keyboard)

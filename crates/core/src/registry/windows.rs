@@ -74,6 +74,7 @@ fn client_colors(args: &[String], default_indicator: Color) -> Result<[Color; 5]
 
 fn focused(key: &'static str, default: Color, title: &'static str, read: ReadFn) -> Setting {
     Setting::color(key, Page::Windows, default)
+        .section("Focused window")
         .title(title)
         .keywords(&["color", "focus", "active", "theme"])
         .sway(
@@ -138,7 +139,9 @@ pub(super) fn settings() -> Vec<Setting> {
             },
         ),
         Setting::integer(GAPS_INNER, Page::Windows, 0, 0, i64::from(i16::MAX))
+            .section("Gaps")
             .title("Inner gaps")
+            .slider(0.0, 64.0, 1.0)
             .subtitle("Space between windows, in pixels")
             .keywords(&["spacing", "margin"])
             .sway(
@@ -162,6 +165,7 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::text(FONT, Page::Windows, "monospace 10")
+            .section("Title bars")
             .title("Title bar font")
             .subtitle("Font family and size, e.g. \"monospace 10\"")
             .keywords(&["typeface", "text size"])

@@ -585,3 +585,94 @@ fn only_the_settings_own_directive_matches() {
     assert_eq!(read("windows.font", "input * font monospace"), None);
     assert_eq!(read("app.safety_net_timeout", "gaps inner 8"), None);
 }
+
+#[test]
+fn every_setting_has_a_section_and_its_settings_are_together() {
+    let mut seen = BTreeSet::new();
+    let mut previous = None;
+    for setting in registry().iter() {
+        let section = (setting.page().id(), setting.section().msgid());
+        assert!(!section.1.is_empty(), "{} has no section", setting.key());
+        if previous != Some(section) {
+            assert!(
+                seen.insert(section),
+                "{}: section {section:?} is split by another one",
+                setting.key()
+            );
+        }
+        previous = Some(section);
+    }
+}
+
+#[test]
+fn sliders_fit_the_values_their_setting_accepts() {
+    for setting in registry().iter() {
+        let slider = setting.slider();
+        let range = match setting.kind() {
+            #[expect(clippy::cast_precision_loss, reason = "test ranges are small")]
+            Kind::Integer { min, max, .. } => Some((*min as f64, *max as f64)),
+            Kind::Decimal { min, max, .. } => Some((*min, *max)),
+            _ => None,
+        };
+        let key = setting.key();
+        match (slider, range) {
+            (None, None) => {}
+            (Some(slider), Some((min, max))) => {
+                assert!(min <= slider.min && slider.max <= max, "{key}: {slider:?}");
+                assert!(
+                    slider.min < slider.max && slider.step > 0.0,
+                    "{key}: {slider:?}"
+                );
+                let steps = (slider.max - slider.min) / slider.step;
+                assert!((steps - steps.round()).abs() < 1e-9, "{key}: {slider:?}");
+                if matches!(setting.kind(), Kind::Integer { .. }) {
+                    assert_eq!(slider.step.fract(), 0.0, "{key}: {slider:?}");
+                }
+            }
+            (slider, _) => panic!("{key}: slider {slider:?} for {:?}", setting.kind()),
+        }
+    }
+    let delay = setting("input.keyboard.repeat_delay").slider().unwrap();
+    assert_eq!((delay.min, delay.max), (100.0, 2000.0));
+    let radius = setting("effects.corner_radius").slider().unwrap();
+    assert_eq!((radius.min, radius.max, radius.step), (0.0, 99.0, 1.0));
+}
+
+#[test]
+fn the_config_line_shows_the_option_without_the_input_selector() {
+    let line = |key: &str, value: Value, device: Option<&InputSelector>| {
+        let setting = setting(key);
+        registry()
+            .config_line(setting, &stored(setting, value), device)
+            .unwrap()
+    };
+    assert_eq!(
+        line("input.touchpad.tap", Value::Bool(true), None),
+        "tap enabled"
+    );
+    let device = InputSelector::device("1133:16500:Logitech_G305;quoted").unwrap();
+    assert_eq!(
+        line(
+            "input.touchpad.pointer_accel",
+            Value::Decimal(0.3),
+            Some(&device)
+        ),
+        "pointer_accel 0.3"
+    );
+    assert_eq!(
+        line("windows.gaps.inner", Value::Integer(8), None),
+        "gaps inner 8"
+    );
+    assert_eq!(
+        line(
+            "windows.focused.text",
+            Value::Color(Color::rgb(0, 0, 0)),
+            None
+        ),
+        "client.focused #4c7899 #285577 #000000 #2e9ef4 #285577"
+    );
+    assert!(matches!(
+        registry().config_line(setting("app.safety_net_timeout"), &Defaults, None),
+        Err(RenderError::NotASwaySetting { .. })
+    ));
+}
