@@ -53,6 +53,49 @@ pub enum Sending {
     DisabledOnExternalMouse,
 }
 
+/// What a change would leave the user without.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Lockout {
+    /// No keyboard to type with.
+    Keyboard,
+    /// No mouse, trackpoint or touchpad to point with.
+    PointingDevice,
+}
+
+impl Lockout {
+    /// What switching the devices of type `kind` (all of them, or only the one with the
+    /// identifier `device`) to `sending` could leave the user without, when it isn't known which
+    /// devices are connected: switching off a whole type of keyboards or pointing devices could
+    /// leave none, switching off one device leaves the others.
+    pub fn without_devices(
+        kind: InputType,
+        device: Option<&str>,
+        sending: Sending,
+    ) -> Option<Self> {
+        if device.is_some() || sending != Sending::Disabled {
+            return None;
+        }
+        match kind {
+            InputType::Keyboard => Some(Self::Keyboard),
+            InputType::Pointer | InputType::Touchpad => Some(Self::PointingDevice),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Lockout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Keyboard => {
+                f.write_str("this would turn off the last keyboard you can type with")
+            }
+            Self::PointingDevice => f.write_str(
+                "this would turn off the last mouse, trackpoint or touchpad you can point with",
+            ),
+        }
+    }
+}
+
 /// The keyboard layouts of a keyboard.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layouts {
@@ -335,6 +378,41 @@ impl Devices {
     /// connected.
     pub fn is_last_enabled_pointing_device(&self, identifier: &str) -> bool {
         self.is_last(identifier, Device::is_usable_pointing_device)
+    }
+
+    /// What switching the connected devices of type `kind` (all of them, or only the one with the
+    /// identifier `device`) to `sending` would leave the user without: the last usable keyboard
+    /// or pointing device. `None` if one of each remains, or if there was none before (a session
+    /// without input devices, which this change doesn't make worse).
+    pub fn lockout(
+        &self,
+        kind: InputType,
+        device: Option<&str>,
+        sending: Sending,
+    ) -> Option<Lockout> {
+        let after: Vec<Device> = self
+            .connected
+            .iter()
+            .map(|existing| {
+                let covered = existing.kind == Some(kind)
+                    && device.is_none_or(|identifier| existing.identifier == identifier);
+                let mut changed = existing.clone();
+                if covered && changed.sending.is_some() {
+                    changed.sending = Some(sending);
+                }
+                changed
+            })
+            .collect();
+        let lost = |usable: fn(&Device) -> bool| {
+            self.connected.iter().any(usable) && !after.iter().any(usable)
+        };
+        if lost(Device::is_usable_keyboard) {
+            Some(Lockout::Keyboard)
+        } else if lost(Device::is_usable_pointing_device) {
+            Some(Lockout::PointingDevice)
+        } else {
+            None
+        }
     }
 
     fn is_last(&self, identifier: &str, usable: impl Fn(&Device) -> bool) -> bool {

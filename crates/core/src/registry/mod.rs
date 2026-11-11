@@ -92,11 +92,16 @@ impl Registry {
 
     /// The settings that are values of the same sway directive as `setting`, including `setting`
     /// itself: one command sets all of them, so they render, conflict and get stored together.
-    /// A preference of Sway Things itself is alone in its group.
+    /// An `input` option is a directive of its own for each input type (`events` of keyboards and
+    /// of touchpads), so settings of another type aren't in the group. A preference of Sway Things
+    /// itself is alone in its group.
     pub fn group<'a>(&'a self, setting: &'a Setting) -> impl Iterator<Item = &'a Setting> {
         let directive = setting.sway().map(SwayMapping::directive);
         self.settings.iter().filter(move |other| match directive {
-            Some(directive) => other.sway().map(SwayMapping::directive) == Some(directive),
+            Some(directive) => {
+                other.sway().map(SwayMapping::directive) == Some(directive)
+                    && other.scope() == setting.scope()
+            }
             None => other.key() == setting.key(),
         })
     }

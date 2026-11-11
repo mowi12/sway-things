@@ -7,18 +7,96 @@
 //! default); the values here are the common ones.
 
 use super::read::{self, ReadError};
-use super::{Apply, ConfigFile, Directive, Page, Scope, Setting, Value};
-use crate::command::input::InputType;
+use super::{
+    Apply, Choice, ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Value,
+};
+use crate::command::SwayCmd;
+use crate::command::input::{InputType, SendEvents};
 
+const POINTER_EVENTS: &str = "input.pointer.events";
+const TOUCHPAD_EVENTS: &str = "input.touchpad.events";
+const TOUCHPAD_EVENTS_CHOICES: &[Choice] = &[
+    Choice::new("enabled", "On"),
+    Choice::new("disabled", "Off"),
+    Choice::new(
+        "disabled_on_external_mouse",
+        "Off while a mouse is connected",
+    ),
+];
+const KEYBOARD_EVENTS: &str = "input.keyboard.events";
 const TAP: &str = "input.touchpad.tap";
 const POINTER_ACCEL: &str = "input.touchpad.pointer_accel";
 const REPEAT_DELAY: &str = "input.keyboard.repeat_delay";
 const XKB_LAYOUT: &str = "input.keyboard.xkb_layout";
 
+/// sway's words for `events` in a config file (`toggle` only works at runtime).
+fn read_events(args: &[String]) -> Result<SendEvents, ReadError> {
+    let word = read::first(args)?;
+    [
+        ("enabled", SendEvents::Enabled),
+        ("disabled", SendEvents::Disabled),
+        (
+            "disabled_on_external_mouse",
+            SendEvents::DisabledOnExternalMouse,
+        ),
+    ]
+    .into_iter()
+    .find(|(name, _)| word.eq_ignore_ascii_case(name))
+    .map(|(_, events)| events)
+    .ok_or_else(|| {
+        ReadError::Rejected(format!(
+            "expected enabled, disabled or disabled_on_external_mouse, got {word}"
+        ))
+    })
+}
+
+/// A device switched on or off: on means `events enabled`.
+fn on_off_events(ctx: &Context<'_>, key: &'static str) -> Result<Vec<SwayCmd>, RenderError> {
+    let events = if ctx.bool(key)? {
+        SendEvents::Enabled
+    } else {
+        SendEvents::Disabled
+    };
+    Ok(vec![ctx.input()?.events(events)])
+}
+
+/// An on/off `events` setting read from a line: only `enabled` is on. A touchpad mode on a
+/// device of another type is one the setting can't show.
+fn read_on_off_events(args: &[String]) -> Result<Value, ReadError> {
+    match read_events(args)? {
+        SendEvents::Enabled => Ok(Value::Bool(true)),
+        SendEvents::Disabled => Ok(Value::Bool(false)),
+        SendEvents::DisabledOnExternalMouse => Err(ReadError::Unsupported(
+            "only touchpads can be off while a mouse is connected".to_owned(),
+        )),
+    }
+}
+
 pub(super) fn settings() -> Vec<Setting> {
+    let mut settings = mouse_touchpad();
+    settings.extend(keyboard());
+    settings
+}
+
+/// The settings of the Mouse & Touchpad page.
+fn mouse_touchpad() -> Vec<Setting> {
+    let pointer = Scope::PerDevice(InputType::Pointer);
     let touchpad = Scope::PerDevice(InputType::Touchpad);
-    let keyboard = Scope::PerDevice(InputType::Keyboard);
     vec![
+        Setting::toggle(POINTER_EVENTS, Page::MouseTouchpad, true)
+            .section("Mouse")
+            .title("Enabled")
+            .subtitle("Off ignores the mouse until it is turned on again")
+            .keywords(&["mouse", "trackpoint", "disable", "turn off"])
+            .scope(pointer)
+            .apply(Apply::Risky)
+            .sway(
+                Directive::input("events"),
+                ConfigFile::Input,
+                |ctx| on_off_events(ctx, POINTER_EVENTS),
+                read_on_off_events,
+            )
+            .build(),
         Setting::toggle(TAP, Page::MouseTouchpad, false)
             .section("Touchpad")
             .title("Tap to click")
@@ -57,6 +135,60 @@ pub(super) fn settings() -> Vec<Setting> {
                         )))
                     }
                 },
+            )
+            .build(),
+        Setting::choice(
+            TOUCHPAD_EVENTS,
+            Page::MouseTouchpad,
+            "enabled",
+            TOUCHPAD_EVENTS_CHOICES,
+        )
+        .section("Touchpad")
+        .title("Enabled")
+        .subtitle("Off ignores the touchpad until it is turned on again")
+        .keywords(&["touchpad", "trackpad", "disable", "turn off", "palm"])
+        .scope(touchpad)
+        .apply(Apply::Risky)
+        .sway(
+            Directive::input("events"),
+            ConfigFile::Input,
+            |ctx| {
+                let events = match ctx.choice(TOUCHPAD_EVENTS)? {
+                    "disabled" => SendEvents::Disabled,
+                    "disabled_on_external_mouse" => SendEvents::DisabledOnExternalMouse,
+                    _ => SendEvents::Enabled,
+                };
+                Ok(vec![ctx.input()?.events(events)])
+            },
+            |args| {
+                let id = match read_events(args)? {
+                    SendEvents::Enabled => "enabled",
+                    SendEvents::Disabled => "disabled",
+                    SendEvents::DisabledOnExternalMouse => "disabled_on_external_mouse",
+                };
+                Ok(Value::Choice(id.to_owned()))
+            },
+        )
+        .build(),
+    ]
+}
+
+/// The settings of the Keyboard page.
+fn keyboard() -> Vec<Setting> {
+    let keyboard = Scope::PerDevice(InputType::Keyboard);
+    vec![
+        Setting::toggle(KEYBOARD_EVENTS, Page::Keyboard, true)
+            .section("Keyboard")
+            .title("Enabled")
+            .subtitle("Off ignores the keyboard until it is turned on again")
+            .keywords(&["keyboard", "disable", "turn off"])
+            .scope(keyboard)
+            .apply(Apply::Risky)
+            .sway(
+                Directive::input("events"),
+                ConfigFile::Input,
+                |ctx| on_off_events(ctx, KEYBOARD_EVENTS),
+                read_on_off_events,
             )
             .build(),
         Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 0, i64::from(u16::MAX))

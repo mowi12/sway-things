@@ -3,11 +3,12 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use async_io::block_on;
 
 use super::{Applied, Applier, ApplyError, Effect, SAVE_DELAY};
+use crate::devices::Lockout;
 use crate::generate::tests::{FakeValidator, SWAY_1_10, SWAYFX_0_5, TOUCHPAD, state};
 use crate::generate::{ConfigError, HEADER, Locations, Outcome};
 use crate::include::WriteAccess;
@@ -728,5 +729,304 @@ fn letting_the_config_win_undoes_everything_if_sway_rejects_it() {
     assert_eq!(
         setup.applier.state().get(GAPS, None),
         Some(&Value::Integer(8))
+    );
+}
+
+/// The include status of a user's config with these lines and the include at the end.
+fn include_status(lines: &str) -> crate::include::IncludeStatus {
+    let main = "/home/me/.config/sway/config";
+    let files = crate::sway_config::MemoryFiles::new()
+        .var("HOME", "/home/me")
+        .file(
+            main,
+            format!("{lines}include ~/.config/sway/sway-things/*.conf\n"),
+        );
+    let locations = Locations::new(
+        std::path::Path::new("/home/me/.config/sway/sway-things"),
+        std::path::Path::new("/home/me/.local/state/sway-things"),
+    );
+    crate::include::IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations)
+}
+
+const KEYBOARD_DEVICE: &str = "1:1:AT_Translated_Set_2_keyboard";
+const KEYBOARD_EVENTS: &str = "input.keyboard.events";
+const TOUCHPAD_EVENTS: &str = "input.touchpad.events";
+
+/// A laptop's sway: one keyboard, one touchpad and the power button, and every command succeeds.
+fn laptop() -> FakeSway {
+    let inputs = format!(
+        r#"[{{"identifier": "{KEYBOARD_DEVICE}", "name": "AT keyboard", "type": "keyboard",
+              "libinput": {{"send_events": "enabled"}}}},
+            {{"identifier": "{TOUCHPAD}", "name": "Touchpad", "type": "touchpad",
+              "libinput": {{"send_events": "enabled"}}}},
+            {{"identifier": "0:1:Power_Button", "name": "Power Button", "type": "keyboard",
+              "libinput": {{"send_events": "enabled"}}}}]"#
+    );
+    FakeSway::with_version(SWAY, move |kind, _| {
+        if kind == crate::ipc::wire::GET_INPUTS {
+            message(kind, &inputs)
+        } else {
+            message(kind, r#"[{"success": true}]"#)
+        }
+    })
+}
+
+impl Setup {
+    fn try_risky(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        value: Value,
+        users: &str,
+    ) -> Result<super::Trial, ApplyError> {
+        block_on(
+            self.applier
+                .try_risky(key, device, value, &include_status(users), &self.access),
+        )
+    }
+}
+
+fn layouts(layouts: &[&str]) -> Value {
+    Value::List(layouts.iter().map(|layout| (*layout).to_owned()).collect())
+}
+
+#[test]
+fn a_risky_change_is_tried_and_stored_only_when_kept() {
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let trial = setup.try_risky(LAYOUT, None, layouts(&["de"]), "").unwrap();
+    assert_eq!(trial.commands, [r#"input type:keyboard xkb_layout "de""#]);
+    assert_eq!(sway.commands(), [r#"input type:keyboard xkb_layout "de""#]);
+    // Nothing is stored yet.
+    assert_eq!(setup.applier.state().get(LAYOUT, None), None);
+    assert_eq!(setup.applier.save_due(), None);
+    let pending = setup.applier.pending().unwrap();
+    assert_eq!(
+        (pending.key(), pending.value()),
+        (LAYOUT, &layouts(&["de"]))
+    );
+    // The default timeout of the safety net.
+    let left = trial.countdown.remaining();
+    assert!(
+        left <= Duration::from_secs(15) && left > Duration::from_secs(14),
+        "{left:?}"
+    );
+
+    let kept = setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        kept.effect,
+        live(&[r#"input type:keyboard xkb_layout "de""#])
+    );
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["de"]))
+    );
+    assert!(setup.applier.pending().is_none());
+    assert!(setup.applier.save_due().is_some());
+    // Keeping sent nothing more.
+    assert_eq!(sway.commands().len(), 1);
+}
+
+#[test]
+fn reverting_sends_what_was_in_effect() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[app]\nsafety_net_timeout = 5\n\n[input.keyboard]\nxkb_layout = [\"us\", \"de\"]\n",
+    );
+    let trial = setup.try_risky(LAYOUT, None, layouts(&["fr"]), "").unwrap();
+    assert!(trial.countdown.remaining() <= Duration::from_secs(5));
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(
+        reverted,
+        live(&[r#"input type:keyboard xkb_layout "us,de""#])
+    );
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["us", "de"]))
+    );
+    assert!(setup.applier.pending().is_none());
+
+    // Without a stored value, what the user's config sets comes back.
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .try_risky(
+            LAYOUT,
+            None,
+            layouts(&["fr"]),
+            "input type:keyboard xkb_layout de\n",
+        )
+        .unwrap();
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"input type:keyboard xkb_layout "de""#]));
+    assert_eq!(setup.applier.save_due(), None);
+}
+
+#[test]
+fn one_risky_change_waits_at_a_time() {
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup.try_risky(LAYOUT, None, layouts(&["de"]), "").unwrap();
+    assert!(matches!(
+        setup.try_risky(
+            TOUCHPAD_EVENTS,
+            None,
+            Value::Choice("enabled".to_owned()),
+            ""
+        ),
+        Err(ApplyError::PendingChange { key: LAYOUT })
+    ));
+    block_on(setup.applier.revert()).unwrap();
+    assert!(matches!(
+        setup.applier.keep(&setup.access),
+        Err(ApplyError::NothingPending)
+    ));
+    assert!(matches!(
+        block_on(setup.applier.revert()),
+        Err(ApplyError::NothingPending)
+    ));
+}
+
+#[test]
+fn only_risky_settings_go_through_the_safety_net_and_only_in_a_session() {
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    assert!(matches!(
+        setup.try_risky(GAPS, None, Value::Integer(4), ""),
+        Err(ApplyError::NotRisky { .. })
+    ));
+    assert!(matches!(
+        setup.set(KEYBOARD_EVENTS, Value::Bool(false)),
+        Err(ApplyError::Risky { .. })
+    ));
+    let mut offline = Setup::offline("version = 1\n");
+    let error = offline
+        .try_risky(LAYOUT, None, layouts(&["de"]), "")
+        .unwrap_err();
+    assert!(matches!(error, ApplyError::NoSession { key: LAYOUT }));
+    assert_eq!(
+        error.to_string(),
+        "input.keyboard.xkb_layout can lock you out, so it is only tried in a running sway \
+         session, where it can be reverted"
+    );
+}
+
+#[test]
+fn switching_off_the_last_keyboard_or_touchpad_is_refused() {
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let error = setup
+        .try_risky(KEYBOARD_EVENTS, None, Value::Bool(false), "")
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ApplyError::Lockout {
+            lockout: Lockout::Keyboard,
+            ..
+        }
+    ));
+    assert_eq!(
+        error.to_string(),
+        "input.keyboard.events wasn't changed: this would turn off the last keyboard you can type with"
+    );
+    assert!(matches!(
+        setup.try_risky(
+            KEYBOARD_EVENTS,
+            Some(KEYBOARD_DEVICE),
+            Value::Bool(false),
+            ""
+        ),
+        Err(ApplyError::Lockout { .. })
+    ));
+    assert!(matches!(
+        setup.try_risky(
+            TOUCHPAD_EVENTS,
+            None,
+            Value::Choice("disabled".to_owned()),
+            ""
+        ),
+        Err(ApplyError::Lockout {
+            lockout: Lockout::PointingDevice,
+            ..
+        })
+    ));
+    assert_eq!(sway.commands(), Vec::<String>::new());
+    // Off while a mouse is connected leaves the touchpad usable without one.
+    let trial = setup
+        .try_risky(
+            TOUCHPAD_EVENTS,
+            Some(TOUCHPAD),
+            Value::Choice("disabled_on_external_mouse".to_owned()),
+            "",
+        )
+        .unwrap();
+    assert_eq!(
+        trial.commands,
+        [format!(
+            r#"input "{TOUCHPAD}" events disabled_on_external_mouse"#
+        )]
+    );
+}
+
+#[test]
+fn an_unchecked_risky_change_is_stored_but_still_protected() {
+    // In a session: sent and stored at once.
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let applied = block_on(setup.applier.set_risky_unchecked(
+        LAYOUT,
+        None,
+        layouts(&["de"]),
+        &setup.access,
+    ))
+    .unwrap();
+    assert_eq!(
+        applied.effect,
+        live(&[r#"input type:keyboard xkb_layout "de""#])
+    );
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["de"]))
+    );
+    assert!(matches!(
+        block_on(setup.applier.set_risky_unchecked(
+            KEYBOARD_EVENTS,
+            None,
+            Value::Bool(false),
+            &setup.access
+        )),
+        Err(ApplyError::Lockout { .. })
+    ));
+
+    // Without a session the devices aren't known: a whole type can't be switched off, one
+    // device can.
+    let mut offline = Setup::offline("version = 1\n");
+    assert!(matches!(
+        block_on(offline.applier.set_risky_unchecked(
+            KEYBOARD_EVENTS,
+            None,
+            Value::Bool(false),
+            &offline.access
+        )),
+        Err(ApplyError::Lockout {
+            lockout: Lockout::Keyboard,
+            ..
+        })
+    ));
+    let applied = block_on(offline.applier.set_risky_unchecked(
+        KEYBOARD_EVENTS,
+        Some(KEYBOARD_DEVICE),
+        Value::Bool(false),
+        &offline.access,
+    ))
+    .unwrap();
+    assert_eq!(applied.effect, Effect::NoSession);
+    assert_eq!(
+        offline
+            .applier
+            .state()
+            .get(KEYBOARD_EVENTS, Some(KEYBOARD_DEVICE)),
+        Some(&Value::Bool(false))
     );
 }
