@@ -96,7 +96,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
 - **One setting per value:** a directive with several values is several settings. The five colors of `client.focused`
   are `windows.focused.border`, `….background`, `….text`, `….indicator` and `….child_border`. Settings with the same
   directive form a group (`Registry::group`) with one render function that reads all of them, so storing one color
-  writes the whole line with the defaults of the others.
+  writes the whole line with the defaults of the others. An `input` option is a directive of its own per input type
+  (`events` of keyboards and of touchpads), so a group also shares the scope.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
 - **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
@@ -340,9 +341,9 @@ copy button). Alternatively the user deletes or renames their own file, and we c
   sent are undone with the previous values.
 - **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
   user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
-- **Refused:** risky settings (they only change through the safety net), and a `set` of a setting or value the
-  compositor doesn't support, with what it needs. Nothing is stored then. A reset is always allowed, so such a value can
-  be removed.
+- **Refused:** risky settings (they only change through the [safety net](#risky-settings-safety-net)), and a `set` of a
+  setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is always
+  allowed, so such a value can be removed.
 - **Without a session** (the CLI at login) the change is only stored, saved and generated, for the compositor the
   installed `sway` reports. The result says so.
 - **`persist`** saves the settings files, generates every file and writes those that changed. The result has the outcome
@@ -362,7 +363,27 @@ Display mode, disabling an output or input device, keyboard layout changes:
 1. Snapshot the current value and apply live.
 2. Show the _Keep / Revert_ banner with a 15 s countdown.
 3. **Nothing is persisted until the user presses _Keep_.** Revert or timeout re-applies the snapshot over IPC.
-4. Lockout protection: the last enabled output and the last enabled keyboard can't be disabled.
+4. Lockout protection: the last enabled keyboard and the last enabled pointing device can't be switched off (outputs
+   come with the Displays page).
+
+`crates/core/src/apply/risky.rs` is this flow in the core; the GUI banner and the CLI prompt build on it.
+
+- **`Applier::try_risky`** checks the change like `set` does, sends it and returns a `Countdown` with the deadline from
+  `app.safety_net_timeout` (15 s by default). Nothing is stored. The snapshot is the value in effect as a row shows it
+  (`SettingView`): the stored value, else what the user's config sets, else sway's default. sway reports keyboard
+  layouts only by their names (`English (US)`), not as `xkb_layout` takes them, so the core's value is what is restored.
+- **`keep`** stores the value like any other change (saved with `persist`); nothing more is sent. **`revert`** sends the
+  snapshot; the caller runs it when the user says so and when `Countdown::elapsed` returns. The countdown waits with
+  `async_io`, so it works under the GTK main loop and `block_on` alike.
+- **One at a time:** while a change waits, another risky change is refused until it is kept or reverted.
+- **Only in a session:** without a running sway nothing can be tried and reverted, so `try_risky` refuses.
+  `set_risky_unchecked` (for `sway-things set --yes`) sends the value if there is a session and stores it at once.
+- **Lockout protection:** a change of `events` asks sway for the devices and is refused if it would leave no usable
+  keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. A session that has
+  none to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off
+  a whole type of keyboards or pointing devices is refused, one device is allowed.
+- **If the app or the command line ends** while a change waits, nothing was stored: the session keeps the tried value
+  until the next reload of sway (or login), which brings back the old one.
 
 **From the CLI**: in an interactive terminal, `sway-things set` applies live, asks `Keep? [y/N]` with the same
 countdown, and saves only on `y`. Without a TTY it refuses unless `--yes` is given, so scripts and hooks never hang.
@@ -495,7 +516,8 @@ the lockout protection.
   with a vendor ID: sway lists the power button and the video bus (`0:1:Power_Button`, `0:6:Video_Bus`) as keyboards,
   and virtual devices of other programs have vendor 0 too. The extra keys some mice register as a keyboard can't be told
   apart and count. A touchpad that is off while an external mouse is connected counts, because it works again once the
-  mouse is gone.
+  mouse is gone. `Devices::lockout(type, device, sending)` says what switching the devices of a type (or one of them) to
+  a sending mode would leave the user without.
 
 ### Sway config parser
 
@@ -746,7 +768,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win), command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
