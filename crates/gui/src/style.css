@@ -1,0 +1,49 @@
+/* SPDX-FileCopyrightText: 2026 Sway Things contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/* Structure only: colors come from the GTK theme. */
+
+/* Secondary text. The theme's .dim-label (opacity 0.55) stays below 4.5:1; this level passes in
+   light and dark (checked by crates/gui/tests/gui.rs). */
+.st-dim {
+  opacity: 0.75;
+}
+
+/* Sidebar */
+st-sidebar > scrolledwindow > viewport > list {
+  background: none;
+}
+
+st-sidebar .st-group-heading {
+  font-size: 0.8em;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  margin: 14px 14px 4px;
+}
+
+st-sidebar .st-group-heading.st-first {
+  margin-top: 4px;
+}
+
+/* Page */
+st-page .st-page-content {
+  margin: 28px 32px 32px;
+}
+
+st-page-header {
+  margin-bottom: 20px;
+}
+
+st-page-header > .title-1 {
+  font-size: 1.6em;
+}
+
+/* Placeholder for pages that aren't built yet */
+st-placeholder {
+  margin-top: 48px;
+}
+
+st-placeholder > image {
+  margin-bottom: 12px;
+}

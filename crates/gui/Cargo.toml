@@ -10,3 +10,12 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+gtk.workspace = true
+sway-things-core = { path = "../core" }
+
+[[test]]
+name = "gui"
+# GTK runs on one thread: the test is a plain program that runs its checks in order.
+harness = false

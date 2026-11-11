@@ -5,7 +5,7 @@
 # don't grant, so the image removes it.
 FROM archlinux:base@sha256:b1c2fe6e717bfd5673af8fc217e1e1c3ce0dcbb1d53c3414c8425e7ce79fc6d9
 
-RUN pacman -Syu --noconfirm sway rust gcc \
+RUN pacman -Syu --noconfirm sway rust gcc gtk4 pkgconf ttf-dejavu \
   && pacman -Scc --noconfirm \
   && setcap -r /usr/bin/sway \
   && useradd --create-home tester \

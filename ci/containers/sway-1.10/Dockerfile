@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# The oldest supported sway: 1.10.1 from Debian 13.
+# The oldest supported sway: 1.10.1 from Debian 13, with the oldest supported GTK: 4.18.
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates cargo sway \
+  && apt-get install -y --no-install-recommends ca-certificates cargo sway libgtk-4-dev pkgconf fonts-dejavu-core \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --create-home tester \
   && install -d -o tester /work

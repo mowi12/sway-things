@@ -3,6 +3,7 @@
 
 //! The definition of one setting.
 
+use super::page::Page;
 use super::sway::{ConfigFile, Directive, RenderFn, SwayMapping};
 use super::value::{Choice, Kind, Value, ValueError};
 use crate::command::Color;
@@ -23,34 +24,6 @@ impl Msg {
     /// The English source string.
     pub const fn msgid(self) -> &'static str {
         self.0
-    }
-}
-
-/// The page a setting is shown on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Page {
-    /// Mouse & Touchpad
-    MouseTouchpad,
-    /// Keyboard
-    Keyboard,
-    /// Windows, including the SwayFX effects
-    Windows,
-    /// Window Behavior
-    WindowBehavior,
-    /// About & Maintenance, which holds the preferences of Sway Things itself
-    About,
-}
-
-impl Page {
-    /// The id of the page, as used in deep links (`sway-things open <id>`).
-    pub const fn id(self) -> &'static str {
-        match self {
-            Self::MouseTouchpad => "mouse-touchpad",
-            Self::Keyboard => "keyboard",
-            Self::Windows => "windows",
-            Self::WindowBehavior => "window-behavior",
-            Self::About => "about",
-        }
     }
 }
 

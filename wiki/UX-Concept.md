@@ -48,8 +48,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **Search finds individual settings, not just pages.** Each registry entry has a title, keywords and synonyms ("dpi",
   "sensitivity" → _Pointer speed_; "caps lock" → _XKB options_). Choosing a result opens the page, scrolls to the
   setting and highlights it briefly.
-- **Keyboard-first:** typing anywhere (or `Ctrl+F`) focuses search; arrow keys move through the sidebar; `Enter` opens;
-  `Esc` clears the search or goes back. Every control is reachable with `Tab`.
+- **Keyboard-first:** typing anywhere (or `Ctrl+F`) focuses search; arrow keys move through the sidebar without opening
+  pages; `Enter` (or a click) opens one; `Esc` clears the search or goes back from the page to the sidebar. Every
+  control is reachable with `Tab`.
+- **Every page is listed** from the start. A page that isn't built yet shows its header and a placeholder saying so.
 - **Narrow mode:** sway often gives the window half a screen or less. Below a width threshold the app shows one pane at
   a time: sidebar, then the page with a back button. The threshold is decided while building the shell in v0.1, from
   real page widths.

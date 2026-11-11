@@ -7,7 +7,7 @@
 FROM ghcr.io/void-linux/void-glibc@sha256:7de4630b6d3e0a76e9e68771837c15fc179e320de292b06e29c7292756d29583
 
 RUN xbps-install -Syu xbps \
-  && xbps-install -Syu bash shadow swayfx mesa-dri libcap-progs rust cargo gcc \
+  && xbps-install -Syu bash shadow swayfx mesa-dri libcap-progs rust cargo gcc gtk4-devel pkg-config dejavu-fonts-ttf \
   && xbps-remove -O \
   && setcap -r /usr/bin/sway \
   && useradd --create-home tester \

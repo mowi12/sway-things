@@ -3,4 +3,6 @@
 
 //! `sway-things-gui`: the GTK4 settings app of Sway Things.
 
-fn main() {}
+fn main() -> gtk::glib::ExitCode {
+    sway_things_gui::app::run()
+}

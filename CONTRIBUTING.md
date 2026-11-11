@@ -100,8 +100,8 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
     current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum; packages
-    from Ubuntu's signed repositories need no pin. Give every workflow job only the `permissions` it needs. Workflow,
-    job and step names use Title Case (`Preview Label Changes`).
+    from Ubuntu's or Debian's signed repositories need no pin; container images are pinned to a digest. Give every
+    workflow job only the `permissions` it needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
 
 ## Checks
 
@@ -128,13 +128,24 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
-| Tests | unit + golden-file tests on MSRV **1.85** and stable |
-| Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests; locally `scripts/check-integration.sh --container all` |
+| Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
+| Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
 | Fuzzing | sway config parser (scheduled) |
 | Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
 
 Editors pick up indentation and line endings from `.editorconfig`.
+
+## Working on the GUI
+
+- `cargo run -p sway-things-gui` starts the app. `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore
+  the widget tree and try CSS live.
+- The GUI tests check the window with every page for contrast in light and dark, and the keyboard navigation. They need
+  a display, so they run in the sway integration containers (`scripts/check-integration.sh --container all`).
+  `scripts/gui-screenshots.sh` runs them on a private display instead and keeps a PNG of every page in
+  `target/screenshots/`.
+
+See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structure.
 
 ## Documentation
 
