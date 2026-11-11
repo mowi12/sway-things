@@ -15,6 +15,7 @@ use async_io::{Timer, block_on};
 use futures_lite::future;
 use sway_things_core::command::input::{DragLock, Input, InputSelector, InputType};
 use sway_things_core::command::{SwayCmd, SwayText, behavior, effects, window};
+use sway_things_core::devices::{Device, DeviceWatch};
 use sway_things_core::ipc::types::{Event, EventType, NodeType};
 use sway_things_core::ipc::{Client, Compositor, IpcError, Unmet};
 use sway_things_core::version::SwayVersion;
@@ -247,6 +248,27 @@ fn tick_and_workspace_events_arrive() -> Result<()> {
                 }
             }
         }
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs a running sway; run scripts/check-integration.sh"]
+fn the_device_watch_starts_on_a_session_without_devices() -> Result<()> {
+    run(async {
+        let sway = Client::connect().await?;
+        // The headless session has no input devices; hotplug is tested against a stand-in.
+        let watch = DeviceWatch::start(&sway).await?;
+        assert!(
+            watch.devices().iter().all(Device::is_connected),
+            "{:?}",
+            watch.devices()
+        );
+        assert!(
+            !watch
+                .devices()
+                .is_last_enabled_keyboard("1:1:AT_Translated_Set_2_keyboard")
+        );
         Ok(())
     })
 }
