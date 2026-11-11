@@ -525,13 +525,14 @@ fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
     for (main, expected_files) in [("sway.conf", 14), ("swayfx.conf", 17)] {
         let config = parse(&integration.join(main), &Disk);
-        // parser.conf includes one file twice and one that doesn't exist, on purpose.
+        // parser.conf includes one file twice and one that doesn't exist, on purpose. The last
+        // include of sway.conf (line 42) only matches while the integration test runs.
         assert_eq!(
             kinds(&config)
                 .iter()
                 .map(|(line, _)| *line)
                 .collect::<Vec<_>>(),
-            [43, 45],
+            [43, 45, 42],
             "{main}"
         );
         assert_eq!(config.files.len(), expected_files, "{main}");
