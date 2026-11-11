@@ -384,6 +384,12 @@ enum Rendering {
     NestedIpc,
 }
 
+/// `reload`: sway reads its config files again. Settings that sway only honors while it loads
+/// its config take effect then.
+pub fn reload() -> SwayCmd {
+    SwayCmd::new("reload").runtime_only()
+}
+
 fn is_keyword(keyword: &str) -> bool {
     !keyword.is_empty()
         && keyword.bytes().all(|byte| {

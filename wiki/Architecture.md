@@ -307,6 +307,29 @@ copy button). Alternatively the user deletes or renames their own file, and we c
    - update the hash in `manifest.toml`.
 5. Conflict detection re-runs for that setting and updates the indicators.
 
+`crates/core/src/apply/` is this flow for the CLI and the GUI alike. An `Applier` owns the state and the IPC connection.
+
+- **`set` and `reset`** check the change against the registry, send the commands and change the state in memory. Both
+  need the write permission of an active [include status](#include-detection).
+- **A failed command changes nothing:** the state is as before, and commands of the same directive that were already
+  sent are undone with the previous values.
+- **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
+  user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
+- **Refused:** risky settings (they only change through the safety net), and a `set` of a setting or value the
+  compositor doesn't support, with what it needs. Nothing is stored then. A reset is always allowed, so such a value can
+  be removed.
+- **Without a session** (the CLI at login) the change is only stored, saved and generated, for the compositor the
+  installed `sway` reports. The result says so.
+- **`persist`** saves the settings files, generates every file and writes those that changed. The result has the outcome
+  per file, so the caller can show sway's errors with the settings behind them and ask before it overwrites a file that
+  was changed outside. The CLI calls it right after the change. The GUI asks the applier when saving is due, 500 ms
+  after the last change, and waits for that with a timer of its main loop.
+- **Changes on disk:** when the watcher reports the settings files, `reload` loads them, sends the changed settings
+  (those of one directive once) and leaves the rest to `persist`. The file wins, so a command that fails undoes nothing
+  and is reported. Risky settings aren't sent; they are in effect after the next reload of sway.
+- The result of each step says how the change takes effect: live with the commands sent, without a session, after a
+  reload of sway (`command::reload`, which the caller runs when it suits), after a tool reload or a re-login.
+
 ### Risky settings (safety net)
 
 Display mode, disabling an output or input device, keyboard layout changes:
@@ -634,10 +657,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
