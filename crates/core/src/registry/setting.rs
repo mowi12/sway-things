@@ -4,6 +4,7 @@
 //! The definition of one setting.
 
 use super::page::Page;
+use super::read::{ReadError, ReadFn};
 use super::sway::{ConfigFile, Directive, RenderFn, SwayMapping};
 use super::value::{Choice, Kind, Value, ValueError};
 use crate::command::Color;
@@ -231,6 +232,26 @@ impl Setting {
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
     }
+
+    /// The value a directive of the user's config sets this setting to, as sway reads it, or
+    /// `None` if the directive isn't this setting's (see [`SwayMapping::matches`]).
+    ///
+    /// # Errors
+    ///
+    /// [`ReadError::Rejected`] if sway refuses the line, and [`ReadError::Unsupported`] if the
+    /// value doesn't fit the setting.
+    pub fn read(
+        &self,
+        directive: &crate::sway_config::Directive,
+    ) -> Option<Result<Value, ReadError>> {
+        let mapping = self.sway.as_ref()?;
+        let args = mapping.matches(directive)?;
+        Some((mapping.read)(args).and_then(|value| {
+            self.check(&value)
+                .map(|()| value)
+                .map_err(|error| ReadError::Unsupported(error.to_string()))
+        }))
+    }
 }
 
 /// Builds a [`Setting`]. Created by the constructors of [`Setting`], finished with
@@ -289,15 +310,24 @@ impl SettingBuilder {
     }
 
     /// Maps the setting to a sway directive: `directive` names it for conflict detection, `file`
-    /// is the generated file its config lines go to, and `render` builds the commands.
+    /// is the generated file its config lines go to, `render` builds the commands, and `read`
+    /// reads the setting's value back from a line of the user's config.
     ///
     /// Settings that are values of the same directive (the five colors of `client.focused`) pass
-    /// the same three arguments; `render` reads all of them.
-    pub fn sway(mut self, directive: Directive, file: ConfigFile, render: RenderFn) -> Self {
+    /// the same `directive`, `file` and `render`, which reads all of them; each has its own
+    /// `read`.
+    pub fn sway(
+        mut self,
+        directive: Directive,
+        file: ConfigFile,
+        render: RenderFn,
+        read: ReadFn,
+    ) -> Self {
         self.0.sway = Some(SwayMapping {
             directive,
             file,
             render,
+            read,
         });
         self
     }

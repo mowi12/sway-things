@@ -11,6 +11,7 @@
 pub mod apply;
 mod atomic;
 pub mod command;
+pub mod conflict;
 pub mod devices;
 pub mod generate;
 pub mod include;

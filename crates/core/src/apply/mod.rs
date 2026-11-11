@@ -40,19 +40,20 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::io;
 use std::time::{Duration, Instant};
 
 use crate::command::input::InputSelector;
 use crate::command::{CommandError, SwayCmd, Target};
+use crate::conflict;
 use crate::generate::{
     self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate, WriteError,
 };
 use crate::include::WriteAccess;
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
-use crate::registry::{Apply, ConfigFile, RenderError, Setting, Value};
+use crate::registry::{Apply, ConfigFile, RenderError, Setting, Value, Values};
 use crate::state::{ChangedKey, Changes, State, StateError};
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
@@ -310,6 +311,69 @@ impl<V: Validate> Applier<V> {
         self.finish(setting, device, true, before).await
     }
 
+    /// "Let my config win": removes the stored values of the setting in `report`, so the user's
+    /// own config decides it, and sends the user's value to the session. One line of the user's
+    /// sets every setting of a directive (the five colors of `client.focused`), so they are all
+    /// removed together.
+    ///
+    /// The value sent is the one `report` read from the user's config
+    /// ([`conflict::Report::user_value`]); without a line there, sway's default. If a setting of the group
+    /// can't be read from that line, nothing is sent and the effect is [`Effect::AfterReload`]:
+    /// the caller reloads sway, which reads the user's line itself.
+    ///
+    /// # Errors
+    ///
+    /// Like [`Applier::reset`].
+    pub async fn let_config_win(
+        &mut self,
+        report: &conflict::Report,
+        _access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        let setting = self.setting(report.key())?;
+        let device = report.device();
+        let registry = self.state.registry();
+        let before = self.state.clone();
+        let mut removed = false;
+        for member in registry.group(setting) {
+            removed |= self.state.reset(member.key(), device)?;
+        }
+        if !removed {
+            return Ok(Applied {
+                changed: false,
+                effect: Effect::NotStored,
+            });
+        }
+        let mut users = BTreeMap::new();
+        if let Some(line) = report.user_value() {
+            for member in registry.group(setting) {
+                let Some(Ok(value)) = member.read(&line.directive) else {
+                    self.unsaved_since = Some(Instant::now());
+                    return Ok(Applied {
+                        changed: true,
+                        effect: Effect::AfterReload,
+                    });
+                };
+                users.insert(member.key().to_owned(), value);
+            }
+        }
+        match self
+            .apply_live(setting, device, Some(&before), &users)
+            .await
+        {
+            Ok(effect) => {
+                self.unsaved_since = Some(Instant::now());
+                Ok(Applied {
+                    changed: true,
+                    effect,
+                })
+            }
+            Err(error) => {
+                self.state = before;
+                Err(error)
+            }
+        }
+    }
+
     /// The setting `key`, if it can be changed here.
     fn setting(&self, key: &str) -> Result<&'static Setting, ApplyError> {
         let setting = self
@@ -333,7 +397,10 @@ impl<V: Validate> Applier<V> {
         changed: bool,
         before: State,
     ) -> Result<Applied, ApplyError> {
-        match self.apply_live(setting, device, Some(&before)).await {
+        match self
+            .apply_live(setting, device, Some(&before), &BTreeMap::new())
+            .await
+        {
             Ok(Effect::Unsupported(unmet)) if self.state.get(setting.key(), device).is_some() => {
                 // A value needs more than its setting: `set` refuses that too.
                 self.state = before;
@@ -355,13 +422,15 @@ impl<V: Validate> Applier<V> {
         }
     }
 
-    /// Brings the session to the values in the state for the directive of `setting`. After a
-    /// command failed, the commands for `previous` undo those that were sent before it.
+    /// Brings the session to the values in the state for the directive of `setting`, with those
+    /// in `over` in place of the state's. After a command failed, the commands for `previous`
+    /// undo those that were sent before it.
     async fn apply_live(
         &mut self,
         setting: &'static Setting,
         device: Option<&str>,
         previous: Option<&State>,
+        over: &BTreeMap<String, Value>,
     ) -> Result<Effect, ApplyError> {
         if setting.sway().is_none() {
             return Ok(Effect::Preference);
@@ -374,7 +443,7 @@ impl<V: Validate> Applier<V> {
             return Ok(Effect::Unsupported(unmet));
         }
         // What goes into the generated file must be a command too.
-        let config = render(&self.state, setting, device, Target::Config)?;
+        let config = render(&self.state, over, setting, device, Target::Config)?;
         if let Some(unmet) = config
             .iter()
             .find_map(|command| self.compositor.supports(command).err())
@@ -388,9 +457,11 @@ impl<V: Validate> Applier<V> {
             Apply::ToolReload => return Ok(Effect::AfterToolReload),
             Apply::Relogin => return Ok(Effect::AfterRelogin),
         }
-        let commands = render(&self.state, setting, device, Target::Ipc)?;
+        let commands = render(&self.state, over, setting, device, Target::Ipc)?;
         let undo = match previous {
-            Some(previous) => render(previous, setting, device, Target::Ipc).unwrap_or_default(),
+            Some(previous) => {
+                render(previous, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default()
+            }
             None => Vec::new(),
         };
         let Some(client) = &mut self.client else {
@@ -456,7 +527,7 @@ impl<V: Validate> Applier<V> {
                 continue;
             }
             let effect = self
-                .apply_live(setting, changed.device.as_deref(), None)
+                .apply_live(setting, changed.device.as_deref(), None, &BTreeMap::new())
                 .await;
             applied.push((changed.clone(), effect));
         }
@@ -467,9 +538,23 @@ impl<V: Validate> Applier<V> {
     }
 }
 
-/// The commands that set the directive of `setting` to its values in `state`.
+/// The values in `over`, and those of `under` for the other keys.
+struct Over<'a, V> {
+    over: &'a BTreeMap<String, Value>,
+    under: V,
+}
+
+impl<V: Values> Values for Over<'_, V> {
+    fn get(&self, key: &str) -> Option<&Value> {
+        self.over.get(key).or_else(|| self.under.get(key))
+    }
+}
+
+/// The commands that set the directive of `setting` to its values in `state`, with those in
+/// `over` in place of the state's.
 fn render(
     state: &State,
+    over: &BTreeMap<String, Value>,
     setting: &Setting,
     device: Option<&str>,
     target: Target,
@@ -481,9 +566,15 @@ fn render(
             .map_err(|_| StateError::InvalidDevice {
                 device: device.unwrap_or_default().to_owned(),
             })?;
-    Ok(state
-        .registry()
-        .render(setting, &state.values(device), selector.as_ref(), target)?)
+    Ok(state.registry().render(
+        setting,
+        &Over {
+            over,
+            under: state.values(device),
+        },
+        selector.as_ref(),
+        target,
+    )?)
 }
 
 /// Why a change wasn't applied or persisted.

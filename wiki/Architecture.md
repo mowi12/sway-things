@@ -60,7 +60,7 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 | TOML schema and validation | the key is the path in `settings.toml`; the value type has the range or the choices |
 | Defaults and "Reset to default" | the default of the value type |
 | Generator output | the render function builds the commands, the mapping names the generated file |
-| Conflict detection | the sway directive and block context the setting maps to |
+| Conflict detection | the sway directive and block context the setting maps to; the read function gives the value of a user's line |
 | Version and fork gating | `min_sway(…)`, `swayfx_only(…)` |
 | Scope | global / per-host / per-device / per-output (decides the host-overlay default) |
 | Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
@@ -73,9 +73,12 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
     .subtitle("Tap the touchpad instead of pressing it")
     .keywords(&["touchpad", "trackpad"])
     .scope(Scope::PerDevice(InputType::Touchpad))
-    .sway(Directive::input("tap"), ConfigFile::Input, |ctx| {
-        Ok(vec![ctx.input()?.tap(ctx.bool("input.touchpad.tap")?)])
-    })
+    .sway(
+        Directive::input("tap"),
+        ConfigFile::Input,
+        |ctx| Ok(vec![ctx.input()?.tap(ctx.bool("input.touchpad.tap")?)]),
+        |args| Ok(Value::Bool(read::boolean(read::first(args)?, true))),
+    )
     .build()
 ```
 
@@ -98,6 +101,13 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   (`input type:touchpad tap enabled`), with one for that device's identifier.
 - **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
   name covers independent values, the first argument (`gaps` + `inner`).
+- **Reading:** each sway setting also has a read function, the reverse of rendering: `Setting::read` takes a directive
+  of the user's config and returns the value sway reads from it. The helpers follow sway's own parsing: its words for
+  true (`parse_boolean`, everything else is false), `strtol` and `atoi` for numbers, `parse_color` with or without `#`
+  (an opaque alpha is the same color as none), the defaults of a `client.*` line for the colors it leaves out (the
+  indicator of the class, the background as child border). A line sway refuses (`ReadError::Rejected`) is told apart
+  from a value sway takes but the setting can't hold (`ReadError::Unsupported`, e.g. out of its range). Every setting of
+  a group reads its own value from the same line.
 - **Apply mode:** live by default. A setting built on a config-only command (`workspace_layout`) must use reload.
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`) are settings without a sway mapping.
 - **Pages:** `Page::ALL` lists every page of the app in sidebar order, each with its id, sidebar group (`Group`), title
@@ -548,8 +558,8 @@ the lockout protection.
 
 ### Conflict detection
 
-Sway evaluates config top to bottom, and for most settings the last definition wins. The parser knows where our
-`include` sits in the user's config.
+Sway evaluates config top to bottom, and for most settings the last definition wins. The
+[include detection](#include-detection) knows where each generated file sits in the user's config.
 
 | User line is… | Effect | Indicator |
 | --- | --- | --- |
@@ -557,10 +567,32 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 | after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
 | our include missing, partial or unknown | nothing we generate is reliably active | app-wide **read-only** mode with the include instructions |
 
-Per-directive semantics come from the registry: `input` blocks merge per identifier, `exec` accumulates, duplicate
-`bindsym` overrides with a warning, `client.*` replaces. Actions on a conflict: **Open in editor at line**
-(`$VISUAL`/`$EDITOR`, otherwise the default text editor), **Copy line**, **Let my config win** (removes the setting from
-our state).
+`crates/core/src/conflict/` finds these lines. `Report::check(status, setting, device, devices)` lists every user line
+that sets a setting, in the order sway runs them, each with file, line, text, the value read from it, and whether it
+runs before or after the generated file of the setting. The search is linear in the length of the config, so it runs
+again for one setting after it changed, and for all of them (`check_all`, also for every known device) after the config
+or the settings files changed on disk.
+
+- **Top-level directives** match by name and, where the registry names one, first argument (`gaps inner`). Names compare
+  without regard to case, as in sway.
+- **`input` options** merge per device. For one device the last line wins among those for `*`, for its type and for its
+  identifier, in config order: sway's `store_input_config` merges each kind onto the others as it reads them.
+  Identifiers and types compare exactly (`strcmp`). In a report for a whole input type, a line for one device is listed
+  with that device and doesn't decide the type's value; with the device list, lines for devices of another type are left
+  out.
+- **One line, several settings:** a `client.*` line sets all five colors, so every setting of the group reports it, and
+  storing one color makes the user's line dead for all of them.
+- **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
+  wins. The **user's value** is that of the last line that decides the setting: pages show it while Sway Things stores
+  nothing ("from ~/.config/sway/config:120").
+- **Not yet:** `exec` (accumulates) and `bindsym` (a duplicate overrides with a warning) get their semantics with their
+  first settings, on the Autostart and Keyboard Shortcuts pages.
+
+Actions on a conflict: **Open in editor at line** (`$VISUAL`/`$EDITOR`, otherwise the default text editor), **Copy
+line**, **Let my config win**. `Applier::let_config_win` removes the stored values of the setting's directive (every
+setting of a group, since the user's line sets all of them) and sends the user's value from the report, so nothing
+reloads; without a line of the user's, sway's default. If a value of the group can't be read from the line, nothing is
+sent and the caller reloads sway, which reads the line itself.
 
 Bindings defined in the user's config can still be changed from the app: our include comes later, so it can `unbindsym`
 and re-bind without touching their file.
@@ -687,7 +719,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk), command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
