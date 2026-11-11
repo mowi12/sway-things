@@ -13,6 +13,7 @@ const CORNER_RADIUS: &str = "effects.corner_radius";
 pub(super) fn settings() -> Vec<Setting> {
     vec![
         Setting::integer(CORNER_RADIUS, Page::Windows, 0, 0, 99)
+            .section("Effects")
             .title("Corner radius")
             .subtitle("Rounded window corners, in pixels")
             .keywords(&["rounded", "round corners"])

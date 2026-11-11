@@ -48,6 +48,7 @@ pub(super) fn settings() -> Vec<Setting> {
             "yes",
             FOCUS_FOLLOWS_MOUSE_CHOICES,
         )
+        .section("Focus")
         .title("Focus follows mouse")
         .keywords(&["pointer", "hover", "sloppy focus"])
         .sway(
@@ -63,6 +64,7 @@ pub(super) fn settings() -> Vec<Setting> {
             "default",
             WORKSPACE_LAYOUT_CHOICES,
         )
+        .section("Workspaces")
         .title("Layout of new workspaces")
         .keywords(&["tabs", "stack", "tiling"])
         .apply(Apply::Reload)
