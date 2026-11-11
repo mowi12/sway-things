@@ -576,3 +576,157 @@ fn changes_on_disk_are_sent_and_regenerated_except_risky_ones() {
         format!("{HEADER}client.focused #111111 #285577 #000000 #2e9ef4 #285577\n")
     );
 }
+
+/// The conflict report of `key` for a user's config with these lines and the include at the end.
+fn users(key: &str, lines: &str) -> crate::conflict::Report {
+    let main = "/home/me/.config/sway/config";
+    let files = crate::sway_config::MemoryFiles::new()
+        .var("HOME", "/home/me")
+        .file(
+            main,
+            format!("{lines}include ~/.config/sway/sway-things/*.conf\n"),
+        );
+    let locations = Locations::new(
+        std::path::Path::new("/home/me/.config/sway/sway-things"),
+        std::path::Path::new("/home/me/.local/state/sway-things"),
+    );
+    let status =
+        crate::include::IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations);
+    let setting = crate::registry::Registry::builtin().get(key).unwrap();
+    crate::conflict::Report::check(&status, setting, None, None).unwrap()
+}
+
+impl Setup {
+    fn let_config_win(&mut self, report: &crate::conflict::Report) -> Result<Applied, ApplyError> {
+        block_on(self.applier.let_config_win(report, &self.access))
+    }
+}
+
+#[test]
+fn letting_the_config_win_sends_the_users_value_and_removes_ours() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 8\n");
+    let result = setup
+        .let_config_win(&users(GAPS, "gaps inner 4\n"))
+        .unwrap();
+    assert_eq!(
+        result,
+        Applied {
+            changed: true,
+            effect: live(&["gaps inner 4", "gaps inner all set 4"]),
+        }
+    );
+    assert_eq!(setup.applier.state().get(GAPS, None), None);
+    assert!(setup.applier.save_due().is_some());
+    setup.persist(&[]);
+    assert_eq!(
+        fs::read_to_string(setup.settings()).unwrap(),
+        "version = 1\n"
+    );
+    assert_eq!(setup.generated(ConfigFile::Appearance), "");
+}
+
+#[test]
+fn letting_the_config_win_removes_every_value_of_the_directive() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[windows.focused]\ntext = \"#000000\"\nchild_border = \"#3b6e4f\"\n",
+    );
+    let report = users(
+        "windows.focused.text",
+        "client.focused #111111 #222222 #333333\n",
+    );
+    let result = setup.let_config_win(&report).unwrap();
+    // sway's default indicator, and the background as child border, as sway reads the line.
+    assert_eq!(
+        result.effect,
+        live(&["client.focused #111111 #222222 #333333 #2e9ef4 #222222"])
+    );
+    assert_eq!(
+        setup
+            .applier
+            .state()
+            .get("windows.focused.child_border", None),
+        None
+    );
+    assert_eq!(
+        setup.applier.state().get("windows.focused.text", None),
+        None
+    );
+}
+
+#[test]
+fn without_a_line_of_the_user_the_default_is_sent() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 8\n");
+    let result = setup.let_config_win(&users(GAPS, "")).unwrap();
+    assert_eq!(
+        result.effect,
+        live(&["gaps inner 0", "gaps inner all set 0"])
+    );
+}
+
+#[test]
+fn a_value_that_cant_be_read_is_left_to_a_reload() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nrepeat_delay = 300\n",
+    );
+    let report = users(
+        "input.keyboard.repeat_delay",
+        "input * repeat_delay 70000\n",
+    );
+    let result = setup.let_config_win(&report).unwrap();
+    assert_eq!(
+        result,
+        Applied {
+            changed: true,
+            effect: Effect::AfterReload,
+        }
+    );
+    assert_eq!(sway.commands(), Vec::<String>::new());
+    assert_eq!(
+        setup
+            .applier
+            .state()
+            .get("input.keyboard.repeat_delay", None),
+        None
+    );
+}
+
+#[test]
+fn letting_the_config_win_needs_a_stored_value_and_no_safety_net() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let result = setup
+        .let_config_win(&users(GAPS, "gaps inner 4\n"))
+        .unwrap();
+    assert_eq!(
+        result,
+        Applied {
+            changed: false,
+            effect: Effect::NotStored,
+        }
+    );
+    assert_eq!(sway.commands(), Vec::<String>::new());
+    assert!(matches!(
+        setup.let_config_win(&users(LAYOUT, "input * xkb_layout de\n")),
+        Err(ApplyError::Risky { .. })
+    ));
+}
+
+#[test]
+fn letting_the_config_win_undoes_everything_if_sway_rejects_it() {
+    let sway = FakeSway::with_version(SWAY, |kind, _| {
+        message(kind, r#"[{"success": false, "error": "No"}]"#)
+    });
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 8\n");
+    let result = setup.let_config_win(&users(GAPS, "gaps inner 4\n"));
+    assert!(matches!(result, Err(ApplyError::Ipc(_))));
+    assert_eq!(
+        setup.applier.state().get(GAPS, None),
+        Some(&Value::Integer(8))
+    );
+}
