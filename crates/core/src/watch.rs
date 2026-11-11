@@ -5,8 +5,9 @@
 //!
 //! A [`Watcher`] watches a set of files, whether they exist yet or not, and reports which of them
 //! may have changed: written in place, replaced by a rename (how editors and `git` save), created
-//! or deleted, also along with their directory. Bursts of events become one report once the files
-//! have been quiet for the debounce time.
+//! or deleted, also along with their directory. It can also watch directories for files that
+//! appear in them, change or go away. Bursts of events become one report once the files have been
+//! quiet for the debounce time.
 //!
 //! The watcher only says that a file may have changed. Whoever reads the file decides whether it
 //! did, so a report after one's own write is harmless.
@@ -68,6 +69,21 @@ impl Watcher {
         files: impl IntoIterator<Item = PathBuf>,
         debounce: Duration,
     ) -> Result<Self, WatchError> {
+        Self::with_directories(files, [], debounce)
+    }
+
+    /// Like [`Watcher::new`], and also watches `directories`: one of them is reported when a
+    /// file directly in it is created, changed, renamed or deleted, or the directory itself is.
+    /// That is how to follow a glob such as `config.d/*`, whose files aren't known in advance.
+    ///
+    /// # Errors
+    ///
+    /// [`WatchError`] if the system refuses to watch.
+    pub fn with_directories(
+        files: impl IntoIterator<Item = PathBuf>,
+        directories: impl IntoIterator<Item = PathBuf>,
+        debounce: Duration,
+    ) -> Result<Self, WatchError> {
         let (sender, receiver) = mpsc::channel();
         let events = sender.clone();
         let notifier = notify::recommended_watcher(move |event| {
@@ -77,7 +93,11 @@ impl Watcher {
         .map_err(WatchError)?;
         let mut watches = Watches {
             watcher: notifier,
-            files: files.into_iter().map(Watched::new).collect(),
+            files: files
+                .into_iter()
+                .map(|path| Watched::new(path, false))
+                .chain(directories.into_iter().map(|path| Watched::new(path, true)))
+                .collect(),
             directories: BTreeSet::new(),
         };
         watches.sync().map_err(WatchError)?;
@@ -93,8 +113,8 @@ impl Watcher {
         })
     }
 
-    /// Waits for the next report: the watched files that may have changed, as the paths given to
-    /// [`Watcher::new`], sorted. `None` if watching stopped unexpectedly.
+    /// Waits for the next report: the watched files and directories that may have changed, as the
+    /// paths given to [`Watcher::new`], sorted. `None` if watching stopped unexpectedly.
     pub async fn changed(&self) -> Option<Vec<PathBuf>> {
         self.reports.recv().await.ok()
     }
@@ -117,23 +137,36 @@ impl Drop for Watcher {
     }
 }
 
-/// A watched file.
+/// A watched file or directory.
 struct Watched {
     /// The path as given.
     path: PathBuf,
     /// The file the path leads to through symbolic links, while it exists.
     target: Option<PathBuf>,
+    /// Whether it is a directory, watched for the files in it.
+    directory: bool,
 }
 
 impl Watched {
-    fn new(path: PathBuf) -> Self {
-        Self { path, target: None }
+    fn new(path: PathBuf, directory: bool) -> Self {
+        Self {
+            path,
+            target: None,
+            directory,
+        }
     }
 
     /// Whether an event at `event_path` can mean that the file changed: the event is about the
     /// file itself, the file it links to, or a directory above it that appeared or went away.
+    /// For a directory, also an event about a file directly in it.
     fn is_affected_by(&self, event_path: &Path) -> bool {
-        self.path.starts_with(event_path) || self.target.as_deref() == Some(event_path)
+        let inside = |directory: &Path| self.directory && event_path.parent() == Some(directory);
+        self.path.starts_with(event_path)
+            || inside(&self.path)
+            || self
+                .target
+                .as_deref()
+                .is_some_and(|target| target == event_path || inside(target))
     }
 }
 
@@ -155,14 +188,18 @@ impl Watches {
                 .canonicalize()
                 .ok()
                 .filter(|target| *target != file.path);
-            let parents = [Some(&file.path), file.target.as_ref()];
-            for parent in parents
-                .into_iter()
-                .flatten()
-                .filter_map(|path| path.parent())
-            {
+            let paths = [Some(&file.path), file.target.as_ref()];
+            for path in paths.into_iter().flatten() {
+                // A file is seen from its directory, a directory from itself.
+                let Some(start) = (if file.directory {
+                    Some(path.as_path())
+                } else {
+                    path.parent()
+                }) else {
+                    continue;
+                };
                 // The nearest directory that exists sees the missing ones being created.
-                if let Some(directory) = parent.ancestors().find(|directory| directory.is_dir()) {
+                if let Some(directory) = start.ancestors().find(|directory| directory.is_dir()) {
                     wanted.insert(directory.to_owned());
                 }
             }
@@ -428,5 +465,55 @@ mod tests {
         fs::rename(&temporary, &real).unwrap();
         assert_eq!(fixture.report(), [fixture.shared()]);
         fixture.quiet();
+    }
+
+    #[test]
+    fn a_watched_directory_reports_the_files_in_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("config");
+        let drop_ins = dir.path().join("config.d");
+        fs::write(&config, "").unwrap();
+        let watcher =
+            Watcher::with_directories([config.clone()], [drop_ins.clone()], DEBOUNCE).unwrap();
+        let report = || {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                if let Some(report) = watcher.try_changed() {
+                    return report;
+                }
+                assert!(Instant::now() < deadline, "no report");
+                thread::sleep(Duration::from_millis(5));
+            }
+        };
+        let quiet = || {
+            thread::sleep(DEBOUNCE * 4);
+            assert_eq!(watcher.try_changed(), None);
+        };
+
+        // The directory appears, then files in it come, change and go.
+        fs::create_dir(&drop_ins).unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        fs::write(drop_ins.join("10-new.conf"), "a\n").unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        fs::write(drop_ins.join("10-new.conf"), "b\n").unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        fs::rename(drop_ins.join("10-new.conf"), drop_ins.join("20-new.conf")).unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        fs::remove_file(drop_ins.join("20-new.conf")).unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        quiet();
+
+        // Not what is deeper, and not the files next to it.
+        fs::create_dir(drop_ins.join("deeper")).unwrap();
+        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        fs::write(drop_ins.join("deeper/file"), "").unwrap();
+        fs::write(dir.path().join("other"), "").unwrap();
+        quiet();
+        fs::write(&config, "changed\n").unwrap();
+        assert_eq!(report(), [config]);
+
+        fs::remove_dir_all(&drop_ins).unwrap();
+        assert_eq!(report(), [drop_ins]);
+        quiet();
     }
 }
