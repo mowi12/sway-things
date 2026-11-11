@@ -10,3 +10,8 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+gtk.workspace = true
+sway-things-core = { path = "../core" }
+
