@@ -4,8 +4,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
-    Apply, Block, ConfigFile, Defaults, Kind, Page, Registry, RenderError, Scope, Setting,
-    SwayMapping, Value, ValueError,
+    Apply, Block, ConfigFile, Defaults, Kind, Page, ReadError, Registry, RenderError, Scope,
+    Setting, SwayMapping, Value, ValueError,
 };
 use crate::command::input::InputSelector;
 use crate::command::{Availability, Color, SwayCmd, Target};
@@ -443,4 +443,145 @@ fn value_errors_read_well() {
         .to_string(),
         "effects.corner_radius: must be between 0 and 99"
     );
+}
+
+/// The directives of a config with these lines, as the parser reads them.
+fn parsed(text: &str) -> Vec<crate::sway_config::Directive> {
+    let files = crate::sway_config::MemoryFiles::new().file("/config", text);
+    crate::sway_config::parse(std::path::Path::new("/config"), &files).directives
+}
+
+/// What `key` reads from the only directive of `line`.
+fn read(key: &str, line: &str) -> Option<Result<Value, ReadError>> {
+    let directives = parsed(line);
+    assert_eq!(directives.len(), 1, "{line}");
+    setting(key).read(&directives[0])
+}
+
+#[test]
+fn every_sway_setting_reads_back_what_it_renders() {
+    for (setting, _) in sway_settings() {
+        let mut samples = samples(setting);
+        if let Kind::List { .. } = setting.kind() {
+            samples.push(Value::List(vec!["us".to_owned(), "de".to_owned()]));
+        }
+        for sample in samples {
+            let text = lines(setting, &sample, Target::Config).join("\n");
+            let read: Vec<_> = parsed(&text)
+                .iter()
+                .filter_map(|directive| setting.read(directive))
+                .collect();
+            assert_eq!(read, [Ok(sample.clone())], "{}: {text}", setting.key());
+        }
+    }
+}
+
+#[test]
+fn values_are_read_as_sway_reads_them() {
+    let ok = |key: &str, line: &str| match read(key, line) {
+        Some(Ok(value)) => value,
+        other => panic!("{key} from {line}: {other:?}"),
+    };
+    let color = |red, green, blue| Value::Color(Color::rgb(red, green, blue));
+    // sway's words for true, and everything else is false.
+    assert_eq!(
+        ok("input.touchpad.tap", "input * tap On"),
+        Value::Bool(true)
+    );
+    assert_eq!(
+        ok("input.touchpad.tap", "input type:touchpad tap toggle"),
+        Value::Bool(false)
+    );
+    assert_eq!(
+        ok(
+            "input.touchpad.tap",
+            "input type:touchpad {\n  tap maybe\n}"
+        ),
+        Value::Bool(false)
+    );
+    // Without indicator and child border, sway takes its default and the background.
+    let line = "client.focused #111111 #222222 #333333";
+    assert_eq!(
+        ok("windows.focused.indicator", line),
+        color(0x2e, 0x9e, 0xf4)
+    );
+    assert_eq!(
+        ok("windows.focused.child_border", line),
+        color(0x22, 0x22, 0x22)
+    );
+    assert_eq!(
+        ok(
+            "windows.focused.text",
+            "client.focused 111111 222222 333333ff"
+        ),
+        color(0x33, 0x33, 0x33)
+    );
+    assert_eq!(
+        ok("windows.gaps.inner", "gaps INNER 8px"),
+        Value::Integer(8)
+    );
+    assert_eq!(ok("windows.gaps.inner", "gaps inner -4"), Value::Integer(0));
+    assert_eq!(
+        ok("windows.font", "font pango:Sans Bold 11"),
+        Value::Text("Sans Bold 11".to_owned())
+    );
+    assert_eq!(
+        ok("input.keyboard.repeat_delay", "input * repeat_delay 250ms"),
+        Value::Integer(250)
+    );
+    assert_eq!(
+        ok("behavior.workspace_layout", "Workspace_Layout TABBED"),
+        Value::Choice("tabbed".to_owned())
+    );
+    assert_eq!(
+        ok(
+            "input.keyboard.xkb_layout",
+            "input type:keyboard xkb_layout \"us,de\""
+        ),
+        Value::List(vec!["us".to_owned(), "de".to_owned()])
+    );
+}
+
+#[test]
+fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
+    let rejected = |key: &str, line: &str| {
+        assert!(
+            matches!(read(key, line), Some(Err(ReadError::Rejected(_)))),
+            "{key}: {line}"
+        );
+    };
+    rejected("behavior.focus_follows_mouse", "focus_follows_mouse Yes");
+    rejected(
+        "behavior.workspace_layout",
+        "workspace_layout tabbed stacking",
+    );
+    rejected("windows.focused.border", "client.focused #111111 #222222");
+    rejected(
+        "windows.focused.border",
+        "client.focused #111111 #222222 #333333 #444444 #555555 #666666",
+    );
+    rejected(
+        "windows.focused.border",
+        "client.focused #111111 #222222 red",
+    );
+    rejected("windows.gaps.inner", "gaps inner 8em");
+    rejected("input.touchpad.pointer_accel", "input * pointer_accel 1.5");
+    rejected("input.touchpad.pointer_accel", "input * pointer_accel fast");
+    rejected("input.keyboard.repeat_delay", "input * repeat_delay -1");
+    rejected("effects.corner_radius", "corner_radius 100");
+    rejected("input.touchpad.tap", "input * tap");
+    // sway accepts it, but the setting's range is narrower.
+    assert!(matches!(
+        read("input.keyboard.repeat_delay", "input * repeat_delay 70000"),
+        Some(Err(ReadError::Unsupported(_)))
+    ));
+}
+
+#[test]
+fn only_the_settings_own_directive_matches() {
+    assert_eq!(read("windows.gaps.inner", "gaps outer 8"), None);
+    assert_eq!(read("input.touchpad.tap", "tap enabled"), None);
+    assert_eq!(read("input.touchpad.tap", "bar {\n  tap enabled\n}"), None);
+    assert_eq!(read("windows.font", "input * font monospace"), None);
+    assert_eq!(read("app.safety_net_timeout", "gaps inner 8"), None);
 }

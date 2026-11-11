@@ -3,7 +3,8 @@
 
 //! SwayFX effects on the Windows page.
 
-use super::{ConfigFile, Directive, Page, Setting};
+use super::read::{self, ReadError};
+use super::{ConfigFile, Directive, Page, Setting, Value};
 use crate::command::effects;
 use crate::version::SwayFxVersion;
 
@@ -20,6 +21,12 @@ pub(super) fn settings() -> Vec<Setting> {
                 Directive::top("corner_radius"),
                 ConfigFile::Effects,
                 |ctx| Ok(vec![effects::corner_radius(ctx.integer(CORNER_RADIUS)?)?]),
+                |args| match read::whole(read::one(args)?)? {
+                    radius @ 0..=99 => Ok(Value::Integer(radius)),
+                    radius => Err(ReadError::Rejected(format!(
+                        "out of range [0, 99]: {radius}"
+                    ))),
+                },
             )
             .build(),
     ]

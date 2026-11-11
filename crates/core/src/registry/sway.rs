@@ -7,11 +7,13 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use super::Registry;
+use super::read::ReadFn;
 use super::setting::Scope;
 use super::value::{Kind, Value, ValueError};
 use crate::command::input::{Input, InputError, InputSelector};
 use crate::command::window::WindowError;
 use crate::command::{Color, OutOfRange, SwayCmd, Target};
+use crate::sway_config;
 
 /// Where a directive stands in a sway config.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,6 +103,7 @@ pub struct SwayMapping {
     pub(super) directive: Directive,
     pub(super) file: ConfigFile,
     pub(super) render: RenderFn,
+    pub(super) read: ReadFn,
 }
 
 impl SwayMapping {
@@ -112,6 +115,33 @@ impl SwayMapping {
     /// The generated file the config lines go to.
     pub fn file(&self) -> ConfigFile {
         self.file
+    }
+
+    /// Whether a directive of the user's config is this setting's directive, and if so, the
+    /// arguments its value is read from: those after the first argument the directive names.
+    /// Like sway, names, the `input` block and the first argument match without regard to case.
+    /// Which `input` identifiers count is up to the caller.
+    pub fn matches<'a>(&self, directive: &'a sway_config::Directive) -> Option<&'a [String]> {
+        let block = match self.directive.block {
+            Block::Top => directive.block.is_empty(),
+            Block::Input => {
+                directive.block.len() == 2
+                    && directive
+                        .block
+                        .first()
+                        .is_some_and(|word| word.eq_ignore_ascii_case("input"))
+            }
+        };
+        if !block || !directive.name.eq_ignore_ascii_case(self.directive.name) {
+            return None;
+        }
+        match self.directive.argument {
+            None => Some(&directive.args),
+            Some(argument) => match directive.args.split_first() {
+                Some((first, rest)) if first.eq_ignore_ascii_case(argument) => Some(rest),
+                _ => None,
+            },
+        }
     }
 }
 

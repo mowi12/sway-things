@@ -3,6 +3,7 @@
 
 //! Settings of the Window Behavior page (`man 5 sway`).
 
+use super::read;
 use super::{Apply, Choice, ConfigFile, Context, Directive, Page, RenderError, Setting};
 use crate::command::SwayCmd;
 use crate::command::behavior::{self, FocusFollowsMouse, WorkspaceLayout};
@@ -53,6 +54,7 @@ pub(super) fn settings() -> Vec<Setting> {
             Directive::top("focus_follows_mouse"),
             ConfigFile::Behavior,
             focus_follows_mouse,
+            |args| read::choice(read::one(args)?, &["yes", "no", "always"], true),
         )
         .build(),
         Setting::choice(
@@ -68,6 +70,7 @@ pub(super) fn settings() -> Vec<Setting> {
             Directive::top("workspace_layout"),
             ConfigFile::Behavior,
             workspace_layout,
+            |args| read::choice(read::one(args)?, &["default", "stacking", "tabbed"], false),
         )
         .build(),
     ]
