@@ -44,6 +44,36 @@ pub enum InputType {
 }
 
 impl InputType {
+    /// Every type, in the order sway's documentation lists them.
+    pub const ALL: [Self; 7] = [
+        Self::Touchpad,
+        Self::Pointer,
+        Self::Keyboard,
+        Self::Touch,
+        Self::TabletTool,
+        Self::TabletPad,
+        Self::Switch,
+    ];
+
+    /// The name sway uses for the type, in `type:<name>` and in the `type` of a device in
+    /// `GET_INPUTS`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Touchpad => "touchpad",
+            Self::Pointer => "pointer",
+            Self::Keyboard => "keyboard",
+            Self::Touch => "touch",
+            Self::TabletTool => "tablet_tool",
+            Self::TabletPad => "tablet_pad",
+            Self::Switch => "switch",
+        }
+    }
+
+    /// The type with this [name](InputType::name), as `GET_INPUTS` reports it.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.name() == name)
+    }
+
     const fn selector(self) -> &'static str {
         match self {
             Self::Touchpad => "type:touchpad",
