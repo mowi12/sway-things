@@ -15,7 +15,7 @@ use crate::command::input::{DragLock, Input, InputSelector, InputType};
 use crate::command::{CommandError, Target, behavior, effects, window};
 use crate::version::{SwayFxVersion, SwayVersion};
 
-const SWAY_1_10: &str = r#"{"human_readable": "1.10.1", "variant": "sway", "major": 1,
+pub(crate) const SWAY_1_10: &str = r#"{"human_readable": "1.10.1", "variant": "sway", "major": 1,
     "minor": 10, "patch": 1, "loaded_config_file_name": "/home/me/.config/sway/config"}"#;
 const SWAYFX_0_5: &str = r#"{"human_readable": "0.5.3", "sway_original_version": "1.11.0",
     "variant": "sway", "major": 0, "minor": 5, "patch": 3,
@@ -25,7 +25,7 @@ const SWAYFX_0_5: &str = r#"{"human_readable": "0.5.3", "sway_original_version":
 pub(super) const HANG_UP: &[u8] = b"<hang up>";
 
 /// A message as sway sends it.
-pub(super) fn message(kind: u32, payload: &str) -> Vec<u8> {
+pub(crate) fn message(kind: u32, payload: &str) -> Vec<u8> {
     let mut message = b"i3-ipc".to_vec();
     message.extend_from_slice(&u32::try_from(payload.len()).unwrap().to_ne_bytes());
     message.extend_from_slice(&kind.to_ne_bytes());
@@ -35,14 +35,14 @@ pub(super) fn message(kind: u32, payload: &str) -> Vec<u8> {
 
 /// A stand-in for sway: answers every request on its socket with what `answer` returns for the
 /// message type and payload, and records the requests.
-pub(super) struct FakeSway {
+pub(crate) struct FakeSway {
     _dir: tempfile::TempDir,
     pub(super) socket: PathBuf,
     requests: Arc<Mutex<Vec<(u32, String)>>>,
 }
 
 impl FakeSway {
-    pub(super) fn new(answer: impl Fn(u32, &str) -> Vec<u8> + Send + Sync + 'static) -> Self {
+    pub(crate) fn new(answer: impl Fn(u32, &str) -> Vec<u8> + Send + Sync + 'static) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let socket = dir.path().join("sway-ipc.sock");
         let listener = UnixListener::bind(&socket).unwrap();
@@ -63,7 +63,7 @@ impl FakeSway {
     }
 
     /// A sway that reports `version` and answers everything else with `answer`.
-    pub(super) fn with_version(
+    pub(crate) fn with_version(
         version: &'static str,
         answer: impl Fn(u32, &str) -> Vec<u8> + Send + Sync + 'static,
     ) -> Self {
@@ -73,8 +73,17 @@ impl FakeSway {
         })
     }
 
-    pub(super) fn connect(&self) -> Client {
+    pub(crate) fn connect(&self) -> Client {
         block_on(Client::connect_to(&self.socket)).unwrap()
+    }
+
+    /// The commands received so far, as sent.
+    pub(crate) fn commands(&self) -> Vec<String> {
+        self.requests()
+            .into_iter()
+            .filter(|(kind, _)| *kind == wire::RUN_COMMAND)
+            .map(|(_, payload)| payload)
+            .collect()
     }
 
     /// The requests received so far, without `GET_VERSION`.
@@ -112,8 +121,8 @@ fn serve(
     }
 }
 
-/// A sway 1.10.1 on which every command succeeds, except those that contain `fail`.
-fn obedient(version: &'static str) -> FakeSway {
+/// A sway on which every command succeeds, except those that contain `fail`.
+pub(crate) fn obedient(version: &'static str) -> FakeSway {
     FakeSway::with_version(version, |kind, payload| {
         let reply = if payload.contains("fail") {
             r#"[{"success": false, "parse_error": true, "error": "Unknown/invalid command 'fail'"}]"#

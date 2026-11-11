@@ -36,7 +36,7 @@
 
 mod manifest;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod write;
 
 #[cfg(test)]

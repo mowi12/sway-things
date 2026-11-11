@@ -18,18 +18,18 @@ use crate::registry::{ConfigFile, Registry};
 use crate::state::{Paths, State};
 use crate::version::{SwayFxVersion, SwayVersion};
 
-pub(super) const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
+pub(crate) const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
 
-pub(super) const SWAY_1_10: Compositor = Compositor::Sway {
+pub(crate) const SWAY_1_10: Compositor = Compositor::Sway {
     version: SwayVersion::new(1, 10, 1),
 };
-pub(super) const SWAYFX_0_5: Compositor = Compositor::SwayFx {
+pub(crate) const SWAYFX_0_5: Compositor = Compositor::SwayFx {
     version: SwayFxVersion::new(0, 5, 0),
     base: SwayVersion::new(1, 10, 1),
 };
 
 /// A state with the given shared file and host overlay.
-pub(super) fn state(shared: &str, host: &str) -> (tempfile::TempDir, State) {
+pub(crate) fn state(shared: &str, host: &str) -> (tempfile::TempDir, State) {
     let dir = tempfile::tempdir().unwrap();
     let config = dir.path().join("config");
     fs::create_dir_all(config.join("settings.d")).unwrap();
@@ -248,11 +248,11 @@ fn a_line_number_leads_back_to_its_settings() {
 /// Stands in for sway: records the staged files it is shown, and finds `errors` in them or
 /// can't run at all.
 #[derive(Default)]
-struct FakeValidator {
-    errors: Vec<ConfigError>,
-    missing: bool,
+pub(crate) struct FakeValidator {
+    pub(crate) errors: Vec<ConfigError>,
+    pub(crate) missing: bool,
     /// The name and content of each staged file.
-    staged: RefCell<Vec<(String, String)>>,
+    pub(crate) staged: RefCell<Vec<(String, String)>>,
 }
 
 impl Validate for FakeValidator {
