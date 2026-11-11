@@ -140,10 +140,10 @@ Editors pick up indentation and line endings from `.editorconfig`.
 
 - `cargo run -p sway-things-gui` starts the app. `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore
   the widget tree and try CSS live.
-- The GUI tests check the window with every page for contrast in light and dark, and the keyboard navigation. They need
-  a display, so they run in the sway integration containers (`scripts/check-integration.sh --container all`).
-  `scripts/gui-screenshots.sh` runs them on a private display instead and keeps a PNG of every page in
-  `target/screenshots/`.
+- The GUI tests check the window with every page for contrast in light and dark, the keyboard navigation, and the
+  setting rows (one per setting, a change, a locked setting, a failed change). They need a display, so they run in the
+  sway integration containers (`scripts/check-integration.sh --container all`). `scripts/gui-screenshots.sh` runs them
+  on a private display instead and keeps a PNG of every page in `target/screenshots/`.
 
 See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structure.
 
