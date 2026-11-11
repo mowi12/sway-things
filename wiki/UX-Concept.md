@@ -117,6 +117,11 @@ The app **never** adds the include line itself. On first run (or whenever the li
 - A file watcher and the parser detect the line, including one written by hand earlier or in an included file.
 - If the line exists but isn't last, the app explains the consequence (some of the user's lines win) instead of
   demanding a change.
+- The line must cover every file Sway Things generates. If the config includes only some of them, the app stays
+  read-only, names the files that are missing and shows the full line.
+- If the line isn't found but part of the config can't be followed (an include that runs a shell command), the app stays
+  read-only, names that include and suggests adding the line to the main config.
+- If there is no config of the user's own yet (sway reads `/etc/sway/config`), the instructions say to create one first.
 - **Read-only until enabled**: the welcome screen can be dismissed, after which a persistent banner remains. All pages
   show current values (from IPC + parser), conflicts and the generated-config preview. Controls are disabled with "Add
   the include line to change settings".
