@@ -15,7 +15,7 @@ Milestones on GitHub correspond to releases.
 - [x] Typed sway command builders with escaping
 - [x] IPC client (async-io based): run command, `get_*`, event subscriptions; sway vs. SwayFX detection
 - [x] Generators with header, manifest hashes, atomic writes, `sway --validate`
-- [ ] Sway config parser (includes, variables, blocks, file:line) + conflict detection
+- [x] Sway config parser (includes, variables, blocks, file:line) + conflict detection
 - [ ] Include-line detection, first-run instructions, read-only mode until enabled
 - [ ] CLI: `get`, `set` (terminal countdown, or `--yes` without a TTY, for risky settings), `reset`, `open`, `doctor`,
       `show-generated`
