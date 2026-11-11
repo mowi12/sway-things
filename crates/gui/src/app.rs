@@ -6,6 +6,7 @@
 use gtk::prelude::*;
 use gtk::{gio, glib};
 
+use crate::model::Model;
 use crate::style;
 use crate::window::Window;
 
@@ -21,10 +22,21 @@ pub fn build() -> gtk::Application {
         .build();
     app.connect_startup(|_| style::load());
     app.connect_activate(|app| {
-        let window = app
-            .active_window()
-            .unwrap_or_else(|| Window::new(app).upcast());
-        window.present();
+        if let Some(window) = app.active_window() {
+            window.present();
+            return;
+        }
+        // Loading connects to sway; the application stays up until the window is there.
+        let hold = app.hold();
+        glib::spawn_future_local(glib::clone!(
+            #[strong]
+            app,
+            async move {
+                let model = Model::load().await;
+                Window::new(&app, &model).present();
+                drop(hold);
+            }
+        ));
     });
     app
 }

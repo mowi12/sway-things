@@ -7,6 +7,11 @@
 //! - Contrast: the window is drawn with every page open, in GTK's own theme, light and dark, and
 //!   every text in it must reach WCAG AA against what is drawn under it.
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
+//! - Rows: the pages built from the registry have a row per setting, a change reaches the
+//!   settings, a locked setting can't be changed, and a failed change shows its error.
+//!
+//! The window works on settings files in a temporary directory and a sway config in memory,
+//! without a session, and never saves, so nothing runs sway.
 //!
 //! GTK runs on one thread, so this is a plain program (`harness = false`), not `#[test]`s. With
 //! `SWAY_THINGS_SCREENSHOTS=<dir>` it also saves the window with each page as a PNG there.
@@ -18,15 +23,75 @@ use std::time::{Duration, Instant};
 
 use gtk::prelude::*;
 use gtk::{glib, gsk};
-use sway_things_core::registry::Page;
+use sway_things_core::apply::Applier;
+use sway_things_core::generate::{Locations, SwayValidator};
+use sway_things_core::include::IncludeStatus;
+use sway_things_core::ipc::Compositor;
+use sway_things_core::registry::{Kind, Page, Registry, Value};
+use sway_things_core::state::{Paths, State};
+use sway_things_core::sway_config::MemoryFiles;
+use sway_things_core::version::{SwayFxVersion, SwayVersion};
 use sway_things_gui::contrast::{self, TextSample};
+use sway_things_gui::model::Model;
 use sway_things_gui::style;
+use sway_things_gui::widgets::SettingRow;
 use sway_things_gui::window::Window;
 
 /// The theme the window is checked in: the one GTK ships, so results don't depend on the machine.
 const THEME: &str = "Default";
 
 type Outcome = Result<(), String>;
+
+/// SwayFX, so that no setting is locked.
+const SWAYFX: Compositor = Compositor::SwayFx {
+    version: SwayFxVersion::OLDEST_SUPPORTED,
+    base: SwayVersion::new(1, 11, 0),
+};
+const SWAY: Compositor = Compositor::Sway {
+    version: SwayVersion::new(1, 10, 1),
+};
+/// Values stored in the settings file, so rows show stored values too.
+const STORED: &str = "version = 1\n\n[input.touchpad]\npointer_accel = 0.3\n\n\
+                      [windows.focused]\nchild_border = \"#3b6e4f\"\n";
+/// Lines of the user's config before the include line, so rows show where a value comes from.
+const USERS: &str = "gaps inner 6\nfocus_follows_mouse no\n";
+
+/// A model on settings files in a temporary directory, which goes away with it.
+struct Fixture {
+    _dir: tempfile::TempDir,
+    model: Model,
+}
+
+/// A model with `stored` in the settings file, for a sway config with `users` and then, if
+/// `include`, the include line of the generated files.
+fn fixture(
+    compositor: Compositor,
+    stored: &str,
+    users: &str,
+    include: bool,
+) -> Result<Fixture, String> {
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let config = dir.path().join("config");
+    std::fs::create_dir_all(&config).map_err(|error| error.to_string())?;
+    std::fs::write(config.join("settings.toml"), stored).map_err(|error| error.to_string())?;
+    let paths = Paths::new(&config, &dir.path().join("state"), "host")
+        .map_err(|error| error.to_string())?;
+    let state = State::load(Registry::builtin(), paths);
+    let generated = dir.path().join("sway/sway-things");
+    let locations = Locations::new(&generated, &dir.path().join("state"));
+    let main = dir.path().join("sway/config");
+    let mut text = users.to_owned();
+    if include {
+        let _ = writeln!(text, "include {}/*.conf", generated.display());
+    }
+    let files = MemoryFiles::new().file(main.to_string_lossy().as_ref(), text);
+    let status = IncludeStatus::detect(Some(&main), &files, &locations);
+    let applier = Applier::without_session(state, locations, SwayValidator::new(), compositor);
+    Ok(Fixture {
+        _dir: dir,
+        model: Model::with_applier(applier, status),
+    })
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -53,10 +118,17 @@ fn main() -> ExitCode {
     let screenshots = std::env::var_os("SWAY_THINGS_SCREENSHOTS").map(PathBuf::from);
 
     let mut results: Vec<(String, Outcome)> = Vec::new();
+    let fixture = match fixture(SWAYFX, STORED, USERS, true) {
+        Ok(fixture) => fixture,
+        Err(error) => {
+            eprintln!("error: can't set up the settings: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     for dark in [false, true] {
         set_dark(&settings, dark);
         let scheme = if dark { "dark" } else { "light" };
-        let window: Window = glib::Object::new();
+        let window = Window::with_model(&fixture.model);
         window.present();
         for page in Page::ALL {
             let outcome = check_page(&window, page, screenshots.as_deref(), scheme);
@@ -67,6 +139,16 @@ fn main() -> ExitCode {
     set_dark(&settings, false);
     results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
     results.push(("keyboard: Esc goes back".to_owned(), check_escape()));
+    results.push(("rows: one per setting".to_owned(), check_rows()));
+    results.push((
+        "rows: a change reaches the settings".to_owned(),
+        check_change(),
+    ));
+    results.push((
+        "rows: a locked setting can't change".to_owned(),
+        check_locked(),
+    ));
+    results.push(("rows: a failed change shows why".to_owned(), check_failed()));
 
     let mut failed = 0;
     for (name, outcome) in &results {
@@ -250,7 +332,8 @@ fn ensure(condition: bool, message: &str) -> Outcome {
 
 /// Arrow keys move the focus through the sidebar without opening pages; Enter opens one.
 fn check_sidebar_keyboard() -> Outcome {
-    let window: Window = glib::Object::new();
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
     window.present();
     settle(&window)?;
     let sidebar = window.sidebar();
@@ -302,7 +385,8 @@ fn check_sidebar_keyboard() -> Outcome {
 
 /// Esc in the content pane moves the focus back to the open page in the sidebar.
 fn check_escape() -> Outcome {
-    let window: Window = glib::Object::new();
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
     window.present();
     settle(&window)?;
     window.show_page(Page::Keyboard);
@@ -334,6 +418,172 @@ fn check_escape() -> Outcome {
                 .and_then(|i| i32::try_from(i).ok()),
         "the focus isn't on the open page's row",
     )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Every setting row below `widget`.
+fn rows(widget: &gtk::Widget) -> Vec<SettingRow> {
+    let mut found = Vec::new();
+    if let Some(row) = widget.downcast_ref::<SettingRow>() {
+        found.push(row.clone());
+    }
+    let mut child = widget.first_child();
+    while let Some(widget) = child {
+        found.extend(rows(&widget));
+        child = widget.next_sibling();
+    }
+    found
+}
+
+/// The row of `key` on the open page of `window`.
+fn row(window: &Window, key: &str) -> Result<SettingRow, String> {
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    rows(&content)
+        .into_iter()
+        .find(|row| row.setting().is_some_and(|setting| setting.key() == key))
+        .ok_or_else(|| format!("  no row for {key}"))
+}
+
+/// A window for `fixture` with `page` open.
+fn open(fixture: &Fixture, page: Page) -> Result<Window, String> {
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    window.show_page(page);
+    settle(&window)?;
+    Ok(window)
+}
+
+/// Waits until the model has sent every change.
+fn wait_for_model(model: &Model) -> Outcome {
+    if run_until(Duration::from_secs(10), || !model.is_busy()) {
+        Ok(())
+    } else {
+        Err("  the change didn't finish within 10 s".to_owned())
+    }
+}
+
+/// Every page with settings shows a row for each of them, in the order of the registry.
+fn check_rows() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    for page in Page::ALL {
+        let window = open(&fixture, page)?;
+        let expected: Vec<&str> = Registry::builtin()
+            .iter()
+            .filter(|setting| {
+                setting.page() == page && !matches!(setting.kind(), Kind::List { .. })
+            })
+            .map(sway_things_core::registry::Setting::key)
+            .collect();
+        let content = window
+            .content()
+            .ok_or_else(|| "  no content pane".to_owned())?;
+        let shown: Vec<&str> = rows(&content)
+            .iter()
+            .filter_map(|row| row.setting().map(sway_things_core::registry::Setting::key))
+            .collect();
+        ensure(
+            shown == expected,
+            &format!("{}: rows {shown:?}, expected {expected:?}", page.id()),
+        )?;
+        let unfocusable: Vec<String> = rows(&content)
+            .iter()
+            .flat_map(SettingRow::controls)
+            .filter(|control| {
+                !control.is_focusable()
+                    && control
+                        .first_child()
+                        .is_none_or(|child| !child.is_focusable())
+            })
+            .map(|control| control.type_().name().to_owned())
+            .collect();
+        ensure(
+            unfocusable.is_empty(),
+            &format!("{}: controls without focus: {unfocusable:?}", page.id()),
+        )?;
+        window.destroy();
+    }
+    Ok(())
+}
+
+/// Turning on the tap switch stores the value.
+fn check_change() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let tap = row(&window, "input.touchpad.tap")?;
+    let switch = tap
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::Switch>().ok())
+        .ok_or_else(|| "  the tap row has no switch".to_owned())?;
+    ensure(!switch.is_active(), "tap is on before the change")?;
+    switch.set_active(true);
+    wait_for_model(&fixture.model)?;
+    let setting = Registry::builtin()
+        .get("input.touchpad.tap")
+        .ok_or_else(|| "  no tap setting".to_owned())?;
+    let view = fixture
+        .model
+        .view(setting, None)
+        .ok_or_else(|| "  no settings".to_owned())?;
+    ensure(
+        view.value == Value::Bool(true),
+        "the change didn't reach the settings",
+    )?;
+    ensure(
+        view.line.as_deref() == Some("tap enabled"),
+        "the row's line didn't follow",
+    )?;
+    ensure(tap.error().is_none(), "the change shows an error")?;
+    window.destroy();
+    Ok(())
+}
+
+/// On vanilla sway, the SwayFX corner radius can't be changed, and says why.
+fn check_locked() -> Outcome {
+    let fixture = fixture(SWAY, STORED, USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let radius = row(&window, "effects.corner_radius")?;
+    for control in radius.controls() {
+        ensure(
+            !control.is_sensitive(),
+            "a control of the corner radius can be used",
+        )?;
+        ensure(
+            control.tooltip_text().as_deref() == Some("Requires SwayFX 0.5"),
+            "the corner radius doesn't say why it is locked",
+        )?;
+    }
+    let gaps = row(&window, "windows.gaps.inner")?;
+    ensure(
+        gaps.controls()
+            .iter()
+            .all(gtk::prelude::WidgetExt::is_sensitive),
+        "the gaps are locked",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Without the include line nothing can be saved: a change fails and the row says why.
+fn check_failed() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, false)?;
+    let window = open(&fixture, Page::Windows)?;
+    let gaps = row(&window, "windows.gaps.inner")?;
+    ensure(
+        gaps.controls()
+            .iter()
+            .all(|control| !control.is_sensitive()),
+        "the gaps can be changed without the include line",
+    )?;
+    // The model refuses it too, should a change get through.
+    fixture
+        .model
+        .set("windows.gaps.inner", None, Value::Integer(9));
+    wait_for_model(&fixture.model)?;
+    ensure(gaps.error().is_some(), "the refused change shows no error")?;
     window.destroy();
     Ok(())
 }

@@ -15,6 +15,9 @@ workspace = true
 gtk.workspace = true
 sway-things-core = { path = "../core" }
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [[test]]
 name = "gui"
 # GTK runs on one thread: the test is a plain program that runs its checks in order.
