@@ -11,6 +11,7 @@
 pub mod app;
 pub mod contrast;
 pub mod i18n;
+pub mod model;
 pub mod style;
 pub mod widgets;
 pub mod window;
