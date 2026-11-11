@@ -5,11 +5,12 @@ use std::path::Path;
 
 use super::{Order, Reach, Report, UserLine, check_all};
 use crate::command::Color;
+use crate::command::input::InputType;
 use crate::devices::Devices;
 use crate::generate::Locations;
 use crate::include::IncludeStatus;
 use crate::ipc::types::Input;
-use crate::registry::{ReadError, Registry, Value};
+use crate::registry::{ReadError, Registry, Scope, Value};
 use crate::sway_config::MemoryFiles;
 
 const MAIN: &str = "/home/me/.config/sway/config";
@@ -241,9 +242,18 @@ fn every_sway_setting_and_known_device_gets_a_report() {
         .iter()
         .filter_map(|report| report.device().map(|device| (report.key(), device)))
         .collect();
-    // Two touchpad settings for the touchpad, two keyboard settings for the keyboard.
+    // Every touchpad setting for the touchpad, every keyboard setting for the keyboard.
+    let of_type = |kind| {
+        Registry::builtin()
+            .iter()
+            .filter(|setting| setting.scope() == Scope::PerDevice(kind))
+            .count()
+    };
     assert_eq!(reports.len(), sway_settings + per_device.len());
-    assert_eq!(per_device.len(), 4);
+    assert_eq!(
+        per_device.len(),
+        of_type(InputType::Touchpad) + of_type(InputType::Keyboard)
+    );
     assert!(per_device.contains(&("input.touchpad.tap", TOUCHPAD)));
     assert!(per_device.contains(&("input.keyboard.repeat_delay", KEYBOARD)));
     assert!(reports.iter().all(|report| report.lines().is_empty()));
