@@ -22,7 +22,7 @@ const SWAYFX_0_5: &str = r#"{"human_readable": "0.5.3", "sway_original_version":
     "loaded_config_file_name": "/etc/sway/config"}"#;
 
 /// An answer that starts with this is sent without it, and then the connection is closed.
-pub(super) const HANG_UP: &[u8] = b"<hang up>";
+pub(crate) const HANG_UP: &[u8] = b"<hang up>";
 
 /// A message as sway sends it.
 pub(crate) fn message(kind: u32, payload: &str) -> Vec<u8> {
@@ -119,6 +119,30 @@ fn serve(
             return;
         }
     }
+}
+
+/// A sway 1.10.1 that answers each `GET_INPUTS` with the next of `inputs` (the last one again
+/// after that), and sends one input event per reply after the first to a subscriber before it
+/// closes that connection.
+pub(crate) fn with_inputs(inputs: &'static [&'static str]) -> FakeSway {
+    let asked = std::sync::atomic::AtomicUsize::new(0);
+    FakeSway::with_version(SWAY_1_10, move |kind, _| match kind {
+        wire::SUBSCRIBE => {
+            let mut answer = HANG_UP.to_vec();
+            answer.extend(message(kind, r#"{"success": true}"#));
+            for _ in inputs.iter().skip(1) {
+                let event = r#"{"change": "added", "input":
+                    {"identifier": "0:0:event", "name": "event", "type": "keyboard"}}"#;
+                answer.extend(message(wire::EVENT | 0x15, event));
+            }
+            answer
+        }
+        wire::GET_INPUTS => {
+            let index = asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            message(kind, inputs[index.min(inputs.len() - 1)])
+        }
+        _ => message(kind, "{}"),
+    })
 }
 
 /// A sway on which every command succeeds, except those that contain `fail`.
