@@ -36,6 +36,7 @@ mod app;
 mod behavior;
 mod effects;
 mod input;
+mod page;
 mod setting;
 mod sway;
 #[cfg(test)]
@@ -48,7 +49,8 @@ use std::sync::LazyLock;
 use crate::command::input::InputSelector;
 use crate::command::{SwayCmd, Target};
 
-pub use setting::{Apply, Msg, Page, Requirements, Scope, Setting, SettingBuilder};
+pub use page::{Group, Page};
+pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder};
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
 };
