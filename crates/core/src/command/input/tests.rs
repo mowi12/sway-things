@@ -313,3 +313,18 @@ fn sticky_drag_lock_needs_sway_1_11() {
     let lowered = wrapped.requires_sway(SwayVersion::OLDEST_SUPPORTED);
     assert_eq!(lowered.min_sway(), SwayVersion::new(1, 11, 0));
 }
+
+#[test]
+fn input_types_have_sways_names() {
+    for kind in InputType::ALL {
+        assert_eq!(InputType::from_name(kind.name()), Some(kind));
+        let selector = Input::new(InputSelector::Type(kind)).tap(true);
+        assert_eq!(
+            selector.render(Target::Ipc).unwrap(),
+            format!("input type:{} tap enabled", kind.name())
+        );
+    }
+    assert_eq!(InputType::from_name("touchpad"), Some(InputType::Touchpad));
+    assert_eq!(InputType::from_name("unknown"), None);
+    assert_eq!(InputType::from_name("Keyboard"), None);
+}

@@ -450,6 +450,28 @@ SwayFX.
   is full ends unconnected. The client checks the connection and tries again for up to two seconds.
 - After an I/O or protocol error a connection is out of step and has to be replaced.
 
+### Input devices
+
+`crates/core/src/devices/` is the list of input devices for the device selectors of the pages, per-device settings and
+the lockout protection.
+
+- **From sway:** each device has the identifier sway selects it by, the name to show, the type (`keyboard`, `pointer`,
+  `touchpad`, …; a type this build doesn't know is listed without one), whether it is switched off (libinput's
+  `send_events`), and for keyboards the layouts and the one in use. The name is an external string: it is shown and
+  never part of a command.
+- **Hotplug without polling:** `DeviceWatch` subscribes to sway's `input` events on a connection of its own and reads
+  `GET_INPUTS` again after each one. It reports what changed (added, removed, changed) and skips events that changed
+  nothing. Devices of the same model share an identifier, and with it every setting, so they are one entry that stays
+  until the last of them is unplugged; an event alone doesn't say which one went.
+- **Stored but not connected:** a device with values in the settings files stays listed as disconnected, with the type
+  its settings are for and the name part of its identifier, so its values can still be seen and removed.
+- **Last keyboard, last pointing device:** the list says whether switching a device off would leave no keyboard or no
+  pointing device (mouse, trackpoint or touchpad). Only connected devices that aren't switched off count, and only those
+  with a vendor ID: sway lists the power button and the video bus (`0:1:Power_Button`, `0:6:Video_Bus`) as keyboards,
+  and virtual devices of other programs have vendor 0 too. The extra keys some mice register as a keyboard can't be told
+  apart and count. A touchpad that is off while an external mouse is connected counts, because it works again once the
+  mouse is gone.
+
 ### Sway config parser
 
 `crates/core/src/sway_config/` reads the user's config the way sway's `read_config` does, and only reads.
@@ -657,10 +679,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk), command builders and escaping (property tests against a port of sway's parser) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices), registry invariants, state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk), command builders and escaping (property tests against a port of sway's parser) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | smoke tests later; logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
