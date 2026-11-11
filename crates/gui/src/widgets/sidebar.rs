@@ -164,6 +164,11 @@ impl Sidebar {
         list.select_row(row.as_ref());
     }
 
+    /// Marks no page as open, while something else fills the content pane.
+    pub fn unselect(&self) {
+        self.imp().list.unselect_all();
+    }
+
     /// The page marked as open.
     pub fn selected(&self) -> Option<Page> {
         let row = self.imp().list.selected_row()?;

@@ -138,6 +138,8 @@ impl PageView {
             footer.set_wrap(true);
             footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
             footer.set_selectable(true);
+            // Selectable with the mouse, but not a stop for the keyboard, which would select it all.
+            footer.set_focusable(false);
             footer.add_css_class("monospace");
             footer.add_css_class("st-page-footer");
             footer.add_css_class(style::DIM);
