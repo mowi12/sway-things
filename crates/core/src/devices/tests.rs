@@ -3,7 +3,7 @@
 
 use async_io::block_on;
 
-use super::{Change, Device, DeviceWatch, Devices, Sending};
+use super::{Change, Device, DeviceWatch, Devices, Lockout, Sending};
 use crate::command::input::InputType;
 use crate::ipc::tests::with_inputs;
 use crate::ipc::types::Input;
@@ -358,4 +358,98 @@ fn a_device_list_that_cant_be_read_is_an_error_for_that_event() {
         Some(Change::Added(MOUSE.to_owned()))
     );
     assert!(block_on(watch.changed()).is_none());
+}
+
+#[test]
+fn switching_off_the_last_keyboard_is_a_lockout() {
+    let laptop = Devices::new(&inputs(LAPTOP));
+    let off = Sending::Disabled;
+    // The power button and the video bus don't count: nobody types with them.
+    assert_eq!(
+        laptop.lockout(InputType::Keyboard, None, off),
+        Some(Lockout::Keyboard)
+    );
+    assert_eq!(
+        laptop.lockout(InputType::Keyboard, Some(KEYBOARD), off),
+        Some(Lockout::Keyboard)
+    );
+    // A keyboard that isn't connected changes nothing.
+    assert_eq!(
+        laptop.lockout(InputType::Keyboard, Some(USB_KEYBOARD), off),
+        None
+    );
+    assert_eq!(
+        laptop.lockout(InputType::Keyboard, None, Sending::Enabled),
+        None
+    );
+    let docked = Devices::new(&laptop_with(&[USB]));
+    assert_eq!(
+        docked.lockout(InputType::Keyboard, Some(KEYBOARD), off),
+        None
+    );
+    assert_eq!(
+        docked.lockout(InputType::Keyboard, None, off),
+        Some(Lockout::Keyboard)
+    );
+}
+
+#[test]
+fn switching_off_the_last_pointing_device_is_a_lockout() {
+    let laptop = Devices::new(&inputs(LAPTOP));
+    assert_eq!(
+        laptop.lockout(InputType::Touchpad, None, Sending::Disabled),
+        Some(Lockout::PointingDevice)
+    );
+    // Off while a mouse is connected works again without the mouse.
+    assert_eq!(
+        laptop.lockout(
+            InputType::Touchpad,
+            Some(TOUCHPAD),
+            Sending::DisabledOnExternalMouse
+        ),
+        None
+    );
+    let with_mouse = Devices::new(&laptop_with(&[G305]));
+    assert_eq!(
+        with_mouse.lockout(InputType::Touchpad, None, Sending::Disabled),
+        None
+    );
+    assert_eq!(
+        with_mouse.lockout(InputType::Pointer, Some(MOUSE), Sending::Disabled),
+        None
+    );
+}
+
+#[test]
+fn a_session_without_devices_has_nothing_to_lose() {
+    let none = Devices::new(&[]);
+    assert_eq!(
+        none.lockout(InputType::Keyboard, None, Sending::Disabled),
+        None
+    );
+}
+
+#[test]
+fn without_a_device_list_only_switching_off_a_whole_type_is_a_lockout() {
+    let off = Sending::Disabled;
+    assert_eq!(
+        Lockout::without_devices(InputType::Keyboard, None, off),
+        Some(Lockout::Keyboard)
+    );
+    assert_eq!(
+        Lockout::without_devices(InputType::Touchpad, None, off),
+        Some(Lockout::PointingDevice)
+    );
+    assert_eq!(
+        Lockout::without_devices(InputType::Keyboard, Some(KEYBOARD), off),
+        None
+    );
+    assert_eq!(
+        Lockout::without_devices(InputType::Touchpad, None, Sending::DisabledOnExternalMouse),
+        None
+    );
+    assert_eq!(
+        Lockout::Keyboard.to_string(),
+        "this would turn off the last keyboard you can type with"
+    );
 }
