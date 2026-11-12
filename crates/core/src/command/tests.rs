@@ -339,6 +339,30 @@ fn for_window_renders_criteria_per_target() {
 }
 
 #[test]
+fn all_criteria_match_every_window() {
+    let cmd = SwayCmd::for_window(
+        Criteria::all(),
+        SwayCmd::new("inhibit_idle")
+            .keyword("fullscreen")
+            .runtime_only(),
+    )
+    .unwrap();
+    for target in [Target::Ipc, Target::Config] {
+        let rendered = cmd.render(target).unwrap();
+        assert_eq!(rendered, "for_window [all] inhibit_idle fullscreen");
+        let (pairs, inner) = for_window_parts(target, &rendered);
+        assert_eq!(pairs, [(b"all".to_vec(), Vec::new())]);
+        assert_eq!(inner, ["inhibit_idle", "fullscreen"]);
+    }
+    let both = Criteria::all().exact(CriteriaKey::Shell, "xwayland");
+    let cmd = SwayCmd::for_window(both, SwayCmd::new("opacity").float(0.5)).unwrap();
+    assert_eq!(
+        cmd.render(Target::Ipc).unwrap(),
+        r#"for_window [all shell="^xwayland\z"] opacity 0.5"#
+    );
+}
+
+#[test]
 fn for_window_quotes_inner_text_twice() {
     let criteria = Criteria::new().exact(CriteriaKey::AppId, "x");
     let inner = SwayCmd::new("title_format").text(text(r#"say "hi" $1"#));
