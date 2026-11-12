@@ -85,7 +85,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
 
 - **Value types:** boolean, integer and decimal (each with a range), choice (ids with translatable labels), color, text
   and list of texts. `Setting::check` validates a `Value` against the type. What sway accepts inside a text or a list
-  depends on the directive, so the command builders check that when the setting is rendered.
+  depends on the directive, so the command builders check that when the setting is rendered. A list can have empty
+  items, so that it lines up with another list (`["", "nodeadkeys"]`: no variant for the first layout).
 - **Defaults are sway's own:** the default is what sway, libinput or SwayFX does with nothing configured (tap off, no
   gaps, `client.focused` child border `#285577`). A setting that isn't stored therefore shows what is in effect without
   Sway Things, and a reset removes the key from the state. libinput defaults that depend on the device are the common
@@ -101,6 +102,15 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   (`events` of keyboards and of touchpads), so a group also shares the scope.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
+- **Lists that line up:** layouts and variants are two settings, each with its own directive
+  (`input.keyboard.xkb_layout = ["us", "de"]`, `input.keyboard.xkb_variant = ["", "nodeadkeys"]` → `xkb_layout "us,de"`,
+  `xkb_variant ",nodeadkeys"`). The variants render with the number of layouts in effect: a shorter list is padded with
+  empty variants, a longer one is a `RenderError::TooManyVariants`. Reading a user's `xkb_variant` splits on commas and
+  keeps empty variants, except those at the end, which the padding adds again.
+- **Empty means sway's default:** where XKB takes an empty value as none or as its default, the setting's default is
+  empty and renders as `""`: no variants (`xkb_variant ""`), no XKB options (`xkb_options ""`, which also overrides
+  `XKB_DEFAULT_OPTIONS`) and the default model (`xkb_model ""`, pc105). Like every setting, they are only written when
+  stored.
 - **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
   name covers independent values, the first argument (`gaps` + `inner`).
 - **Reading:** each sway setting also has a read function, the reverse of rendering: `Setting::read` takes a directive
@@ -110,7 +120,10 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   indicator of the class, the background as child border). A line sway refuses (`ReadError::Rejected`) is told apart
   from a value sway takes but the setting can't hold (`ReadError::Unsupported`, e.g. out of its range). Every setting of
   a group reads its own value from the same line.
-- **Apply mode:** live by default. A setting built on a config-only command (`workspace_layout`) must use reload.
+- **Apply mode:** live by default. A setting built on a config-only command (`workspace_layout`, `xkb_numlock`,
+  `xkb_capslock`) must use reload. Settings that change what the keys produce (layouts, variants, XKB options) are
+  risky. Instead of the safety net, a range keeps other settings usable: the repeat rate is at least 1 per second (sway
+  turns repeating off at 0).
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`) are settings without a sway mapping.
 - **Pages:** `Page::ALL` lists every page of the app in sidebar order, each with its id, sidebar group (`Group`), title
   and one-line description. The id is what deep links and the CLI use (`sway-things open mouse-touchpad`). Every setting
@@ -359,7 +372,7 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 
 ### Risky settings (safety net)
 
-Display mode, disabling an output or input device, keyboard layout changes:
+Display mode, disabling an output or input device, changes of the keyboard layouts, variants and XKB options:
 
 1. Snapshot the current value and apply live.
 2. Show the _Keep / Revert_ banner with a 15 s countdown.
@@ -432,8 +445,10 @@ So `SwayCmd::render` has two targets:
   `Dell "U2415" $1` becomes `'Dell "U2415" $$1'`.
 - **Text in a config line:** quoted with `"`, inner `"` become `\"`, every `$` is doubled: `"Dell \"U2415\" $$1"`.
 - **What text can't contain:** `SwayText` rejects empty text, control characters (they end a config line or change how
-  sway splits it) and backslashes. sway's IPC splitter keeps its escape flag across `\'` and then misreads the next
-  quote, so a backslash next to a quote can't be represented reliably.
+  sway splits it) and backslashes. An empty value is a part of its own, `SwayCmd::empty_text`, rendered `""` in both
+  targets, which sway unquotes to an empty argument; only builders whose directive gives the empty value a meaning use
+  it (`xkb_variant`, `xkb_options`, `xkb_model`). sway's IPC splitter keeps its escape flag across `\'` and then
+  misreads the next quote, so a backslash next to a quote can't be represented reliably.
 - **Criteria** match exactly. Each value becomes an anchored PCRE2 regex `^…\z` in which every character except ASCII
   letters, digits and `_` is written as `\x{hex}`, so criteria never contain a quote, `$`, `]` or whitespace. Config
   lines double the backslashes, because sway unescapes them.
@@ -457,7 +472,8 @@ on numbers taken from sway's and SwayFX's own checks:
 
 - `command::input` builds `input <identifier> …` for every device (`*`), a device type (`type:touchpad`) or one device
   by its `GET_INPUTS` identifier. `drag_lock enabled_sticky` needs sway 1.11, and a sway built against a libinput that
-  supports it; otherwise sway reads it as `disabled` without an error.
+  supports it; otherwise sway reads it as `disabled` without an error. The XKB lists are joined with commas, so an item
+  can't contain one; `xkb_layout` needs at least one layout, the variants, options and model can be empty.
 - `command::window` builds colors (`client.*`; sway ignores `client.background` and `client.placeholder`, so they have
   no builder), borders, gaps, the title bar and `opacity`. `gaps <which> <px>` only changes the default for new
   workspaces, and `gaps <which> all|current set <px>` (runtime-only) only open workspaces, including those with gaps of
@@ -529,6 +545,10 @@ the lockout protection.
   apart and count. A touchpad that is off while an external mouse is connected counts, because it works again once the
   mouse is gone. `Devices::lockout(type, device, sending)` says what switching the devices of a type (or one of them) to
   a sending mode would leave the user without.
+- **Switching the layout:** `devices::switch_layout(client, keyboard, switch)` switches the active layout of every
+  keyboard, or of the keyboards a selector picks (one by its identifier), to the next, the previous or the one at an
+  index (`xkb_switch_layout` over IPC). It is an action, not a setting: nothing is stored, and sway starts with the
+  first layout again.
 
 ### XKB rules
 
@@ -715,7 +735,8 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
 
 - **Values** are typed as `Kind::parse` reads them and `Value`'s `Display` writes them: `true`/`false`, a number, a
   choice's id, `#rrggbb` or `#rrggbbaa`, any text, and a list as its items separated by commas (`us,de`, like
-  `xkb_layout`). A value may start with `-`.
+  `xkb_layout`; empty items at the end are dropped, those before others stay: `,nodeadkeys`). An empty text is an empty
+  list. A value may start with `-`.
 - **`--json`** gives an object per setting: `key`, `device`, `value` (a boolean, a number, a list of strings, or a
   string), `source` (`kind`: `shared`, `host`, `config` or `default`, with `file`, `line` and `for_type` where they
   apply), `line` (the sway line), `overridden_by` (`file`, `line`) and `unsupported`. Without a key, an array.
