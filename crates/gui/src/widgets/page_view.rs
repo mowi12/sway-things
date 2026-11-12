@@ -11,8 +11,11 @@
 //! The Keyboard page adds its own widgets below some rows (the layouts, the XKB options), see
 //! [`keyboard`].
 //!
-//! A deep link points to a row: [`PageView::point_to`] scrolls it into view, gives its control the
-//! keyboard focus and tints it with the accent for a moment.
+//! The settings of a directive with several values form a [`GroupRow`], collapsed, with their
+//! rows below it.
+//!
+//! A deep link points to a row: [`PageView::point_to`] expands its group, scrolls it into view,
+//! gives its control the keyboard focus and tints it with the accent for a moment.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -21,13 +24,13 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
-use sway_things_core::registry::{Msg, Page, Registry, Scope, Setting};
+use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
 use super::keyboard;
 use super::setting_row::tilde;
-use super::{Clamp, DeviceSelector, PageHeader, Placeholder, SettingRow, TestArea};
+use super::{Clamp, DeviceSelector, GroupRow, PageHeader, Placeholder, SettingRow, TestArea};
 use crate::i18n::tr;
 use crate::model::Model;
 use crate::style;
@@ -53,6 +56,8 @@ mod imp {
         pub reset: OnceCell<gtk::Button>,
         /// The setting rows of a page built from the registry.
         pub rows: RefCell<Vec<super::SettingRow>>,
+        /// The rows of the groups of settings on the page.
+        pub groups: RefCell<Vec<super::GroupRow>>,
         /// Waits for the row a deep link points to to be laid out.
         pub pointing: RefCell<Option<gtk::TickCallbackId>>,
         /// The tinted row and the timeout that takes the tint away.
@@ -123,14 +128,15 @@ impl PageView {
 
     /// The page view of `page` built from its settings in the registry: a section for each of
     /// their sections, with a row per setting, and the generated files the page writes to below.
-    /// Per-device settings get a [`DeviceSelector`] per input type. `None` if the page has no
-    /// settings with a row.
+    /// The rows of a group of settings go below a [`GroupRow`]. Per-device settings get a
+    /// [`DeviceSelector`] per input type. `None` if the page has no settings with a row.
     pub fn for_settings(model: &Model, page: Page) -> Option<Self> {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
         let mut files = BTreeSet::new();
         let mut rows = Vec::new();
+        let mut grouping = Grouping::default();
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
@@ -185,12 +191,13 @@ impl PageView {
             {
                 group.rows.push(row.clone());
             }
-            list.append(&list_row(&row));
+            grouping.add(model, setting, &row, &list, &mut groups);
             for widget in keyboard::below(model, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
         }
+        grouping.close(model, &mut groups);
         section.as_ref()?;
         for group in groups {
             group.follow(model);
@@ -199,29 +206,12 @@ impl PageView {
             body.append(&heading("Test area", false));
             body.append(&TestArea::new());
         }
-        if let (Some(locations), false) = (model.locations(), files.is_empty()) {
-            let paths: Vec<String> = files
-                .into_iter()
-                .map(|file| tilde(&locations.path(file)))
-                .collect();
-            let footer = gtk::Label::new(Some(&paths.join("\n")));
-            footer.set_xalign(0.0);
-            footer.set_wrap(true);
-            footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-            footer.set_selectable(true);
-            // Selectable with the mouse, but not a stop for the keyboard, which would select it all.
-            footer.set_focusable(false);
-            footer.add_css_class("monospace");
-            footer.add_css_class("st-page-footer");
-            footer.add_css_class(style::DIM);
-            footer.update_property(&[gtk::accessible::Property::Label(&format!(
-                "Written to {}",
-                paths.join(", ")
-            ))]);
+        if let Some(footer) = footer(model, files) {
             body.append(&footer);
         }
         let view = Self::new(tr(page.title()), tr(page.description()), &body);
         view.imp().rows.replace(rows);
+        view.imp().groups.replace(grouping.rows);
         view.add_page_reset(model, page);
         Some(view)
     }
@@ -261,14 +251,44 @@ impl PageView {
         self.imp().header.get()
     }
 
+    /// The groups of settings on the page.
+    pub fn groups(&self) -> Vec<GroupRow> {
+        self.imp().groups.borrow().clone()
+    }
+
+    /// The group of settings with `id`, if the page has it.
+    pub fn group(&self, id: &str) -> Option<GroupRow> {
+        self.imp()
+            .groups
+            .borrow()
+            .iter()
+            .find(|group| group.group().is_some_and(|group| group.id() == id))
+            .cloned()
+    }
+
+    /// The group `row` is a member of.
+    fn group_of(&self, row: &SettingRow) -> Option<GroupRow> {
+        self.imp()
+            .groups
+            .borrow()
+            .iter()
+            .find(|group| group.members().contains(row))
+            .cloned()
+    }
+
     /// The row of the setting with `key`, if the page shows one: the rows of an input type
-    /// without devices are hidden.
+    /// without devices are hidden. A member of a collapsed group counts as shown, since pointing
+    /// to it expands the group.
     pub fn row(&self, key: &str) -> Option<SettingRow> {
         let rows = self.imp().rows.borrow();
         let row = rows
             .iter()
             .find(|row| row.setting().is_some_and(|setting| setting.key() == key))?;
-        let mut widget = Some(row.clone().upcast::<gtk::Widget>());
+        let start = match self.group_of(row) {
+            Some(group) => group.item().clone().upcast::<gtk::Widget>(),
+            None => row.clone().upcast(),
+        };
+        let mut widget = Some(start);
         while let Some(shown) = widget {
             if !shown.is_visible() {
                 return None;
@@ -281,11 +301,14 @@ impl PageView {
         Some(row.clone())
     }
 
-    /// Points to `row`, as a deep link does: tints it with the accent, and once it is laid out,
-    /// scrolls it into view and gives its control the keyboard focus. The tint fades after a
-    /// moment, or goes at once without animations.
+    /// Points to `row`, as a deep link does: expands the group it is a member of, tints it with
+    /// the accent, and once it is laid out, scrolls it into view and gives its control the
+    /// keyboard focus. The tint fades after a moment, or goes at once without animations.
     pub fn point_to(&self, row: &SettingRow) {
         let imp = self.imp();
+        if let Some(group) = self.group_of(row) {
+            group.set_expanded(true);
+        }
         let tinted = row.parent().unwrap_or_else(|| row.clone().upcast());
         if let Some((old, timeout)) = imp.highlight.take() {
             old.remove_css_class(style::HIGHLIGHT);
@@ -334,6 +357,90 @@ impl PageView {
             }
         ));
         imp.pointing.replace(Some(tick));
+    }
+}
+
+/// The paths of the generated `files` a page writes to, for its footer. `None` without files or
+/// without the locations of the generated files.
+fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Label> {
+    let locations = model.locations()?;
+    if files.is_empty() {
+        return None;
+    }
+    let paths: Vec<String> = files
+        .into_iter()
+        .map(|file| tilde(&locations.path(file)))
+        .collect();
+    let footer = gtk::Label::new(Some(&paths.join("\n")));
+    footer.set_xalign(0.0);
+    footer.set_wrap(true);
+    footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    footer.set_selectable(true);
+    // Selectable with the mouse, but not a stop for the keyboard, which would select it all.
+    footer.set_focusable(false);
+    footer.add_css_class("monospace");
+    footer.add_css_class("st-page-footer");
+    footer.add_css_class(style::DIM);
+    footer.update_property(&[gtk::accessible::Property::Label(&format!(
+        "Written to {}",
+        paths.join(", ")
+    ))]);
+    Some(footer)
+}
+
+/// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].
+#[derive(Default)]
+struct Grouping {
+    /// The group being built, its members and their list: the members of a group are next to
+    /// each other, in one section.
+    open: Option<(SettingGroup, Vec<SettingRow>, gtk::ListBox)>,
+    /// The rows of the groups built.
+    rows: Vec<GroupRow>,
+}
+
+impl Grouping {
+    /// Adds the `row` of `setting` to `list`, or to its group.
+    fn add(
+        &mut self,
+        model: &Model,
+        setting: &Setting,
+        row: &SettingRow,
+        list: &gtk::ListBox,
+        devices: &mut [DeviceGroup],
+    ) {
+        match (setting.group(), &mut self.open) {
+            (Some(group), Some((open, members, _))) if *open == group => {
+                members.push(row.clone());
+            }
+            (Some(group), _) => {
+                self.close(model, devices);
+                self.open = Some((group, vec![row.clone()], list.clone()));
+            }
+            (None, _) => {
+                self.close(model, devices);
+                list.append(&list_row(row));
+            }
+        }
+    }
+
+    /// Puts the group being built into its list. Its row follows the device picked for its
+    /// members.
+    fn close(&mut self, model: &Model, devices: &mut [DeviceGroup]) {
+        let Some((group, members, list)) = self.open.take() else {
+            return;
+        };
+        let row = GroupRow::new(model, group, members);
+        for item in row.items() {
+            list.append(&item);
+        }
+        if let Some(device_group) = devices.last_mut().filter(|device_group| {
+            row.members()
+                .iter()
+                .any(|member| device_group.rows.contains(member))
+        }) {
+            device_group.group_rows.push(row.clone());
+        }
+        self.rows.push(row);
     }
 }
 
@@ -438,6 +545,8 @@ struct DeviceGroup {
     /// The heading and the list of each section.
     sections: Vec<(gtk::Label, gtk::ListBox)>,
     rows: Vec<SettingRow>,
+    /// The groups of settings among the rows, whose summary follows the device too.
+    group_rows: Vec<GroupRow>,
     /// Whether the sections being built still belong to the group.
     open: bool,
 }
@@ -460,6 +569,7 @@ impl DeviceGroup {
             hint,
             sections: vec![(heading, list.clone())],
             rows: Vec::new(),
+            group_rows: Vec::new(),
             open: true,
         }
     }
@@ -469,12 +579,17 @@ impl DeviceGroup {
     fn follow(self, model: &Model) {
         let rows: Vec<glib::WeakRef<SettingRow>> =
             self.rows.iter().map(ObjectExt::downgrade).collect();
+        let group_rows: Vec<glib::WeakRef<GroupRow>> =
+            self.group_rows.iter().map(ObjectExt::downgrade).collect();
         self.selector.connect_device_changed(glib::clone!(
             #[strong]
             rows,
             move |_, device| {
                 for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                     row.set_device(device);
+                }
+                for group in group_rows.iter().filter_map(glib::WeakRef::upgrade) {
+                    group.refresh();
                 }
             }
         ));

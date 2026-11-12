@@ -28,6 +28,27 @@ impl Msg {
     }
 }
 
+/// The row the settings of one directive with several values are shown under: the five colors of
+/// `client.focused` are five settings, grouped as "Focused window". Every member names the same
+/// group; see [`Registry::group`](super::Registry::group).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SettingGroup {
+    id: &'static str,
+    title: Msg,
+}
+
+impl SettingGroup {
+    /// The id, e.g. `windows.focused`: unique among the groups, and no key of a setting.
+    pub const fn id(self) -> &'static str {
+        self.id
+    }
+
+    /// The title of the group's row.
+    pub const fn title(self) -> Msg {
+        self.title
+    }
+}
+
 /// What a setting applies to. The scope also decides where a value is stored by default: in the
 /// shared `settings.toml`, or in the overlay of this machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -105,6 +126,7 @@ pub struct Setting {
     keywords: &'static [&'static str],
     page: Page,
     section: Msg,
+    group: Option<SettingGroup>,
     slider: Option<Slider>,
     scope: Scope,
     apply: Apply,
@@ -123,6 +145,7 @@ impl Setting {
             keywords: &[],
             page,
             section: Msg::new(""),
+            group: None,
             slider: None,
             scope: Scope::Global,
             apply: Apply::Live,
@@ -238,6 +261,12 @@ impl Setting {
         self.section
     }
 
+    /// The group the setting is shown in, for a value of a directive with several values. The
+    /// members of a group are next to each other in the registry, in one section.
+    pub fn group(&self) -> Option<SettingGroup> {
+        self.group
+    }
+
     /// The slider of a number setting: the range given with [`SettingBuilder::slider`], or else
     /// the setting's whole range, in steps of 1 for whole numbers and of a hundredth of the range
     /// for decimals. `None` for other value types.
@@ -334,6 +363,17 @@ impl SettingBuilder {
         self
     }
 
+    /// Shows the setting in the group with `id` and `title` (translatable), e.g.
+    /// `windows.focused`, "Focused window". Every setting of a directive with several values
+    /// names the same group.
+    pub fn group(mut self, id: &'static str, title: &'static str) -> Self {
+        self.0.group = Some(SettingGroup {
+            id,
+            title: Msg::new(title),
+        });
+        self
+    }
+
     /// The range and step of the slider of a number setting, if narrower than the values the
     /// setting accepts (which stay valid, e.g. typed into the row's number field).
     pub fn slider(mut self, min: f64, max: f64, step: f64) -> Self {
@@ -383,7 +423,7 @@ impl SettingBuilder {
     ///
     /// Settings that are values of the same directive (the five colors of `client.focused`) pass
     /// the same `directive`, `file` and `render`, which reads all of them; each has its own
-    /// `read`.
+    /// `read`, and they form a [group](SettingBuilder::group).
     pub fn sway(
         mut self,
         directive: Directive,

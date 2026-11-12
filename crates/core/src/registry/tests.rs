@@ -235,6 +235,81 @@ fn settings_of_one_directive_agree() {
 }
 
 #[test]
+fn settings_of_one_directive_form_a_group() {
+    for setting in registry().iter() {
+        let members: Vec<&str> = registry().group(setting).map(Setting::key).collect();
+        if members.len() == 1 {
+            assert_eq!(
+                setting.group(),
+                None,
+                "{} is alone in its group",
+                setting.key()
+            );
+            continue;
+        }
+        let group = setting
+            .group()
+            .unwrap_or_else(|| panic!("{} shares its directive but has no group", setting.key()));
+        let declared: Vec<&str> = registry()
+            .iter()
+            .filter(|other| other.group() == Some(group))
+            .map(Setting::key)
+            .collect();
+        assert_eq!(declared, members, "group {}", group.id());
+        assert!(!group.title().msgid().is_empty(), "group {}", group.id());
+    }
+}
+
+#[test]
+fn members_of_a_group_are_next_to_each_other_in_one_section() {
+    let settings: Vec<&Setting> = registry().iter().collect();
+    let mut seen = BTreeMap::new();
+    for (index, setting) in settings.iter().enumerate() {
+        let Some(group) = setting.group() else {
+            continue;
+        };
+        let first = *seen.entry(group.id()).or_insert(index);
+        let previous = settings[index - usize::from(index > first)];
+        assert_eq!(
+            previous.group(),
+            Some(group),
+            "{} isn't next to the other members of {}",
+            setting.key(),
+            group.id()
+        );
+        assert_eq!(previous.page(), setting.page(), "{}", setting.key());
+        assert_eq!(previous.section(), setting.section(), "{}", setting.key());
+    }
+}
+
+#[test]
+fn group_ids_are_unique_and_no_keys() {
+    let mut groups = BTreeMap::new();
+    for setting in registry().iter() {
+        let Some(group) = setting.group() else {
+            continue;
+        };
+        let id = group.id();
+        assert!(
+            registry().get(id).is_none(),
+            "group {id} is a setting's key"
+        );
+        assert!(
+            id.split('.').all(|part| !part.is_empty()
+                && part
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')),
+            "group id {id}"
+        );
+        assert_eq!(
+            *groups.entry(id).or_insert(group),
+            group,
+            "two groups have the id {id}"
+        );
+    }
+}
+
+#[test]
 fn every_choice_renders_its_own_command() {
     for (setting, _) in sway_settings() {
         if let Kind::Choice { choices, .. } = setting.kind() {
@@ -590,6 +665,11 @@ fn a_live_gaps_change_also_reaches_open_workspaces() {
 fn one_stored_color_renders_with_the_defaults_of_the_others() {
     let accent = setting("windows.focused.child_border");
     assert_eq!(registry().group(accent).count(), 5);
+    let group = accent.group().unwrap();
+    assert_eq!(
+        (group.id(), group.title().msgid()),
+        ("windows.focused", "Focused window")
+    );
     assert_eq!(
         lines(
             accent,

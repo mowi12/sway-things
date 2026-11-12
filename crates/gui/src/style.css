@@ -64,6 +64,11 @@ st-page list.st-section > row:not(:last-child) {
   border-bottom: 1px solid @borders;
 }
 
+/* A group of settings of one directive: its row, then the members' rows, indented */
+st-page list.st-section > row.st-member {
+  padding-left: 40px;
+}
+
 /* The row a deep link points to: tinted with the accent at once, fading back. Without animations
    GTK skips the transition. */
 st-page list.st-section > row {

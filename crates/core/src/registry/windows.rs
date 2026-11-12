@@ -75,6 +75,7 @@ fn client_colors(args: &[String], default_indicator: Color) -> Result<[Color; 5]
 fn focused(key: &'static str, default: Color, title: &'static str, read: ReadFn) -> Setting {
     Setting::color(key, Page::Windows, default)
         .section("Focused window")
+        .group("windows.focused", "Focused window")
         .title(title)
         .keywords(&["color", "focus", "active", "theme"])
         .sway(
@@ -91,7 +92,7 @@ pub(super) fn settings() -> Vec<Setting> {
         focused(
             FOCUSED_BORDER,
             Color::rgb(0x4c, 0x78, 0x99),
-            "Focused window: title bar border",
+            "Title bar border",
             |args| {
                 Ok(Value::Color(
                     client_colors(args, FOCUSED_INDICATOR_DEFAULT)?[0],
@@ -101,7 +102,7 @@ pub(super) fn settings() -> Vec<Setting> {
         focused(
             FOCUSED_BACKGROUND,
             Color::rgb(0x28, 0x55, 0x77),
-            "Focused window: title bar background",
+            "Title bar background",
             |args| {
                 Ok(Value::Color(
                     client_colors(args, FOCUSED_INDICATOR_DEFAULT)?[1],
@@ -111,7 +112,7 @@ pub(super) fn settings() -> Vec<Setting> {
         focused(
             FOCUSED_TEXT,
             Color::rgb(0xff, 0xff, 0xff),
-            "Focused window: title bar text",
+            "Title bar text",
             |args| {
                 Ok(Value::Color(
                     client_colors(args, FOCUSED_INDICATOR_DEFAULT)?[2],
@@ -121,7 +122,7 @@ pub(super) fn settings() -> Vec<Setting> {
         focused(
             FOCUSED_INDICATOR,
             FOCUSED_INDICATOR_DEFAULT,
-            "Focused window: split indicator",
+            "Split indicator",
             |args| {
                 Ok(Value::Color(
                     client_colors(args, FOCUSED_INDICATOR_DEFAULT)?[3],
@@ -131,7 +132,7 @@ pub(super) fn settings() -> Vec<Setting> {
         focused(
             FOCUSED_CHILD_BORDER,
             Color::rgb(0x28, 0x55, 0x77),
-            "Focused window: border",
+            "Border",
             |args| {
                 Ok(Value::Color(
                     client_colors(args, FOCUSED_INDICATOR_DEFAULT)?[4],
