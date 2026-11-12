@@ -318,6 +318,10 @@ fn check_setting_rows() -> Vec<(String, Outcome)> {
         ),
         ("rows: a failed change shows why".to_owned(), check_failed()),
         (
+            "rows: a setting waits for the one it depends on".to_owned(),
+            check_dependency(),
+        ),
+        (
             "rows: the directive line follows the preference".to_owned(),
             check_directives(),
         ),
@@ -1121,6 +1125,37 @@ fn check_locked() -> Outcome {
             numlock.badges()
         ),
     )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Blur passes can't be changed while blur is off, and say so; turning blur on unlocks them.
+fn check_dependency() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let passes = row(&window, "effects.blur_passes")?;
+    ensure(
+        passes
+            .controls()
+            .iter()
+            .all(|control| !control.is_sensitive()),
+        "blur passes can be changed with blur off",
+    )?;
+    ensure(
+        passes.note().as_deref() == Some("Turn on Blur first"),
+        &format!("  blur passes say {:?}", passes.note()),
+    )?;
+    let (_, blur) = switch(&window, "effects.blur")?;
+    blur.set_active(true);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        passes
+            .controls()
+            .iter()
+            .all(gtk::prelude::WidgetExt::is_sensitive),
+        "blur passes stay locked with blur on",
+    )?;
+    ensure(passes.note().is_none(), "blur passes still say why")?;
     window.destroy();
     Ok(())
 }

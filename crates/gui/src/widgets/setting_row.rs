@@ -24,8 +24,9 @@
 //! it between `settings.toml` and the host overlay) next to the control. A line of the user's
 //! config that wins over the stored value, or that the stored value made dead, shows as a badge
 //! under the line, and a ⋮ menu with the line and what to do about it. A setting the compositor
-//! doesn't support shows what it requires as a badge and can't be changed. A setting sway only
-//! reads from its config says so in a badge ("Applies after reload").
+//! doesn't support shows what it requires as a badge and can't be changed, and so does one that
+//! only matters while another setting is on, with that reason under its line. A setting sway
+//! only reads from its config says so in a badge ("Applies after reload").
 //!
 //! The row of a per-device setting is for all devices of its type or, after
 //! [`SettingRow::set_device`], for one of them. Until that device has a value of its own, the
@@ -1091,8 +1092,11 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
         }
         _ => {}
     }
-    // What the compositor lacks is a badge, and the include line is explained once for the
-    // whole window, not on every row.
+    // The setting this one needs ("Turn on Blur first"). What the compositor lacks is a badge,
+    // and the include line is explained once for the whole window, not on every row.
+    if let Some(Locked::Needs(text)) = &view.locked {
+        parts.push(text.clone());
+    }
     parts.join(" · ")
 }
 
