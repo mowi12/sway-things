@@ -9,7 +9,8 @@
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
 //! - Deep links: a link opens its page, and with a setting, focuses and tints its row.
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
-//!   settings, a locked setting can't be changed, and a failed change shows its error.
+//!   settings, a locked setting can't be changed, a failed change shows its error, and the line
+//!   of the sway config shows while its preference is on.
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
 //! - Indicators: reset, this machine only, the badges of a conflict with the user's config and
 //!   its ⋮ menu, the badge of a requirement, and the reset of a whole page.
@@ -65,6 +66,9 @@ const SWAY: Compositor = Compositor::Sway {
 /// Values stored in the settings file, so rows show stored values too.
 const STORED: &str = "version = 1\n\n[input.touchpad]\npointer_accel = 0.3\n\n\
                       [windows.focused]\nchild_border = \"#3b6e4f\"\n";
+/// The preference that shows the line of the sway config in every row, so the contrast checks
+/// cover it.
+const DIRECTIVES: &str = "\n[app]\nshow_directives = true\n";
 /// Lines of the user's config before the include line, so rows show where a value comes from.
 const USERS: &str = "gaps inner 6\nfocus_follows_mouse no\n";
 
@@ -196,7 +200,7 @@ fn main() -> ExitCode {
     let screenshots = std::env::var_os("SWAY_THINGS_SCREENSHOTS").map(PathBuf::from);
 
     let mut results: Vec<(String, Outcome)> = Vec::new();
-    let fixture = match fixture(SWAYFX, STORED, USERS, true) {
+    let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
             eprintln!("error: can't set up the settings: {error}");
@@ -223,16 +227,7 @@ fn main() -> ExitCode {
         "deep links: a hidden row only opens the page".to_owned(),
         check_open_hidden_link(),
     ));
-    results.push(("rows: one per setting".to_owned(), check_rows()));
-    results.push((
-        "rows: a change reaches the settings".to_owned(),
-        check_change(),
-    ));
-    results.push((
-        "rows: a locked setting can't change".to_owned(),
-        check_locked(),
-    ));
-    results.push(("rows: a failed change shows why".to_owned(), check_failed()));
+    results.extend(check_setting_rows());
     results.extend(check_safety_net());
     results.push((
         "theme: the accent follows sway's focus color".to_owned(),
@@ -294,6 +289,26 @@ fn check_screens(screenshots: Option<&Path>, scheme: &str) -> Vec<(String, Outco
         check_no_devices_screen(screenshots, scheme),
     ));
     results
+}
+
+/// The checks of the rows built from the registry.
+fn check_setting_rows() -> Vec<(String, Outcome)> {
+    vec![
+        ("rows: one per setting".to_owned(), check_rows()),
+        (
+            "rows: a change reaches the settings".to_owned(),
+            check_change(),
+        ),
+        (
+            "rows: a locked setting can't change".to_owned(),
+            check_locked(),
+        ),
+        ("rows: a failed change shows why".to_owned(), check_failed()),
+        (
+            "rows: the directive line follows the preference".to_owned(),
+            check_directives(),
+        ),
+    ]
 }
 
 /// The checks of the safety net for risky changes.
@@ -815,6 +830,47 @@ fn check_change() -> Outcome {
         "the row's line didn't follow",
     )?;
     ensure(tap.error().is_none(), "the change shows an error")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The line of the sway config shows below the subtitle only while the preference is on, in
+/// every row, and follows the preference at once.
+fn check_directives() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let accel = row(&window, "input.touchpad.pointer_accel")?;
+    let expected = fixture
+        .model
+        .view(setting("input.touchpad.pointer_accel")?, None)
+        .and_then(|view| view.line)
+        .ok_or_else(|| "  the pointer acceleration has no line".to_owned())?;
+    ensure(
+        accel.line().is_none(),
+        "a row shows its line with the preference off",
+    )?;
+    fixture
+        .model
+        .set("app.show_directives", None, Value::Bool(true));
+    wait_for_model(&fixture.model)?;
+    ensure(
+        accel.line().as_deref() == Some(expected.as_str()),
+        &format!("  the row shows {:?}, expected {expected:?}", accel.line()),
+    )?;
+    window.show_page(Page::Windows);
+    settle(&window)?;
+    ensure(
+        row(&window, "windows.gaps.inner")?.line().is_some(),
+        "a row on another page doesn't show its line",
+    )?;
+    fixture
+        .model
+        .set("app.show_directives", None, Value::Bool(false));
+    wait_for_model(&fixture.model)?;
+    ensure(
+        row(&window, "windows.gaps.inner")?.line().is_none(),
+        "a row keeps its line after the preference went off",
+    )?;
     window.destroy();
     Ok(())
 }
@@ -1810,7 +1866,7 @@ fn check_page_reset() -> Outcome {
 /// checked like the pages.
 fn check_indicators_screen(screenshots: Option<&Path>, scheme: &str) -> Outcome {
     let stored = STORED.replace("pointer_accel = 0.3\n", "pointer_accel = 0.3\ntap = true\n");
-    let fixture = fixture(SWAYFX, &stored, USERS, true)?;
+    let fixture = fixture(SWAYFX, &format!("{stored}{DIRECTIVES}"), USERS, true)?;
     let after = format!(
         "input type:touchpad tap disabled\n{}input type:touchpad pointer_accel 0.5\n",
         fixture.include_line()

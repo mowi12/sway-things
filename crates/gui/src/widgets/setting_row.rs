@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! A row for one setting, built from its registry entry: title, subtitle, the line of the sway
-//! config in monospace, and the control for its value type.
+//! config in monospace below the subtitle while the preference `app.show_directives` is on, and
+//! the control for its value type.
 //!
 //! | Value type | Control |
 //! | --- | --- |
@@ -33,7 +34,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
 use sway_things_core::conflict::{Report, UserLine};
-use sway_things_core::registry::{Apply, Kind, Scope, Setting, Value};
+use sway_things_core::registry::{Apply, Kind, Registry, Scope, Setting, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
@@ -41,6 +42,9 @@ use super::device_selector::all_of_type;
 use crate::i18n::tr;
 use crate::model::Model;
 use crate::style;
+
+/// The preference that shows the line of the sway config in every row.
+const DIRECTIVES_KEY: &str = "app.show_directives";
 
 /// The control of a row.
 #[derive(Debug)]
@@ -557,6 +561,12 @@ impl SettingRow {
         self.refresh();
     }
 
+    /// The line of the sway config under the subtitle, if the row shows it.
+    pub fn line(&self) -> Option<String> {
+        let line = &self.imp().line;
+        line.is_visible().then(|| line.text().to_string())
+    }
+
     /// The note under the line of the sway config, if there is one: where the value comes from,
     /// or why it can't be changed.
     pub fn note(&self) -> Option<String> {
@@ -607,7 +617,8 @@ impl SettingRow {
             imp.updating.set(false);
         }
         imp.line.set_text(view.line.as_deref().unwrap_or_default());
-        imp.line.set_visible(view.line.is_some());
+        imp.line
+            .set_visible(view.line.is_some() && shows_directives(model));
         self.refresh_indicators(setting, device.as_deref(), &view);
         let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
@@ -889,6 +900,14 @@ fn color(rgba: &gtk::gdk::RGBA) -> Option<Color> {
         format!("#{red:02x}{green:02x}{blue:02x}{alpha:02x}")
     };
     Color::from_str(&text).ok()
+}
+
+/// Whether rows show the line of the sway config, as the preference `app.show_directives` says.
+fn shows_directives(model: &Model) -> bool {
+    Registry::builtin()
+        .get(DIRECTIVES_KEY)
+        .and_then(|setting| model.view(setting, None))
+        .is_some_and(|view| view.value == Value::Bool(true))
 }
 
 /// The note under the line: where the value comes from, or why it can't be changed. For one

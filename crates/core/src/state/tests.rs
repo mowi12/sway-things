@@ -492,6 +492,20 @@ fn a_new_value_goes_to_the_file_of_its_scope() {
 }
 
 #[test]
+fn app_preferences_are_stored_under_app() {
+    let fixture = Fixture::new(None, None);
+    let mut state = fixture.load();
+    state
+        .set("app.show_directives", None, Value::Bool(true), None)
+        .unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
+    assert_eq!(
+        fixture.text(Layer::Shared),
+        "version = 1\n\n[app]\nshow_directives = true\n"
+    );
+}
+
+#[test]
 fn a_changed_value_stays_in_its_file() {
     let fixture = Fixture::new(
         Some("version = 1\n[input.touchpad]\ntap = true\n"),
