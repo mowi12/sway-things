@@ -165,12 +165,14 @@ pub fn obedient(version: impl Into<String>) -> FakeSway {
 }
 
 /// A sway on which every command succeeds, except those that contain `fail`, and that answers
-/// `GET_INPUTS` with `inputs`.
+/// `GET_INPUTS` with `inputs`. A subscription succeeds and gets no events.
 pub fn obedient_with_inputs(version: impl Into<String>, inputs: impl Into<String>) -> FakeSway {
     let inputs = inputs.into();
     FakeSway::with_version(version, move |kind, payload| {
-        if kind == wire::GET_INPUTS {
-            return message(kind, &inputs);
+        match kind {
+            wire::GET_INPUTS => return message(kind, &inputs),
+            wire::SUBSCRIBE => return message(kind, r#"{"success": true}"#),
+            _ => {}
         }
         let reply = if payload.contains("fail") {
             r#"[{"success": false, "parse_error": true, "error": "Unknown/invalid command 'fail'"}]"#
