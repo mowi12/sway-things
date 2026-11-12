@@ -114,8 +114,8 @@ pub enum Exit {
     /// It did what was asked.
     Ok = 0,
     /// Something went wrong: sway rejected a command or the generated config, or a file can't be
-    /// read or written. For `doctor`: it found a problem (warnings don't count), or `--fix`
-    /// couldn't write the files.
+    /// read or written. For `doctor`: it couldn't do its job, e.g. `--fix` couldn't write the
+    /// files.
     Failure = 1,
     /// The arguments are wrong: an unknown key, a value the setting doesn't take.
     Usage = 2,
@@ -125,6 +125,8 @@ pub enum Exit {
     /// change that wasn't kept, a setting the compositor doesn't support, a generated file that
     /// was changed outside and not overwritten.
     Refused = 4,
+    /// `doctor` ran and found at least one problem, also after `--fix`. Warnings don't count.
+    Problems = 5,
 }
 
 impl From<Exit> for ExitCode {

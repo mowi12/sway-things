@@ -757,10 +757,11 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
   | Code | Meaning |
   | --- | --- |
   | 0 | done |
-  | 1 | failure: sway rejected a command or a generated file, a file can't be read or written, no sway to ask; for `doctor`, a problem is left or `--fix` couldn't write |
+  | 1 | failure: sway rejected a command or a generated file, a file can't be read or written, no sway to ask; for `doctor`, `--fix` couldn't write |
   | 2 | usage: wrong arguments, an unknown key, a value the setting doesn't take, `--device` for a setting that isn't per device |
   | 3 | read-only: the include line is missing |
   | 4 | refused: a risky setting without a terminal or `--yes`, a change that wasn't kept, a setting the compositor doesn't support, a lockout, a generated file changed outside and not overwritten |
+  | 5 | problems: `doctor` ran and found at least one problem, also after `--fix` |
 
 ### Doctor
 
@@ -790,7 +791,7 @@ the file and line, the setting and device where they apply, and what `--fix` doe
   only with `--overwrite`, those Sway Things didn't make never. Settings files and the user's config are never written.
   It needs the write permission of an active include status, so while read-only it writes nothing and says so. The
   report that follows shows the files as they are after the fix.
-- **Exit code:** 0 without problems (warnings don't count), 1 with a problem left or a fix that failed.
+- **Exit code:** 0 without problems (warnings don't count), 5 with a problem left, 1 if `--fix` couldn't write.
 - **On a terminal** (`--color`, see [Command line](#command-line)), the text keeps its layout and words and only gains
   styles from the 16 standard ANSI colors, so the terminal's theme picks the shades: bold headings, the status word
   green, yellow or red (not its padding), paths, file:line, details and hints dim, commands cyan, and the summary bold

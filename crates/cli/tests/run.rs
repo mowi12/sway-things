@@ -642,7 +642,7 @@ fn doctor_shows_the_include_line_and_fixes_nothing_while_read_only() {
         None,
     );
     let ran = setup.run(&["doctor"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     assert!(
         ran.out.contains(
             "  problem  Sway Things is read-only: your config doesn't include its files, so \
@@ -669,7 +669,7 @@ fn doctor_shows_the_include_line_and_fixes_nothing_while_read_only() {
     ), "{}", ran.out);
 
     let ran = setup.run(&["doctor", "--fix"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     assert!(
         ran.out.starts_with(
             "Fix\n  Nothing was written: Sway Things is read-only until your config includes its \
@@ -686,7 +686,7 @@ fn doctor_shows_the_include_line_and_fixes_nothing_while_read_only() {
 fn doctor_fixes_files_that_are_missing_or_out_of_date() {
     let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
     let ran = setup.run(&["doctor"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     assert!(
         ran.out.contains(
             "No sway session runs (not in a sway session). The installed compositor is sway 1.10.1."
@@ -726,7 +726,7 @@ fn doctor_fixes_files_that_are_missing_or_out_of_date() {
     // Changed outside: only replaced with --overwrite.
     fs::write(&appearance, "gaps inner 1\n").unwrap();
     let ran = setup.run(&["doctor"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     assert!(
         ran.out
             .contains("  problem  30-appearance.conf was changed outside Sway Things.\n"),
@@ -737,7 +737,7 @@ fn doctor_fixes_files_that_are_missing_or_out_of_date() {
         "           Fix: sway-things doctor --fix --overwrite (your changes to the file are lost)\n"
     ), "{}", ran.out);
     let ran = setup.run(&["doctor", "--fix"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     assert!(
         ran.out
             .starts_with("Fix\n  Only generated files that were changed outside"),
@@ -803,7 +803,7 @@ fn doctor_reports_the_settings_files_and_rejected_files() {
     assert_eq!(setup.run(&["doctor", "--fix"]).exit, Exit::Ok);
     setup.session.applier = rejecting(&setup);
     let ran = setup.run(&["doctor"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     // In the report, not as warnings of their own.
     assert_eq!(ran.err, "");
     assert!(
@@ -825,7 +825,7 @@ fn doctor_reports_the_settings_files_and_rejected_files() {
 fn doctor_prints_json_for_scripts() {
     let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
     let ran = setup.run(&["doctor", "--json"]);
-    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert_eq!(ran.exit, Exit::Problems, "{ran:?}");
     let json: serde_json::Value = serde_json::from_str(&ran.out).unwrap();
     assert_eq!(json["status"], "problem");
     assert_eq!(json["problems"], 1);
@@ -885,7 +885,7 @@ fn doctor_without_sway_skips_validation() {
     let mut out = Vec::new();
     let exit = block_on(doctor(&checkup, &DoctorArgs::default(), &mut out));
     let out = String::from_utf8(out).unwrap();
-    assert_eq!(exit, Exit::Failure, "{out}");
+    assert_eq!(exit, Exit::Problems, "{out}");
     assert!(
         out.starts_with(
             "Compositor\n  problem  No sway session runs (SWAYSOCK isn't set), and sway can't be \
@@ -908,7 +908,7 @@ fn doctor_without_sway_skips_validation() {
         ..DoctorArgs::default()
     };
     // Nothing is out of date that could be told without the compositor.
-    assert_eq!(block_on(doctor(&checkup, &args, &mut out)), Exit::Failure);
+    assert_eq!(block_on(doctor(&checkup, &args, &mut out)), Exit::Problems);
     assert!(
         String::from_utf8(out)
             .unwrap()
@@ -1017,5 +1017,21 @@ fn doctor_colors_only_the_words_that_matter() {
     assert!(
         colored.ends_with("\n\x1b[1m\x1b[32mEverything is fine.\x1b[0m\n"),
         "{colored}"
+    );
+}
+
+#[test]
+fn doctor_fails_when_it_cant_fix() {
+    let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
+    // The manifest of the generated files can't be written.
+    fs::create_dir_all(setup.path("state")).unwrap();
+    fs::write(setup.path("state/sway-things"), "").unwrap();
+    let ran = setup.run(&["doctor", "--fix"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out
+            .starts_with("Fix\n  The generated files couldn't be written: "),
+        "{}",
+        ran.out
     );
 }

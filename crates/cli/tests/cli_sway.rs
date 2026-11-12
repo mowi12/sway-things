@@ -86,7 +86,7 @@ fn the_command_line_changes_a_setting_end_to_end() -> Result<()> {
     )?;
     let output = run(&["doctor"])?;
     let out = text(&output.stdout);
-    assert_eq!(output.status.code(), Some(1), "{out}");
+    assert_eq!(output.status.code(), Some(5), "{out}");
     assert!(
         out.contains("  problem  90-effects.conf was changed outside Sway Things.\n"),
         "{out}"

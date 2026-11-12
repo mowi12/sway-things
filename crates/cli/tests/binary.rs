@@ -131,7 +131,7 @@ fn doctor_reports_without_writing() {
         "gaps inner 4\n",
     );
     let output = home.run(&["doctor"]);
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(output.status.code(), Some(5), "{output:?}");
     let out = text(&output.stdout);
     assert!(
         out.starts_with("Compositor\n  ok       sway 1.10.1 runs in this session.\n"),
@@ -144,7 +144,7 @@ fn doctor_reports_without_writing() {
     assert!(out.ends_with("2 problems, no warnings.\nRun `sway-things doctor --fix` to write the generated files again.\n"), "{out}");
 
     let output = home.run(&["doctor", "--fix", "--json"]);
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(output.status.code(), Some(5), "{output:?}");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json["status"], "problem");
     assert_eq!(json["fix"]["result"], "read_only");

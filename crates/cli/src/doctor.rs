@@ -93,8 +93,8 @@ pub struct Look {
 }
 
 /// Checks the setup of `checkup`, fixes what `args` asks for, and reports to `out` as plain text
-/// or JSON. Exits with [`Exit::Failure`] if a problem is left or the fix failed, [`Exit::Ok`]
-/// otherwise: warnings don't count.
+/// or JSON. Exits with [`Exit::Failure`] if the fix failed, [`Exit::Problems`] if a problem is
+/// left, and [`Exit::Ok`] otherwise: warnings don't count.
 pub async fn doctor<V: Validate>(
     checkup: &Checkup<'_, V>,
     args: &DoctorArgs,
@@ -126,8 +126,10 @@ pub async fn doctor_with<V: Validate>(
         let paint = Paint { color: look.color };
         text(&diagnosis, fixed.as_ref(), checkup, args, paint, out);
     }
-    if diagnosis.severity() == Severity::Problem || matches!(fixed, Some(Fixed::Failed(_))) {
+    if matches!(fixed, Some(Fixed::Failed(_))) {
         Exit::Failure
+    } else if diagnosis.severity() == Severity::Problem {
+        Exit::Problems
     } else {
         Exit::Ok
     }
