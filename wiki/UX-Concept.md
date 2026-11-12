@@ -31,8 +31,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **Sidebar** with grouped pages and the search field at the top. The **content pane** on the right.
 - A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the file that
   page writes to.
-- A **setting row** has a title, optional subtitle, the control on the right, and for sway settings the **sway directive
-  in monospace** as the subtitle (`pointer_accel 0.30`), so users learn the config language as they go.
+- A **setting row** has a title, optional plain-language subtitle and the control on the right. For sway settings an app
+  preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
+  subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
+  quieter page. Switching it changes every row at once.
 
 ### Input devices
 
