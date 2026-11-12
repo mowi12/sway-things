@@ -55,10 +55,10 @@ use crate::devices::Lockout;
 use crate::generate::{
     self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate, WriteError,
 };
-use crate::include::WriteAccess;
+use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
-use crate::registry::{Apply, ConfigFile, RenderError, Setting, Value, Values};
-use crate::state::{ChangedKey, Changes, State, StateError};
+use crate::registry::{Apply, ConfigFile, Registry, RenderError, Setting, Value, Values};
+use crate::state::{ChangedKey, Changes, Paths, PathsError, State, StateError};
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
 /// being dragged) is saved once.
@@ -157,6 +157,33 @@ pub struct Applier<V = SwayValidator> {
 }
 
 impl Applier<SwayValidator> {
+    /// Loads this user's settings and connects like [`Applier::connect`], with the files in
+    /// their usual places ([`Paths::from_env`], [`Locations::from_env`]). Also returns the main
+    /// sway config: the one the running sway loaded, or without a session the one sway would
+    /// find. The app and the command line start with this, and read the
+    /// [`IncludeStatus`](crate::include::IncludeStatus) of that config.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::Paths`] if the directories of the files can't be found, and the errors of
+    /// [`Applier::connect`].
+    pub async fn open() -> Result<(Self, MainConfig), ApplyError> {
+        let paths = Paths::from_env().map_err(ApplyError::Paths)?;
+        let locations = Locations::from_env().map_err(ApplyError::Paths)?;
+        let state = State::load(Registry::builtin(), paths);
+        let mut applier = Self::connect(state, locations).await?;
+        let main = match applier.client() {
+            Some(client) => match client.version().await {
+                Ok(version) if !version.loaded_config_file_name.is_empty() => {
+                    MainConfig::Path(version.loaded_config_file_name.into())
+                }
+                _ => MainConfig::Default,
+            },
+            None => MainConfig::Default,
+        };
+        Ok((applier, main))
+    }
+
     /// An applier for this user: connected to the session in `$SWAYSOCK`, or without a session
     /// if there is none. Then the compositor to generate for is the installed `sway`.
     ///
@@ -588,6 +615,8 @@ fn render(
 /// Why a change wasn't applied or persisted.
 #[derive(Debug)]
 pub enum ApplyError {
+    /// The directories of the settings files or the generated files can't be found.
+    Paths(PathsError),
     /// The key, the device or the value doesn't fit the registry, or a settings file can't be
     /// changed or saved.
     State(StateError),
@@ -662,6 +691,7 @@ impl From<WriteError> for ApplyError {
 impl fmt::Display for ApplyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Paths(error) => error.fmt(f),
             Self::State(error) => error.fmt(f),
             Self::Risky { key } => write!(f, "{key} can only be changed with the safety net"),
             Self::Unsupported { key, unmet } => write!(f, "{key} {unmet}"),
@@ -693,6 +723,7 @@ impl fmt::Display for ApplyError {
 impl std::error::Error for ApplyError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::Paths(error) => Some(error),
             Self::State(error) => Some(error),
             Self::Unsupported { unmet, .. } => Some(unmet),
             Self::Render(error) => Some(error),

@@ -24,7 +24,8 @@ pub enum MainConfig {
 }
 
 impl MainConfig {
-    fn path(&self) -> Option<PathBuf> {
+    /// The path of the file, looked up now for [`MainConfig::Default`]; `None` if there is none.
+    pub fn path(&self) -> Option<PathBuf> {
         match self {
             Self::Path(path) => Some(path.clone()),
             Self::Default => default_path(&Disk),
