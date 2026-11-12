@@ -23,3 +23,4 @@ pub mod theme;
 pub mod version;
 pub mod view;
 pub mod watch;
+pub mod xkb;
