@@ -44,6 +44,7 @@ use sway_things_core::view::Source;
 use sway_things_gui::contrast::{self, TextSample};
 use sway_things_gui::model::Model;
 use sway_things_gui::style;
+use sway_things_gui::theme;
 use sway_things_gui::widgets::{DeviceSelector, PageView, SettingRow, TestArea};
 use sway_things_gui::window::Window;
 
@@ -227,6 +228,10 @@ fn main() -> ExitCode {
     ));
     results.push(("rows: a failed change shows why".to_owned(), check_failed()));
     results.extend(check_safety_net());
+    results.push((
+        "theme: the accent follows sway's focus color".to_owned(),
+        check_accent(),
+    ));
     results.extend(check_devices());
     results.extend(check_indicators());
     results.push((
@@ -1746,4 +1751,36 @@ fn check_indicators_screen(screenshots: Option<&Path>, scheme: &str) -> Outcome 
     let outcome = check_page(&window, Page::MouseTouchpad, directory.as_deref(), scheme);
     window.destroy();
     outcome
+}
+
+/// The accent is the stored focus color, follows a change of it, and gives way to the theme's own
+/// with the preference.
+fn check_accent() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::About)?;
+    let css = theme::accent_css();
+    ensure(
+        css.contains("@define-color accent_bg_color #3b6e4f;"),
+        &format!("  the accent isn't the stored focus color:\n{css}"),
+    )?;
+    fixture.model.set(
+        "windows.focused.child_border",
+        None,
+        Value::Color(sway_things_core::command::Color::rgb(0xe0, 0x1b, 0x24)),
+    );
+    wait_for_model(&fixture.model)?;
+    ensure(
+        theme::accent_css().contains("@define-color accent_bg_color #e01b24;"),
+        "the accent didn't follow the focus color",
+    )?;
+    fixture
+        .model
+        .set("app.accent_source", None, Value::Choice("theme".to_owned()));
+    wait_for_model(&fixture.model)?;
+    ensure(
+        theme::accent_css().is_empty(),
+        "the accent stays with the theme's accent chosen",
+    )?;
+    window.destroy();
+    Ok(())
 }

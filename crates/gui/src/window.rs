@@ -157,6 +157,7 @@ impl Window {
         imp.status.set_child(Some(&status));
 
         self.build_safety_net(model);
+        crate::theme::follow_accent(self, model);
 
         imp.welcome.connect_look_around(glib::clone!(
             #[weak(rename_to = window)]
