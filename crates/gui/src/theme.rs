@@ -295,7 +295,7 @@ mod portal {
         // First the subscription, so a change in between isn't missed. The signal comes on
         // GIO's thread; the channel brings it to the main loop.
         let (sender, changes) = async_channel::unbounded();
-        proxy.connect_g_signal(move |_, _, signal, parameters| {
+        proxy.connect_g_signal(None, move |_, _, signal, parameters| {
             if signal != "SettingChanged" {
                 return;
             }
