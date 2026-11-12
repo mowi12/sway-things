@@ -16,7 +16,9 @@ use std::path::{Path, PathBuf};
 
 use async_io::block_on;
 use clap::Parser;
-use sway_things_cli::{Cli, Command, DoctorArgs, Exit, Prompt, Session, doctor, run};
+use sway_things_cli::{
+    Cli, Command, DoctorArgs, Exit, Look, Prompt, Session, Spinner, doctor, doctor_with, run,
+};
 use sway_things_core::apply::{Applier, Countdown};
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
@@ -911,5 +913,109 @@ fn doctor_without_sway_skips_validation() {
         String::from_utf8(out)
             .unwrap()
             .starts_with("Fix\n  Nothing for --fix to do.\n")
+    );
+}
+
+/// The doctor's report on `setup` without a session, as `look` says.
+fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, String) {
+    let found = Found::NoSession {
+        reason: "not in a sway session".to_owned(),
+        installed: Installed::Version(setup.session.applier.compositor()),
+    };
+    let applier = &setup.session.applier;
+    let checkup = Checkup {
+        found: &found,
+        state: applier.state(),
+        locations: applier.locations(),
+        status: &setup.session.status,
+        validator: applier.validator(),
+    };
+    let mut out = Vec::new();
+    let exit = block_on(doctor_with(&checkup, args, &mut out, look));
+    (exit, String::from_utf8(out).unwrap())
+}
+
+/// The doctor's report on `setup`, plain and in color.
+fn doctor_in_color(setup: &Setup, args: &DoctorArgs) -> (String, String) {
+    let (exit, plain) = doctor_looking(setup, args, &Look::default());
+    let (colored_exit, colored) = doctor_looking(setup, args, &in_color());
+    assert_eq!(colored_exit, exit);
+    (plain, colored)
+}
+
+fn in_color() -> Look {
+    Look {
+        color: true,
+        spinner: Spinner::hidden(),
+    }
+}
+
+#[test]
+fn doctor_colors_only_the_words_that_matter() {
+    let mut setup = Setup::new(
+        "version = 1\n\n[windows.gaps]\ninner = 8\n",
+        &format!("{INCLUDE}gaps inner 4\n"),
+        None,
+    );
+    let (plain, colored) = doctor_in_color(&setup, &DoctorArgs::default());
+    assert!(!plain.contains('\x1b'), "{plain}");
+    // The same text and layout, only styled.
+    assert_eq!(anstream::adapter::strip_str(&colored).to_string(), plain);
+    let config = setup.path("config/sway/config").display().to_string();
+    for styled in [
+        "\x1b[1mCompositor\x1b[0m\n".to_owned(),
+        "\n\x1b[1mSway config\x1b[0m\n".to_owned(),
+        // Only the word is styled, not the padding of the column.
+        "  \x1b[32mok\x1b[0m       Main config: \x1b[2m{config}\x1b[0m\n"
+            .replace("{config}", &config),
+        "  \x1b[33mwarning\x1b[0m  The include line isn't last".to_owned(),
+        format!("             \x1b[2m{config}:2: gaps inner 4\x1b[0m\n"),
+        "  \x1b[31mproblem\x1b[0m  30-appearance.conf is missing".to_owned(),
+        "           \x1b[2mFix:\x1b[0m \x1b[36msway-things doctor --fix\x1b[0m\n".to_owned(),
+        format!("your config wins: \x1b[2m{config}:2\x1b[0m comes after"),
+        "\n\x1b[1m\x1b[31m1 problem\x1b[0m, \x1b[1m\x1b[33m2 warnings\x1b[0m.\n".to_owned(),
+        "Run `\x1b[36msway-things doctor --fix\x1b[0m` to write".to_owned(),
+    ] {
+        assert!(colored.contains(&styled), "{styled:?} in {colored}");
+    }
+
+    let fix = DoctorArgs {
+        fix: true,
+        ..DoctorArgs::default()
+    };
+    let (exit, out) = doctor_looking(&setup, &fix, &in_color());
+    assert_eq!(exit, Exit::Ok, "{out}");
+    let appearance = setup.path("config/sway/sway-things/30-appearance.conf");
+    assert!(
+        out.starts_with(&format!(
+            "\x1b[1mFix\x1b[0m\n  wrote \x1b[2m{}\x1b[0m\n",
+            appearance.display()
+        )),
+        "{out}"
+    );
+
+    // Scripts never get colors.
+    let json = DoctorArgs {
+        json: true,
+        ..DoctorArgs::default()
+    };
+    let (_, out) = doctor_looking(&setup, &json, &in_color());
+    assert!(!out.contains('\x1b'), "{out}");
+
+    fs::write(
+        setup.path("config/sway/config"),
+        INCLUDE.replace("{dir}", &setup.dir.path().display().to_string()),
+    )
+    .unwrap();
+    setup.session.status = IncludeStatus::detect(
+        Some(&setup.path("config/sway/config")),
+        &Disk,
+        setup.session.applier.locations(),
+    );
+    let (plain, colored) = doctor_in_color(&setup, &DoctorArgs::default());
+    assert!(plain.ends_with("\nEverything is fine.\n"), "{plain}");
+    assert!(
+        colored.ends_with("\n\x1b[1m\x1b[32mEverything is fine.\x1b[0m\n"),
+        "{colored}"
     );
 }

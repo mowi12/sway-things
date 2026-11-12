@@ -734,6 +734,9 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
 
+- **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
+  `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
+  take the flag and print as before.
 - **Values** are typed as `Kind::parse` reads them and `Value`'s `Display` writes them: `true`/`false`, a number, a
   choice's id, `#rrggbb` or `#rrggbbaa`, any text, and a list as its items separated by commas (`us,de`, like
   `xkb_layout`; empty items at the end are dropped, those before others stay: `,nodeadkeys`). An empty text is an empty
@@ -788,6 +791,14 @@ the file and line, the setting and device where they apply, and what `--fix` doe
   It needs the write permission of an active include status, so while read-only it writes nothing and says so. The
   report that follows shows the files as they are after the fix.
 - **Exit code:** 0 without problems (warnings don't count), 1 with a problem left or a fix that failed.
+- **On a terminal** (`--color`, see [Command line](#command-line)), the text keeps its layout and words and only gains
+  styles from the 16 standard ANSI colors, so the terminal's theme picks the shades: bold headings, the status word
+  green, yellow or red (not its padding), paths, file:line, details and hints dim, commands cyan, and the summary bold
+  in the color of what it counts. Meanwhile a braille spinner on stderr (`indicatif`, drawn only if stderr is a
+  terminal) says what runs: loading the settings, asking sway, reading the config, each section, `sway --validate` per
+  file, and writing with `--fix`. `Checkup::diagnose_with` reports each `Step` (a section starts, a file is validated)
+  to a callback, so the core stays free of terminal code. The spinner is cleared before the report is printed. Piped,
+  `--color never` or `NO_COLOR`, the text is exactly the plain one; `--json` is never colored and shows no spinner.
 - **`--json`:** an object with `status` (the worst severity), the number of `problems` and `warnings`, `findings` and
   `fix`. Each finding has `section`, `code`, `status`, `message`, `details` (a list of lines), `hint`, `file`, `line`,
   `key`, `device` (each `null` where it doesn't apply) and `fix` (`regenerate`, `overwrite` or `null`). `fix` is `null`

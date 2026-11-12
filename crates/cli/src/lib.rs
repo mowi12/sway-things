@@ -10,10 +10,13 @@
 mod doctor;
 mod output;
 mod prompt;
+mod spinner;
 
 use std::fmt;
 use std::io::{self, Write};
 use std::process::ExitCode;
+
+use anstream::{AutoStream, ColorChoice};
 
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
@@ -26,8 +29,9 @@ use sway_things_core::registry::{Apply, ConfigFile, Registry, Scope, Setting, Va
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 
-pub use doctor::{DoctorArgs, doctor};
+pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
 pub use prompt::{Prompt, Terminal};
+pub use spinner::Spinner;
 
 /// Read and change the settings of Sway Things.
 #[derive(Debug, Parser)]
@@ -36,6 +40,9 @@ pub struct Cli {
     /// What to do.
     #[command(subcommand)]
     pub command: Command,
+    /// When to use colors: `--color auto|always|never`. Only `doctor` colors its report.
+    #[command(flatten)]
+    pub color: colorchoice_clap::Color,
 }
 
 /// A command of `sway-things`.
@@ -136,6 +143,12 @@ pub struct Session<V> {
     pub status: IncludeStatus,
 }
 
+/// Whether to color what goes to `stream`: `--color`, `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE`
+/// and whether it is a terminal decide, as [`AutoStream::choice`] tells.
+fn color_for(stream: &impl anstream::stream::RawStream) -> bool {
+    AutoStream::choice(stream) != ColorChoice::Never
+}
+
 /// Runs `command` for the user who runs `sway-things`: with their settings files, their sway
 /// config and, if there is one, their sway session.
 pub async fn run_for_user(command: &Command) -> Exit {
@@ -164,20 +177,34 @@ pub async fn run_for_user(command: &Command) -> Exit {
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
 /// when the others can't: then the installed `sway` validates the generated files, if there is
-/// one.
+/// one. On a terminal, the report is colored and a spinner tells what it checks; never for
+/// `--json`.
 async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
+    let stdout = io::stdout();
+    let look = if args.json {
+        Look::default()
+    } else {
+        Look {
+            color: color_for(&stdout),
+            spinner: Spinner::stderr(color_for(&io::stderr())),
+        }
+    };
     let (paths, locations) = match Paths::from_env()
         .and_then(|paths| Locations::from_env().map(|locations| (paths, locations)))
     {
         Ok(found) => found,
         Err(error) => {
+            look.spinner.clear();
             let _ = writeln!(err, "error: {error}");
             return Exit::Failure;
         }
     };
+    look.spinner.say("Loading the settings files…");
     let state = State::load(Registry::builtin(), paths);
     let validator = SwayValidator::new();
+    look.spinner.say("Asking sway for its version…");
     let (found, main) = Found::detect(&validator).await;
+    look.spinner.say("Reading your sway config…");
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
     let checkup = Checkup {
         found: &found,
@@ -186,7 +213,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         status: &status,
         validator: &validator,
     };
-    doctor(&checkup, args, &mut io::stdout().lock()).await
+    doctor_with(&checkup, args, &mut stdout.lock(), &look).await
 }
 
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
