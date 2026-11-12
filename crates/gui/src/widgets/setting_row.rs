@@ -16,6 +16,12 @@
 //! reports a change, and the error under the title when the change failed. A locked setting (no
 //! include line, a compositor too old) shows why and can't be changed.
 //!
+//! Indicators: a stored value gets a reset button and a "This machine only" toggle (which moves
+//! it between `settings.toml` and the host overlay) next to the control. A line of the user's
+//! config that wins over the stored value, or that the stored value made dead, shows as a badge
+//! under the line, and a ⋮ menu with the line and what to do about it. A setting the compositor
+//! doesn't support shows what it requires as a badge and can't be changed.
+//!
 //! The row of a per-device setting is for all devices of its type or, after
 //! [`SettingRow::set_device`], for one of them. Until that device has a value of its own, the
 //! row says it is the same as for all devices of the type.
@@ -26,7 +32,9 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
-use sway_things_core::registry::{Kind, Scope, Setting, Value};
+use sway_things_core::conflict::{Report, UserLine};
+use sway_things_core::registry::{Apply, Kind, Scope, Setting, Value};
+use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
 use super::device_selector::all_of_type;
@@ -87,7 +95,18 @@ mod imp {
         pub(super) line: gtk::Label,
         pub(super) note: gtk::Label,
         pub(super) error: gtk::Label,
+        pub(super) badges: gtk::Box,
         pub(super) controls: gtk::Box,
+        pub(super) reset: gtk::Button,
+        pub(super) machine: gtk::ToggleButton,
+        pub(super) conflict: gtk::MenuButton,
+        pub(super) conflict_title: gtk::Label,
+        pub(super) conflict_place: gtk::Label,
+        pub(super) conflict_line: gtk::Label,
+        pub(super) conflict_text: gtk::Label,
+        pub(super) let_config_win: gtk::Button,
+        /// The lines of the user's config behind the ⋮ menu, as of the last refresh.
+        pub(super) report: RefCell<Option<sway_things_core::conflict::Report>>,
     }
 
     #[glib::object_subclass]
@@ -159,6 +178,10 @@ impl SettingRow {
             label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
             texts.append(label);
         }
+        imp.badges.set_spacing(6);
+        imp.badges.set_halign(gtk::Align::Start);
+        imp.badges.set_visible(false);
+        texts.append(&imp.badges);
         imp.title.add_css_class("st-row-title");
         for label in [&imp.line, &imp.note] {
             label.add_css_class("st-row-detail");
@@ -171,6 +194,7 @@ impl SettingRow {
             widget.update_property(&[gtk::accessible::Property::Label(title)]);
             imp.controls.append(&widget);
         }
+        self.build_indicators(title);
         texts.set_parent(self);
         imp.controls.set_parent(self);
         if let Some(layout) = self.layout_manager().and_downcast::<gtk::BoxLayout>() {
@@ -198,6 +222,302 @@ impl SettingRow {
             ));
         }
         self.refresh();
+    }
+
+    /// The reset button, the "This machine only" toggle and the ⋮ menu of a conflict, after the
+    /// control.
+    fn build_indicators(&self, title: &str) {
+        let imp = self.imp();
+        imp.reset.set_icon_name("edit-undo-symbolic");
+        imp.reset
+            .update_property(&[gtk::accessible::Property::Label(&format!("Reset {title}"))]);
+        imp.reset.connect_clicked(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            move |_| row.reset()
+        ));
+        imp.machine.set_icon_name("computer-symbolic");
+        imp.machine.set_tooltip_text(Some("This machine only"));
+        imp.machine
+            .update_property(&[gtk::accessible::Property::Label(&format!(
+                "{title}: this machine only"
+            ))]);
+        imp.machine.connect_toggled(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            move |toggle| row.move_to(toggle.is_active())
+        ));
+        imp.conflict.set_icon_name("view-more-symbolic");
+        imp.conflict
+            .set_tooltip_text(Some("Your config sets this too"));
+        imp.conflict
+            .update_property(&[gtk::accessible::Property::Label(&format!(
+                "{title}: your config sets this too"
+            ))]);
+        imp.conflict.set_popover(Some(&self.conflict_popover()));
+        for button in [
+            imp.reset.upcast_ref::<gtk::Widget>(),
+            imp.machine.upcast_ref(),
+            imp.conflict.upcast_ref(),
+        ] {
+            button.set_valign(gtk::Align::Center);
+            button.set_visible(false);
+            imp.controls.append(button);
+        }
+    }
+
+    /// The menu behind ⋮: the line of the user's config, then what to do about it.
+    fn conflict_popover(&self) -> gtk::Popover {
+        let imp = self.imp();
+        let details = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        details.add_css_class("st-conflict-details");
+        imp.conflict_title.add_css_class("st-row-title");
+        imp.conflict_place.add_css_class("monospace");
+        imp.conflict_place.add_css_class(style::DIM);
+        imp.conflict_line.add_css_class("monospace");
+        imp.conflict_line.set_selectable(true);
+        for label in [
+            &imp.conflict_title,
+            &imp.conflict_place,
+            &imp.conflict_line,
+            &imp.conflict_text,
+        ] {
+            label.set_xalign(0.0);
+            label.set_wrap(true);
+            label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            label.set_max_width_chars(48);
+            details.append(label);
+        }
+        let popover = gtk::Popover::new();
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        content.append(&details);
+        content.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+        imp.let_config_win.set_label("Let my config win");
+        let open = gtk::Button::with_label("Open config in editor");
+        let copy = gtk::Button::with_label("Copy line");
+        for button in [&imp.let_config_win, &open, &copy] {
+            button.add_css_class("flat");
+            if let Some(label) = button.child().and_downcast::<gtk::Label>() {
+                label.set_xalign(0.0);
+            }
+            content.append(button);
+        }
+        imp.let_config_win.connect_clicked(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[weak]
+            popover,
+            move |_| {
+                popover.popdown();
+                row.let_config_win();
+            }
+        ));
+        open.connect_clicked(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[weak]
+            popover,
+            move |_| {
+                popover.popdown();
+                row.open_config();
+            }
+        ));
+        copy.connect_clicked(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[weak]
+            popover,
+            move |_| {
+                popover.popdown();
+                let line = row.imp().conflict_line.text();
+                row.clipboard().set_text(&line);
+            }
+        ));
+        popover.set_child(Some(&content));
+        popover
+    }
+
+    /// The reset button, if the value is stored.
+    pub fn reset_button(&self) -> Option<gtk::Button> {
+        let reset = &self.imp().reset;
+        reset.is_visible().then(|| reset.clone())
+    }
+
+    /// The "This machine only" toggle, if the value is stored.
+    pub fn machine_toggle(&self) -> Option<gtk::ToggleButton> {
+        let machine = &self.imp().machine;
+        machine.is_visible().then(|| machine.clone())
+    }
+
+    /// The ⋮ menu button, if the user's config sets the setting too.
+    pub fn conflict_button(&self) -> Option<gtk::MenuButton> {
+        let conflict = &self.imp().conflict;
+        conflict.is_visible().then(|| conflict.clone())
+    }
+
+    /// The texts of the badges under the line.
+    pub fn badges(&self) -> Vec<String> {
+        let mut texts = Vec::new();
+        let mut child = self.imp().badges.first_child();
+        while let Some(badge) = child {
+            if let Some(label) = badge.last_child().and_downcast::<gtk::Label>() {
+                texts.push(label.text().to_string());
+            }
+            child = badge.next_sibling();
+        }
+        texts
+    }
+
+    /// What the ⋮ menu shows: its title, the place of the line, and the line.
+    pub fn conflict_details(&self) -> Option<(String, String, String)> {
+        let imp = self.imp();
+        imp.conflict.is_visible().then(|| {
+            (
+                imp.conflict_title.text().to_string(),
+                imp.conflict_place.text().to_string(),
+                imp.conflict_line.text().to_string(),
+            )
+        })
+    }
+
+    /// Removes the stored value.
+    pub fn reset(&self) {
+        let imp = self.imp();
+        let (Some(setting), Some(model)) = (self.setting(), imp.model.get()) else {
+            return;
+        };
+        self.show_error(None);
+        model.reset(setting.key(), imp.device.borrow().as_deref());
+    }
+
+    /// Moves the stored value to the host overlay (`host`) or the shared file.
+    fn move_to(&self, host: bool) {
+        let imp = self.imp();
+        if imp.updating.get() {
+            return;
+        }
+        let (Some(setting), Some(model)) = (self.setting(), imp.model.get()) else {
+            return;
+        };
+        let layer = if host { Layer::Host } else { Layer::Shared };
+        model.move_to(setting.key(), imp.device.borrow().as_deref(), layer);
+    }
+
+    /// Lets the user's config decide the setting.
+    pub fn let_config_win(&self) {
+        let imp = self.imp();
+        let (Some(model), Some(report)) = (imp.model.get(), imp.report.borrow().clone()) else {
+            return;
+        };
+        self.show_error(None);
+        model.let_config_win(report);
+    }
+
+    /// Opens the file with the line of the user's config in the desktop's text editor.
+    fn open_config(&self) {
+        let Some(file) = self
+            .imp()
+            .report
+            .borrow()
+            .as_ref()
+            .and_then(conflict_line)
+            .map(|(_, line)| line.file().to_owned())
+        else {
+            return;
+        };
+        let launcher = gtk::FileLauncher::new(Some(&gtk::gio::File::for_path(&file)));
+        let window = self.root().and_downcast::<gtk::Window>();
+        launcher.launch(
+            window.as_ref(),
+            gtk::gio::Cancellable::NONE,
+            glib::clone!(
+                #[weak(rename_to = row)]
+                self,
+                move |result| {
+                    if let Err(error) = result {
+                        row.show_error(Some(&format!("The config can't be opened: {error}")));
+                    }
+                }
+            ),
+        );
+    }
+
+    /// Shows the reset button, the toggle, the badges and the ⋮ menu as `view` and the stored
+    /// value ask.
+    fn refresh_indicators(
+        &self,
+        setting: &'static Setting,
+        device: Option<&str>,
+        view: &SettingView,
+    ) {
+        let imp = self.imp();
+        let Some(model) = imp.model.get() else { return };
+        let layer = model.stored_in(setting, device);
+        let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
+        imp.reset.set_visible(layer.is_some());
+        imp.reset.set_sensitive(!read_only);
+        imp.reset
+            .set_tooltip_text(Some(&match (setting.scope(), device) {
+                (Scope::PerDevice(kind), Some(_)) => {
+                    format!("Use the value of {}", all_of_type(kind))
+                }
+                _ => "Reset to default".to_owned(),
+            }));
+        imp.machine.set_visible(layer.is_some());
+        imp.machine.set_sensitive(!read_only);
+        imp.updating.set(true);
+        imp.machine.set_active(layer == Some(Layer::Host));
+        imp.updating.set(false);
+
+        while let Some(badge) = imp.badges.first_child() {
+            imp.badges.remove(&badge);
+        }
+        let report = layer.and_then(|_| model.report(setting, device));
+        let found = report.as_ref().and_then(conflict_line);
+        match &found {
+            Some((Conflict::Wins, line)) => {
+                imp.badges
+                    .append(&badge("dialog-warning-symbolic", "Your config wins", true));
+                imp.conflict_title.set_text("Your config wins");
+                imp.conflict_text.set_text(
+                    "This line comes after the include line, so it decides after a reload.",
+                );
+                self.show_conflict(line);
+            }
+            Some((Conflict::Overridden, line)) => {
+                imp.badges
+                    .append(&badge("action-unavailable-symbolic", "Overridden", false));
+                imp.conflict_title.set_text("Overridden in your config");
+                imp.conflict_text.set_text(
+                    "Sway Things\u{2019} value comes later and wins; this line is no longer in effect.",
+                );
+                self.show_conflict(line);
+            }
+            None => {}
+        }
+        if let Some(locked @ Locked::Unsupported(_)) = &view.locked {
+            imp.badges.append(&badge(
+                "changes-prevent-symbolic",
+                &locked.to_string(),
+                false,
+            ));
+        }
+        imp.conflict.set_visible(found.is_some());
+        imp.conflict.set_sensitive(!read_only);
+        // The user's config can't win over a setting that can lock the user out: the safety
+        // net only resets it.
+        imp.let_config_win
+            .set_visible(setting.apply() != Apply::Risky);
+        imp.report
+            .replace(found.is_some().then_some(report).flatten());
+        imp.badges.set_visible(imp.badges.first_child().is_some());
+    }
+
+    fn show_conflict(&self, line: &UserLine) {
+        let imp = self.imp();
+        imp.conflict_place
+            .set_text(&format!("{}:{}", tilde(line.file()), line.line()));
+        imp.conflict_line.set_text(line.text());
     }
 
     /// The setting of the row.
@@ -288,6 +608,7 @@ impl SettingRow {
         }
         imp.line.set_text(view.line.as_deref().unwrap_or_default());
         imp.line.set_visible(view.line.is_some());
+        self.refresh_indicators(setting, device.as_deref(), &view);
         let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
@@ -587,12 +908,51 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
         }
         _ => {}
     }
-    match &view.locked {
-        Some(locked @ Locked::Unsupported(_)) => parts.push(locked.to_string()),
-        // The include line is explained once for the whole window, not on every row.
-        Some(Locked::ReadOnly(_)) | None => {}
-    }
+    // What the compositor lacks is a badge, and the include line is explained once for the
+    // whole window, not on every row.
     parts.join(" · ")
+}
+
+/// How a line of the user's config conflicts with the stored value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Conflict {
+    /// It comes after the generated files and decides.
+    Wins,
+    /// It comes before them and is no longer in effect.
+    Overridden,
+}
+
+/// The line of the user's config that conflicts with a stored value in `report`: the one that
+/// wins over it, else the last one it made dead.
+fn conflict_line(report: &Report) -> Option<(Conflict, &UserLine)> {
+    report
+        .overriding()
+        .map(|line| (Conflict::Wins, line))
+        .or_else(|| {
+            report
+                .overridden()
+                .last()
+                .map(|line| (Conflict::Overridden, line))
+        })
+}
+
+/// A badge under the line: an icon and a text. One that needs attention is marked as such.
+fn badge(icon: &str, text: &str, attention: bool) -> gtk::Box {
+    let badge = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+    badge.add_css_class("st-badge");
+    if attention {
+        badge.add_css_class("st-attention");
+    }
+    // The icon at the size of the text; a symbolic icon is drawn sharp at whole pixels.
+    let image = gtk::Image::builder()
+        .icon_name(icon)
+        .pixel_size(12)
+        .valign(gtk::Align::Center)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .build();
+    badge.append(&image);
+    badge.append(&gtk::Label::new(Some(text)));
+    badge
 }
 
 /// `path` with the home directory written as `~`.

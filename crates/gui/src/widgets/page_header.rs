@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The header at the top of a page: title and one-line description.
+//! The header at the top of a page: title and one-line description, and optionally a button at
+//! the end (Reset page…).
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -18,6 +19,7 @@ mod imp {
     pub struct PageHeader {
         pub title: gtk::Label,
         pub description: gtk::Label,
+        pub texts: gtk::Box,
     }
 
     impl Default for PageHeader {
@@ -28,6 +30,7 @@ mod imp {
                     .accessible_role(gtk::AccessibleRole::Heading)
                     .build(),
                 description: gtk::Label::default(),
+                texts: gtk::Box::new(gtk::Orientation::Vertical, 4),
             }
         }
     }
@@ -50,16 +53,19 @@ mod imp {
             self.parent_constructed();
             let header = self.obj();
             if let Some(layout) = header.layout_manager().and_downcast::<gtk::BoxLayout>() {
-                layout.set_orientation(gtk::Orientation::Vertical);
-                layout.set_spacing(4);
+                layout.set_orientation(gtk::Orientation::Horizontal);
+                layout.set_spacing(16);
             }
-            self.title.set_parent(&*header);
-            self.description.set_parent(&*header);
+            self.texts.set_hexpand(true);
+            self.texts.append(&self.title);
+            self.texts.append(&self.description);
+            self.texts.set_parent(&*header);
         }
 
         fn dispose(&self) {
-            self.title.unparent();
-            self.description.unparent();
+            while let Some(child) = self.obj().first_child() {
+                child.unparent();
+            }
         }
     }
 
@@ -88,6 +94,12 @@ impl PageHeader {
             label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
         }
         header
+    }
+
+    /// Puts `widget` at the end of the header, next to the title.
+    pub fn set_end(&self, widget: &impl IsA<gtk::Widget>) {
+        widget.set_valign(gtk::Align::Start);
+        widget.set_parent(self);
     }
 
     /// The title.

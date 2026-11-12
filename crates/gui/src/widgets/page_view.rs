@@ -14,7 +14,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
-use sway_things_core::registry::{Msg, Page, Registry, Scope};
+use sway_things_core::registry::{Msg, Page, Registry, Scope, Setting};
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
@@ -39,6 +39,7 @@ mod imp {
         pub scroller: gtk::ScrolledWindow,
         pub content: gtk::Box,
         pub header: OnceCell<super::PageHeader>,
+        pub reset: OnceCell<gtk::Button>,
     }
 
     #[glib::object_subclass]
@@ -193,12 +194,101 @@ impl PageView {
             ))]);
             body.append(&footer);
         }
-        Some(Self::new(tr(page.title()), tr(page.description()), &body))
+        let view = Self::new(tr(page.title()), tr(page.description()), &body);
+        view.add_page_reset(model, page);
+        Some(view)
+    }
+
+    /// Adds "Reset page…" to the header: after asking, it removes every stored value of `page`
+    /// that can't lock the user out. It can only be pressed while there is such a value.
+    fn add_page_reset(&self, model: &Model, page: Page) {
+        let button = gtk::Button::with_label("Reset page…");
+        button.connect_clicked(glib::clone!(
+            #[weak]
+            model,
+            move |button| confirm_page_reset(button, &model, page)
+        ));
+        let follow = glib::clone!(
+            #[weak]
+            button,
+            move |model: &Model| {
+                let writable = model.status().is_some_and(|status| status.is_active());
+                button.set_sensitive(writable && model.page_reset(page).0 > 0);
+            }
+        );
+        follow(model);
+        model.connect_changed(follow);
+        if let Some(header) = self.header() {
+            header.set_end(&button);
+        }
+        let _ = self.imp().reset.set(button);
+    }
+
+    /// The "Reset page…" button, on a page built from the registry.
+    pub fn reset_button(&self) -> Option<&gtk::Button> {
+        self.imp().reset.get()
     }
 
     /// The header of the page.
     pub fn header(&self) -> Option<&PageHeader> {
         self.imp().header.get()
+    }
+}
+
+/// Asks whether to reset `page`, naming what stays, and resets it on yes.
+fn confirm_page_reset(button: &gtk::Button, model: &Model, page: Page) {
+    let (removed, kept) = model.page_reset(page);
+    if removed == 0 {
+        return;
+    }
+    let values = if removed == 1 { "value" } else { "values" };
+    let names: Vec<String> = kept.iter().map(|setting| setting_name(setting)).collect();
+    let names = names.join(", ");
+    let kept_note = match kept.len() {
+        0 => String::new(),
+        1 => format!("\n\n{names} can lock you out, so it keeps its value; reset it from its row."),
+        _ => format!(
+            "\n\n{names} can lock you out, so they keep their values; reset them from their rows."
+        ),
+    };
+    let detail = format!(
+        "Sway Things no longer sets them: your config or sway\u{2019}s defaults decide \
+         again.{kept_note}"
+    );
+    let dialog = gtk::AlertDialog::builder()
+        .message(format!(
+            "Reset {removed} stored {values} of {}?",
+            tr(page.title())
+        ))
+        .detail(detail)
+        .buttons(["Cancel", "Reset"])
+        .cancel_button(0)
+        .default_button(0)
+        .modal(true)
+        .build();
+    let window = button.root().and_downcast::<gtk::Window>();
+    dialog.choose(
+        window.as_ref(),
+        gtk::gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            model,
+            move |answer| {
+                if answer == Ok(1) {
+                    model.reset_page(page);
+                }
+            }
+        ),
+    );
+}
+
+/// "Section › Title", or the title alone where they are the same.
+fn setting_name(setting: &Setting) -> String {
+    let (section, title) = (tr(setting.section()), tr(setting.title()));
+    if section == title {
+        title.to_owned()
+    } else {
+        format!("{section} › {title}")
     }
 }
 

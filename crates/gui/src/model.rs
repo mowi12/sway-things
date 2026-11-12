@@ -16,6 +16,12 @@
 //! [`Model::revert`], or the end of the countdown, puts the old value back. While the change
 //! waits ([`Model::pending_change`]), its row shows the tried value.
 //!
+//! A row's indicators act through the model too: [`Model::reset`] removes a stored value (a risky
+//! one through the safety net), [`Model::move_to`] moves it between the shared file and the host
+//! overlay, [`Model::let_config_win`] hands a setting back to the user's config, and
+//! [`Model::reset_page`] removes every stored value of a page that can't lock the user out.
+//! [`Model::report`] says where the user's config sets a setting too.
+//!
 //! In a session, the model also keeps the input devices current ([`Model::devices`]): a
 //! [`DeviceWatch`] reads them again on each `input` event of sway, and the devices that only have
 //! stored values are listed too. Without a session only those are known.
@@ -29,12 +35,13 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
 use sway_things_core::command::input::InputSelector;
+use sway_things_core::conflict::Report;
 use sway_things_core::devices::{DeviceWatch, Devices};
 use sway_things_core::generate::Locations;
-use sway_things_core::include::{IncludeStatus, IncludeWatch};
+use sway_things_core::include::{IncludeStatus, IncludeWatch, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor};
-use sway_things_core::registry::{Apply, Setting, Value, Values};
-use sway_things_core::state::State;
+use sway_things_core::registry::{Apply, Page, Setting, Value, Values};
+use sway_things_core::state::{Layer, State};
 use sway_things_core::view::SettingView;
 
 /// What the model does next, one at a time.
@@ -46,6 +53,21 @@ enum Op {
         device: Option<String>,
         value: Value,
     },
+    /// Removes a stored value; a risky one is tried with the safety net.
+    Reset {
+        key: &'static str,
+        device: Option<String>,
+    },
+    /// Moves a stored value to another settings file.
+    MoveTo {
+        key: &'static str,
+        device: Option<String>,
+        layer: Layer,
+    },
+    /// Removes the stored values of a setting, so the user's config decides it.
+    LetConfigWin(Report),
+    /// Removes every stored value of a page, except those of risky settings.
+    ResetPage(Page),
     /// Keeps the risky change that waits.
     Keep,
     /// Reverts the risky change that waits.
@@ -262,6 +284,81 @@ impl Model {
             .and_then(|core| core.pending.clone())
     }
 
+    /// The file the value of `setting` for `device` (`None`: the whole session or input type) is
+    /// stored in, or `None` if Sway Things stores no value of its own for it.
+    pub fn stored_in(&self, setting: &Setting, device: Option<&str>) -> Option<Layer> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .and_then(|core| core.state.layer(setting.key(), device))
+    }
+
+    /// The lines of the user's config that set `setting` for `device`, as last read. `None` for
+    /// a preference of Sway Things, or if the settings couldn't be loaded.
+    pub fn report(&self, setting: &'static Setting, device: Option<&str>) -> Option<Report> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        Report::check(&core.status, setting, device, Some(&core.devices))
+    }
+
+    /// Removes the stored value of `key` for `device`, so the user's config or sway's default
+    /// decides it again. A risky setting is tried with the safety net first.
+    pub fn reset(&self, key: &'static str, device: Option<&str>) {
+        self.queue(Op::Reset {
+            key,
+            device: device.map(str::to_owned),
+        });
+    }
+
+    /// Moves the stored value of `key` for `device` to the settings file `layer`.
+    pub fn move_to(&self, key: &'static str, device: Option<&str>, layer: Layer) {
+        self.queue(Op::MoveTo {
+            key,
+            device: device.map(str::to_owned),
+            layer,
+        });
+    }
+
+    /// Lets the user's config decide the setting of `report`: removes its stored values and
+    /// sends the user's value.
+    pub fn let_config_win(&self, report: Report) {
+        self.queue(Op::LetConfigWin(report));
+    }
+
+    /// What a reset of `page` does: the number of stored values it removes, and the settings
+    /// it leaves alone because they can lock the user out, by their stored values.
+    pub fn page_reset(&self, page: Page) -> (usize, Vec<&'static Setting>) {
+        let core = self.imp().core.borrow();
+        let Some(core) = core.as_ref() else {
+            return (0, Vec::new());
+        };
+        let mut removed = 0;
+        let mut kept = Vec::new();
+        for entry in core.state.entries() {
+            if entry.setting.page() != page {
+                continue;
+            }
+            if entry.setting.apply() == Apply::Risky {
+                if !kept
+                    .iter()
+                    .any(|setting: &&Setting| setting.key() == entry.setting.key())
+                {
+                    kept.push(entry.setting);
+                }
+            } else {
+                removed += 1;
+            }
+        }
+        (removed, kept)
+    }
+
+    /// Removes every stored value of `page`, except those of settings that can lock the user
+    /// out ([`Model::page_reset`]).
+    pub fn reset_page(&self, page: Page) {
+        self.queue(Op::ResetPage(page));
+    }
+
     /// Keeps the risky change that waits: stores it, to be saved like any other change.
     pub fn keep(&self) {
         self.queue(Op::Keep);
@@ -312,7 +409,14 @@ impl Model {
                 device: queued_device,
                 ..
             } => *queued_key == key && queued_device.as_deref() == device,
-            Op::Keep | Op::Revert | Op::Persist | Op::Reload => false,
+            Op::Reset { .. }
+            | Op::MoveTo { .. }
+            | Op::LetConfigWin(_)
+            | Op::ResetPage(_)
+            | Op::Keep
+            | Op::Revert
+            | Op::Persist
+            | Op::Reload => false,
         })
     }
 
@@ -388,29 +492,45 @@ impl Model {
         let mut applier = applier;
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
-            (Op::Set { key, device, .. }, Err(read_only)) => {
+            (
+                Op::Set { key, device, .. }
+                | Op::Reset { key, device }
+                | Op::MoveTo { key, device, .. },
+                Err(read_only),
+            ) => {
                 self.emit_failed(key, device.as_deref(), read_only.explanation());
             }
-            (Op::Set { key, device, value }, Ok(access)) => {
-                let risky = applier
-                    .state()
-                    .registry()
-                    .get(key)
-                    .is_some_and(|setting| setting.apply() == Apply::Risky);
-                let result = if risky {
-                    applier
-                        .try_risky(key, device.as_deref(), value, &status, &access)
-                        .await
-                        .map(|_| ())
-                } else {
-                    applier
-                        .set(key, device.as_deref(), value, &access)
-                        .await
-                        .map(|_| ())
-                };
-                if let Err(error) = result {
+            (Op::LetConfigWin(report), Err(read_only)) => {
+                self.emit_failed(report.key(), report.device(), read_only.explanation());
+            }
+            (Op::ResetPage(_), Err(read_only)) => self.emit_problem(read_only.explanation()),
+            (Op::Reset { key, device }, Ok(access)) => {
+                self.reset_now(&mut applier, key, device.as_deref(), &status, &access)
+                    .await;
+            }
+            (Op::MoveTo { key, device, layer }, Ok(access)) => {
+                if let Err(error) = applier.move_to(key, device.as_deref(), layer, &access) {
                     self.emit_failed(key, device.as_deref(), &error.to_string());
                 }
+            }
+            (Op::LetConfigWin(report), Ok(access)) => {
+                if let Err(error) = applier.let_config_win(&report, &access).await {
+                    self.emit_failed(report.key(), report.device(), &error.to_string());
+                }
+            }
+            (Op::ResetPage(page), Ok(access)) => {
+                self.reset_page_now(&mut applier, page, &access).await;
+            }
+            (Op::Set { key, device, value }, Ok(access)) => {
+                self.set_now(
+                    &mut applier,
+                    key,
+                    device.as_deref(),
+                    value,
+                    &status,
+                    &access,
+                )
+                .await;
             }
             (Op::Keep, Ok(access)) => {
                 if let Err(error) = applier.keep(&access) {
@@ -491,6 +611,68 @@ impl Model {
             core.devices_known = true;
         }
         self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// Changes `key` for `device` to `value`; a risky setting is tried with the safety net.
+    async fn set_now(
+        &self,
+        applier: &mut Applier,
+        key: &'static str,
+        device: Option<&str>,
+        value: Value,
+        status: &IncludeStatus,
+        access: &WriteAccess,
+    ) {
+        let result = if is_risky(applier, key) {
+            applier
+                .try_risky(key, device, value, status, access)
+                .await
+                .map(|_| ())
+        } else {
+            applier.set(key, device, value, access).await.map(|_| ())
+        };
+        if let Err(error) = result {
+            self.emit_failed(key, device, &error.to_string());
+        }
+    }
+
+    /// Removes the stored value of `key` for `device`; a risky setting is tried with the safety
+    /// net.
+    async fn reset_now(
+        &self,
+        applier: &mut Applier,
+        key: &'static str,
+        device: Option<&str>,
+        status: &IncludeStatus,
+        access: &WriteAccess,
+    ) {
+        let result = if is_risky(applier, key) {
+            applier
+                .try_risky_reset(key, device, status, access)
+                .await
+                .map(|_| ())
+        } else {
+            applier.reset(key, device, access).await.map(|_| ())
+        };
+        if let Err(error) = result {
+            self.emit_failed(key, device, &error.to_string());
+        }
+    }
+
+    /// Removes every stored value of `page`, except those of risky settings.
+    async fn reset_page_now(&self, applier: &mut Applier, page: Page, access: &WriteAccess) {
+        let stored: Vec<(&'static str, Option<String>)> = applier
+            .state()
+            .entries()
+            .into_iter()
+            .filter(|entry| entry.setting.page() == page && entry.setting.apply() != Apply::Risky)
+            .map(|entry| (entry.setting.key(), entry.device.map(str::to_owned)))
+            .collect();
+        for (key, device) in stored {
+            if let Err(error) = applier.reset(key, device.as_deref(), access).await {
+                self.emit_failed(key, device.as_deref(), &error.to_string());
+            }
+        }
     }
 
     /// Reverts the change that waits when `countdown` elapses, unless it was kept or reverted
@@ -612,6 +794,15 @@ impl Model {
             closure_local!(move |model: &Self, message: String| callback(model, &message)),
         )
     }
+}
+
+/// Whether `key` is a setting that only changes through the safety net.
+fn is_risky(applier: &Applier, key: &str) -> bool {
+    applier
+        .state()
+        .registry()
+        .get(key)
+        .is_some_and(|setting| setting.apply() == Apply::Risky)
 }
 
 /// The tried value of a risky change, and the stored values for the other keys.
