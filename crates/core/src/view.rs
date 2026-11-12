@@ -175,6 +175,8 @@ impl SettingView {
                     selector.as_ref(),
                 )
                 .ok()
+                // A value can set nothing, like idle inhibition that is off.
+                .filter(|line| !line.is_empty())
         });
 
         let requirements = setting.requirements();

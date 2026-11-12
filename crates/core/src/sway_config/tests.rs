@@ -557,7 +557,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 40);
+    assert_eq!(generated.len(), 53);
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),
         Some("button8")
@@ -598,6 +598,14 @@ fn the_sample_and_generated_configs_parse() {
     assert_eq!(
         find(&[], "client.focused").as_deref(),
         Some("#4c7899 #285577 #eeeeee #2e9ef4 #3b6e4f")
+    );
+    assert_eq!(
+        find(&[], "for_window").as_deref(),
+        Some("[all] inhibit_idle fullscreen")
+    );
+    assert_eq!(
+        find(&[], "floating_maximum_size").as_deref(),
+        Some("1600 x 900")
     );
 }
 

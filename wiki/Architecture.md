@@ -122,7 +122,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   `XKB_DEFAULT_OPTIONS`) and the default model (`xkb_model ""`, pc105). Like every setting, they are only written when
   stored.
 - **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
-  name covers independent values, the leading arguments (`gaps` + `inner`, `for_window` + `[all]` + `inhibit_idle`).
+  name covers independent values, the leading arguments (`gaps` + `inner`, `for_window` + `[all]` + `inhibit_idle`). A
+  value can render no line at all: idle inhibition that is off leaves the user's own `inhibit_idle` rules alone.
 - **Reading:** each sway setting also has a read function, the reverse of rendering: `Setting::read` takes a directive
   of the user's config and returns the value sway reads from it. The helpers follow sway's own parsing: its words for
   true (`parse_boolean`, everything else is false), `strtol` and `atoi` for numbers, `parse_color` with or without `#`
@@ -448,7 +449,7 @@ countdown, and save only on `y`. Without a TTY it refuses unless `--yes` is give
 | live | gaps, colors, input options | IPC command + persist |
 | reload | settings sway only honors at load | persist + `swaymsg reload` (with confirmation if disruptive) |
 | tool reload | kanshi, waybar, swaync | `kanshictl reload`, `SIGUSR2` to waybar, `swaync-client -R`, … |
-| re-login | environment.d | persist + "takes effect after re-login" badge |
+| re-login | environment.d, `xwayland` (sway reads it only at startup) | persist + "takes effect after re-login" badge |
 | risky | see above | live + safety net, persist on _Keep_ |
 
 ## Sway command builders
