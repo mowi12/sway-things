@@ -64,6 +64,17 @@ st-page list.st-section > row:not(:last-child) {
   border-bottom: 1px solid @borders;
 }
 
+/* The row a deep link points to: tinted with the accent at once, fading back. Without animations
+   GTK skips the transition. */
+st-page list.st-section > row {
+  transition: background-color 1s ease-out;
+}
+
+st-page list.st-section > row.st-highlight {
+  background-color: alpha(@theme_selected_bg_color, 0.18);
+  transition: none;
+}
+
 st-setting-row .st-row-detail {
   font-size: 0.85em;
 }

@@ -7,6 +7,7 @@
 //! - Contrast: the window is drawn with every page open, in GTK's own theme, light and dark, and
 //!   every text in it must reach WCAG AA against what is drawn under it.
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
+//! - Deep links: a link opens its page, and with a setting, focuses and tints its row.
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
 //!   settings, a locked setting can't be changed, and a failed change shows its error.
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
@@ -35,7 +36,7 @@ use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs};
-use sway_things_core::registry::{ConfigFile, Kind, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, Kind, Link, Page, Registry, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
@@ -217,6 +218,11 @@ fn main() -> ExitCode {
     set_dark(&settings, false);
     results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
     results.push(("keyboard: Esc goes back".to_owned(), check_escape()));
+    results.push(("deep links: page and setting".to_owned(), check_open_link()));
+    results.push((
+        "deep links: a hidden row only opens the page".to_owned(),
+        check_open_hidden_link(),
+    ));
     results.push(("rows: one per setting".to_owned(), check_rows()));
     results.push((
         "rows: a change reaches the settings".to_owned(),
@@ -610,6 +616,71 @@ fn check_escape() -> Outcome {
                 .position(|p| *p == Page::Keyboard)
                 .and_then(|i| i32::try_from(i).ok()),
         "the focus isn't on the open page's row",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A link to a page opens it; a link to a setting opens its page, tints its row and gives its
+/// control the focus, and the tint goes again.
+fn check_open_link() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let registry = Registry::builtin();
+
+    let link = Link::parse("windows", registry).map_err(|error| error.to_string())?;
+    window.open_link(&link);
+    ensure(
+        window.page() == Some(Page::Windows),
+        "  the page didn't open",
+    )?;
+
+    let key = "input.keyboard.repeat_rate";
+    let link = Link::parse(key, registry).map_err(|error| error.to_string())?;
+    window.open_link(&link);
+    ensure(
+        window.page() == Some(Page::Keyboard),
+        "  the setting's page didn't open",
+    )?;
+    let row = row(&window, key)?;
+    let tinted = || {
+        row.parent()
+            .is_some_and(|item| item.has_css_class(style::HIGHLIGHT))
+    };
+    ensure(tinted(), "  the row isn't tinted")?;
+    let focused = run_until(Duration::from_secs(5), || {
+        gtk::prelude::GtkWindowExt::focus(&window).is_some_and(|focus| focus.is_ancestor(&row))
+    });
+    ensure(focused, "  the row's control didn't get the focus")?;
+    ensure(
+        run_until(Duration::from_secs(5), || !tinted()),
+        "  the tint didn't go",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A link to a setting of an input type without devices opens the page and points to nothing.
+fn check_open_hidden_link() -> Outcome {
+    let sway = obedient_with_inputs(SWAY_1_10, format!("[{KEYBOARD}, {MOUSE}]"));
+    let fixture = live_fixture(&sway, "version = 1\n")?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let link = Link::parse("input.touchpad.tap", Registry::builtin())
+        .map_err(|error| error.to_string())?;
+    window.open_link(&link);
+    ensure(
+        window.page() == Some(Page::MouseTouchpad),
+        "  the page didn't open",
+    )?;
+    let row = row(&window, "input.touchpad.tap")?;
+    ensure(
+        row.parent()
+            .is_none_or(|item| !item.has_css_class(style::HIGHLIGHT)),
+        "  a hidden row is tinted",
     )?;
     window.destroy();
     Ok(())
