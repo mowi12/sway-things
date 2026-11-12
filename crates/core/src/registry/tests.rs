@@ -459,6 +459,63 @@ fn read(key: &str, line: &str) -> Option<Result<Value, ReadError>> {
 }
 
 #[test]
+fn every_setting_parses_back_the_values_it_shows() {
+    for setting in registry().iter() {
+        for value in samples(setting) {
+            let text = value.to_string();
+            assert_eq!(
+                setting.kind().parse(&text).as_ref(),
+                Ok(&value),
+                "{} = {text}",
+                setting.key()
+            );
+        }
+    }
+}
+
+#[test]
+fn values_are_parsed_as_typed_on_the_command_line() {
+    let parse = |key: &str, text: &str| setting(key).kind().parse(text);
+    assert_eq!(
+        parse("input.keyboard.xkb_layout", "us, de,,"),
+        Ok(Value::List(vec!["us".to_owned(), "de".to_owned()]))
+    );
+    assert_eq!(
+        parse("input.keyboard.xkb_layout", ""),
+        Ok(Value::List(Vec::new()))
+    );
+    assert_eq!(
+        parse("windows.focused.border", "#FFaa00"),
+        Ok(Value::Color(Color::rgb(0xff, 0xaa, 0)))
+    );
+    assert_eq!(
+        parse("windows.font", "pango:Sans, Bold 11"),
+        Ok(Value::Text("pango:Sans, Bold 11".to_owned()))
+    );
+
+    let error = |key: &str, text: &str| parse(key, text).unwrap_err().to_string();
+    assert_eq!(error("input.touchpad.tap", "yes"), "must be true or false");
+    assert_eq!(error("windows.gaps.inner", "8.5"), "must be a whole number");
+    assert_eq!(
+        error("windows.gaps.inner", "-1"),
+        "must be between 0 and 32767"
+    );
+    assert_eq!(
+        error("input.touchpad.pointer_accel", "fast"),
+        "must be a number"
+    );
+    assert_eq!(
+        error("input.touchpad.pointer_accel", "NaN"),
+        "must be between -1 and 1"
+    );
+    assert_eq!(
+        error("windows.focused.border", "red"),
+        "must be a color like #rrggbb or #rrggbbaa"
+    );
+    assert!(error("behavior.focus_follows_mouse", "maybe").starts_with("must be one of: "));
+}
+
+#[test]
 fn every_sway_setting_reads_back_what_it_renders() {
     for (setting, _) in sway_settings() {
         let mut samples = samples(setting);

@@ -11,6 +11,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The stand-in for sway in `ipc::stand_in`, for the tests of the crates built on the core.
+test-support = ["dep:tempfile"]
+
 [dependencies]
 async-channel.workspace = true
 async-io.workspace = true
@@ -22,6 +26,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 swayipc-types.workspace = true
+tempfile = { workspace = true, optional = true }
 toml_edit.workspace = true
 
 [dev-dependencies]

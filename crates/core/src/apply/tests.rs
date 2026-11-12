@@ -331,6 +331,34 @@ fn what_the_compositor_doesnt_support_is_refused_but_can_be_reset() {
 }
 
 #[test]
+fn a_value_moves_between_the_files_without_sending_anything() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 8\n");
+    let moved = setup
+        .applier
+        .move_to(GAPS, None, Layer::Host, &setup.access)
+        .unwrap();
+    assert!(moved);
+    assert_eq!(setup.applier.state().layer(GAPS, None), Some(Layer::Host));
+    assert!(setup.applier.save_due().is_some());
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+    setup.persist(&[]);
+    let host = fs::read_to_string(setup.dir.path().join("config/settings.d/laptop.toml")).unwrap();
+    assert!(host.contains("inner = 8"), "{host}");
+    assert_eq!(
+        fs::read_to_string(setup.settings()).unwrap(),
+        "version = 1\n"
+    );
+
+    // A value that isn't stored has nothing to move.
+    let moved = setup
+        .applier
+        .move_to(RADIUS, None, Layer::Shared, &setup.access)
+        .unwrap();
+    assert!(!moved);
+}
+
+#[test]
 fn a_reset_sends_the_default_and_removes_the_value() {
     let sway = obedient(SWAY);
     let mut setup = Setup::live(

@@ -19,10 +19,10 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, SAVE_DELAY};
 use sway_things_core::generate::Locations;
-use sway_things_core::include::{IncludeStatus, IncludeWatch, MainConfig};
+use sway_things_core::include::{IncludeStatus, IncludeWatch};
 use sway_things_core::ipc::Compositor;
-use sway_things_core::registry::{Registry, Setting, Value};
-use sway_things_core::state::{Paths, State};
+use sway_things_core::registry::{Setting, Value};
+use sway_things_core::state::State;
 use sway_things_core::view::SettingView;
 
 /// What the model does next, one at a time.
@@ -141,22 +141,9 @@ impl Model {
     }
 
     async fn connect() -> Result<(Applier, IncludeWatch), String> {
-        let paths = Paths::from_env().map_err(|error| error.to_string())?;
-        let locations = Locations::from_env().map_err(|error| error.to_string())?;
-        let state = State::load(Registry::builtin(), paths);
-        let mut applier = Applier::connect(state, locations.clone())
-            .await
+        let (applier, main) = Applier::open().await.map_err(|error| error.to_string())?;
+        let watch = IncludeWatch::new(main, applier.locations().clone())
             .map_err(|error| error.to_string())?;
-        let main = match applier.client() {
-            Some(client) => match client.version().await {
-                Ok(version) if !version.loaded_config_file_name.is_empty() => {
-                    MainConfig::Path(version.loaded_config_file_name.into())
-                }
-                _ => MainConfig::Default,
-            },
-            None => MainConfig::Default,
-        };
-        let watch = IncludeWatch::new(main, locations).map_err(|error| error.to_string())?;
         Ok((applier, watch))
     }
 

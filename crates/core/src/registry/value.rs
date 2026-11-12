@@ -4,6 +4,7 @@
 //! The values a setting can hold and the value types that check them.
 
 use std::fmt;
+use std::str::FromStr;
 
 use super::Msg;
 use crate::command::Color;
@@ -38,6 +39,21 @@ impl Value {
             Self::Color(_) => "color",
             Self::Text(_) => "text",
             Self::List(_) => "list",
+        }
+    }
+}
+
+/// The value as it is typed on the command line, which [`Kind::parse`] reads back: `true`, `8`,
+/// `0.5`, a choice's id, `#rrggbb`, the text itself, or the items of a list joined by commas.
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bool(value) => value.fmt(f),
+            Self::Integer(value) => value.fmt(f),
+            Self::Decimal(value) => value.fmt(f),
+            Self::Choice(text) | Self::Text(text) => f.write_str(text),
+            Self::Color(color) => color.fmt(f),
+            Self::List(items) => f.write_str(&items.join(",")),
         }
     }
 }
@@ -143,6 +159,43 @@ impl Kind {
         }
     }
 
+    /// Reads a value of this type from `text` as it is typed on the command line, and checks it
+    /// like [`Kind::check`]: `true` or `false`, a number, a choice's id, a color as `#rrggbb` or
+    /// `#rrggbbaa`, any text, or a list as its items separated by commas (`us,de`, like sway's
+    /// `xkb_layout`; blanks around an item are dropped, and an empty text is an empty list).
+    ///
+    /// # Errors
+    ///
+    /// A [`ValueError`] that says what is wrong with the text.
+    pub fn parse(&self, text: &str) -> Result<Value, ValueError> {
+        let unparsable = || ValueError::Unparsable {
+            expected: self.type_name(),
+        };
+        let value = match self {
+            Self::Bool { .. } => match text {
+                "true" => Value::Bool(true),
+                "false" => Value::Bool(false),
+                _ => return Err(unparsable()),
+            },
+            Self::Integer { .. } => Value::Integer(text.parse().map_err(|_| unparsable())?),
+            Self::Decimal { .. } => Value::Decimal(text.parse().map_err(|_| unparsable())?),
+            Self::Choice { .. } => Value::Choice(text.to_owned()),
+            Self::Color { .. } => {
+                Value::Color(Color::from_str(text).map_err(|_| ValueError::NotAColor)?)
+            }
+            Self::Text { .. } => Value::Text(text.to_owned()),
+            Self::List { .. } => Value::List(
+                text.split(',')
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+            ),
+        };
+        self.check(&value)?;
+        Ok(value)
+    }
+
     /// Checks that `value` has this type and is within its limits.
     ///
     /// Text and list values are only checked for their type here. What sway accepts in them
@@ -219,6 +272,11 @@ pub enum ValueError {
     },
     /// The text isn't a color in `#rrggbb` or `#rrggbbaa` notation.
     NotAColor,
+    /// The text can't be read as a value of the setting's type.
+    Unparsable {
+        /// The type the setting takes.
+        expected: &'static str,
+    },
     /// The value isn't one of the setting's choices.
     UnknownChoice {
         /// The choices the setting has.
@@ -239,6 +297,16 @@ impl fmt::Display for ValueError {
                 write!(f, "must be between {min} and {max}")
             }
             Self::NotAColor => f.write_str("must be a color like #rrggbb or #rrggbbaa"),
+            Self::Unparsable {
+                expected: "boolean",
+            } => f.write_str("must be true or false"),
+            Self::Unparsable {
+                expected: "integer",
+            } => f.write_str("must be a whole number"),
+            Self::Unparsable {
+                expected: "decimal",
+            } => f.write_str("must be a number"),
+            Self::Unparsable { expected } => write!(f, "must be a {expected} value"),
             Self::UnknownChoice { choices } => {
                 f.write_str("must be one of: ")?;
                 for (index, choice) in choices.iter().enumerate() {

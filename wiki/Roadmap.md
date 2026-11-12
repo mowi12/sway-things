@@ -16,7 +16,7 @@ Milestones on GitHub correspond to releases.
 - [x] IPC client (async-io based): run command, `get_*`, event subscriptions; sway vs. SwayFX detection
 - [x] Generators with header, manifest hashes, atomic writes, `sway --validate`
 - [x] Sway config parser (includes, variables, blocks, file:line) + conflict detection
-- [ ] Include-line detection, first-run instructions, read-only mode until enabled
+- [x] Include-line detection, first-run instructions, read-only mode until enabled
 - [ ] CLI: `get`, `set` (terminal countdown, or `--yes` without a TTY, for risky settings), `reset`, `open`, `doctor`,
       `show-generated`
 - [ ] App shell: sidebar with all pages listed (unbuilt ones show a placeholder), setting-level search, keyboard

@@ -53,10 +53,16 @@ fn the_parser_finds_the_modes_sway_has() -> Result<(), Box<dyn Error>> {
             ]
         );
 
-        // What sway skipped is what the parser reports.
+        // What sway skipped is what the parser reports. The includes of the directories the
+        // tests write generated files into match only once a test has written there.
+        let runtime = std::env::var_os("XDG_RUNTIME_DIR").unwrap_or_default();
         let kinds: Vec<&str> = config
             .diagnostics
             .iter()
+            .filter(|diagnostic| {
+                !matches!(&diagnostic.kind, DiagnosticKind::IncludeNotFound { path }
+                    if !runtime.is_empty() && path.starts_with(&runtime))
+            })
             .map(|diagnostic| match &diagnostic.kind {
                 DiagnosticKind::AlreadyIncluded { .. } => "already included",
                 DiagnosticKind::IncludeNotFound { .. } => "not found",

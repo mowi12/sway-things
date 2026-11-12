@@ -33,6 +33,8 @@
 
 mod compositor;
 mod events;
+#[cfg(any(test, feature = "test-support"))]
+pub mod stand_in;
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) mod wire;
