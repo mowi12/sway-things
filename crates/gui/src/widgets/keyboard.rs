@@ -7,7 +7,9 @@
 //! - below the layouts: the [`LayoutList`] and _Active layout_, which switches the layout in use
 //!   now;
 //! - the keyboard model as a drop-down of the models of the XKB rules;
-//! - below the model, at the end of the section: _Try it_, a field to type in.
+//! - below the model, at the end of the section: _Try it_, a field to type in;
+//! - below the XKB options: the common options ([`xkb_options::common`]) and the
+//!   [`OptionBrowser`].
 //!
 //! Each part follows the device the row it belongs to is for.
 
@@ -19,12 +21,15 @@ use sway_things_core::registry::Setting;
 
 use super::SettingRow;
 use super::layout_list::{LAYOUTS, LayoutList};
+use super::xkb_options::{self, OptionBrowser};
 use crate::model::Model;
 use crate::style;
 use crate::xkb;
 
 /// The key of the keyboard model.
 const MODEL: &str = "input.keyboard.xkb_model";
+/// The key of the XKB options.
+const OPTIONS: &str = "input.keyboard.xkb_options";
 
 /// The choices of a text setting the page offers as a drop-down: the keyboard models, with the
 /// default first. `None` for other settings.
@@ -61,6 +66,11 @@ pub fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
             active_layout(model, row),
         ],
         MODEL => vec![try_it()],
+        OPTIONS => {
+            let mut widgets = xkb_options::common(model, row);
+            widgets.push(OptionBrowser::new(model, row).upcast());
+            widgets
+        }
         _ => Vec::new(),
     }
 }

@@ -17,8 +17,8 @@
 //! - Devices: the device selectors list the devices of their type, a row changes the value of
 //!   the device picked, a type without devices shows a hint, and devices come and go live.
 //! - Keyboard page: the layout list moves, adds and removes layouts with their variants through
-//!   the safety net and keeps the last layout, the model is a drop-down, and the active layout
-//!   switches.
+//!   the safety net, keeps the last layout, the XKB options change through their drop-downs,
+//!   switch and browser, the model is a drop-down, and the active layout switches.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
 //! without a session or in the session of the stand-in for sway, and never saves, so nothing
@@ -50,7 +50,9 @@ use sway_things_gui::contrast::{self, TextSample};
 use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
-use sway_things_gui::widgets::{DeviceSelector, LayoutList, PageView, SettingRow, TestArea};
+use sway_things_gui::widgets::{
+    DeviceSelector, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
+};
 use sway_things_gui::window::Window;
 
 /// The theme the window is checked in: the one GTK ships, so results don't depend on the machine.
@@ -1936,6 +1938,7 @@ fn check_keyboard() -> Vec<(String, Outcome)> {
             "keyboard page: layouts are added and the last one stays".to_owned(),
             check_layout_add_remove(),
         ),
+        ("keyboard page: XKB options".to_owned(), check_xkb_options()),
         (
             "keyboard page: model and active layout".to_owned(),
             check_model_and_active_layout(),
@@ -1945,6 +1948,7 @@ fn check_keyboard() -> Vec<(String, Outcome)> {
 
 const LAYOUTS: &str = "input.keyboard.xkb_layout";
 const VARIANTS: &str = "input.keyboard.xkb_variant";
+const XKB_OPTIONS: &str = "input.keyboard.xkb_options";
 
 /// A keyboard with two layouts, the first one in use.
 const KEYBOARD_WITH_LAYOUTS: &str = r#"{"identifier": "1:1:AT_Translated_Set_2_keyboard",
@@ -2055,6 +2059,56 @@ fn check_layout_add_remove() -> Outcome {
         !shown(&fixture.model, LAYOUTS)?.1 && !shown(&fixture.model, VARIANTS)?.1,
         "  the reverted layouts are stored",
     )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The swap switch and an option of the browser try the options through the safety net.
+fn check_xkb_options() -> Outcome {
+    let sway = laptop();
+    let fixture = live_fixture(&sway, STORED)?;
+    let window = open(&fixture, Page::Keyboard)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let swap_switch = all::<gtk::Switch>(&content)
+        .into_iter()
+        .find(|switch| {
+            switch.accessible_role() == gtk::AccessibleRole::Switch
+                && switch.tooltip_text().is_none()
+                && switch.ancestor(SettingRow::static_type()).is_none()
+        })
+        .ok_or_else(|| "  no swap switch".to_owned())?;
+    swap_switch.set_active(true);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        shown(&fixture.model, XKB_OPTIONS)?
+            == (Value::List(strings(&["ctrl:swap_lalt_lctl"])), false),
+        "  the swap switch doesn't try its option",
+    )?;
+    window.revert_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        !swap_switch.is_active(),
+        "  the switch doesn't show the old value",
+    )?;
+
+    let browser = widget::<OptionBrowser>(&window)?;
+    browser.expander().set_expanded(true);
+    if let Some(check) = browser.check("compose:ralt") {
+        check.set_active(true);
+        wait_for_model(&fixture.model)?;
+        ensure(
+            shown(&fixture.model, XKB_OPTIONS)? == (Value::List(strings(&["compose:ralt"])), false),
+            "  the browser doesn't try its option",
+        )?;
+        window.keep_button().emit_clicked();
+        wait_for_model(&fixture.model)?;
+        ensure(
+            shown(&fixture.model, XKB_OPTIONS)? == (Value::List(strings(&["compose:ralt"])), true),
+            "  the kept option isn't stored",
+        )?;
+    }
     window.destroy();
     Ok(())
 }
