@@ -29,6 +29,7 @@ allow_attributes_without_reason = "deny"
 async-channel = "2"
 async-io = "2"
 async-process = "2"
+clap = { version = "4", features = ["derive"] }
 futures-lite = { version = "2", default-features = false, features = ["std"] }
 gtk = { package = "gtk4", version = "0.10", features = ["v4_18"] }
 notify = { version = "8", default-features = false }

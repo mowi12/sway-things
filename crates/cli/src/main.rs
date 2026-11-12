@@ -3,4 +3,13 @@
 
 //! `sway-things`: the command-line interface of Sway Things.
 
-fn main() {}
+use std::process::ExitCode;
+
+use clap::Parser;
+use sway_things_cli::{Cli, run_for_user};
+
+fn main() -> ExitCode {
+    // Wrong arguments end here with clap's message and exit code 2.
+    let cli = Cli::parse();
+    async_io::block_on(run_for_user(&cli.command)).into()
+}
