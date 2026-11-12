@@ -75,8 +75,9 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 - **Narrow mode:** sway often gives the window half a screen or less. Below a width threshold the app shows one pane at
   a time: sidebar, then the page with a back button. The threshold is decided while building the shell in v0.1, from
   real page widths.
-- **Deep links:** `sway-things open displays`, `sway-things open keyboard/repeat-rate`. Waybar modules, bindings and
-  launchers can jump straight to a page or setting.
+- **Deep links:** `sway-things open displays`, `sway-things open input.keyboard.repeat_rate`: a page id or the key of a
+  setting. Waybar modules, bindings and launchers can jump straight to a page or setting; a setting's row is scrolled
+  into view, focused and highlighted briefly. A setting of an input type without devices opens just the page.
 - **Single instance:** starting the app again focuses the existing window and switches page.
 - **Stable app_id** `io.github.mowi12.SwayThings`, so users can write rules for it, e.g.
   `for_window [app_id="io.github.mowi12.SwayThings"] floating enable`.

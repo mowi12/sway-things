@@ -15,6 +15,9 @@ pub const CSS: &str = include_str!("style.css");
 /// WCAG AA contrast in GTK's own theme.
 pub const DIM: &str = "st-dim";
 
+/// The style class of a row a deep link points to: tinted with the accent for a moment.
+pub const HIGHLIGHT: &str = "st-highlight";
+
 /// Loads the style sheet for the default display. Call it once, after GTK is initialized.
 pub fn load() {
     let Some(display) = gdk::Display::default() else {

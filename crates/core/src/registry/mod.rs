@@ -36,6 +36,7 @@ mod app;
 mod behavior;
 mod effects;
 mod input;
+mod link;
 mod page;
 mod read;
 mod setting;
@@ -50,6 +51,7 @@ use std::sync::LazyLock;
 use crate::command::input::InputSelector;
 use crate::command::{SwayCmd, Target};
 
+pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
 pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder, Slider};

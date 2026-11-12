@@ -9,7 +9,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::Pending;
-use sway_things_core::registry::{Page, Registry};
+use sway_things_core::registry::{Link, Page, Registry};
 
 use crate::i18n::tr;
 use crate::model::Model;
@@ -213,6 +213,27 @@ impl Window {
         }
         self.open_page(page);
         self.follow_status();
+    }
+
+    /// Opens what `link` points to: its page, and with a setting, the setting's row, scrolled into
+    /// view, focused and tinted for a moment. A setting without a row shown, like one of an input
+    /// type without devices, only opens the page.
+    pub fn open_link(&self, link: &Link) {
+        let page = link.page();
+        self.show_page(page);
+        let Some(setting) = link.setting() else {
+            return;
+        };
+        let view = self
+            .imp()
+            .pages
+            .child_by_name(page.id())
+            .and_downcast::<PageView>();
+        if let Some((view, row)) =
+            view.and_then(|view| Some((view.clone(), view.row(setting.key())?)))
+        {
+            view.point_to(&row);
+        }
     }
 
     /// Opens `page` and marks it in the sidebar.

@@ -7,8 +7,12 @@
 //! settings start with a [`DeviceSelector`]: one for each run of sections of the same input type,
 //! which picks the device all their rows are for. While no device of the type is connected and
 //! nothing is stored for the type, the run shows its first heading and a hint instead of its rows.
+//!
+//! A deep link points to a row: [`PageView::point_to`] scrolls it into view, gives its control the
+//! keyboard focus and tints it with the accent for a moment.
 
 use std::collections::BTreeSet;
+use std::time::Duration;
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -27,8 +31,11 @@ use crate::style;
 /// The widest a page's content gets, in pixels.
 pub const MAXIMUM_WIDTH: i32 = 760;
 
+/// How long a row a deep link points to stays tinted before it fades back.
+const HIGHLIGHT: Duration = Duration::from_millis(1500);
+
 mod imp {
-    use std::cell::OnceCell;
+    use std::cell::{OnceCell, RefCell};
 
     use gtk::glib;
     use gtk::prelude::*;
@@ -40,6 +47,12 @@ mod imp {
         pub content: gtk::Box,
         pub header: OnceCell<super::PageHeader>,
         pub reset: OnceCell<gtk::Button>,
+        /// The setting rows of a page built from the registry.
+        pub rows: RefCell<Vec<super::SettingRow>>,
+        /// Waits for the row a deep link points to to be laid out.
+        pub pointing: RefCell<Option<gtk::TickCallbackId>>,
+        /// The tinted row and the timeout that takes the tint away.
+        pub highlight: RefCell<Option<(gtk::Widget, glib::SourceId)>>,
     }
 
     #[glib::object_subclass]
@@ -113,6 +126,7 @@ impl PageView {
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
         let mut files = BTreeSet::new();
+        let mut rows = Vec::new();
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
@@ -164,6 +178,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             list.append(&list_row(&row));
+            rows.push(row);
         }
         section.as_ref()?;
         for group in groups {
@@ -195,6 +210,7 @@ impl PageView {
             body.append(&footer);
         }
         let view = Self::new(tr(page.title()), tr(page.description()), &body);
+        view.imp().rows.replace(rows);
         view.add_page_reset(model, page);
         Some(view)
     }
@@ -232,6 +248,81 @@ impl PageView {
     /// The header of the page.
     pub fn header(&self) -> Option<&PageHeader> {
         self.imp().header.get()
+    }
+
+    /// The row of the setting with `key`, if the page shows one: lists have no row yet, and the
+    /// rows of an input type without devices are hidden.
+    pub fn row(&self, key: &str) -> Option<SettingRow> {
+        let rows = self.imp().rows.borrow();
+        let row = rows
+            .iter()
+            .find(|row| row.setting().is_some_and(|setting| setting.key() == key))?;
+        let mut widget = Some(row.clone().upcast::<gtk::Widget>());
+        while let Some(shown) = widget {
+            if !shown.is_visible() {
+                return None;
+            }
+            if shown == *self.upcast_ref::<gtk::Widget>() {
+                break;
+            }
+            widget = shown.parent();
+        }
+        Some(row.clone())
+    }
+
+    /// Points to `row`, as a deep link does: tints it with the accent, and once it is laid out,
+    /// scrolls it into view and gives its control the keyboard focus. The tint fades after a
+    /// moment, or goes at once without animations.
+    pub fn point_to(&self, row: &SettingRow) {
+        let imp = self.imp();
+        let tinted = row.parent().unwrap_or_else(|| row.clone().upcast());
+        if let Some((old, timeout)) = imp.highlight.take() {
+            old.remove_css_class(style::HIGHLIGHT);
+            timeout.remove();
+        }
+        tinted.add_css_class(style::HIGHLIGHT);
+        let timeout = glib::timeout_add_local_once(
+            HIGHLIGHT,
+            glib::clone!(
+                #[weak(rename_to = view)]
+                self,
+                move || {
+                    if let Some((tinted, _)) = view.imp().highlight.take() {
+                        tinted.remove_css_class(style::HIGHLIGHT);
+                    }
+                }
+            ),
+        );
+        imp.highlight.replace(Some((tinted.clone(), timeout)));
+
+        if let Some(old) = imp.pointing.take() {
+            old.remove();
+        }
+        // A page that was just built, or a window that isn't shown yet, has no layout to scroll
+        // in: wait for the frame after the row got its place.
+        let tick = row.add_tick_callback(glib::clone!(
+            #[weak(rename_to = view)]
+            self,
+            #[upgrade_or]
+            glib::ControlFlow::Break,
+            move |row, _| {
+                if !row.is_mapped() || row.height() == 0 {
+                    return glib::ControlFlow::Continue;
+                }
+                view.imp().pointing.take();
+                if let Some(viewport) = view.imp().scroller.child().and_downcast::<gtk::Viewport>()
+                {
+                    viewport.scroll_to(&tinted, None);
+                }
+                if let Some(control) = row.controls().first() {
+                    if !control.grab_focus() {
+                        control.child_focus(gtk::DirectionType::TabForward);
+                    }
+                }
+                glib::ControlFlow::Break
+            }
+        ));
+        imp.pointing.replace(Some(tick));
     }
 }
 
