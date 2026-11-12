@@ -303,14 +303,25 @@ mod tests {
 
     const DEBOUNCE: Duration = Duration::from_millis(100);
 
+    /// The pause between the writes of a burst.
+    const BURST_PAUSE: Duration = Duration::from_millis(10);
+
+    /// A debounce far longer than [`BURST_PAUSE`], so a busy machine can't split a burst.
+    const BURST_DEBOUNCE: Duration = Duration::from_millis(500);
+
     /// A directory with a watcher on `settings.toml` and `settings.d/laptop.toml` in it.
     struct Fixture {
         dir: tempfile::TempDir,
         watcher: Watcher,
+        debounce: Duration,
     }
 
     impl Fixture {
         fn new(prepare: impl FnOnce(&Path)) -> Self {
+            Self::with_debounce(DEBOUNCE, prepare)
+        }
+
+        fn with_debounce(debounce: Duration, prepare: impl FnOnce(&Path)) -> Self {
             let dir = tempfile::tempdir().unwrap();
             prepare(dir.path());
             let watcher = Watcher::new(
@@ -318,10 +329,14 @@ mod tests {
                     dir.path().join("settings.toml"),
                     dir.path().join("settings.d/laptop.toml"),
                 ],
-                DEBOUNCE,
+                debounce,
             )
             .unwrap();
-            Self { dir, watcher }
+            Self {
+                dir,
+                watcher,
+                debounce,
+            }
         }
 
         fn shared(&self) -> PathBuf {
@@ -346,18 +361,20 @@ mod tests {
 
         /// Asserts that nothing more is reported.
         fn quiet(&self) {
-            thread::sleep(DEBOUNCE * 4);
+            thread::sleep(self.debounce * 4);
             assert_eq!(self.watcher.try_changed(), None);
         }
     }
 
     #[test]
     fn a_burst_of_writes_is_one_report() {
-        let fixture = Fixture::new(|dir| fs::write(dir.join("settings.toml"), "a = 0\n").unwrap());
+        let fixture = Fixture::with_debounce(BURST_DEBOUNCE, |dir| {
+            fs::write(dir.join("settings.toml"), "a = 0\n").unwrap();
+        });
         fixture.quiet();
         for round in 1..=5 {
             fs::write(fixture.shared(), format!("a = {round}\n")).unwrap();
-            thread::sleep(DEBOUNCE / 10);
+            thread::sleep(BURST_PAUSE);
         }
         assert_eq!(fixture.report(), [fixture.shared()]);
         // By the time of the report the files are quiet, so it is safe to read them.
