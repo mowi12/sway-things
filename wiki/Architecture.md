@@ -895,8 +895,11 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   the user's config comes from, an error under the title when a change failed, and the control for its value type: a
   switch (on/off), a slider over the setting's slider range plus a number field for every value it accepts (whole and
   decimal numbers), a drop-down (choice), a color button (color) and an entry, applied on Enter or when it loses the
-  focus (text). Lists get their own widget with the Keyboard page. A locked setting is insensitive, with the reason as
-  tooltip and accessible description.
+  focus (text). A text setting with known values (`SettingRow::with_choices`, the keyboard models) gets a drop-down with
+  search instead, which shows a value typed by hand at its end. A list gets a row without a control, and its page shows
+  its own widget below the row, which follows the row's device (`connect_device_changed`) and changes the value through
+  it (`SettingRow::change`), so refusals show at the row. A locked setting is insensitive, with the reason as tooltip
+  and accessible description.
 - **Pages from the registry:** `PageView::for_settings(model, page)` builds a page from the registry: a heading and a
   bordered list per section, and the generated files the page writes to at the bottom. Every page with settings is built
   this way; custom pages can mix these rows with their own widgets.

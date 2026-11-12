@@ -37,7 +37,7 @@ use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs};
-use sway_things_core::registry::{ConfigFile, Kind, Link, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
@@ -765,9 +765,7 @@ fn check_rows() -> Outcome {
         let window = open(&fixture, page)?;
         let expected: Vec<&str> = Registry::builtin()
             .iter()
-            .filter(|setting| {
-                setting.page() == page && !matches!(setting.kind(), Kind::List { .. })
-            })
+            .filter(|setting| setting.page() == page)
             .map(sway_things_core::registry::Setting::key)
             .collect();
         let content = window
