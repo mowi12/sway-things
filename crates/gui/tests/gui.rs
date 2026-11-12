@@ -9,6 +9,8 @@
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
 //! - Deep links: a link opens its page, and with a setting, focuses and tints its row (expanding
 //!   its group first).
+//! - Search: results replace the pages, a result opens its page and points to its row, pages
+//!   without settings are found by name, and Esc goes back and ends the search.
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
 //!   settings, a locked setting can't be changed, a failed change shows its error, and the line
 //!   of the sway config shows while its preference is on.
@@ -239,6 +241,7 @@ fn main() -> ExitCode {
         "deep links: a member of a group expands it".to_owned(),
         check_open_group_link(),
     ));
+    results.extend(check_searches());
     results.extend(check_setting_rows());
     results.extend(check_safety_net());
     results.push((
@@ -300,6 +303,10 @@ fn check_screens(screenshots: Option<&Path>, scheme: &str) -> Vec<(String, Outco
     results.push((
         format!("contrast: a type without devices ({scheme})"),
         check_no_devices_screen(screenshots, scheme),
+    ));
+    results.push((
+        format!("contrast: search results ({scheme})"),
+        check_search_screens(screenshots, scheme),
     ));
     results
 }
@@ -728,6 +735,237 @@ fn check_open_hidden_link() -> Outcome {
     )?;
     window.destroy();
     Ok(())
+}
+
+/// The checks of the search in the sidebar.
+fn check_searches() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "search: a result opens its setting".to_owned(),
+            check_search(),
+        ),
+        (
+            "search: pages are found by name".to_owned(),
+            check_search_pages(),
+        ),
+        (
+            "search: a member of a group".to_owned(),
+            check_search_group(),
+        ),
+        (
+            "search: the sidebar keeps its width".to_owned(),
+            check_search_width(),
+        ),
+    ]
+}
+
+/// A member of a group is found by the group's title, its result says where it is, and opening
+/// it expands the group and tints the member's row.
+fn check_search_group() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let sidebar = window.sidebar();
+    sidebar.search("focused window border");
+    let first = sidebar
+        .results()
+        .row_at_index(0)
+        .ok_or("  \"focused window border\" finds nothing")?;
+    let texts: Vec<String> = all::<gtk::Label>(first.upcast_ref())
+        .iter()
+        .map(|label| label.label().to_string())
+        .collect();
+    ensure(
+        texts == ["Title bar border", "Windows › Focused window"],
+        &format!("  the first result reads {texts:?}"),
+    )?;
+    first.activate();
+    ensure(
+        window.page() == Some(Page::Windows),
+        "  the result's page didn't open",
+    )?;
+    ensure(
+        group(&window, "windows.focused")?.is_expanded(),
+        "  the result didn't expand its group",
+    )?;
+    let row = row(&window, "windows.focused.border")?;
+    ensure(
+        row.parent()
+            .is_some_and(|item| item.is_visible() && item.has_css_class(style::HIGHLIGHT)),
+        "  the member's row isn't shown and tinted",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Searching shows results instead of the pages; a result opens its page and tints and focuses
+/// its row. Esc goes from the page back to the result, then ends the search.
+fn check_search() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let sidebar = window.sidebar();
+    let results = sidebar.results();
+
+    ensure(!sidebar.is_searching(), "  the sidebar starts searching")?;
+    sidebar.search("DPI");
+    ensure(sidebar.is_searching(), "  the results aren't shown")?;
+    ensure(
+        results.row_at_index(1).is_some(),
+        "  \"DPI\" doesn't find the pointer speed of mice and touchpads",
+    )?;
+
+    ensure(
+        sidebar.focus_selected(),
+        "  the results can't take the focus",
+    )?;
+    let focused = results.focus_child().and_downcast::<gtk::ListBoxRow>();
+    ensure(
+        focused.as_ref().map(gtk::ListBoxRow::index) == Some(0),
+        "  the first result doesn't get the focus",
+    )?;
+    results.emit_activate_cursor_row();
+    ensure(
+        window.page() == Some(Page::MouseTouchpad),
+        "  the result's page didn't open",
+    )?;
+    ensure(
+        sidebar.is_searching(),
+        "  opening a result ended the search",
+    )?;
+    let key = "input.pointer.pointer_accel";
+    let row = row(&window, key)?;
+    ensure(
+        row.parent()
+            .is_some_and(|item| item.has_css_class(style::HIGHLIGHT)),
+        "  the setting's row isn't tinted",
+    )?;
+    let focused = run_until(Duration::from_secs(5), || {
+        gtk::prelude::GtkWindowExt::focus(&window).is_some_and(|focus| focus.is_ancestor(&row))
+    });
+    ensure(focused, "  the setting's control didn't get the focus")?;
+
+    ensure(
+        window.back_to_sidebar(),
+        "  Esc didn't go back to the results",
+    )?;
+    let focus = gtk::prelude::GtkWindowExt::focus(&window);
+    ensure(
+        focus
+            .and_downcast::<gtk::ListBoxRow>()
+            .is_some_and(|row| row.index() == 0 && row.is_ancestor(results)),
+        "  the focus isn't on the opened result",
+    )?;
+    ensure(sidebar.stop_search(), "  Esc didn't end the search")?;
+    ensure(!sidebar.is_searching(), "  the pages aren't shown again")?;
+    ensure(
+        sidebar.search_entry().text().is_empty(),
+        "  the search field isn't cleared",
+    )?;
+    ensure(
+        gtk::prelude::GtkWindowExt::focus(&window)
+            .is_some_and(|focus| focus.is_ancestor(sidebar.search_entry())),
+        "  the search field doesn't have the focus",
+    )?;
+    ensure(
+        !sidebar.stop_search(),
+        "  Esc ended a search that wasn't there",
+    )?;
+
+    sidebar.search("no such setting anywhere");
+    ensure(
+        sidebar.is_searching() && results.row_at_index(0).is_none(),
+        "  a query that matches nothing shows results",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A page without settings is found by its name, and Enter in the search field opens the best
+/// result.
+fn check_search_pages() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let sidebar = window.sidebar();
+    sidebar.search("bluetooth");
+    ensure(
+        sidebar.results().row_at_index(0).is_some(),
+        "  \"bluetooth\" finds nothing",
+    )?;
+    sidebar.search_entry().emit_activate();
+    ensure(
+        window.page() == Some(Page::BluetoothNetwork),
+        "  Enter didn't open the page",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The sidebar is as wide with long results, and with none, as with the pages, and doesn't ask
+/// for more, which a wider window would give it. Large text makes the results longer than the
+/// sidebar is wide.
+fn check_search_width() -> Outcome {
+    let settings = gtk::Settings::default().ok_or("  no GTK settings")?;
+    settings.set_gtk_font_name(Some("Sans 14"));
+    let outcome = search_widths();
+    settings.reset_property("gtk-font-name");
+    outcome
+}
+
+/// The problems of [`check_search_width`].
+fn search_widths() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let sidebar = window.sidebar();
+    let pages = sidebar.width();
+    let mut problems = String::new();
+    for query in ["", "trackpoint", "", "no such setting anywhere"] {
+        sidebar.search(query);
+        settle(&window)?;
+        let width = sidebar.width();
+        let (_, natural, _, _) = sidebar.measure(gtk::Orientation::Horizontal, -1);
+        if width != pages || natural != pages {
+            let _ = writeln!(
+                problems,
+                "    the sidebar is {width} px wide and asks for {natural} px after searching \
+                 \"{query}\", {pages} px with the pages"
+            );
+        }
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// The sidebar with search results, and with none, checked like the pages.
+fn check_search_screens(screenshots: Option<&Path>, scheme: &str) -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    let mut problems = String::new();
+    for (query, name) in [("scroll", "search"), ("no such setting", "search-nothing")] {
+        window.sidebar().search(query);
+        let directory = screenshots.map(|dir| dir.join(name));
+        if let Err(problem) = check_page(&window, Page::MouseTouchpad, directory.as_deref(), scheme)
+        {
+            problems.push_str(&problem);
+        }
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
 }
 
 /// A link to a member of a collapsed group expands the group, then tints the member's row and

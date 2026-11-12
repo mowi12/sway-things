@@ -110,6 +110,15 @@ impl Window {
             self,
             move |_, page| window.show_page(page)
         ));
+        imp.sidebar.connect_link_activated(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, link| window.open_link(&link)
+        ));
+        // Typing anywhere goes to the search field.
+        imp.sidebar
+            .search_entry()
+            .set_key_capture_widget(Some(self));
 
         let _ = imp.model.set(model.clone());
         imp.pages.set_hexpand(true);
@@ -185,24 +194,41 @@ impl Window {
         panes.append(&content);
         self.set_child(Some(&panes));
 
-        // Esc in the content pane goes back to the sidebar.
-        let escape = gtk::Shortcut::new(
-            gtk::ShortcutTrigger::parse_string("Escape"),
-            Some(gtk::CallbackAction::new(|widget, _| {
-                widget
-                    .downcast_ref::<Self>()
-                    .is_some_and(Self::back_to_sidebar)
-                    .into()
-            })),
-        );
-        let shortcuts = gtk::ShortcutController::new();
-        shortcuts.add_shortcut(escape);
-        self.add_controller(shortcuts);
+        self.add_shortcuts();
 
         if let Some(first) = Page::ALL.first() {
             self.open_page(*first);
         }
         self.follow_status();
+    }
+
+    /// The shortcuts of the window: Esc and Ctrl+F.
+    fn add_shortcuts(&self) {
+        // Esc in the content pane goes back to the sidebar, in the sidebar it ends the search.
+        let escape = gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("Escape"),
+            Some(gtk::CallbackAction::new(|widget, _| {
+                widget
+                    .downcast_ref::<Self>()
+                    .is_some_and(|window| {
+                        window.back_to_sidebar() || window.sidebar().stop_search()
+                    })
+                    .into()
+            })),
+        );
+        let search = gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("<Control>f"),
+            Some(gtk::CallbackAction::new(|widget, _| {
+                widget
+                    .downcast_ref::<Self>()
+                    .is_some_and(|window| window.sidebar().focus_search())
+                    .into()
+            })),
+        );
+        let shortcuts = gtk::ShortcutController::new();
+        shortcuts.add_shortcut(escape);
+        shortcuts.add_shortcut(search);
+        self.add_controller(shortcuts);
     }
 
     /// Opens `page` and marks it in the sidebar. Opening a page from the welcome screen counts as

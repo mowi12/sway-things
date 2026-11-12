@@ -11,8 +11,20 @@
 }
 
 /* Sidebar */
-st-sidebar > scrolledwindow > viewport > list {
+st-sidebar scrolledwindow > viewport > list {
   background: none;
+}
+
+st-sidebar > box > entry {
+  margin: 8px 8px 4px;
+}
+
+st-sidebar .st-result-place {
+  font-size: 0.9em;
+}
+
+st-sidebar .st-no-results {
+  margin: 24px 14px;
 }
 
 st-sidebar .st-group-heading {

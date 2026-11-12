@@ -82,6 +82,12 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 - **Search finds individual settings, not just pages.** Each registry entry has a title, keywords and synonyms ("dpi",
   "sensitivity" → _Pointer speed_; "caps lock" → _XKB options_). Choosing a result opens the page, scrolls to the
   setting and highlights it briefly.
+- **Results replace the page list** while the search field has text. Each shows its title and where it is (_Mouse &
+  Touchpad › Touchpad_, or the group of a page); text too long for the sidebar ends in an ellipsis, and the sidebar
+  keeps its width. Titles rank before keywords, subtitles and sway directives, and every page is found by its name, with
+  settings or without. The results stay after one is opened, so the next one is a click away. `Enter` in the search
+  field opens the best result, `Down` moves into the results (or the pages), `Up` from the first one goes back to the
+  field. From the page, `Esc` goes back to the result, and once more clears the search.
 - **Keyboard-first:** typing anywhere (or `Ctrl+F`) focuses search; arrow keys move through the sidebar without opening
   pages; `Enter` (or a click) opens one; `Esc` clears the search or goes back from the page to the sidebar. Every
   control is reachable with `Tab`.
