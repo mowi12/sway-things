@@ -70,7 +70,7 @@ Everything the app can set is also scriptable:
 ```sh
 sway-things open keyboard                 # open the app on a page
 sway-things set input.touchpad.tap true   # change a setting
-sway-things get appearance.gaps.inner     # read a setting
+sway-things get windows.gaps.inner        # read a setting
 sway-things doctor                        # check setup, missing tools and conflicts
 ```
 
