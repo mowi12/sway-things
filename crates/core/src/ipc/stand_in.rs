@@ -158,9 +158,20 @@ pub fn with_inputs(inputs: &'static [&'static str]) -> FakeSway {
     })
 }
 
-/// A sway on which every command succeeds, except those that contain `fail`.
+/// A sway on which every command succeeds, except those that contain `fail`, and that has no
+/// input devices.
 pub fn obedient(version: impl Into<String>) -> FakeSway {
-    FakeSway::with_version(version, |kind, payload| {
+    obedient_with_inputs(version, "[]")
+}
+
+/// A sway on which every command succeeds, except those that contain `fail`, and that answers
+/// `GET_INPUTS` with `inputs`.
+pub fn obedient_with_inputs(version: impl Into<String>, inputs: impl Into<String>) -> FakeSway {
+    let inputs = inputs.into();
+    FakeSway::with_version(version, move |kind, payload| {
+        if kind == wire::GET_INPUTS {
+            return message(kind, &inputs);
+        }
         let reply = if payload.contains("fail") {
             r#"[{"success": false, "parse_error": true, "error": "Unknown/invalid command 'fail'"}]"#
         } else {

@@ -9,9 +9,11 @@
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
 //!   settings, a locked setting can't be changed, and a failed change shows its error.
+//! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
-//! without a session, and never saves, so nothing runs sway.
+//! without a session or in the session of the stand-in for sway, and never saves, so nothing
+//! runs sway.
 //!
 //! GTK runs on one thread, so this is a plain program (`harness = false`), not `#[test]`s. With
 //! `SWAY_THINGS_SCREENSHOTS=<dir>` it also saves the window with each page as a PNG there.
@@ -27,10 +29,12 @@ use sway_things_core::apply::Applier;
 use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
+use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient, obedient_with_inputs};
 use sway_things_core::registry::{ConfigFile, Kind, Page, Registry, Value};
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
 use sway_things_core::version::{SwayFxVersion, SwayVersion};
+use sway_things_core::view::Source;
 use sway_things_gui::contrast::{self, TextSample};
 use sway_things_gui::model::Model;
 use sway_things_gui::style;
@@ -97,6 +101,21 @@ fn fixture(
     users: &str,
     include: bool,
 ) -> Result<Fixture, String> {
+    fixture_in(compositor, stored, users, include, None)
+}
+
+/// A model like [`fixture`] with the include line, in the session of the stand-in `sway`.
+fn live_fixture(sway: &FakeSway, stored: &str) -> Result<Fixture, String> {
+    fixture_in(SWAY, stored, USERS, true, Some(sway))
+}
+
+fn fixture_in(
+    compositor: Compositor,
+    stored: &str,
+    users: &str,
+    include: bool,
+    sway: Option<&FakeSway>,
+) -> Result<Fixture, String> {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
     let config = dir.path().join("config");
     std::fs::create_dir_all(&config).map_err(|error| error.to_string())?;
@@ -113,7 +132,10 @@ fn fixture(
         _dir: dir,
     };
     let status = fixture.status(users, include);
-    let applier = Applier::without_session(state, locations, SwayValidator::new(), compositor);
+    let applier = match sway {
+        Some(sway) => Applier::with_session(state, locations, SwayValidator::new(), sway.connect()),
+        None => Applier::without_session(state, locations, SwayValidator::new(), compositor),
+    };
     fixture.model = Model::with_applier(applier, status);
     Ok(fixture)
 }
@@ -166,6 +188,10 @@ fn main() -> ExitCode {
         let (welcome, banner) = check_read_only_screens(screenshots.as_deref(), scheme);
         results.push((format!("contrast: welcome screen ({scheme})"), welcome));
         results.push((format!("contrast: read-only banner ({scheme})"), banner));
+        results.push((
+            format!("contrast: safety-net banner ({scheme})"),
+            check_safety_net_screen(screenshots.as_deref(), scheme),
+        ));
     }
     set_dark(&settings, false);
     results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
@@ -180,6 +206,7 @@ fn main() -> ExitCode {
         check_locked(),
     ));
     results.push(("rows: a failed change shows why".to_owned(), check_failed()));
+    results.extend(check_safety_net());
     results.push((
         "welcome: the spinner turns after coming back".to_owned(),
         check_spinner(&settings),
@@ -213,6 +240,23 @@ fn main() -> ExitCode {
     } else {
         ExitCode::FAILURE
     }
+}
+
+/// The checks of the safety net for risky changes.
+fn check_safety_net() -> Vec<(String, Outcome)> {
+    vec![
+        ("safety net: keep".to_owned(), check_keep()),
+        ("safety net: revert".to_owned(), check_revert()),
+        (
+            "safety net: the countdown reverts".to_owned(),
+            check_countdown(),
+        ),
+        ("safety net: lockout protection".to_owned(), check_lockout()),
+        (
+            "safety net: closing the window reverts".to_owned(),
+            check_close_reverts(),
+        ),
+    ]
 }
 
 /// Switches GTK between its light and dark style, as the desktop's preference would.
@@ -687,6 +731,187 @@ fn check_failed() -> Outcome {
     ensure(gaps.error().is_some(), "the refused change shows no error")?;
     window.destroy();
     Ok(())
+}
+
+const POINTER_EVENTS: &str = "input.pointer.events";
+
+/// The switch of the row of `key` on the open page of `window`.
+fn switch(window: &Window, key: &str) -> Result<(SettingRow, gtk::Switch), String> {
+    let row = row(window, key)?;
+    let switch = row
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::Switch>().ok())
+        .ok_or_else(|| format!("  the row of {key} has no switch"))?;
+    Ok((row, switch))
+}
+
+/// A window on the Mouse & Touchpad page in the session of `sway`, after pointers were switched
+/// off with the safety net: the banner is up.
+fn tried(sway: &FakeSway, stored: &str) -> Result<(Fixture, Window, gtk::Switch), String> {
+    let fixture = live_fixture(sway, stored)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let (row, switch) = switch(&window, POINTER_EVENTS)?;
+    ensure(switch.is_active(), "pointers are off before the change")?;
+    switch.set_active(false);
+    wait_for_model(&fixture.model)?;
+    ensure(row.error().is_none(), "the tried change shows an error")?;
+    let banner = window.safety_banner().unwrap_or_default();
+    ensure(
+        banner.starts_with("Keep the change to Mouse › Enabled? Reverting in "),
+        &format!("the banner says {banner:?}"),
+    )?;
+    ensure(
+        sway.commands()
+            .last()
+            .is_some_and(|command| command.ends_with("events disabled")),
+        "the tried value wasn't sent",
+    )?;
+    Ok((fixture, window, switch))
+}
+
+/// The value of `key` the model shows, and whether it is stored.
+fn shown(model: &Model, key: &str) -> Result<(Value, bool), String> {
+    let setting = Registry::builtin()
+        .get(key)
+        .ok_or_else(|| format!("  no setting {key}"))?;
+    let view = model
+        .view(setting, None)
+        .ok_or_else(|| "  no settings".to_owned())?;
+    Ok((view.value, matches!(view.source, Source::Stored { .. })))
+}
+
+/// A risky change is tried, shown with the banner (Revert has the focus), and stored on Keep.
+fn check_keep() -> Outcome {
+    let sway = obedient(SWAY_1_10);
+    let (fixture, window, switch) = tried(&sway, STORED)?;
+    ensure(
+        GtkWindowExt::focus(&window).as_ref() == Some(window.revert_button().upcast_ref()),
+        "Revert doesn't have the focus",
+    )?;
+    ensure(!switch.is_active(), "the row doesn't show the tried value")?;
+    ensure(
+        shown(&fixture.model, POINTER_EVENTS)? == (Value::Bool(false), false),
+        "the tried value isn't shown or is already stored",
+    )?;
+    window.keep_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        window.safety_banner().is_none(),
+        "the banner stays after Keep",
+    )?;
+    ensure(
+        shown(&fixture.model, POINTER_EVENTS)? == (Value::Bool(false), true),
+        "the kept value isn't stored",
+    )?;
+    ensure(!switch.is_active(), "the row lost the kept value")?;
+    window.destroy();
+    Ok(())
+}
+
+/// Revert puts the old value back, live and in the row, and stores nothing.
+fn check_revert() -> Outcome {
+    let sway = obedient(SWAY_1_10);
+    let (fixture, window, switch) = tried(&sway, STORED)?;
+    window.revert_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        window.safety_banner().is_none(),
+        "the banner stays after Revert",
+    )?;
+    ensure(switch.is_active(), "the row doesn't show the old value")?;
+    ensure(
+        shown(&fixture.model, POINTER_EVENTS)? == (Value::Bool(true), false),
+        "the reverted value is stored",
+    )?;
+    ensure(
+        sway.commands()
+            .last()
+            .is_some_and(|command| command.ends_with("events enabled")),
+        "the old value wasn't sent",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Without an answer, the change is reverted when the countdown ends.
+fn check_countdown() -> Outcome {
+    let sway = obedient(SWAY_1_10);
+    let stored = "version = 1\n\n[app]\nsafety_net_timeout = 5\n";
+    let (fixture, window, switch) = tried(&sway, stored)?;
+    let reverted = run_until(Duration::from_secs(8), || {
+        window.safety_banner().is_none() && !fixture.model.is_busy()
+    });
+    ensure(reverted, "the change wasn't reverted within 8 s")?;
+    ensure(switch.is_active(), "the row doesn't show the old value")?;
+    ensure(
+        shown(&fixture.model, POINTER_EVENTS)? == (Value::Bool(true), false),
+        "the reverted value is stored",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Switching off the only pointer is refused at the row, and nothing is tried.
+fn check_lockout() -> Outcome {
+    let sway = obedient_with_inputs(
+        SWAY_1_10,
+        r#"[{"identifier": "1133:16500:Logitech_G305", "name": "G305", "type": "pointer",
+             "libinput": {"send_events": "enabled"}},
+            {"identifier": "1:1:AT_keyboard", "name": "AT keyboard", "type": "keyboard",
+             "libinput": {"send_events": "enabled"}}]"#,
+    );
+    let fixture = live_fixture(&sway, STORED)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let (row, switch) = switch(&window, POINTER_EVENTS)?;
+    switch.set_active(false);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        window.safety_banner().is_none(),
+        "the refused change shows the banner",
+    )?;
+    let error = row.error().unwrap_or_default();
+    ensure(
+        error.contains("wasn't changed"),
+        &format!("the row says {error:?}"),
+    )?;
+    ensure(switch.is_active(), "the row doesn't show the old value")?;
+    ensure(
+        sway.commands().is_empty(),
+        "a command was sent for the refused change",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Closing the window while a change waits reverts it first.
+fn check_close_reverts() -> Outcome {
+    let sway = obedient(SWAY_1_10);
+    let (fixture, window, _) = tried(&sway, STORED)?;
+    window.close();
+    let closed = run_until(Duration::from_secs(5), || !window.is_visible());
+    ensure(closed, "the window didn't close within 5 s")?;
+    ensure(
+        fixture.model.pending_change().is_none(),
+        "the change still waits",
+    )?;
+    ensure(
+        sway.commands()
+            .last()
+            .is_some_and(|command| command.ends_with("events enabled")),
+        "the old value wasn't sent before closing",
+    )?;
+    Ok(())
+}
+
+/// The page with the safety-net banner, checked like the pages.
+fn check_safety_net_screen(screenshots: Option<&Path>, scheme: &str) -> Outcome {
+    let sway = obedient(SWAY_1_10);
+    let (_fixture, window, _) = tried(&sway, STORED)?;
+    let directory = screenshots.map(|dir| dir.join("safety-net"));
+    let outcome = check_page(&window, Page::MouseTouchpad, directory.as_deref(), scheme);
+    window.destroy();
+    outcome
 }
 
 /// The welcome screen and a page with the read-only banner, checked like the pages.

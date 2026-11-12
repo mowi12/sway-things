@@ -3,10 +3,13 @@
 
 //! The main window: the sidebar and the content pane.
 
+use std::time::Duration;
+
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::registry::Page;
+use sway_things_core::apply::Pending;
+use sway_things_core::registry::{Page, Registry};
 
 use crate::i18n::tr;
 use crate::model::Model;
@@ -19,7 +22,7 @@ const SIDEBAR_WIDTH: i32 = 240;
 const WELCOME: &str = "welcome";
 
 mod imp {
-    use std::cell::{Cell, OnceCell};
+    use std::cell::{Cell, OnceCell, RefCell};
 
     use gtk::glib;
     use gtk::subclass::prelude::*;
@@ -47,6 +50,16 @@ mod imp {
         pub note_dismissed: Cell<bool>,
         /// The page open last, to go back to from the welcome screen.
         pub last_page: Cell<Option<Page>>,
+        /// The banner of the safety net: keep or revert the risky change that waits.
+        pub safety: gtk::Revealer,
+        pub safety_text: gtk::Label,
+        pub keep: gtk::Button,
+        pub revert: gtk::Button,
+        /// Updates the seconds left while the banner is shown.
+        pub safety_tick: RefCell<Option<glib::SourceId>>,
+        /// Set when the window was asked to close while a change waited: it closes once the
+        /// change is reverted.
+        pub closing: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -143,6 +156,8 @@ impl Window {
         status.append(&imp.status_button);
         imp.status.set_child(Some(&status));
 
+        self.build_safety_net(model);
+
         imp.welcome.connect_look_around(glib::clone!(
             #[weak(rename_to = window)]
             self,
@@ -158,6 +173,7 @@ impl Window {
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.add_css_class("view");
         content.set_hexpand(true);
+        content.append(&imp.safety);
         content.append(&imp.status);
         content.append(&imp.banner);
         content.append(&imp.pages);
@@ -307,6 +323,126 @@ impl Window {
         }
     }
 
+    /// The banner of the safety net, and the close of the window while a change waits.
+    fn build_safety_net(&self, model: &Model) {
+        let imp = self.imp();
+        imp.safety_text.set_xalign(0.0);
+        imp.safety_text.set_hexpand(true);
+        imp.safety_text.set_wrap(true);
+        imp.safety_text
+            .set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        imp.revert.set_label("Revert");
+        imp.keep.set_label("Keep");
+        for button in [&imp.revert, &imp.keep] {
+            button.set_valign(gtk::Align::Center);
+        }
+        imp.revert.connect_clicked(glib::clone!(
+            #[weak]
+            model,
+            move |_| model.revert()
+        ));
+        imp.keep.connect_clicked(glib::clone!(
+            #[weak]
+            model,
+            move |_| model.keep()
+        ));
+        let safety = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        safety.add_css_class("st-banner");
+        safety.append(&imp.safety_text);
+        safety.append(&imp.revert);
+        safety.append(&imp.keep);
+        imp.safety.set_child(Some(&safety));
+        model.connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.follow_safety_net()
+        ));
+        // A change that waits is reverted before the window closes.
+        self.connect_close_request(|window| {
+            let Some(model) = window.model() else {
+                return glib::Propagation::Proceed;
+            };
+            if model.pending_change().is_none() {
+                return glib::Propagation::Proceed;
+            }
+            window.imp().closing.set(true);
+            model.revert();
+            glib::Propagation::Stop
+        });
+    }
+
+    /// Shows the banner of the safety net while a risky change waits, and closes the window if
+    /// that was asked for once the change is reverted.
+    fn follow_safety_net(&self) {
+        let imp = self.imp();
+        let Some(model) = imp.model.get() else { return };
+        let Some(pending) = model.pending_change() else {
+            imp.safety.set_reveal_child(false);
+            if let Some(tick) = imp.safety_tick.take() {
+                tick.remove();
+            }
+            if imp.closing.replace(false) {
+                // After the model has finished the revert that sent this.
+                glib::idle_add_local_once(glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move || window.close()
+                ));
+            }
+            return;
+        };
+        let text = safety_text(&pending);
+        imp.safety_text.set_text(&text);
+        if imp.safety.reveals_child() {
+            return;
+        }
+        imp.safety.set_reveal_child(true);
+        // Revert has the focus, so a stray key press undoes the change instead of keeping it.
+        GtkWindowExt::set_focus(self, Some(&imp.revert));
+        imp.safety
+            .announce(&text, gtk::AccessibleAnnouncementPriority::High);
+        let tick = glib::timeout_add_local(
+            Duration::from_millis(250),
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[upgrade_or]
+                glib::ControlFlow::Break,
+                move || {
+                    let imp = window.imp();
+                    if let Some(pending) = imp.model.get().and_then(Model::pending_change) {
+                        imp.safety_text.set_text(&safety_text(&pending));
+                        glib::ControlFlow::Continue
+                    } else {
+                        imp.safety_tick.take();
+                        glib::ControlFlow::Break
+                    }
+                }
+            ),
+        );
+        if let Some(old) = imp.safety_tick.replace(Some(tick)) {
+            old.remove();
+        }
+    }
+
+    /// The text of the safety-net banner, if it is shown.
+    pub fn safety_banner(&self) -> Option<String> {
+        let imp = self.imp();
+        imp.safety
+            .reveals_child()
+            .then(|| imp.safety_text.text().to_string())
+    }
+
+    /// The Keep button of the safety-net banner.
+    pub fn keep_button(&self) -> &gtk::Button {
+        &self.imp().keep
+    }
+
+    /// The Revert button of the safety-net banner.
+    pub fn revert_button(&self) -> &gtk::Button {
+        &self.imp().revert
+    }
+
     fn build_page(&self, page: Page) -> PageView {
         let Some(model) = self.imp().model.get() else {
             return PageView::unbuilt(page);
@@ -365,4 +501,23 @@ impl Window {
             .is_some_and(|focus| focus.is_ancestor(&imp.pages));
         in_content && imp.sidebar.focus_selected()
     }
+}
+
+/// "Keep the change to Section › Title? Reverting in N s", with the seconds rounded up. The
+/// section says which device a title like "Enabled" is about.
+fn safety_text(pending: &Pending) -> String {
+    let name = Registry::builtin().get(pending.key()).map_or_else(
+        || pending.key().to_owned(),
+        |setting| {
+            let (section, title) = (tr(setting.section()), tr(setting.title()));
+            if section == title {
+                title.to_owned()
+            } else {
+                format!("{section} › {title}")
+            }
+        },
+    );
+    let left = pending.countdown().remaining();
+    let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
+    format!("Keep the change to {name}? Reverting in {seconds} s")
 }

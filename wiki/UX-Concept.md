@@ -68,13 +68,17 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **Safety net** for risky changes (display mode, disabling an output or input device, keyboard layout):
 
   ```text
-  ┌──────────────────────────────────────────────────────────┐
-  │ Keep these display settings? Reverting in 12 s           │
-  │                                       [Revert]   [Keep]  │
-  └──────────────────────────────────────────────────────────┘
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Keep the change to Mouse › Enabled? Reverting in 12 s  [Revert] [Keep] │
+  └────────────────────────────────────────────────────────────────────────┘
   ```
 
-  Nothing is saved until _Keep_. The last output and the last keyboard can't be disabled.
+  The banner sits above the page and names the setting by section and title. Nothing is saved until _Keep_; _Revert_,
+  the end of the countdown (the safety-net timeout preference) or closing the window puts the old value back, and the
+  row shows it again. While the change waits, its row shows the tried value. When the banner appears, _Revert_ gets the
+  focus, so a stray key press undoes the change instead of keeping it, and screen readers announce the banner. One risky
+  change at a time: another one is refused at its row until this one is kept or reverted. The last output, the last
+  keyboard and the last pointing device can't be disabled; the row says why.
 - **Badges** for settings that can't apply live: "Applies after re-login" (environment variables), "Applies after
   reload".
 

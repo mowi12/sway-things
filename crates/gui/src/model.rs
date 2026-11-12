@@ -10,6 +10,11 @@
 //! sent. The settings files and the generated files are written [`SAVE_DELAY`] after the last
 //! change. The model tells the rows when to read again (`changed`), when a change failed
 //! (`failed`) and when something went wrong that isn't one row's (`problem`).
+//!
+//! A risky setting (an input device switched off, the keyboard layout) changes through the core's
+//! safety net: it is tried live, and only stored when the user keeps it ([`Model::keep`]).
+//! [`Model::revert`], or the end of the countdown, puts the old value back. While the change
+//! waits ([`Model::pending_change`]), its row shows the tried value.
 
 use std::time::Instant;
 
@@ -17,23 +22,28 @@ use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::apply::{Applier, SAVE_DELAY};
+use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
+use sway_things_core::command::input::InputSelector;
 use sway_things_core::generate::Locations;
 use sway_things_core::include::{IncludeStatus, IncludeWatch};
 use sway_things_core::ipc::Compositor;
-use sway_things_core::registry::{Setting, Value};
+use sway_things_core::registry::{Apply, Setting, Value, Values};
 use sway_things_core::state::State;
 use sway_things_core::view::SettingView;
 
 /// What the model does next, one at a time.
 #[derive(Debug, Clone, PartialEq)]
 enum Op {
-    /// Changes a setting.
+    /// Changes a setting; a risky one is tried with the safety net.
     Set {
         key: &'static str,
         device: Option<String>,
         value: Value,
     },
+    /// Keeps the risky change that waits.
+    Keep,
+    /// Reverts the risky change that waits.
+    Revert,
     /// Saves the settings files and writes the generated files.
     Persist,
     /// Loads the settings files that changed on disk.
@@ -47,6 +57,8 @@ struct Core {
     applier: Option<Applier>,
     /// The state as of the last change, for the rows to read.
     state: State,
+    /// The risky change that waits to be kept or reverted, as of the last change.
+    pending: Option<Pending>,
     status: IncludeStatus,
     compositor: Compositor,
     locations: Locations,
@@ -158,6 +170,7 @@ impl Model {
     fn start(&self, applier: Applier, status: IncludeStatus, autosave: bool) {
         let core = Core {
             state: applier.state().clone(),
+            pending: applier.pending().cloned(),
             compositor: applier.compositor(),
             locations: applier.locations().clone(),
             applier: Some(applier),
@@ -177,13 +190,48 @@ impl Model {
     pub fn view(&self, setting: &'static Setting, device: Option<&str>) -> Option<SettingView> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        Some(SettingView::of(
-            setting,
-            device,
-            &core.state,
-            &core.status,
-            core.compositor,
-        ))
+        let mut view = SettingView::of(setting, device, &core.state, &core.status, core.compositor);
+        // A risky change that waits isn't stored, but it is in effect.
+        if let Some(pending) = core
+            .pending
+            .as_ref()
+            .filter(|pending| pending.key() == setting.key() && pending.device() == device)
+        {
+            view.value = pending.value().clone();
+            let tried = Tried {
+                key: pending.key(),
+                value: pending.value(),
+                under: core.state.values(device),
+            };
+            let selector = device.and_then(|device| InputSelector::device(device).ok());
+            if setting.sway().is_some() {
+                view.line = core
+                    .state
+                    .registry()
+                    .config_line(setting, &tried, selector.as_ref())
+                    .ok();
+            }
+        }
+        Some(view)
+    }
+
+    /// The risky change that waits to be kept or reverted, if there is one.
+    pub fn pending_change(&self) -> Option<Pending> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .and_then(|core| core.pending.clone())
+    }
+
+    /// Keeps the risky change that waits: stores it, to be saved like any other change.
+    pub fn keep(&self) {
+        self.queue(Op::Keep);
+    }
+
+    /// Reverts the risky change that waits: puts the value from before it back.
+    pub fn revert(&self) {
+        self.queue(Op::Revert);
     }
 
     /// Whether and where the user's config includes the generated files, as last read. `None`
@@ -226,7 +274,7 @@ impl Model {
                 device: queued_device,
                 ..
             } => *queued_key == key && queued_device.as_deref() == device,
-            Op::Persist | Op::Reload => false,
+            Op::Keep | Op::Revert | Op::Persist | Op::Reload => false,
         })
     }
 
@@ -291,24 +339,53 @@ impl Model {
     }
 
     async fn run(&self, op: Op) {
-        let (applier, access) = {
+        let (applier, status) = {
             let mut core = self.imp().core.borrow_mut();
             let Some(core) = core.as_mut() else { return };
             let Some(applier) = core.applier.take() else {
                 return;
             };
-            (applier, core.status.write_access())
+            (applier, core.status.clone())
         };
         let mut applier = applier;
-        match (op, access) {
+        let was_pending = applier.pending().map(Pending::countdown);
+        match (op, status.write_access()) {
             (Op::Set { key, device, .. }, Err(read_only)) => {
                 self.emit_failed(key, device.as_deref(), read_only.explanation());
             }
             (Op::Set { key, device, value }, Ok(access)) => {
-                if let Err(error) = applier.set(key, device.as_deref(), value, &access).await {
+                let risky = applier
+                    .state()
+                    .registry()
+                    .get(key)
+                    .is_some_and(|setting| setting.apply() == Apply::Risky);
+                let result = if risky {
+                    applier
+                        .try_risky(key, device.as_deref(), value, &status, &access)
+                        .await
+                        .map(|_| ())
+                } else {
+                    applier
+                        .set(key, device.as_deref(), value, &access)
+                        .await
+                        .map(|_| ())
+                };
+                if let Err(error) = result {
                     self.emit_failed(key, device.as_deref(), &error.to_string());
                 }
             }
+            (Op::Keep, Ok(access)) => {
+                if let Err(error) = applier.keep(&access) {
+                    self.emit_problem(&error.to_string());
+                }
+            }
+            // Without the include line nothing can be kept: back to the old value.
+            (Op::Keep | Op::Revert, _) => match applier.revert().await {
+                Ok(_) | Err(ApplyError::NothingPending) => {}
+                Err(error) => self.emit_problem(&format!(
+                    "{error}. The old value comes back when sway reloads its config."
+                )),
+            },
             (Op::Persist, Ok(access)) => match applier.persist(&[], &access).await {
                 Ok(persisted) => {
                     for (file, outcome) in persisted.problems() {
@@ -325,11 +402,38 @@ impl Model {
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
+        let pending = applier.pending().cloned();
+        if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
+            if was_pending != Some(countdown) {
+                self.revert_at(countdown);
+            }
+        }
         if let Some(core) = self.imp().core.borrow_mut().as_mut() {
             core.state = applier.state().clone();
+            core.pending = pending;
             core.applier = Some(applier);
         }
         self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// Reverts the change that waits when `countdown` elapses, unless it was kept or reverted
+    /// before.
+    fn revert_at(&self, countdown: Countdown) {
+        glib::timeout_add_local_once(
+            countdown.remaining(),
+            glib::clone!(
+                #[weak(rename_to = model)]
+                self,
+                move || {
+                    let still = model
+                        .pending_change()
+                        .is_some_and(|pending| pending.countdown() == countdown);
+                    if still {
+                        model.revert();
+                    }
+                }
+            ),
+        );
     }
 
     /// Plans the save of the changes that aren't saved yet, unless one is planned.
@@ -430,5 +534,22 @@ impl Model {
             false,
             closure_local!(move |model: &Self, message: String| callback(model, &message)),
         )
+    }
+}
+
+/// The tried value of a risky change, and the stored values for the other keys.
+struct Tried<'a, V> {
+    key: &'static str,
+    value: &'a Value,
+    under: V,
+}
+
+impl<V: Values> Values for Tried<'_, V> {
+    fn get(&self, key: &str) -> Option<&Value> {
+        if key == self.key {
+            Some(self.value)
+        } else {
+            self.under.get(key)
+        }
     }
 }
