@@ -183,14 +183,22 @@ fn requirements_match_the_builders() {
             targets.push(Target::Ipc);
         }
         for target in targets {
+            // The default needs what the setting declares; another value may need a newer
+            // sway (sticky drag lock), which `Compositor::supports` checks per command.
+            let default = setting.default_value();
             for sample in samples(setting) {
                 for command in commands(setting, &sample, target) {
-                    assert_eq!(
-                        (command.min_sway(), command.min_swayfx()),
-                        (requirements.min_sway, requirements.min_swayfx),
-                        "{} = {sample:?}",
-                        setting.key()
-                    );
+                    let needs = (command.min_sway(), command.min_swayfx());
+                    let declared = (requirements.min_sway, requirements.min_swayfx);
+                    if sample == default {
+                        assert_eq!(needs, declared, "{} = {sample:?}", setting.key());
+                    } else {
+                        assert!(
+                            needs.0 >= declared.0 && needs.1 >= declared.1,
+                            "{} = {sample:?} needs less than its setting: {needs:?}",
+                            setting.key()
+                        );
+                    }
                 }
             }
         }

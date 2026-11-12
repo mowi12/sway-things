@@ -129,8 +129,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
 
 Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
 setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
-commands force the reload mode, and the declared requirements equal those of the built commands (SwayFX settings go to
-`90-effects.conf`, nothing else does).
+commands force the reload mode, and the declared requirements equal those of the commands built for the default (a value
+may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-effects.conf`, nothing else does).
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
 layout editor and the window preview. They still read and write settings through the registry.
