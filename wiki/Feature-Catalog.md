@@ -41,7 +41,7 @@ scope → host overlay by default).
 - 🟢 Variants, e.g. `nodeadkeys`, `dvorak`, `colemak` (`xkb_variant`)
 - 🟢 Layout switching shortcut (`xkb_options grp:*`)
 - 🟢 Common XKB options as toggles: Caps→Ctrl, Caps→Esc, swap Ctrl/Alt, Compose key, … (`xkb_options`)
-- 🟢 Full XKB option browser (parsed from `/usr/share/X11/xkb/rules/evdev.lst`)
+- 🟢 Full XKB option browser (parsed from `/usr/share/X11/xkb/rules/evdev.xml`)
 - 🟢 Keyboard model (`xkb_model`)
 - 🟢 Repeat delay and rate (`repeat_delay`, `repeat_rate`)
 - 🟢 NumLock / CapsLock state at startup (`xkb_numlock`, `xkb_capslock`)

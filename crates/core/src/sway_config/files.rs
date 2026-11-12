@@ -16,6 +16,18 @@ pub trait Files {
     /// The I/O error if the file can't be read.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
 
+    /// The content of the file at `path`, read no further than `limit + 1` bytes: a file longer
+    /// than `limit` comes back longer than `limit` without being read to its end. The default
+    /// reads the whole file.
+    ///
+    /// # Errors
+    ///
+    /// The I/O error if the file can't be read.
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        let _ = limit;
+        self.read(path)
+    }
+
     /// The names of the entries of `directory`, in any order.
     ///
     /// # Errors
@@ -44,6 +56,15 @@ pub struct Disk;
 impl Files for Disk {
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         std::fs::read(path)
+    }
+
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        use std::io::Read;
+        let mut content = Vec::new();
+        std::fs::File::open(path)?
+            .take(u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1))
+            .read_to_end(&mut content)?;
+        Ok(content)
     }
 
     fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
