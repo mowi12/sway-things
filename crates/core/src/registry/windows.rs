@@ -581,7 +581,7 @@ pub(super) fn settings() -> Vec<Setting> {
             .subtitle("Space between windows, in pixels")
             .keywords(&["spacing", "margin"])
             .sway(
-                Directive::top("gaps").argument("inner"),
+                Directive::top("gaps").arguments(&["inner"]),
                 ConfigFile::Appearance,
                 |ctx| gaps(ctx, Gaps::Inner, GAPS_INNER),
                 // sway takes a negative inner gap as 0.
@@ -604,7 +604,7 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .keywords(&["spacing", "margin", "padding", "screen edge"])
         .sway(
-            Directive::top("gaps").argument("outer"),
+            Directive::top("gaps").arguments(&["outer"]),
             ConfigFile::Appearance,
             |ctx| gaps(ctx, Gaps::Outer, GAPS_OUTER),
             |args| read_gaps(args, i64::from(i16::MIN)),

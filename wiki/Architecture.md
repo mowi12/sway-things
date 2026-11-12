@@ -122,7 +122,7 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   `XKB_DEFAULT_OPTIONS`) and the default model (`xkb_model ""`, pc105). Like every setting, they are only written when
   stored.
 - **Directive:** each sway setting names its directive, the block it stands in (top level or `input`) and, where one
-  name covers independent values, the first argument (`gaps` + `inner`).
+  name covers independent values, the leading arguments (`gaps` + `inner`, `for_window` + `[all]` + `inhibit_idle`).
 - **Reading:** each sway setting also has a read function, the reverse of rendering: `Setting::read` takes a directive
   of the user's config and returns the value sway reads from it. The helpers follow sway's own parsing: its words for
   true (`parse_boolean`, everything else is false), `strtol` and `atoi` for numbers, `parse_color` with or without `#`
@@ -688,8 +688,8 @@ runs before or after the generated file of the setting. The search is linear in 
 again for one setting after it changed, and for all of them (`check_all`, also for every known device) after the config
 or the settings files changed on disk.
 
-- **Top-level directives** match by name and, where the registry names one, first argument (`gaps inner`). Names compare
-  without regard to case, as in sway.
+- **Top-level directives** match by name and, where the registry names them, leading arguments (`gaps inner`). Names
+  compare without regard to case, as in sway.
 - **`input` options** merge per device. For one device the last line wins among those for `*`, for its type and for its
   identifier, in config order: sway's `store_input_config` merges each kind onto the others as it reads them.
   Identifiers and types compare exactly (`strcmp`). In a report for a whole input type, a line for one device is listed

@@ -1052,6 +1052,8 @@ fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
 #[test]
 fn only_the_settings_own_directive_matches() {
     assert_eq!(read("windows.gaps.inner", "gaps outer 8"), None);
+    assert_eq!(read("windows.gaps.inner", "gaps"), None);
+    assert!(read("windows.gaps.inner", "gaps INNER 8").is_some());
     assert_eq!(read("input.touchpad.tap", "tap enabled"), None);
     assert_eq!(read("input.touchpad.tap", "bar {\n  tap enabled\n}"), None);
     assert_eq!(read("windows.font", "input * font monospace"), None);
