@@ -110,6 +110,7 @@ pub struct Setting {
     apply: Apply,
     requirements: Requirements,
     sway: Option<SwayMapping>,
+    clears_first: Option<&'static str>,
 }
 
 impl Setting {
@@ -131,6 +132,7 @@ impl Setting {
                 tools: &[],
             },
             sway: None,
+            clears_first: None,
         })
     }
 
@@ -275,6 +277,12 @@ impl Setting {
         self.requirements
     }
 
+    /// The setting a risky change sends at its default first when it tries both
+    /// ([`SettingBuilder::clears_first`]).
+    pub fn clears_first(&self) -> Option<&'static str> {
+        self.clears_first
+    }
+
     /// The sway directive behind the setting, or `None` for a preference of Sway Things itself.
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
@@ -389,6 +397,15 @@ impl SettingBuilder {
             render,
             read,
         });
+        self
+    }
+
+    /// Records a setting whose values only fit some values of this one (the variants of the
+    /// layouts): when a risky change tries both, `key` is sent at its default before this
+    /// setting's new value and the new value of `key`, so no command in between pairs values that
+    /// don't fit together.
+    pub fn clears_first(mut self, key: &'static str) -> Self {
+        self.0.clears_first = Some(key);
         self
     }
 

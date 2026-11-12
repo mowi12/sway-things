@@ -41,7 +41,7 @@ mod risky;
 #[cfg(test)]
 mod tests;
 
-pub use risky::{Countdown, Pending, Trial};
+pub use risky::{Countdown, Pending, Trial, TriedValue};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

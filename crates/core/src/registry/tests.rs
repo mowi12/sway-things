@@ -320,6 +320,26 @@ fn input_settings_are_per_device() {
 }
 
 #[test]
+fn a_setting_cleared_first_is_a_risky_one_of_the_same_scope() {
+    for setting in registry().iter() {
+        let Some(key) = setting.clears_first() else {
+            continue;
+        };
+        let cleared = registry()
+            .get(key)
+            .unwrap_or_else(|| panic!("{key} is unknown"));
+        assert_eq!(setting.apply(), Apply::Risky, "{}", setting.key());
+        assert_eq!(cleared.apply(), Apply::Risky, "{key}");
+        assert_eq!(cleared.scope(), setting.scope(), "{key}");
+        assert_ne!(cleared.key(), setting.key());
+    }
+    assert_eq!(
+        setting("input.keyboard.xkb_layout").clears_first(),
+        Some("input.keyboard.xkb_variant")
+    );
+}
+
+#[test]
 fn first_entries_cover_every_value_type_and_apply_mode() {
     let kinds: BTreeSet<_> = registry()
         .iter()

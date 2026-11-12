@@ -717,6 +717,7 @@ fn keyboard() -> Vec<Setting> {
             .keywords(&["keyboard", "language", "xkb", "keymap", "qwerty", "azerty", "qwertz"])
             .scope(keyboard)
             .apply(Apply::Risky)
+            .clears_first(XKB_VARIANT)
             .sway(
                 Directive::input("xkb_layout"),
                 ConfigFile::Input,

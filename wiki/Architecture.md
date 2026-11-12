@@ -395,6 +395,11 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   without it, as a row would show it then: what the user's config sets, else sway's default (for one device: the value
   of its type). That is the value sway has after the next reload, so that is what the safety net tests. A setting
   without a stored value sends nothing.
+- **`Applier::try_risky_all`** tries several settings of one device as one change, kept or reverted as a whole: the
+  Keyboard page adds, removes and reorders a layout together with its variant, and resets both together. Each setting
+  gets a new value or is removed as in `try_risky_reset`. The directives are sent in registry order. A setting can name
+  another that is sent at its default first when both are in the change (`clears_first`: the layouts clear the
+  variants), so no command in between pairs a layout with a variant it doesn't have; the revert does the same.
 - **`keep`** stores the value like any other change, or for a reset removes it (saved with `persist`); nothing more is
   sent. **`revert`** sends the snapshot; the caller runs it when the user says so and when `Countdown::elapsed` returns.
   The countdown waits with `async_io`, so it works under the GTK main loop and `block_on` alike.
