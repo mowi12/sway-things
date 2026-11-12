@@ -92,6 +92,30 @@ st-test-area .st-test-lines {
   padding: 12px 16px;
 }
 
+/* Badges under a row's line: an icon and a short text */
+st-setting-row .st-badge {
+  font-size: 0.85em;
+  border: 1px solid @borders;
+  border-radius: 999px;
+  padding: 2px 9px 2px 7px;
+  margin-top: 2px;
+}
+
+/* A badge that needs attention: the border and the icon in the theme's warning color, the text
+   in the normal color for contrast */
+st-setting-row .st-badge.st-attention {
+  border-color: @warning_color;
+}
+
+st-setting-row .st-badge.st-attention > image {
+  color: @warning_color;
+}
+
+/* The line of the user's config in a row's ⋮ menu */
+.st-conflict-details {
+  padding: 8px 10px 10px;
+}
+
 st-page .st-page-footer {
   margin-top: 24px;
   font-size: 0.85em;
