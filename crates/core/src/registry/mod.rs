@@ -54,7 +54,7 @@ use crate::command::{SwayCmd, Target};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
-pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder, Slider};
+pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider};
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
 };
@@ -97,6 +97,9 @@ impl Registry {
     /// An `input` option is a directive of its own for each input type (`events` of keyboards and
     /// of touchpads), so settings of another type aren't in the group. A preference of Sway Things
     /// itself is alone in its group.
+    ///
+    /// The app shows a group of more than one setting as one row with the members below it: each
+    /// member names the same [`SettingGroup`], with its id and title ([`Setting::group`]).
     pub fn group<'a>(&'a self, setting: &'a Setting) -> impl Iterator<Item = &'a Setting> {
         let directive = setting.sway().map(SwayMapping::directive);
         self.settings.iter().filter(move |other| match directive {

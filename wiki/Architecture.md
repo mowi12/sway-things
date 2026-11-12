@@ -99,7 +99,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   are `windows.focused.border`, `….background`, `….text`, `….indicator` and `….child_border`. Settings with the same
   directive form a group (`Registry::group`) with one render function that reads all of them, so storing one color
   writes the whole line with the defaults of the others. An `input` option is a directive of its own per input type
-  (`events` of keyboards and of touchpads), so a group also shares the scope.
+  (`events` of keyboards and of touchpads), so a group also shares the scope. Each member of a group names the same
+  `SettingGroup` (`.group("windows.focused", "Focused window")`): an id, unique and no setting's key, and a translatable
+  title the app shows the group's row with. A setting alone in its group names none.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
 - **Lists that line up:** layouts and variants are two settings, each with its own directive
@@ -149,7 +151,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
 Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
 setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
 commands force the reload mode, and the declared requirements equal those of the commands built for the default (a value
-may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-effects.conf`, nothing else does).
+may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-effects.conf`, nothing else does). The
+settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
+and in one section.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
 layout editor and the window preview. They still read and write settings through the registry.
