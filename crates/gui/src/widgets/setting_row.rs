@@ -15,6 +15,10 @@
 //! A change goes to the [`Model`] at once; the row shows the value in effect again when the model
 //! reports a change, and the error under the title when the change failed. A locked setting (no
 //! include line, a compositor too old) shows why and can't be changed.
+//!
+//! The row of a per-device setting is for all devices of its type or, after
+//! [`SettingRow::set_device`], for one of them. Until that device has a value of its own, the
+//! row says it is the same as for all devices of the type.
 
 use std::str::FromStr;
 
@@ -22,9 +26,10 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
-use sway_things_core::registry::{Kind, Setting, Value};
+use sway_things_core::registry::{Kind, Scope, Setting, Value};
 use sway_things_core::view::{Locked, SettingView, Source};
 
+use super::device_selector::all_of_type;
 use crate::i18n::tr;
 use crate::model::Model;
 use crate::style;
@@ -220,6 +225,25 @@ impl SettingRow {
         error.is_visible().then(|| error.text().to_string())
     }
 
+    /// Makes the row show and change the value for the input `device`, or with `None` for all
+    /// devices of the type.
+    pub fn set_device(&self, device: Option<&str>) {
+        let imp = self.imp();
+        if imp.device.borrow().as_deref() == device {
+            return;
+        }
+        imp.device.replace(device.map(str::to_owned));
+        self.show_error(None);
+        self.refresh();
+    }
+
+    /// The note under the line of the sway config, if there is one: where the value comes from,
+    /// or why it can't be changed.
+    pub fn note(&self) -> Option<String> {
+        let note = &self.imp().note;
+        note.is_visible().then(|| note.text().to_string())
+    }
+
     fn is_for(&self, key: &str, device: Option<&str>) -> bool {
         self.setting().is_some_and(|setting| setting.key() == key)
             && self.imp().device.borrow().as_deref() == device
@@ -264,7 +288,7 @@ impl SettingRow {
         }
         imp.line.set_text(view.line.as_deref().unwrap_or_default());
         imp.line.set_visible(view.line.is_some());
-        let note = note(&view);
+        let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
         let reason = view.locked.as_ref().map(ToString::to_string);
@@ -546,11 +570,22 @@ fn color(rgba: &gtk::gdk::RGBA) -> Option<Color> {
     Color::from_str(&text).ok()
 }
 
-/// The note under the line: where the value comes from, or why it can't be changed.
-fn note(view: &SettingView) -> String {
+/// The note under the line: where the value comes from, or why it can't be changed. For one
+/// `device` without a value of its own, that it is the value of all devices of the type.
+fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
     let mut parts = Vec::new();
-    if let Source::Config { file, line } = &view.source {
-        parts.push(format!("From {}:{line}", tilde(file)));
+    match (&view.source, setting.scope(), device) {
+        (Source::Config { file, line }, _, _) => {
+            parts.push(format!("From {}:{line}", tilde(file)));
+        }
+        (
+            Source::Stored { for_type: true, .. } | Source::Default,
+            Scope::PerDevice(kind),
+            Some(_),
+        ) => {
+            parts.push(format!("Same as {}", all_of_type(kind)));
+        }
+        _ => {}
     }
     match &view.locked {
         Some(locked @ Locked::Unsupported(_)) => parts.push(locked.to_string()),
