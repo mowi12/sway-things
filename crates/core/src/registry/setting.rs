@@ -111,6 +111,44 @@ pub struct Slider {
     pub step: f64,
 }
 
+/// What another setting must be set to for a setting to matter: blur passes only change
+/// anything while blur is on.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Dependency {
+    /// The key of the setting it depends on.
+    pub key: &'static str,
+    /// The values of that setting under which it matters.
+    pub when: When,
+}
+
+/// The values a setting a [`Dependency`] names must have.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum When {
+    /// An on/off setting is on.
+    On,
+    /// A choice is one of these ids.
+    OneOf(&'static [&'static str]),
+    /// A number is above this.
+    Above(f64),
+}
+
+impl When {
+    /// Whether `value` meets the condition. A value of another type never does.
+    pub fn holds(self, value: &Value) -> bool {
+        match (self, value) {
+            (Self::On, Value::Bool(on)) => *on,
+            (Self::OneOf(ids), Value::Choice(id)) => ids.contains(&id.as_str()),
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "the ranges of whole-number settings are far below 2^52"
+            )]
+            (Self::Above(limit), Value::Integer(number)) => *number as f64 > limit,
+            (Self::Above(limit), Value::Decimal(number)) => *number > limit,
+            _ => false,
+        }
+    }
+}
+
 /// The definition of one setting. Everything about a setting derives from it: the row in the app,
 /// the search entry, the command line key, the checks on stored values, the default, the sway
 /// commands and the config lines.
@@ -131,6 +169,7 @@ pub struct Setting {
     scope: Scope,
     apply: Apply,
     requirements: Requirements,
+    dependency: Option<Dependency>,
     sway: Option<SwayMapping>,
     clears_first: Option<&'static str>,
 }
@@ -154,6 +193,7 @@ impl Setting {
                 min_swayfx: None,
                 tools: &[],
             },
+            dependency: None,
             sway: None,
             clears_first: None,
         })
@@ -312,6 +352,11 @@ impl Setting {
         self.clears_first
     }
 
+    /// The setting this one only matters with, and how that one must be set.
+    pub fn dependency(&self) -> Option<Dependency> {
+        self.dependency
+    }
+
     /// The sway directive behind the setting, or `None` for a preference of Sway Things itself.
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
@@ -414,6 +459,14 @@ impl SettingBuilder {
     /// Records the programs that must be installed for the setting to work.
     pub fn requires_tools(mut self, tools: &'static [&'static str]) -> Self {
         self.0.requirements.tools = tools;
+        self
+    }
+
+    /// Records that the setting only matters while the setting `key` is set as `when` says (on
+    /// the same page, before this one). The app greys the row out otherwise; the value is still
+    /// stored and generated.
+    pub fn depends_on(mut self, key: &'static str, when: When) -> Self {
+        self.0.dependency = Some(Dependency { key, when });
         self
     }
 

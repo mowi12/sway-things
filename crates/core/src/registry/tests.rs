@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
     Apply, Block, ConfigFile, Defaults, Kind, Page, ReadError, Registry, RenderError, Scope,
-    Setting, SwayMapping, Value, ValueError,
+    Setting, SwayMapping, Value, ValueError, When,
 };
 use crate::command::input::InputSelector;
 use crate::command::{Availability, Color, SwayCmd, Target};
@@ -932,6 +932,81 @@ fn values_are_read_as_sway_reads_them() {
 }
 
 #[test]
+fn window_and_effect_lines_are_read_as_sway_and_swayfx_read_them() {
+    let ok = |key: &str, line: &str| match read(key, line) {
+        Some(Ok(value)) => value,
+        other => panic!("{key} from {line}: {other:?}"),
+    };
+    let color = |red, green, blue| Value::Color(Color::rgb(red, green, blue));
+    // A border line without a width leaves sway's default; `atoi` reads the start of one.
+    assert_eq!(
+        ok("windows.border.width", "default_border pixel"),
+        Value::Integer(2)
+    );
+    assert_eq!(
+        ok(
+            "windows.floating_border.width",
+            "default_floating_border normal 3px"
+        ),
+        Value::Integer(3)
+    );
+    // `smart` hides no edges: it turns on smart borders, a setting of its own.
+    assert_eq!(
+        ok("windows.hide_edge_borders", "hide_edge_borders --i3 smart"),
+        Value::Choice("none".to_owned())
+    );
+    assert_eq!(
+        ok("windows.hide_lone_tab", "hide_edge_borders --i3 both"),
+        Value::Bool(true)
+    );
+    assert_eq!(
+        ok("windows.smart_borders", "smart_borders enable"),
+        Value::Choice("on".to_owned())
+    );
+    assert_eq!(
+        ok("windows.smart_gaps", "smart_gaps inverse_outer"),
+        Value::Choice("inverse_outer".to_owned())
+    );
+    assert_eq!(
+        ok("windows.gaps.outer", "gaps outer -4"),
+        Value::Integer(-4)
+    );
+    // One padding is both.
+    assert_eq!(
+        ok("windows.titlebar.padding_vertical", "titlebar_padding 6"),
+        Value::Integer(6)
+    );
+    // Unset, the focused tab title is drawn like an inactive window; a line takes 3 to 5 colors.
+    assert_eq!(
+        ok(
+            "windows.focused_tab_title.text",
+            "client.focused_tab_title #111111 #222222 #333333 #444444"
+        ),
+        color(0x33, 0x33, 0x33)
+    );
+    assert_eq!(
+        ok(
+            "windows.urgent.indicator",
+            "client.urgent #111111 #222222 #333333"
+        ),
+        color(0x90, 0, 0)
+    );
+    assert_eq!(
+        ok("effects.shadow_offset_y", "shadow_offset 2 -4.5"),
+        Value::Decimal(-4.5)
+    );
+    assert_eq!(ok("effects.blur", "blur on"), Value::Bool(true));
+    // SwayFX reads the second argument of several.
+    assert_eq!(
+        ok(
+            "effects.animation_duration_ms",
+            "animation_duration_ms ignored 250"
+        ),
+        Value::Integer(250)
+    );
+}
+
+#[test]
 fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
     let rejected = |key: &str, line: &str| {
         assert!(
@@ -958,6 +1033,25 @@ fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
     rejected("input.touchpad.pointer_accel", "input * pointer_accel fast");
     rejected("input.keyboard.repeat_delay", "input * repeat_delay -1");
     rejected("effects.corner_radius", "corner_radius 100");
+    rejected("windows.border.style", "default_border Pixel 2");
+    rejected("windows.hide_edge_borders", "hide_edge_borders --i3");
+    rejected("windows.title_align", "title_align middle");
+    rejected(
+        "windows.titlebar.padding_horizontal",
+        "titlebar_padding -1 4",
+    );
+    rejected(
+        "windows.titlebar.border_thickness",
+        "titlebar_border_thickness 2px",
+    );
+    rejected("effects.blur_passes", "blur_passes 11");
+    rejected("effects.blur_noise", "blur_noise 1.5");
+    rejected("effects.shadow_offset_x", "shadow_offset 100 0");
+    rejected("effects.shadow_offset_x", "shadow_offset 1");
+    rejected(
+        "effects.animation_duration_ms",
+        "animation_duration_ms 6000",
+    );
     rejected("input.touchpad.tap", "input * tap");
     // sway accepts it, but the setting's range is narrower.
     assert!(matches!(
@@ -977,6 +1071,56 @@ fn only_the_settings_own_directive_matches() {
     assert_eq!(read("input.touchpad.tap", "bar {\n  tap enabled\n}"), None);
     assert_eq!(read("windows.font", "input * font monospace"), None);
     assert_eq!(read("app.safety_net_timeout", "gaps inner 8"), None);
+}
+
+#[test]
+fn dependencies_name_an_earlier_setting_of_the_page_with_values_it_can_take() {
+    let mut earlier: Vec<&Setting> = Vec::new();
+    for setting in registry().iter() {
+        if let Some(dependency) = setting.dependency() {
+            let other = earlier
+                .iter()
+                .find(|other| other.key() == dependency.key)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{} depends on {}, which isn't an earlier setting",
+                        setting.key(),
+                        dependency.key
+                    )
+                });
+            assert_eq!(other.page(), setting.page(), "{}", setting.key());
+            let fits = match (dependency.when, other.kind()) {
+                (When::On, Kind::Bool { .. })
+                | (When::Above(_), Kind::Integer { .. } | Kind::Decimal { .. }) => true,
+                (When::OneOf(ids), Kind::Choice { choices, .. }) => {
+                    !ids.is_empty()
+                        && ids
+                            .iter()
+                            .all(|id| choices.iter().any(|choice| choice.id == *id))
+                }
+                _ => false,
+            };
+            assert!(
+                fits,
+                "{}: {dependency:?} doesn't fit {}",
+                setting.key(),
+                other.key()
+            );
+        }
+        earlier.push(setting);
+    }
+}
+
+#[test]
+fn a_dependency_holds_for_the_values_it_names() {
+    assert!(When::On.holds(&Value::Bool(true)));
+    assert!(!When::On.holds(&Value::Bool(false)));
+    assert!(When::OneOf(&["pixel"]).holds(&Value::Choice("pixel".to_owned())));
+    assert!(!When::OneOf(&["pixel"]).holds(&Value::Choice("none".to_owned())));
+    assert!(When::Above(0.0).holds(&Value::Integer(1)));
+    assert!(!When::Above(0.0).holds(&Value::Decimal(0.0)));
+    // A value of another type never meets it.
+    assert!(!When::On.holds(&Value::Integer(1)));
 }
 
 #[test]

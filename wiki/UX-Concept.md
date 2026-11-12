@@ -131,6 +131,7 @@ control. Badges are labels, never buttons.
 | **This machine only** | the value is stored | computer toggle, pressed for the host overlay; new values of device- and output-bound settings start there | moves the value between `settings.toml` and the host overlay |
 | **Your config wins** | a line of the user's config after our include overrides the stored value | badge marked for attention (warning icon and border) and a ⋮ menu | the menu shows file:line and the line, then _Let my config win_, _Open config in editor_, _Copy line_ |
 | **Overridden** | a line of the user's config before our include is dead while the value is stored | plain badge and a ⋮ menu | as above |
+| **Needs another setting** | the setting only matters while another one is set (blur passes while blur is on) | the control is disabled, the reason under the line (_Turn on Blur first_) | none; the stored value stays |
 | **Requires SwayFX** / **Requires sway ≥ x.y** | the running compositor lacks the setting | badge with a lock; the control is disabled, with the reason as tooltip | none |
 | **Requires _tool_** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman | (comes with the pages that need backends) |
 | **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover | (comes with the pages that need backends) |
@@ -214,9 +215,9 @@ For tools with include support (sway, kanshi), the flow is the same as the first
 
 ## SwayFX
 
-With SwayFX detected, the Windows page gets an **Effects** section (corner radius, smart corners, blur, shadows, dim
-inactive) and the live window preview renders those effects. The Bar and Notifications pages get layer-effect toggles
-(blur behind waybar or notifications). On vanilla sway these controls show "Requires SwayFX".
+With SwayFX detected, the Windows page gets the effect sections **Corners**, **Blur**, **Shadows**, **Dim inactive** and
+**Animations** (SwayFX ≥ 0.6), and the live window preview renders those effects. The Bar and Notifications pages get
+layer-effect toggles (blur behind waybar or notifications). On vanilla sway these controls show "Requires SwayFX".
 
 ## Accessibility
 

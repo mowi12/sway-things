@@ -62,6 +62,7 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 | Generator output | the render function builds the commands, the mapping names the generated file |
 | Conflict detection | the sway directive and block context the setting maps to; the read function gives the value of a user's line |
 | Version and fork gating | `min_sway(…)`, `swayfx_only(…)` |
+| Dependencies | `depends_on("effects.blur", When::On)`: the row is locked with the reason ("Turn on Blur first") while the other setting's value in effect doesn't meet the condition (on, one of some choices, above a number) |
 | Scope | global / per-host / per-device / per-output (decides the host-overlay default) |
 | Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
 | Requirements | `requires_tools(&["swayidle"])` → "Requires swayidle" indicator plus install hints |
@@ -95,6 +96,13 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   function reads values through a `Context`, which checks each stored value against its setting and falls back to the
   default. Over IPC a setting can need more commands than in the config: `windows.gaps.inner` renders `gaps inner 8` for
   both, and over IPC also `gaps inner all set 8` for the workspaces that are already open.
+- **Dependencies:** a setting that only matters while another one is set (blur passes while blur is on, a border width
+  for the styles with a border) names it with `depends_on`. `SettingView` locks the row with `Locked::Needs` and the
+  reason while the value in effect of the other setting (stored, from the user's config or the default) doesn't meet the
+  condition. Stored values are still generated. The other setting is on the same page and comes earlier.
+- **Order in the generated file** is the order of the registry. sway checks some directives against values already in
+  effect: `titlebar_border_thickness` comes before `titlebar_padding`, so any thickness up to sway's default vertical
+  padding of 4 fits before the padding changes, and the padding then fits the thickness.
 - **One setting per value:** a directive with several values is several settings. The five colors of `client.focused`
   are `windows.focused.border`, `….background`, `….text`, `….indicator` and `….child_border`. Settings with the same
   directive form a group (`Registry::group`) with one render function that reads all of them, so storing one color
