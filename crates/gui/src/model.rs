@@ -14,7 +14,9 @@
 //! A risky setting (an input device switched off, the keyboard layout) changes through the core's
 //! safety net: it is tried live, and only stored when the user keeps it ([`Model::keep`]).
 //! [`Model::revert`], or the end of the countdown, puts the old value back. While the change
-//! waits ([`Model::pending_change`]), its row shows the tried value.
+//! waits ([`Model::pending_change`]), its row shows the tried value. [`Model::try_risky_all`]
+//! tries several settings of one device as one such change: the layouts with their variants.
+//! [`Model::switch_layout`] switches the keyboard layout in use, which stores nothing.
 //!
 //! A row's indicators act through the model too: [`Model::reset`] removes a stored value (a risky
 //! one through the safety net), [`Model::move_to`] moves it between the shared file and the host
@@ -34,11 +36,11 @@ use gtk::glib::closure_local;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
-use sway_things_core::command::input::InputSelector;
+use sway_things_core::command::input::{InputSelector, XkbSwitch};
 use sway_things_core::conflict::Report;
-use sway_things_core::devices::{DeviceWatch, Devices};
+use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::Locations;
-use sway_things_core::include::{IncludeStatus, IncludeWatch, WriteAccess};
+use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor};
 use sway_things_core::registry::{Apply, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
@@ -53,6 +55,15 @@ enum Op {
         device: Option<String>,
         value: Value,
     },
+    /// Tries several risky settings of one device as one change with the safety net: each
+    /// gets a new value, or with `None` its stored value is removed.
+    TryRiskyAll {
+        device: Option<String>,
+        changes: Vec<(&'static str, Option<Value>)>,
+    },
+    /// Switches the active keyboard layout of a keyboard, or of all of them, to the one at an
+    /// index.
+    SwitchLayout { device: Option<String>, index: u8 },
     /// Removes a stored value; a risky one is tried with the safety net.
     Reset {
         key: &'static str,
@@ -232,15 +243,20 @@ impl Model {
         let core = core.as_ref()?;
         let mut view = SettingView::of(setting, device, &core.state, &core.status, core.compositor);
         // A risky change that waits isn't stored, but it is in effect.
-        if let Some(pending) = core
+        let pending = core
             .pending
             .as_ref()
-            .filter(|pending| pending.key() == setting.key() && pending.device() == device)
-        {
-            view.value = pending.value().clone();
+            .filter(|pending| pending.device() == device);
+        if let Some((pending, value)) = pending.and_then(|pending| {
+            let tried = pending.values().find(|tried| tried.key == setting.key())?;
+            Some((pending, &tried.value))
+        }) {
+            view.value = value.clone();
             let tried = Tried {
-                key: pending.key(),
-                value: pending.value(),
+                values: pending
+                    .values()
+                    .map(|tried| (tried.key, &tried.value))
+                    .collect(),
                 under: core.state.values(device),
             };
             let selector = device.and_then(|device| InputSelector::device(device).ok());
@@ -308,6 +324,25 @@ impl Model {
         self.queue(Op::Reset {
             key,
             device: device.map(str::to_owned),
+        });
+    }
+
+    /// Tries several risky settings of one input `device` (or of the whole input type) as one
+    /// change with the safety net, like the layouts with their variants: each key gets its new
+    /// value, or with `None` its stored value is removed. A failure is reported for the first key.
+    pub fn try_risky_all(&self, device: Option<&str>, changes: Vec<(&'static str, Option<Value>)>) {
+        self.queue(Op::TryRiskyAll {
+            device: device.map(str::to_owned),
+            changes,
+        });
+    }
+
+    /// Switches the active keyboard layout of the keyboard `device`, or of every keyboard, to
+    /// the one at `index`. Nothing is stored: sway starts with the first layout again.
+    pub fn switch_layout(&self, device: Option<&str>, index: u8) {
+        self.queue(Op::SwitchLayout {
+            device: device.map(str::to_owned),
+            index,
         });
     }
 
@@ -409,7 +444,15 @@ impl Model {
                 device: queued_device,
                 ..
             } => *queued_key == key && queued_device.as_deref() == device,
-            Op::Reset { .. }
+            Op::TryRiskyAll {
+                device: queued_device,
+                changes,
+            } => {
+                queued_device.as_deref() == device
+                    && changes.iter().any(|(queued_key, _)| *queued_key == key)
+            }
+            Op::SwitchLayout { .. }
+            | Op::Reset { .. }
             | Op::MoveTo { .. }
             | Op::LetConfigWin(_)
             | Op::ResetPage(_)
@@ -499,6 +542,15 @@ impl Model {
                 Err(read_only),
             ) => {
                 self.emit_failed(key, device.as_deref(), read_only.explanation());
+            }
+            (Op::TryRiskyAll { device, changes }, access) => {
+                self.try_risky_all_now(&mut applier, device.as_deref(), &changes, &status, access)
+                    .await;
+            }
+            // Switching the layout stores nothing, so it needs no include line.
+            (Op::SwitchLayout { device, index }, _) => {
+                self.switch_layout_now(&mut applier, device.as_deref(), index)
+                    .await;
             }
             (Op::LetConfigWin(report), Err(read_only)) => {
                 self.emit_failed(report.key(), report.device(), read_only.explanation());
@@ -659,6 +711,52 @@ impl Model {
         }
     }
 
+    /// Tries several risky settings of `device` as one change; a failure is reported for the
+    /// first key.
+    async fn try_risky_all_now(
+        &self,
+        applier: &mut Applier,
+        device: Option<&str>,
+        changes: &[(&'static str, Option<Value>)],
+        status: &IncludeStatus,
+        access: Result<WriteAccess, ReadOnly>,
+    ) {
+        let Some((key, _)) = changes.first() else {
+            return;
+        };
+        let result = match access {
+            Ok(access) => applier
+                .try_risky_all(device, changes, status, &access)
+                .await
+                .map(drop)
+                .map_err(|error| error.to_string()),
+            Err(read_only) => Err(read_only.explanation().to_owned()),
+        };
+        if let Err(message) = result {
+            self.emit_failed(key, device, &message);
+        }
+    }
+
+    /// Switches the active layout of the keyboard `device`, or of every keyboard, to the one at
+    /// `index`. A failure is shown in the banner above the page.
+    async fn switch_layout_now(&self, applier: &mut Applier, device: Option<&str>, index: u8) {
+        let selector = match device.map(InputSelector::device).transpose() {
+            Ok(selector) => selector,
+            Err(error) => {
+                self.emit_problem(&format!("The layout can't be switched: {error}"));
+                return;
+            }
+        };
+        let Some(client) = applier.client() else {
+            self.emit_problem("The layout can only be switched in a running sway session.");
+            return;
+        };
+        if let Err(error) = switch_layout(client, selector.as_ref(), XkbSwitch::Index(index)).await
+        {
+            self.emit_problem(&format!("The layout can't be switched: {error}"));
+        }
+    }
+
     /// Removes every stored value of `page`, except those of risky settings.
     async fn reset_page_now(&self, applier: &mut Applier, page: Page, access: &WriteAccess) {
         let stored: Vec<(&'static str, Option<String>)> = applier
@@ -805,19 +903,18 @@ fn is_risky(applier: &Applier, key: &str) -> bool {
         .is_some_and(|setting| setting.apply() == Apply::Risky)
 }
 
-/// The tried value of a risky change, and the stored values for the other keys.
+/// The tried values of a risky change, and the stored values for the other keys.
 struct Tried<'a, V> {
-    key: &'static str,
-    value: &'a Value,
+    values: Vec<(&'static str, &'a Value)>,
     under: V,
 }
 
 impl<V: Values> Values for Tried<'_, V> {
     fn get(&self, key: &str) -> Option<&Value> {
-        if key == self.key {
-            Some(self.value)
-        } else {
-            self.under.get(key)
-        }
+        self.values
+            .iter()
+            .find(|(tried, _)| *tried == key)
+            .map(|(_, value)| *value)
+            .or_else(|| self.under.get(key))
     }
 }
