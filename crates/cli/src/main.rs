@@ -6,12 +6,14 @@
 use std::process::ExitCode;
 
 use clap::Parser;
-use sway_things_cli::{Cli, run_for_user};
+use sway_things_cli::{Cli, Command, run_for_user};
 
 fn main() -> ExitCode {
     // Wrong arguments end here with clap's message and exit code 2.
     let cli = Cli::parse();
     // What `--color` says, for everything that colors its output.
     cli.color.write_global();
-    async_io::block_on(run_for_user(&cli.command)).into()
+    // Without a command, `sway-things` starts the app or brings its window up.
+    let command = cli.command.unwrap_or(Command::Open { link: None });
+    async_io::block_on(run_for_user(&command)).into()
 }

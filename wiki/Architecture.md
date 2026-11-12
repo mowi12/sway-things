@@ -46,7 +46,7 @@ forbidden, clippy pedantic, and no `unwrap`, `expect`, `panic!`, `todo!` or `dbg
 `println!` and requires docs for its public API.
 
 The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
-`sway-things` with no arguments, or `sway-things open <page>`, starts or activates the GUI.
+`sway-things` with no arguments, or `sway-things open [<link>]`, starts or activates the GUI.
 
 ## Settings registry
 
@@ -728,7 +728,8 @@ reports **managed externally by file:line**. The page explains this and offers a
 `crates/cli/` is the `sway-things` binary. `src/lib.rs` runs a command on a `Session` (an `Applier` and the
 `IncludeStatus`), so the tests run it in-process; `src/main.rs` only parses the arguments (clap) and opens the user's
 session with `Applier::open`, the same start as the app: settings and generated files in their usual places, the running
-sway or, without one, the installed `sway`, and the main config sway loaded or would find.
+sway or, without one, the installed `sway`, and the main config sway loaded or would find. `doctor` starts on its own so
+it works where that fails, and `open` needs none of it.
 
 | Command | What it does |
 | --- | --- |
@@ -736,6 +737,7 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
 | `set <key> <value> [--device <id>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
 | `reset <key> [--device <id>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
+| `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
@@ -761,8 +763,8 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
   | Code | Meaning |
   | --- | --- |
   | 0 | done |
-  | 1 | failure: sway rejected a command or a generated file, a file can't be read or written, no sway to ask; for `doctor`, `--fix` couldn't write |
-  | 2 | usage: wrong arguments, an unknown key, a value the setting doesn't take, `--device` for a setting that isn't per device |
+  | 1 | failure: sway rejected a command or a generated file, a file can't be read or written, no sway to ask, the app can't be found or started; for `doctor`, `--fix` couldn't write |
+  | 2 | usage: wrong arguments, an unknown key or page, a value the setting doesn't take, `--device` for a setting that isn't per device |
   | 3 | read-only: the include line is missing |
   | 4 | refused: a risky setting without a terminal or `--yes`, a change that wasn't kept, a setting the compositor doesn't support, a lockout, a generated file changed outside and not overwritten |
   | 5 | problems: `doctor` ran and found at least one problem, also after `--fix` |

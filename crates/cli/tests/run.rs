@@ -133,7 +133,7 @@ impl Setup {
             .unwrap();
         let (mut out, mut err) = (Vec::new(), Vec::new());
         let exit = block_on(run(
-            &cli.command,
+            cli.command.as_ref().unwrap(),
             &mut self.session,
             prompt,
             &mut out,
@@ -583,11 +583,20 @@ fn commands_parse_as_documented() {
     let cli = Cli::try_parse_from(["sway-things", "get", "--json"]).unwrap();
     assert_eq!(
         cli.command,
-        Command::Get {
+        Some(Command::Get {
             key: None,
             device: None,
             json: true
-        }
+        })
+    );
+    let cli = Cli::try_parse_from(["sway-things"]).unwrap();
+    assert_eq!(cli.command, None);
+    let cli = Cli::try_parse_from(["sway-things", "open", "input.keyboard.repeat_rate"]).unwrap();
+    assert_eq!(
+        cli.command,
+        Some(Command::Open {
+            link: Some("input.keyboard.repeat_rate".to_owned())
+        })
     );
 }
 

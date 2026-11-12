@@ -11,7 +11,10 @@
 )]
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt as _;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 
 use sway_things_core::ipc::stand_in::{FakeSway, obedient};
 
@@ -196,5 +199,97 @@ fn doctor_colors_only_when_asked() {
     assert_eq!(
         text(&output.stdout),
         "windows.gaps.inner = 8  (settings.toml)\n"
+    );
+}
+
+/// A stand-in for `sway-things-gui` in `dir`: it writes its arguments, one per line, to the file
+/// it returns.
+fn stand_in_gui(dir: &Path) -> (PathBuf, PathBuf) {
+    let gui = dir.join("gui");
+    let args = dir.join("gui.args");
+    fs::write(
+        &gui,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$0.tmp\"\n/bin/mv \"$0.tmp\" \"$0.args\"\n",
+    )
+    .unwrap();
+    fs::set_permissions(&gui, fs::Permissions::from_mode(0o755)).unwrap();
+    (gui, args)
+}
+
+/// What the stand-in got, once it ran.
+fn started_with(args: &Path) -> Option<String> {
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_secs(10) {
+        if let Ok(text) = fs::read_to_string(args) {
+            return Some(text);
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    None
+}
+
+#[test]
+fn open_starts_the_app_at_a_link() {
+    let home = Home::new("version = 1\n", INCLUDE);
+    let (gui, args) = stand_in_gui(home.dir.path());
+    let env = [("SWAY_THINGS_GUI", gui.to_str().unwrap())];
+
+    let output = home.run_with(&["open", "input.keyboard.repeat_rate"], &env);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(
+        started_with(&args).as_deref(),
+        Some("input.keyboard.repeat_rate\n")
+    );
+    fs::remove_file(&args).unwrap();
+
+    let output = home.run_with(&["open", "keyboard"], &env);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(started_with(&args).as_deref(), Some("keyboard\n"));
+    fs::remove_file(&args).unwrap();
+
+    // Without a command, and `open` without a link, the app starts without arguments.
+    for command in [&[] as &[&str], &["open"]] {
+        let output = home.run_with(command, &env);
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        assert_eq!(started_with(&args).as_deref(), Some("\n"));
+        fs::remove_file(&args).unwrap();
+    }
+    assert_eq!(home.sway.commands(), [] as [&str; 0]);
+}
+
+#[test]
+fn open_names_the_valid_links_and_starts_nothing() {
+    let home = Home::new("version = 1\n", INCLUDE);
+    let (gui, args) = stand_in_gui(home.dir.path());
+    let env = [("SWAY_THINGS_GUI", gui.to_str().unwrap())];
+
+    let output = home.run_with(&["open", "keyboards"], &env);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let err = text(&output.stderr);
+    assert!(
+        err.starts_with("error: unknown page \"keyboards\""),
+        "{err}"
+    );
+    assert!(err.contains("mouse-touchpad, keyboard,"), "{err}");
+
+    let output = home.run_with(&["open", "input.keyboard.repeat_speed"], &env);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let err = text(&output.stderr);
+    assert!(err.contains("unknown setting"), "{err}");
+    assert!(err.contains("input.keyboard.repeat_rate"), "{err}");
+
+    std::thread::sleep(Duration::from_millis(200));
+    assert!(!args.exists(), "the app was started");
+}
+
+#[test]
+fn open_fails_without_the_app() {
+    let home = Home::new("version = 1\n", INCLUDE);
+    let missing = home.dir.path().join("no-such-gui");
+    let output = home.run_with(&["open"], &[("SWAY_THINGS_GUI", missing.to_str().unwrap())]);
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert!(
+        text(&output.stderr).starts_with("error: can't start "),
+        "{output:?}"
     );
 }

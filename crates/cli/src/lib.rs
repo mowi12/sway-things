@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The command line of Sway Things: `get`, `set`, `reset`, `show-generated` and `doctor`.
+//! The command line of Sway Things: `get`, `set`, `reset`, `show-generated`, `doctor` and
+//! `open`.
 //!
 //! [`run`] carries out a [`Command`] on a [`Session`], so the tests run it with a stand-in for
 //! sway and a validator of their own; [`run_for_user`] opens the session of the user who runs
@@ -14,7 +15,9 @@ mod spinner;
 
 use std::fmt;
 use std::io::{self, Write};
-use std::process::ExitCode;
+use std::os::unix::process::CommandExt as _;
+use std::path::PathBuf;
+use std::process::{ExitCode, Stdio};
 
 use anstream::{AutoStream, ColorChoice};
 
@@ -25,7 +28,7 @@ use sway_things_core::command::input::InputSelector;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
-use sway_things_core::registry::{Apply, ConfigFile, Registry, Scope, Setting, Value};
+use sway_things_core::registry::{Apply, ConfigFile, Link, Registry, Scope, Setting, Value};
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 
@@ -37,9 +40,9 @@ pub use spinner::Spinner;
 #[derive(Debug, Parser)]
 #[command(name = "sway-things", version, long_about = None)]
 pub struct Cli {
-    /// What to do.
+    /// What to do; without a command, `open`.
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
     /// When to use colors: `--color auto|always|never`. Only `doctor` colors its report.
     #[command(flatten)]
     pub color: colorchoice_clap::Color,
@@ -106,18 +109,30 @@ pub enum Command {
     /// Check why settings might not take effect: the compositor, your sway config and its include
     /// line, the settings files, the generated files and the lines of your config that win
     Doctor(DoctorArgs),
+    /// Start the app, or bring its window up if it runs, at a page or a setting
+    Open {
+        /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
+        link: Option<String>,
+    },
 }
+
+/// The binary of the app.
+pub const GUI: &str = "sway-things-gui";
+
+/// The environment variable that names the binary of the app, ahead of the one next to
+/// `sway-things` and the one in `PATH`.
+pub const GUI_ENV: &str = "SWAY_THINGS_GUI";
 
 /// How `sway-things` ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exit {
     /// It did what was asked.
     Ok = 0,
-    /// Something went wrong: sway rejected a command or the generated config, or a file can't be
-    /// read or written. For `doctor`: it couldn't do its job, e.g. `--fix` couldn't write the
-    /// files.
+    /// Something went wrong: sway rejected a command or the generated config, a file can't be
+    /// read or written, or the app can't be found or started. For `doctor`: it couldn't do its
+    /// job, e.g. `--fix` couldn't write the files.
     Failure = 1,
-    /// The arguments are wrong: an unknown key, a value the setting doesn't take.
+    /// The arguments are wrong: an unknown key or page, a value the setting doesn't take.
     Usage = 2,
     /// The user's sway config doesn't include the generated files yet, so nothing is changed.
     ReadOnly = 3,
@@ -152,11 +167,13 @@ fn color_for(stream: &impl anstream::stream::RawStream) -> bool {
 }
 
 /// Runs `command` for the user who runs `sway-things`: with their settings files, their sway
-/// config and, if there is one, their sway session.
+/// config and, if there is one, their sway session. `open` needs neither.
 pub async fn run_for_user(command: &Command) -> Exit {
     let mut err = io::stderr();
-    if let Command::Doctor(args) = command {
-        return doctor_for_user(args, &mut err).await;
+    match command {
+        Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
+        Command::Open { link } => return open(link.as_deref(), &mut err),
+        _ => {}
     }
     let (applier, main) = match Applier::open().await {
         Ok(opened) => opened,
@@ -228,8 +245,8 @@ pub async fn run<V: Validate>(
     err: &mut dyn Write,
 ) -> Exit {
     let mut io = Io { out, err };
-    // The doctor reports the problems of the settings files itself.
-    if !matches!(command, Command::Doctor(_)) {
+    // The doctor reports the problems of the settings files itself; `open` doesn't read them.
+    if !matches!(command, Command::Doctor(_) | Command::Open { .. }) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
         }
@@ -276,7 +293,63 @@ pub async fn run<V: Validate>(
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
+        Command::Open { link } => open(link.as_deref(), io.err),
     }
+}
+
+/// `open`: starts the app at `link`, or without one, and returns at once. A running app brings
+/// its window up instead. An unknown link is reported with the pages or keys there are, and the
+/// app isn't started.
+#[allow(
+    clippy::zombie_processes,
+    reason = "the app outlives sway-things, which ends right after starting it"
+)]
+pub fn open(link: Option<&str>, err: &mut dyn Write) -> Exit {
+    if let Some(text) = link {
+        if let Err(error) = Link::parse(text, Registry::builtin()) {
+            let _ = writeln!(err, "error: {error}");
+            return Exit::Usage;
+        }
+    }
+    let Some(gui) = find_gui() else {
+        let _ = writeln!(
+            err,
+            "error: can't find {GUI}: install it next to sway-things or in PATH, or name it in \
+             {GUI_ENV}"
+        );
+        return Exit::Failure;
+    };
+    let mut command = std::process::Command::new(&gui);
+    command
+        .args(link)
+        .stdin(Stdio::null())
+        // A group of its own, so Ctrl+C in the terminal that ran `sway-things open` leaves it.
+        .process_group(0);
+    match command.spawn() {
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "error: can't start {}: {error}", gui.display());
+            Exit::Failure
+        }
+    }
+}
+
+/// The binary of the app: the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the
+/// first in `PATH`.
+fn find_gui() -> Option<PathBuf> {
+    if let Some(named) = std::env::var_os(GUI_ENV).filter(|named| !named.is_empty()) {
+        return Some(PathBuf::from(named));
+    }
+    let beside = std::env::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.parent()?.join(GUI)));
+    if let Some(beside) = beside.filter(|path| path.is_file()) {
+        return Some(beside);
+    }
+    let paths = std::env::var_os("PATH").unwrap_or_default();
+    std::env::split_paths(&paths)
+        .map(|dir| dir.join(GUI))
+        .find(|path| path.is_file())
 }
 
 /// `doctor` on an open session: the compositor is the one the applier generates for.
