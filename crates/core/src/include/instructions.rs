@@ -67,6 +67,12 @@ impl Instructions {
 
     /// The instructions as text, with the line on a line of its own at the end.
     pub fn text(&self) -> String {
+        format!("{}\n\n    {}", self.explanation(), self.line)
+    }
+
+    /// The instructions as text without the line, which the app shows on its own with a copy
+    /// button. It ends with a colon.
+    pub fn explanation(&self) -> String {
         let config = self.config_display();
         let place = match &self.copy_from {
             Some(system) => format!(
@@ -76,11 +82,7 @@ impl Instructions {
             ),
             None => format!("needs one line at the end of {config}"),
         };
-        format!(
-            "Sway Things never edits your sway config. It writes its own files and {place}:\n\n    \
-             {}",
-            self.line
-        )
+        format!("Sway Things never edits your sway config. It writes its own files and {place}:")
     }
 }
 

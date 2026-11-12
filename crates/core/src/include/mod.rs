@@ -259,9 +259,20 @@ impl IncludeStatus {
         &self.instructions
     }
 
-    /// The status in words, for the welcome screen, the banner and the CLI.
+    /// The status in words, for the welcome screen, the banner and the CLI. While Sway Things is
+    /// read-only, it ends with the line to add.
     pub fn message(&self) -> String {
-        let line = self.instructions.line();
+        let explanation = self.explanation();
+        if self.is_active() {
+            explanation
+        } else {
+            format!("{explanation}\n\n    {}", self.instructions.line())
+        }
+    }
+
+    /// [`IncludeStatus::message`] without the line to add, for the app, which shows the line on
+    /// its own with a copy button. While Sway Things is read-only, it ends with a colon.
+    pub fn explanation(&self) -> String {
         let places = self
             .lines
             .iter()
@@ -279,7 +290,7 @@ impl IncludeStatus {
             ),
             Inclusion::Partial { missing } => format!(
                 "Not enabled yet: your config includes only some of the Sway Things files \
-                 ({places}). Not included: {}. Use this line instead:\n\n    {line}",
+                 ({places}). Not included: {}. Use this line instead:",
                 missing
                     .iter()
                     .map(|file| file.file_name())
@@ -288,7 +299,7 @@ impl IncludeStatus {
             ),
             Inclusion::Unknown { unfollowed } => format!(
                 "Not enabled yet: Sway Things can't follow part of your config:\n\n{}\n\nIf the \
-                 Sway Things line is in there, add it to {} instead:\n\n    {line}",
+                 Sway Things line is in there, add it to {} instead:",
                 unfollowed
                     .iter()
                     .map(|diagnostic| format!("    {}", self.unfollowed(diagnostic)))
@@ -296,7 +307,7 @@ impl IncludeStatus {
                     .join("\n"),
                 self.instructions.config_display()
             ),
-            Inclusion::Missing => self.instructions.text(),
+            Inclusion::Missing => self.instructions.explanation(),
         }
     }
 

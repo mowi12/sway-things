@@ -79,6 +79,17 @@ st-page .st-page-footer {
   border-bottom: 1px solid @borders;
 }
 
+/* Welcome screen while the include line is missing */
+st-welcome .st-welcome-content {
+  margin: 56px 32px 32px;
+}
+
+st-welcome .st-include-line {
+  border: 1px solid @borders;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
 /* Placeholder for pages that aren't built yet */
 st-placeholder {
   margin-top: 48px;

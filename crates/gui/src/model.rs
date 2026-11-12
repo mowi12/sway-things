@@ -199,6 +199,24 @@ impl Model {
         ))
     }
 
+    /// Whether and where the user's config includes the generated files, as last read. `None`
+    /// if the settings couldn't be loaded.
+    pub fn status(&self) -> Option<IncludeStatus> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.status.clone())
+    }
+
+    /// Replaces the include status, after the user's config changed, and tells the rows.
+    pub fn set_status(&self, status: IncludeStatus) {
+        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
+            core.status = status;
+        }
+        self.emit_by_name::<()>("changed", &[]);
+    }
+
     /// Where the generated files go.
     pub fn locations(&self) -> Option<Locations> {
         self.imp()
@@ -363,11 +381,7 @@ impl Model {
             self,
             async move {
                 while let Some(status) = watch.changed().await {
-                    let status = status.clone();
-                    if let Some(core) = model.imp().core.borrow_mut().as_mut() {
-                        core.status = status;
-                    }
-                    model.emit_by_name::<()>("changed", &[]);
+                    model.set_status(status.clone());
                 }
             }
         ));

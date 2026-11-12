@@ -83,7 +83,8 @@ pub enum Locked {
 impl fmt::Display for Locked {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ReadOnly(explanation) => f.write_str(explanation),
+            // The explanation is long and the same for every setting; the app shows it once.
+            Self::ReadOnly(_) => f.write_str("Add the include line to change settings"),
             Self::Unsupported(Unmet::Sway { needed }) => write!(f, "Requires sway {needed}"),
             Self::Unsupported(Unmet::SwayFx { needed }) => write!(f, "Requires SwayFX {needed}"),
         }
@@ -346,6 +347,10 @@ mod tests {
         let setup = setup("version = 1\n");
         let view = view(&setup, "windows.gaps.inner", None, "gaps inner 4\n");
         assert!(matches!(view.locked, Some(Locked::ReadOnly(_))));
+        assert_eq!(
+            view.locked.as_ref().map(ToString::to_string).as_deref(),
+            Some("Add the include line to change settings")
+        );
         // The value still shows.
         assert_eq!(view.value, Value::Integer(4));
 

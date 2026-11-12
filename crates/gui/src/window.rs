@@ -10,19 +10,23 @@ use sway_things_core::registry::Page;
 
 use crate::i18n::tr;
 use crate::model::Model;
-use crate::widgets::{PageView, Placeholder, Sidebar};
+use crate::widgets::{PageView, Placeholder, Sidebar, Welcome};
 
 /// The width of the sidebar, in pixels.
 const SIDEBAR_WIDTH: i32 = 240;
 
+/// The name of the welcome screen in the content pane.
+const WELCOME: &str = "welcome";
+
 mod imp {
-    use std::cell::OnceCell;
+    use std::cell::{Cell, OnceCell};
 
     use gtk::glib;
     use gtk::subclass::prelude::*;
+    use sway_things_core::registry::Page;
 
     use crate::model::Model;
-    use crate::widgets::Sidebar;
+    use crate::widgets::{Sidebar, Welcome};
 
     #[derive(Debug, Default)]
     pub struct Window {
@@ -31,6 +35,18 @@ mod imp {
         pub model: OnceCell<Model>,
         pub banner: gtk::Revealer,
         pub banner_text: gtk::Label,
+        /// The welcome screen while the include line is missing.
+        pub welcome: Welcome,
+        /// Whether the user chose to look around instead of the welcome screen.
+        pub welcome_dismissed: Cell<bool>,
+        /// The banner with the include status: read-only, or a line that isn't last.
+        pub status: gtk::Revealer,
+        pub status_text: gtk::Label,
+        pub status_button: gtk::Button,
+        /// Whether the user dismissed the note that the line isn't last.
+        pub note_dismissed: Cell<bool>,
+        /// The page open last, to go back to from the welcome screen.
+        pub last_page: Cell<Option<Page>>,
     }
 
     #[glib::object_subclass]
@@ -109,9 +125,40 @@ impl Window {
             move |_, message| window.show_problem(message)
         ));
 
+        // The include status: why everything is read-only, or that some of the user's lines win.
+        imp.status_text.set_xalign(0.0);
+        imp.status_text.set_hexpand(true);
+        imp.status_text.set_wrap(true);
+        imp.status_text
+            .set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        imp.status_button.set_valign(gtk::Align::Center);
+        imp.status_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.status_action()
+        ));
+        let status = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        status.add_css_class("st-banner");
+        status.append(&imp.status_text);
+        status.append(&imp.status_button);
+        imp.status.set_child(Some(&status));
+
+        imp.welcome.connect_look_around(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.look_around()
+        ));
+        imp.pages.add_named(&imp.welcome, Some(WELCOME));
+        model.connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.follow_status()
+        ));
+
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.add_css_class("view");
         content.set_hexpand(true);
+        content.append(&imp.status);
         content.append(&imp.banner);
         content.append(&imp.pages);
 
@@ -136,18 +183,128 @@ impl Window {
         self.add_controller(shortcuts);
 
         if let Some(first) = Page::ALL.first() {
-            self.show_page(*first);
+            self.open_page(*first);
         }
+        self.follow_status();
+    }
+
+    /// Opens `page` and marks it in the sidebar. Opening a page from the welcome screen counts as
+    /// looking around.
+    pub fn show_page(&self, page: Page) {
+        if self.is_welcome_shown() {
+            self.imp().welcome_dismissed.set(true);
+        }
+        self.open_page(page);
+        self.follow_status();
     }
 
     /// Opens `page` and marks it in the sidebar.
-    pub fn show_page(&self, page: Page) {
+    fn open_page(&self, page: Page) {
         let imp = self.imp();
         if imp.pages.child_by_name(page.id()).is_none() {
             imp.pages.add_named(&self.build_page(page), Some(page.id()));
         }
         imp.pages.set_visible_child_name(page.id());
         imp.sidebar.select(page);
+        imp.last_page.set(Some(page));
+    }
+
+    /// Whether the welcome screen fills the content pane.
+    pub fn is_welcome_shown(&self) -> bool {
+        self.imp().pages.visible_child_name().as_deref() == Some(WELCOME)
+    }
+
+    /// The welcome screen.
+    pub fn welcome(&self) -> &Welcome {
+        &self.imp().welcome
+    }
+
+    /// The text of the banner with the include status, if it is shown.
+    pub fn status_banner(&self) -> Option<String> {
+        let imp = self.imp();
+        imp.status
+            .reveals_child()
+            .then(|| imp.status_text.text().to_string())
+    }
+
+    /// The button of the banner with the include status.
+    pub fn status_button(&self) -> &gtk::Button {
+        &self.imp().status_button
+    }
+
+    /// Leaves the welcome screen for the page that was open, with the banner above it.
+    pub fn look_around(&self) {
+        let imp = self.imp();
+        imp.welcome_dismissed.set(true);
+        let page = imp.last_page.get().or_else(|| Page::ALL.first().copied());
+        if let Some(page) = page {
+            self.show_page(page);
+        }
+    }
+
+    /// What the button of the status banner does: shows the instructions again while read-only,
+    /// and dismisses the note that the line isn't last otherwise.
+    fn status_action(&self) {
+        let imp = self.imp();
+        let read_only = self.read_only_status().is_some();
+        if read_only {
+            imp.welcome_dismissed.set(false);
+        } else {
+            imp.note_dismissed.set(true);
+        }
+        self.follow_status();
+    }
+
+    /// The include status, if Sway Things is read-only.
+    fn read_only_status(&self) -> Option<sway_things_core::include::IncludeStatus> {
+        self.imp()
+            .model
+            .get()
+            .and_then(Model::status)
+            .filter(|status| !status.is_active())
+    }
+
+    /// Shows the welcome screen or the banner as the include status asks: the welcome screen
+    /// while read-only (unless the user chose to look around), a banner with a way back to it,
+    /// and once the line is there, a note if some of the user's lines come after it.
+    fn follow_status(&self) {
+        let imp = self.imp();
+        let Some(status) = imp.model.get().and_then(Model::status) else {
+            return;
+        };
+        if status.is_active() {
+            if self.is_welcome_shown() {
+                // The line is there: on to the page that was open.
+                imp.welcome_dismissed.set(true);
+                if let Some(page) = imp.last_page.get().or_else(|| Page::ALL.first().copied()) {
+                    imp.pages.set_visible_child_name(page.id());
+                    imp.sidebar.select(page);
+                }
+            }
+            let note = !status.is_last() && !imp.note_dismissed.get();
+            if note {
+                imp.status_text.set_text(&status.explanation());
+                imp.status_button.set_label("Dismiss");
+            }
+            imp.status.set_reveal_child(note);
+            return;
+        }
+        imp.welcome.update(&status);
+        if imp.welcome_dismissed.get() {
+            imp.status_text
+                .set_text("Not enabled yet: add one line to your sway config to change settings.");
+            imp.status_button.set_label("Show instructions");
+            imp.status.set_reveal_child(true);
+        } else {
+            imp.status.set_reveal_child(false);
+            if !self.is_welcome_shown() {
+                imp.pages.set_visible_child_name(WELCOME);
+                // The keyboard starts on the welcome screen, which also keeps the sidebar from
+                // marking the row it would focus.
+                GtkWindowExt::set_focus(self, Some(&imp.welcome.first_button()));
+                imp.sidebar.unselect();
+            }
+        }
     }
 
     fn build_page(&self, page: Page) -> PageView {

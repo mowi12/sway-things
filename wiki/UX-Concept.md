@@ -125,9 +125,16 @@ The app **never** adds the include line itself. On first run (or whenever the li
 - If the line isn't found but part of the config can't be followed (an include that runs a shell command), the app stays
   read-only, names that include and suggests adding the line to the main config.
 - If there is no config of the user's own yet (sway reads `/etc/sway/config`), the instructions say to create one first.
-- **Read-only until enabled**: the welcome screen can be dismissed, after which a persistent banner remains. All pages
-  show current values (from IPC + parser), conflicts and the generated-config preview. Controls are disabled with "Add
-  the include line to change settings".
+- **Where it shows:** the welcome screen takes the place of the page in the content pane; the sidebar stays usable. It
+  has a **Copy** button for the line, **Open config in editor** (the desktop's default application for text files; a
+  terminal editor from `$EDITOR` can't start without a terminal) and _Waiting for the line…_. It closes by itself once
+  the watcher finds the line, and opens the page that was open.
+- **Read-only until enabled**: _Look around first_, or opening a page from the sidebar, dismisses the welcome screen,
+  after which a persistent banner remains above every page, with **Show instructions** to bring the welcome screen back.
+  It shows again at the next start while the line is still missing. All pages show current values (from IPC + parser),
+  conflicts and the generated-config preview. Controls are disabled with "Add the include line to change settings".
+- **Line not last:** once enabled, if some of the user's lines come after the include, a banner says how many and that
+  they win where they set the same thing; it can be dismissed.
 
   ```text
   ┌ ⓘ Not enabled yet: add one line to your sway config to change settings. ┐

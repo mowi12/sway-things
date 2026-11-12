@@ -27,7 +27,7 @@ use sway_things_core::apply::Applier;
 use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
-use sway_things_core::registry::{Kind, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, Kind, Page, Registry, Value};
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
 use sway_things_core::version::{SwayFxVersion, SwayVersion};
@@ -60,6 +60,33 @@ const USERS: &str = "gaps inner 6\nfocus_follows_mouse no\n";
 struct Fixture {
     _dir: tempfile::TempDir,
     model: Model,
+    main: PathBuf,
+    locations: Locations,
+}
+
+impl Fixture {
+    /// The include line of the generated files.
+    fn include_line(&self) -> String {
+        let file = self.locations.path(ConfigFile::Input);
+        let directory = file.parent().unwrap_or(Path::new("/"));
+        format!("include {}/*.conf\n", directory.display())
+    }
+
+    /// The include status of a sway config with `users` and then, if `include`, the include line
+    /// of the generated files.
+    fn status(&self, users: &str, include: bool) -> IncludeStatus {
+        let mut text = users.to_owned();
+        if include {
+            text.push_str(&self.include_line());
+        }
+        self.status_of(&text)
+    }
+
+    /// The include status of a sway config with `text`.
+    fn status_of(&self, text: &str) -> IncludeStatus {
+        let files = MemoryFiles::new().file(self.main.to_string_lossy().as_ref(), text);
+        IncludeStatus::detect(Some(&self.main), &files, &self.locations)
+    }
 }
 
 /// A model with `stored` in the settings file, for a sway config with `users` and then, if
@@ -79,18 +106,16 @@ fn fixture(
     let state = State::load(Registry::builtin(), paths);
     let generated = dir.path().join("sway/sway-things");
     let locations = Locations::new(&generated, &dir.path().join("state"));
-    let main = dir.path().join("sway/config");
-    let mut text = users.to_owned();
-    if include {
-        let _ = writeln!(text, "include {}/*.conf", generated.display());
-    }
-    let files = MemoryFiles::new().file(main.to_string_lossy().as_ref(), text);
-    let status = IncludeStatus::detect(Some(&main), &files, &locations);
-    let applier = Applier::without_session(state, locations, SwayValidator::new(), compositor);
-    Ok(Fixture {
+    let mut fixture = Fixture {
+        model: Model::default(),
+        main: dir.path().join("sway/config"),
+        locations: locations.clone(),
         _dir: dir,
-        model: Model::with_applier(applier, status),
-    })
+    };
+    let status = fixture.status(users, include);
+    let applier = Applier::without_session(state, locations, SwayValidator::new(), compositor);
+    fixture.model = Model::with_applier(applier, status);
+    Ok(fixture)
 }
 
 fn main() -> ExitCode {
@@ -115,6 +140,9 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     settings.set_gtk_theme_name(Some(THEME));
+    // Every screen is checked as it ends up: a banner sliding in needs a new layout each frame,
+    // and GTK draws nothing of a window while its layout is due.
+    settings.set_gtk_enable_animations(false);
     let screenshots = std::env::var_os("SWAY_THINGS_SCREENSHOTS").map(PathBuf::from);
 
     let mut results: Vec<(String, Outcome)> = Vec::new();
@@ -135,6 +163,9 @@ fn main() -> ExitCode {
             results.push((format!("contrast: {} ({scheme})", page.id()), outcome));
         }
         window.destroy();
+        let (welcome, banner) = check_read_only_screens(screenshots.as_deref(), scheme);
+        results.push((format!("contrast: welcome screen ({scheme})"), welcome));
+        results.push((format!("contrast: read-only banner ({scheme})"), banner));
     }
     set_dark(&settings, false);
     results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
@@ -149,6 +180,19 @@ fn main() -> ExitCode {
         check_locked(),
     ));
     results.push(("rows: a failed change shows why".to_owned(), check_failed()));
+    results.push((
+        "welcome: the spinner turns after coming back".to_owned(),
+        check_spinner(&settings),
+    ));
+    results.push(("welcome: look around and back".to_owned(), check_welcome()));
+    results.push((
+        "welcome: closes once the line is there".to_owned(),
+        check_welcome_closes(),
+    ));
+    results.push((
+        "welcome: a line that isn't last".to_owned(),
+        check_not_last(),
+    ));
 
     let mut failed = 0;
     for (name, outcome) in &results {
@@ -293,7 +337,7 @@ fn check_page(window: &Window, page: Page, screenshots: Option<&Path>, scheme: &
 /// Checks every text drawn in the window as it is now, and saves it to `screenshot` if given.
 /// Returns the problems, one per line.
 fn check_screen(window: &Window, screenshot: Option<PathBuf>) -> Result<String, String> {
-    let node = render(window.upcast_ref())?;
+    let node = render_drawn(window)?;
     // The viewport starts at the window's origin, so pixels and node coordinates line up.
     #[expect(
         clippy::cast_precision_loss,
@@ -315,8 +359,17 @@ fn check_screen(window: &Window, screenshot: Option<PathBuf>) -> Result<String, 
     if samples.is_empty() {
         return Err("  no text was drawn".to_owned());
     }
+    // WCAG exempts inactive controls (1.4.3), like those of a read-only page: GTK draws their
+    // text faint on purpose.
+    let inactive = insensitive_areas(window.upcast_ref(), window.upcast_ref());
     let mut problems = String::new();
-    for sample in &samples {
+    for sample in samples.iter().filter(|sample| {
+        let center = gtk::graphene::Point::new(
+            sample.bounds.x() + sample.bounds.width() / 2.0,
+            sample.bounds.y() + sample.bounds.height() / 2.0,
+        );
+        !inactive.iter().any(|area| area.contains_point(&center))
+    }) {
         if let Some(problem) = problem(sample) {
             let _ = writeln!(problems, "  {problem}");
         }
@@ -634,4 +687,289 @@ fn check_failed() -> Outcome {
     ensure(gaps.error().is_some(), "the refused change shows no error")?;
     window.destroy();
     Ok(())
+}
+
+/// The welcome screen and a page with the read-only banner, checked like the pages.
+fn check_read_only_screens(screenshots: Option<&Path>, scheme: &str) -> (Outcome, Outcome) {
+    let fixture = match fixture(SWAYFX, STORED, USERS, false) {
+        Ok(fixture) => fixture,
+        Err(error) => return (Err(error.clone()), Err(error)),
+    };
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    let welcome = settle(&window)
+        .and_then(|()| wait_for_paint(&window))
+        .and_then(|()| {
+            let path = screenshots.map(|dir| dir.join(format!("welcome--{scheme}.png")));
+            let problems = check_screen(&window, path)?;
+            ensure(problems.is_empty(), problems.trim_start())
+        });
+    window.look_around();
+    let directory = screenshots.map(|dir| dir.join("read-only"));
+    let banner = check_page(&window, Page::MouseTouchpad, directory.as_deref(), scheme);
+    window.destroy();
+    (welcome, banner)
+}
+
+/// Without the include line the window opens on the welcome screen; "Look around first" and
+/// opening a page lead to the pages with the banner, whose button leads back.
+fn check_welcome() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, false)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    ensure(window.is_welcome_shown(), "the welcome screen isn't shown")?;
+    ensure(window.welcome().is_waiting(), "the spinner doesn't spin")?;
+    ensure(
+        window.welcome().line().starts_with("include ")
+            && window.welcome().line().ends_with("/*.conf"),
+        &format!("the welcome screen asks for {:?}", window.welcome().line()),
+    )?;
+    ensure(
+        window.sidebar().selected().is_none(),
+        "a page is marked in the sidebar",
+    )?;
+    ensure(
+        window.status_banner().is_none(),
+        "the banner shows with the welcome screen",
+    )?;
+    let [_, _, look_around] = window.welcome().buttons();
+    ensure(
+        look_around.is_focusable(),
+        "\"Look around first\" can't take the focus",
+    )?;
+    look_around.emit_clicked();
+    settle(&window)?;
+    ensure(
+        !window.is_welcome_shown(),
+        "\"Look around first\" didn't leave the welcome screen",
+    )?;
+    ensure(
+        !window.welcome().is_waiting(),
+        "the spinner spins while hidden",
+    )?;
+    ensure(
+        window.page() == Page::ALL.first().copied(),
+        "no page is open",
+    )?;
+    ensure(
+        window
+            .status_banner()
+            .is_some_and(|text| text.starts_with("Not enabled yet")),
+        "the read-only banner isn't shown",
+    )?;
+    window.status_button().emit_clicked();
+    settle(&window)?;
+    ensure(
+        window.is_welcome_shown(),
+        "\"Show instructions\" didn't bring back the welcome screen",
+    )?;
+    ensure(
+        window.welcome().is_waiting(),
+        "the spinner doesn't spin after coming back",
+    )?;
+    // Picking a page from the sidebar counts as looking around.
+    window.show_page(Page::Keyboard);
+    settle(&window)?;
+    ensure(
+        !window.is_welcome_shown() && window.page() == Some(Page::Keyboard),
+        "opening a page didn't leave the welcome screen",
+    )?;
+    ensure(
+        window.status_banner().is_some(),
+        "the banner is gone after opening a page",
+    )?;
+    // A change from the model, like any row's, doesn't bring the welcome screen back.
+    fixture.model.set_status(fixture.status(USERS, false));
+    settle(&window)?;
+    ensure(
+        !window.is_welcome_shown(),
+        "the welcome screen came back by itself",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Once the user adds the line, the welcome screen and the banner go away by themselves.
+fn check_welcome_closes() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, false)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    ensure(window.is_welcome_shown(), "the welcome screen isn't shown")?;
+    fixture.model.set_status(fixture.status(USERS, true));
+    settle(&window)?;
+    ensure(
+        !window.is_welcome_shown(),
+        "the welcome screen stayed after the line was added",
+    )?;
+    ensure(
+        window.page() == Page::ALL.first().copied(),
+        "no page is open",
+    )?;
+    ensure(
+        window.status_banner().is_none(),
+        "a banner stayed after the line was added",
+    )?;
+    let tap = row(&window, "input.touchpad.tap")?;
+    ensure(
+        tap.controls()
+            .iter()
+            .all(gtk::prelude::WidgetExt::is_sensitive),
+        "the rows stayed locked after the line was added",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// With lines of the user's after the include, a banner explains that they win, once.
+fn check_not_last() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let after = fixture.status_of(&format!("{}gaps inner 3\n", fixture.include_line()));
+    fixture.model.set_status(after);
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    ensure(
+        !window.is_welcome_shown(),
+        "the welcome screen shows with the line there",
+    )?;
+    let text = window
+        .status_banner()
+        .ok_or_else(|| "  no banner for the lines after the include".to_owned())?;
+    ensure(
+        text.contains("1 of your config lines come after them"),
+        &format!("the banner says {text:?}"),
+    )?;
+    window.status_button().emit_clicked();
+    settle(&window)?;
+    ensure(
+        window.status_banner().is_none(),
+        "the banner can't be dismissed",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Where the insensitive widgets below `widget` are, in the coordinates of `window`: the topmost
+/// of each insensitive part of the tree.
+fn insensitive_areas(widget: &gtk::Widget, window: &gtk::Widget) -> Vec<gtk::graphene::Rect> {
+    if !widget.is_sensitive() {
+        return widget.compute_bounds(window).into_iter().collect();
+    }
+    let mut areas = Vec::new();
+    let mut child = widget.first_child();
+    while let Some(next) = child {
+        if next.is_visible() {
+            areas.extend(insensitive_areas(&next, window));
+        }
+        child = next.next_sibling();
+    }
+    areas
+}
+
+/// The pixels of `widget` as drawn in `window` now.
+fn pixels_of(window: &Window, widget: &gtk::Widget) -> Result<Vec<u8>, String> {
+    wait_for_paint(window)?;
+    let node = render_drawn(window)?;
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "window sizes are far below 2^24, where f32 starts to round"
+    )]
+    let (width, height) = (window.width() as f32, window.height() as f32);
+    let texture = window
+        .renderer()
+        .ok_or_else(|| "  the window has no renderer".to_owned())?
+        .render_texture(
+            &node,
+            Some(&gtk::graphene::Rect::new(0.0, 0.0, width, height)),
+        );
+    let bounds = widget
+        .compute_bounds(window)
+        .ok_or_else(|| "  the widget has no bounds".to_owned())?;
+    let mut downloader = gtk::gdk::TextureDownloader::new(&texture);
+    downloader.set_format(gtk::gdk::MemoryFormat::R8g8b8a8);
+    let (bytes, stride) = downloader.download_bytes();
+    let mut pixels = Vec::new();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the bounds are within the window"
+    )]
+    let (left, top, right, bottom) = (
+        bounds.x() as usize,
+        bounds.y() as usize,
+        (bounds.x() + bounds.width()) as usize,
+        (bounds.y() + bounds.height()) as usize,
+    );
+    for y in top..bottom {
+        let start = y * stride + left * 4;
+        pixels.extend_from_slice(bytes.get(start..y * stride + right * 4).unwrap_or_default());
+    }
+    Ok(pixels)
+}
+
+/// Whether the spinner of the welcome screen looks different within a few seconds. A slow machine
+/// can take a while to lay out a new spinner and to draw the next frame of its animation, so this
+/// keeps looking instead of comparing two fixed moments.
+fn spinner_turns(window: &Window) -> Result<bool, String> {
+    let spinner = window
+        .welcome()
+        .spinner()
+        .ok_or_else(|| "  no spinner".to_owned())?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut first: Option<Vec<u8>> = None;
+    while Instant::now() < deadline {
+        let pixels = pixels_of(window, spinner.upcast_ref())?;
+        if !pixels.is_empty() {
+            match &first {
+                None => first = Some(pixels),
+                Some(first) if *first != pixels => return Ok(true),
+                Some(_) => {}
+            }
+        }
+        run_until(Duration::from_millis(100), || false);
+    }
+    Ok(false)
+}
+
+/// The spinner of the welcome screen turns when it opens, and again after looking around.
+fn check_spinner(settings: &gtk::Settings) -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, false)?;
+    settings.set_gtk_enable_animations(true);
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    let outcome = (|| {
+        settle(&window)?;
+        ensure(spinner_turns(&window)?, "the spinner doesn't turn")?;
+        window.look_around();
+        settle(&window)?;
+        window.status_button().emit_clicked();
+        settle(&window)?;
+        ensure(
+            window.is_welcome_shown(),
+            "the welcome screen didn't come back",
+        )?;
+        ensure(
+            spinner_turns(&window)?,
+            "the spinner doesn't turn after coming back",
+        )
+    })();
+    window.destroy();
+    settings.set_gtk_enable_animations(false);
+    outcome
+}
+
+/// What `window` draws. Right after the content changed, a frame can pass with the layout still
+/// due, and GTK draws nothing of the window then: this waits for the next one, a few times.
+fn render_drawn(window: &Window) -> Result<gsk::RenderNode, String> {
+    let mut node = render(window.upcast_ref());
+    for _ in 0..5 {
+        if node.is_ok() {
+            break;
+        }
+        wait_for_paint(window)?;
+        node = render(window.upcast_ref());
+    }
+    node
 }
