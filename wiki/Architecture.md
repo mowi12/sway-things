@@ -124,7 +124,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   `xkb_capslock`) must use reload. Settings that change what the keys produce (layouts, variants, XKB options) are
   risky. Instead of the safety net, a range keeps other settings usable: the repeat rate is at least 1 per second (sway
   turns repeating off at 0) and the repeat delay at least 100 ms (below that every key repeats almost at once).
-- **Preferences of Sway Things itself** (`app.safety_net_timeout`) are settings without a sway mapping.
+- **Preferences of Sway Things itself** (`app.safety_net_timeout`, `app.show_directives`) are settings without a sway
+  mapping.
 - **Pages:** `Page::ALL` lists every page of the app in sidebar order, each with its id, sidebar group (`Group`), title
   and one-line description. The id is what deep links and the CLI use (`sway-things open mouse-touchpad`). Every setting
   names its page, and the registry lists the settings in page order.

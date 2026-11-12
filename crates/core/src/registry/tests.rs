@@ -287,6 +287,13 @@ fn app_preferences_have_no_sway_mapping() {
 }
 
 #[test]
+fn the_directive_line_is_off_by_default() {
+    let setting = setting("app.show_directives");
+    assert_eq!(setting.kind(), &Kind::Bool { default: false });
+    assert_eq!(setting.section().msgid(), "Sway Things");
+}
+
+#[test]
 fn input_settings_are_per_device() {
     let device = InputSelector::device("1267:12377:ELAN1300:00_04F3:3059_Touchpad").unwrap();
     for (setting, mapping) in sway_settings() {

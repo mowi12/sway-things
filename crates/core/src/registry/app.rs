@@ -24,5 +24,11 @@ pub(super) fn settings() -> Vec<Setting> {
             .subtitle("The color of switches, sliders and selections in this app")
             .keywords(&["theme", "highlight", "color"])
             .build(),
+        Setting::toggle("app.show_directives", Page::About, false)
+            .section("Sway Things")
+            .title("Show sway directives")
+            .subtitle("Show the line of the sway config below each setting")
+            .keywords(&["config", "directive", "monospace", "learn"])
+            .build(),
     ]
 }
