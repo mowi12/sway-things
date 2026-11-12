@@ -13,6 +13,7 @@ mod atomic;
 pub mod command;
 pub mod conflict;
 pub mod devices;
+pub mod doctor;
 pub mod generate;
 pub mod include;
 pub mod ipc;

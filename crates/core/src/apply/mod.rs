@@ -253,6 +253,11 @@ impl<V: Validate> Applier<V> {
         &self.locations
     }
 
+    /// What validates the generated files before they are written.
+    pub fn validator(&self) -> &V {
+        &self.validator
+    }
+
     /// The compositor the settings are checked against and generated for.
     pub fn compositor(&self) -> Compositor {
         self.compositor
