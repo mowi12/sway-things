@@ -24,6 +24,11 @@ impl Color {
         }
     }
 
+    /// The red, green and blue channels, without the alpha.
+    pub const fn channels(self) -> [u8; 3] {
+        [self.red, self.green, self.blue]
+    }
+
     /// A color with alpha, rendered as `#rrggbbaa`.
     pub const fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self {
