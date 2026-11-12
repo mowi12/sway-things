@@ -391,7 +391,7 @@ impl Window {
             }
             return;
         };
-        let text = safety_text(&pending);
+        let text = safety_text(model, &pending);
         imp.safety_text.set_text(&text);
         if imp.safety.reveals_child() {
             return;
@@ -410,8 +410,11 @@ impl Window {
                 glib::ControlFlow::Break,
                 move || {
                     let imp = window.imp();
-                    if let Some(pending) = imp.model.get().and_then(Model::pending_change) {
-                        imp.safety_text.set_text(&safety_text(&pending));
+                    let model = imp.model.get();
+                    if let Some((model, pending)) =
+                        model.and_then(|model| Some((model, model.pending_change()?)))
+                    {
+                        imp.safety_text.set_text(&safety_text(model, &pending));
                         glib::ControlFlow::Continue
                     } else {
                         imp.safety_tick.take();
@@ -452,7 +455,7 @@ impl Window {
                 Placeholder::new("dialog-error-symbolic", "Settings can't be loaded", &error);
             return PageView::new(tr(page.title()), tr(page.description()), &placeholder);
         }
-        PageView::for_settings(model, page, None).unwrap_or_else(|| PageView::unbuilt(page))
+        PageView::for_settings(model, page).unwrap_or_else(|| PageView::unbuilt(page))
     }
 
     /// Shows `message` in the banner above the page.
@@ -504,17 +507,29 @@ impl Window {
 }
 
 /// "Keep the change to Section › Title? Reverting in N s", with the seconds rounded up. The
-/// section says which device a title like "Enabled" is about.
-fn safety_text(pending: &Pending) -> String {
+/// section says which type of device a title like "Enabled" is about; a change for one device
+/// names it too ("Mouse › MX Master 3 › Enabled").
+fn safety_text(model: &Model, pending: &Pending) -> String {
+    let device = pending.device().map(|identifier| {
+        model
+            .devices()
+            .and_then(|devices| {
+                devices
+                    .get(identifier)
+                    .map(|device| device.name().to_owned())
+            })
+            .unwrap_or_else(|| identifier.to_owned())
+    });
     let name = Registry::builtin().get(pending.key()).map_or_else(
         || pending.key().to_owned(),
         |setting| {
             let (section, title) = (tr(setting.section()), tr(setting.title()));
-            if section == title {
-                title.to_owned()
-            } else {
-                format!("{section} › {title}")
+            let mut parts = vec![section];
+            parts.extend(device.as_deref());
+            if section != title {
+                parts.push(title);
             }
+            parts.join(" › ")
         },
     );
     let left = pending.countdown().remaining();

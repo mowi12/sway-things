@@ -15,7 +15,12 @@
 //! safety net: it is tried live, and only stored when the user keeps it ([`Model::keep`]).
 //! [`Model::revert`], or the end of the countdown, puts the old value back. While the change
 //! waits ([`Model::pending_change`]), its row shows the tried value.
+//!
+//! In a session, the model also keeps the input devices current ([`Model::devices`]): a
+//! [`DeviceWatch`] reads them again on each `input` event of sway, and the devices that only have
+//! stored values are listed too. Without a session only those are known.
 
+use std::path::PathBuf;
 use std::time::Instant;
 
 use gtk::glib;
@@ -24,9 +29,10 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
 use sway_things_core::command::input::InputSelector;
+use sway_things_core::devices::{DeviceWatch, Devices};
 use sway_things_core::generate::Locations;
 use sway_things_core::include::{IncludeStatus, IncludeWatch};
-use sway_things_core::ipc::Compositor;
+use sway_things_core::ipc::{Client, Compositor};
 use sway_things_core::registry::{Apply, Setting, Value, Values};
 use sway_things_core::state::State;
 use sway_things_core::view::SettingView;
@@ -62,6 +68,10 @@ struct Core {
     status: IncludeStatus,
     compositor: Compositor,
     locations: Locations,
+    /// The input devices: connected ones as of the last event, and those with stored values.
+    devices: Devices,
+    /// Whether the connected devices are known: in a session, once the device watch runs.
+    devices_known: bool,
     /// Whether changes are saved by themselves (not in tests, where saving would run sway).
     autosave: bool,
 }
@@ -167,7 +177,10 @@ impl Model {
         model
     }
 
-    fn start(&self, applier: Applier, status: IncludeStatus, autosave: bool) {
+    fn start(&self, mut applier: Applier, status: IncludeStatus, autosave: bool) {
+        let socket = applier.client().map(|client| client.socket().to_path_buf());
+        let mut devices = Devices::default();
+        devices.set_stored(applier.state());
         let core = Core {
             state: applier.state().clone(),
             pending: applier.pending().cloned(),
@@ -175,9 +188,14 @@ impl Model {
             locations: applier.locations().clone(),
             applier: Some(applier),
             status,
+            devices,
+            devices_known: false,
             autosave,
         };
         self.imp().core.replace(Some(core));
+        if let Some(socket) = socket {
+            self.watch_devices(socket);
+        }
     }
 
     /// Why the settings couldn't be loaded, if they couldn't.
@@ -213,6 +231,26 @@ impl Model {
             }
         }
         Some(view)
+    }
+
+    /// The input devices: in a session the connected ones, then those that only have stored
+    /// values. `None` if the settings couldn't be loaded.
+    pub fn devices(&self) -> Option<Devices> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.devices.clone())
+    }
+
+    /// Whether the connected devices are known. Without a session, or before the device watch
+    /// has read them, only the devices with stored values are listed.
+    pub fn devices_known(&self) -> bool {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .is_some_and(|core| core.devices_known)
     }
 
     /// The risky change that waits to be kept or reverted, if there is one.
@@ -410,8 +448,47 @@ impl Model {
         }
         if let Some(core) = self.imp().core.borrow_mut().as_mut() {
             core.state = applier.state().clone();
+            core.devices.set_stored(&core.state);
             core.pending = pending;
             core.applier = Some(applier);
+        }
+        self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// Follows the input devices of the session on `socket`: reads them, and again on each
+    /// `input` event, until sway closes the connection.
+    fn watch_devices(&self, socket: PathBuf) {
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                let started = match Client::connect_to(socket).await {
+                    Ok(client) => DeviceWatch::start(&client).await,
+                    Err(error) => Err(error),
+                };
+                let mut watch = match started {
+                    Ok(watch) => watch,
+                    Err(error) => {
+                        model.emit_problem(&format!("Connected devices can't be listed: {error}"));
+                        return;
+                    }
+                };
+                model.take_devices(watch.devices());
+                // An error leaves the list as it was; the events after it still come.
+                while watch.changed().await.is_some() {
+                    model.take_devices(watch.devices());
+                }
+            }
+        ));
+    }
+
+    /// Takes the connected devices of `devices`, and lists those with stored values too.
+    fn take_devices(&self, devices: &Devices) {
+        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
+            let mut devices = devices.clone();
+            devices.set_stored(&core.state);
+            core.devices = devices;
+            core.devices_known = true;
         }
         self.emit_by_name::<()>("changed", &[]);
     }

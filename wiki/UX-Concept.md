@@ -34,6 +34,25 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - A **setting row** has a title, optional subtitle, the control on the right, and for sway settings the **sway directive
   in monospace** as the subtitle (`pointer_accel 0.30`), so users learn the config language as they go.
 
+### Input devices
+
+Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a type or to one device:
+
+- **Device selector:** the sections of one input type start with a _Settings for_ drop-down: _All mice_ (_All
+  touchpads_, …) and each device of the type. Devices that aren't connected but have stored values are listed with "(not
+  connected)", so their values stay reachable. Picking a device points every row of those sections at it.
+- **One device:** a row shows the device's own value, or the value of all devices of the type with the note _Same as all
+  mice_. A change stores a value for the device, on this machine by default. Removing a device's own value comes with
+  the _Reset_ indicator.
+- **No device:** while no device of a type is connected and nothing is stored for the type, its sections show their
+  heading with a hint (_No touchpad is connected._) instead of the rows. Without a session the devices aren't known, so
+  every section shows.
+- **Hotplug:** devices appear and disappear live. When the device picked is gone from the list, the sections go back to
+  all devices of the type.
+- **Mouse & Touchpad test area:** below the sections, a pad that names the last click (_Left click_, _Double-click_,
+  _Right click_, …) to try tapping, the button maps and left-handed mode, and a strip of lines to scroll to feel scroll
+  speed and natural scrolling.
+
 ### Sidebar groups
 
 | Group | Pages |
@@ -73,12 +92,13 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   └────────────────────────────────────────────────────────────────────────┘
   ```
 
-  The banner sits above the page and names the setting by section and title. Nothing is saved until _Keep_; _Revert_,
-  the end of the countdown (the safety-net timeout preference) or closing the window puts the old value back, and the
-  row shows it again. While the change waits, its row shows the tried value. When the banner appears, _Revert_ gets the
-  focus, so a stray key press undoes the change instead of keeping it, and screen readers announce the banner. One risky
-  change at a time: another one is refused at its row until this one is kept or reverted. The last output, the last
-  keyboard and the last pointing device can't be disabled; the row says why.
+  The banner sits above the page and names the setting by section and title, and the device for a change of one device
+  (_Mouse › MX Master 3 › Enabled_). Nothing is saved until _Keep_; _Revert_, the end of the countdown (the safety-net
+  timeout preference) or closing the window puts the old value back, and the row shows it again. While the change waits,
+  its row shows the tried value. When the banner appears, _Revert_ gets the focus, so a stray key press undoes the
+  change instead of keeping it, and screen readers announce the banner. One risky change at a time: another one is
+  refused at its row until this one is kept or reverted. The last output, the last keyboard and the last pointing device
+  can't be disabled; the row says why.
 - **Badges** for settings that can't apply live: "Applies after re-login" (environment variables), "Applies after
   reload".
 

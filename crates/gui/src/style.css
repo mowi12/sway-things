@@ -68,6 +68,30 @@ st-setting-row .st-row-detail {
   font-size: 0.85em;
 }
 
+/* Shown in place of the rows of an input type without devices */
+st-page .st-section-hint {
+  margin: 0 4px;
+}
+
+/* Test area of the Mouse & Touchpad page */
+st-test-area {
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+st-test-area .st-test-pad {
+  padding: 24px 16px;
+  min-height: 112px;
+}
+
+st-test-area > scrolledwindow {
+  border-left: 1px solid @borders;
+}
+
+st-test-area .st-test-lines {
+  padding: 12px 16px;
+}
+
 st-page .st-page-footer {
   margin-top: 24px;
   font-size: 0.85em;
