@@ -39,6 +39,7 @@ mod input;
 mod link;
 mod page;
 mod read;
+mod search;
 mod setting;
 mod sway;
 #[cfg(test)]
@@ -54,6 +55,7 @@ use crate::command::{SwayCmd, Target};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
+pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
     Apply, Dependency, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider,
     When,
