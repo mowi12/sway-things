@@ -44,7 +44,7 @@ use crate::command::input::InputSelector;
 use crate::conflict::Report;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
-use crate::registry::{Setting, Value, Values};
+use crate::registry::{Kind, Setting, Value, Values, When};
 use crate::state::{Layer, State};
 
 /// Where the value a row shows comes from.
@@ -78,6 +78,9 @@ pub enum Locked {
     ReadOnly(String),
     /// The running compositor doesn't support the setting.
     Unsupported(Unmet),
+    /// The setting only matters while another one is set differently; the text says which
+    /// ("Turn on Blur first").
+    Needs(String),
 }
 
 impl fmt::Display for Locked {
@@ -87,6 +90,7 @@ impl fmt::Display for Locked {
             Self::ReadOnly(_) => f.write_str("Add the include line to change settings"),
             Self::Unsupported(Unmet::Sway { needed }) => write!(f, "Requires sway {needed}"),
             Self::Unsupported(Unmet::SwayFx { needed }) => write!(f, "Requires SwayFX {needed}"),
+            Self::Needs(text) => f.write_str(text),
         }
     }
 }
@@ -179,7 +183,8 @@ impl SettingView {
             Ok(()) => status
                 .write_access()
                 .err()
-                .map(|read_only| Locked::ReadOnly(read_only.explanation().to_owned())),
+                .map(|read_only| Locked::ReadOnly(read_only.explanation().to_owned()))
+                .or_else(|| unmet_dependency(setting, device, state, status, compositor)),
         };
 
         Self {
@@ -189,6 +194,39 @@ impl SettingView {
             locked,
         }
     }
+}
+
+/// Why `setting` doesn't matter with the values in effect, if its dependency isn't met.
+fn unmet_dependency(
+    setting: &'static Setting,
+    device: Option<&str>,
+    state: &State,
+    status: &IncludeStatus,
+    compositor: Compositor,
+) -> Option<Locked> {
+    let dependency = setting.dependency()?;
+    let other = state.registry().get(dependency.key)?;
+    let value = SettingView::of(other, device, state, status, compositor).value;
+    if dependency.when.holds(&value) {
+        return None;
+    }
+    let title = other.title().msgid();
+    let text = match dependency.when {
+        When::On => format!("Turn on {title} first"),
+        When::OneOf(ids) => {
+            let labels: Vec<&str> = match other.kind() {
+                Kind::Choice { choices, .. } => choices
+                    .iter()
+                    .filter(|choice| ids.contains(&choice.id))
+                    .map(|choice| choice.label.msgid())
+                    .collect(),
+                _ => ids.to_vec(),
+            };
+            format!("Only with {title}: {}", labels.join(" or "))
+        }
+        When::Above(limit) => format!("Only with {title} above {limit}"),
+    };
+    Some(Locked::Needs(text))
 }
 
 /// The values in `over`, and those of `under` for the other keys.
@@ -364,6 +402,28 @@ mod tests {
             })
         );
         assert_eq!(locked.to_string(), "Requires SwayFX 0.5");
+    }
+
+    #[test]
+    fn a_setting_is_locked_while_the_one_it_depends_on_is_set_otherwise() {
+        let width = "windows.border.width";
+        let empty = setup("version = 1\n");
+        assert_eq!(view(&empty, width, None, INCLUDE).locked, None);
+        // The value in effect counts, also one from the user's config.
+        let users = format!("default_border none\n{INCLUDE}");
+        assert_eq!(
+            view(&empty, width, None, &users).locked,
+            Some(Locked::Needs(
+                "Only with Tiled windows: Border and title bar or Border only".to_owned()
+            ))
+        );
+        let pixel = setup("version = 1\n\n[windows.border]\nstyle = \"pixel\"\n");
+        assert_eq!(view(&pixel, width, None, &users).locked, None);
+        // Being read-only says more.
+        assert!(matches!(
+            view(&empty, width, None, "default_border none\n").locked,
+            Some(Locked::ReadOnly(_))
+        ));
     }
 
     #[test]

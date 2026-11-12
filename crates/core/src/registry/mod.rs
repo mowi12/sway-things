@@ -54,7 +54,10 @@ use crate::command::{SwayCmd, Target};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
-pub use setting::{Apply, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider};
+pub use setting::{
+    Apply, Dependency, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider,
+    When,
+};
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
 };

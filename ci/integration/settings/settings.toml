@@ -32,16 +32,60 @@ xkb_capslock = false
 
 [windows]
 font = "Noto Sans 11"
+title_align = "center"
+hide_edge_borders = "both"
+hide_lone_tab = true
+smart_borders = "no_gaps"
+smart_gaps = "on"
 
 [windows.gaps]
 inner = 8
+outer = -2
 
 [windows.focused]
 text = "#eeeeee"
 child_border = "#3b6e4f"
 
+[windows.focused_inactive]
+border = "#444444"
+
+[windows.unfocused]
+text = "#999999"
+
+[windows.urgent]
+background = "#aa0000"
+
+[windows.focused_tab_title]
+background = "#335577"
+
+[windows.border]
+style = "pixel"
+width = 3
+
+[windows.floating_border]
+style = "none"
+
+# The thickness fits sway's default vertical padding of 4, then the padding fits the thickness.
+[windows.titlebar]
+border_thickness = 2
+padding_horizontal = 8
+padding_vertical = 3
+
 [effects]
 corner_radius = 8
+smart_corner_radius = false
+blur = true
+blur_passes = 2
+blur_noise = 0.05
+shadows = true
+shadow_color = "#00000080"
+shadow_offset_x = 2.0
+shadow_offset_y = -1.5
+dim_inactive = 0.2
+animation_duration_ms = 200
+
+[effects.dim_inactive_colors]
+urgent = "#880000"
 
 [behavior]
 focus_follows_mouse = "always"

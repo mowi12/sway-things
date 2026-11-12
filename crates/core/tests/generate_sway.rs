@@ -141,7 +141,18 @@ fn a_file_sway_rejects_keeps_its_old_content() -> Result<()> {
         .await?;
         match &report[3] {
             (ConfigFile::Effects, Outcome::Invalid(lines)) => {
-                assert_eq!(lines.len(), 1, "{lines:?}");
+                // Every effect line is rejected, each with the settings behind it.
+                let effects = invalid
+                    .iter()
+                    .find(|file| file.file() == ConfigFile::Effects)
+                    .ok_or("no effects file")?;
+                let commands = effects
+                    .text()
+                    .lines()
+                    .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                    .count();
+                assert_eq!(lines.len(), commands, "{lines:?}");
+                assert!(lines.iter().all(|line| line.source.is_some()), "{lines:?}");
                 assert_eq!(lines[0].line, 3);
                 assert!(lines[0].message.contains("corner_radius"), "{lines:?}");
                 let source = lines[0].source.as_ref().ok_or("no source")?;

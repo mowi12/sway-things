@@ -557,7 +557,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 27);
+    assert_eq!(generated.len(), 40);
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),
         Some("button8")
