@@ -790,7 +790,7 @@ fn keyboard() -> Vec<Setting> {
                 },
             )
             .build(),
-        Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 0, i64::from(u16::MAX))
+        Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 100, i64::from(u16::MAX))
             .section("Typing")
             .title("Repeat delay")
             .slider(100.0, 2000.0, 10.0)
