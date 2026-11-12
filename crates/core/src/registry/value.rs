@@ -162,7 +162,9 @@ impl Kind {
     /// Reads a value of this type from `text` as it is typed on the command line, and checks it
     /// like [`Kind::check`]: `true` or `false`, a number, a choice's id, a color as `#rrggbb` or
     /// `#rrggbbaa`, any text, or a list as its items separated by commas (`us,de`, like sway's
-    /// `xkb_layout`; blanks around an item are dropped, and an empty text is an empty list).
+    /// `xkb_layout`). Blanks around an item and empty items at the end are dropped, so an empty
+    /// text is an empty list; empty items before others stay, because a list can line up with
+    /// another one (`,nodeadkeys`: no variant for the first layout).
     ///
     /// # Errors
     ///
@@ -184,13 +186,14 @@ impl Kind {
                 Value::Color(Color::from_str(text).map_err(|_| ValueError::NotAColor)?)
             }
             Self::Text { .. } => Value::Text(text.to_owned()),
-            Self::List { .. } => Value::List(
-                text.split(',')
-                    .map(str::trim)
-                    .filter(|item| !item.is_empty())
-                    .map(str::to_owned)
-                    .collect(),
-            ),
+            Self::List { .. } => {
+                let mut items: Vec<String> =
+                    text.split(',').map(|item| item.trim().to_owned()).collect();
+                while items.last().is_some_and(String::is_empty) {
+                    items.pop();
+                }
+                Value::List(items)
+            }
         };
         self.check(&value)?;
         Ok(value)

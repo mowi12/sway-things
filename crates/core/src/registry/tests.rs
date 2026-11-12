@@ -346,6 +346,194 @@ fn a_type_setting_renders_for_all_devices_of_the_type() {
     );
 }
 
+/// The commands of `key` for these stored values.
+fn render_with(key: &str, values: &[(&str, Value)]) -> Result<Vec<String>, RenderError> {
+    let values: BTreeMap<String, Value> = values
+        .iter()
+        .map(|(key, value)| ((*key).to_owned(), value.clone()))
+        .collect();
+    Ok(registry()
+        .render(setting(key), &values, None, Target::Config)?
+        .iter()
+        .map(|command| command.render(Target::Config).unwrap())
+        .collect())
+}
+
+fn list(items: &[&str]) -> Value {
+    Value::List(items.iter().map(|item| (*item).to_owned()).collect())
+}
+
+#[test]
+fn variants_line_up_with_the_layouts() {
+    const LAYOUT: &str = "input.keyboard.xkb_layout";
+    const VARIANT: &str = "input.keyboard.xkb_variant";
+    let layouts = (LAYOUT, list(&["us", "de", "fr"]));
+    let variants =
+        |items: &[&str]| render_with(VARIANT, &[layouts.clone(), (VARIANT, list(items))]);
+    assert_eq!(
+        variants(&["", "nodeadkeys", "bepo"]).unwrap(),
+        [r#"input type:keyboard xkb_variant ",nodeadkeys,bepo""#]
+    );
+    // A shorter list leaves the other layouts as they are.
+    assert_eq!(
+        variants(&["dvorak"]).unwrap(),
+        [r#"input type:keyboard xkb_variant "dvorak,,""#]
+    );
+    assert_eq!(
+        variants(&[]).unwrap(),
+        [r#"input type:keyboard xkb_variant ",,""#]
+    );
+    // With the default of one layout, no variant is an empty one.
+    assert_eq!(
+        render_with(VARIANT, &[]).unwrap(),
+        [r#"input type:keyboard xkb_variant """#]
+    );
+    // A variant without its layout is refused, with the numbers in the message.
+    let error = variants(&["", "nodeadkeys", "bepo", "dvorak"]).unwrap_err();
+    assert_eq!(
+        error,
+        RenderError::TooManyVariants {
+            key: VARIANT,
+            variants: 4,
+            layouts: 3
+        }
+    );
+    assert!(
+        error.to_string().contains("4 variants for 3 layouts"),
+        "{error}"
+    );
+    assert!(matches!(
+        variants(&["dvorak,colemak"]),
+        Err(RenderError::Input(_))
+    ));
+}
+
+#[test]
+fn keyboard_lists_are_read_as_xkb_reads_them() {
+    let ok = |key: &str, line: &str| match read(key, line) {
+        Some(Ok(value)) => value,
+        other => panic!("{key} from {line}: {other:?}"),
+    };
+    let variant = "input.keyboard.xkb_variant";
+    assert_eq!(
+        ok(variant, "input * xkb_variant ,nodeadkeys"),
+        list(&["", "nodeadkeys"])
+    );
+    // Empty variants at the end are the padding rendering adds anyway.
+    assert_eq!(
+        ok(variant, "input * xkb_variant dvorak,,"),
+        list(&["dvorak"])
+    );
+    assert_eq!(ok(variant, r#"input * xkb_variant """#), list(&[]));
+    let options = "input.keyboard.xkb_options";
+    assert_eq!(
+        ok(options, "input * xkb_options ctrl:nocaps,,compose:ralt"),
+        list(&["ctrl:nocaps", "compose:ralt"])
+    );
+    assert_eq!(ok(options, r#"input * xkb_options """#), list(&[]));
+    assert_eq!(
+        ok("input.keyboard.xkb_model", "input * xkb_model pc104"),
+        Value::Text("pc104".to_owned())
+    );
+    // sway's parse_boolean(…, false): toggle turns the lock on.
+    assert_eq!(
+        ok("input.keyboard.xkb_numlock", "input * xkb_numlock toggle"),
+        Value::Bool(true)
+    );
+    assert_eq!(
+        ok("input.keyboard.xkb_capslock", "input * xkb_capslock off"),
+        Value::Bool(false)
+    );
+    assert_eq!(
+        ok("input.keyboard.repeat_rate", "input * repeat_rate 40/s"),
+        Value::Integer(40)
+    );
+    assert!(matches!(
+        read("input.keyboard.repeat_rate", "input * repeat_rate -1"),
+        Some(Err(ReadError::Rejected(_)))
+    ));
+    // sway takes 0, which turns repeating off; the setting keeps at least one per second.
+    assert!(matches!(
+        read("input.keyboard.repeat_rate", "input * repeat_rate 0"),
+        Some(Err(ReadError::Unsupported(_)))
+    ));
+}
+
+#[test]
+fn keyboard_settings_apply_as_their_effect_needs() {
+    let apply = |key: &str| setting(key).apply();
+    // What the keys produce: tried under the safety net.
+    for key in [
+        "input.keyboard.xkb_layout",
+        "input.keyboard.xkb_variant",
+        "input.keyboard.xkb_options",
+    ] {
+        assert_eq!(apply(key), Apply::Risky, "{key}");
+    }
+    for key in [
+        "input.keyboard.xkb_model",
+        "input.keyboard.repeat_delay",
+        "input.keyboard.repeat_rate",
+    ] {
+        assert_eq!(apply(key), Apply::Live, "{key}");
+    }
+    // sway only reads the lock states from its config.
+    for key in ["input.keyboard.xkb_numlock", "input.keyboard.xkb_capslock"] {
+        assert_eq!(apply(key), Apply::Reload, "{key}");
+    }
+    assert_eq!(
+        setting("input.keyboard.repeat_rate").check(&Value::Integer(0)),
+        Err(ValueError::IntegerOutOfRange {
+            min: 1,
+            max: i64::from(u16::MAX)
+        })
+    );
+    let rate = setting("input.keyboard.repeat_rate").slider().unwrap();
+    assert_eq!((rate.min, rate.max, rate.step), (1.0, 100.0, 1.0));
+}
+
+#[test]
+fn search_terms_find_the_keyboard_settings() {
+    // Every word of the query in the title, the subtitle or a keyword.
+    let finds = |query: &str| -> Vec<&'static str> {
+        registry()
+            .iter()
+            .filter(|setting| {
+                let mut text = format!(
+                    "{} {}",
+                    setting.title().msgid(),
+                    setting
+                        .subtitle()
+                        .map(super::Msg::msgid)
+                        .unwrap_or_default()
+                );
+                for keyword in setting.keywords() {
+                    text.push(' ');
+                    text.push_str(keyword.msgid());
+                }
+                let text = text.to_lowercase();
+                query.split(' ').all(|word| text.contains(word))
+            })
+            .map(Setting::key)
+            .collect()
+    };
+    for (query, key) in [
+        ("caps lock", "input.keyboard.xkb_options"),
+        ("compose", "input.keyboard.xkb_options"),
+        ("dvorak", "input.keyboard.xkb_variant"),
+        ("colemak", "input.keyboard.xkb_variant"),
+        ("language", "input.keyboard.xkb_layout"),
+        ("model", "input.keyboard.xkb_model"),
+        ("key repeat", "input.keyboard.repeat_rate"),
+        ("key repeat", "input.keyboard.repeat_delay"),
+        ("numlock", "input.keyboard.xkb_numlock"),
+        ("num lock", "input.keyboard.xkb_numlock"),
+        ("caps lock", "input.keyboard.xkb_capslock"),
+    ] {
+        assert!(finds(query).contains(&key), "{query} doesn't find {key}");
+    }
+}
+
 #[test]
 fn a_live_gaps_change_also_reaches_open_workspaces() {
     let gaps = setting("windows.gaps.inner");
@@ -492,6 +680,11 @@ fn values_are_parsed_as_typed_on_the_command_line() {
         parse("input.keyboard.xkb_layout", ""),
         Ok(Value::List(Vec::new()))
     );
+    // Empty items before others stay: a variant lines up with its layout.
+    assert_eq!(
+        parse("input.keyboard.xkb_variant", ", nodeadkeys,"),
+        Ok(Value::List(vec![String::new(), "nodeadkeys".to_owned()]))
+    );
     assert_eq!(
         parse("windows.focused.border", "#FFaa00"),
         Ok(Value::Color(Color::rgb(0xff, 0xaa, 0)))
@@ -531,7 +724,19 @@ fn every_sway_setting_reads_back_what_it_renders() {
             samples.push(Value::List(vec!["us".to_owned(), "de".to_owned()]));
         }
         for sample in samples {
-            let text = lines(setting, &sample, Target::Config).join("\n");
+            // Two layouts, so that two variants fit.
+            let mut values = BTreeMap::from([(
+                "input.keyboard.xkb_layout".to_owned(),
+                Value::List(vec!["us".to_owned(), "de".to_owned()]),
+            )]);
+            values.insert(setting.key().to_owned(), sample.clone());
+            let text = registry()
+                .render(setting, &values, None, Target::Config)
+                .unwrap()
+                .iter()
+                .map(|command| command.render(Target::Config).unwrap())
+                .collect::<Vec<_>>()
+                .join("\n");
             let read: Vec<_> = parsed(&text)
                 .iter()
                 .filter_map(|directive| setting.read(directive))

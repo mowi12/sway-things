@@ -370,6 +370,15 @@ pub enum RenderError {
     OutOfRange(OutOfRange),
     /// A built command can't be written as a config line.
     Command(CommandError),
+    /// More keyboard variants than layouts: each variant belongs to the layout at its position.
+    TooManyVariants {
+        /// The key of the variants setting.
+        key: &'static str,
+        /// The number of variants.
+        variants: usize,
+        /// The number of layouts.
+        layouts: usize,
+    },
 }
 
 impl From<InputError> for RenderError {
@@ -401,6 +410,15 @@ impl fmt::Display for RenderError {
             Self::Window(error) => error.fmt(f),
             Self::OutOfRange(error) => error.fmt(f),
             Self::Command(error) => error.fmt(f),
+            Self::TooManyVariants {
+                key,
+                variants,
+                layouts,
+            } => write!(
+                f,
+                "{key}: {variants} variants for {layouts} layouts; each variant belongs to the \
+                 layout at the same position, so remove the extra variants or add their layouts"
+            ),
         }
     }
 }
@@ -413,7 +431,10 @@ impl std::error::Error for RenderError {
             Self::Window(error) => Some(error),
             Self::OutOfRange(error) => Some(error),
             Self::Command(error) => Some(error),
-            Self::UnknownKey { .. } | Self::NotASwaySetting { .. } | Self::NotPerDevice => None,
+            Self::UnknownKey { .. }
+            | Self::NotASwaySetting { .. }
+            | Self::NotPerDevice
+            | Self::TooManyVariants { .. } => None,
         }
     }
 }
