@@ -875,7 +875,8 @@ fn check_directives() -> Outcome {
     Ok(())
 }
 
-/// On vanilla sway, the SwayFX corner radius can't be changed, and says why.
+/// On vanilla sway, the SwayFX corner radius can't be changed, and says why. A setting that
+/// applies after a reload says so.
 fn check_locked() -> Outcome {
     let fixture = fixture(SWAY, STORED, USERS, true)?;
     let window = open(&fixture, Page::Windows)?;
@@ -900,6 +901,16 @@ fn check_locked() -> Outcome {
             .iter()
             .all(gtk::prelude::WidgetExt::is_sensitive),
         "the gaps are locked",
+    )?;
+    window.destroy();
+    let window = open(&fixture, Page::Keyboard)?;
+    let numlock = row(&window, "input.keyboard.xkb_numlock")?;
+    ensure(
+        numlock.badges() == ["Applies after reload"],
+        &format!(
+            "  Num Lock at startup has the badges {:?}",
+            numlock.badges()
+        ),
     )?;
     window.destroy();
     Ok(())
