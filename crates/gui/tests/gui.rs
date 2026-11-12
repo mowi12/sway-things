@@ -7,10 +7,13 @@
 //! - Contrast: the window is drawn with every page open, in GTK's own theme, light and dark, and
 //!   every text in it must reach WCAG AA against what is drawn under it.
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
-//! - Deep links: a link opens its page, and with a setting, focuses and tints its row.
+//! - Deep links: a link opens its page, and with a setting, focuses and tints its row (expanding
+//!   its group first).
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
 //!   settings, a locked setting can't be changed, a failed change shows its error, and the line
 //!   of the sway config shows while its preference is on.
+//! - Groups: the settings of one directive are rows below a group row, which shows their values
+//!   and the line once, and expands and collapses with `Enter` and `Space`.
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
 //! - Indicators: reset, this machine only, the badges of a conflict with the user's config and
 //!   its ⋮ menu, the badge of a requirement, and the reset of a whole page.
@@ -51,7 +54,7 @@ use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
-    DeviceSelector, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
+    DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
 };
 use sway_things_gui::window::Window;
 
@@ -232,6 +235,10 @@ fn main() -> ExitCode {
         "deep links: a hidden row only opens the page".to_owned(),
         check_open_hidden_link(),
     ));
+    results.push((
+        "deep links: a member of a group expands it".to_owned(),
+        check_open_group_link(),
+    ));
     results.extend(check_setting_rows());
     results.extend(check_safety_net());
     results.push((
@@ -313,6 +320,14 @@ fn check_setting_rows() -> Vec<(String, Outcome)> {
         (
             "rows: the directive line follows the preference".to_owned(),
             check_directives(),
+        ),
+        (
+            "groups: one row with the values and the line".to_owned(),
+            check_group_row(),
+        ),
+        (
+            "groups: Enter and Space expand and collapse".to_owned(),
+            check_group_keyboard(),
         ),
     ]
 }
@@ -417,6 +432,10 @@ fn render(window: &gtk::Window) -> Result<gsk::RenderNode, String> {
 /// longer than the window is scrolled through, a window height at a time.
 fn check_page(window: &Window, page: Page, screenshots: Option<&Path>, scheme: &str) -> Outcome {
     window.show_page(page);
+    // Expanded, so the rows of the members are checked too.
+    for group in page_view(window).iter().flat_map(PageView::groups) {
+        group.set_expanded(true);
+    }
     settle(window)?;
     let scroller = window
         .content()
@@ -702,6 +721,192 @@ fn check_open_hidden_link() -> Outcome {
         row.parent()
             .is_none_or(|item| !item.has_css_class(style::HIGHLIGHT)),
         "  a hidden row is tinted",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A link to a member of a collapsed group expands the group, then tints the member's row and
+/// gives its control the focus.
+fn check_open_group_link() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    window.show_page(Page::Windows);
+    let group = group(&window, "windows.focused")?;
+    ensure(!group.is_expanded(), "  the group starts expanded")?;
+
+    let key = "windows.focused.indicator";
+    let link = Link::parse(key, Registry::builtin()).map_err(|error| error.to_string())?;
+    window.open_link(&link);
+    ensure(group.is_expanded(), "  the link didn't expand the group")?;
+    let row = row(&window, key)?;
+    ensure(
+        row.parent()
+            .is_some_and(|item| item.is_visible() && item.has_css_class(style::HIGHLIGHT)),
+        "  the member's row isn't shown and tinted",
+    )?;
+    let focused = run_until(Duration::from_secs(5), || {
+        gtk::prelude::GtkWindowExt::focus(&window).is_some_and(|focus| focus.is_ancestor(&row))
+    });
+    ensure(focused, "  the member's control didn't get the focus")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The page view open in `window`.
+fn page_view(window: &Window) -> Option<PageView> {
+    window
+        .content()
+        .and_then(|content| find::<PageView>(&content))
+}
+
+/// The row of the group `id` on the open page of `window`.
+fn group(window: &Window, id: &str) -> Result<GroupRow, String> {
+    page_view(window)
+        .and_then(|view| view.group(id))
+        .ok_or_else(|| format!("  no group {id}"))
+}
+
+/// The five colors of `client.focused` are rows below one group row: collapsed, it shows a
+/// swatch per color and, while the preference is on, the line once; the members never show it.
+fn check_group_row() -> Outcome {
+    let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let group = group(&window, "windows.focused")?;
+    let keys: Vec<&str> = group
+        .members()
+        .iter()
+        .filter_map(|member| {
+            member
+                .setting()
+                .map(sway_things_core::registry::Setting::key)
+        })
+        .collect();
+    ensure(
+        keys == [
+            "windows.focused.border",
+            "windows.focused.background",
+            "windows.focused.text",
+            "windows.focused.indicator",
+            "windows.focused.child_border",
+        ],
+        &format!("  the group has the members {keys:?}"),
+    )?;
+    ensure(!group.is_expanded(), "the group starts expanded")?;
+    ensure(
+        group
+            .members()
+            .iter()
+            .all(|member| member.parent().is_some_and(|item| !item.is_visible())),
+        "a collapsed group shows its members",
+    )?;
+    let expected = fixture
+        .model
+        .view(setting("windows.focused.border")?, None)
+        .and_then(|view| view.line)
+        .ok_or_else(|| "  client.focused has no line".to_owned())?;
+    ensure(
+        group.line().as_deref() == Some(expected.as_str()),
+        &format!(
+            "  the group shows {:?}, expected {expected:?}",
+            group.line()
+        ),
+    )?;
+    ensure(
+        group.members().iter().all(|member| member.line().is_none()),
+        "a member repeats the line",
+    )?;
+    let swatches: Vec<String> = group
+        .swatches()
+        .iter()
+        .map(gtk::gdk::RGBA::to_str)
+        .map(|color| color.to_string())
+        .collect();
+    ensure(
+        swatches.len() == 5 && swatches.last().map(String::as_str) == Some("rgb(59,110,79)"),
+        &format!("  the swatches are {swatches:?}, the last one the stored #3b6e4f"),
+    )?;
+
+    // A change shows in the summary and the line.
+    fixture.model.set(
+        "windows.focused.border",
+        None,
+        Value::Color("#102030".parse().map_err(|_| "  not a color".to_owned())?),
+    );
+    wait_for_model(&fixture.model)?;
+    ensure(
+        group
+            .swatches()
+            .first()
+            .map(|color| color.to_str().to_string())
+            == Some("rgb(16,32,48)".to_owned()),
+        "  the swatch didn't follow the change",
+    )?;
+    ensure(
+        group
+            .line()
+            .is_some_and(|line| line.starts_with("client.focused #102030 ")),
+        &format!("  the line didn't follow the change: {:?}", group.line()),
+    )?;
+    fixture
+        .model
+        .set("app.show_directives", None, Value::Bool(false));
+    wait_for_model(&fixture.model)?;
+    ensure(
+        group.line().is_none(),
+        "the group keeps its line after the preference went off",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The group row takes the focus, and `Enter` and `Space` expand and collapse it; its accessible
+/// state follows.
+fn check_group_keyboard() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let group = group(&window, "windows.focused")?;
+    let item = group.item();
+    ensure(
+        item.is_focusable() && item.grab_focus(),
+        "the group row can't take the focus",
+    )?;
+    let keys = item
+        .observe_controllers()
+        .into_iter()
+        .filter_map(Result::ok)
+        .find_map(|controller| controller.downcast::<gtk::EventControllerKey>().ok())
+        .ok_or_else(|| "  the group row doesn't listen to keys".to_owned())?;
+    let press = |key: gtk::gdk::Key| -> bool {
+        use gtk::glib::translate::IntoGlib as _;
+        keys.emit_by_name::<bool>(
+            "key-pressed",
+            &[&key.into_glib(), &0u32, &gtk::gdk::ModifierType::empty()],
+        )
+    };
+    let members_shown = || {
+        group
+            .members()
+            .iter()
+            .all(|member| member.parent().is_some_and(|item| item.is_visible()))
+    };
+    ensure(
+        press(gtk::gdk::Key::Return) && group.is_expanded() && members_shown(),
+        "Enter doesn't expand the group",
+    )?;
+    ensure(
+        press(gtk::gdk::Key::space) && !group.is_expanded() && !members_shown(),
+        "Space doesn't collapse the group",
+    )?;
+    ensure(
+        press(gtk::gdk::Key::KP_Enter) && group.is_expanded(),
+        "Enter on the keypad doesn't expand the group",
+    )?;
+    ensure(
+        !press(gtk::gdk::Key::a) && group.is_expanded(),
+        "another key toggles the group",
     )?;
     window.destroy();
     Ok(())

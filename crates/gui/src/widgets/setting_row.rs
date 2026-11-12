@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! A row for one setting, built from its registry entry: title, subtitle, the line of the sway
-//! config in monospace below the subtitle while the preference `app.show_directives` is on, and
-//! the control for its value type.
+//! config in monospace below the subtitle while the preference `app.show_directives` is on (not
+//! in a member of a group, whose [`GroupRow`](super::GroupRow) shows it once), and the control
+//! for its value type.
 //!
 //! | Value type | Control |
 //! | --- | --- |
@@ -114,6 +115,8 @@ mod imp {
         pub(super) control: OnceCell<super::Control>,
         /// Set while the row writes a value into its control, so that isn't sent as a change.
         pub(super) updating: Cell<bool>,
+        /// Set for a member of a group, whose row shows the line of the sway config instead.
+        pub(super) grouped: Cell<bool>,
         pub(super) title: gtk::Label,
         pub(super) subtitle: gtk::Label,
         pub(super) line: gtk::Label,
@@ -675,6 +678,13 @@ impl SettingRow {
         self.show_error(message);
     }
 
+    /// Makes the row a member of a group, or not: a member never shows the line of the sway
+    /// config, since the group's row shows it once.
+    pub fn set_grouped(&self, grouped: bool) {
+        self.imp().grouped.set(grouped);
+        self.refresh();
+    }
+
     /// The line of the sway config under the subtitle, if the row shows it.
     pub fn line(&self) -> Option<String> {
         let line = &self.imp().line;
@@ -732,7 +742,7 @@ impl SettingRow {
         }
         imp.line.set_text(view.line.as_deref().unwrap_or_default());
         imp.line
-            .set_visible(view.line.is_some() && shows_directives(model));
+            .set_visible(view.line.is_some() && !imp.grouped.get() && shows_directives(model));
         self.refresh_indicators(setting, device.as_deref(), &view);
         let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
@@ -1057,7 +1067,7 @@ fn color(rgba: &gtk::gdk::RGBA) -> Option<Color> {
 }
 
 /// Whether rows show the line of the sway config, as the preference `app.show_directives` says.
-fn shows_directives(model: &Model) -> bool {
+pub(super) fn shows_directives(model: &Model) -> bool {
     Registry::builtin()
         .get(DIRECTIVES_KEY)
         .and_then(|setting| model.view(setting, None))

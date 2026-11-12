@@ -35,6 +35,11 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
   quieter page. Switching it changes every row at once.
+- **Grouped rows:** settings that are values of one directive (the five colors of `client.focused`) share one row with
+  the group's title (_Focused window_), a compact summary of their values (a swatch per color, else the values), the
+  directive once in monospace (while _Show sway directives_ is on) and a chevron. It starts collapsed; a click, `Enter`
+  or `Space` expands it to the members' rows, indented below it, which don't repeat the directive. A link to a member
+  expands its group first.
 
 ### Input devices
 
@@ -87,7 +92,8 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   real page widths.
 - **Deep links:** `sway-things open displays`, `sway-things open input.keyboard.repeat_rate`: a page id or the key of a
   setting. Waybar modules, bindings and launchers can jump straight to a page or setting; a setting's row is scrolled
-  into view, focused and highlighted briefly. A setting of an input type without devices opens just the page.
+  into view (its group expanded), focused and highlighted briefly. A setting of an input type without devices opens just
+  the page.
 - **Single instance:** starting the app again focuses the existing window and switches page.
 - **Stable app_id** `io.github.mowi12.SwayThings`, so users can write rules for it, e.g.
   `for_window [app_id="io.github.mowi12.SwayThings"] floating enable`.

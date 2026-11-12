@@ -5,6 +5,7 @@
 
 mod clamp;
 mod device_selector;
+mod group_row;
 mod keyboard;
 mod layout_list;
 mod page_header;
@@ -18,6 +19,7 @@ mod xkb_options;
 
 pub use clamp::Clamp;
 pub use device_selector::DeviceSelector;
+pub use group_row::GroupRow;
 pub use layout_list::LayoutList;
 pub use page_header::PageHeader;
 pub use page_view::{MAXIMUM_WIDTH, PageView};
