@@ -51,6 +51,14 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   every section shows.
 - **Hotplug:** devices appear and disappear live. When the device picked is gone from the list, the sections go back to
   all devices of the type.
+- **Keyboard layouts:** below the _Layouts_ row, a row per layout: a drag handle, its name, a drop-down of its variants
+  and ✕. Drag a layout by its handle, or press Alt+↑ / Alt+↓ on its row to move it and Delete to remove it. The last
+  layout can't be removed. _Add layout…_ opens a search over the layouts and their variants (name, language, country);
+  picking a variant adds the layout with it. A layout and its variant change together, as one change through the safety
+  net. _Active layout_ switches the layout in use now (only in a session), and _Try it_ is a field to type in.
+- **XKB options:** below the _XKB options_ row, the common ones as controls: _Caps Lock key_ (Caps Lock, Ctrl, Escape,
+  Swap with Escape, Off), _Swap left Ctrl and Alt_, _Compose key_ and _Switch layouts with_. _All XKB options_ opens
+  every option of the XKB rules by group, with a search, inline on the page, so the safety-net banner stays reachable.
 - **Mouse & Touchpad test area:** below the sections, a pad that names the last click (_Left click_, _Double-click_,
   _Right click_, …) to try tapping, the button maps and left-handed mode, and a strip of lines to scroll to feel scroll
   speed and natural scrolling.

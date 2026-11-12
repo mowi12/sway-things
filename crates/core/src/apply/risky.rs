@@ -53,22 +53,33 @@ impl Countdown {
     }
 }
 
-/// A risky change that was sent and waits to be kept or reverted.
+/// One setting of a risky change: its key, and the value it is tried with.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TriedValue {
+    /// The key of the setting.
+    pub key: &'static str,
+    /// The new value. For a reset, the value in effect without the stored one.
+    pub value: Value,
+    /// Whether the change removes the stored value.
+    pub reset: bool,
+}
+
+/// A risky change that was sent and waits to be kept or reverted. It changes one setting, or
+/// several of one device at once ([`Applier::try_risky_all`]).
 #[derive(Debug, Clone)]
 pub struct Pending {
-    key: &'static str,
     device: Option<String>,
-    value: Value,
-    reset: bool,
+    first: TriedValue,
+    more: Vec<TriedValue>,
     sent: Vec<String>,
     undo: Vec<SwayCmd>,
     countdown: Countdown,
 }
 
 impl Pending {
-    /// The key of the setting.
+    /// The key of the setting, the first one for a change of several.
     pub fn key(&self) -> &'static str {
-        self.key
+        self.first.key
     }
 
     /// The device the change is for, or `None` for the whole session or input type.
@@ -76,14 +87,21 @@ impl Pending {
         self.device.as_deref()
     }
 
-    /// The new value. For a reset, the value in effect without the stored one.
+    /// The new value of the first setting. For a reset, the value in effect without the stored
+    /// one.
     pub fn value(&self) -> &Value {
-        &self.value
+        &self.first.value
     }
 
-    /// Whether the change removes the stored value ([`Applier::try_risky_reset`]).
+    /// Whether the change of the first setting removes the stored value
+    /// ([`Applier::try_risky_reset`]).
     pub fn is_reset(&self) -> bool {
-        self.reset
+        self.first.reset
+    }
+
+    /// Every setting the change tries, the first one first.
+    pub fn values(&self) -> impl Iterator<Item = &TriedValue> {
+        std::iter::once(&self.first).chain(&self.more)
     }
 
     /// When it is reverted unless it is kept.
@@ -127,23 +145,12 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         value: Value,
         status: &IncludeStatus,
-        _access: &WriteAccess,
+        access: &WriteAccess,
     ) -> Result<Trial, ApplyError> {
-        self.nothing_pending()?;
-        let setting = self.risky_setting(key)?;
-        // The state as it would be, which also checks the key, the device and the value.
-        let mut tried = self.state.clone();
-        tried.set(key, device, value.clone(), None)?;
-        self.check_supported(setting)?;
-        let trial = Tried {
-            setting,
-            device,
-            state: &tried,
-            over: BTreeMap::new(),
-            value,
-            reset: false,
-        };
-        self.send_trial(trial, status).await
+        // A new value always changes something, so there is a trial.
+        self.try_risky_all(device, &[(key, Some(value))], status, access)
+            .await?
+            .ok_or(ApplyError::NothingPending)
     }
 
     /// Tries removing the stored value of the risky setting `key`, for the whole session or input
@@ -160,72 +167,120 @@ impl<V: Validate> Applier<V> {
         key: &str,
         device: Option<&str>,
         status: &IncludeStatus,
+        access: &WriteAccess,
+    ) -> Result<Option<Trial>, ApplyError> {
+        self.try_risky_all(device, &[(key, None)], status, access)
+            .await
+    }
+
+    /// Tries several risky settings of one input `device` (or of the whole session or input
+    /// type) as one change, which is kept or reverted as a whole: the layouts with their
+    /// variants. `changes` gives each key its new value, or `None` to remove the stored value as
+    /// [`Applier::try_risky_reset`] does. The directives are sent in the order of the registry;
+    /// a setting that [clears another one first](Setting::clears_first) that is in the change
+    /// too sends that one at its default before. `None` if nothing changes (only resets of
+    /// settings without a stored value): nothing was sent then.
+    ///
+    /// # Errors
+    ///
+    /// Like [`Applier::try_risky`], for any of the settings.
+    pub async fn try_risky_all(
+        &mut self,
+        device: Option<&str>,
+        changes: &[(&str, Option<Value>)],
+        status: &IncludeStatus,
         _access: &WriteAccess,
     ) -> Result<Option<Trial>, ApplyError> {
         self.nothing_pending()?;
-        let setting = self.risky_setting(key)?;
+        // The state as it would be, which also checks the keys, the device and the values.
         let mut tried = self.state.clone();
-        if !tried.reset(key, device)? {
+        let mut settings_changed: Vec<(&'static Setting, Option<Value>)> = Vec::new();
+        for (key, change) in changes {
+            let setting = self.risky_setting(key)?;
+            match change {
+                Some(value) => {
+                    tried.set(key, device, value.clone(), None)?;
+                    settings_changed.push((setting, Some(value.clone())));
+                }
+                None => {
+                    if tried.reset(key, device)? {
+                        settings_changed.push((setting, None));
+                    }
+                }
+            }
+        }
+        if settings_changed.is_empty() {
             return Ok(None);
         }
-        self.check_supported(setting)?;
-        let over = in_effect(setting, device, &tried, status, self.compositor);
-        let value = over
-            .get(setting.key())
-            .cloned()
-            .unwrap_or_else(|| setting.default_value());
-        let trial = Tried {
-            setting,
-            device,
-            state: &tried,
-            over,
-            value,
-            reset: true,
-        };
-        self.send_trial(trial, status).await.map(Some)
-    }
-
-    /// Sends a trial and makes it the pending change.
-    async fn send_trial(
-        &mut self,
-        trial: Tried<'_>,
-        status: &IncludeStatus,
-    ) -> Result<Trial, ApplyError> {
-        let Tried {
-            setting,
-            device,
-            state,
-            over,
-            value,
-            reset,
-        } = trial;
-        let commands = render(state, &over, setting, device, Target::Ipc)?;
-        // What is in effect now, for every setting of the directive.
-        let snapshot = in_effect(setting, device, &self.state, status, self.compositor);
-        let undo = render(&self.state, &snapshot, setting, device, Target::Ipc)?;
+        for (setting, _) in &settings_changed {
+            self.check_supported(setting)?;
+        }
+        // A removed value is replaced by the one in effect without it.
+        let mut over = BTreeMap::new();
+        let mut values = Vec::with_capacity(settings_changed.len());
+        for (setting, change) in &settings_changed {
+            let value = if let Some(value) = change {
+                value.clone()
+            } else {
+                let effect = in_effect(setting, device, &tried, status, self.compositor);
+                let value = effect
+                    .get(setting.key())
+                    .cloned()
+                    .unwrap_or_else(|| setting.default_value());
+                over.extend(effect);
+                value
+            };
+            values.push(TriedValue {
+                key: setting.key(),
+                value,
+                reset: change.is_none(),
+            });
+        }
+        let settings: Vec<&'static Setting> = settings_changed
+            .iter()
+            .map(|(setting, _)| *setting)
+            .collect();
+        // What is in effect now, for every setting of the directives.
+        let snapshot: BTreeMap<String, Value> = settings
+            .iter()
+            .flat_map(|setting| in_effect(setting, device, &self.state, status, self.compositor))
+            .collect();
+        let now = (&self.state, &snapshot);
+        let then = (&tried, &over);
+        let commands = sequence(now, then, &settings, device)?;
+        let undo = sequence(then, now, &settings, device)?;
 
         let Some(client) = &mut self.client else {
-            return Err(ApplyError::NoSession { key: setting.key() });
+            return Err(ApplyError::NoSession {
+                key: settings.first().map_or("", |setting| setting.key()),
+            });
         };
-        let switches = switches_devices(setting, &value);
-        let sent = send_guarded(client, setting, device, switches, &commands, &undo).await?;
+        let switches = settings_changed.iter().find_map(|(setting, _)| {
+            let value = values.iter().find(|value| value.key == setting.key())?;
+            switches_devices(setting, &value.value)
+        });
+        let key = settings.first().map_or("", |setting| setting.key());
+        let sent = send_guarded(client, key, device, switches, &commands, &undo).await?;
 
         let countdown = Countdown {
             deadline: Instant::now() + self.timeout(),
         };
+        let mut values = values.into_iter();
+        let Some(first) = values.next() else {
+            return Ok(None);
+        };
         self.pending = Some(Pending {
-            key: setting.key(),
             device: device.map(str::to_owned),
-            value,
-            reset,
+            first,
+            more: values.collect(),
             sent: sent.clone(),
             undo,
             countdown,
         });
-        Ok(Trial {
+        Ok(Some(Trial {
             commands: sent,
             countdown,
-        })
+        }))
     }
 
     /// Keeps the pending risky change: stores its value (or for a reset, removes the stored one)
@@ -239,16 +294,19 @@ impl<V: Validate> Applier<V> {
     pub fn keep(&mut self, _access: &WriteAccess) -> Result<Applied, ApplyError> {
         let pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
         let device = pending.device.as_deref();
-        let stored = if pending.reset {
-            self.state.reset(pending.key, device).map(drop)
-        } else {
-            self.state
-                .set(pending.key, device, pending.value.clone(), None)
-        };
+        let mut state = self.state.clone();
+        let stored = pending.values().try_for_each(|tried| {
+            if tried.reset {
+                state.reset(tried.key, device).map(drop)
+            } else {
+                state.set(tried.key, device, tried.value.clone(), None)
+            }
+        });
         if let Err(error) = stored {
             self.pending = Some(pending);
             return Err(error.into());
         }
+        self.state = state;
         self.unsaved_since = Some(Instant::now());
         Ok(Applied {
             changed: true,
@@ -269,7 +327,9 @@ impl<V: Validate> Applier<V> {
     pub async fn revert(&mut self) -> Result<Effect, ApplyError> {
         let pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
         let Some(client) = &mut self.client else {
-            return Err(ApplyError::NoSession { key: pending.key });
+            return Err(ApplyError::NoSession {
+                key: pending.first.key,
+            });
         };
         let mut sent = Vec::with_capacity(pending.undo.len());
         for command in &pending.undo {
@@ -385,14 +445,14 @@ impl<V: Validate> Applier<V> {
         };
         let undo =
             render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
-        let sent = send_guarded(client, setting, device, switches, commands, &undo).await?;
+        let sent = send_guarded(client, setting.key(), device, switches, commands, &undo).await?;
         Ok(Effect::Live { commands: sent })
     }
 
     /// Refuses a risky change while another one waits.
     fn nothing_pending(&self) -> Result<(), ApplyError> {
         match &self.pending {
-            Some(pending) => Err(ApplyError::PendingChange { key: pending.key }),
+            Some(pending) => Err(ApplyError::PendingChange { key: pending.key() }),
             None => Ok(()),
         }
     }
@@ -441,17 +501,6 @@ impl<V: Validate> Applier<V> {
     }
 }
 
-/// A risky change to try: the state with the change, and the values in `over` in place of the
-/// state's.
-struct Tried<'a> {
-    setting: &'static Setting,
-    device: Option<&'a str>,
-    state: &'a State,
-    over: BTreeMap<String, Value>,
-    value: Value,
-    reset: bool,
-}
-
 /// The value in effect for each setting of the directive of `setting` in `state`, as a row shows
 /// it ([`SettingView`]).
 fn in_effect(
@@ -471,12 +520,51 @@ fn in_effect(
         .collect()
 }
 
+/// A state, and the values to use in place of its own.
+type Values<'a> = (&'a State, &'a BTreeMap<String, Value>);
+
+/// The commands that change `settings` from the values in `from` to those in `to`: each
+/// directive once, in the order of the registry. A setting that [clears another one
+/// first](Setting::clears_first) that is among them sends that one at its default before, as it
+/// fits the values in `from`.
+fn sequence(
+    (from, from_over): Values<'_>,
+    (to, to_over): Values<'_>,
+    settings: &[&'static Setting],
+    device: Option<&str>,
+) -> Result<Vec<SwayCmd>, ApplyError> {
+    let registry = to.registry();
+    let among = |key: &str| settings.iter().any(|setting| setting.key() == key);
+    let mut commands = Vec::new();
+    for setting in settings {
+        let Some(cleared) = setting
+            .clears_first()
+            .filter(|key| among(key))
+            .and_then(|key| registry.get(key))
+        else {
+            continue;
+        };
+        let mut over = from_over.clone();
+        over.insert(cleared.key().to_owned(), cleared.default_value());
+        commands.extend(render(from, &over, cleared, device, Target::Ipc)?);
+    }
+    let mut sent: Vec<&str> = Vec::new();
+    for setting in registry.iter().filter(|setting| among(setting.key())) {
+        if sent.contains(&setting.key()) {
+            continue;
+        }
+        sent.extend(registry.group(setting).map(Setting::key));
+        commands.extend(render(to, to_over, setting, device, Target::Ipc)?);
+    }
+    Ok(commands)
+}
+
 /// Refuses a change that `switches` devices if it would leave the session without a keyboard or
 /// a pointing device, then sends `commands`. After a command failed, `undo` restores what was
 /// sent before it, as far as sway allows. Returns the commands as sent.
 async fn send_guarded(
     client: &mut Client,
-    setting: &Setting,
+    key: &'static str,
     device: Option<&str>,
     switches: Option<(InputType, Sending)>,
     commands: &[SwayCmd],
@@ -485,10 +573,7 @@ async fn send_guarded(
     if let Some((kind, sending)) = switches {
         let devices = Devices::new(&client.inputs().await.map_err(ApplyError::Ipc)?);
         if let Some(lockout) = devices.lockout(kind, device, sending) {
-            return Err(ApplyError::Lockout {
-                key: setting.key(),
-                lockout,
-            });
+            return Err(ApplyError::Lockout { key, lockout });
         }
     }
     let mut sent = Vec::with_capacity(commands.len());

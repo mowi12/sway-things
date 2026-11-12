@@ -1268,3 +1268,154 @@ fn an_unchecked_risky_reset_removes_the_value_but_is_still_protected() {
     assert_eq!(applied.effect, Effect::NoSession);
     assert_eq!(offline.applier.state().get(KEYBOARD_EVENTS, None), None);
 }
+
+const VARIANT: &str = "input.keyboard.xkb_variant";
+
+impl Setup {
+    fn try_risky_all(
+        &mut self,
+        changes: &[(&str, Option<Value>)],
+        users: &str,
+    ) -> Result<Option<super::Trial>, ApplyError> {
+        block_on(
+            self.applier
+                .try_risky_all(None, changes, &include_status(users), &self.access),
+        )
+    }
+}
+
+#[test]
+fn layouts_and_variants_are_tried_kept_and_reverted_as_one_change() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"us\", \"de\"]\nxkb_variant = [\"dvorak\", \"nodeadkeys\"]\n",
+    );
+    // Swapped: the variants are cleared first, so no command pairs a layout with a variant
+    // of the other one.
+    let trial = setup
+        .try_risky_all(
+            &[
+                (LAYOUT, Some(layouts(&["de", "us"]))),
+                (VARIANT, Some(layouts(&["nodeadkeys", "dvorak"]))),
+            ],
+            "",
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        trial.commands,
+        [
+            r#"input type:keyboard xkb_variant ",""#,
+            r#"input type:keyboard xkb_layout "de,us""#,
+            r#"input type:keyboard xkb_variant "nodeadkeys,dvorak""#,
+        ]
+    );
+    let pending = setup.applier.pending().unwrap();
+    let keys: Vec<&str> = pending.values().map(|value| value.key).collect();
+    assert_eq!((pending.key(), keys), (LAYOUT, vec![LAYOUT, VARIANT]));
+    // Another risky change waits for this one.
+    assert!(matches!(
+        setup.try_risky(LAYOUT, None, layouts(&["fr"]), ""),
+        Err(ApplyError::PendingChange { key: LAYOUT })
+    ));
+
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(
+        reverted,
+        live(&[
+            r#"input type:keyboard xkb_variant ",""#,
+            r#"input type:keyboard xkb_layout "us,de""#,
+            r#"input type:keyboard xkb_variant "dvorak,nodeadkeys""#,
+        ])
+    );
+
+    // A layout removed with its variant, then kept: both are stored.
+    let trial = setup
+        .try_risky_all(
+            &[
+                (LAYOUT, Some(layouts(&["de"]))),
+                (VARIANT, Some(layouts(&["nodeadkeys"]))),
+            ],
+            "",
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        trial.commands,
+        [
+            r#"input type:keyboard xkb_variant ",""#,
+            r#"input type:keyboard xkb_layout "de""#,
+            r#"input type:keyboard xkb_variant "nodeadkeys""#,
+        ]
+    );
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["de"]))
+    );
+    assert_eq!(
+        setup.applier.state().get(VARIANT, None),
+        Some(&layouts(&["nodeadkeys"]))
+    );
+}
+
+#[test]
+fn layouts_and_variants_are_reset_together() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"us\", \"de\"]\nxkb_variant = [\"\", \"nodeadkeys\"]\n",
+    );
+    let trial = setup
+        .try_risky_all(
+            &[(LAYOUT, None), (VARIANT, None)],
+            "input type:keyboard xkb_layout fr\n",
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        trial.commands,
+        [
+            r#"input type:keyboard xkb_variant ",""#,
+            r#"input type:keyboard xkb_layout "fr""#,
+            r#"input type:keyboard xkb_variant """#,
+        ]
+    );
+    let pending = setup.applier.pending().unwrap();
+    assert!(pending.values().all(|value| value.reset));
+    assert_eq!(pending.value(), &layouts(&["fr"]));
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(setup.applier.state().get(LAYOUT, None), None);
+    assert_eq!(setup.applier.state().get(VARIANT, None), None);
+
+    // Nothing stored, nothing to try.
+    assert!(
+        setup
+            .try_risky_all(&[(LAYOUT, None), (VARIANT, None)], "")
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn a_change_of_several_settings_is_refused_like_one() {
+    let sway = laptop();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    assert!(matches!(
+        setup.try_risky_all(
+            &[
+                (LAYOUT, Some(layouts(&["de"]))),
+                (GAPS, Some(Value::Integer(4)))
+            ],
+            ""
+        ),
+        Err(ApplyError::NotRisky { key: GAPS })
+    ));
+    let mut offline = Setup::offline("version = 1\n");
+    assert!(matches!(
+        offline.try_risky_all(&[(LAYOUT, Some(layouts(&["de"])))], ""),
+        Err(ApplyError::NoSession { key: LAYOUT })
+    ));
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+}

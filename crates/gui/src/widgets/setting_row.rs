@@ -12,6 +12,8 @@
 //! | choice | drop-down |
 //! | color | color button |
 //! | text | entry, applied on Enter or when it loses the focus |
+//! | text with choices ([`SettingRow::with_choices`]) | drop-down with search |
+//! | list | none: the page shows its own widget below the row |
 //!
 //! A change goes to the [`Model`] at once; the row shows the value in effect again when the model
 //! reports a change, and the error under the title when the change failed. A locked setting (no
@@ -21,12 +23,15 @@
 //! it between `settings.toml` and the host overlay) next to the control. A line of the user's
 //! config that wins over the stored value, or that the stored value made dead, shows as a badge
 //! under the line, and a ⋮ menu with the line and what to do about it. A setting the compositor
-//! doesn't support shows what it requires as a badge and can't be changed.
+//! doesn't support shows what it requires as a badge and can't be changed. A setting sway only
+//! reads from its config says so in a badge ("Applies after reload").
 //!
 //! The row of a per-device setting is for all devices of its type or, after
 //! [`SettingRow::set_device`], for one of them. Until that device has a value of its own, the
 //! row says it is the same as for all devices of the type.
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::str::FromStr;
 
 use gtk::glib;
@@ -61,6 +66,14 @@ enum Control {
     },
     Color(gtk::ColorDialogButton),
     Text(gtk::Entry),
+    /// A text picked from known values; a value that isn't one of them is added to the end.
+    Pick {
+        dropdown: gtk::DropDown,
+        labels: gtk::StringList,
+        values: Rc<RefCell<Vec<String>>>,
+    },
+    /// A list: the page shows its own widget for it.
+    None,
 }
 
 impl Control {
@@ -69,9 +82,12 @@ impl Control {
         match self {
             Self::Toggle(switch) => vec![switch.clone().upcast()],
             Self::Number { scale, spin, .. } => vec![spin.clone().upcast(), scale.clone().upcast()],
-            Self::Choice { dropdown, .. } => vec![dropdown.clone().upcast()],
+            Self::Choice { dropdown, .. } | Self::Pick { dropdown, .. } => {
+                vec![dropdown.clone().upcast()]
+            }
             Self::Color(button) => vec![button.clone().upcast()],
             Self::Text(entry) => vec![entry.clone().upcast()],
+            Self::None => Vec::new(),
         }
     }
 }
@@ -85,6 +101,10 @@ mod imp {
     use sway_things_core::registry::Setting;
 
     use crate::model::Model;
+
+    use std::sync::OnceLock;
+
+    use gtk::glib::subclass::Signal;
 
     #[derive(Debug, Default)]
     pub struct SettingRow {
@@ -126,6 +146,11 @@ mod imp {
     }
 
     impl ObjectImpl for SettingRow {
+        fn signals() -> &'static [Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+            SIGNALS.get_or_init(|| vec![Signal::builder("device-changed").build()])
+        }
+
         fn dispose(&self) {
             while let Some(child) = self.obj().first_child() {
                 child.unparent();
@@ -145,9 +170,49 @@ glib::wrapper! {
 
 impl SettingRow {
     /// The row of `setting`, for the whole session or input type, or for one input `device`.
-    /// `None` for a value type that has no row (lists get their own widget).
+    /// `None` for a number setting without a slider. A list gets a row without a control: the
+    /// page shows its own widget for it.
     pub fn new(model: &Model, setting: &'static Setting, device: Option<&str>) -> Option<Self> {
-        let control = control(setting)?;
+        Self::with_control(model, setting, device, control(setting)?)
+    }
+
+    /// The row of the text setting `setting` with a drop-down of known `choices` (each a value
+    /// and its label) in place of an entry. A value that isn't among them is shown at the end.
+    pub fn with_choices(
+        model: &Model,
+        setting: &'static Setting,
+        device: Option<&str>,
+        choices: &[(String, String)],
+    ) -> Option<Self> {
+        let labels: Vec<&str> = choices.iter().map(|(_, label)| label.as_str()).collect();
+        let labels = gtk::StringList::new(&labels);
+        let dropdown = gtk::DropDown::new(
+            Some(labels.clone()),
+            Some(gtk::PropertyExpression::new(
+                gtk::StringObject::static_type(),
+                gtk::Expression::NONE,
+                "string",
+            )),
+        );
+        dropdown.set_enable_search(true);
+        dropdown.set_search_match_mode(gtk::StringFilterMatchMode::Substring);
+        dropdown.set_valign(gtk::Align::Center);
+        let control = Control::Pick {
+            dropdown,
+            labels,
+            values: Rc::new(RefCell::new(
+                choices.iter().map(|(value, _)| value.clone()).collect(),
+            )),
+        };
+        Self::with_control(model, setting, device, control)
+    }
+
+    fn with_control(
+        model: &Model,
+        setting: &'static Setting,
+        device: Option<&str>,
+        control: Control,
+    ) -> Option<Self> {
         let row: Self = glib::Object::new();
         let imp = row.imp();
         imp.setting.set(setting).ok()?;
@@ -506,6 +571,13 @@ impl SettingRow {
                 false,
             ));
         }
+        if setting.apply() == Apply::Reload {
+            imp.badges.append(&badge(
+                "view-refresh-symbolic",
+                "Applies after reload",
+                false,
+            ));
+        }
         imp.conflict.set_visible(found.is_some());
         imp.conflict.set_sensitive(!read_only);
         // The user's config can't win over a setting that can lock the user out: the safety
@@ -559,6 +631,48 @@ impl SettingRow {
         imp.device.replace(device.map(str::to_owned));
         self.show_error(None);
         self.refresh();
+        self.emit_by_name::<()>("device-changed", &[]);
+    }
+
+    /// Calls `callback` when the row is pointed at another device ([`SettingRow::set_device`]).
+    pub fn connect_device_changed<F: Fn(&Self) + 'static>(
+        &self,
+        callback: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "device-changed",
+            false,
+            glib::closure_local!(move |row: &Self| callback(row)),
+        )
+    }
+
+    /// Sends `value` as the new value of the setting, as the row's own control would. For the
+    /// widget a page shows for a list setting below its row.
+    pub fn change(&self, value: Value) {
+        self.send(value);
+    }
+
+    /// The value the row shows: the one in effect, or the one of a risky change that waits.
+    pub fn value(&self) -> Option<Value> {
+        let imp = self.imp();
+        let model = imp.model.get()?;
+        model
+            .view(self.setting()?, imp.device.borrow().as_deref())
+            .map(|view| view.value)
+    }
+
+    /// Why the setting can't be changed now, if it can't.
+    pub fn locked(&self) -> Option<String> {
+        let imp = self.imp();
+        let model = imp.model.get()?;
+        model
+            .view(self.setting()?, imp.device.borrow().as_deref())
+            .and_then(|view| view.locked.map(|locked| locked.to_string()))
+    }
+
+    /// Shows `message` under the title, as for a change that failed, or with `None` hides it.
+    pub fn set_error(&self, message: Option<&str>) {
+        self.show_error(message);
     }
 
     /// The line of the sway config under the subtitle, if the row shows it.
@@ -725,7 +839,27 @@ impl SettingRow {
                 ));
                 entry.add_controller(focus);
             }
+            Control::Pick {
+                dropdown, values, ..
+            } => self.connect_pick(dropdown, values),
+            Control::None => {}
         }
+    }
+
+    /// Sends the value picked in `dropdown`, one of `values`.
+    fn connect_pick(&self, dropdown: &gtk::DropDown, values: &Rc<RefCell<Vec<String>>>) {
+        let values = Rc::clone(values);
+        dropdown.connect_selected_notify(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            move |dropdown| {
+                let selected = usize::try_from(dropdown.selected()).ok();
+                let value = selected.and_then(|index| values.borrow().get(index).cloned());
+                if let Some(value) = value {
+                    row.send(Value::Text(value));
+                }
+            }
+        ));
     }
 
     /// Sends the text of `entry` if it differs from the value in effect.
@@ -784,7 +918,7 @@ fn control(setting: &'static Setting) -> Option<Control> {
             entry.set_valign(gtk::Align::Center);
             Control::Text(entry)
         }
-        Kind::List { .. } => return None,
+        Kind::List { .. } => Control::None,
     })
 }
 
@@ -872,6 +1006,26 @@ fn show_value(control: &Control, setting: &Setting, value: &Value) {
                 entry.set_text(text);
             }
         }
+        (
+            Control::Pick {
+                dropdown,
+                labels,
+                values,
+            },
+            Value::Text(text),
+        ) => {
+            let known = values.borrow().iter().position(|value| value == text);
+            let index = known.unwrap_or_else(|| {
+                // A value typed by hand: shown by its name.
+                labels.append(text);
+                values.borrow_mut().push(text.clone());
+                values.borrow().len() - 1
+            });
+            if let Ok(index) = u32::try_from(index) {
+                dropdown.set_selected(index);
+            }
+        }
+        (Control::None, _) => {}
         _ => glib::g_warning!(
             "sway-things",
             "{}: value {value:?} doesn't fit its row",

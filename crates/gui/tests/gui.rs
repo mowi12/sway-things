@@ -16,6 +16,9 @@
 //!   its ⋮ menu, the badge of a requirement, and the reset of a whole page.
 //! - Devices: the device selectors list the devices of their type, a row changes the value of
 //!   the device picked, a type without devices shows a hint, and devices come and go live.
+//! - Keyboard page: the layout list moves, adds and removes layouts with their variants through
+//!   the safety net, keeps the last layout, the XKB options change through their drop-downs,
+//!   switch and browser, the model is a drop-down, and the active layout switches.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
 //! without a session or in the session of the stand-in for sway, and never saves, so nothing
@@ -37,7 +40,7 @@ use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs};
-use sway_things_core::registry::{ConfigFile, Kind, Link, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
@@ -47,7 +50,9 @@ use sway_things_gui::contrast::{self, TextSample};
 use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
-use sway_things_gui::widgets::{DeviceSelector, PageView, SettingRow, TestArea};
+use sway_things_gui::widgets::{
+    DeviceSelector, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
+};
 use sway_things_gui::window::Window;
 
 /// The theme the window is checked in: the one GTK ships, so results don't depend on the machine.
@@ -234,6 +239,7 @@ fn main() -> ExitCode {
         check_accent(),
     ));
     results.extend(check_devices());
+    results.extend(check_keyboard());
     results.extend(check_indicators());
     results.push((
         "welcome: the spinner turns after coming back".to_owned(),
@@ -765,9 +771,7 @@ fn check_rows() -> Outcome {
         let window = open(&fixture, page)?;
         let expected: Vec<&str> = Registry::builtin()
             .iter()
-            .filter(|setting| {
-                setting.page() == page && !matches!(setting.kind(), Kind::List { .. })
-            })
+            .filter(|setting| setting.page() == page)
             .map(sway_things_core::registry::Setting::key)
             .collect();
         let content = window
@@ -875,7 +879,8 @@ fn check_directives() -> Outcome {
     Ok(())
 }
 
-/// On vanilla sway, the SwayFX corner radius can't be changed, and says why.
+/// On vanilla sway, the SwayFX corner radius can't be changed, and says why. A setting that
+/// applies after a reload says so.
 fn check_locked() -> Outcome {
     let fixture = fixture(SWAY, STORED, USERS, true)?;
     let window = open(&fixture, Page::Windows)?;
@@ -900,6 +905,16 @@ fn check_locked() -> Outcome {
             .iter()
             .all(gtk::prelude::WidgetExt::is_sensitive),
         "the gaps are locked",
+    )?;
+    window.destroy();
+    let window = open(&fixture, Page::Keyboard)?;
+    let numlock = row(&window, "input.keyboard.xkb_numlock")?;
+    ensure(
+        numlock.badges() == ["Applies after reload"],
+        &format!(
+            "  Num Lock at startup has the badges {:?}",
+            numlock.badges()
+        ),
     )?;
     window.destroy();
     Ok(())
@@ -1907,6 +1922,237 @@ fn check_accent() -> Outcome {
     ensure(
         theme::accent_css().is_empty(),
         "the accent stays with the theme's accent chosen",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The checks of the Keyboard page's own widgets.
+fn check_keyboard() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "keyboard page: layouts move with their variants".to_owned(),
+            check_layout_move(),
+        ),
+        (
+            "keyboard page: layouts are added and the last one stays".to_owned(),
+            check_layout_add_remove(),
+        ),
+        ("keyboard page: XKB options".to_owned(), check_xkb_options()),
+        (
+            "keyboard page: model and active layout".to_owned(),
+            check_model_and_active_layout(),
+        ),
+    ]
+}
+
+const LAYOUTS: &str = "input.keyboard.xkb_layout";
+const VARIANTS: &str = "input.keyboard.xkb_variant";
+const XKB_OPTIONS: &str = "input.keyboard.xkb_options";
+
+/// A keyboard with two layouts, the first one in use.
+const KEYBOARD_WITH_LAYOUTS: &str = r#"{"identifier": "1:1:AT_Translated_Set_2_keyboard",
+    "name": "AT Translated Set 2 keyboard", "type": "keyboard",
+    "xkb_layout_names": ["English (US)", "German (no dead keys)"],
+    "xkb_active_layout_index": 0, "libinput": {"send_events": "enabled"}}"#;
+
+/// The only widget of type `T` on the open page of `window`.
+fn widget<T: IsA<gtk::Widget>>(window: &Window) -> Result<T, String> {
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    all::<T>(&content)
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("  no {} on the page", T::static_type().name()))
+}
+
+/// Strings for a list value.
+fn strings(items: &[&str]) -> Vec<String> {
+    items.iter().map(|item| (*item).to_owned()).collect()
+}
+
+/// Moving a layout moves its variant too, as one change with one banner; Keep stores both.
+fn check_layout_move() -> Outcome {
+    let sway = laptop();
+    let stored = "version = 1\n\n[input.keyboard]\nxkb_layout = [\"us\", \"de\"]\n\
+                  xkb_variant = [\"\", \"nodeadkeys\"]\n";
+    let fixture = live_fixture(&sway, stored)?;
+    let window = open(&fixture, Page::Keyboard)?;
+    let list = widget::<LayoutList>(&window)?;
+    ensure(
+        list.shown() == (strings(&["us", "de"]), strings(&["", "nodeadkeys"])),
+        &format!("  the list shows {:?}", list.shown()),
+    )?;
+    ensure(list.rows().len() == 2, "  the list has no row per layout")?;
+    list.move_layout(1, 0);
+    wait_for_model(&fixture.model)?;
+    let banner = window.safety_banner().unwrap_or_default();
+    ensure(
+        banner.starts_with("Keep the change to Layouts? Reverting in "),
+        &format!("  the banner says {banner:?}"),
+    )?;
+    ensure(
+        list.shown() == (strings(&["de", "us"]), strings(&["nodeadkeys", ""])),
+        &format!("  the list shows {:?} while the change waits", list.shown()),
+    )?;
+    ensure(
+        sway.commands()
+            .last()
+            .is_some_and(|command| command.ends_with(r#"xkb_variant "nodeadkeys,""#)),
+        &format!("  sway got {:?}", sway.commands()),
+    )?;
+    window.keep_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        shown(&fixture.model, LAYOUTS)? == (Value::List(strings(&["de", "us"])), true)
+            && shown(&fixture.model, VARIANTS)? == (Value::List(strings(&["nodeadkeys"])), true),
+        "  the kept layouts and variants aren't stored",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A layout added with the safety net is gone after Revert; the last layout can't be removed.
+fn check_layout_add_remove() -> Outcome {
+    let sway = laptop();
+    let fixture = live_fixture(&sway, STORED)?;
+    let window = open(&fixture, Page::Keyboard)?;
+    let list = widget::<LayoutList>(&window)?;
+    ensure(
+        list.shown() == (strings(&["us"]), strings(&[""])),
+        &format!("  the list shows {:?}", list.shown()),
+    )?;
+    let removes: Vec<gtk::Button> = list
+        .rows()
+        .iter()
+        .flat_map(|row| all::<gtk::Button>(row.upcast_ref()))
+        .filter(|button| !button.is::<gtk::ToggleButton>())
+        .collect();
+    ensure(
+        removes.len() == 1 && removes.iter().all(|button| !button.is_sensitive()),
+        "  the last layout can be removed",
+    )?;
+    list.remove(0);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        window.safety_banner().is_none() && sway.commands().is_empty(),
+        "  removing the last layout was tried",
+    )?;
+    list.add("de", "nodeadkeys");
+    wait_for_model(&fixture.model)?;
+    ensure(
+        list.shown() == (strings(&["us", "de"]), strings(&["", "nodeadkeys"])),
+        &format!("  the list shows {:?} after adding", list.shown()),
+    )?;
+    ensure(
+        window.safety_banner().is_some(),
+        "  adding a layout shows no banner",
+    )?;
+    window.revert_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        list.shown() == (strings(&["us"]), strings(&[""])),
+        &format!("  the list shows {:?} after Revert", list.shown()),
+    )?;
+    ensure(
+        !shown(&fixture.model, LAYOUTS)?.1 && !shown(&fixture.model, VARIANTS)?.1,
+        "  the reverted layouts are stored",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The swap switch and an option of the browser try the options through the safety net.
+fn check_xkb_options() -> Outcome {
+    let sway = laptop();
+    let fixture = live_fixture(&sway, STORED)?;
+    let window = open(&fixture, Page::Keyboard)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let swap_switch = all::<gtk::Switch>(&content)
+        .into_iter()
+        .find(|switch| {
+            switch.accessible_role() == gtk::AccessibleRole::Switch
+                && switch.tooltip_text().is_none()
+                && switch.ancestor(SettingRow::static_type()).is_none()
+        })
+        .ok_or_else(|| "  no swap switch".to_owned())?;
+    swap_switch.set_active(true);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        shown(&fixture.model, XKB_OPTIONS)?
+            == (Value::List(strings(&["ctrl:swap_lalt_lctl"])), false),
+        "  the swap switch doesn't try its option",
+    )?;
+    window.revert_button().emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        !swap_switch.is_active(),
+        "  the switch doesn't show the old value",
+    )?;
+
+    let browser = widget::<OptionBrowser>(&window)?;
+    browser.expander().set_expanded(true);
+    if let Some(check) = browser.check("compose:ralt") {
+        check.set_active(true);
+        wait_for_model(&fixture.model)?;
+        ensure(
+            shown(&fixture.model, XKB_OPTIONS)? == (Value::List(strings(&["compose:ralt"])), false),
+            "  the browser doesn't try its option",
+        )?;
+        window.keep_button().emit_clicked();
+        wait_for_model(&fixture.model)?;
+        ensure(
+            shown(&fixture.model, XKB_OPTIONS)? == (Value::List(strings(&["compose:ralt"])), true),
+            "  the kept option isn't stored",
+        )?;
+    }
+    window.destroy();
+    Ok(())
+}
+
+/// The model is a drop-down, and _Active layout_ lists sway's layouts and switches them.
+fn check_model_and_active_layout() -> Outcome {
+    let sway = obedient_with_inputs(
+        SWAY_1_10,
+        format!("[{KEYBOARD_WITH_LAYOUTS}, {MOUSE}, {TOUCHPAD}]"),
+    );
+    let fixture = live_fixture(&sway, STORED)?;
+    let window = open(&fixture, Page::Keyboard)?;
+    let model_row = row(&window, "input.keyboard.xkb_model")?;
+    ensure(
+        model_row
+            .controls()
+            .iter()
+            .any(ObjectExt::is::<gtk::DropDown>),
+        "  the keyboard model isn't a drop-down",
+    )?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let active = all::<gtk::DropDown>(&content)
+        .into_iter()
+        .find(|dropdown| {
+            dropdown
+                .model()
+                .and_downcast::<gtk::StringList>()
+                .and_then(|labels| labels.string(1))
+                .is_some_and(|label| label == "German (no dead keys)")
+        })
+        .ok_or_else(|| "  no drop-down with the layouts sway reports".to_owned())?;
+    ensure(
+        active.is_sensitive(),
+        "  the active layout can't be switched",
+    )?;
+    active.set_selected(1);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        sway.commands()
+            .last()
+            .is_some_and(|command| command == "input type:keyboard xkb_switch_layout 1"),
+        &format!("  sway got {:?}", sway.commands()),
     )?;
     window.destroy();
     Ok(())

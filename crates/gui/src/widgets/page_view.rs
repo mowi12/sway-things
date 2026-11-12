@@ -8,6 +8,9 @@
 //! which picks the device all their rows are for. While no device of the type is connected and
 //! nothing is stored for the type, the run shows its first heading and a hint instead of its rows.
 //!
+//! The Keyboard page adds its own widgets below some rows (the layouts, the XKB options), see
+//! [`keyboard`].
+//!
 //! A deep link points to a row: [`PageView::point_to`] scrolls it into view, gives its control the
 //! keyboard focus and tints it with the accent for a moment.
 
@@ -22,6 +25,7 @@ use sway_things_core::registry::{Msg, Page, Registry, Scope, Setting};
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
+use super::keyboard;
 use super::setting_row::tilde;
 use super::{Clamp, DeviceSelector, PageHeader, Placeholder, SettingRow, TestArea};
 use crate::i18n::tr;
@@ -131,7 +135,11 @@ impl PageView {
             .iter()
             .filter(|setting| setting.page() == page)
         {
-            let Some(row) = SettingRow::new(model, setting, None) else {
+            let row = match keyboard::choices(setting) {
+                Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
+                None => SettingRow::new(model, setting, None),
+            };
+            let Some(row) = row else {
                 continue;
             };
             if let Some(mapping) = setting.sway() {
@@ -178,6 +186,9 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             list.append(&list_row(&row));
+            for widget in keyboard::below(model, &row) {
+                list.append(&list_row(&widget));
+            }
             rows.push(row);
         }
         section.as_ref()?;
@@ -250,8 +261,8 @@ impl PageView {
         self.imp().header.get()
     }
 
-    /// The row of the setting with `key`, if the page shows one: lists have no row yet, and the
-    /// rows of an input type without devices are hidden.
+    /// The row of the setting with `key`, if the page shows one: the rows of an input type
+    /// without devices are hidden.
     pub fn row(&self, key: &str) -> Option<SettingRow> {
         let rows = self.imp().rows.borrow();
         let row = rows
