@@ -58,7 +58,7 @@ use crate::generate::{
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::registry::{Apply, ConfigFile, Registry, RenderError, Setting, Value, Values};
-use crate::state::{ChangedKey, Changes, Paths, PathsError, State, StateError};
+use crate::state::{ChangedKey, Changes, Layer, Paths, PathsError, State, StateError};
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
 /// being dragged) is saved once.
@@ -344,6 +344,28 @@ impl<V: Validate> Applier<V> {
             });
         }
         self.finish(setting, device, true, before).await
+    }
+
+    /// Moves the stored value of `key` to the settings file `layer`: the host overlay for "this
+    /// machine only", or the shared file. Nothing is sent and the generated files stay the same;
+    /// [`Applier::persist`] saves the files. Returns whether there was a value to move.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::State`] if the arguments don't fit the registry or the file can't take the
+    /// value; nothing changed then.
+    pub fn move_to(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        layer: Layer,
+        _access: &WriteAccess,
+    ) -> Result<bool, ApplyError> {
+        let moved = self.state.move_to(key, device, layer)?;
+        if self.state.is_dirty() {
+            self.unsaved_since = Some(Instant::now());
+        }
+        Ok(moved)
     }
 
     /// "Let my config win": removes the stored values of the setting in `report`, so the user's
