@@ -530,6 +530,27 @@ the lockout protection.
   mouse is gone. `Devices::lockout(type, device, sending)` says what switching the devices of a type (or one of them) to
   a sending mode would leave the user without.
 
+### XKB rules
+
+`crates/core/src/xkb/` lists the keyboard models, layouts, variants and XKB options of the system for the Keyboard page,
+from the rules registry of xkeyboard-config. It only reads.
+
+- **Which files:** `rules/evdev.xml` in the XKB config root (`$XKB_CONFIG_ROOT`, otherwise `/usr/share/X11/xkb`); sway
+  uses the `evdev` rules. `rules/evdev.extras.xml` is merged in if it exists: its layouts, its variants of layouts the
+  base file has and its options of known groups are added, each marked as extra, like the entries the registry marks as
+  exotic. Pages show extra entries only on request.
+- **What is kept:** for each entry its name and English description, and where the registry has them the short
+  description, the vendor of a model, and the languages (ISO 639) and countries (ISO 3166) of a layout or variant, so
+  search can match them. Option groups know whether more than one of their options can be set. Lookups give the entry
+  for a model, layout, variant or option name, and the options of a group (`grp` for the layout switching shortcut).
+- **Errors:** a missing or broken base file is reported and leaves the lists empty; the pages still take names typed by
+  hand. A missing extras file is normal; a broken one is reported and the base file's entries stay.
+- **External input:** each file is read up to 4 MiB (the registry has about 250 KiB) and at most a million XML nodes. A
+  file that declares entities is refused; the DTD the registry names is never loaded, so nothing is fetched or run.
+  Unknown elements, translated descriptions (`xml:lang`) and entries without a name are skipped, and a name that turns
+  up twice keeps its first entry. Property tests feed the parser arbitrary bytes.
+- **Translations** of the descriptions (the `xkeyboard-config` gettext domain) are not read yet.
+
 ### Sway config parser
 
 `crates/core/src/sway_config/` reads the user's config the way sway's `read_config` does, and only reads.
@@ -847,7 +868,7 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases, for a change and for a reset), command builders and escaping (property tests against a port of sway's parser); the command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), the XKB rules registry (a sample registry and extras file, missing, broken, oversized and entity-declaring files, arbitrary bytes, and the registry of the system if it has one), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases, for a change and for a reset), command builders and escaping (property tests against a port of sway's parser); the command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting set and reset with `--yes` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
