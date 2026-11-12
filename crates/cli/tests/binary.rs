@@ -116,3 +116,32 @@ fn a_risky_change_without_a_terminal_needs_yes() {
     assert!(text(&output.stderr).contains("--yes"));
     assert_eq!(home.sway.commands(), [] as [&str; 0]);
 }
+
+#[test]
+fn doctor_reports_without_writing() {
+    // No generated file exists, so nothing is validated and `sway` is never run.
+    let home = Home::new(
+        "version = 1\n\n[windows.gaps]\ninner = 8\n",
+        "gaps inner 4\n",
+    );
+    let output = home.run(&["doctor"]);
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let out = text(&output.stdout);
+    assert!(
+        out.starts_with("Compositor\n  ok       sway 1.10.1 runs in this session.\n"),
+        "{out}"
+    );
+    assert!(
+        out.contains("  problem  Sway Things is read-only: "),
+        "{out}"
+    );
+    assert!(out.ends_with("2 problems, no warnings.\nRun `sway-things doctor --fix` to write the generated files again.\n"), "{out}");
+
+    let output = home.run(&["doctor", "--fix", "--json"]);
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["status"], "problem");
+    assert_eq!(json["fix"]["result"], "read_only");
+    assert!(!home.dir.path().join("config/sway/sway-things").exists());
+    assert!(!home.dir.path().join("state").exists());
+}

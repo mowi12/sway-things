@@ -16,8 +16,9 @@ use std::path::{Path, PathBuf};
 
 use async_io::block_on;
 use clap::Parser;
-use sway_things_cli::{Cli, Command, Exit, Prompt, Session, run};
+use sway_things_cli::{Cli, Command, DoctorArgs, Exit, Prompt, Session, doctor, run};
 use sway_things_core::apply::{Applier, Countdown};
+use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
@@ -585,5 +586,330 @@ fn commands_parse_as_documented() {
             device: None,
             json: true
         }
+    );
+}
+
+#[test]
+fn doctor_reports_a_setup_that_works() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    assert_eq!(
+        setup.run(&["set", "windows.gaps.inner", "8"]).exit,
+        Exit::Ok
+    );
+    let ran = setup.run(&["doctor"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(ran.err, "");
+    let config = setup.path("config/sway/config");
+    let appearance = setup.path("config/sway/sway-things/30-appearance.conf");
+    assert_eq!(
+        ran.out,
+        format!(
+            "Compositor\n  \
+             ok       sway 1.10.1 runs in this session.\n\
+             \n\
+             Sway config\n  \
+             ok       Main config: {config} (loaded by the running sway)\n  \
+             ok       Sway Things is enabled: {config}:1 includes its files.\n\
+             \n\
+             Settings files\n  \
+             ok       The settings files load without problems (1 stored value).\n\
+             \n\
+             Generated files\n  \
+             ok       10-input.conf isn't needed: no stored setting goes into it.\n  \
+             ok       30-appearance.conf is up to date.\n  \
+             ok       sway --validate accepts 30-appearance.conf.\n  \
+             ok       40-behavior.conf isn't needed: no stored setting goes into it.\n  \
+             ok       90-effects.conf isn't needed: no stored setting goes into it.\n\
+             \n\
+             Conflicts\n  \
+             ok       No line of your config sets a stored setting.\n\
+             \n\
+             Everything is fine.\n",
+            config = config.display(),
+        )
+    );
+    assert!(appearance.exists());
+}
+
+#[test]
+fn doctor_shows_the_include_line_and_fixes_nothing_while_read_only() {
+    let mut setup = Setup::new(
+        "version = 1\n\n[windows.gaps]\ninner = 8\n",
+        "gaps inner 4\n",
+        None,
+    );
+    let ran = setup.run(&["doctor"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out.contains(
+            "  problem  Sway Things is read-only: your config doesn't include its files, so \
+             nothing it generates is in effect.\n"
+        ),
+        "{}",
+        ran.out
+    );
+    let line = format!(
+        "\n               include {}/config/sway/sway-things/*.conf\n",
+        setup.dir.path().display()
+    );
+    assert!(ran.out.contains(&line), "{}", ran.out);
+    assert!(
+        ran.out.contains(
+            "  problem  30-appearance.conf is missing, so the settings that go into it have no \
+             effect.\n           Fix: sway-things doctor --fix\n"
+        ),
+        "{}",
+        ran.out
+    );
+    assert!(ran.out.ends_with(
+        "2 problems, no warnings.\nRun `sway-things doctor --fix` to write the generated files again.\n"
+    ), "{}", ran.out);
+
+    let ran = setup.run(&["doctor", "--fix"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out.starts_with(
+            "Fix\n  Nothing was written: Sway Things is read-only until your config includes its \
+             files.\n\nCompositor\n"
+        ),
+        "{}",
+        ran.out
+    );
+    assert!(!setup.path("config/sway/sway-things").exists());
+    assert_eq!(setup.read("config/sway/config"), "gaps inner 4\n");
+}
+
+#[test]
+fn doctor_fixes_files_that_are_missing_or_out_of_date() {
+    let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
+    let ran = setup.run(&["doctor"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out.contains(
+            "No sway session runs (not in a sway session). The installed compositor is sway 1.10.1."
+        ),
+        "{}",
+        ran.out
+    );
+    let ran = setup.run(&["doctor", "--fix"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let appearance = setup.path("config/sway/sway-things/30-appearance.conf");
+    assert!(
+        ran.out.starts_with(&format!(
+            "Fix\n  wrote {}\n\nCompositor\n",
+            appearance.display()
+        )),
+        "{}",
+        ran.out
+    );
+    assert!(
+        ran.out
+            .contains("  ok       30-appearance.conf is up to date.\n")
+    );
+    assert!(
+        setup
+            .generated("30-appearance.conf")
+            .ends_with("\ngaps inner 8\n")
+    );
+
+    let ran = setup.run(&["doctor", "--fix"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert!(
+        ran.out.starts_with("Fix\n  Nothing for --fix to do.\n\n"),
+        "{}",
+        ran.out
+    );
+
+    // Changed outside: only replaced with --overwrite.
+    fs::write(&appearance, "gaps inner 1\n").unwrap();
+    let ran = setup.run(&["doctor"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out
+            .contains("  problem  30-appearance.conf was changed outside Sway Things.\n"),
+        "{}",
+        ran.out
+    );
+    assert!(ran.out.contains(
+        "           Fix: sway-things doctor --fix --overwrite (your changes to the file are lost)\n"
+    ), "{}", ran.out);
+    let ran = setup.run(&["doctor", "--fix"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    assert!(
+        ran.out
+            .starts_with("Fix\n  Only generated files that were changed outside"),
+        "{}",
+        ran.out
+    );
+    assert_eq!(fs::read_to_string(&appearance).unwrap(), "gaps inner 1\n");
+    let ran = setup.run(&["doctor", "--fix", "--overwrite"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert!(
+        setup
+            .generated("30-appearance.conf")
+            .ends_with("\ngaps inner 8\n")
+    );
+    assert!(Cli::try_parse_from(["sway-things", "doctor", "--overwrite"]).is_err());
+}
+
+#[test]
+fn doctor_lists_the_users_lines_that_win() {
+    let mut setup = Setup::new(
+        "version = 1\n\n[windows.gaps]\ninner = 8\n",
+        &format!("{INCLUDE}gaps inner 4\n"),
+        None,
+    );
+    assert_eq!(setup.run(&["doctor", "--fix"]).exit, Exit::Ok);
+    let ran = setup.run(&["doctor"]);
+    // Warnings don't make it fail.
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let config = setup.path("config/sway/config");
+    assert!(
+        ran.out.contains(&format!(
+            "  warning  The include line isn't last: 1 of your config lines come after it and \
+             win where they set the same thing as Sway Things.\n             \
+             {config}:2: gaps inner 4\n",
+            config = config.display()
+        )),
+        "{}",
+        ran.out
+    );
+    assert!(
+        ran.out.contains(&format!(
+            "Conflicts\n  warning  windows.gaps.inner: your config wins: {}:2 comes after the \
+             generated file (gaps inner 4).\n",
+            config.display()
+        )),
+        "{}",
+        ran.out
+    );
+    assert!(
+        ran.out.ends_with("no problems, 2 warnings.\n"),
+        "{}",
+        ran.out
+    );
+}
+
+#[test]
+fn doctor_reports_the_settings_files_and_rejected_files() {
+    let mut setup = Setup::new(
+        "version = 1\n\n[windows.gaps]\ninner = 8\nwide = 3\n",
+        INCLUDE,
+        None,
+    );
+    assert_eq!(setup.run(&["doctor", "--fix"]).exit, Exit::Ok);
+    setup.session.applier = rejecting(&setup);
+    let ran = setup.run(&["doctor"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    // In the report, not as warnings of their own.
+    assert_eq!(ran.err, "");
+    assert!(
+        ran.out.contains("unknown setting windows.gaps.wide\n"),
+        "{}",
+        ran.out
+    );
+    assert!(
+        ran.out.contains(
+            "  problem  sway --validate rejects 30-appearance.conf; sway reports errors for it \
+             at every start.\n             line 3: no (from windows.gaps.inner)\n"
+        ),
+        "{}",
+        ran.out
+    );
+}
+
+#[test]
+fn doctor_prints_json_for_scripts() {
+    let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
+    let ran = setup.run(&["doctor", "--json"]);
+    assert_eq!(ran.exit, Exit::Failure, "{ran:?}");
+    let json: serde_json::Value = serde_json::from_str(&ran.out).unwrap();
+    assert_eq!(json["status"], "problem");
+    assert_eq!(json["problems"], 1);
+    assert_eq!(json["warnings"], 0);
+    assert_eq!(json["fix"], serde_json::Value::Null);
+    let missing = json["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["code"] == "file_missing")
+        .unwrap();
+    assert_eq!(
+        missing,
+        &serde_json::json!({
+            "section": "generated",
+            "code": "file_missing",
+            "status": "problem",
+            "message": "30-appearance.conf is missing, so the settings that go into it have no effect.",
+            "details": [],
+            "hint": null,
+            "file": setup.path("config/sway/sway-things/30-appearance.conf").display().to_string(),
+            "line": null,
+            "key": null,
+            "device": null,
+            "fix": "regenerate",
+        })
+    );
+
+    let ran = setup.run(&["doctor", "--json", "--fix"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let json: serde_json::Value = serde_json::from_str(&ran.out).unwrap();
+    assert_eq!(json["status"], "ok");
+    assert_eq!(json["fix"]["result"], "done");
+    assert_eq!(json["fix"]["message"], serde_json::Value::Null);
+    let files = json["fix"]["files"].as_array().unwrap();
+    assert_eq!(files.len(), 4);
+    assert_eq!(files[1]["outcome"], "written");
+    assert_eq!(files[0]["outcome"], "not_created");
+}
+
+#[test]
+fn doctor_without_sway_skips_validation() {
+    let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
+    assert_eq!(setup.run(&["doctor", "--fix"]).exit, Exit::Ok);
+    let found = Found::NoSession {
+        reason: "SWAYSOCK isn't set".to_owned(),
+        installed: Installed::Missing("No such file or directory (os error 2)".to_owned()),
+    };
+    let applier = &setup.session.applier;
+    let checkup = Checkup {
+        found: &found,
+        state: applier.state(),
+        locations: applier.locations(),
+        status: &setup.session.status,
+        validator: applier.validator(),
+    };
+    let mut out = Vec::new();
+    let exit = block_on(doctor(&checkup, &DoctorArgs::default(), &mut out));
+    let out = String::from_utf8(out).unwrap();
+    assert_eq!(exit, Exit::Failure, "{out}");
+    assert!(
+        out.starts_with(
+            "Compositor\n  problem  No sway session runs (SWAYSOCK isn't set), and sway can't be \
+             run: No such file or directory (os error 2).\n"
+        ),
+        "{out}"
+    );
+    assert!(
+        out.contains(
+            "  warning  The generated files weren't checked with sway --validate: sway can't be \
+             run (No such file or directory (os error 2)).\n"
+        ),
+        "{out}"
+    );
+    assert!(!out.contains("sway --validate accepts"), "{out}");
+
+    let mut out = Vec::new();
+    let args = DoctorArgs {
+        fix: true,
+        ..DoctorArgs::default()
+    };
+    // Nothing is out of date that could be told without the compositor.
+    assert_eq!(block_on(doctor(&checkup, &args, &mut out)), Exit::Failure);
+    assert!(
+        String::from_utf8(out)
+            .unwrap()
+            .starts_with("Fix\n  Nothing for --fix to do.\n")
     );
 }
