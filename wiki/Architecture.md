@@ -342,9 +342,9 @@ copy button). Alternatively the user deletes or renames their own file, and we c
   sent are undone with the previous values.
 - **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
   user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
-- **Refused:** risky settings (they only change through the [safety net](#risky-settings-safety-net)), and a `set` of a
-  setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is always
-  allowed, so such a value can be removed.
+- **Refused:** risky settings (they change and reset only through the [safety net](#risky-settings-safety-net)), and a
+  `set` of a setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is
+  always allowed, so such a value can be removed.
 - **Without a session** (the CLI at login) the change is only stored, saved and generated, for the compositor the
   installed `sway` reports. The result says so.
 - **`persist`** saves the settings files, generates every file and writes those that changed. The result has the outcome
@@ -373,12 +373,17 @@ Display mode, disabling an output or input device, keyboard layout changes:
   `app.safety_net_timeout` (15 s by default). Nothing is stored. The snapshot is the value in effect as a row shows it
   (`SettingView`): the stored value, else what the user's config sets, else sway's default. sway reports keyboard
   layouts only by their names (`English (US)`), not as `xkb_layout` takes them, so the core's value is what is restored.
-- **`keep`** stores the value like any other change (saved with `persist`); nothing more is sent. **`revert`** sends the
-  snapshot; the caller runs it when the user says so and when `Countdown::elapsed` returns. The countdown waits with
-  `async_io`, so it works under the GTK main loop and `block_on` alike.
+- **`Applier::try_risky_reset`** tries removing the stored value the same way. It sends the value that is in effect
+  without it, as a row would show it then: what the user's config sets, else sway's default (for one device: the value
+  of its type). That is the value sway has after the next reload, so that is what the safety net tests. A setting
+  without a stored value sends nothing.
+- **`keep`** stores the value like any other change, or for a reset removes it (saved with `persist`); nothing more is
+  sent. **`revert`** sends the snapshot; the caller runs it when the user says so and when `Countdown::elapsed` returns.
+  The countdown waits with `async_io`, so it works under the GTK main loop and `block_on` alike.
 - **One at a time:** while a change waits, another risky change is refused until it is kept or reverted.
 - **Only in a session:** without a running sway nothing can be tried and reverted, so `try_risky` refuses.
-  `set_risky_unchecked` (for `sway-things set --yes`) sends the value if there is a session and stores it at once.
+  `set_risky_unchecked` and `reset_risky_unchecked` (for `sway-things set --yes` and `reset --yes`) send the value if
+  there is a session and store or remove it at once.
 - **Lockout protection:** a change of `events` asks sway for the devices and is refused if it would leave no usable
   keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. A session that has
   none to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off
@@ -391,8 +396,8 @@ Display mode, disabling an output or input device, keyboard layout changes:
 timer at the countdown's deadline queues the revert; _Keep_ and _Revert_ queue `keep` and `revert`. Refusals reach the
 row through the `failed` signal. Closing the window while a change waits reverts it, then closes.
 
-**From the CLI**: in an interactive terminal, `sway-things set` applies live, asks `Keep? [y/N]` with the same
-countdown, and saves only on `y`. Without a TTY it refuses unless `--yes` is given, so scripts and hooks never hang.
+**From the CLI**: in an interactive terminal, `sway-things set` and `reset` apply live, ask `Keep? [y/N]` with the same
+countdown, and save only on `y`. Without a TTY it refuses unless `--yes` is given, so scripts and hooks never hang.
 
 ### Apply modes
 
@@ -684,7 +689,7 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
 | --- | --- |
 | `get [<key>] [--device <id>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](#settings-registry)): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device under it. |
 | `set <key> <value> [--device <id>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
-| `reset <key> [--device <id>] [--overwrite]` | removes the stored value and sends the default. Risky settings can't be reset from the command line yet. |
+| `reset <key> [--device <id>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 
 - **Values** are typed as `Kind::parse` reads them and `Value`'s `Display` writes them: `true`/`false`, a number, a
@@ -693,9 +698,9 @@ sway or, without one, the installed `sway`, and the main config sway loaded or w
 - **`--json`** gives an object per setting: `key`, `device`, `value` (a boolean, a number, a list of strings, or a
   string), `source` (`kind`: `shared`, `host`, `config` or `default`, with `file`, `line` and `for_type` where they
   apply), `line` (the sway line), `overridden_by` (`file`, `line`) and `unsupported`. Without a key, an array.
-- **Risky settings:** in a terminal (stdin and stderr), `set` tries the value, asks `Keep? [y/N]` on stderr with the
-  seconds left and keeps it only on `y`; anything else, the end of input or the timeout reverts it. Without a terminal
-  it refuses unless `--yes` is given ([safety net](#risky-settings-safety-net)).
+- **Risky settings:** in a terminal (stdin and stderr), `set` and `reset` try the value, ask `Keep? [y/N]` on stderr
+  with the seconds left and keep it only on `y`; anything else, the end of input or the timeout reverts it. Without a
+  terminal they refuse unless `--yes` is given ([safety net](#risky-settings-safety-net)).
 - **Read-only:** while the [include line](#include-detection) is missing, `set` and `reset` print the explanation with
   the line to add and change nothing; `get` and `show-generated` work.
 - **Writing:** a generated file that was changed outside is left alone and reported; the settings are saved, and the
@@ -819,10 +824,10 @@ titles, subtitles and keywords are translatable, and search matches both the tra
 
 | Level | What |
 | --- | --- |
-| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases), command builders and escaping (property tests against a port of sway's parser); the command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`) |
+| Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), registry invariants (every setting reads back each value it renders), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases, for a change and for a reset), command builders and escaping (property tests against a port of sway's parser); the command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`) |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
-| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting with `--yes` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
+| Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting set and reset with `--yes` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
 | GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open, drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. Welcome: without the include line the window opens on the welcome screen with the line, _Look around first_ and opening a page lead to the pages with the banner, whose button leads back, its spinner turns again after coming back (compared on the drawn pixels, with animations on: a spinner's animation doesn't restart by itself, so the screen puts in a new one each time it is shown), the welcome screen and the banner go away once the line is there, and a banner tells about lines after the include until dismissed; the welcome screen and a read-only page are checked for contrast in light and dark. Text inside insensitive widgets is left out of the contrast check: WCAG exempts inactive controls, and GTK draws their text faint on purpose. Animations are off, so screens are checked as they end up. Rows: every page shows a row per setting in registry order, each control takes the focus, a change reaches the settings, a SwayFX setting on sway is locked and says why, and a change without the include line shows its error. Safety net: switching pointers off shows the banner with _Revert_ focused and the tried value in the row, _Keep_ stores it, _Revert_, the countdown and closing the window put the old value back, the only pointer can't be switched off, and the page with the banner is checked for contrast in light and dark. The window works on settings files in a temporary directory and a sway config in memory, without a session or in the session of the stand-in for sway (the safety net), and never saves, so nothing runs sway. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Logic stays in `core`, so the GUI stays thin |
 
 ## Packaging
