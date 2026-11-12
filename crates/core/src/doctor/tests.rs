@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 
 use async_io::block_on;
 
-use super::{Checkup, Code, Diagnosis, Finding, Fix, FixError, Found, Installed, Severity};
+use super::{
+    Checkup, Code, Diagnosis, Finding, Fix, FixError, Found, Installed, Section, Severity, Step,
+};
 use crate::generate::tests::{SWAY_1_10, SWAYFX_0_5, TOUCHPAD};
 use crate::generate::{ConfigError, HEADER, Locations, Outcome, Report, Validate};
 use crate::include::{IncludeStatus, WriteAccess};
@@ -138,6 +140,26 @@ fn codes(diagnosis: &Diagnosis) -> Vec<Code> {
         .iter()
         .map(|finding| finding.code)
         .collect()
+}
+
+#[test]
+fn progress_names_each_step_before_it_starts() {
+    let setup = Setup::new(GAPS, INCLUDE);
+    setup.fix(false).unwrap();
+    let mut steps = Vec::new();
+    let diagnosis = block_on(setup.checkup().diagnose_with(|step| steps.push(step)));
+    assert_eq!(diagnosis, setup.diagnose());
+    assert_eq!(
+        steps,
+        [
+            Step::Section(Section::Compositor),
+            Step::Section(Section::Config),
+            Step::Section(Section::Settings),
+            Step::Section(Section::Generated),
+            Step::Validate(ConfigFile::Appearance),
+            Step::Section(Section::Conflicts),
+        ]
+    );
 }
 
 #[test]

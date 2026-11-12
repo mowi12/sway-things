@@ -14,6 +14,9 @@
 //! when asked to. Like every write, it needs the [`WriteAccess`] of an active
 //! [`IncludeStatus`], and it never touches a file Sway Things didn't make.
 //!
+//! [`Checkup::diagnose_with`] also tells which [`Step`] it starts, so a front end can show
+//! progress while sway validates the generated files.
+//!
 //! Without a session, the compositor is the installed one (`sway --version`), and the generated
 //! files are still validated with `sway --validate`: that is how to find out from a TTY why sway
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
@@ -357,6 +360,15 @@ impl Finding {
     }
 }
 
+/// What the checkup is about to do, for showing progress.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Step {
+    /// The checks of this section start.
+    Section(Section),
+    /// `sway --validate` checks this generated file, which can take a moment.
+    Validate(ConfigFile),
+}
+
 /// Everything the checkup found, in the order of the [`Section`]s.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnosis {
@@ -548,15 +560,27 @@ pub struct Checkup<'a, V> {
 impl<V: Validate> Checkup<'_, V> {
     /// Checks everything. Nothing is written; the only program run is the validator.
     pub async fn diagnose(&self) -> Diagnosis {
+        self.diagnose_with(|_| {}).await
+    }
+
+    /// Checks everything like [`Checkup::diagnose`], and calls `progress` with each [`Step`]
+    /// before it starts.
+    pub async fn diagnose_with(&self, mut progress: impl FnMut(Step)) -> Diagnosis {
         let mut findings = Vec::new();
+        progress(Step::Section(Section::Compositor));
         self.compositor(&mut findings);
+        progress(Step::Section(Section::Config));
         self.config(&mut findings);
         let generated = self
             .found
             .compositor()
             .map(|compositor| generate::generate(self.state.registry(), self.state, compositor));
+        progress(Step::Section(Section::Settings));
         self.settings(generated.as_deref(), &mut findings);
-        self.files(generated.as_deref(), &mut findings).await;
+        progress(Step::Section(Section::Generated));
+        self.files(generated.as_deref(), &mut findings, &mut progress)
+            .await;
+        progress(Step::Section(Section::Conflicts));
         self.conflicts(&mut findings);
         Diagnosis { findings }
     }
@@ -811,7 +835,12 @@ impl<V: Validate> Checkup<'_, V> {
         }
     }
 
-    async fn files(&self, generated: Option<&[GeneratedFile]>, findings: &mut Vec<Finding>) {
+    async fn files(
+        &self,
+        generated: Option<&[GeneratedFile]>,
+        findings: &mut Vec<Finding>,
+        progress: &mut impl FnMut(Step),
+    ) {
         let manifest = Manifest::load(self.locations.manifest());
         let needed: BTreeSet<ConfigFile> = self
             .state
@@ -854,6 +883,7 @@ impl<V: Validate> Checkup<'_, V> {
             if missing_sway.is_some() {
                 continue;
             }
+            progress(Step::Validate(file));
             match self.validator.validate(&path).await {
                 Ok(errors) => {
                     // Only the file as generated now tells which settings a line comes from.
