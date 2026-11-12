@@ -19,10 +19,14 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+anstream.workspace = true
+anstyle.workspace = true
 async-channel.workspace = true
 async-io.workspace = true
 clap.workspace = true
+colorchoice-clap.workspace = true
 futures-lite.workspace = true
+indicatif.workspace = true
 serde_json.workspace = true
 sway-things-core = { path = "../core" }
 

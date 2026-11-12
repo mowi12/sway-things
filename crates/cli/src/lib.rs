@@ -1,30 +1,37 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The command line of Sway Things: `get`, `set`, `reset` and `show-generated`.
+//! The command line of Sway Things: `get`, `set`, `reset`, `show-generated` and `doctor`.
 //!
 //! [`run`] carries out a [`Command`] on a [`Session`], so the tests run it with a stand-in for
 //! sway and a validator of their own; [`run_for_user`] opens the session of the user who runs
 //! `sway-things`. Everything goes through the core, like in the app.
 
+mod doctor;
 mod output;
 mod prompt;
+mod spinner;
 
 use std::fmt;
 use std::io::{self, Write};
 use std::process::ExitCode;
 
+use anstream::{AutoStream, ColorChoice};
+
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
 use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial};
 use sway_things_core::command::input::InputSelector;
-use sway_things_core::generate::{Outcome, Validate};
+use sway_things_core::doctor::{Checkup, Found, Installed};
+use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
-use sway_things_core::registry::{Apply, ConfigFile, Scope, Setting, Value};
-use sway_things_core::state::{Layer, StateError};
+use sway_things_core::registry::{Apply, ConfigFile, Registry, Scope, Setting, Value};
+use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 
+pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
 pub use prompt::{Prompt, Terminal};
+pub use spinner::Spinner;
 
 /// Read and change the settings of Sway Things.
 #[derive(Debug, Parser)]
@@ -33,6 +40,9 @@ pub struct Cli {
     /// What to do.
     #[command(subcommand)]
     pub command: Command,
+    /// When to use colors: `--color auto|always|never`. Only `doctor` colors its report.
+    #[command(flatten)]
+    pub color: colorchoice_clap::Color,
 }
 
 /// A command of `sway-things`.
@@ -93,6 +103,9 @@ pub enum Command {
         #[arg(value_parser = PossibleValuesParser::new(ConfigFile::ALL.map(ConfigFile::file_name)))]
         file: Option<String>,
     },
+    /// Check why settings might not take effect: the compositor, your sway config and its include
+    /// line, the settings files, the generated files and the lines of your config that win
+    Doctor(DoctorArgs),
 }
 
 /// How `sway-things` ends.
@@ -101,7 +114,8 @@ pub enum Exit {
     /// It did what was asked.
     Ok = 0,
     /// Something went wrong: sway rejected a command or the generated config, or a file can't be
-    /// read or written.
+    /// read or written. For `doctor`: it couldn't do its job, e.g. `--fix` couldn't write the
+    /// files.
     Failure = 1,
     /// The arguments are wrong: an unknown key, a value the setting doesn't take.
     Usage = 2,
@@ -111,6 +125,8 @@ pub enum Exit {
     /// change that wasn't kept, a setting the compositor doesn't support, a generated file that
     /// was changed outside and not overwritten.
     Refused = 4,
+    /// `doctor` ran and found at least one problem, also after `--fix`. Warnings don't count.
+    Problems = 5,
 }
 
 impl From<Exit> for ExitCode {
@@ -129,10 +145,19 @@ pub struct Session<V> {
     pub status: IncludeStatus,
 }
 
+/// Whether to color what goes to `stream`: `--color`, `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE`
+/// and whether it is a terminal decide, as [`AutoStream::choice`] tells.
+fn color_for(stream: &impl anstream::stream::RawStream) -> bool {
+    AutoStream::choice(stream) != ColorChoice::Never
+}
+
 /// Runs `command` for the user who runs `sway-things`: with their settings files, their sway
 /// config and, if there is one, their sway session.
 pub async fn run_for_user(command: &Command) -> Exit {
     let mut err = io::stderr();
+    if let Command::Doctor(args) = command {
+        return doctor_for_user(args, &mut err).await;
+    }
     let (applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
@@ -152,6 +177,47 @@ pub async fn run_for_user(command: &Command) -> Exit {
     .await
 }
 
+/// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
+/// when the others can't: then the installed `sway` validates the generated files, if there is
+/// one. On a terminal, the report is colored and a spinner tells what it checks; never for
+/// `--json`.
+async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
+    let stdout = io::stdout();
+    let look = if args.json {
+        Look::default()
+    } else {
+        Look {
+            color: color_for(&stdout),
+            spinner: Spinner::stderr(color_for(&io::stderr())),
+        }
+    };
+    let (paths, locations) = match Paths::from_env()
+        .and_then(|paths| Locations::from_env().map(|locations| (paths, locations)))
+    {
+        Ok(found) => found,
+        Err(error) => {
+            look.spinner.clear();
+            let _ = writeln!(err, "error: {error}");
+            return Exit::Failure;
+        }
+    };
+    look.spinner.say("Loading the settings files…");
+    let state = State::load(Registry::builtin(), paths);
+    let validator = SwayValidator::new();
+    look.spinner.say("Asking sway for its version…");
+    let (found, main) = Found::detect(&validator).await;
+    look.spinner.say("Reading your sway config…");
+    let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
+    let checkup = Checkup {
+        found: &found,
+        state: &state,
+        locations: &locations,
+        status: &status,
+        validator: &validator,
+    };
+    doctor_with(&checkup, args, &mut stdout.lock(), &look).await
+}
+
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
 /// whether to keep a risky change.
 pub async fn run<V: Validate>(
@@ -162,8 +228,11 @@ pub async fn run<V: Validate>(
     err: &mut dyn Write,
 ) -> Exit {
     let mut io = Io { out, err };
-    for problem in session.applier.state().problems() {
-        io.warn(problem);
+    // The doctor reports the problems of the settings files itself.
+    if !matches!(command, Command::Doctor(_)) {
+        for problem in session.applier.state().problems() {
+            io.warn(problem);
+        }
     }
     match command {
         Command::Get { key, device, json } => {
@@ -206,7 +275,34 @@ pub async fn run<V: Validate>(
             reset(session, &reset_of, *overwrite, prompt, &mut io).await
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
+        Command::Doctor(args) => doctor_in(session, args, io.out).await,
     }
+}
+
+/// `doctor` on an open session: the compositor is the one the applier generates for.
+async fn doctor_in<V: Validate>(
+    session: &mut Session<V>,
+    args: &DoctorArgs,
+    out: &mut dyn Write,
+) -> Exit {
+    let compositor = session.applier.compositor();
+    let found = if session.applier.client().is_some() {
+        Found::Session(compositor)
+    } else {
+        Found::NoSession {
+            reason: "not in a sway session".to_owned(),
+            installed: Installed::Version(compositor),
+        }
+    };
+    let applier = &session.applier;
+    let checkup = Checkup {
+        found: &found,
+        state: applier.state(),
+        locations: applier.locations(),
+        status: &session.status,
+        validator: applier.validator(),
+    };
+    doctor(&checkup, args, out).await
 }
 
 /// Where the output goes. A closed pipe isn't worth an error of its own, so write errors are

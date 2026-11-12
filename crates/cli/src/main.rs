@@ -11,5 +11,7 @@ use sway_things_cli::{Cli, run_for_user};
 fn main() -> ExitCode {
     // Wrong arguments end here with clap's message and exit code 2.
     let cli = Cli::parse();
+    // What `--color` says, for everything that colors its output.
+    cli.color.write_global();
     async_io::block_on(run_for_user(&cli.command)).into()
 }
