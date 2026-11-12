@@ -12,6 +12,8 @@
 //! [identifier](Device::identifier) through
 //! [`InputSelector::device`](crate::command::input::InputSelector::device).
 //!
+//! [`switch_layout`] switches the active keyboard layout of the session, which isn't a setting.
+//!
 //! ```no_run
 //! use sway_things_core::command::input::InputType;
 //! use sway_things_core::devices::DeviceWatch;
@@ -35,7 +37,7 @@ mod tests;
 
 use std::collections::{BTreeMap, VecDeque};
 
-use crate::command::input::InputType;
+use crate::command::input::{Input as InputCmd, InputSelector, InputType, XkbSwitch};
 use crate::ipc::types::{Event, EventType, Input, SendEvents};
 use crate::ipc::{Client, Events, IpcError};
 use crate::registry::Scope;
@@ -112,6 +114,30 @@ impl Layouts {
             .and_then(|index| self.names.get(index))
             .map(String::as_str)
     }
+}
+
+/// Switches the active keyboard layout now: on every keyboard (`keyboard` is `None`), or on the
+/// keyboards `keyboard` selects, usually one by its identifier
+/// ([`InputSelector::device`]). `xkb_switch_layout` over IPC.
+///
+/// This is an action, not a setting: nothing is stored, and sway starts with the first layout of
+/// `xkb_layout` again. A keyboard in a group of keyboards switches the whole group. An index past
+/// the last layout changes nothing; sway reports no error for it.
+///
+/// # Errors
+///
+/// The errors of [`Client::run`], e.g. [`IpcError::CommandFailed`] if sway rejects the command.
+pub async fn switch_layout(
+    client: &mut Client,
+    keyboard: Option<&InputSelector>,
+    switch: XkbSwitch,
+) -> Result<(), IpcError> {
+    let selector = keyboard
+        .cloned()
+        .unwrap_or(InputSelector::Type(InputType::Keyboard));
+    client
+        .run(&InputCmd::new(selector).xkb_switch_layout(switch))
+        .await
 }
 
 /// An input device.
