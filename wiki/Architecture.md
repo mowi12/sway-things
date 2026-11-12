@@ -128,6 +128,10 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
 - **Pages:** `Page::ALL` lists every page of the app in sidebar order, each with its id, sidebar group (`Group`), title
   and one-line description. The id is what deep links and the CLI use (`sway-things open mouse-touchpad`). Every setting
   names its page, and the registry lists the settings in page order.
+- **Deep links:** `Link::parse` reads a link as a page id (`keyboard`) or the key of a setting
+  (`input.keyboard.repeat_rate`), which opens the setting's page at its row; keys contain dots, page ids don't. An
+  unknown page is a `LinkError` that lists the page ids, an unknown key one that lists the keys it comes closest to
+  (those that start with the longest known part, `input.keyboard.`). The CLI and the app read links the same way.
 - **Sections:** every setting names the section of its page it is shown in (`.section("Touchpad")`, translatable), and
   the settings of a section are next to each other.
 - **Sliders:** a number setting can give a slider range and step narrower than what sway accepts
