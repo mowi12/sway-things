@@ -6,9 +6,19 @@
 
 version = 1
 
+[input.pointer]
+accel_profile = "flat"
+scroll_method = "on_button_down"
+scroll_button = "button8"
+left_handed = true
+
 [input.touchpad]
 tap = true
 pointer_accel = 0.3
+natural_scroll = true
+scroll_factor = 0.5
+drag_lock = "enabled_sticky"
+click_method = "clickfinger"
 
 [input.keyboard]
 repeat_delay = 300

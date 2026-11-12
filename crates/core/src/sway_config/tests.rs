@@ -557,7 +557,11 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 10);
+    assert_eq!(generated.len(), 18);
+    assert_eq!(
+        find(&["input", "type:pointer"], "scroll_button").as_deref(),
+        Some("button8")
+    );
     assert_eq!(
         find(&["input", "type:touchpad"], "tap").as_deref(),
         Some("enabled")
