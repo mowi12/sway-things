@@ -488,6 +488,18 @@ fn keyboard_settings_apply_as_their_effect_needs() {
             max: i64::from(u16::MAX)
         })
     );
+    // Below 100 ms every key repeats almost at once.
+    assert_eq!(
+        setting("input.keyboard.repeat_delay").check(&Value::Integer(99)),
+        Err(ValueError::IntegerOutOfRange {
+            min: 100,
+            max: i64::from(u16::MAX)
+        })
+    );
+    assert_eq!(
+        setting("input.keyboard.repeat_delay").check(&Value::Integer(100)),
+        Ok(())
+    );
     let rate = setting("input.keyboard.repeat_rate").slider().unwrap();
     assert_eq!((rate.min, rate.max, rate.step), (1.0, 100.0, 1.0));
 }
@@ -843,6 +855,10 @@ fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
     // sway accepts it, but the setting's range is narrower.
     assert!(matches!(
         read("input.keyboard.repeat_delay", "input * repeat_delay 70000"),
+        Some(Err(ReadError::Unsupported(_)))
+    ));
+    assert!(matches!(
+        read("input.keyboard.repeat_delay", "input * repeat_delay 50"),
         Some(Err(ReadError::Unsupported(_)))
     ));
 }
