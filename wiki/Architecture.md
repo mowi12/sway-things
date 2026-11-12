@@ -873,11 +873,15 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 
 - Plain **gtk4-rs**. No libadwaita, because it overrides the user's GTK theme. No Relm4, because standard rows are
   generated from the registry anyway, and custom widgets need plain gtk-rs.
-- `GtkApplication` with app_id **`io.github.mowi12.SwayThings`**. It handles single instance and D-Bus activation;
-  `sway-things open <page>[/<setting>]` activates the running window. `Window::open_link` opens the page of a
-  [link](#settings-registry) and, for a setting, points to its row: scrolled into view, its control focused, and tinted
-  with the accent for 1.5 s before it fades (at once without animations). A row that isn't shown, like one of an input
-  type without devices, leaves just the page open.
+- `GtkApplication` with app_id **`io.github.mowi12.SwayThings`**, unique on the session bus: starting
+  `sway-things-gui [<link>]` again hands the command line to the running instance (`HANDLES_COMMAND_LINE`), which opens
+  the [deep link](#settings-registry) and presents its window. An unknown link goes to the caller's stderr with exit
+  status 2 and changes nothing. The action `app.open` (a string, empty to only present the window) opens a link too,
+  also through `gapplication action io.github.mowi12.SwayThings open "'keyboard'"`. A link that comes while the window
+  loads is opened once it is there. `Window::open_link` opens the page and, for a setting, points to its row: scrolled
+  into view, its control focused, and tinted with the accent for 1.5 s before it fades (at once without animations). A
+  row that isn't shown, like one of an input type without devices, leaves just the page open. Without a session bus
+  every start runs on its own.
 - **Rows from the registry:** a `SettingRow` per setting, with title, subtitle, the config line in monospace, where a
   value from the user's config comes from, an error under the title when a change failed, and the control for its value
   type: a switch (on/off), a slider over the setting's slider range plus a number field for every value it accepts
