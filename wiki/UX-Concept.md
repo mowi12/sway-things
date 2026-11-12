@@ -104,27 +104,26 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 
 ## Per-setting indicators
 
-| Indicator | When | Actions |
-| --- | --- | --- |
-| **Reset to default** | the setting is stored in Sway Things | reset this setting / the whole page |
-| **Overridden** | the user's config line before our include is now dead | Open in editor at line · Copy · Let my config win |
-| **Your config wins** | the user's config line after our include overrides us | Open in editor at line · Copy · Let my config win |
-| **This machine only** | toggle per setting; default on for device- and output-bound settings | moves the value between `settings.toml` and the host overlay |
-| **Requires _tool_** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman |
-| **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover |
-| **Requires SwayFX** | SwayFX-only setting on vanilla sway | disabled with explanation |
-| **Requires sway ≥ x.y** | setting is newer than the running sway | disabled with explanation |
+A row stays lean: status as small badges (icon and text) under the sway line, actions behind buttons next to the
+control. Badges are labels, never buttons.
 
-Conflict banner example:
+| Indicator | When | Shown as | Actions |
+| --- | --- | --- | --- |
+| **Reset** | the value is stored in Sway Things | ↺ button | removes the value (for one device: back to the value of all devices of the type); a risky setting goes through the safety net |
+| **This machine only** | the value is stored | computer toggle, pressed for the host overlay; new values of device- and output-bound settings start there | moves the value between `settings.toml` and the host overlay |
+| **Your config wins** | a line of the user's config after our include overrides the stored value | badge marked for attention (warning icon and border) and a ⋮ menu | the menu shows file:line and the line, then _Let my config win_, _Open config in editor_, _Copy line_ |
+| **Overridden** | a line of the user's config before our include is dead while the value is stored | plain badge and a ⋮ menu | as above |
+| **Requires SwayFX** / **Requires sway ≥ x.y** | the running compositor lacks the setting | badge with a lock; the control is disabled, with the reason as tooltip | none |
+| **Requires _tool_** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman | (comes with the pages that need backends) |
+| **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover | (comes with the pages that need backends) |
 
-```text
-⚠ Overridden in your config
-  ~/.config/sway/config:42
-  client.focused #3b6e4f #3b6e4f #ffffff #3b6e4f #3b6e4f
-  Sway Things' value wins after a reload; your line is no longer in effect.
-
-  [Open in editor]  [Copy]  [Let my config win]
-```
+- The ⋮ button appears only on a row with a conflict. _Let my config win_ isn't offered for risky settings; their reset
+  goes through the safety net. _Open config in editor_ opens the file with the desktop's text editor; jumping to the
+  line comes with the editor command preference.
+- **Reset page…** in the page header removes every stored value of the page after asking. Values of risky settings stay:
+  the question names them and says to reset them from their rows, so a page reset never needs the safety net. The button
+  can't be pressed while there is nothing it would remove.
+- Indicators follow the state, the user's config and the include status live.
 
 ## First run: instructions only
 
