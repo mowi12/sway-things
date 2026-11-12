@@ -814,6 +814,34 @@ impl Setup {
     }
 }
 
+impl Setup {
+    fn try_risky_reset(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        users: &str,
+    ) -> Result<Option<super::Trial>, ApplyError> {
+        block_on(
+            self.applier
+                .try_risky_reset(key, device, &include_status(users), &self.access),
+        )
+    }
+
+    fn reset_risky_unchecked(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        users: &str,
+    ) -> Result<Applied, ApplyError> {
+        block_on(self.applier.reset_risky_unchecked(
+            key,
+            device,
+            &include_status(users),
+            &self.access,
+        ))
+    }
+}
+
 fn layouts(layouts: &[&str]) -> Value {
     Value::List(layouts.iter().map(|layout| (*layout).to_owned()).collect())
 }
@@ -1057,4 +1085,186 @@ fn an_unchecked_risky_change_is_stored_but_still_protected() {
             .get(KEYBOARD_EVENTS, Some(KEYBOARD_DEVICE)),
         Some(&Value::Bool(false))
     );
+}
+
+#[test]
+fn a_risky_reset_is_tried_and_removes_the_value_only_when_kept() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"de\"]\n",
+    );
+    let trial = setup.try_risky_reset(LAYOUT, None, "").unwrap().unwrap();
+    assert_eq!(trial.commands, [r#"input type:keyboard xkb_layout "us""#]);
+    // Nothing is removed yet.
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["de"]))
+    );
+    assert_eq!(setup.applier.save_due(), None);
+    let pending = setup.applier.pending().unwrap();
+    assert!(pending.is_reset());
+    assert_eq!(pending.value(), &layouts(&["us"]));
+
+    let kept = setup.applier.keep(&setup.access).unwrap();
+    assert!(kept.changed);
+    assert_eq!(
+        kept.effect,
+        live(&[r#"input type:keyboard xkb_layout "us""#])
+    );
+    assert_eq!(setup.applier.state().get(LAYOUT, None), None);
+    assert!(setup.applier.save_due().is_some());
+    assert_eq!(sway.commands().len(), 1);
+
+    // Nothing stored, nothing to try.
+    assert!(setup.try_risky_reset(LAYOUT, None, "").unwrap().is_none());
+    assert!(setup.applier.pending().is_none());
+    assert_eq!(sway.commands().len(), 1);
+}
+
+#[test]
+fn a_risky_reset_tries_what_the_users_config_sets_and_reverts_to_the_stored_value() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"us\"]\n",
+    );
+    let trial = setup
+        .try_risky_reset(LAYOUT, None, "input type:keyboard xkb_layout de\n")
+        .unwrap()
+        .unwrap();
+    assert_eq!(trial.commands, [r#"input type:keyboard xkb_layout "de""#]);
+    assert_eq!(
+        setup.applier.pending().map(super::Pending::value),
+        Some(&layouts(&["de"]))
+    );
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"input type:keyboard xkb_layout "us""#]));
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["us"]))
+    );
+    assert!(setup.applier.pending().is_none());
+}
+
+#[test]
+fn a_risky_reset_of_one_device_tries_the_value_of_its_type() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        &format!(
+            "version = 1\n\n[input.keyboard]\nxkb_layout = [\"fr\"]\n\n\
+             [device.\"{KEYBOARD_DEVICE}\".input.keyboard]\nxkb_layout = [\"de\"]\n"
+        ),
+    );
+    let trial = setup
+        .try_risky_reset(LAYOUT, Some(KEYBOARD_DEVICE), "")
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        trial.commands,
+        [format!(r#"input "{KEYBOARD_DEVICE}" xkb_layout "fr""#)]
+    );
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, Some(KEYBOARD_DEVICE)),
+        None
+    );
+    assert_eq!(
+        setup.applier.state().get(LAYOUT, None),
+        Some(&layouts(&["fr"]))
+    );
+}
+
+#[test]
+fn a_risky_reset_is_refused_like_a_risky_change() {
+    // The user's config switches the keyboards off, so removing the stored value would too.
+    let sway = laptop();
+    let stored = "version = 1\n\n[input.keyboard]\nevents = true\n";
+    let users = "input type:keyboard events disabled\n";
+    let mut setup = Setup::live(&sway, stored);
+    assert!(matches!(
+        setup.try_risky_reset(KEYBOARD_EVENTS, None, users),
+        Err(ApplyError::Lockout {
+            lockout: Lockout::Keyboard,
+            ..
+        })
+    ));
+    assert!(matches!(
+        setup.reset_risky_unchecked(KEYBOARD_EVENTS, None, users),
+        Err(ApplyError::Lockout { .. })
+    ));
+    assert_eq!(sway.commands(), Vec::<String>::new());
+    assert_eq!(
+        setup.applier.state().get(KEYBOARD_EVENTS, None),
+        Some(&Value::Bool(true))
+    );
+
+    // One change at a time, only risky settings, only in a session.
+    setup.try_risky(LAYOUT, None, layouts(&["de"]), "").unwrap();
+    assert!(matches!(
+        setup.try_risky_reset(KEYBOARD_EVENTS, None, ""),
+        Err(ApplyError::PendingChange { key: LAYOUT })
+    ));
+    assert!(matches!(
+        setup.reset_risky_unchecked(KEYBOARD_EVENTS, None, ""),
+        Err(ApplyError::PendingChange { key: LAYOUT })
+    ));
+    block_on(setup.applier.revert()).unwrap();
+    assert!(matches!(
+        setup.try_risky_reset(GAPS, None, ""),
+        Err(ApplyError::NotRisky { .. })
+    ));
+    let mut offline = Setup::offline(stored);
+    assert!(matches!(
+        offline.try_risky_reset(KEYBOARD_EVENTS, None, ""),
+        Err(ApplyError::NoSession { .. })
+    ));
+}
+
+#[test]
+fn an_unchecked_risky_reset_removes_the_value_but_is_still_protected() {
+    let sway = laptop();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"de\"]\n",
+    );
+    let applied = setup
+        .reset_risky_unchecked(LAYOUT, None, "input type:keyboard xkb_layout fr\n")
+        .unwrap();
+    assert!(applied.changed);
+    assert_eq!(
+        applied.effect,
+        live(&[r#"input type:keyboard xkb_layout "fr""#])
+    );
+    assert_eq!(setup.applier.state().get(LAYOUT, None), None);
+    assert!(setup.applier.save_due().is_some());
+    let applied = setup.reset_risky_unchecked(LAYOUT, None, "").unwrap();
+    assert_eq!(
+        applied,
+        Applied {
+            changed: false,
+            effect: Effect::NotStored
+        }
+    );
+
+    // Without a session the devices aren't known: what would switch off a whole type is
+    // refused.
+    let mut offline = Setup::offline("version = 1\n\n[input.keyboard]\nevents = true\n");
+    assert!(matches!(
+        offline.reset_risky_unchecked(
+            KEYBOARD_EVENTS,
+            None,
+            "input type:keyboard events disabled\n"
+        ),
+        Err(ApplyError::Lockout {
+            lockout: Lockout::Keyboard,
+            ..
+        })
+    ));
+    let applied = offline
+        .reset_risky_unchecked(KEYBOARD_EVENTS, None, "")
+        .unwrap();
+    assert_eq!(applied.effect, Effect::NoSession);
+    assert_eq!(offline.applier.state().get(KEYBOARD_EVENTS, None), None);
 }

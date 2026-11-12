@@ -111,4 +111,8 @@ fn a_risky_change_without_a_terminal_needs_yes() {
     assert_eq!(output.status.code(), Some(4), "{output:?}");
     assert!(text(&output.stderr).contains("--yes"));
     assert_eq!(home.sway.commands(), [] as [&str; 0]);
+    let output = home.run(&["reset", "input.keyboard.xkb_layout"]);
+    assert_eq!(output.status.code(), Some(4), "{output:?}");
+    assert!(text(&output.stderr).contains("--yes"));
+    assert_eq!(home.sway.commands(), [] as [&str; 0]);
 }

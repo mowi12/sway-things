@@ -6,10 +6,11 @@
 //!
 //! [`Applier::try_risky`] checks the change, refuses one that would leave no keyboard or no
 //! pointing device, notes what is in effect now, sends the new value and returns a
-//! [`Countdown`]. [`Applier::keep`] stores the value like any other change;
-//! [`Applier::revert`], which the caller runs when the countdown has elapsed too, sends the old
-//! one again. Nothing is stored before `keep`, so if the app or the command line ends in between,
-//! the next reload of sway brings back the old value.
+//! [`Countdown`]. [`Applier::try_risky_reset`] does the same for removing the stored value: it
+//! tries the value in effect without it. [`Applier::keep`] stores the value (or removes it) like
+//! any other change; [`Applier::revert`], which the caller runs when the countdown has elapsed
+//! too, sends the old one again. Nothing is stored before `keep`, so if the app or the command
+//! line ends in between, the next reload of sway brings back the old value.
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -20,9 +21,9 @@ use crate::command::{SwayCmd, Target};
 use crate::devices::{Devices, Lockout, Sending};
 use crate::generate::Validate;
 use crate::include::{IncludeStatus, WriteAccess};
-use crate::ipc::Client;
+use crate::ipc::{Client, Compositor};
 use crate::registry::{Apply, Block, Scope, Setting, Value};
-use crate::state::StateError;
+use crate::state::{State, StateError};
 use crate::view::SettingView;
 
 /// The preference that says how long a risky change waits to be kept.
@@ -58,6 +59,7 @@ pub struct Pending {
     key: &'static str,
     device: Option<String>,
     value: Value,
+    reset: bool,
     sent: Vec<String>,
     undo: Vec<SwayCmd>,
     countdown: Countdown,
@@ -74,9 +76,14 @@ impl Pending {
         self.device.as_deref()
     }
 
-    /// The new value.
+    /// The new value. For a reset, the value in effect without the stored one.
     pub fn value(&self) -> &Value {
         &self.value
+    }
+
+    /// Whether the change removes the stored value ([`Applier::try_risky_reset`]).
+    pub fn is_reset(&self) -> bool {
+        self.reset
     }
 
     /// When it is reverted unless it is kept.
@@ -122,30 +129,79 @@ impl<V: Validate> Applier<V> {
         status: &IncludeStatus,
         _access: &WriteAccess,
     ) -> Result<Trial, ApplyError> {
-        if let Some(pending) = &self.pending {
-            return Err(ApplyError::PendingChange { key: pending.key });
-        }
+        self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
         // The state as it would be, which also checks the key, the device and the value.
         let mut tried = self.state.clone();
         tried.set(key, device, value.clone(), None)?;
-        let requirements = setting.requirements();
-        self.compositor
-            .check(requirements.min_sway, requirements.min_swayfx)
-            .map_err(|unmet| ApplyError::Unsupported {
-                key: setting.key(),
-                unmet,
-            })?;
-        let commands = render(&tried, &BTreeMap::new(), setting, device, Target::Ipc)?;
+        self.check_supported(setting)?;
+        let trial = Tried {
+            setting,
+            device,
+            state: &tried,
+            over: BTreeMap::new(),
+            value,
+            reset: false,
+        };
+        self.send_trial(trial, status).await
+    }
+
+    /// Tries removing the stored value of the risky setting `key`, for the whole session or input
+    /// type, or for one input `device`: sends the value in effect without it, as a row would show
+    /// it then (what the user's config sets, else the default; for one device, the value of its
+    /// type), and returns when it is reverted unless [kept](Applier::keep). Keeping removes the
+    /// stored value. `None` if no value is stored: nothing was sent then.
+    ///
+    /// # Errors
+    ///
+    /// Like [`Applier::try_risky`].
+    pub async fn try_risky_reset(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        status: &IncludeStatus,
+        _access: &WriteAccess,
+    ) -> Result<Option<Trial>, ApplyError> {
+        self.nothing_pending()?;
+        let setting = self.risky_setting(key)?;
+        let mut tried = self.state.clone();
+        if !tried.reset(key, device)? {
+            return Ok(None);
+        }
+        self.check_supported(setting)?;
+        let over = in_effect(setting, device, &tried, status, self.compositor);
+        let value = over
+            .get(setting.key())
+            .cloned()
+            .unwrap_or_else(|| setting.default_value());
+        let trial = Tried {
+            setting,
+            device,
+            state: &tried,
+            over,
+            value,
+            reset: true,
+        };
+        self.send_trial(trial, status).await.map(Some)
+    }
+
+    /// Sends a trial and makes it the pending change.
+    async fn send_trial(
+        &mut self,
+        trial: Tried<'_>,
+        status: &IncludeStatus,
+    ) -> Result<Trial, ApplyError> {
+        let Tried {
+            setting,
+            device,
+            state,
+            over,
+            value,
+            reset,
+        } = trial;
+        let commands = render(state, &over, setting, device, Target::Ipc)?;
         // What is in effect now, for every setting of the directive.
-        let registry = self.state.registry();
-        let snapshot: BTreeMap<String, Value> = registry
-            .group(setting)
-            .map(|member| {
-                let view = SettingView::of(member, device, &self.state, status, self.compositor);
-                (member.key().to_owned(), view.value)
-            })
-            .collect();
+        let snapshot = in_effect(setting, device, &self.state, status, self.compositor);
         let undo = render(&self.state, &snapshot, setting, device, Target::Ipc)?;
 
         let Some(client) = &mut self.client else {
@@ -161,6 +217,7 @@ impl<V: Validate> Applier<V> {
             key: setting.key(),
             device: device.map(str::to_owned),
             value,
+            reset,
             sent: sent.clone(),
             undo,
             countdown,
@@ -171,8 +228,9 @@ impl<V: Validate> Applier<V> {
         })
     }
 
-    /// Keeps the pending risky change: stores its value like any other change, to be saved with
-    /// [`Applier::persist`]. Nothing is sent; the value is in effect already.
+    /// Keeps the pending risky change: stores its value (or for a reset, removes the stored one)
+    /// like any other change, to be saved with [`Applier::persist`]. Nothing is sent; the value
+    /// is in effect already.
     ///
     /// # Errors
     ///
@@ -180,12 +238,14 @@ impl<V: Validate> Applier<V> {
     /// can't be stored (the change still waits then).
     pub fn keep(&mut self, _access: &WriteAccess) -> Result<Applied, ApplyError> {
         let pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
-        if let Err(error) = self.state.set(
-            pending.key,
-            pending.device.as_deref(),
-            pending.value.clone(),
-            None,
-        ) {
+        let device = pending.device.as_deref();
+        let stored = if pending.reset {
+            self.state.reset(pending.key, device).map(drop)
+        } else {
+            self.state
+                .set(pending.key, device, pending.value.clone(), None)
+        };
+        if let Err(error) = stored {
             self.pending = Some(pending);
             return Err(error.into());
         }
@@ -236,37 +296,15 @@ impl<V: Validate> Applier<V> {
         value: Value,
         _access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
-        if let Some(pending) = &self.pending {
-            return Err(ApplyError::PendingChange { key: pending.key });
-        }
+        self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
         let mut changed = self.state.clone();
         changed.set(key, device, value.clone(), None)?;
-        let requirements = setting.requirements();
-        self.compositor
-            .check(requirements.min_sway, requirements.min_swayfx)
-            .map_err(|unmet| ApplyError::Unsupported {
-                key: setting.key(),
-                unmet,
-            })?;
+        self.check_supported(setting)?;
         let commands = render(&changed, &BTreeMap::new(), setting, device, Target::Ipc)?;
-        let undo =
-            render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
-        let switches = switches_devices(setting, &value);
-        let effect = if let Some(client) = &mut self.client {
-            let sent = send_guarded(client, setting, device, switches, &commands, &undo).await?;
-            Effect::Live { commands: sent }
-        } else {
-            if let Some(lockout) =
-                switches.and_then(|(kind, sending)| Lockout::without_devices(kind, device, sending))
-            {
-                return Err(ApplyError::Lockout {
-                    key: setting.key(),
-                    lockout,
-                });
-            }
-            Effect::NoSession
-        };
+        let effect = self
+            .send_unchecked(setting, device, &value, &commands)
+            .await?;
         let stored = self.state.get(key, device) != Some(&value);
         self.state = changed;
         if stored {
@@ -276,6 +314,98 @@ impl<V: Validate> Applier<V> {
             changed: stored,
             effect,
         })
+    }
+
+    /// Removes the stored value of the risky setting `key` without the safety net, for
+    /// `sway-things reset --yes` in scripts: sends the value in effect without it if there is a
+    /// session (as [`Applier::try_risky_reset`] would try it), and removes it. The lockout
+    /// protection applies as for [`Applier::set_risky_unchecked`]. A setting the compositor
+    /// doesn't support is removed without sending anything.
+    ///
+    /// # Errors
+    ///
+    /// Like [`Applier::set_risky_unchecked`]. Nothing is removed if sway rejects the value.
+    pub async fn reset_risky_unchecked(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        status: &IncludeStatus,
+        _access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        self.nothing_pending()?;
+        let setting = self.risky_setting(key)?;
+        let mut changed = self.state.clone();
+        if !changed.reset(key, device)? {
+            return Ok(Applied {
+                changed: false,
+                effect: Effect::NotStored,
+            });
+        }
+        let effect =
+            if let Err(ApplyError::Unsupported { unmet, .. }) = self.check_supported(setting) {
+                Effect::Unsupported(unmet)
+            } else {
+                let over = in_effect(setting, device, &changed, status, self.compositor);
+                let value = over
+                    .get(setting.key())
+                    .cloned()
+                    .unwrap_or_else(|| setting.default_value());
+                let commands = render(&changed, &over, setting, device, Target::Ipc)?;
+                self.send_unchecked(setting, device, &value, &commands)
+                    .await?
+            };
+        self.state = changed;
+        self.unsaved_since = Some(Instant::now());
+        Ok(Applied {
+            changed: true,
+            effect,
+        })
+    }
+
+    /// Sends `commands`, which set `setting` to `value`, without the safety net: guarded against
+    /// a lockout, and without a session only checked against it.
+    async fn send_unchecked(
+        &mut self,
+        setting: &'static Setting,
+        device: Option<&str>,
+        value: &Value,
+        commands: &[SwayCmd],
+    ) -> Result<Effect, ApplyError> {
+        let switches = switches_devices(setting, value);
+        let Some(client) = &mut self.client else {
+            if let Some(lockout) =
+                switches.and_then(|(kind, sending)| Lockout::without_devices(kind, device, sending))
+            {
+                return Err(ApplyError::Lockout {
+                    key: setting.key(),
+                    lockout,
+                });
+            }
+            return Ok(Effect::NoSession);
+        };
+        let undo =
+            render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
+        let sent = send_guarded(client, setting, device, switches, commands, &undo).await?;
+        Ok(Effect::Live { commands: sent })
+    }
+
+    /// Refuses a risky change while another one waits.
+    fn nothing_pending(&self) -> Result<(), ApplyError> {
+        match &self.pending {
+            Some(pending) => Err(ApplyError::PendingChange { key: pending.key }),
+            None => Ok(()),
+        }
+    }
+
+    /// Refuses a setting the compositor doesn't support.
+    fn check_supported(&self, setting: &'static Setting) -> Result<(), ApplyError> {
+        let requirements = setting.requirements();
+        self.compositor
+            .check(requirements.min_sway, requirements.min_swayfx)
+            .map_err(|unmet| ApplyError::Unsupported {
+                key: setting.key(),
+                unmet,
+            })
     }
 
     /// The risky setting `key`.
@@ -309,6 +439,36 @@ impl<V: Validate> Applier<V> {
             _ => Duration::from_secs(15),
         }
     }
+}
+
+/// A risky change to try: the state with the change, and the values in `over` in place of the
+/// state's.
+struct Tried<'a> {
+    setting: &'static Setting,
+    device: Option<&'a str>,
+    state: &'a State,
+    over: BTreeMap<String, Value>,
+    value: Value,
+    reset: bool,
+}
+
+/// The value in effect for each setting of the directive of `setting` in `state`, as a row shows
+/// it ([`SettingView`]).
+fn in_effect(
+    setting: &'static Setting,
+    device: Option<&str>,
+    state: &State,
+    status: &IncludeStatus,
+    compositor: Compositor,
+) -> BTreeMap<String, Value> {
+    state
+        .registry()
+        .group(setting)
+        .map(|member| {
+            let view = SettingView::of(member, device, state, status, compositor);
+            (member.key().to_owned(), view.value)
+        })
+        .collect()
 }
 
 /// Refuses a change that `switches` devices if it would leave the session without a keyboard or

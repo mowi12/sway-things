@@ -61,6 +61,12 @@ fn the_command_line_changes_a_setting_end_to_end() -> Result<()> {
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     let input = fs::read_to_string(config_home.join("sway/sway-things/10-input.conf"))?;
     assert!(input.contains("xkb_layout"), "{input}");
+    let output = run(&["reset", "input.keyboard.xkb_layout"])?;
+    assert_eq!(output.status.code(), Some(4), "{output:?}");
+    let output = run(&["reset", "input.keyboard.xkb_layout", "--yes"])?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let input = fs::read_to_string(config_home.join("sway/sway-things/10-input.conf"))?;
+    assert!(!input.contains("xkb_layout"), "{input}");
 
     let output = run(&["reset", "windows.gaps.inner"])?;
     assert_eq!(output.status.code(), Some(0), "{output:?}");

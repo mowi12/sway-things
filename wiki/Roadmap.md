@@ -17,8 +17,8 @@ Milestones on GitHub correspond to releases.
 - [x] Generators with header, manifest hashes, atomic writes, `sway --validate`
 - [x] Sway config parser (includes, variables, blocks, file:line) + conflict detection
 - [x] Include-line detection, first-run instructions, read-only mode until enabled
-- [ ] CLI: `get`, `set` (terminal countdown, or `--yes` without a TTY, for risky settings), `reset`, `open`, `doctor`,
-      `show-generated`
+- [ ] CLI: `get`, `set` and `reset` (terminal countdown, or `--yes` without a TTY, for risky settings), `open`,
+      `doctor`, `show-generated`
 - [ ] App shell: sidebar with all pages listed (unbuilt ones show a placeholder), setting-level search, keyboard
       navigation, single instance + deep links, theming with sway accent, light and dark
 - [ ] Narrow mode: decide the width threshold from the real pages, then document it in [UX Concept](UX-Concept.md)

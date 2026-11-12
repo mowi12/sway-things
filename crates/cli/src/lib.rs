@@ -16,7 +16,7 @@ use std::process::ExitCode;
 
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
-use sway_things_core::apply::{Applied, Applier, ApplyError, Effect};
+use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial};
 use sway_things_core::command::input::InputSelector;
 use sway_things_core::generate::{Outcome, Validate};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
@@ -80,6 +80,9 @@ pub enum Command {
         /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// Reset a setting that can lock you out without asking to keep it
+        #[arg(long)]
+        yes: bool,
         /// Replace generated files that were changed outside Sway Things
         #[arg(long)]
         overwrite: bool,
@@ -192,8 +195,16 @@ pub async fn run<V: Validate>(
         Command::Reset {
             key,
             device,
+            yes,
             overwrite,
-        } => reset(session, key, device.as_deref(), *overwrite, &mut io).await,
+        } => {
+            let reset_of = Reset {
+                key,
+                device: device.as_deref(),
+                yes: *yes,
+            };
+            reset(session, &reset_of, *overwrite, prompt, &mut io).await
+        }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
     }
 }
@@ -354,12 +365,7 @@ async fn set<V: Validate>(
             Err(exit) => return exit,
         }
     } else {
-        io.error(format_args!(
-            "{} can lock you out, so it is only changed after you keep it in a terminal; pass \
-             --yes to change it without asking",
-            setting.key()
-        ));
-        return Exit::Refused;
+        return refuse_risky(setting, io);
     };
     let applied = match applied {
         Ok(applied) => applied,
@@ -395,10 +401,26 @@ async fn try_risky<V: Validate>(
         )
         .await
         .map_err(|error| fail(io, &error))?;
-    io.note(format_args!(
-        "{} is now {value}. It is reverted unless you keep it.",
-        setting.key()
-    ));
+    keep_or_revert(session, setting, device, trial, access, prompt, io).await
+}
+
+/// Asks whether to keep the risky change that `trial` sent: keeps it, or reverts it.
+async fn keep_or_revert<V: Validate>(
+    session: &mut Session<V>,
+    setting: &'static Setting,
+    device: Option<&str>,
+    trial: Trial,
+    access: &WriteAccess,
+    prompt: &mut impl Prompt,
+    io: &mut Io<'_>,
+) -> Result<Result<Applied, ApplyError>, Exit> {
+    if let Some(pending) = session.applier.pending() {
+        io.note(format_args!(
+            "{} is now {}. It is reverted unless you keep it.",
+            output::name(setting.key(), device),
+            pending.value()
+        ));
+    }
     if prompt.keep(trial.countdown).await {
         return Ok(session.applier.keep(access));
     }
@@ -414,29 +436,74 @@ async fn try_risky<V: Validate>(
     Err(Exit::Refused)
 }
 
+/// Refuses a risky change without someone to ask or `--yes`.
+fn refuse_risky(setting: &Setting, io: &mut Io<'_>) -> Exit {
+    io.error(format_args!(
+        "{} can lock you out, so it is only changed after you keep it in a terminal; pass \
+         --yes to change it without asking",
+        setting.key()
+    ));
+    Exit::Refused
+}
+
+/// A reset asked for with `reset`.
+struct Reset<'a> {
+    key: &'a str,
+    device: Option<&'a str>,
+    yes: bool,
+}
+
 async fn reset<V: Validate>(
     session: &mut Session<V>,
-    key: &str,
-    device: Option<&str>,
+    reset_of: &Reset<'_>,
     overwrite: bool,
+    prompt: &mut impl Prompt,
     io: &mut Io<'_>,
 ) -> Exit {
     let Some(access) = write_access(session, io) else {
         return Exit::ReadOnly;
     };
-    let registry = session.applier.state().registry();
-    if let Some(setting) = registry
-        .get(key)
-        .filter(|setting| setting.apply() == Apply::Risky)
-    {
-        io.error(format_args!(
-            "{} can lock you out, so it can't be reset from the command line yet; set the value \
-             you want with `sway-things set` instead",
-            setting.key()
-        ));
-        return Exit::Refused;
-    }
-    let applied = match session.applier.reset(key, device, &access).await {
+    let (key, device) = (reset_of.key, reset_of.device);
+    let setting = match lookup(session, key, device) {
+        Ok(setting) => setting,
+        Err(error) => return fail(io, &error.into()),
+    };
+    let requirements = setting.requirements();
+    // Nothing is sent for a setting the compositor doesn't support, so there is nothing to try.
+    let supported = session
+        .applier
+        .compositor()
+        .check(requirements.min_sway, requirements.min_swayfx)
+        .is_ok();
+    let applied = if setting.apply() != Apply::Risky {
+        session.applier.reset(key, device, &access).await
+    } else if reset_of.yes || !supported {
+        session
+            .applier
+            .reset_risky_unchecked(key, device, &session.status, &access)
+            .await
+    } else if prompt.is_interactive() {
+        match session
+            .applier
+            .try_risky_reset(key, device, &session.status, &access)
+            .await
+        {
+            Ok(Some(trial)) => {
+                match keep_or_revert(session, setting, device, trial, &access, prompt, io).await {
+                    Ok(applied) => applied,
+                    Err(exit) => return exit,
+                }
+            }
+            Ok(None) => Ok(Applied {
+                changed: false,
+                effect: Effect::NotStored,
+            }),
+            Err(error) => Err(error),
+        }
+    } else {
+        return refuse_risky(setting, io);
+    };
+    let applied = match applied {
         Ok(applied) => applied,
         Err(error) => return fail(io, &error),
     };
@@ -447,9 +514,14 @@ async fn reset<V: Validate>(
         ));
         return Exit::Ok;
     }
+    let done = if setting.apply() == Apply::Risky {
+        format!("Reset {name}.")
+    } else {
+        format!("Reset {name} to its default.")
+    };
     match effect_note(&applied.effect) {
-        Some(note) => io.out(format_args!("Reset {name} to its default. {note}")),
-        None => io.out(format_args!("Reset {name} to its default.")),
+        Some(note) => io.out(format_args!("{done} {note}")),
+        None => io.out(done),
     }
     persist(session, overwrite, &access, io).await
 }
