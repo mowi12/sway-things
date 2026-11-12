@@ -325,11 +325,64 @@ fn a_risky_change_needs_a_terminal_or_yes() {
     );
     assert!(setup.settings().contains(r#"xkb_layout = ["us", "de"]"#));
 
-    // There is no safety net for a reset yet.
+    // A reset too.
     let ran = setup.run(&["reset", LAYOUT]);
     assert_eq!(ran.exit, Exit::Refused);
-    assert!(ran.err.contains("can't be reset"), "{}", ran.err);
+    assert!(ran.err.contains("pass --yes"), "{}", ran.err);
     assert!(setup.settings().contains("xkb_layout"));
+    let ran = setup.run(&["reset", LAYOUT, "--yes"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(ran.out, format!("Reset {LAYOUT}.\n"));
+    assert_eq!(
+        sway.commands()[1..],
+        [r#"input type:keyboard xkb_layout "us""#]
+    );
+    assert_eq!(setup.settings(), EMPTY);
+}
+
+#[test]
+fn a_risky_reset_removes_the_value_only_when_kept() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(
+        "version = 1\n\n[input.keyboard]\nxkb_layout = [\"de\"]\n",
+        INCLUDE,
+        Some(&sway),
+    );
+    let mut no = Answer::new(true, false);
+    let ran = setup.run_with(&["reset", LAYOUT], &mut no);
+    assert_eq!(no.asked, 1);
+    assert_eq!(ran.exit, Exit::Refused);
+    assert!(
+        ran.err.starts_with(&format!(
+            "{LAYOUT} is now us. It is reverted unless you keep it.\n"
+        )),
+        "{}",
+        ran.err
+    );
+    assert_eq!(
+        sway.commands(),
+        [
+            r#"input type:keyboard xkb_layout "us""#,
+            r#"input type:keyboard xkb_layout "de""#
+        ]
+    );
+    assert!(setup.settings().contains(r#"xkb_layout = ["de"]"#));
+
+    let ran = setup.run_with(&["reset", LAYOUT], &mut Answer::new(true, true));
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(ran.out, format!("Reset {LAYOUT}.\n"));
+    assert_eq!(setup.settings(), EMPTY);
+
+    // Nothing stored: nothing is tried or asked.
+    let mut yes = Answer::new(true, true);
+    let ran = setup.run_with(&["reset", LAYOUT], &mut yes);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(yes.asked, 0);
+    assert_eq!(
+        ran.out,
+        format!("{LAYOUT} isn't stored by Sway Things; nothing to reset.\n")
+    );
+    assert_eq!(sway.commands().len(), 3);
 }
 
 #[test]
