@@ -100,6 +100,7 @@ enum Part {
     Float(f64),
     Color(Color),
     Text(SwayText),
+    EmptyText,
     Criteria(Criteria),
     Command(Box<SwayCmd>),
 }
@@ -216,6 +217,14 @@ impl SwayCmd {
     #[must_use]
     pub fn text(mut self, text: SwayText) -> Self {
         self.parts.push(Part::Text(text));
+        self
+    }
+
+    /// Appends an empty text, `""`, for options where an empty value means none or the default
+    /// (`xkb_variant ""`). sway unquotes it to an empty argument in config files and over IPC.
+    #[must_use]
+    pub fn empty_text(mut self) -> Self {
+        self.parts.push(Part::EmptyText);
         self
     }
 
@@ -350,7 +359,10 @@ impl SwayCmd {
     fn render_words(&self, rendering: Rendering) -> Result<Vec<String>, CommandError> {
         if let Some(Part::Keyword(name)) = self.parts.first() {
             if KEEPS_QUOTES.contains(name)
-                && self.parts.iter().any(|part| matches!(part, Part::Text(_)))
+                && self
+                    .parts
+                    .iter()
+                    .any(|part| matches!(part, Part::Text(_) | Part::EmptyText))
             {
                 return Err(CommandError::TextKeepsQuotes { command: name });
             }
@@ -380,6 +392,12 @@ impl SwayCmd {
                     Rendering::Ipc => text.render_ipc(),
                     Rendering::Config => text.render_config(),
                     Rendering::NestedIpc => text.render_ipc_nested(),
+                },
+                // Nested, the outer parse unquotes the single quotes and leaves `""` for the inner
+                // one, like a text whose IPC rendering is quoted again.
+                Part::EmptyText => match rendering {
+                    Rendering::Ipc | Rendering::Config => "\"\"".to_owned(),
+                    Rendering::NestedIpc => "'\"\"'".to_owned(),
                 },
                 Part::Criteria(criteria) => {
                     if criteria.is_empty() {

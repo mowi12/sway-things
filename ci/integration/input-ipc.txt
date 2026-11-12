@@ -42,8 +42,12 @@ input type:keyboard xkb_layout "us,de"
 input type:keyboard xkb_variant ",nodeadkeys"
 input type:keyboard xkb_options "grp:alt_shift_toggle,caps:escape"
 input type:keyboard xkb_model "pc105"
+input type:keyboard xkb_variant ""
+input type:keyboard xkb_options ""
+input type:keyboard xkb_model ""
 input type:keyboard repeat_delay 300
 input type:keyboard repeat_rate 30
+input type:keyboard repeat_rate 1
 input type:keyboard xkb_switch_layout next
 input type:keyboard xkb_switch_layout prev
 input type:keyboard xkb_switch_layout 0

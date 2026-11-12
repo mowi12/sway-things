@@ -295,6 +295,32 @@ fn command_respects_availability() {
 }
 
 #[test]
+fn an_empty_text_arrives_as_an_empty_argument() {
+    let cmd = SwayCmd::new("input")
+        .keyword("type:keyboard")
+        .keyword("xkb_variant")
+        .empty_text();
+    for target in [Target::Ipc, Target::Config] {
+        let rendered = cmd.render(target).unwrap();
+        assert_eq!(rendered, r#"input type:keyboard xkb_variant """#);
+        assert_eq!(
+            argv_for(target, &rendered).unwrap(),
+            ["input", "type:keyboard", "xkb_variant", ""]
+        );
+    }
+    let criteria = Criteria::new().exact(CriteriaKey::AppId, "x");
+    let wrapped = SwayCmd::for_window(criteria, SwayCmd::new("title_format").empty_text()).unwrap();
+    for target in [Target::Ipc, Target::Config] {
+        let (_, inner) = for_window_parts(target, &wrapped.render(target).unwrap());
+        assert_eq!(inner, ["title_format", ""]);
+    }
+    assert_eq!(
+        SwayCmd::new("exec").empty_text().render(Target::Ipc),
+        Err(CommandError::TextKeepsQuotes { command: "exec" })
+    );
+}
+
+#[test]
 fn for_window_renders_criteria_per_target() {
     let criteria = Criteria::new()
         .exact(CriteriaKey::AppId, "org.gnome.Nautilus")
