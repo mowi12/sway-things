@@ -12,6 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+async-channel.workspace = true
 gtk.workspace = true
 sway-things-core = { path = "../core" }
 

@@ -9,93 +9,21 @@
 //! from the rendered pixels: within the text's bounds, the pixel that differs most from the
 //! background is the core of a glyph stroke, after every opacity and blend. Antialiasing can only
 //! lower that contrast, so the check errs on the strict side. Text node colors aren't used: GTK
-//! versions disagree on what their getter returns.
+//! versions disagree on what their getter returns. The measures themselves are the core's
+//! ([`sway_things_core::theme`]).
 
 use gtk::gsk::{self, prelude::*};
 use gtk::{gdk, graphene, pango};
 
-/// WCAG 2.2 AA, success criterion 1.4.3: normal text needs 4.5:1.
-pub const NORMAL_TEXT: f64 = 4.5;
-/// Large text (at least 24 px, or 18.66 px and bold) needs 3:1.
-pub const LARGE_TEXT: f64 = 3.0;
+pub use sway_things_core::theme::{LARGE_TEXT, NORMAL_TEXT, Rgb, ratio};
 
-/// An opaque color with channels from 0 to 1.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Rgb {
-    /// Red
-    pub r: f64,
-    /// Green
-    pub g: f64,
-    /// Blue
-    pub b: f64,
-}
-
-impl Rgb {
-    /// A color from 8-bit channels.
-    pub fn from_u8(r: u8, g: u8, b: u8) -> Self {
-        Self {
-            r: f64::from(r) / 255.0,
-            g: f64::from(g) / 255.0,
-            b: f64::from(b) / 255.0,
-        }
+/// The color GTK paints, without its alpha.
+pub(crate) fn rgb(color: gdk::RGBA) -> Rgb {
+    Rgb {
+        r: f64::from(color.red()),
+        g: f64::from(color.green()),
+        b: f64::from(color.blue()),
     }
-
-    /// The relative luminance (WCAG 2.2, definition "relative luminance").
-    pub fn luminance(self) -> f64 {
-        fn linear(channel: f64) -> f64 {
-            if channel <= 0.040_45 {
-                channel / 12.92
-            } else {
-                ((channel + 0.055) / 1.055).powf(2.4)
-            }
-        }
-        0.2126 * linear(self.r) + 0.7152 * linear(self.g) + 0.0722 * linear(self.b)
-    }
-
-    /// `color` with `alpha` painted over this color.
-    #[must_use]
-    pub fn under(self, color: Self, alpha: f64) -> Self {
-        let alpha = alpha.clamp(0.0, 1.0);
-        let mix = |top: f64, bottom: f64| top * alpha + bottom * (1.0 - alpha);
-        Self {
-            r: mix(color.r, self.r),
-            g: mix(color.g, self.g),
-            b: mix(color.b, self.b),
-        }
-    }
-
-    fn from_rgba(color: gdk::RGBA) -> Self {
-        Self {
-            r: f64::from(color.red()),
-            g: f64::from(color.green()),
-            b: f64::from(color.blue()),
-        }
-    }
-}
-
-impl std::fmt::Display for Rgb {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "the channel is clamped to 0..=255 first"
-        )]
-        let byte = |channel: f64| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
-        write!(
-            f,
-            "#{:02x}{:02x}{:02x}",
-            byte(self.r),
-            byte(self.g),
-            byte(self.b)
-        )
-    }
-}
-
-/// The contrast ratio of two colors, from 1 (none) to 21 (black on white).
-pub fn ratio(a: Rgb, b: Rgb) -> f64 {
-    let (a, b) = (a.luminance(), b.luminance());
-    let (light, dark) = if a > b { (a, b) } else { (b, a) };
-    (light + 0.05) / (dark + 0.05)
 }
 
 /// One run of text as drawn, with the colors it ends up in.
@@ -361,10 +289,7 @@ fn wrapped(node: &gsk::RenderNode, context: &Context) -> Option<(gsk::RenderNode
 }
 
 fn paint(color: gdk::RGBA, context: &Context) -> (Rgb, f64) {
-    (
-        Rgb::from_rgba(color),
-        f64::from(color.alpha()) * context.opacity,
-    )
+    (rgb(color), f64::from(color.alpha()) * context.opacity)
 }
 
 fn sample(

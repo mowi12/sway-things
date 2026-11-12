@@ -3,7 +3,12 @@
 
 //! Preferences of Sway Things itself, stored under `[app]`.
 
-use super::{Page, Setting};
+use super::{Choice, Page, Setting};
+
+const ACCENT_SOURCES: &[Choice] = &[
+    Choice::new("sway", "Sway\u{2019}s focus color"),
+    Choice::new("theme", "The GTK theme\u{2019}s accent"),
+];
 
 pub(super) fn settings() -> Vec<Setting> {
     vec![
@@ -12,6 +17,12 @@ pub(super) fn settings() -> Vec<Setting> {
             .title("Safety net timeout")
             .subtitle("Seconds until a risky change is reverted unless you keep it")
             .keywords(&["revert", "countdown", "keep"])
+            .build(),
+        Setting::choice("app.accent_source", Page::About, "sway", ACCENT_SOURCES)
+            .section("Sway Things")
+            .title("Accent color")
+            .subtitle("The color of switches, sliders and selections in this app")
+            .keywords(&["theme", "highlight", "color"])
             .build(),
     ]
 }
