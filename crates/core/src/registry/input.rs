@@ -340,8 +340,8 @@ fn common(input_type: InputType) -> Vec<Setting> {
             .title("Pointer speed")
             .slider(-1.0, 1.0, 0.05)
             .keywords(keywords([
-                &["mouse", "trackpoint", "acceleration", "sensitivity"],
-                &["touchpad", "trackpad", "acceleration", "sensitivity"],
+                &["mouse", "trackpoint", "acceleration", "sensitivity", "dpi"],
+                &["touchpad", "trackpad", "acceleration", "sensitivity", "dpi"],
             ]))
             .scope(scope)
             .sway(
