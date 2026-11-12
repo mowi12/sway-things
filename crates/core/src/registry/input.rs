@@ -133,8 +133,14 @@ const CLICK_METHODS: &[Choice] = &[
     Choice::new("clickfinger", "Number of fingers"),
     Choice::new("none", "None"),
 ];
-const REPEAT_DELAY: &str = "input.keyboard.repeat_delay";
 const XKB_LAYOUT: &str = "input.keyboard.xkb_layout";
+const XKB_VARIANT: &str = "input.keyboard.xkb_variant";
+const XKB_MODEL: &str = "input.keyboard.xkb_model";
+const XKB_OPTIONS: &str = "input.keyboard.xkb_options";
+const REPEAT_DELAY: &str = "input.keyboard.repeat_delay";
+const REPEAT_RATE: &str = "input.keyboard.repeat_rate";
+const XKB_NUMLOCK: &str = "input.keyboard.xkb_numlock";
+const XKB_CAPSLOCK: &str = "input.keyboard.xkb_capslock";
 
 /// sway's words for `events` in a config file (`toggle` only works at runtime).
 fn read_events(args: &[String]) -> Result<SendEvents, ReadError> {
@@ -681,7 +687,12 @@ fn touchpad_only() -> Vec<Setting> {
     ]
 }
 
-/// The settings of the Keyboard page.
+/// The settings of the Keyboard page: switching keyboards on and off, the keymap (layouts with
+/// their variants, the model), the XKB options, then typing.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one builder per setting, read best as a list"
+)]
 fn keyboard() -> Vec<Setting> {
     let keyboard = Scope::PerDevice(InputType::Keyboard);
     vec![
@@ -699,29 +710,11 @@ fn keyboard() -> Vec<Setting> {
                 read_on_off_events,
             )
             .build(),
-        Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 0, i64::from(u16::MAX))
-            .section("Typing")
-            .title("Repeat delay")
-            .slider(100.0, 2000.0, 10.0)
-            .subtitle("Milliseconds a key is held before it repeats")
-            .keywords(&["keyboard", "typing"])
-            .scope(keyboard)
-            .sway(
-                Directive::input("repeat_delay"),
-                ConfigFile::Input,
-                |ctx| Ok(vec![ctx.input()?.repeat_delay(ctx.integer(REPEAT_DELAY)?)]),
-                |args| match read::atoi(read::one(args)?)? {
-                    delay if delay < 0 => Err(ReadError::Rejected(format!(
-                        "the repeat delay can't be negative: {delay}"
-                    ))),
-                    delay => Ok(Value::Integer(delay)),
-                },
-            )
-            .build(),
         Setting::list(XKB_LAYOUT, Page::Keyboard, &["us"])
             .section("Layouts")
             .title("Layouts")
-            .keywords(&["keyboard", "language", "xkb"])
+            .subtitle("The keymaps you type with, in the order the layout switching goes through them")
+            .keywords(&["keyboard", "language", "xkb", "keymap", "qwerty", "azerty", "qwertz"])
             .scope(keyboard)
             .apply(Apply::Risky)
             .sway(
@@ -735,5 +728,168 @@ fn keyboard() -> Vec<Setting> {
                 },
             )
             .build(),
+        Setting::list(XKB_VARIANT, Page::Keyboard, &[])
+            .section("Layouts")
+            .title("Variants")
+            .subtitle("One for each layout, e.g. Dvorak or without dead keys; empty keeps the layout as it is")
+            .keywords(&["keyboard", "xkb", "keymap", "dvorak", "colemak", "dead keys", "nodeadkeys"])
+            .scope(keyboard)
+            .apply(Apply::Risky)
+            .sway(
+                Directive::input("xkb_variant"),
+                ConfigFile::Input,
+                render_variants,
+                read_variants,
+            )
+            .build(),
+        Setting::text(XKB_MODEL, Page::Keyboard, "")
+            .section("Layouts")
+            .title("Keyboard model")
+            .subtitle("The physical keyboard, for keys only some models have. Empty uses the default model, pc105")
+            .keywords(&["keyboard", "xkb", "hardware", "pc105"])
+            .scope(keyboard)
+            .sway(
+                Directive::input("xkb_model"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.xkb_model(&ctx.text(XKB_MODEL)?)?]),
+                |args| Ok(Value::Text(read::one(args)?.to_owned())),
+            )
+            .build(),
+        Setting::list(XKB_OPTIONS, Page::Keyboard, &[])
+            .section("Options")
+            .title("XKB options")
+            .subtitle("Extra key behavior, e.g. Caps Lock as Ctrl, a Compose key or the shortcut that switches layouts")
+            .keywords(&[
+                "keyboard",
+                "xkb",
+                "caps lock",
+                "ctrl",
+                "control",
+                "escape",
+                "compose",
+                "alt",
+                "super",
+                "switch layout",
+                "remap",
+            ])
+            .scope(keyboard)
+            .apply(Apply::Risky)
+            .sway(
+                Directive::input("xkb_options"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.xkb_options(&ctx.list(XKB_OPTIONS)?)?]),
+                // XKB skips empty options.
+                |args| {
+                    Ok(Value::List(
+                        read::one(args)?
+                            .split(',')
+                            .filter(|option| !option.is_empty())
+                            .map(str::to_owned)
+                            .collect(),
+                    ))
+                },
+            )
+            .build(),
+        Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 0, i64::from(u16::MAX))
+            .section("Typing")
+            .title("Repeat delay")
+            .slider(100.0, 2000.0, 10.0)
+            .subtitle("Milliseconds a key is held before it repeats")
+            .keywords(&["keyboard", "typing", "key repeat", "hold"])
+            .scope(keyboard)
+            .sway(
+                Directive::input("repeat_delay"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.repeat_delay(ctx.integer(REPEAT_DELAY)?)]),
+                |args| match read::atoi(read::one(args)?)? {
+                    delay if delay < 0 => Err(ReadError::Rejected(format!(
+                        "the repeat delay can't be negative: {delay}"
+                    ))),
+                    delay => Ok(Value::Integer(delay)),
+                },
+            )
+            .build(),
+        Setting::integer(REPEAT_RATE, Page::Keyboard, 25, 1, i64::from(u16::MAX))
+            .section("Typing")
+            .title("Repeat rate")
+            .slider(1.0, 100.0, 1.0)
+            .subtitle("Characters per second while a key is held")
+            .keywords(&["keyboard", "typing", "key repeat", "speed"])
+            .scope(keyboard)
+            .sway(
+                Directive::input("repeat_rate"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.repeat_rate(ctx.integer(REPEAT_RATE)?)]),
+                |args| match read::atoi(read::one(args)?)? {
+                    rate if rate < 0 => Err(ReadError::Rejected(format!(
+                        "the repeat rate can't be negative: {rate}"
+                    ))),
+                    0 => Err(ReadError::Unsupported(
+                        "a repeat rate of 0 turns key repeat off".to_owned(),
+                    )),
+                    rate => Ok(Value::Integer(rate)),
+                },
+            )
+            .build(),
+        Setting::toggle(XKB_NUMLOCK, Page::Keyboard, false)
+            .section("Typing")
+            .title("Num Lock on at startup")
+            .subtitle("Turns Num Lock on when sway sets up the keyboard")
+            .keywords(&["keyboard", "numlock", "number pad", "numpad"])
+            .scope(keyboard)
+            .apply(Apply::Reload)
+            .sway(
+                Directive::input("xkb_numlock"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.xkb_numlock(ctx.bool(XKB_NUMLOCK)?)]),
+                read_lock,
+            )
+            .build(),
+        Setting::toggle(XKB_CAPSLOCK, Page::Keyboard, false)
+            .section("Typing")
+            .title("Caps Lock on at startup")
+            .subtitle("Turns Caps Lock on when sway sets up the keyboard")
+            .keywords(&["keyboard", "capslock", "caps lock", "uppercase"])
+            .scope(keyboard)
+            .apply(Apply::Reload)
+            .sway(
+                Directive::input("xkb_capslock"),
+                ConfigFile::Input,
+                |ctx| Ok(vec![ctx.input()?.xkb_capslock(ctx.bool(XKB_CAPSLOCK)?)]),
+                read_lock,
+            )
+            .build(),
     ]
+}
+
+/// `xkb_variant`: one variant for each layout, at the same position. A shorter list is padded with
+/// empty variants (the layout as it is), a longer one is refused: its extra variants have no
+/// layout.
+fn render_variants(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
+    let layouts = ctx.list(XKB_LAYOUT)?.len();
+    let mut variants = ctx.list(XKB_VARIANT)?;
+    if variants.len() > layouts {
+        return Err(RenderError::TooManyVariants {
+            key: XKB_VARIANT,
+            variants: variants.len(),
+            layouts,
+        });
+    }
+    variants.resize(layouts, String::new());
+    Ok(vec![ctx.input()?.xkb_variant(&variants)?])
+}
+
+/// `xkb_variant` read from a line: split on commas like XKB, empty variants included. Empty ones
+/// at the end are dropped, since rendering pads the list again.
+fn read_variants(args: &[String]) -> Result<Value, ReadError> {
+    let mut variants: Vec<String> = read::one(args)?.split(',').map(str::to_owned).collect();
+    while variants.last().is_some_and(String::is_empty) {
+        variants.pop();
+    }
+    Ok(Value::List(variants))
+}
+
+/// `xkb_numlock` and `xkb_capslock`: sway reads `parse_boolean(…, false)`, so `toggle` is on.
+fn read_lock(args: &[String]) -> Result<Value, ReadError> {
+    Ok(Value::Bool(read::boolean(read::first(args)?, false)))
 }

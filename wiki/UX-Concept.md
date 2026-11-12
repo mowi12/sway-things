@@ -84,7 +84,8 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 ## Apply model
 
 - **Instant.** No Apply buttons anywhere. Changes take effect live and are saved after a short debounce.
-- **Safety net** for risky changes (display mode, disabling an output or input device, keyboard layout):
+- **Safety net** for risky changes (display mode, disabling an output or input device, keyboard layouts, variants and
+  XKB options):
 
   ```text
   ┌────────────────────────────────────────────────────────────────────────┐

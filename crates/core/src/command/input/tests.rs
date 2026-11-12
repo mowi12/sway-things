@@ -125,6 +125,11 @@ fn every_keyboard_option_renders() {
             r#"xkb_options "grp:alt_shift_toggle,caps:escape""#,
         ),
         (k.xkb_model("pc105").unwrap(), r#"xkb_model "pc105""#),
+        (k.xkb_model("").unwrap(), r#"xkb_model """#),
+        (k.xkb_variant(&[""]).unwrap(), r#"xkb_variant """#),
+        (k.xkb_variant::<&str>(&[]).unwrap(), r#"xkb_variant """#),
+        (k.xkb_variant(&["", ""]).unwrap(), r#"xkb_variant ",""#),
+        (k.xkb_options::<&str>(&[]).unwrap(), r#"xkb_options """#),
         (k.repeat_delay(300), "repeat_delay 300"),
         (k.repeat_rate(0), "repeat_rate 0"),
     ];
@@ -270,9 +275,10 @@ fn xkb_lists_are_checked() {
         })
     );
     assert_eq!(
-        k.xkb_variant(&[""]),
-        Err(InputError::EmptyList {
-            option: "xkb_variant"
+        k.xkb_options(&["caps:escape", ""]),
+        Err(InputError::EmptyListElement {
+            option: "xkb_options",
+            index: 1
         })
     );
     assert_eq!(
@@ -293,7 +299,10 @@ fn xkb_lists_are_checked() {
         k.xkb_layout(&["us\n"]),
         Err(InputError::Text(TextError::ControlCharacter { .. }))
     ));
-    assert_eq!(k.xkb_model(""), Err(InputError::Text(TextError::Empty)));
+    assert!(matches!(
+        k.xkb_model("pc\\105"),
+        Err(InputError::Text(TextError::Backslash { .. }))
+    ));
     let owned = vec![String::from("us"), String::from("de")];
     assert!(k.xkb_layout(&owned).is_ok());
 }

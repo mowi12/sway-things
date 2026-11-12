@@ -557,7 +557,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 18);
+    assert_eq!(generated.len(), 27);
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),
         Some("button8")
@@ -578,6 +578,21 @@ fn the_sample_and_generated_configs_parse() {
         find(&["input", "type:keyboard"], "xkb_layout").as_deref(),
         Some("us,de")
     );
+    assert_eq!(
+        find(&["input", "type:keyboard"], "xkb_variant").as_deref(),
+        Some(",nodeadkeys")
+    );
+    // An empty value comes back as one empty argument.
+    let empty_options = generated
+        .iter()
+        .find(|directive| {
+            directive.is(
+                &["input", "1:1:AT_Translated_Set_2_keyboard"],
+                "xkb_options",
+            )
+        })
+        .map(|directive| directive.args.clone());
+    assert_eq!(empty_options, Some(vec![String::new()]));
     assert_eq!(find(&[], "gaps").as_deref(), Some("inner 6"));
     assert_eq!(find(&[], "font").as_deref(), Some("Noto Sans 11"));
     assert_eq!(

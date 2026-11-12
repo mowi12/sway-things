@@ -21,8 +21,14 @@ drag_lock = "enabled_sticky"
 click_method = "clickfinger"
 
 [input.keyboard]
-repeat_delay = 300
 xkb_layout = ["us", "de"]
+xkb_variant = ["", "nodeadkeys"]
+xkb_model = "pc104"
+xkb_options = ["caps:escape", "compose:ralt"]
+repeat_delay = 300
+repeat_rate = 30
+xkb_numlock = true
+xkb_capslock = false
 
 [windows]
 font = "Noto Sans 11"

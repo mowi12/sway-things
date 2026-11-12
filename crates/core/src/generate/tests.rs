@@ -119,8 +119,8 @@ fn every_file_is_generated_from_the_stored_settings() {
             "{HEADER}\
 input type:touchpad tap enabled
 input type:touchpad pointer_accel 0.3
-input type:keyboard repeat_delay 300
 input type:keyboard xkb_layout \"us,de\"
+input type:keyboard repeat_delay 300
 input \"{TOUCHPAD}\" tap disabled
 "
         )
@@ -229,7 +229,8 @@ fn a_line_number_leads_back_to_its_settings() {
     assert_eq!(source(0, 1), None);
     assert_eq!(source(0, 2), None);
     assert_eq!(source(0, 3), global(&["input.touchpad.tap"]));
-    assert_eq!(source(0, 6), global(&["input.keyboard.xkb_layout"]));
+    assert_eq!(source(0, 5), global(&["input.keyboard.xkb_layout"]));
+    assert_eq!(source(0, 6), global(&["input.keyboard.repeat_delay"]));
     assert_eq!(
         source(0, 7),
         Some(Source {

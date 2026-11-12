@@ -3,9 +3,10 @@
 
 use async_io::block_on;
 
-use super::{Change, Device, DeviceWatch, Devices, Lockout, Sending};
-use crate::command::input::InputType;
-use crate::ipc::tests::with_inputs;
+use super::{Change, Device, DeviceWatch, Devices, Lockout, Sending, switch_layout};
+use crate::command::input::{InputSelector, InputType, XkbSwitch};
+use crate::ipc::IpcError;
+use crate::ipc::tests::{SWAY_1_10, obedient, with_inputs};
 use crate::ipc::types::Input;
 use crate::registry::{Registry, Value};
 use crate::state::{Paths, State};
@@ -452,4 +453,33 @@ fn without_a_device_list_only_switching_off_a_whole_type_is_a_lockout() {
         Lockout::Keyboard.to_string(),
         "this would turn off the last keyboard you can type with"
     );
+}
+
+#[test]
+fn the_layout_is_switched_over_ipc() {
+    let sway = obedient(SWAY_1_10);
+    let mut client = sway.connect();
+    let keyboard = InputSelector::device(KEYBOARD).unwrap();
+    block_on(switch_layout(&mut client, None, XkbSwitch::Next)).unwrap();
+    block_on(switch_layout(&mut client, None, XkbSwitch::Prev)).unwrap();
+    block_on(switch_layout(
+        &mut client,
+        Some(&keyboard),
+        XkbSwitch::Index(1),
+    ))
+    .unwrap();
+    assert_eq!(
+        sway.commands(),
+        [
+            "input type:keyboard xkb_switch_layout next",
+            "input type:keyboard xkb_switch_layout prev",
+            r#"input "1:1:AT_Translated_Set_2_keyboard" xkb_switch_layout 1"#,
+        ]
+    );
+    // The stand-in fails commands that contain "fail".
+    let failing = InputSelector::device("1:1:fail").unwrap();
+    assert!(matches!(
+        block_on(switch_layout(&mut client, Some(&failing), XkbSwitch::Next)),
+        Err(IpcError::CommandFailed { .. })
+    ));
 }

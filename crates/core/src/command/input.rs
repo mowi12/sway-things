@@ -381,32 +381,41 @@ impl Input {
     }
 
     /// `xkb_variant`, one per layout, e.g. `["", "nodeadkeys"]`. An empty variant keeps the
-    /// layout's default.
+    /// layout's default; no variants, or only empty ones, render `xkb_variant ""` (every layout
+    /// with its default).
     ///
     /// # Errors
     ///
-    /// [`InputError::EmptyList`] if the list renders empty (no variants, or only one empty one),
     /// [`InputError::CommaInListElement`], or [`InputError::Text`].
     pub fn xkb_variant<S: AsRef<str>>(&self, variants: &[S]) -> Result<SwayCmd, InputError> {
         self.xkb_list("xkb_variant", variants, true)
     }
 
-    /// `xkb_options`, e.g. `["grp:alt_shift_toggle", "caps:escape"]`.
+    /// `xkb_options`, e.g. `["grp:alt_shift_toggle", "caps:escape"]`. No options render
+    /// `xkb_options ""`, which turns off every option (also those of `XKB_DEFAULT_OPTIONS`).
     ///
     /// # Errors
     ///
-    /// Like [`Input::xkb_layout`].
+    /// [`InputError::EmptyListElement`] or [`InputError::CommaInListElement`] for an invalid
+    /// option, [`InputError::Text`] for control characters or backslashes.
     pub fn xkb_options<S: AsRef<str>>(&self, options: &[S]) -> Result<SwayCmd, InputError> {
+        if options.is_empty() {
+            return Ok(self.command("xkb_options").empty_text());
+        }
         self.xkb_list("xkb_options", options, false)
     }
 
-    /// `xkb_model`, e.g. `pc105`.
+    /// `xkb_model`, e.g. `pc105`. An empty model renders `xkb_model ""`: XKB's default model.
     ///
     /// # Errors
     ///
-    /// [`InputError::Text`] if `model` is empty or contains a control character or backslash.
+    /// [`InputError::Text`] if `model` contains a control character or a backslash.
     pub fn xkb_model(&self, model: &str) -> Result<SwayCmd, InputError> {
-        Ok(self.command("xkb_model").text(SwayText::new(model)?))
+        let cmd = self.command("xkb_model");
+        if model.is_empty() {
+            return Ok(cmd.empty_text());
+        }
+        Ok(cmd.text(SwayText::new(model)?))
     }
 
     /// `xkb_numlock`: Num Lock state at startup. sway only accepts it in config files.
@@ -461,11 +470,14 @@ impl Input {
             .map(AsRef::as_ref)
             .collect::<Vec<_>>()
             .join(",");
-        let text = SwayText::new(joined).map_err(|error| match error {
-            TextError::Empty => InputError::EmptyList { option },
-            error => InputError::Text(error),
-        })?;
-        Ok(self.command(option).text(text))
+        if joined.is_empty() {
+            return if empty_elements {
+                Ok(self.command(option).empty_text())
+            } else {
+                Err(InputError::EmptyList { option })
+            };
+        }
+        Ok(self.command(option).text(SwayText::new(joined)?))
     }
 }
 

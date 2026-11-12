@@ -11,3 +11,8 @@ inner = 6
 [device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
 tap = false
 dwt = false
+
+[device."1:1:AT_Translated_Set_2_keyboard".input.keyboard]
+xkb_layout = ["fr", "us"]
+xkb_variant = ["bepo"]
+xkb_options = []
