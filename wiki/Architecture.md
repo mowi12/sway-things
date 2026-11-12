@@ -69,15 +69,16 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 ```rust
 // crates/core/src/registry/input.rs
 Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
+    .section("Touchpad")
     .title("Tap to click")
-    .subtitle("Tap the touchpad instead of pressing it")
+    .subtitle("Tap the touchpad instead of pressing it. Unless set, the device decides")
     .keywords(&["touchpad", "trackpad"])
     .scope(Scope::PerDevice(InputType::Touchpad))
     .sway(
         Directive::input("tap"),
         ConfigFile::Input,
         |ctx| Ok(vec![ctx.input()?.tap(ctx.bool("input.touchpad.tap")?)]),
-        |args| Ok(Value::Bool(read::boolean(read::first(args)?, true))),
+        read_switch, // sway's parse_boolean(…, true)
     )
     .build()
 ```

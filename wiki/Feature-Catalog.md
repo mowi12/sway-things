@@ -25,7 +25,7 @@ scope → host overlay by default).
 - 🟢 Scroll speed (`scroll_factor`)
 - 🟢 Left-handed mode (`left_handed`)
 - 🟢 Middle-click emulation (`middle_emulation`)
-- 🟢 Scroll method: two-finger / edge / on-button-down / none (`scroll_method`, `scroll_button`)
+- 🟢 Scroll method: two-finger / edge (touchpads) / on-button-down / none (`scroll_method`, `scroll_button`)
 - 🟢 Touchpad: tap to click (`tap`), tap button map lrm / lmr (`tap_button_map`)
 - 🟢 Touchpad: tap-and-drag, drag lock (`drag`, `drag_lock`; sticky drag lock needs sway ≥ 1.11)
 - 🟢 Touchpad: disable while typing / while trackpointing (`dwt`, `dwtp`)

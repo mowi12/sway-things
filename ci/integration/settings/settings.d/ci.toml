@@ -10,3 +10,4 @@ inner = 6
 
 [device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
 tap = false
+dwt = false
