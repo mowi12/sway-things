@@ -273,6 +273,19 @@ fn an_include_that_cannot_be_followed_is_unknown() {
     let own = self::status("include $(pwd)/sway-things/*.conf\n");
     assert!(matches!(own.inclusion(), Inclusion::Unknown { .. }));
 
+    // Something that isn't a regular file isn't read, so the line might be in it.
+    let fifo = detect(&files("include fifo\n").special("/home/me/.config/sway/fifo"));
+    let Inclusion::Unknown { unfollowed } = fifo.inclusion() else {
+        panic!("{:?}", fifo.inclusion());
+    };
+    assert_eq!(unfollowed[0].kind, DiagnosticKind::NotAFile);
+    assert!(
+        fifo.message()
+            .contains("    ~/.config/sway/fifo (not a regular file)\n"),
+        "{}",
+        fifo.message()
+    );
+
     // With the line found elsewhere, what can't be followed doesn't matter.
     let found = self::status(&format!("include $(hostname).conf\n{LINE}\n"));
     assert!(found.is_active());

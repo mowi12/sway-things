@@ -143,6 +143,14 @@ impl Files for Overlay<'_> {
             || (path.is_absolute() && self.directory.starts_with(resolve(self.inner, path)))
     }
 
+    fn is_file(&self, path: &Path) -> io::Result<bool> {
+        if self.replacement(path).is_some() || self.generated(path).is_some() {
+            Ok(true)
+        } else {
+            self.inner.is_file(path)
+        }
+    }
+
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
         // Not through a generated file that is a symbolic link: it is ours wherever it leads.
         if let Some(file) = self.generated(path) {

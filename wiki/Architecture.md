@@ -652,9 +652,9 @@ from the rules registry of xkeyboard-config. It only reads.
   rejects is reported as an unresolved include; what such a file would set is unknown.
 - **Output:** the directives in the order sway runs them, each with file, first line, block, command, resolved arguments
   and the text as written; every `include` with the paths it stood for and the files read because of it; and diagnostics
-  (unreadable file, unresolved include, include not found, file already included, unbalanced braces, blocks or includes
-  nested too deeply, a config too big to read). Only a config too big to read stops the parser; it reads on after the
-  others.
+  (unreadable file, not a regular file, unresolved include, include not found, file already included, unbalanced braces,
+  blocks or includes nested too deeply, a config too big to read). Only a config too big to read stops the parser; it
+  reads on after the others.
 - **Best-effort by design:** the parser doesn't know which commands exist or what they do; that is for conflict
   detection and the registry. It reads through a `Files` trait, with the real file system or files in memory.
 - **Robustness:** the work is bounded by limits on what the config expands to, not only on its size, because short lines
@@ -668,6 +668,11 @@ from the rules registry of xkeyboard-config. It only reads.
   and compare its line splitting with the port of sway's parser that the command builders are tested against. A
   cargo-fuzz target feeds it configs with their includes in memory and checks that it ends within its limits without a
   panic (see [Testing](#testing)).
+- **Only regular files:** the main config and every included file are read only if they are regular files once symbolic
+  links are followed (sway follows them too). A directory, device (`/dev/zero`), FIFO or socket isn't even opened and
+  gets a diagnostic, because reading it might never end and opening a FIFO waits for a writer; sway itself would read
+  it. A path that changes between that check and the read can't block either: the file is opened with `O_NONBLOCK`, and
+  what was opened is checked again before anything is read.
 
 ### Include detection
 
@@ -685,7 +690,7 @@ from the rules registry of xkeyboard-config. It only reads.
   | --- | --- | --- |
   | active | every generated file is included | can be changed |
   | partial | only some files are included (one file by name, a narrower glob); the status names the others | read-only |
-  | unknown | the line wasn't found, but part of the config can't be followed: an include that needs a shell command, an unreadable file, includes nested too deeply | read-only |
+  | unknown | the line wasn't found, but part of the config can't be followed: an include that needs a shell command, an unreadable file or one that isn't a regular file, includes nested too deeply | read-only |
   | missing | no include of the generated files, or no config | read-only |
 
 - **Position:** for each generated file the status knows how many of the user's directives sway runs before it. The
@@ -866,7 +871,7 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | Section | Codes | What is checked |
 | --- | --- | --- |
 | Compositor | `session`, `no_session`, `session_unusable`, `installed_unsupported`, `version_unknown`, `sway_missing` | the running sway or SwayFX (`GET_VERSION`), or without a session the installed one (`sway --version`) |
-| Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic` | the main config in use, the [include status](#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, unresolved include, include not found, … |
+| Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic` | the main config in use, the [include status](#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, not a regular file, unresolved include, include not found, … |
 | Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped` | files that can't be used (problem), entries that are ignored (warning), and stored settings that are a comment in the generated file because the compositor doesn't support them |
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
@@ -947,7 +952,7 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 | Corrupting the user's config | We never write user files; atomic writes; manifest hashes detect foreign edits to our files |
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
-| Parser exploits | `unsafe_code` forbidden in every crate, limits on what a config expands to, fuzzing (on every change and daily), never executes during parsing |
+| Parser exploits | `unsafe_code` forbidden in every crate, limits on what a config expands to, files read no further than 8 MiB and only if they are regular files, fuzzing (on every change and daily), never executes during parsing |
 | Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions, CI tools and dprint plugins pinned with checksums |
 
 ## Platform floor

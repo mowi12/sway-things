@@ -125,6 +125,9 @@ pub enum DiagnosticKind {
         /// The file.
         path: PathBuf,
     },
+    /// The file isn't a regular file but a directory, device, FIFO or socket, so it wasn't
+    /// opened: reading it might never end. For the main config, nothing was parsed.
+    NotAFile,
     /// An `include` without exactly one argument, which sway rejects.
     InvalidInclude,
     /// Includes are nested too deeply to follow.
@@ -272,6 +275,12 @@ impl Parser<'_> {
 
     /// Reads the file at `path`, which is canonical. Returns whether it could be read.
     fn load(&mut self, path: &Arc<Path>, depth: usize) -> bool {
+        // Unlike sway, which would read them, nothing but a regular file is even opened: a
+        // device like /dev/zero never ends, and opening a FIFO waits for a writer.
+        if let Ok(false) = self.files.is_file(path) {
+            self.diagnose(path, 0, DiagnosticKind::NotAFile);
+            return false;
+        }
         let content = match self.files.read_bounded(path, MAX_FILE_SIZE) {
             Ok(content) if content.len() <= MAX_FILE_SIZE => content,
             Ok(_) => {
