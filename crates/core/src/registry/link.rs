@@ -27,21 +27,31 @@ impl<'a> Link<'a> {
     pub fn parse(text: &str, registry: &'a Registry) -> Result<Self, LinkError> {
         if !text.contains('.') {
             return Page::from_id(text)
-                .map(|page| Self {
-                    page,
-                    setting: None,
-                })
+                .map(Self::to_page)
                 .ok_or_else(|| LinkError::UnknownPage {
                     id: text.to_owned(),
                 });
         }
         if let Some(setting) = registry.get(text) {
-            return Ok(Self {
-                page: setting.page(),
-                setting: Some(setting),
-            });
+            return Ok(Self::to_setting(setting));
         }
         Err(unknown_setting(text, registry))
+    }
+
+    /// A link to `page`.
+    pub(super) const fn to_page(page: Page) -> Self {
+        Self {
+            page,
+            setting: None,
+        }
+    }
+
+    /// A link to `setting`, on its page.
+    pub(super) fn to_setting(setting: &'a Setting) -> Self {
+        Self {
+            page: setting.page(),
+            setting: Some(setting),
+        }
     }
 
     /// The page to open.

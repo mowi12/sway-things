@@ -608,27 +608,12 @@ fn keyboard_settings_apply_as_their_effect_needs() {
 
 #[test]
 fn search_terms_find_the_keyboard_settings() {
-    // Every word of the query in the title, the subtitle or a keyword.
+    let index = super::SearchIndex::new(registry(), super::Msg::msgid);
     let finds = |query: &str| -> Vec<&'static str> {
-        registry()
+        index
+            .search(query)
             .iter()
-            .filter(|setting| {
-                let mut text = format!(
-                    "{} {}",
-                    setting.title().msgid(),
-                    setting
-                        .subtitle()
-                        .map(super::Msg::msgid)
-                        .unwrap_or_default()
-                );
-                for keyword in setting.keywords() {
-                    text.push(' ');
-                    text.push_str(keyword.msgid());
-                }
-                let text = text.to_lowercase();
-                query.split(' ').all(|word| text.contains(word))
-            })
-            .map(Setting::key)
+            .filter_map(|hit| hit.setting().map(Setting::key))
             .collect()
     };
     for (query, key) in [
