@@ -277,6 +277,30 @@ jobs:
       - name: Run Tests
         run: scripts/check-tests.sh
 
+  install:
+    name: Check Install
+    runs-on: ubuntu-24.04
+    # The distribution the tests build on: Debian 13 has GTK 4.18, the oldest the app supports.
+    container: debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Build Dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev \
+            gettext desktop-file-utils appstream groff-base zsh fish
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - name: Check Install
+        run: scripts/check-install.sh
+
   commits:
     name: Check Commits
     if: github.event_name == 'pull_request'
