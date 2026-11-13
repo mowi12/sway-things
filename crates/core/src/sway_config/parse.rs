@@ -15,6 +15,11 @@ use crate::sway_config::ExpandError;
 /// config that deep.
 const MAX_INCLUDE_DEPTH: usize = 32;
 
+/// Blocks nested deeper than this are skipped with their lines. Every line of a block repeats the
+/// lines that opened it, so deep nesting would take quadratic time; sway's own configs nest two
+/// deep (`bar { colors {`).
+const MAX_BLOCK_DEPTH: usize = 32;
+
 /// A config with more directives than this isn't read to the end.
 const MAX_DIRECTIVES: usize = 100_000;
 
@@ -122,6 +127,8 @@ pub enum DiagnosticKind {
     UnmatchedBrace,
     /// A block that is still open at the end of the file.
     UnclosedBlock,
+    /// A block nested too deeply to follow: it was skipped up to its `}`, with everything in it.
+    BlockTooDeep,
     /// The config has too many directives, or a line that is too long once its variables are
     /// replaced; the rest wasn't read.
     TooBig,
@@ -269,6 +276,8 @@ impl Parser<'_> {
     /// Reads the lines of the file at `path`.
     fn read_lines(&mut self, path: &Arc<Path>, content: &[u8], depth: usize) {
         let mut blocks: Vec<Block> = Vec::new();
+        // How many blocks deeper than MAX_BLOCK_DEPTH are open; their lines are skipped.
+        let mut skipped = 0usize;
         let mut lines = Lines::new(content);
         while let Some((number, raw)) = lines.next_logical() {
             if self.stopped {
@@ -288,7 +297,8 @@ impl Parser<'_> {
                 opens = lines.skip_lone_brace();
             }
             let mut expanded = Vec::new();
-            if let Some(block) = blocks.last() {
+            // Inside a block nested too deeply only the braces count, which need no prefix.
+            if let Some(block) = blocks.last().filter(|_| skipped == 0) {
                 expanded.extend_from_slice(&block.prefix);
                 expanded.push(b' ');
             }
@@ -300,21 +310,32 @@ impl Parser<'_> {
             let raw_args = line::split_args(&expanded);
             match raw_args.last().map(Vec::as_slice) {
                 None => continue,
-                Some(b"{") if raw_args.len() > 1 => {
-                    let words = &raw_args[..raw_args.len() - 1];
-                    blocks.push(Block {
-                        prefix: words.join(&b' '),
-                        words: words.len(),
-                        line: number,
-                    });
+                // A skipped line is in a block, so it would have a prefix.
+                Some(b"{") if raw_args.len() > 1 || skipped > 0 => {
+                    if skipped > 0 {
+                        skipped += 1;
+                    } else if blocks.len() >= MAX_BLOCK_DEPTH {
+                        self.diagnose(path, number, DiagnosticKind::BlockTooDeep);
+                        skipped = 1;
+                    } else {
+                        let words = &raw_args[..raw_args.len() - 1];
+                        blocks.push(Block {
+                            prefix: words.join(&b' '),
+                            words: words.len(),
+                            line: number,
+                        });
+                    }
                     continue;
                 }
                 Some(b"}") => {
-                    if blocks.pop().is_none() {
+                    if skipped > 0 {
+                        skipped -= 1;
+                    } else if blocks.pop().is_none() {
                         self.diagnose(path, number, DiagnosticKind::UnmatchedBrace);
                     }
                     continue;
                 }
+                Some(_) if skipped > 0 => continue,
                 Some(_) => {}
             }
             let block_words = blocks.last().map_or(0, |block| block.words);

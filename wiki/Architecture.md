@@ -636,7 +636,8 @@ from the rules registry of xkeyboard-config. It only reads.
 - **Blocks:** like sway, the parser puts the line that opened a block in front of every line inside it. A directive
   carries its block as words: `["input", "type:touchpad"]`, `["bar", "colors"]`, `["mode", "resize"]`. `input`, `output`
   and `seat` settings written on one line (`input type:touchpad tap enabled`) get the same block, so both spellings read
-  the same.
+  the same. Blocks nest at most 32 deep (each line repeats every line that opened its blocks, so deeper nesting would
+  take quadratic time); a deeper block is skipped up to its `}` with everything in it.
 - **Variables:** `set $var` is applied **when each line is read** (see `config_command` in sway's `commands.c`), so a
   later `set` doesn't change earlier lines. Longer names are tried first, `$$` is a literal `$`, and the command itself
   can come from a variable. Variables carry over into included files.
@@ -651,8 +652,9 @@ from the rules registry of xkeyboard-config. It only reads.
   rejects is reported as an unresolved include; what such a file would set is unknown.
 - **Output:** the directives in the order sway runs them, each with file, first line, block, command, resolved arguments
   and the text as written; every `include` with the paths it stood for and the files read because of it; and diagnostics
-  (unreadable file, unresolved include, include not found, file already included, unbalanced braces, nesting or size
-  beyond the limits). No diagnostic stops the parser.
+  (unreadable file, unresolved include, include not found, file already included, unbalanced braces, blocks or includes
+  nested too deeply, a config too big to read). Only a config too big to read stops the parser; it reads on after the
+  others.
 - **Best-effort by design:** the parser doesn't know which commands exist or what they do; that is for conflict
   detection and the registry. It reads through a `Files` trait, with the real file system or files in memory.
 - **Robustness:** every step is linear in the length of the input, include depth, directive count and file size are

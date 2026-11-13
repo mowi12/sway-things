@@ -478,6 +478,49 @@ fn long_lines_take_linear_time() {
 }
 
 #[test]
+fn blocks_nested_too_deeply_are_skipped() {
+    // 32 levels are read.
+    let deepest = format!("{}x 1\n{}", "b {\n".repeat(32), "}\n".repeat(32));
+    let config = parsed(&deepest);
+    assert_eq!(kinds(&config), []);
+    assert_eq!(config.directives[0].block, vec!["b"; 32]);
+
+    // A block deeper than that is skipped up to its brace, with the blocks in it, and what
+    // follows is read in the right block.
+    let deeper = format!(
+        "{}gaps inner 1\n{}x 1\n{}y 2\n{}gaps outer 2\n",
+        "b {\n".repeat(32),
+        "c {\n".repeat(8),
+        "}\n".repeat(8),
+        "}\n".repeat(32),
+    );
+    let config = parsed(&deeper);
+    assert_eq!(kinds(&config), [(34, DiagnosticKind::BlockTooDeep)]);
+    let read: Vec<(usize, usize, &str)> = config
+        .directives
+        .iter()
+        .map(|directive| {
+            (
+                directive.line,
+                directive.block.len(),
+                directive.name.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(read, [(33, 32, "gaps"), (51, 32, "y"), (84, 0, "gaps")]);
+
+    // Each of these lines would take a copy of all the lines before it.
+    let config = parsed(&"a {\n".repeat(2_000_000));
+    assert_eq!(
+        kinds(&config),
+        [
+            (33, DiagnosticKind::BlockTooDeep),
+            (1, DiagnosticKind::UnclosedBlock)
+        ]
+    );
+}
+
+#[test]
 fn variables_that_double_stop_at_the_line_limit() {
     // Each line doubles $a: 40 of them would need a terabyte. The line that gets longer than
     // 8 MiB ends the config.
