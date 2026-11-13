@@ -21,7 +21,7 @@ Milestones on GitHub correspond to releases.
       `doctor`, `show-generated`
 - [ ] App shell: sidebar with all pages listed (unbuilt ones show a placeholder), setting-level search, keyboard
       navigation, single instance + deep links, theming with sway accent, light and dark
-- [ ] Narrow mode: decide the width threshold from the real pages, then document it in [UX Concept](UX-Concept.md)
+- [x] Narrow mode: decide the width threshold from the real pages, then document it in [UX Concept](UX-Concept.md)
 - [ ] Indicators: reset, overridden / your config wins, requires sway ≥ x.y, requires SwayFX
 - [x] "Sway Things" preferences section (accent source, safety-net timeout, editor command, show sway directives)
 - [x] gettext wiring (American English source strings only at first)

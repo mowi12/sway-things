@@ -105,9 +105,18 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   control is reachable with `Tab`.
 - **Every page is listed** from the start. A page with settings in the registry shows them in rows, by section; a page
   that isn't built yet shows its header and a placeholder saying so.
-- **Narrow mode:** sway often gives the window half a screen or less. Below a width threshold the app shows one pane at
-  a time: sidebar, then the page with a back button. The threshold is decided while building the shell in v0.1, from
-  real page widths.
+- **Narrow mode:** sway often gives the window half a screen or less. Below **960 px** the app shows one pane at a time:
+  the sidebar, then the page with a back button (an arrow) above it. With a larger font the threshold grows to what the
+  sidebar and the page need side by side.
+  - The threshold is the sidebar (240 px plus a 1 px separator) next to the widest page. The minimum widths of the
+    pages, with GTK's default font: Mouse & Touchpad 563 px, Keyboard 565 px, Windows 714 px (690 px with its groups
+    collapsed), Window Behavior 589 px. Slider rows set them: their controls need 427 px.
+  - Opening a page (`Enter`, a click, a search result, a deep link) shows it and moves the focus to its first control.
+    `Esc` or the back button shows the sidebar again, with the focus on the open page or the opened result.
+  - Typing or `Ctrl+F` on the page shows the sidebar with the search field.
+  - The window switches live while it is resized. The open page stays, and so does the pane with the keyboard focus (the
+    page if neither has it); the other pane can't be reached with `Tab` while hidden.
+  - Below the width of the open page (about 714 px for Windows) the page is clipped, until the rows can get narrower.
 - **Deep links:** `sway-things open displays`, `sway-things open input.keyboard.repeat_rate`: a page id or the key of a
   setting. Waybar modules, bindings and launchers can jump straight to a page or setting; a setting's row is scrolled
   into view (its group expanded), focused and highlighted briefly. A setting of an input type without devices opens just

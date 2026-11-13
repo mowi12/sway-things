@@ -38,6 +38,11 @@ st-sidebar .st-group-heading.st-first {
   margin-top: 4px;
 }
 
+/* The bar with the button back to the sidebar, above the page while the window is narrow */
+.st-back-bar {
+  padding: 6px;
+}
+
 /* Page */
 st-page .st-page-content {
   margin: 28px 32px 32px;

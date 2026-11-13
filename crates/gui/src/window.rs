@@ -13,10 +13,14 @@ use sway_things_core::registry::{ConfigFile, Link, Page, Registry};
 
 use crate::i18n::tr;
 use crate::model::Model;
-use crate::widgets::{GeneratedWindow, PageView, Placeholder, Sidebar, Welcome};
+use crate::widgets::{GeneratedWindow, PageView, Panes, Placeholder, Sidebar, Welcome};
 
 /// The width of the sidebar, in pixels.
 const SIDEBAR_WIDTH: i32 = 240;
+
+/// The width below which the window shows one pane at a time, in pixels: the sidebar and the
+/// widest of the pages side by side, with the default font.
+pub const NARROW_WIDTH: i32 = 960;
 
 /// The name of the welcome screen in the content pane.
 const WELCOME: &str = "welcome";
@@ -29,11 +33,15 @@ mod imp {
     use sway_things_core::registry::Page;
 
     use crate::model::Model;
-    use crate::widgets::{Sidebar, Welcome};
+    use crate::widgets::{Panes, Sidebar, Welcome};
 
     #[derive(Debug, Default)]
     pub struct Window {
         pub sidebar: Sidebar,
+        pub panes: OnceCell<Panes>,
+        /// The bar above the page with the button back to the sidebar, while narrow.
+        pub back_bar: gtk::Box,
+        pub back: gtk::Button,
         pub pages: gtk::Stack,
         pub model: OnceCell<Model>,
         pub banner: gtk::Revealer,
@@ -125,6 +133,12 @@ impl Window {
         imp.sidebar
             .search_entry()
             .set_key_capture_widget(Some(self));
+        // While narrow, typing on the page shows the sidebar with the results.
+        imp.sidebar.search_entry().connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |entry| window.follow_typing(entry)
+        ));
 
         let _ = imp.model.set(model.clone());
         imp.pages.set_hexpand(true);
@@ -187,20 +201,7 @@ impl Window {
             move |_| window.follow_status()
         ));
 
-        let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        content.add_css_class("view");
-        content.set_hexpand(true);
-        content.append(&imp.safety);
-        content.append(&imp.status);
-        content.append(&imp.reload);
-        content.append(&imp.banner);
-        content.append(&imp.pages);
-
-        let panes = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        panes.append(&imp.sidebar);
-        panes.append(&gtk::Separator::new(gtk::Orientation::Vertical));
-        panes.append(&content);
-        self.set_child(Some(&panes));
+        self.build_panes();
 
         self.add_shortcuts();
         // The window of the generated files goes with the main window, which is unrealized when
@@ -215,6 +216,34 @@ impl Window {
             self.open_page(*first);
         }
         self.follow_status();
+    }
+
+    /// The sidebar and the content pane: the page, with the banners and, while narrow, the back
+    /// button above it.
+    fn build_panes(&self) {
+        let imp = self.imp();
+        self.build_back();
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        content.add_css_class("view");
+        content.set_hexpand(true);
+        content.append(&imp.back_bar);
+        content.append(&imp.safety);
+        content.append(&imp.status);
+        content.append(&imp.reload);
+        content.append(&imp.banner);
+        content.append(&imp.pages);
+
+        let panes = Panes::new(&imp.sidebar, &content, NARROW_WIDTH);
+        panes.connect_narrow_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_, narrow| window.imp().back_bar.set_visible(narrow)
+        ));
+        self.set_child(Some(&panes));
+        let _ = imp.panes.set(panes);
+        // While narrow, the pane the keyboard focus moves to is shown: the search field on
+        // Ctrl+F, the sidebar on Esc, the page on the welcome screen or a deep link.
+        self.connect_focus_widget_notify(Self::follow_focus);
     }
 
     /// The shortcuts of the window: Esc and Ctrl+F.
@@ -236,7 +265,10 @@ impl Window {
             Some(gtk::CallbackAction::new(|widget, _| {
                 widget
                     .downcast_ref::<Self>()
-                    .is_some_and(|window| window.sidebar().focus_search())
+                    .is_some_and(|window| {
+                        window.show_sidebar();
+                        window.sidebar().focus_search()
+                    })
                     .into()
             })),
         );
@@ -247,13 +279,95 @@ impl Window {
     }
 
     /// Opens `page` and marks it in the sidebar. Opening a page from the welcome screen counts as
-    /// looking around.
+    /// looking around. While narrow, the page replaces the sidebar and gets the keyboard focus.
     pub fn show_page(&self, page: Page) {
         if self.is_welcome_shown() {
             self.imp().welcome_dismissed.set(true);
         }
         self.open_page(page);
         self.follow_status();
+        self.show_content();
+    }
+
+    /// The bar above the page with the button back to the sidebar, shown while narrow.
+    fn build_back(&self) {
+        let imp = self.imp();
+        imp.back.set_icon_name("go-previous-symbolic");
+        imp.back.add_css_class("flat");
+        imp.back.set_tooltip_text(Some("Back to the pages"));
+        imp.back
+            .update_property(&[gtk::accessible::Property::Label("Back to the pages")]);
+        imp.back.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| {
+                window.back_to_sidebar();
+            }
+        ));
+        imp.back_bar.add_css_class("st-back-bar");
+        imp.back_bar.append(&imp.back);
+        imp.back_bar.set_visible(false);
+    }
+
+    /// While narrow, shows the content pane instead of the sidebar, and moves the keyboard focus
+    /// into it: to the first control of the page, or the back button.
+    fn show_content(&self) {
+        let imp = self.imp();
+        let Some(panes) = imp.panes.get() else { return };
+        if panes.is_content_shown() {
+            return;
+        }
+        panes.show_content();
+        let focus = GtkWindowExt::focus(self);
+        if focus.is_some_and(|focus| focus.is_ancestor(&imp.pages)) {
+            return;
+        }
+        let focused = imp
+            .pages
+            .visible_child()
+            .is_some_and(|page| page.child_focus(gtk::DirectionType::TabForward));
+        if !focused {
+            imp.back.grab_focus();
+        }
+    }
+
+    /// While narrow, shows the sidebar instead of the content pane.
+    fn show_sidebar(&self) {
+        if let Some(panes) = self.imp().panes.get() {
+            panes.show_sidebar();
+        }
+    }
+
+    /// While narrow, shows the sidebar when text is typed into the search field from the page, and
+    /// gives the field the focus, which is still on the page.
+    fn follow_typing(&self, entry: &gtk::SearchEntry) {
+        let Some(panes) = self.imp().panes.get() else {
+            return;
+        };
+        if !panes.is_narrow() || !panes.is_content_shown() || entry.text().is_empty() {
+            return;
+        }
+        panes.show_sidebar();
+        if !GtkWindowExt::focus(self).is_some_and(|focus| focus.is_ancestor(entry)) {
+            entry.grab_focus();
+            entry.set_position(-1);
+        }
+    }
+
+    /// While narrow, shows the pane the keyboard focus moved to.
+    fn follow_focus(&self) {
+        let imp = self.imp();
+        let (Some(panes), Some(focus)) = (imp.panes.get(), GtkWindowExt::focus(self)) else {
+            return;
+        };
+        if !panes.is_narrow() {
+            return;
+        }
+        if focus.is_ancestor(&imp.sidebar) {
+            panes.show_sidebar();
+        } else if focus.is_ancestor(panes) {
+            panes.show_content();
+        }
     }
 
     /// Opens what `link` points to: its page, and with a setting, the setting's row, scrolled into
@@ -708,10 +822,30 @@ impl Window {
         self.imp().pages.visible_child()
     }
 
-    /// What Esc does: moves the focus from the content pane back to the open page in the sidebar.
-    /// Returns whether the focus was in the content pane.
+    /// The sidebar and the content pane, side by side or one at a time.
+    pub fn panes(&self) -> Option<&Panes> {
+        self.imp().panes.get()
+    }
+
+    /// The button back to the sidebar, shown above the page while narrow.
+    pub fn back_button(&self) -> &gtk::Button {
+        &self.imp().back
+    }
+
+    /// What Esc and the back button do: move the focus from the content pane back to the open
+    /// page in the sidebar, and while narrow, show the sidebar instead of the page. Returns
+    /// whether it went back: whether the focus was in the content pane, or while narrow, whether
+    /// the page was shown.
     pub fn back_to_sidebar(&self) -> bool {
         let imp = self.imp();
+        if let Some(panes) = imp.panes.get().filter(|panes| panes.is_narrow()) {
+            if !panes.is_content_shown() {
+                return false;
+            }
+            panes.show_sidebar();
+            imp.sidebar.focus_selected();
+            return true;
+        }
         let in_content = gtk::prelude::GtkWindowExt::focus(self)
             .is_some_and(|focus| focus.is_ancestor(&imp.pages));
         in_content && imp.sidebar.focus_selected()
