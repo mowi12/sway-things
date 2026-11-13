@@ -1,0 +1,31 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-open 1 "" "Sway Things 0.0.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-open \- Start the app, or bring its window up if it runs, at a page or a setting
+.SH SYNOPSIS
+\fBsway\-things open\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fILINK\fR] 
+.SH DESCRIPTION
+Start the app, or bring its window up if it runs, at a page or a setting
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fILINK\fR]
+A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`

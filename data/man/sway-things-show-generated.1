@@ -1,0 +1,45 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-show-generated 1 "" "Sway Things 0.0.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-show\-generated \- Print the generated sway config files as they would be written, without writing them
+.SH SYNOPSIS
+\fBsway\-things show\-generated\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIFILE\fR] 
+.SH DESCRIPTION
+Print the generated sway config files as they would be written, without writing them
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIFILE\fR]
+Only this file
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+10\-input.conf
+.IP \(bu 2
+30\-appearance.conf
+.IP \(bu 2
+40\-behavior.conf
+.IP \(bu 2
+90\-effects.conf
+.RE

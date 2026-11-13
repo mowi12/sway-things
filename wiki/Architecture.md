@@ -40,10 +40,15 @@ the user's files.**
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
 | `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
+| `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
 
 All crates share the package metadata and lints of the root `Cargo.toml`: edition 2024, MSRV 1.85, `unsafe_code`
 forbidden, clippy pedantic, and no `unwrap`, `expect`, `panic!`, `todo!` or `dbg!` outside tests. The core also denies
 `println!` and requires docs for its public API.
+
+`crates/cli-docs` is no default member (`default-members` in the root `Cargo.toml`): a plain `cargo build` and the
+distro builds compile only the three shipped crates, never `clap_mangen`, `clap_complete` or `roff`. `--workspace`
+includes it, so its tests and clippy run with the others.
 
 The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
 `sway-things` with no arguments, or `sway-things open [<link>]`, starts or activates the GUI.
@@ -794,6 +799,14 @@ reports **managed externally by file:line**. The page explains this and offers a
 session with `Applier::open`, the same start as the app: settings and generated files in their usual places, the running
 sway or, without one, the installed `sway`, and the main config sway loaded or would find. `doctor` starts on its own so
 it works where that fails, and `open` needs none of it.
+
+The man pages (`data/man/`, one per command plus `sway-things-gui.1`) and the shell completions for bash, zsh and fish
+(`data/completions/`) are generated from these clap definitions by `crates/cli-docs` and committed, like the translation
+template. `sway-things.1` adds the exit status, the environment variables, the files and related pages. The completions
+are static: commands, options and the files of `show-generated` complete, setting keys don't.
+`scripts/update-cli-docs.sh` regenerates them, and a test (`crates/cli-docs/tests/fresh.rs`) fails while they are out of
+date. The page of the app comes from a small clap command that only describes the link argument; a test keeps it in line
+with what the app reads.
 
 | Command | What it does |
 | --- | --- |

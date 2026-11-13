@@ -154,6 +154,13 @@ adding, changing or removing a string, run `scripts/update-pot.sh` to update `po
 first version that reads Rust. Tests that need a string that is not extracted use `Msg::new`. See
 [wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations are found.
 
+## Man pages and completions
+
+The man pages in `data/man/` and the shell completions in `data/completions/` are generated from the clap definitions
+and committed. After changing a command, an argument or a help text in `crates/cli`, or the argument of the app, run
+`scripts/update-cli-docs.sh`; a test fails while they are out of date. A version bump and a Dependabot update of clap,
+`clap_mangen` or `clap_complete` need the script too. Don't edit the generated files by hand.
+
 ## Working on the GUI
 
 - `cargo run -p sway-things-gui` starts the app. `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore
@@ -176,7 +183,8 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Releases
 
-Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. Pushing a version tag triggers the
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. The commit that bumps the version
+also runs `scripts/update-cli-docs.sh`, since every man page names the version. Pushing a version tag triggers the
 release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
 generated from the commits.
 
