@@ -128,10 +128,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Validators
+      - name: Install gettext and Validators
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -qq -y --no-install-recommends desktop-file-utils appstream
+          sudo apt-get install -qq -y --no-install-recommends gettext desktop-file-utils appstream
       - name: Validate Metadata
         run: scripts/check-metadata.sh
 

@@ -123,7 +123,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | --- | --- |
 | Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
-| Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
+| Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`; `desktop-file-validate` and `appstreamcli validate` on the desktop entry and metainfo after `msgfmt` merged the translations |
 | Spelling | `typos`, locale en-US |
 | Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |

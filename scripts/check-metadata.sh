@@ -2,40 +2,35 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Validates the packaging metadata: desktop entries with desktop-file-validate and AppStream metainfo with
-# appstreamcli. Passes while there are no such files.
+# Validates the packaging metadata as it is installed: merges the translations into the desktop entry and the AppStream
+# metainfo (scripts/merge-metadata.sh), then checks the desktop entry with desktop-file-validate and the metainfo with
+# appstreamcli.
 #
 # Usage: scripts/check-metadata.sh
 #
-# Needs desktop-file-validate (desktop-file-utils) and appstreamcli (AppStream), each only once files of its kind exist.
+# Needs msgfmt (GNU gettext), desktop-file-validate (desktop-file-utils) and appstreamcli (AppStream).
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-require() {
-  if ! command -v "$1" >/dev/null; then
-    echo "error: needs $1" >&2
+for tool in msgfmt desktop-file-validate appstreamcli; do
+  if ! command -v "$tool" >/dev/null; then
+    echo "error: needs $tool" >&2
     exit 1
   fi
-}
+done
 
-# Tracked and new files, but none that git ignores.
-mapfile -t desktop < <(git ls-files --cached --others --exclude-standard -- '*.desktop')
-mapfile -t metainfo < <(git ls-files --cached --others --exclude-standard -- '*.metainfo.xml')
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
 
-if ((${#desktop[@]} + ${#metainfo[@]} == 0)); then
-  echo "No desktop entries or AppStream metainfo files yet."
-  exit 0
-fi
+scripts/merge-metadata.sh "$work"
 
 status=0
-if ((${#desktop[@]})); then
-  require desktop-file-validate
-  desktop-file-validate "${desktop[@]}" || status=1
-fi
-if ((${#metainfo[@]})); then
-  require appstreamcli
-  appstreamcli validate --no-net "${metainfo[@]}" || status=1
-fi
+for desktop in "$work"/*.desktop; do
+  desktop-file-validate "$desktop" || status=1
+done
+for metainfo in "$work"/*.metainfo.xml; do
+  appstreamcli validate --no-net --explain "$metainfo" || status=1
+done
 exit "$status"

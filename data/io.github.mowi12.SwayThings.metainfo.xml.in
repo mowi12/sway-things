@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Sway Things contributors -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>io.github.mowi12.SwayThings</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Sway Things</name>
+  <summary>Change the settings of sway and SwayFX</summary>
+  <developer id="io.github.mowi12">
+    <name translate="no">Sway Things contributors</name>
+  </developer>
+  <description>
+    <p>
+      Sway Things gives the sway Wayland compositor the familiar shape of a desktop settings app: a searchable sidebar
+      of pages, controls that apply instantly, and a safety net for risky changes.
+    </p>
+    <p>
+      It never edits your hand-written config. It writes sway config files of its own, which your config includes with
+      a single line. Changes apply live, and the same settings are available on the command line with sway-things.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.mowi12.SwayThings.desktop</launchable>
+  <icon type="stock">io.github.mowi12.SwayThings</icon>
+  <categories>
+    <category>Settings</category>
+    <category>DesktopSettings</category>
+  </categories>
+  <url type="homepage">https://github.com/mowi12/sway-things</url>
+  <url type="vcs-browser">https://github.com/mowi12/sway-things</url>
+  <url type="bugtracker">https://github.com/mowi12/sway-things/issues</url>
+  <url type="contribute">https://github.com/mowi12/sway-things/blob/main/CONTRIBUTING.md</url>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <provides>
+    <binary>sway-things</binary>
+    <binary>sway-things-gui</binary>
+  </provides>
+</component>
