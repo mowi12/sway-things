@@ -387,3 +387,27 @@ fn a_refused_or_broken_subscription_is_an_error() {
     ));
     assert!(block_on(events.next()).is_none());
 }
+
+#[test]
+fn reloads_of_the_config_are_reported_whoever_asked() {
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, _| {
+        if kind != wire::SUBSCRIBE {
+            return message(kind, "{}");
+        }
+        let mut answer = HANG_UP.to_vec();
+        answer.extend(message(kind, r#"{"success": true}"#));
+        // Another event first, then the reload.
+        answer.extend(message(
+            wire::EVENT | 0x07,
+            r#"{"first": false, "payload": ""}"#,
+        ));
+        answer.extend(message(
+            wire::EVENT,
+            r#"{"change": "reload", "current": null, "old": null}"#,
+        ));
+        answer
+    });
+    let mut reloads = block_on(super::Reloads::start(&sway.connect())).unwrap();
+    assert!(matches!(block_on(reloads.next()), Some(Ok(()))));
+    assert!(block_on(reloads.next()).is_none());
+}

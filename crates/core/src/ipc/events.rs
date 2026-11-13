@@ -6,7 +6,7 @@
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
-use super::types::{Event, EventType};
+use super::types::{Event, EventType, WorkspaceChange};
 use super::wire::{self, Connection, WireError};
 use super::{Client, IpcError, Outcome};
 
@@ -90,6 +90,43 @@ impl Events {
                     request: "an event",
                     source,
                 }));
+            }
+        }
+    }
+}
+
+/// The reloads of sway's config, whoever asked for them: sway's `workspace` events with the
+/// change `reload`.
+#[derive(Debug)]
+pub struct Reloads {
+    events: Events,
+}
+
+impl Reloads {
+    /// Subscribes to the `workspace` events of the session of `client`, on a connection of its
+    /// own.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`Client::subscribe`].
+    pub async fn start(client: &Client) -> Result<Self, IpcError> {
+        let events = client.subscribe(&[EventType::Workspace]).await?;
+        Ok(Self { events })
+    }
+
+    /// Waits until sway reloaded its config. `None` once sway closed the connection.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Events::next`].
+    pub async fn next(&mut self) -> Option<Result<(), IpcError>> {
+        loop {
+            match self.events.next().await? {
+                Ok(Event::Workspace(event)) if event.change == WorkspaceChange::Reload => {
+                    return Some(Ok(()));
+                }
+                Ok(_) => {}
+                Err(error) => return Some(Err(error)),
             }
         }
     }

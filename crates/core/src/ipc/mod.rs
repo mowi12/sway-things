@@ -52,7 +52,7 @@ use compositor::VersionReply;
 use wire::{Connection, WireError};
 
 pub use compositor::{Compositor, Unmet};
-pub use events::Events;
+pub use events::{Events, Reloads};
 /// The types of sway's replies, from the `swayipc-types` crate.
 pub use swayipc_types as types;
 
