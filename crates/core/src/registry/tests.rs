@@ -51,8 +51,35 @@ fn samples(setting: &Setting) -> Vec<Value> {
     samples
 }
 
+/// `value` for `setting`, and for the setting it depends on a value under which it matters, so
+/// that its value reaches the commands.
 fn stored(setting: &Setting, value: Value) -> BTreeMap<String, Value> {
-    BTreeMap::from([(setting.key().to_owned(), value)])
+    let mut values = BTreeMap::from([(setting.key().to_owned(), value)]);
+    if let Some(dependency) = setting.dependency() {
+        values.insert(
+            dependency.key.to_owned(),
+            holding(dependency.key, dependency.when),
+        );
+    }
+    values
+}
+
+/// A value of the setting `key` that meets `when`.
+fn holding(key: &str, when: When) -> Value {
+    let value = match (when, setting(key).kind()) {
+        (When::On, _) => Value::Bool(true),
+        (When::OneOf(ids), _) => Value::Choice(ids[0].to_owned()),
+        (When::Above(_), Kind::Decimal { max, .. }) => Value::Decimal(*max),
+        (When::Above(_), Kind::Integer { max, .. }) => Value::Integer(*max),
+        (When::Above(_), kind) => panic!("{key}: Above for {kind:?}"),
+    };
+    assert!(when.holds(&value), "{key}: {value:?}");
+    value
+}
+
+/// Values that render no line: off leaves the user's own `inhibit_idle` rules alone.
+fn renders_nothing(setting: &Setting, value: &Value) -> bool {
+    setting.key() == "behavior.inhibit_idle_fullscreen" && *value == Value::Bool(false)
 }
 
 fn commands(setting: &Setting, value: &Value, target: Target) -> Vec<SwayCmd> {
@@ -140,9 +167,11 @@ fn defaults_and_samples_fit_their_type() {
 fn every_sway_setting_renders_for_config() {
     for (setting, _) in sway_settings() {
         for sample in samples(setting) {
-            assert_ne!(
-                lines(setting, &sample, Target::Config),
-                Vec::<String>::new()
+            assert_eq!(
+                lines(setting, &sample, Target::Config).is_empty(),
+                renders_nothing(setting, &sample),
+                "{} = {sample:?}",
+                setting.key()
             );
         }
     }
@@ -168,7 +197,12 @@ fn config_only_commands_force_a_reload() {
             .any(|command| command.availability() == Availability::ConfigOnly);
         if config_only {
             found = true;
-            assert_eq!(setting.apply(), Apply::Reload, "{}", setting.key());
+            // Xwayland only starts or stops with sway.
+            assert!(
+                matches!(setting.apply(), Apply::Reload | Apply::Relogin),
+                "{}",
+                setting.key()
+            );
         }
     }
     assert!(found, "no config-only setting to check");
@@ -215,7 +249,15 @@ fn requirements_match_the_builders() {
 #[test]
 fn settings_of_one_directive_agree() {
     for (setting, mapping) in sway_settings() {
-        let expected = lines(setting, &setting.default_value(), Target::Config);
+        let defaults = |setting: &Setting| {
+            registry()
+                .render(setting, &Defaults, None, Target::Config)
+                .unwrap()
+                .iter()
+                .map(|command| command.render(Target::Config).unwrap())
+                .collect::<Vec<_>>()
+        };
+        let expected = defaults(setting);
         for member in registry().group(setting) {
             let member_mapping = member.sway().expect("grouped by directive");
             assert_eq!(member_mapping.file(), mapping.file());
@@ -224,7 +266,7 @@ fn settings_of_one_directive_agree() {
             assert_eq!(member.requirements(), setting.requirements());
             assert_eq!(member.page(), setting.page());
             assert_eq!(
-                lines(member, &member.default_value(), Target::Config),
+                defaults(member),
                 expected,
                 "{} and {} render differently",
                 member.key(),
@@ -833,7 +875,7 @@ fn every_sway_setting_reads_back_what_it_renders() {
                 "input.keyboard.xkb_layout".to_owned(),
                 Value::List(vec!["us".to_owned(), "de".to_owned()]),
             )]);
-            values.insert(setting.key().to_owned(), sample.clone());
+            values.extend(stored(setting, sample.clone()));
             let text = registry()
                 .render(setting, &values, None, Target::Config)
                 .unwrap()
@@ -845,7 +887,12 @@ fn every_sway_setting_reads_back_what_it_renders() {
                 .iter()
                 .filter_map(|directive| setting.read(directive))
                 .collect();
-            assert_eq!(read, [Ok(sample.clone())], "{}: {text}", setting.key());
+            let expected = if renders_nothing(setting, &sample) {
+                Vec::new()
+            } else {
+                vec![Ok(sample.clone())]
+            };
+            assert_eq!(read, expected, "{}: {text}", setting.key());
         }
     }
 }
@@ -992,6 +1039,114 @@ fn window_and_effect_lines_are_read_as_sway_and_swayfx_read_them() {
 }
 
 #[test]
+fn behavior_lines_are_read_as_sway_reads_them() {
+    let ok = |key: &str, line: &str| match read(key, line) {
+        Some(Ok(value)) => value,
+        other => panic!("{key} from {line}: {other:?}"),
+    };
+    let choice = |id: &str| Value::Choice(id.to_owned());
+    let unsupported = |key: &str, line: &str| {
+        assert!(
+            matches!(read(key, line), Some(Err(ReadError::Unsupported(_)))),
+            "{key}: {line}"
+        );
+    };
+    let rejected = |key: &str, line: &str| {
+        assert!(
+            matches!(read(key, line), Some(Err(ReadError::Rejected(_)))),
+            "{key}: {line}"
+        );
+    };
+
+    // `force` and `workspace` as `strcmp` compares them, otherwise a boolean.
+    let wrapping = "behavior.focus_wrapping";
+    assert_eq!(
+        ok(wrapping, "focus_wrapping workspace"),
+        choice("workspace")
+    );
+    assert_eq!(ok(wrapping, "focus_wrapping Force"), choice("no"));
+    assert_eq!(ok(wrapping, "focus_wrapping on"), choice("yes"));
+    assert_eq!(
+        ok("behavior.mouse_warping", "mouse_warping Container"),
+        choice("container")
+    );
+
+    // Modifiers by any of their names; `none` leaves the buttons alone.
+    let (key, buttons) = (
+        "behavior.floating_modifier.key",
+        "behavior.floating_modifier.buttons",
+    );
+    assert_eq!(ok(key, "floating_modifier super"), choice("Mod4"));
+    assert_eq!(ok(key, "floating_modifier Alt inverse"), choice("Mod1"));
+    assert_eq!(ok(key, "floating_modifier Control normal"), choice("Ctrl"));
+    assert_eq!(
+        ok(buttons, "floating_modifier Mod4 Inverse"),
+        choice("inverse")
+    );
+    assert_eq!(ok(buttons, "floating_modifier Mod4"), choice("normal"));
+    assert_eq!(ok(buttons, "floating_modifier none"), choice("normal"));
+    unsupported(key, "floating_modifier Mod5 normal");
+    rejected(key, "floating_modifier Hyper");
+    rejected(buttons, "floating_modifier Mod4 sideways");
+
+    // Both sides of a size have the same kind of limit.
+    let (mode, width, height) = (
+        "behavior.floating_maximum_size.mode",
+        "behavior.floating_maximum_size.width",
+        "behavior.floating_maximum_size.height",
+    );
+    assert_eq!(ok(mode, "floating_maximum_size -1 x -1"), choice("none"));
+    assert_eq!(ok(mode, "floating_maximum_size 0 x 0"), choice("automatic"));
+    assert_eq!(
+        ok(mode, "floating_maximum_size 800 x 600"),
+        choice("custom")
+    );
+    assert_eq!(
+        ok(width, "floating_maximum_size 800 x 600"),
+        Value::Integer(800)
+    );
+    assert_eq!(
+        ok(height, "floating_maximum_size 800 x 600"),
+        Value::Integer(600)
+    );
+    assert_eq!(
+        ok(width, "floating_maximum_size 0 x 0"),
+        Value::Integer(1920)
+    );
+    unsupported(mode, "floating_maximum_size -1 x 600");
+    unsupported(mode, "floating_maximum_size -5 x -5");
+    rejected(mode, "floating_maximum_size 800x600");
+    rejected(mode, "floating_maximum_size 800 by 600");
+    rejected(mode, "floating_maximum_size 800px x 600");
+
+    // Only `for_window [all] inhibit_idle` lines are the toggle's.
+    let idle = "behavior.inhibit_idle_fullscreen";
+    assert_eq!(
+        ok(idle, "for_window [all] inhibit_idle fullscreen"),
+        Value::Bool(true)
+    );
+    assert_eq!(
+        ok(idle, "for_window [all] inhibit_idle none"),
+        Value::Bool(false)
+    );
+    unsupported(idle, "for_window [all] inhibit_idle visible");
+    rejected(idle, "for_window [all] inhibit_idle always");
+    assert_eq!(read(idle, "for_window [all] border pixel 2"), None);
+    assert_eq!(
+        read(idle, r#"for_window [app_id="mpv"] inhibit_idle fullscreen"#),
+        None
+    );
+
+    assert_eq!(ok("behavior.xwayland", "xwayland force"), choice("force"));
+    assert_eq!(ok("behavior.xwayland", "xwayland false"), choice("disable"));
+    assert_eq!(
+        ok("behavior.tiling_drag_threshold", "tiling_drag_threshold 20"),
+        Value::Integer(20)
+    );
+    rejected("behavior.tiling_drag_threshold", "tiling_drag_threshold -1");
+}
+
+#[test]
 fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
     let rejected = |key: &str, line: &str| {
         assert!(
@@ -1052,6 +1207,8 @@ fn lines_sway_rejects_or_the_setting_cant_hold_are_errors() {
 #[test]
 fn only_the_settings_own_directive_matches() {
     assert_eq!(read("windows.gaps.inner", "gaps outer 8"), None);
+    assert_eq!(read("windows.gaps.inner", "gaps"), None);
+    assert!(read("windows.gaps.inner", "gaps INNER 8").is_some());
     assert_eq!(read("input.touchpad.tap", "tap enabled"), None);
     assert_eq!(read("input.touchpad.tap", "bar {\n  tap enabled\n}"), None);
     assert_eq!(read("windows.font", "input * font monospace"), None);

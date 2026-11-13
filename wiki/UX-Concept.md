@@ -123,8 +123,8 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   change instead of keeping it, and screen readers announce the banner. One risky change at a time: another one is
   refused at its row until this one is kept or reverted. The last output, the last keyboard and the last pointing device
   can't be disabled; the row says why.
-- **Badges** for settings that can't apply live: "Applies after re-login" (environment variables), "Applies after
-  reload".
+- **Badges** for settings that can't apply live: "Applies after re-login" (environment variables, Xwayland), "Applies
+  after reload".
 
 ## Per-setting indicators
 

@@ -43,6 +43,7 @@ impl CriteriaKey {
 /// rendered criteria contain no quote, `$`, `]` or whitespace, whatever the value is.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Criteria {
+    all: bool,
     matches: Vec<(CriteriaKey, String)>,
 }
 
@@ -50,6 +51,14 @@ impl Criteria {
     /// Criteria without matches. Add at least one with [`Criteria::exact`] before rendering.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// `[all]`: every window.
+    pub fn all() -> Self {
+        Self {
+            all: true,
+            matches: Vec::new(),
+        }
     }
 
     /// Adds a match: the window's `key` property equals `value` exactly. Any string is allowed.
@@ -60,7 +69,7 @@ impl Criteria {
     }
 
     pub(super) fn is_empty(&self) -> bool {
-        self.matches.is_empty()
+        !self.all && self.matches.is_empty()
     }
 
     /// Renders the criteria as one argument. Config lines are unescaped by sway, so their
@@ -71,8 +80,11 @@ impl Criteria {
             Target::Config => "\\\\",
         };
         let mut out = String::from("[");
+        if self.all {
+            out.push_str("all");
+        }
         for (index, (key, value)) in self.matches.iter().enumerate() {
-            if index > 0 {
+            if self.all || index > 0 {
                 out.push(' ');
             }
             out.push_str(key.name());

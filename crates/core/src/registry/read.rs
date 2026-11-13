@@ -13,8 +13,8 @@ use super::Value;
 use crate::command::Color;
 
 /// Reads the value of a setting from the arguments of a user's directive: those after the
-/// directive's name and, for a directive with a [first argument](super::Directive::argument),
-/// after that.
+/// directive's name and, for a directive with [leading arguments](super::Directive::arguments),
+/// after those.
 pub type ReadFn = fn(&[String]) -> Result<Value, ReadError>;
 
 /// Why a value couldn't be read from a line.

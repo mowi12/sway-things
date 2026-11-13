@@ -33,9 +33,9 @@ pub struct Directive {
     pub block: Block,
     /// The directive, e.g. `tap`, `gaps` or `client.focused`.
     pub name: &'static str,
-    /// The first argument, where one name covers several independent values: `inner` for
-    /// `gaps inner <px>`.
-    pub argument: Option<&'static str>,
+    /// The leading arguments, where one name covers several independent values: `inner` for
+    /// `gaps inner <px>`, `[all]` and `inhibit_idle` for `for_window [all] inhibit_idle <mode>`.
+    pub arguments: &'static [&'static str],
 }
 
 impl Directive {
@@ -44,7 +44,7 @@ impl Directive {
         Self {
             block: Block::Top,
             name,
-            argument: None,
+            arguments: &[],
         }
     }
 
@@ -53,14 +53,14 @@ impl Directive {
         Self {
             block: Block::Input,
             name,
-            argument: None,
+            arguments: &[],
         }
     }
 
-    /// Narrows the directive to those with this first argument.
+    /// Narrows the directive to those that start with these arguments.
     #[must_use]
-    pub const fn argument(mut self, argument: &'static str) -> Self {
-        self.argument = Some(argument);
+    pub const fn arguments(mut self, arguments: &'static [&'static str]) -> Self {
+        self.arguments = arguments;
         self
     }
 }
@@ -118,8 +118,9 @@ impl SwayMapping {
     }
 
     /// Whether a directive of the user's config is this setting's directive, and if so, the
-    /// arguments its value is read from: those after the first argument the directive names.
-    /// Like sway, names, the `input` block and the first argument match without regard to case.
+    /// arguments its value is read from: those after the leading arguments the directive names.
+    /// Like sway, names, the `input` block and the leading arguments match without regard to
+    /// case.
     /// Which `input` identifiers count is up to the caller.
     pub fn matches<'a>(&self, directive: &'a sway_config::Directive) -> Option<&'a [String]> {
         let block = match self.directive.block {
@@ -135,13 +136,13 @@ impl SwayMapping {
         if !block || !directive.name.eq_ignore_ascii_case(self.directive.name) {
             return None;
         }
-        match self.directive.argument {
-            None => Some(&directive.args),
-            Some(argument) => match directive.args.split_first() {
-                Some((first, rest)) if first.eq_ignore_ascii_case(argument) => Some(rest),
-                _ => None,
-            },
-        }
+        let leading = self.directive.arguments;
+        let rest = directive.args.get(leading.len()..)?;
+        leading
+            .iter()
+            .zip(&directive.args)
+            .all(|(expected, arg)| arg.eq_ignore_ascii_case(expected))
+            .then_some(rest)
     }
 }
 

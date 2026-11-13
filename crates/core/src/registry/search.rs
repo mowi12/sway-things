@@ -106,7 +106,7 @@ impl<'a> SearchIndex<'a> {
             if let Some(mapping) = setting.sway() {
                 let directive = mapping.directive();
                 let mut text = directive.name.to_lowercase();
-                if let Some(argument) = directive.argument {
+                for argument in directive.arguments {
                     text.push(' ');
                     text.push_str(&argument.to_lowercase());
                 }
