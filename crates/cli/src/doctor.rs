@@ -18,6 +18,7 @@ use sway_things_core::doctor::{
     Checkup, Diagnosis, Finding, Fix, FixError, Section, Severity, Step,
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
+use sway_things_core::i18n::tr;
 
 use crate::Exit;
 use crate::spinner::Spinner;
@@ -300,7 +301,7 @@ fn text<V>(
             let _ = writeln!(out);
         }
         first = false;
-        let _ = writeln!(out, "{}", paint.paint(HEADING, section.title()));
+        let _ = writeln!(out, "{}", paint.paint(HEADING, tr(section.title())));
         for finding in findings {
             finding_text(finding, &indent, paint, out);
         }

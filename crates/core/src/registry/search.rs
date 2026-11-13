@@ -225,18 +225,18 @@ mod tests {
         Registry {
             settings: vec![
                 Setting::toggle("sample.inside", Page::Workspaces, false)
-                    .title("Metaphor")
+                    .title(Msg::new("Metaphor"))
                     .build(),
                 Setting::toggle("sample.keyword", Page::Workspaces, false)
-                    .title("Something else")
-                    .keywords(&["tap"])
+                    .title(Msg::new("Something else"))
+                    .keywords(&[const { Msg::new("tap") }])
                     .build(),
                 Setting::toggle("sample.subtitle", Page::Workspaces, false)
-                    .title("Another thing")
-                    .subtitle("Tap it")
+                    .title(Msg::new("Another thing"))
+                    .subtitle(Msg::new("Tap it"))
                     .build(),
                 Setting::toggle("sample.title", Page::Workspaces, false)
-                    .title("Tap to click")
+                    .title(Msg::new("Tap to click"))
                     .build(),
             ],
         }

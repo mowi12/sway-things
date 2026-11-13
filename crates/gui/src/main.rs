@@ -4,5 +4,7 @@
 //! `sway-things-gui`: the GTK4 settings app of Sway Things.
 
 fn main() -> gtk::glib::ExitCode {
+    // The translations of the app's texts, in the user's language.
+    sway_things_core::i18n::init();
     sway_things_gui::app::run()
 }

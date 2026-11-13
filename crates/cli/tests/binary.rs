@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
+use sway_things_core::doctor::Section;
+use sway_things_core::i18n::{self, DOMAIN};
 use sway_things_core::ipc::stand_in::{FakeSway, obedient};
 
 struct Home {
@@ -153,6 +155,59 @@ fn doctor_reports_without_writing() {
     assert_eq!(json["fix"]["result"], "read_only");
     assert!(!home.dir.path().join("config/sway/sway-things").exists());
     assert!(!home.dir.path().join("state").exists());
+}
+
+/// The pseudo-translation of `text`: recognizable, and different from the English text.
+fn pseudo(text: &str) -> String {
+    format!("[\u{2039}{}\u{203a}]", text.to_uppercase())
+}
+
+#[test]
+fn doctor_speaks_the_language_of_the_locale() {
+    // A catalog for the pseudo-locale `xx` with every heading of the report.
+    let locales = tempfile::tempdir().unwrap();
+    let messages_dir = locales.path().join("xx/LC_MESSAGES");
+    fs::create_dir_all(&messages_dir).unwrap();
+    let headings: Vec<(&str, String)> = Section::ALL
+        .iter()
+        .map(|section| (section.title().msgid(), pseudo(section.title().msgid())))
+        .collect();
+    let messages: Vec<(&str, &str)> = headings
+        .iter()
+        .map(|(msgid, text)| (*msgid, text.as_str()))
+        .collect();
+    fs::write(
+        messages_dir.join(format!("{DOMAIN}.mo")),
+        i18n::write_mo(&messages),
+    )
+    .unwrap();
+    let home = Home::new("version = 1\n", "gaps inner 4\n");
+    let locale_dir = locales.path().to_str().unwrap();
+    let env = [(i18n::LOCALEDIR_VAR, locale_dir), ("LANG", "xx_XX.UTF-8")];
+
+    let output = home.run_with(&["doctor"], &env);
+    let out = text(&output.stdout);
+    assert!(
+        out.starts_with(&format!("{}\n", pseudo("Compositor"))),
+        "{out}"
+    );
+    assert!(
+        out.contains(&format!("\n{}\n", pseudo("Sway config"))),
+        "{out}"
+    );
+    assert!(!out.contains("\nSway config\n"), "{out}");
+    // Scripts read ids, which stay English.
+    let output = home.run_with(&["doctor", "--json"], &env);
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["findings"][0]["section"], "compositor");
+    // In the C locale everything is English, also with a language list.
+    let english = [
+        (i18n::LOCALEDIR_VAR, locale_dir),
+        ("LC_ALL", "C"),
+        ("LANGUAGE", "xx"),
+    ];
+    let output = home.run_with(&["doctor"], &english);
+    assert!(text(&output.stdout).starts_with("Compositor\n"));
 }
 
 #[test]

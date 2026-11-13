@@ -4,6 +4,7 @@
 //! The pages of the app and the sidebar groups they belong to.
 
 use super::setting::Msg;
+use crate::msg;
 
 /// A group of pages in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -25,10 +26,10 @@ impl Group {
     /// The heading of the group in the sidebar.
     pub const fn title(self) -> Msg {
         match self {
-            Self::Devices => Msg::new("Devices"),
-            Self::Appearance => Msg::new("Appearance"),
-            Self::Desktop => Msg::new("Desktop"),
-            Self::System => Msg::new("System"),
+            Self::Devices => msg!("Devices"),
+            Self::Appearance => msg!("Appearance"),
+            Self::Desktop => msg!("Desktop"),
+            Self::System => msg!("System"),
         }
     }
 
@@ -176,58 +177,60 @@ impl Page {
 
     /// The title of the page, in the sidebar and the page header.
     pub const fn title(self) -> Msg {
-        Msg::new(match self {
-            Self::MouseTouchpad => "Mouse & Touchpad",
-            Self::Keyboard => "Keyboard",
-            Self::CursorTablet => "Cursor & Tablet",
-            Self::Displays => "Displays",
-            Self::Sound => "Sound",
-            Self::BluetoothNetwork => "Bluetooth & Network",
-            Self::Windows => "Windows",
-            Self::Wallpaper => "Wallpaper",
-            Self::AppsLookFeel => "Apps Look & Feel",
-            Self::Bar => "Bar",
-            Self::WindowBehavior => "Window Behavior",
-            Self::Workspaces => "Workspaces",
-            Self::KeyboardShortcuts => "Keyboard Shortcuts",
-            Self::Notifications => "Notifications",
-            Self::AppsAutostart => "Apps & Autostart",
-            Self::ScreenshotsClipboard => "Screenshots & Clipboard",
-            Self::PowerLock => "Power & Lock",
-            Self::BrightnessNightLight => "Brightness & Night Light",
-            Self::RegionTime => "Region & Time",
-            Self::Accessibility => "Accessibility",
-            Self::Environment => "Environment",
-            Self::About => "About & Maintenance",
-        })
+        match self {
+            Self::MouseTouchpad => msg!("Mouse & Touchpad"),
+            Self::Keyboard => msg!("Keyboard"),
+            Self::CursorTablet => msg!("Cursor & Tablet"),
+            Self::Displays => msg!("Displays"),
+            Self::Sound => msg!("Sound"),
+            Self::BluetoothNetwork => msg!("Bluetooth & Network"),
+            Self::Windows => msg!("Windows"),
+            Self::Wallpaper => msg!("Wallpaper"),
+            Self::AppsLookFeel => msg!("Apps Look & Feel"),
+            Self::Bar => msg!("Bar"),
+            Self::WindowBehavior => msg!("Window Behavior"),
+            Self::Workspaces => msg!("Workspaces"),
+            Self::KeyboardShortcuts => msg!("Keyboard Shortcuts"),
+            Self::Notifications => msg!("Notifications"),
+            Self::AppsAutostart => msg!("Apps & Autostart"),
+            Self::ScreenshotsClipboard => msg!("Screenshots & Clipboard"),
+            Self::PowerLock => msg!("Power & Lock"),
+            Self::BrightnessNightLight => msg!("Brightness & Night Light"),
+            Self::RegionTime => msg!("Region & Time"),
+            Self::Accessibility => msg!("Accessibility"),
+            Self::Environment => msg!("Environment"),
+            Self::About => msg!("About & Maintenance"),
+        }
     }
 
     /// The one-line description under the title in the page header.
     pub const fn description(self) -> Msg {
-        Msg::new(match self {
-            Self::MouseTouchpad => "Pointer speed, scrolling and touchpad",
-            Self::Keyboard => "Layouts, switching shortcut, key repeat and XKB options",
-            Self::CursorTablet => "Cursor theme, size and visibility",
-            Self::Displays => "Arrange outputs, resolution, scale and profiles",
-            Self::Sound => "Devices, volume and per-application levels",
-            Self::BluetoothNetwork => "Connect devices and Wi-Fi networks",
-            Self::Windows => "Borders, colors, gaps and title bars of tiled windows",
-            Self::Wallpaper => "Background image or color per output",
-            Self::AppsLookFeel => "Theme, icons, fonts and dark mode for applications",
-            Self::Bar => "Position, modules and style of the bar",
-            Self::WindowBehavior => "How focus, floating and tiling behave",
-            Self::Workspaces => "Names, icons and the number of workspaces",
-            Self::KeyboardShortcuts => "All bindings, gestures and media keys",
-            Self::Notifications => "Notification daemon settings",
-            Self::AppsAutostart => "Default applications and everything that starts with sway",
-            Self::ScreenshotsClipboard => "Capturing the screen and clipboard history",
-            Self::PowerLock => "Idle timeouts, lock screen and power profile",
-            Self::BrightnessNightLight => "Screen brightness and color temperature",
-            Self::RegionTime => "Time zone, language and formats",
-            Self::Accessibility => "Larger cursor, larger text and key repeat",
-            Self::Environment => "Environment variables and Wayland compatibility",
-            Self::About => "Versions, config check, history and Sway Things preferences",
-        })
+        match self {
+            Self::MouseTouchpad => msg!("Pointer speed, scrolling and touchpad"),
+            Self::Keyboard => msg!("Layouts, switching shortcut, key repeat and XKB options"),
+            Self::CursorTablet => msg!("Cursor theme, size and visibility"),
+            Self::Displays => msg!("Arrange outputs, resolution, scale and profiles"),
+            Self::Sound => msg!("Devices, volume and per-application levels"),
+            Self::BluetoothNetwork => msg!("Connect devices and Wi-Fi networks"),
+            Self::Windows => msg!("Borders, colors, gaps and title bars of tiled windows"),
+            Self::Wallpaper => msg!("Background image or color per output"),
+            Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),
+            Self::Bar => msg!("Position, modules and style of the bar"),
+            Self::WindowBehavior => msg!("How focus, floating and tiling behave"),
+            Self::Workspaces => msg!("Names, icons and the number of workspaces"),
+            Self::KeyboardShortcuts => msg!("All bindings, gestures and media keys"),
+            Self::Notifications => msg!("Notification daemon settings"),
+            Self::AppsAutostart => {
+                msg!("Default applications and everything that starts with sway")
+            }
+            Self::ScreenshotsClipboard => msg!("Capturing the screen and clipboard history"),
+            Self::PowerLock => msg!("Idle timeouts, lock screen and power profile"),
+            Self::BrightnessNightLight => msg!("Screen brightness and color temperature"),
+            Self::RegionTime => msg!("Time zone, language and formats"),
+            Self::Accessibility => msg!("Larger cursor, larger text and key repeat"),
+            Self::Environment => msg!("Environment variables and Wayland compatibility"),
+            Self::About => msg!("Versions, config check, history and Sway Things preferences"),
+        }
     }
 }
 

@@ -24,6 +24,8 @@
 #[cfg(test)]
 mod tests;
 
+use crate::i18n::Msg;
+use crate::msg;
 use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -99,13 +101,13 @@ impl Section {
     }
 
     /// The heading.
-    pub fn title(self) -> &'static str {
+    pub fn title(self) -> Msg {
         match self {
-            Self::Compositor => "Compositor",
-            Self::Config => "Sway config",
-            Self::Settings => "Settings files",
-            Self::Generated => "Generated files",
-            Self::Conflicts => "Conflicts",
+            Self::Compositor => msg!("Compositor"),
+            Self::Config => msg!("Sway config"),
+            Self::Settings => msg!("Settings files"),
+            Self::Generated => msg!("Generated files"),
+            Self::Conflicts => msg!("Conflicts"),
         }
     }
 }

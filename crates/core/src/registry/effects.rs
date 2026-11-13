@@ -9,6 +9,7 @@ use super::read::{self, ReadError};
 use super::{ConfigFile, Directive, Page, Setting, Value, When};
 use crate::command::effects::{self, DimClass};
 use crate::command::{Color, SwayCmd};
+use crate::msg;
 use crate::version::SwayFxVersion;
 
 const CORNER_RADIUS: &str = "effects.corner_radius";
@@ -88,7 +89,7 @@ fn read_shadow_offset(args: &[String]) -> Result<(f64, f64), ReadError> {
 /// A blur setting: on SwayFX, in the Blur section, only while blur is on.
 fn blur_setting(builder: super::SettingBuilder) -> super::SettingBuilder {
     builder
-        .section("Blur")
+        .section(msg!("Blur"))
         .swayfx_only(SwayFxVersion::OLDEST_SUPPORTED)
         .depends_on(BLUR, When::On)
 }
@@ -96,7 +97,7 @@ fn blur_setting(builder: super::SettingBuilder) -> super::SettingBuilder {
 /// A shadow setting: on SwayFX, in the Shadows section, only while shadows are on.
 fn shadow_setting(builder: super::SettingBuilder) -> super::SettingBuilder {
     builder
-        .section("Shadows")
+        .section(msg!("Shadows"))
         .swayfx_only(SwayFxVersion::OLDEST_SUPPORTED)
         .depends_on(SHADOWS, When::On)
 }
@@ -109,10 +110,12 @@ pub(super) fn settings() -> Vec<Setting> {
     let fx = SwayFxVersion::OLDEST_SUPPORTED;
     vec![
         Setting::integer(CORNER_RADIUS, Page::Windows, 0, 0, 99)
-            .section("Corners")
-            .title("Corner radius")
-            .subtitle("Rounded window corners, in pixels, for windows opened from now on")
-            .keywords(&["rounded", "round corners"])
+            .section(msg!("Corners"))
+            .title(msg!("Corner radius"))
+            .subtitle(msg!(
+                "Rounded window corners, in pixels, for windows opened from now on"
+            ))
+            .keywords(&[msg!("rounded"), msg!("round corners")])
             .swayfx_only(fx)
             .sway(
                 Directive::top("corner_radius"),
@@ -127,10 +130,12 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(SMART_CORNER_RADIUS, Page::Windows, true)
-            .section("Corners")
-            .title("Square corners without gaps")
-            .subtitle("Round corners only where there are gaps around the window")
-            .keywords(&["rounded", "smart corners"])
+            .section(msg!("Corners"))
+            .title(msg!("Square corners without gaps"))
+            .subtitle(msg!(
+                "Round corners only where there are gaps around the window"
+            ))
+            .keywords(&[msg!("rounded"), msg!("smart corners")])
             .swayfx_only(fx)
             .depends_on(CORNER_RADIUS, When::Above(0.0))
             .sway(
@@ -145,10 +150,10 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(BLUR, Page::Windows, false)
-            .section("Blur")
-            .title("Blur")
-            .subtitle("Blurs what is behind transparent windows")
-            .keywords(&["transparency", "frosted glass"])
+            .section(msg!("Blur"))
+            .title(msg!("Blur"))
+            .subtitle(msg!("Blurs what is behind transparent windows"))
+            .keywords(&[msg!("transparency"), msg!("frosted glass")])
             .swayfx_only(fx)
             .sway(
                 Directive::top("blur"),
@@ -158,9 +163,11 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         blur_setting(Setting::integer(BLUR_PASSES, Page::Windows, 3, 0, 10))
-            .title("Passes")
-            .subtitle("More passes blur more strongly and cost more; 0 turns blur off")
-            .keywords(&["blur strength"])
+            .title(msg!("Passes"))
+            .subtitle(msg!(
+                "More passes blur more strongly and cost more; 0 turns blur off"
+            ))
+            .keywords(&[msg!("blur strength")])
             .sway(
                 Directive::top("blur_passes"),
                 ConfigFile::Effects,
@@ -169,9 +176,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         blur_setting(Setting::integer(BLUR_RADIUS, Page::Windows, 5, 0, 10))
-            .title("Radius")
-            .subtitle("How far each pass blurs; 0 turns blur off")
-            .keywords(&["blur size"])
+            .title(msg!("Radius"))
+            .subtitle(msg!("How far each pass blurs; 0 turns blur off"))
+            .keywords(&[msg!("blur size")])
             .sway(
                 Directive::top("blur_radius"),
                 ConfigFile::Effects,
@@ -180,9 +187,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         blur_setting(Setting::decimal(BLUR_NOISE, Page::Windows, 0.02, 0.0, 1.0))
-            .title("Noise")
-            .subtitle("Grain over the blur, against banding")
-            .keywords(&["grain", "dither"])
+            .title(msg!("Noise"))
+            .subtitle(msg!("Grain over the blur, against banding"))
+            .keywords(&[msg!("grain"), msg!("dither")])
             .sway(
                 Directive::top("blur_noise"),
                 ConfigFile::Effects,
@@ -197,8 +204,8 @@ pub(super) fn settings() -> Vec<Setting> {
             0.0,
             2.0,
         ))
-        .title("Brightness")
-        .subtitle("1 keeps the brightness")
+        .title(msg!("Brightness"))
+        .subtitle(msg!("1 keeps the brightness"))
         .sway(
             Directive::top("blur_brightness"),
             ConfigFile::Effects,
@@ -217,8 +224,8 @@ pub(super) fn settings() -> Vec<Setting> {
             0.0,
             2.0,
         ))
-        .title("Contrast")
-        .subtitle("1 keeps the contrast")
+        .title(msg!("Contrast"))
+        .subtitle(msg!("1 keeps the contrast"))
         .sway(
             Directive::top("blur_contrast"),
             ConfigFile::Effects,
@@ -233,9 +240,9 @@ pub(super) fn settings() -> Vec<Setting> {
             0.0,
             2.0,
         ))
-        .title("Saturation")
-        .subtitle("1 keeps the saturation")
-        .keywords(&["colorfulness"])
+        .title(msg!("Saturation"))
+        .subtitle(msg!("1 keeps the saturation"))
+        .keywords(&[msg!("colorfulness")])
         .sway(
             Directive::top("blur_saturation"),
             ConfigFile::Effects,
@@ -248,10 +255,10 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::toggle(SHADOWS, Page::Windows, false)
-            .section("Shadows")
-            .title("Shadows")
-            .subtitle("Drop shadows behind windows")
-            .keywords(&["drop shadow", "depth"])
+            .section(msg!("Shadows"))
+            .title(msg!("Shadows"))
+            .subtitle(msg!("Drop shadows behind windows"))
+            .keywords(&[msg!("drop shadow"), msg!("depth")])
             .swayfx_only(fx)
             .sway(
                 Directive::top("shadows"),
@@ -261,9 +268,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         shadow_setting(Setting::color(SHADOW_COLOR, Page::Windows, SHADOW_DEFAULT))
-            .title("Color")
-            .subtitle("Of the focused window, usually partly transparent")
-            .keywords(&["shadow color"])
+            .title(msg!("Color"))
+            .subtitle(msg!("Of the focused window, usually partly transparent"))
+            .keywords(&[msg!("shadow color")])
             .sway(
                 Directive::top("shadow_color"),
                 ConfigFile::Effects,
@@ -276,9 +283,9 @@ pub(super) fn settings() -> Vec<Setting> {
             Page::Windows,
             SHADOW_DEFAULT,
         ))
-        .title("Color of other windows")
-        .subtitle("Unless set, it follows the color")
-        .keywords(&["shadow color", "inactive", "unfocused"])
+        .title(msg!("Color of other windows"))
+        .subtitle(msg!("Unless set, it follows the color"))
+        .keywords(&[msg!("shadow color"), msg!("inactive"), msg!("unfocused")])
         .sway(
             Directive::top("shadow_inactive_color"),
             ConfigFile::Effects,
@@ -297,9 +304,9 @@ pub(super) fn settings() -> Vec<Setting> {
             0,
             99,
         ))
-        .title("Softness")
-        .subtitle("How far the shadow fades out, in pixels")
-        .keywords(&["shadow blur", "shadow size"])
+        .title(msg!("Softness"))
+        .subtitle(msg!("How far the shadow fades out, in pixels"))
+        .keywords(&[msg!("shadow blur"), msg!("shadow size")])
         .sway(
             Directive::top("shadow_blur_radius"),
             ConfigFile::Effects,
@@ -318,11 +325,11 @@ pub(super) fn settings() -> Vec<Setting> {
             -99.9,
             99.9,
         ))
-        .group("effects.shadow_offset", "Shadow offset")
-        .title("Offset to the right")
-        .subtitle("In pixels; negative values move it left")
+        .group("effects.shadow_offset", msg!("Shadow offset"))
+        .title(msg!("Offset to the right"))
+        .subtitle(msg!("In pixels; negative values move it left"))
         .slider(-20.0, 20.0, 0.5)
-        .keywords(&["shadow position"])
+        .keywords(&[msg!("shadow position")])
         .sway(
             Directive::top("shadow_offset"),
             ConfigFile::Effects,
@@ -337,11 +344,11 @@ pub(super) fn settings() -> Vec<Setting> {
             -99.9,
             99.9,
         ))
-        .group("effects.shadow_offset", "Shadow offset")
-        .title("Offset down")
-        .subtitle("In pixels; negative values move it up")
+        .group("effects.shadow_offset", msg!("Shadow offset"))
+        .title(msg!("Offset down"))
+        .subtitle(msg!("In pixels; negative values move it up"))
         .slider(-20.0, 20.0, 0.5)
-        .keywords(&["shadow position"])
+        .keywords(&[msg!("shadow position")])
         .sway(
             Directive::top("shadow_offset"),
             ConfigFile::Effects,
@@ -350,10 +357,17 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::decimal(DIM_INACTIVE, Page::Windows, 0.0, 0.0, 1.0)
-            .section("Dim inactive")
-            .title("Dim other windows")
-            .subtitle("0 leaves them as they are, 1 covers them with the dim color")
-            .keywords(&["dimming", "fade", "unfocused", "inactive"])
+            .section(msg!("Dim inactive"))
+            .title(msg!("Dim other windows"))
+            .subtitle(msg!(
+                "0 leaves them as they are, 1 covers them with the dim color"
+            ))
+            .keywords(&[
+                msg!("dimming"),
+                msg!("fade"),
+                msg!("unfocused"),
+                msg!("inactive"),
+            ])
             .swayfx_only(fx)
             .sway(
                 Directive::top("default_dim_inactive"),
@@ -367,9 +381,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::color(DIM_UNFOCUSED, Page::Windows, Color::rgb(0, 0, 0))
-            .section("Dim inactive")
-            .title("Dim color")
-            .keywords(&["dimming", "unfocused"])
+            .section(msg!("Dim inactive"))
+            .title(msg!("Dim color"))
+            .keywords(&[msg!("dimming"), msg!("unfocused")])
             .swayfx_only(fx)
             .depends_on(DIM_INACTIVE, When::Above(0.0))
             .sway(
@@ -385,9 +399,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::color(DIM_URGENT, Page::Windows, Color::rgb(0x90, 0, 0))
-            .section("Dim inactive")
-            .title("Dim color of urgent windows")
-            .keywords(&["dimming", "urgent", "attention"])
+            .section(msg!("Dim inactive"))
+            .title(msg!("Dim color of urgent windows"))
+            .keywords(&[msg!("dimming"), msg!("urgent"), msg!("attention")])
             .swayfx_only(fx)
             .depends_on(DIM_INACTIVE, When::Above(0.0))
             .sway(
@@ -403,11 +417,13 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(ANIMATION_DURATION, Page::Windows, 0, 0, 5000)
-            .section("Animations")
-            .title("Animation length")
-            .subtitle("Of opening and closing windows, in milliseconds; 0 turns animations off")
+            .section(msg!("Animations"))
+            .title(msg!("Animation length"))
+            .subtitle(msg!(
+                "Of opening and closing windows, in milliseconds; 0 turns animations off"
+            ))
             .slider(0.0, 1000.0, 10.0)
-            .keywords(&["animate", "transition", "speed"])
+            .keywords(&[msg!("animate"), msg!("transition"), msg!("speed")])
             .swayfx_only(SwayFxVersion::new(0, 6, 0))
             .sway(
                 Directive::top("animation_duration_ms"),

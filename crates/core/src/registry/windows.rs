@@ -13,6 +13,8 @@ use crate::command::window::{
     TitleAlign, TitleColors, WindowColors,
 };
 use crate::command::{Color, SwayCmd, Target};
+use crate::i18n::Msg;
+use crate::msg;
 
 const GAPS_INNER: &str = "windows.gaps.inner";
 const GAPS_OUTER: &str = "windows.gaps.outer";
@@ -39,9 +41,9 @@ const TAB_TITLE: [&str; 3] = [
 struct State {
     class: ClientClass,
     directive: &'static str,
-    section: &'static str,
+    section: Msg,
     group: &'static str,
-    keywords: &'static [&'static str],
+    keywords: &'static [Msg],
     keys: [&'static str; 5],
     defaults: [Color; 5],
 }
@@ -51,9 +53,9 @@ const STATES: [State; 4] = [
     State {
         class: ClientClass::Focused,
         directive: "client.focused",
-        section: "Focused window",
+        section: msg!("Focused window"),
         group: "windows.focused",
-        keywords: &["color", "focus", "active", "theme"],
+        keywords: &[msg!("color"), msg!("focus"), msg!("active"), msg!("theme")],
         keys: [
             "windows.focused.border",
             "windows.focused.background",
@@ -72,9 +74,9 @@ const STATES: [State; 4] = [
     State {
         class: ClientClass::FocusedInactive,
         directive: "client.focused_inactive",
-        section: "Inactive window",
+        section: msg!("Inactive window"),
         group: "windows.focused_inactive",
-        keywords: &["color", "focused inactive", "theme"],
+        keywords: &[msg!("color"), msg!("focused inactive"), msg!("theme")],
         keys: [
             "windows.focused_inactive.border",
             "windows.focused_inactive.background",
@@ -93,9 +95,9 @@ const STATES: [State; 4] = [
     State {
         class: ClientClass::Unfocused,
         directive: "client.unfocused",
-        section: "Unfocused windows",
+        section: msg!("Unfocused windows"),
         group: "windows.unfocused",
-        keywords: &["color", "inactive", "theme"],
+        keywords: &[msg!("color"), msg!("inactive"), msg!("theme")],
         keys: [
             "windows.unfocused.border",
             "windows.unfocused.background",
@@ -114,9 +116,14 @@ const STATES: [State; 4] = [
     State {
         class: ClientClass::Urgent,
         directive: "client.urgent",
-        section: "Urgent window",
+        section: msg!("Urgent window"),
         group: "windows.urgent",
-        keywords: &["color", "attention", "alert", "theme"],
+        keywords: &[
+            msg!("color"),
+            msg!("attention"),
+            msg!("alert"),
+            msg!("theme"),
+        ],
         keys: [
             "windows.urgent.border",
             "windows.urgent.background",
@@ -135,21 +142,21 @@ const STATES: [State; 4] = [
 ];
 
 /// The titles of the five colors of a window state.
-const COLOR_TITLES: [&str; 5] = [
-    "Title bar border",
-    "Title bar background",
-    "Title bar text",
-    "Split indicator",
-    "Border",
+const COLOR_TITLES: [Msg; 5] = [
+    msg!("Title bar border"),
+    msg!("Title bar background"),
+    msg!("Title bar text"),
+    msg!("Split indicator"),
+    msg!("Border"),
 ];
 
 /// The subtitles of the five colors of a window state.
-const COLOR_SUBTITLES: [Option<&str>; 5] = [
+const COLOR_SUBTITLES: [Option<Msg>; 5] = [
     None,
     None,
     None,
-    Some("The border edge where the next window opens"),
-    Some("The border around the window"),
+    Some(msg!("The border edge where the next window opens")),
+    Some(msg!("The border around the window")),
 ];
 
 /// The default split indicator of `client.focused_tab_title`, which sway reads but ignores.
@@ -262,14 +269,19 @@ fn tab_title_settings() -> Vec<Setting> {
     (0..3)
         .map(|index| {
             Setting::color(TAB_TITLE[index], Page::Windows, inactive[index])
-                .section("Focused tab title")
-                .group("windows.focused_tab_title", "Focused tab title")
+                .section(msg!("Focused tab title"))
+                .group("windows.focused_tab_title", msg!("Focused tab title"))
                 .title(COLOR_TITLES[index])
-                .subtitle(
+                .subtitle(msg!(
                     "The tab or stack title of a container with the focus inside. Unless set, \
-                     like an inactive window",
-                )
-                .keywords(&["color", "tabbed", "stacking", "theme"])
+                     like an inactive window"
+                ))
+                .keywords(&[
+                    msg!("color"),
+                    msg!("tabbed"),
+                    msg!("stacking"),
+                    msg!("theme"),
+                ])
                 .sway(
                     Directive::top("client.focused_tab_title"),
                     ConfigFile::Appearance,
@@ -282,9 +294,9 @@ fn tab_title_settings() -> Vec<Setting> {
 }
 
 const BORDER_STYLES: &[Choice] = &[
-    Choice::new("normal", "Border and title bar"),
-    Choice::new("pixel", "Border only"),
-    Choice::new("none", "None"),
+    Choice::new("normal", msg!("Border and title bar")),
+    Choice::new("pixel", msg!("Border only")),
+    Choice::new("none", msg!("None")),
 ];
 
 /// The border style of `style_key` with the width of `width_key`.
@@ -342,15 +354,15 @@ fn border_settings(floating: bool) -> Vec<Setting> {
         _,
         super::RenderFn,
         _,
-        &'static [&'static str],
+        &'static [Msg],
     ) = if floating {
         (
             FLOATING_BORDER_STYLE,
             FLOATING_BORDER_WIDTH,
             "default_floating_border",
             render_floating_border,
-            ["Floating windows", "Floating border width"],
-            &["frame", "decoration", "floating"],
+            [msg!("Floating windows"), msg!("Floating border width")],
+            &[msg!("frame"), msg!("decoration"), msg!("floating")],
         )
     } else {
         (
@@ -358,21 +370,21 @@ fn border_settings(floating: bool) -> Vec<Setting> {
             BORDER_WIDTH,
             "default_border",
             render_border,
-            ["Tiled windows", "Tiled border width"],
-            &["frame", "decoration", "tiling"],
+            [msg!("Tiled windows"), msg!("Tiled border width")],
+            &[msg!("frame"), msg!("decoration"), msg!("tiling")],
         )
     };
     let (group, group_title) = if floating {
-        ("windows.floating_border", "Floating window borders")
+        ("windows.floating_border", msg!("Floating window borders"))
     } else {
-        ("windows.border", "Tiled window borders")
+        ("windows.border", msg!("Tiled window borders"))
     };
     vec![
         Setting::choice(style_key, Page::Windows, "normal", BORDER_STYLES)
-            .section("Borders")
+            .section(msg!("Borders"))
             .group(group, group_title)
             .title(title[0])
-            .subtitle("Applies to windows opened from now on")
+            .subtitle(msg!("Applies to windows opened from now on"))
             .keywords(keywords)
             .sway(
                 Directive::top(directive),
@@ -382,10 +394,10 @@ fn border_settings(floating: bool) -> Vec<Setting> {
             )
             .build(),
         Setting::integer(width_key, Page::Windows, DEFAULT_BORDER_WIDTH, 0, 100)
-            .section("Borders")
+            .section(msg!("Borders"))
             .group(group, group_title)
             .title(title[1])
-            .subtitle("In pixels, for windows opened from now on")
+            .subtitle(msg!("In pixels, for windows opened from now on"))
             .slider(0.0, 20.0, 1.0)
             .keywords(keywords)
             .depends_on(style_key, When::OneOf(&["normal", "pixel"]))
@@ -400,10 +412,10 @@ fn border_settings(floating: bool) -> Vec<Setting> {
 }
 
 const HIDE_EDGE_CHOICES: &[Choice] = &[
-    Choice::new("none", "Never"),
-    Choice::new("vertical", "Left and right"),
-    Choice::new("horizontal", "Top and bottom"),
-    Choice::new("both", "All sides"),
+    Choice::new("none", msg!("Never")),
+    Choice::new("vertical", msg!("Left and right")),
+    Choice::new("horizontal", msg!("Top and bottom")),
+    Choice::new("both", msg!("All sides")),
 ];
 
 /// A `hide_edge_borders` line as sway reads it: the edges to hide and whether `--i3` hides the
@@ -442,21 +454,24 @@ fn render_hide_edges(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
 }
 
 const SMART_BORDER_CHOICES: &[Choice] = &[
-    Choice::new("off", "Always"),
-    Choice::new("on", "Only with more than one window"),
-    Choice::new("no_gaps", "Only with more than one window or with gaps"),
+    Choice::new("off", msg!("Always")),
+    Choice::new("on", msg!("Only with more than one window")),
+    Choice::new(
+        "no_gaps",
+        msg!("Only with more than one window or with gaps"),
+    ),
 ];
 
 const SMART_GAP_CHOICES: &[Choice] = &[
-    Choice::new("off", "Always"),
-    Choice::new("on", "Only with more than one window"),
-    Choice::new("inverse_outer", "Outer gaps only with one window"),
+    Choice::new("off", msg!("Always")),
+    Choice::new("on", msg!("Only with more than one window")),
+    Choice::new("inverse_outer", msg!("Outer gaps only with one window")),
 ];
 
 const TITLE_ALIGN_CHOICES: &[Choice] = &[
-    Choice::new("left", "Left"),
-    Choice::new("center", "Center"),
-    Choice::new("right", "Right"),
+    Choice::new("left", msg!("Left")),
+    Choice::new("center", msg!("Center")),
+    Choice::new("right", msg!("Right")),
 ];
 
 /// `gaps <which>` only sets the default of new workspaces, so a live change also sets the gaps
@@ -522,10 +537,10 @@ pub(super) fn settings() -> Vec<Setting> {
     settings.extend(border_settings(true));
     settings.extend([
         Setting::choice(HIDE_EDGE_BORDERS, Page::Windows, "none", HIDE_EDGE_CHOICES)
-            .section("Borders")
-            .group("windows.edge_borders", "Edge borders")
-            .title("Hide borders at the screen edge")
-            .keywords(&["edges", "hide_edge_borders"])
+            .section(msg!("Borders"))
+            .group("windows.edge_borders", msg!("Edge borders"))
+            .title(msg!("Hide borders at the screen edge"))
+            .keywords(&[msg!("edges"), msg!("hide_edge_borders")])
             .sway(
                 Directive::top("hide_edge_borders"),
                 ConfigFile::Appearance,
@@ -534,11 +549,13 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(HIDE_LONE_TAB, Page::Windows, false)
-            .section("Borders")
-            .group("windows.edge_borders", "Edge borders")
-            .title("Hide the title bar of a lone tab")
-            .subtitle("A tabbed or stacked container with one window shows no title bar")
-            .keywords(&["tabbed", "stacking", "i3"])
+            .section(msg!("Borders"))
+            .group("windows.edge_borders", msg!("Edge borders"))
+            .title(msg!("Hide the title bar of a lone tab"))
+            .subtitle(msg!(
+                "A tabbed or stacked container with one window shows no title bar"
+            ))
+            .keywords(&[msg!("tabbed"), msg!("stacking"), msg!("i3")])
             .sway(
                 Directive::top("hide_edge_borders"),
                 ConfigFile::Appearance,
@@ -547,9 +564,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(SMART_BORDERS, Page::Windows, "off", SMART_BORDER_CHOICES)
-            .section("Borders")
-            .title("Show borders")
-            .keywords(&["smart borders", "single window"])
+            .section(msg!("Borders"))
+            .title(msg!("Show borders"))
+            .keywords(&[msg!("smart borders"), msg!("single window")])
             .sway(
                 Directive::top("smart_borders"),
                 ConfigFile::Appearance,
@@ -575,11 +592,11 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(GAPS_INNER, Page::Windows, 0, 0, i64::from(i16::MAX))
-            .section("Gaps")
-            .title("Inner gaps")
+            .section(msg!("Gaps"))
+            .title(msg!("Inner gaps"))
             .slider(0.0, 64.0, 1.0)
-            .subtitle("Space between windows, in pixels")
-            .keywords(&["spacing", "margin"])
+            .subtitle(msg!("Space between windows, in pixels"))
+            .keywords(&[msg!("spacing"), msg!("margin")])
             .sway(
                 Directive::top("gaps").arguments(&["inner"]),
                 ConfigFile::Appearance,
@@ -595,14 +612,19 @@ pub(super) fn settings() -> Vec<Setting> {
             i64::from(i16::MIN),
             i64::from(i16::MAX),
         )
-        .section("Gaps")
-        .title("Outer gaps")
+        .section(msg!("Gaps"))
+        .title(msg!("Outer gaps"))
         .slider(0.0, 64.0, 1.0)
-        .subtitle(
+        .subtitle(msg!(
             "Space around the windows of a workspace, in pixels, added to the inner gaps; \
-             negative values take some of them away",
-        )
-        .keywords(&["spacing", "margin", "padding", "screen edge"])
+             negative values take some of them away"
+        ))
+        .keywords(&[
+            msg!("spacing"),
+            msg!("margin"),
+            msg!("padding"),
+            msg!("screen edge"),
+        ])
         .sway(
             Directive::top("gaps").arguments(&["outer"]),
             ConfigFile::Appearance,
@@ -611,9 +633,9 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::choice(SMART_GAPS, Page::Windows, "off", SMART_GAP_CHOICES)
-            .section("Gaps")
-            .title("Show gaps")
-            .keywords(&["smart gaps", "single window"])
+            .section(msg!("Gaps"))
+            .title(msg!("Show gaps"))
+            .keywords(&[msg!("smart gaps"), msg!("single window")])
             .sway(
                 Directive::top("smart_gaps"),
                 ConfigFile::Appearance,
@@ -639,10 +661,10 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::text(FONT, Page::Windows, "monospace 10")
-            .section("Title bars")
-            .title("Title bar font")
-            .subtitle("Font family and size, e.g. \"monospace 10\"")
-            .keywords(&["typeface", "text size"])
+            .section(msg!("Title bars"))
+            .title(msg!("Title bar font"))
+            .subtitle(msg!("Font family and size, e.g. \"monospace 10\""))
+            .keywords(&[msg!("typeface"), msg!("text size")])
             .sway(
                 Directive::top("font"),
                 ConfigFile::Appearance,
@@ -658,9 +680,9 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(TITLE_ALIGN, Page::Windows, "left", TITLE_ALIGN_CHOICES)
-            .section("Title bars")
-            .title("Title alignment")
-            .keywords(&["title", "center"])
+            .section(msg!("Title bars"))
+            .title(msg!("Title alignment"))
+            .keywords(&[msg!("title"), msg!("center")])
             .sway(
                 Directive::top("title_align"),
                 ConfigFile::Appearance,
@@ -678,11 +700,11 @@ pub(super) fn settings() -> Vec<Setting> {
         // Before the padding: sway checks each against the other's value in effect, and a
         // thickness up to the default vertical padding of 4 fits before the padding changes.
         Setting::integer(TITLEBAR_BORDER, Page::Windows, 1, 0, 100)
-            .section("Title bars")
-            .title("Title bar border")
-            .subtitle("In pixels, at most the padding")
+            .section(msg!("Title bars"))
+            .title(msg!("Title bar border"))
+            .subtitle(msg!("In pixels, at most the padding"))
             .slider(0.0, 10.0, 1.0)
-            .keywords(&["title", "frame"])
+            .keywords(&[msg!("title"), msg!("frame")])
             .sway(
                 Directive::top("titlebar_border_thickness"),
                 ConfigFile::Appearance,
@@ -698,12 +720,12 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(TITLEBAR_PADDING_H, Page::Windows, 5, 0, 100)
-            .section("Title bars")
-            .group("windows.titlebar.padding", "Title bar padding")
-            .title("Title bar padding, left and right")
-            .subtitle("In pixels, at least the title bar border")
+            .section(msg!("Title bars"))
+            .group("windows.titlebar.padding", msg!("Title bar padding"))
+            .title(msg!("Title bar padding, left and right"))
+            .subtitle(msg!("In pixels, at least the title bar border"))
             .slider(0.0, 20.0, 1.0)
-            .keywords(&["title", "spacing"])
+            .keywords(&[msg!("title"), msg!("spacing")])
             .sway(
                 Directive::top("titlebar_padding"),
                 ConfigFile::Appearance,
@@ -712,12 +734,12 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(TITLEBAR_PADDING_V, Page::Windows, 4, 0, 100)
-            .section("Title bars")
-            .group("windows.titlebar.padding", "Title bar padding")
-            .title("Title bar padding, top and bottom")
-            .subtitle("In pixels, at least the title bar border")
+            .section(msg!("Title bars"))
+            .group("windows.titlebar.padding", msg!("Title bar padding"))
+            .title(msg!("Title bar padding, top and bottom"))
+            .subtitle(msg!("In pixels, at least the title bar border"))
             .slider(0.0, 20.0, 1.0)
-            .keywords(&["title", "spacing", "height"])
+            .keywords(&[msg!("title"), msg!("spacing"), msg!("height")])
             .sway(
                 Directive::top("titlebar_padding"),
                 ConfigFile::Appearance,

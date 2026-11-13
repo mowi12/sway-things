@@ -16,15 +16,17 @@ use crate::command::input::{
     AccelProfile, ButtonMap, ClickMethod, DragLock, InputType, ScrollButton, ScrollMethod,
     SendEvents,
 };
+use crate::i18n::Msg;
+use crate::msg;
 
 const POINTER_EVENTS: &str = "input.pointer.events";
 const TOUCHPAD_EVENTS: &str = "input.touchpad.events";
 const TOUCHPAD_EVENTS_CHOICES: &[Choice] = &[
-    Choice::new("enabled", "On"),
-    Choice::new("disabled", "Off"),
+    Choice::new("enabled", msg!("On")),
+    Choice::new("disabled", msg!("Off")),
     Choice::new(
         "disabled_on_external_mouse",
-        "Off while a mouse is connected",
+        msg!("Off while a mouse is connected"),
     ),
 ];
 const KEYBOARD_EVENTS: &str = "input.keyboard.events";
@@ -96,42 +98,42 @@ const MIDDLE_EMULATION: Shared = Shared {
 };
 
 const ACCEL_PROFILES: &[Choice] = &[
-    Choice::new("adaptive", "Adaptive"),
-    Choice::new("flat", "Flat"),
+    Choice::new("adaptive", msg!("Adaptive")),
+    Choice::new("flat", msg!("Flat")),
 ];
 /// Mice and trackpoints scroll with a held button or not at all; touchpads also with two
 /// fingers or along the edge.
 const POINTER_SCROLL_METHODS: &[Choice] = &[
-    Choice::new("none", "None"),
-    Choice::new("on_button_down", "While a button is held"),
+    Choice::new("none", msg!("None")),
+    Choice::new("on_button_down", msg!("While a button is held")),
 ];
 const TOUCHPAD_SCROLL_METHODS: &[Choice] = &[
-    Choice::new("two_finger", "Two fingers"),
-    Choice::new("edge", "Along the edge"),
-    Choice::new("on_button_down", "While a button is held"),
-    Choice::new("none", "None"),
+    Choice::new("two_finger", msg!("Two fingers")),
+    Choice::new("edge", msg!("Along the edge")),
+    Choice::new("on_button_down", msg!("While a button is held")),
+    Choice::new("none", msg!("None")),
 ];
 const SCROLL_BUTTONS: &[Choice] = &[
-    Choice::new("button2", "Middle"),
-    Choice::new("button3", "Right"),
-    Choice::new("button1", "Left"),
-    Choice::new("button8", "Back"),
-    Choice::new("button9", "Forward"),
-    Choice::new("disable", "None"),
+    Choice::new("button2", msg!("Middle")),
+    Choice::new("button3", msg!("Right")),
+    Choice::new("button1", msg!("Left")),
+    Choice::new("button8", msg!("Back")),
+    Choice::new("button9", msg!("Forward")),
+    Choice::new("disable", msg!("None")),
 ];
 const BUTTON_MAPS: &[Choice] = &[
-    Choice::new("lrm", "Left, right, middle"),
-    Choice::new("lmr", "Left, middle, right"),
+    Choice::new("lrm", msg!("Left, right, middle")),
+    Choice::new("lmr", msg!("Left, middle, right")),
 ];
 const DRAG_LOCKS: &[Choice] = &[
-    Choice::new("disabled", "Off"),
-    Choice::new("enabled", "Until a short pause"),
-    Choice::new("enabled_sticky", "Until the next tap"),
+    Choice::new("disabled", msg!("Off")),
+    Choice::new("enabled", msg!("Until a short pause")),
+    Choice::new("enabled_sticky", msg!("Until the next tap")),
 ];
 const CLICK_METHODS: &[Choice] = &[
-    Choice::new("button_areas", "Areas at the bottom"),
-    Choice::new("clickfinger", "Number of fingers"),
-    Choice::new("none", "None"),
+    Choice::new("button_areas", msg!("Areas at the bottom")),
+    Choice::new("clickfinger", msg!("Number of fingers")),
+    Choice::new("none", msg!("None")),
 ];
 const XKB_LAYOUT: &str = "input.keyboard.xkb_layout";
 const XKB_VARIANT: &str = "input.keyboard.xkb_variant";
@@ -268,10 +270,15 @@ fn mouse_touchpad() -> Vec<Setting> {
     let touchpad = Scope::PerDevice(InputType::Touchpad);
     let mut settings = vec![
         Setting::toggle(POINTER_EVENTS, Page::MouseTouchpad, true)
-            .section("Mouse")
-            .title("Enabled")
-            .subtitle("Off ignores the mouse until it is turned on again")
-            .keywords(&["mouse", "trackpoint", "disable", "turn off"])
+            .section(msg!("Mouse"))
+            .title(msg!("Enabled"))
+            .subtitle(msg!("Off ignores the mouse until it is turned on again"))
+            .keywords(&[
+                msg!("mouse"),
+                msg!("trackpoint"),
+                msg!("disable"),
+                msg!("turn off"),
+            ])
             .scope(pointer)
             .apply(Apply::Risky)
             .sway(
@@ -290,10 +297,16 @@ fn mouse_touchpad() -> Vec<Setting> {
             "enabled",
             TOUCHPAD_EVENTS_CHOICES,
         )
-        .section("Touchpad")
-        .title("Enabled")
-        .subtitle("Off ignores the touchpad until it is turned on again")
-        .keywords(&["touchpad", "trackpad", "disable", "turn off", "palm"])
+        .section(msg!("Touchpad"))
+        .title(msg!("Enabled"))
+        .subtitle(msg!("Off ignores the touchpad until it is turned on again"))
+        .keywords(&[
+            msg!("touchpad"),
+            msg!("trackpad"),
+            msg!("disable"),
+            msg!("turn off"),
+            msg!("palm"),
+        ])
         .scope(touchpad)
         .apply(Apply::Risky)
         .sway(
@@ -331,17 +344,21 @@ fn mouse_touchpad() -> Vec<Setting> {
 fn common(input_type: InputType) -> Vec<Setting> {
     let scope = Scope::PerDevice(input_type);
     let touchpad = input_type == InputType::Touchpad;
-    let section = if touchpad { "Touchpad" } else { "Mouse" };
+    let section = if touchpad {
+        msg!("Touchpad")
+    } else {
+        msg!("Mouse")
+    };
     // The words of pointers or of touchpads.
-    let keywords = |words: [&'static [&'static str]; 2]| words[usize::from(touchpad)];
+    let keywords = |words: [&'static [Msg]; 2]| words[usize::from(touchpad)];
     vec![
         Setting::decimal(POINTER_ACCEL.of(input_type), Page::MouseTouchpad, 0.0, -1.0, 1.0)
             .section(section)
-            .title("Pointer speed")
+            .title(msg!("Pointer speed"))
             .slider(-1.0, 1.0, 0.05)
             .keywords(keywords([
-                &["mouse", "trackpoint", "acceleration", "sensitivity", "dpi"],
-                &["touchpad", "trackpad", "acceleration", "sensitivity", "dpi"],
+                &[msg!("mouse"), msg!("trackpoint"), msg!("acceleration"), msg!("sensitivity"), msg!("dpi")],
+                &[msg!("touchpad"), msg!("trackpad"), msg!("acceleration"), msg!("sensitivity"), msg!("dpi")],
             ]))
             .scope(scope)
             .sway(
@@ -363,11 +380,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
             ACCEL_PROFILES,
         )
         .section(section)
-        .title("Acceleration")
-        .subtitle("Adaptive moves farther the faster you move; flat keeps the same speed")
+        .title(msg!("Acceleration"))
+        .subtitle(msg!("Adaptive moves farther the faster you move; flat keeps the same speed"))
         .keywords(keywords([
-            &["mouse", "trackpoint", "acceleration profile", "gaming"],
-            &["touchpad", "trackpad", "acceleration profile"],
+            &[msg!("mouse"), msg!("trackpoint"), msg!("acceleration profile"), msg!("gaming")],
+            &[msg!("touchpad"), msg!("trackpad"), msg!("acceleration profile")],
         ]))
         .scope(scope)
         .sway(
@@ -385,11 +402,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
         .build(),
         Setting::toggle(NATURAL_SCROLL.of(input_type), Page::MouseTouchpad, false)
             .section(section)
-            .title("Natural scrolling")
-            .subtitle("Content moves with your fingers, like on a phone")
+            .title(msg!("Natural scrolling"))
+            .subtitle(msg!("Content moves with your fingers, like on a phone"))
             .keywords(keywords([
-                &["mouse", "trackpoint", "reverse", "invert", "scroll direction"],
-                &["touchpad", "trackpad", "reverse", "invert", "scroll direction"],
+                &[msg!("mouse"), msg!("trackpoint"), msg!("reverse"), msg!("invert"), msg!("scroll direction")],
+                &[msg!("touchpad"), msg!("trackpad"), msg!("reverse"), msg!("invert"), msg!("scroll direction")],
             ]))
             .scope(scope)
             .sway(
@@ -412,12 +429,12 @@ fn common(input_type: InputType) -> Vec<Setting> {
             MAX_SCROLL_FACTOR,
         )
         .section(section)
-        .title("Scroll speed")
-        .subtitle("How far one step of scrolling goes; 1 is unchanged")
+        .title(msg!("Scroll speed"))
+        .subtitle(msg!("How far one step of scrolling goes; 1 is unchanged"))
         .slider(0.1, 5.0, 0.1)
         .keywords(keywords([
-            &["mouse", "trackpoint", "scroll factor", "wheel"],
-            &["touchpad", "trackpad", "scroll factor"],
+            &[msg!("mouse"), msg!("trackpoint"), msg!("scroll factor"), msg!("wheel")],
+            &[msg!("touchpad"), msg!("trackpad"), msg!("scroll factor")],
         ]))
         .scope(scope)
         .sway(
@@ -443,11 +460,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
             },
         )
         .section(section)
-        .title("Scroll method")
-        .subtitle("Unless set, the device decides: trackpoints scroll while the middle button is held")
+        .title(msg!("Scroll method"))
+        .subtitle(msg!("Unless set, the device decides: trackpoints scroll while the middle button is held"))
         .keywords(keywords([
-            &["mouse", "trackpoint", "scrolling", "button scrolling"],
-            &["touchpad", "trackpad", "scrolling", "two finger", "edge scrolling"],
+            &[msg!("mouse"), msg!("trackpoint"), msg!("scrolling"), msg!("button scrolling")],
+            &[msg!("touchpad"), msg!("trackpad"), msg!("scrolling"), msg!("two finger"), msg!("edge scrolling")],
         ]))
         .scope(scope)
         .sway(
@@ -478,11 +495,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
             SCROLL_BUTTONS,
         )
         .section(section)
-        .title("Scroll button")
-        .subtitle("The button to hold while scrolling with a held button")
+        .title(msg!("Scroll button"))
+        .subtitle(msg!("The button to hold while scrolling with a held button"))
         .keywords(keywords([
-            &["mouse", "trackpoint", "scrolling", "button scrolling"],
-            &["touchpad", "trackpad", "scrolling", "button scrolling"],
+            &[msg!("mouse"), msg!("trackpoint"), msg!("scrolling"), msg!("button scrolling")],
+            &[msg!("touchpad"), msg!("trackpad"), msg!("scrolling"), msg!("button scrolling")],
         ]))
         .scope(scope)
         .sway(
@@ -504,11 +521,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
         .build(),
         Setting::toggle(LEFT_HANDED.of(input_type), Page::MouseTouchpad, false)
             .section(section)
-            .title("Left-handed")
-            .subtitle("Swaps the left and right buttons")
+            .title(msg!("Left-handed"))
+            .subtitle(msg!("Swaps the left and right buttons"))
             .keywords(keywords([
-                &["mouse", "trackpoint", "swap buttons", "primary button"],
-                &["touchpad", "trackpad", "swap buttons", "primary button"],
+                &[msg!("mouse"), msg!("trackpoint"), msg!("swap buttons"), msg!("primary button")],
+                &[msg!("touchpad"), msg!("trackpad"), msg!("swap buttons"), msg!("primary button")],
             ]))
             .scope(scope)
             .sway(
@@ -520,11 +537,11 @@ fn common(input_type: InputType) -> Vec<Setting> {
             .build(),
         Setting::toggle(MIDDLE_EMULATION.of(input_type), Page::MouseTouchpad, false)
             .section(section)
-            .title("Middle-click emulation")
-            .subtitle("Pressing left and right together clicks the middle button. Unless set, the device decides")
+            .title(msg!("Middle-click emulation"))
+            .subtitle(msg!("Pressing left and right together clicks the middle button. Unless set, the device decides"))
             .keywords(keywords([
-                &["mouse", "trackpoint", "middle button", "paste"],
-                &["touchpad", "trackpad", "middle button", "paste"],
+                &[msg!("mouse"), msg!("trackpoint"), msg!("middle button"), msg!("paste")],
+                &[msg!("touchpad"), msg!("trackpad"), msg!("middle button"), msg!("paste")],
             ]))
             .scope(scope)
             .sway(
@@ -551,10 +568,10 @@ fn touchpad_only() -> Vec<Setting> {
     let touchpad = Scope::PerDevice(InputType::Touchpad);
     vec![
         Setting::toggle(TAP, Page::MouseTouchpad, false)
-            .section("Touchpad")
-            .title("Tap to click")
-            .subtitle("Tap the touchpad instead of pressing it. Unless set, the device decides")
-            .keywords(&["touchpad", "trackpad"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Tap to click"))
+            .subtitle(msg!("Tap the touchpad instead of pressing it. Unless set, the device decides"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad")])
             .scope(touchpad)
             .sway(
                 Directive::input("tap"),
@@ -564,10 +581,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(TAP_BUTTON_MAP, Page::MouseTouchpad, "lrm", BUTTON_MAPS)
-            .section("Touchpad")
-            .title("Tapping with fingers")
-            .subtitle("The buttons a tap with one, two and three fingers clicks")
-            .keywords(&["touchpad", "trackpad", "tap button map", "two finger tap", "right click"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Tapping with fingers"))
+            .subtitle(msg!("The buttons a tap with one, two and three fingers clicks"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("tap button map"), msg!("two finger tap"), msg!("right click")])
             .scope(touchpad)
             .sway(
                 Directive::input("tap_button_map"),
@@ -582,10 +599,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(DRAG, Page::MouseTouchpad, true)
-            .section("Touchpad")
-            .title("Tap and drag")
-            .subtitle("Tap, then touch again and move to drag")
-            .keywords(&["touchpad", "trackpad", "drag"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Tap and drag"))
+            .subtitle(msg!("Tap, then touch again and move to drag"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("drag")])
             .scope(touchpad)
             .sway(
                 Directive::input("drag"),
@@ -595,10 +612,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(DRAG_LOCK, Page::MouseTouchpad, "disabled", DRAG_LOCKS)
-            .section("Touchpad")
-            .title("Drag lock")
-            .subtitle("Keeps dragging when the finger is lifted")
-            .keywords(&["touchpad", "trackpad", "drag"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Drag lock"))
+            .subtitle(msg!("Keeps dragging when the finger is lifted"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("drag")])
             .scope(touchpad)
             .sway(
                 Directive::input("drag_lock"),
@@ -615,10 +632,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(DWT, Page::MouseTouchpad, true)
-            .section("Touchpad")
-            .title("Off while typing")
-            .subtitle("Ignores the touchpad while you type")
-            .keywords(&["touchpad", "trackpad", "disable while typing", "palm"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Off while typing"))
+            .subtitle(msg!("Ignores the touchpad while you type"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("disable while typing"), msg!("palm")])
             .scope(touchpad)
             .sway(
                 Directive::input("dwt"),
@@ -628,10 +645,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(DWTP, Page::MouseTouchpad, true)
-            .section("Touchpad")
-            .title("Off while using the trackpoint")
-            .subtitle("Ignores the touchpad while the trackpoint is used")
-            .keywords(&["touchpad", "trackpad", "trackpoint", "disable while trackpointing"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Off while using the trackpoint"))
+            .subtitle(msg!("Ignores the touchpad while the trackpoint is used"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("trackpoint"), msg!("disable while trackpointing")])
             .scope(touchpad)
             .sway(
                 Directive::input("dwtp"),
@@ -641,10 +658,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(CLICK_METHOD, Page::MouseTouchpad, "button_areas", CLICK_METHODS)
-            .section("Touchpad")
-            .title("Right click")
-            .subtitle("Press the bottom right corner, or press with two fingers. Unless set, the device decides")
-            .keywords(&["touchpad", "trackpad", "click method", "clickfinger", "button areas"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Right click"))
+            .subtitle(msg!("Press the bottom right corner, or press with two fingers. Unless set, the device decides"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("click method"), msg!("clickfinger"), msg!("button areas")])
             .scope(touchpad)
             .sway(
                 Directive::input("click_method"),
@@ -667,10 +684,10 @@ fn touchpad_only() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(CLICKFINGER_BUTTON_MAP, Page::MouseTouchpad, "lrm", BUTTON_MAPS)
-            .section("Touchpad")
-            .title("Pressing with fingers")
-            .subtitle("The buttons a press with one, two and three fingers clicks, when the number of fingers decides")
-            .keywords(&["touchpad", "trackpad", "clickfinger button map", "right click"])
+            .section(msg!("Touchpad"))
+            .title(msg!("Pressing with fingers"))
+            .subtitle(msg!("The buttons a press with one, two and three fingers clicks, when the number of fingers decides"))
+            .keywords(&[msg!("touchpad"), msg!("trackpad"), msg!("clickfinger button map"), msg!("right click")])
             .scope(touchpad)
             .sway(
                 Directive::input("clickfinger_button_map"),
@@ -697,10 +714,10 @@ fn keyboard() -> Vec<Setting> {
     let keyboard = Scope::PerDevice(InputType::Keyboard);
     vec![
         Setting::toggle(KEYBOARD_EVENTS, Page::Keyboard, true)
-            .section("Keyboard")
-            .title("Enabled")
-            .subtitle("Off ignores the keyboard until it is turned on again")
-            .keywords(&["keyboard", "disable", "turn off"])
+            .section(msg!("Keyboard"))
+            .title(msg!("Enabled"))
+            .subtitle(msg!("Off ignores the keyboard until it is turned on again"))
+            .keywords(&[msg!("keyboard"), msg!("disable"), msg!("turn off")])
             .scope(keyboard)
             .apply(Apply::Risky)
             .sway(
@@ -711,10 +728,10 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::list(XKB_LAYOUT, Page::Keyboard, &["us"])
-            .section("Layouts")
-            .title("Layouts")
-            .subtitle("The keymaps you type with, in the order the layout switching goes through them")
-            .keywords(&["keyboard", "language", "xkb", "keymap", "qwerty", "azerty", "qwertz"])
+            .section(msg!("Layouts"))
+            .title(msg!("Layouts"))
+            .subtitle(msg!("The keymaps you type with, in the order the layout switching goes through them"))
+            .keywords(&[msg!("keyboard"), msg!("language"), msg!("xkb"), msg!("keymap"), msg!("qwerty"), msg!("azerty"), msg!("qwertz")])
             .scope(keyboard)
             .apply(Apply::Risky)
             .clears_first(XKB_VARIANT)
@@ -730,10 +747,10 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::list(XKB_VARIANT, Page::Keyboard, &[])
-            .section("Layouts")
-            .title("Variants")
-            .subtitle("One for each layout, e.g. Dvorak or without dead keys; empty keeps the layout as it is")
-            .keywords(&["keyboard", "xkb", "keymap", "dvorak", "colemak", "dead keys", "nodeadkeys"])
+            .section(msg!("Layouts"))
+            .title(msg!("Variants"))
+            .subtitle(msg!("One for each layout, e.g. Dvorak or without dead keys; empty keeps the layout as it is"))
+            .keywords(&[msg!("keyboard"), msg!("xkb"), msg!("keymap"), msg!("dvorak"), msg!("colemak"), msg!("dead keys"), msg!("nodeadkeys")])
             .scope(keyboard)
             .apply(Apply::Risky)
             .sway(
@@ -744,10 +761,10 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::text(XKB_MODEL, Page::Keyboard, "")
-            .section("Layouts")
-            .title("Keyboard model")
-            .subtitle("The physical keyboard, for keys only some models have. Empty uses the default model, pc105")
-            .keywords(&["keyboard", "xkb", "hardware", "pc105"])
+            .section(msg!("Layouts"))
+            .title(msg!("Keyboard model"))
+            .subtitle(msg!("The physical keyboard, for keys only some models have. Empty uses the default model, pc105"))
+            .keywords(&[msg!("keyboard"), msg!("xkb"), msg!("hardware"), msg!("pc105")])
             .scope(keyboard)
             .sway(
                 Directive::input("xkb_model"),
@@ -757,21 +774,21 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::list(XKB_OPTIONS, Page::Keyboard, &[])
-            .section("Options")
-            .title("XKB options")
-            .subtitle("Extra key behavior, e.g. Caps Lock as Ctrl, a Compose key or the shortcut that switches layouts")
+            .section(msg!("Options"))
+            .title(msg!("XKB options"))
+            .subtitle(msg!("Extra key behavior, e.g. Caps Lock as Ctrl, a Compose key or the shortcut that switches layouts"))
             .keywords(&[
-                "keyboard",
-                "xkb",
-                "caps lock",
-                "ctrl",
-                "control",
-                "escape",
-                "compose",
-                "alt",
-                "super",
-                "switch layout",
-                "remap",
+                msg!("keyboard"),
+                msg!("xkb"),
+                msg!("caps lock"),
+                msg!("ctrl"),
+                msg!("control"),
+                msg!("escape"),
+                msg!("compose"),
+                msg!("alt"),
+                msg!("super"),
+                msg!("switch layout"),
+                msg!("remap"),
             ])
             .scope(keyboard)
             .apply(Apply::Risky)
@@ -792,11 +809,11 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(REPEAT_DELAY, Page::Keyboard, 600, 100, i64::from(u16::MAX))
-            .section("Typing")
-            .title("Repeat delay")
+            .section(msg!("Typing"))
+            .title(msg!("Repeat delay"))
             .slider(100.0, 2000.0, 10.0)
-            .subtitle("Milliseconds a key is held before it repeats")
-            .keywords(&["keyboard", "typing", "key repeat", "hold"])
+            .subtitle(msg!("Milliseconds a key is held before it repeats"))
+            .keywords(&[msg!("keyboard"), msg!("typing"), msg!("key repeat"), msg!("hold")])
             .scope(keyboard)
             .sway(
                 Directive::input("repeat_delay"),
@@ -811,11 +828,11 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::integer(REPEAT_RATE, Page::Keyboard, 25, 1, i64::from(u16::MAX))
-            .section("Typing")
-            .title("Repeat rate")
+            .section(msg!("Typing"))
+            .title(msg!("Repeat rate"))
             .slider(1.0, 100.0, 1.0)
-            .subtitle("Characters per second while a key is held")
-            .keywords(&["keyboard", "typing", "key repeat", "speed"])
+            .subtitle(msg!("Characters per second while a key is held"))
+            .keywords(&[msg!("keyboard"), msg!("typing"), msg!("key repeat"), msg!("speed")])
             .scope(keyboard)
             .sway(
                 Directive::input("repeat_rate"),
@@ -833,10 +850,10 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(XKB_NUMLOCK, Page::Keyboard, false)
-            .section("Typing")
-            .title("Num Lock on at startup")
-            .subtitle("Turns Num Lock on when sway sets up the keyboard")
-            .keywords(&["keyboard", "numlock", "number pad", "numpad"])
+            .section(msg!("Typing"))
+            .title(msg!("Num Lock on at startup"))
+            .subtitle(msg!("Turns Num Lock on when sway sets up the keyboard"))
+            .keywords(&[msg!("keyboard"), msg!("numlock"), msg!("number pad"), msg!("numpad")])
             .scope(keyboard)
             .apply(Apply::Reload)
             .sway(
@@ -847,10 +864,10 @@ fn keyboard() -> Vec<Setting> {
             )
             .build(),
         Setting::toggle(XKB_CAPSLOCK, Page::Keyboard, false)
-            .section("Typing")
-            .title("Caps Lock on at startup")
-            .subtitle("Turns Caps Lock on when sway sets up the keyboard")
-            .keywords(&["keyboard", "capslock", "caps lock", "uppercase"])
+            .section(msg!("Typing"))
+            .title(msg!("Caps Lock on at startup"))
+            .subtitle(msg!("Turns Caps Lock on when sway sets up the keyboard"))
+            .keywords(&[msg!("keyboard"), msg!("capslock"), msg!("caps lock"), msg!("uppercase")])
             .scope(keyboard)
             .apply(Apply::Reload)
             .sway(
