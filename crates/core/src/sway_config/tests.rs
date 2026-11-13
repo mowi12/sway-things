@@ -478,6 +478,24 @@ fn long_lines_take_linear_time() {
 }
 
 #[test]
+fn variables_that_double_stop_at_the_line_limit() {
+    // Each line doubles $a: 40 of them would need a terabyte. The line that gets longer than
+    // 8 MiB ends the config.
+    let main = format!("set $a xx\n{}gaps inner 1\n", "set $a $a$a\n".repeat(40));
+    let config = parsed(&main);
+    assert_eq!(kinds(&config), [(23, DiagnosticKind::TooBig)]);
+    assert_eq!(config.directives.len(), 22);
+    assert_eq!(config.directives[21].args[1].len(), 4 * 1024 * 1024);
+
+    // In an included file, the including file isn't read on either.
+    let files =
+        files("include a.conf\ngaps inner 1\n").file("/home/me/.config/sway/a.conf", main.clone());
+    let config = parse(Path::new(MAIN), &files);
+    assert_eq!(config.directives.len(), 22);
+    assert_eq!(kinds(&config), [(23, DiagnosticKind::TooBig)]);
+}
+
+#[test]
 fn text_that_is_not_utf8_is_read_anyway() {
     let files = MemoryFiles::new().file(MAIN, b"font \xff\xfe 10\r\ngaps inner 8\r\n".to_vec());
     let config = parse(Path::new(MAIN), &files);
@@ -616,7 +634,7 @@ proptest! {
     fn lines_split_like_the_port_of_sway(text in "[ -~]{0,40}") {
         if let Ok(expected) = model::config_command(text.as_bytes()) {
             let stripped = line::strip_whitespace(text.as_bytes());
-            prop_assert_eq!(line::arguments(stripped, &[]), expected);
+            prop_assert_eq!(line::arguments(stripped, &[], usize::MAX), Some(expected));
         }
     }
 
@@ -624,7 +642,7 @@ proptest! {
     fn hostile_lines_split_like_the_port_of_sway(text in "[a-c \"'\\\\\\[\\]$#{}x0-2]{0,24}") {
         if let Ok(expected) = model::config_command(text.as_bytes()) {
             let stripped = line::strip_whitespace(text.as_bytes());
-            prop_assert_eq!(line::arguments(stripped, &[]), expected);
+            prop_assert_eq!(line::arguments(stripped, &[], usize::MAX), Some(expected));
         }
     }
 
@@ -638,7 +656,7 @@ proptest! {
             name: name.into_bytes(),
             value: value.into_bytes(),
         }];
-        let _ = line::arguments(text.as_bytes(), &variables);
+        let _ = line::arguments(text.as_bytes(), &variables, usize::MAX);
     }
 
     /// Any bytes at all: the parser ends, without a panic.

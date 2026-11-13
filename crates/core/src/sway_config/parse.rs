@@ -21,6 +21,10 @@ const MAX_DIRECTIVES: usize = 100_000;
 /// A file bigger than this isn't read.
 const MAX_FILE_SIZE: usize = 8 * 1024 * 1024;
 
+/// A line longer than this once its variables are replaced isn't read, and neither is the rest
+/// of the config.
+const MAX_LINE: usize = 8 * 1024 * 1024;
+
 /// A directive of the config: one command, as sway runs it while reading the files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Directive {
@@ -118,7 +122,8 @@ pub enum DiagnosticKind {
     UnmatchedBrace,
     /// A block that is still open at the end of the file.
     UnclosedBlock,
-    /// The config has too many directives; the rest wasn't read.
+    /// The config has too many directives, or a line that is too long once its variables are
+    /// replaced; the rest wasn't read.
     TooBig,
 }
 
@@ -183,6 +188,7 @@ pub fn parse(main: &Path, files: &dyn Files) -> SwayConfig {
         files,
         config: SwayConfig::default(),
         variables: Vec::new(),
+        stopped: false,
     };
     let path: Arc<Path> = match files.canonicalize(main) {
         Ok(path) => path.into(),
@@ -207,6 +213,8 @@ struct Parser<'a> {
     config: SwayConfig,
     /// The variables set so far, longest name first.
     variables: Vec<Variable>,
+    /// Whether the config was too big to read to the end: nothing more is read.
+    stopped: bool,
 }
 
 /// An open block.
@@ -226,6 +234,12 @@ impl Parser<'_> {
             line,
             kind,
         });
+    }
+
+    /// Stops reading the config at this line, because it is too big to read to the end.
+    fn stop(&mut self, file: &Arc<Path>, line: usize) {
+        self.diagnose(file, line, DiagnosticKind::TooBig);
+        self.stopped = true;
     }
 
     /// Reads the file at `path`, which is canonical. Returns whether it could be read.
@@ -248,12 +262,20 @@ impl Parser<'_> {
             }
         };
         self.config.files.push(Arc::clone(path));
+        self.read_lines(path, &content, depth);
+        true
+    }
 
+    /// Reads the lines of the file at `path`.
+    fn read_lines(&mut self, path: &Arc<Path>, content: &[u8], depth: usize) {
         let mut blocks: Vec<Block> = Vec::new();
-        let mut lines = Lines::new(&content);
+        let mut lines = Lines::new(content);
         while let Some((number, raw)) = lines.next_logical() {
+            if self.stopped {
+                break;
+            }
             if self.config.directives.len() >= MAX_DIRECTIVES {
-                self.diagnose(path, number, DiagnosticKind::TooBig);
+                self.stop(path, number);
                 break;
             }
             let text = line::strip_whitespace(&raw);
@@ -295,39 +317,55 @@ impl Parser<'_> {
                 }
                 Some(_) => {}
             }
-
-            let args: Vec<String> = line::arguments(&expanded, &self.variables)
-                .iter()
-                .map(|arg| String::from_utf8_lossy(arg).into_owned())
-                .collect();
-            let block_words = blocks.last().map_or(0, |block| block.words).min(args.len());
-            let (block, rest) = args.split_at(block_words);
-            let Some((name, rest)) = rest.split_first() else {
-                continue;
-            };
-            let mut directive = Directive {
-                file: Arc::clone(path),
-                line: number,
-                block: block.to_vec(),
-                name: name.clone(),
-                args: rest.to_vec(),
-                text: String::from_utf8_lossy(text).into_owned(),
-            };
-            if directive.block.is_empty() {
-                if directive.is(&[], "set") {
-                    self.set(&directive.args);
-                } else if directive.is(&[], "include") {
-                    self.include(&directive, depth);
-                    continue;
-                }
-                normalize(&mut directive);
-            }
-            self.config.directives.push(directive);
+            let block_words = blocks.last().map_or(0, |block| block.words);
+            self.command(path, number, text, &expanded, block_words, depth);
         }
         if let Some(block) = blocks.first() {
             self.diagnose(path, block.line, DiagnosticKind::UnclosedBlock);
         }
-        true
+    }
+
+    /// Runs the line `text` (number `number`) of the file at `path`, which is `expanded` with the
+    /// prefix of its block (`block_words` arguments), the way sway runs it while reading.
+    fn command(
+        &mut self,
+        path: &Arc<Path>,
+        number: usize,
+        text: &[u8],
+        expanded: &[u8],
+        block_words: usize,
+        depth: usize,
+    ) {
+        let Some(args) = line::arguments(expanded, &self.variables, MAX_LINE) else {
+            self.stop(path, number);
+            return;
+        };
+        let args: Vec<String> = args
+            .iter()
+            .map(|arg| String::from_utf8_lossy(arg).into_owned())
+            .collect();
+        let (block, rest) = args.split_at(block_words.min(args.len()));
+        let Some((name, rest)) = rest.split_first() else {
+            return;
+        };
+        let mut directive = Directive {
+            file: Arc::clone(path),
+            line: number,
+            block: block.to_vec(),
+            name: name.clone(),
+            args: rest.to_vec(),
+            text: String::from_utf8_lossy(text).into_owned(),
+        };
+        if directive.block.is_empty() {
+            if directive.is(&[], "set") {
+                self.set(&directive.args);
+            } else if directive.is(&[], "include") {
+                self.include(&directive, depth);
+                return;
+            }
+            normalize(&mut directive);
+        }
+        self.config.directives.push(directive);
     }
 
     /// `set $name value…`: sway keeps the variables sorted by the length of their names, longest
@@ -390,6 +428,9 @@ impl Parser<'_> {
         let paths = include.paths.clone();
         self.config.includes.push(include);
         for path in paths {
+            if self.stopped {
+                break;
+            }
             let Ok(real) = self.files.canonicalize(&path) else {
                 self.diagnose(file, line, DiagnosticKind::IncludeNotFound { path });
                 continue;

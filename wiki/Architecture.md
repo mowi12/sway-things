@@ -656,8 +656,10 @@ from the rules registry of xkeyboard-config. It only reads.
 - **Best-effort by design:** the parser doesn't know which commands exist or what they do; that is for conflict
   detection and the registry. It reads through a `Files` trait, with the real file system or files in memory.
 - **Robustness:** every step is linear in the length of the input, include depth, directive count and file size are
-  bounded, and property tests feed it arbitrary bytes and compare its line splitting with the port of sway's parser that
-  the command builders are tested against. It's built to be **fuzzed**.
+  bounded, a line is at most 8 MiB once its variables are replaced (a variable holds a line, so lines that each use it
+  twice would double it every time; a longer line ends the config with a diagnostic), and property tests feed it
+  arbitrary bytes and compare its line splitting with the port of sway's parser that the command builders are tested
+  against. It's built to be **fuzzed**.
 
 ### Include detection
 

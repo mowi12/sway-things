@@ -183,8 +183,12 @@ pub(super) fn unescape_string(input: &[u8]) -> Option<Vec<u8>> {
 
 /// Replaces the variables in `input`. `variables` are tried in order, so the longest names come
 /// first. `$$` becomes `$`, a `$` after a single backslash stays, and a name that isn't set stays
-/// as written.
-pub(super) fn replace_variables(input: &[u8], variables: &[Variable]) -> Vec<u8> {
+/// as written. `None` if the result would be longer than `limit` bytes.
+pub(super) fn replace_variables(
+    input: &[u8],
+    variables: &[Variable],
+    limit: usize,
+) -> Option<Vec<u8>> {
     let text = c_str(input);
     let mut out = Vec::with_capacity(text.len());
     let mut index = 0;
@@ -218,8 +222,11 @@ pub(super) fn replace_variables(input: &[u8], variables: &[Variable]) -> Vec<u8>
             out.push(b'$');
             index += 1;
         }
+        if out.len() > limit {
+            return None;
+        }
     }
-    out
+    Some(out)
 }
 
 /// The arguments of a config line as sway's command handlers see them: variables replaced, quotes
@@ -228,11 +235,15 @@ pub(super) fn replace_variables(input: &[u8], variables: &[Variable]) -> Vec<u8>
 ///
 /// The first argument is the command. For `set`, the name of the variable is the second argument,
 /// with its `$`, and is never replaced.
-pub(super) fn arguments(line: &[u8], variables: &[Variable]) -> Vec<Vec<u8>> {
+///
+/// `None` if the line with its variables replaced would be longer than `limit` bytes. A variable
+/// holds a whole line, so without a limit a few lines that each use a variable twice in the next
+/// one's value would grow exponentially.
+pub(super) fn arguments(line: &[u8], variables: &[Variable], limit: usize) -> Option<Vec<Vec<u8>>> {
     let mut argv = split_args(line);
     // The command itself can be stored in a variable.
     if argv.first().is_some_and(|name| name.first() == Some(&b'$')) {
-        argv[0] = replace_variables(&argv[0], variables);
+        argv[0] = replace_variables(&argv[0], variables, limit)?;
         argv = split_args(&argv.join(&b' '));
     }
     // sway finds its command handlers without regard to case.
@@ -245,7 +256,7 @@ pub(super) fn arguments(line: &[u8], variables: &[Variable]) -> Vec<Vec<u8>> {
         }
     }
     let joined = argv.join(&b' ');
-    let mut argv = split_args(&replace_variables(&joined, variables));
+    let mut argv = split_args(&replace_variables(&joined, variables, limit)?);
     let keeps_quotes = argv
         .first()
         .is_some_and(|name| KEEPS_QUOTES.iter().any(|command| is(name, command)));
@@ -258,5 +269,5 @@ pub(super) fn arguments(line: &[u8], variables: &[Variable]) -> Vec<Vec<u8>> {
             *arg = unescaped;
         }
     }
-    argv
+    Some(argv)
 }
