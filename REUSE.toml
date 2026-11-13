@@ -78,3 +78,11 @@ path = "crates/gui/resources/icons/scalable/actions/st-code-symbolic.svg"
 precedence = "override"
 SPDX-FileCopyrightText = ["2013-present Cole Bemis", "2026 Lucide Icons and Contributors"]
 SPDX-License-Identifier = "ISC AND MIT"
+
+# The AUR package files are 0BSD, as the AUR asks. .SRCINFO is written by makepkg and can't carry a header. (REUSE
+# ignores the LICENSE file next to it, the license text for the AUR repository.)
+[[annotations]]
+path = "packaging/aur/**/.SRCINFO"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "0BSD"
