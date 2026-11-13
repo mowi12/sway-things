@@ -125,7 +125,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`; `desktop-file-validate` and `appstreamcli validate` on the desktop entry and metainfo after `msgfmt` merged the translations |
 | Spelling | `typos`, locale en-US |
-| Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` |
+| Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` and those of `data/*.in` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
@@ -148,11 +148,13 @@ Setting::toggle(TAP, Page::MouseTouchpad, true)
     .keywords(&[msg!("touchpad"), msg!("click")])
 ```
 
-A comment starting with `TRANSLATORS:` right above a string goes into the template as a note for translators. After
-adding, changing or removing a string, run `scripts/update-pot.sh` to update `po/sway-things.pot`;
-`scripts/check-pot.sh` and a core test fail while it is out of date. Both scripts need `xgettext` 0.24 or newer, the
-first version that reads Rust. Tests that need a string that is not extracted use `Msg::new`. See
-[wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations are found.
+A comment starting with `TRANSLATORS:` right above a string goes into the template as a note for translators. The
+template also holds the texts of the desktop entry and the AppStream metainfo, from `data/*.desktop.in` and
+`data/*.metainfo.xml.in`. After adding, changing or removing a string, in the Rust sources or in those files, run
+`scripts/update-pot.sh` to update `po/sway-things.pot`; `scripts/check-pot.sh` and a core test fail while it is out of
+date. Both scripts need `xgettext` 0.24 or newer, the first version that reads Rust. Tests that need a string that is
+not extracted use `Msg::new`. See [wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations
+are found.
 
 ## Man pages and completions
 

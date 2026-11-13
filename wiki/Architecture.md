@@ -1063,6 +1063,10 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test
   (`crates/core/tests/pot.rs`) fails when a string of the registry or the doctor is missing from it. CI runs the check
   in an Arch Linux container, because Debian 13 and Ubuntu 24.04 ship older gettext versions.
+- **Desktop entry and metainfo**: their translatable fields (name, generic name, comment, keywords, summary and
+  description) go into the same template: `scripts/update-pot.sh` extracts them from `data/*.desktop.in` and
+  `data/*.metainfo.xml.in` in a second `xgettext` run. At build time, `msgfmt --desktop` and `msgfmt --xml` merge the
+  translations of the languages in `po/LINGUAS` into the installed files.
 - **Lookup**: each binary calls `i18n::init()` at startup. It reads the catalogs (`.mo` files) of the text domain
   `sway-things` with a small reader of its own, in pure Rust: no C library, no `setlocale`, no global state outside the
   one catalog set. The catalogs are `<dir>/<language>/LC_MESSAGES/sway-things.mo`, where `<dir>` is
