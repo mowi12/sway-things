@@ -174,6 +174,9 @@ triage() {
   done
   if ((count == 0)); then
     echo "No inputs in $artifacts/"
+  elif [[ -n ${GITHUB_OUTPUT-} ]]; then
+    # In a workflow, tells the next job that there is something to report.
+    echo "found=true" >>"$GITHUB_OUTPUT"
   fi
 }
 

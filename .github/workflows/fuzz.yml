@@ -1,0 +1,110 @@
+name: Fuzzing
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: How long to fuzz, in seconds
+        type: number
+        default: 900
+
+permissions: {}
+
+concurrency:
+  group: fuzzing
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: Fuzz Config Parser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      found: ${{ steps.triage.outputs.found }}
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+      - name: Install cargo-fuzz
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_FUZZ_VERSION: 0.13.2
+          CARGO_FUZZ_SHA256: b5b704018b63e0f151c17a057ac53b5111e1db545d1b9f72fee79f08a545931c
+        run: |
+          gh release download "$CARGO_FUZZ_VERSION" --repo rust-fuzz/cargo-fuzz \
+            --pattern "cargo-fuzz-$CARGO_FUZZ_VERSION-x86_64-unknown-linux-musl.tar.gz" --output "$RUNNER_TEMP/cargo-fuzz.tar.gz"
+          echo "$CARGO_FUZZ_SHA256  $RUNNER_TEMP/cargo-fuzz.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/cargo-fuzz"
+          tar -xzf "$RUNNER_TEMP/cargo-fuzz.tar.gz" -C "$RUNNER_TEMP/cargo-fuzz" cargo-fuzz
+          echo "$RUNNER_TEMP/cargo-fuzz" >> "$GITHUB_PATH"
+      - name: Restore Corpus
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/sway_config
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Fuzz Config Parser
+        id: fuzz
+        env:
+          FUZZ_SECONDS: ${{ inputs.seconds || 900 }}
+        run: scripts/fuzz.sh run "$FUZZ_SECONDS"
+      - name: Minimize Corpus
+        if: ${{ !cancelled() }}
+        run: scripts/fuzz.sh minimize
+      - name: Save Corpus
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/sway_config
+          key: fuzz-corpus-${{ github.run_id }}
+      - name: Triage Fuzzer Findings
+        id: triage
+        if: failure() && steps.fuzz.outcome == 'failure'
+        run: scripts/fuzz.sh triage "$RUNNER_TEMP/fuzz-reports"
+      - name: Upload Fuzz Inputs
+        if: failure() && steps.fuzz.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-inputs
+          path: fuzz/artifacts/sway_config/
+          if-no-files-found: ignore
+      - name: Upload Fuzz Reports
+        if: failure() && steps.triage.outputs.found == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-reports
+          path: ${{ runner.temp }}/fuzz-reports/
+
+  report:
+    name: Report Fuzzer Findings
+    needs: fuzz
+    if: ${{ !cancelled() && needs.fuzz.outputs.found == 'true' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download Fuzz Reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fuzz-reports
+          path: ${{ runner.temp }}/fuzz-reports
+      - name: Report Fuzzer Findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: scripts/fuzz.sh report "$RUNNER_TEMP/fuzz-reports"

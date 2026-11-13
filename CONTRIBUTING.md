@@ -133,7 +133,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
-| Fuzzing | sway config parser with `cargo-fuzz` (`scripts/fuzz.sh`, see [Fuzzing](#fuzzing)) |
+| Fuzzing | sway config parser with `cargo-fuzz` (`scripts/fuzz.sh`, see [Fuzzing](#fuzzing)): lint and 60 s on every change, 15 min daily |
 | Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
 
 Editors pick up indentation and line endings from `.editorconfig`.
@@ -157,9 +157,11 @@ An input is one config; a line `#=> PATH` in it starts another file, relative to
 that panics, takes more than 10 s or more than 2 GB lands in `fuzz/artifacts/sway_config/`, and the run fails.
 `fuzz/sway_config.dict` gives the fuzzer the words the parser treats specially.
 
-`scripts/fuzz.sh triage` minimizes those inputs and `scripts/fuzz.sh report` opens a Bug issue for each, titled after
-where it panicked (or `timeout`, `out of memory`), with the input as base64 and hex, or comments on the open issue with
-that title. To see what it would post, without posting:
+The daily workflow (`.github/workflows/fuzz.yml`, also started by hand with a duration) fuzzes for 15 minutes and keeps
+its corpus in the Actions cache; CI fuzzes every change for 60 s from the seeds. Inputs the fuzzer finds are uploaded as
+the run's `fuzz-inputs` artifact. `scripts/fuzz.sh triage` minimizes those inputs and `scripts/fuzz.sh report` opens a
+Bug issue for each, titled after where it panicked (or `timeout`, `out of memory`), with the input as base64 and hex, or
+comments on the open issue with that title. To see what it would post, without posting:
 
 ```sh
 scripts/fuzz.sh triage target/fuzz-reports    # from the inputs in fuzz/artifacts/sway_config/
