@@ -149,6 +149,9 @@ impl When {
     }
 }
 
+/// A check of text values beyond their type, e.g. that a command can be split into words.
+pub type TextCheck = fn(&str) -> Result<(), ValueError>;
+
 /// The definition of one setting. Everything about a setting derives from it: the row in the app,
 /// the search entry, the command line key, the checks on stored values, the default, the sway
 /// commands and the config lines.
@@ -172,6 +175,8 @@ pub struct Setting {
     dependency: Option<Dependency>,
     sway: Option<SwayMapping>,
     clears_first: Option<&'static str>,
+    placeholder: Option<Msg>,
+    check_text: Option<TextCheck>,
 }
 
 impl Setting {
@@ -196,6 +201,8 @@ impl Setting {
             dependency: None,
             sway: None,
             clears_first: None,
+            placeholder: None,
+            check_text: None,
         })
     }
 
@@ -270,9 +277,19 @@ impl Setting {
     ///
     /// # Errors
     ///
-    /// See [`Kind::check`].
+    /// See [`Kind::check`]; a text the setting's own check refuses (see
+    /// [`SettingBuilder::check_text`]) gives its error.
     pub fn check(&self, value: &Value) -> Result<(), ValueError> {
-        self.kind.check(value)
+        self.kind.check(value)?;
+        match (self.check_text, value) {
+            (Some(check), Value::Text(text)) => check(text),
+            _ => Ok(()),
+        }
+    }
+
+    /// The hint an empty text field shows, e.g. what an empty value stands for.
+    pub fn placeholder(&self) -> Option<Msg> {
+        self.placeholder
     }
 
     /// The title of the row.
@@ -499,6 +516,18 @@ impl SettingBuilder {
     /// don't fit together.
     pub fn clears_first(mut self, key: &'static str) -> Self {
         self.0.clears_first = Some(key);
+        self
+    }
+
+    /// Sets the hint an empty text field shows (translatable).
+    pub fn placeholder(mut self, placeholder: &'static str) -> Self {
+        self.0.placeholder = Some(Msg::new(placeholder));
+        self
+    }
+
+    /// Checks text values with `check` too, beyond their type.
+    pub fn check_text(mut self, check: TextCheck) -> Self {
+        self.0.check_text = Some(check);
         self
     }
 

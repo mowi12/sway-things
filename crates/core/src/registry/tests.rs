@@ -411,6 +411,31 @@ fn the_directive_line_is_off_by_default() {
 }
 
 #[test]
+fn the_editor_command_must_split_into_words() {
+    let setting = setting("app.editor_command");
+    assert_eq!(setting.kind(), &Kind::Text { default: "" });
+    assert!(setting.sway().is_none());
+    assert_eq!(setting.section().msgid(), "Sway Things");
+    assert!(setting.placeholder().is_some());
+    assert_eq!(setting.check(&Value::Text(String::new())), Ok(()));
+    assert_eq!(
+        setting.check(&Value::Text("foot nvim +{line} {file}".to_owned())),
+        Ok(())
+    );
+    let error = setting
+        .check(&Value::Text("'/opt/My Editor".to_owned()))
+        .unwrap_err();
+    assert_eq!(error.to_string(), "has a quote that isn't closed");
+    assert_eq!(
+        setting.check(&Value::Bool(true)),
+        Err(ValueError::WrongType {
+            expected: "text",
+            found: "boolean"
+        })
+    );
+}
+
+#[test]
 fn input_settings_are_per_device() {
     let device = InputSelector::device("1267:12377:ELAN1300:00_04F3:3059_Touchpad").unwrap();
     for (setting, mapping) in sway_settings() {
