@@ -56,10 +56,16 @@ st-page .st-section-heading {
   font-size: 0.8em;
   font-weight: bold;
   letter-spacing: 0.06em;
-  margin: 24px 4px 8px;
 }
 
-st-page .st-section-heading.st-first {
+/* The header of a section: its title and a chevron, a button that collapses the section */
+st-page button.st-section-header {
+  margin: 18px 0 2px;
+  padding: 6px 4px;
+  min-height: 0;
+}
+
+st-page button.st-section-header.st-first {
   margin-top: 0;
 }
 

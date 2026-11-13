@@ -25,6 +25,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
+use sway_things_core::ui_state;
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
@@ -62,6 +63,8 @@ mod imp {
         pub pointing: RefCell<Option<gtk::TickCallbackId>>,
         /// The tinted row and the timeout that takes the tint away.
         pub highlight: RefCell<Option<(gtk::Widget, glib::SourceId)>>,
+        /// The collapsible sections of the page.
+        pub(super) sections: RefCell<Vec<super::Section>>,
     }
 
     #[glib::object_subclass]
@@ -132,8 +135,9 @@ impl PageView {
     /// [`DeviceSelector`] per input type. `None` if the page has no settings with a row.
     pub fn for_settings(model: &Model, page: Page) -> Option<Self> {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let mut sections = Vec::new();
         if page == Page::About {
-            generated_section(&body);
+            sections.push(generated_section(model, &body));
         }
         let mut first = page != Page::About;
         let mut section: Option<(Msg, gtk::ListBox)> = None;
@@ -162,9 +166,17 @@ impl PageView {
             let list = match &section {
                 Some((title, list)) if *title == setting.section() => list.clone(),
                 _ => {
-                    let heading = heading(tr(setting.section()), std::mem::take(&mut first));
+                    let new = Section::new(
+                        model,
+                        page,
+                        setting.section().msgid(),
+                        tr(setting.section()),
+                        std::mem::take(&mut first),
+                    );
+                    let heading = new.header.clone().upcast::<gtk::Widget>();
                     let list = section_list(setting.section());
-                    body.append(&heading);
+                    body.append(&new.header);
+                    body.append(&new.body);
                     let open = groups
                         .last_mut()
                         .filter(|group| group.open && Some(group.kind) == kind);
@@ -175,7 +187,7 @@ impl PageView {
                                 last.open = false;
                             }
                             let group = DeviceGroup::new(kind, heading, &list);
-                            body.append(&group.hint);
+                            new.body.append(&group.hint);
                             groups.push(group);
                         }
                         (None, None) => {
@@ -184,7 +196,8 @@ impl PageView {
                             }
                         }
                     }
-                    body.append(&list);
+                    new.body.append(&list);
+                    sections.push(new);
                     section = Some((setting.section(), list.clone()));
                     list
                 }
@@ -207,8 +220,7 @@ impl PageView {
             group.follow(model);
         }
         if page == Page::MouseTouchpad {
-            body.append(&heading("Test area", false));
-            body.append(&TestArea::new());
+            sections.push(test_area_section(model, &body));
         }
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
@@ -216,6 +228,7 @@ impl PageView {
         let view = Self::new(tr(page.title()), tr(page.description()), &body);
         view.imp().rows.replace(rows);
         view.imp().groups.replace(grouping.rows);
+        view.imp().sections.replace(sections);
         view.add_page_reset(model, page);
         Some(view)
     }
@@ -255,6 +268,22 @@ impl PageView {
         self.imp().header.get()
     }
 
+    /// The sections of the page: each one's id, header button and whether it is expanded.
+    pub fn sections(&self) -> Vec<(String, gtk::Button, bool)> {
+        self.imp()
+            .sections
+            .borrow()
+            .iter()
+            .map(|section| {
+                (
+                    section.id.clone(),
+                    section.header.clone(),
+                    section.body.get_visible(),
+                )
+            })
+            .collect()
+    }
+
     /// The groups of settings on the page.
     pub fn groups(&self) -> Vec<GroupRow> {
         self.imp().groups.borrow().clone()
@@ -292,9 +321,17 @@ impl PageView {
             Some(group) => group.item().clone().upcast::<gtk::Widget>(),
             None => row.clone().upcast(),
         };
+        // A collapsed section counts as shown: pointing to the row opens it.
+        let sections = self.imp().sections.borrow();
+        let collapsible = |widget: &gtk::Widget| {
+            sections
+                .iter()
+                .any(|section| section.body.upcast_ref::<gtk::Widget>() == widget)
+        };
         let mut widget = Some(start);
         while let Some(shown) = widget {
-            if !shown.is_visible() {
+            // Each widget's own `visible`: `is_visible` would also ask its parents.
+            if !shown.get_visible() && !collapsible(&shown) {
                 return None;
             }
             if shown == *self.upcast_ref::<gtk::Widget>() {
@@ -310,6 +347,15 @@ impl PageView {
     /// keyboard focus. The tint fades after a moment, or goes at once without animations.
     pub fn point_to(&self, row: &SettingRow) {
         let imp = self.imp();
+        // A collapsed section opens for the moment, which isn't stored as the user's choice.
+        if let Some(section) = imp
+            .sections
+            .borrow()
+            .iter()
+            .find(|section| row.is_ancestor(&section.body))
+        {
+            section.show(true);
+        }
         if let Some(group) = self.group_of(row) {
             group.set_expanded(true);
         }
@@ -412,10 +458,27 @@ fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
     Some(footer)
 }
 
+/// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.
+fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
+    let section = Section::new(model, Page::MouseTouchpad, "Test area", "Test area", false);
+    section.body.append(&TestArea::new());
+    body.append(&section.header);
+    body.append(&section.body);
+    section
+}
+
 /// The "Generated config" section of About & Maintenance: a row that opens the window with the
 /// files Sway Things writes.
-fn generated_section(body: &gtk::Box) {
-    body.append(&heading("Generated config", true));
+fn generated_section(model: &Model, body: &gtk::Box) -> Section {
+    let section = Section::new(
+        model,
+        Page::About,
+        "Generated config",
+        "Generated config",
+        true,
+    );
+    body.append(&section.header);
+    body.append(&section.body);
     let list = gtk::ListBox::new();
     list.set_selection_mode(gtk::SelectionMode::None);
     list.add_css_class("st-section");
@@ -445,7 +508,8 @@ fn generated_section(body: &gtk::Box) {
     row.append(&text);
     row.append(&show);
     list.append(&list_row(&row));
-    body.append(&list);
+    section.body.append(&list);
+    section
 }
 
 /// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].
@@ -561,20 +625,74 @@ fn setting_name(setting: &Setting) -> String {
     }
 }
 
-/// The heading of a section titled `title`.
-fn heading(title: &str, first: bool) -> gtk::Label {
-    let heading = gtk::Label::builder()
-        .label(title.to_uppercase())
-        .xalign(0.0)
-        .accessible_role(gtk::AccessibleRole::Heading)
-        .build();
-    heading.update_property(&[gtk::accessible::Property::Label(title)]);
-    heading.add_css_class("st-section-heading");
-    heading.add_css_class(style::DIM);
-    if first {
-        heading.add_css_class("st-first");
+/// A section of a page: a header with its title and a chevron, which collapses and expands the
+/// body below it (a click, `Enter` or `Space`). The model remembers the choice.
+#[derive(Debug, Clone)]
+pub(crate) struct Section {
+    /// The id of the section (from its English title), as the model stores it.
+    id: String,
+    header: gtk::Button,
+    chevron: gtk::Image,
+    body: gtk::Box,
+}
+
+impl Section {
+    /// The section titled `title` (the English source title, for its id) and `shown` (the title
+    /// as shown) on `page`, collapsed if the model says so. The first one on a page has no space
+    /// above it.
+    fn new(model: &Model, page: Page, title: &str, shown: &str, first: bool) -> Self {
+        let label = gtk::Label::builder()
+            .label(shown.to_uppercase())
+            .xalign(0.0)
+            .hexpand(true)
+            .build();
+        label.add_css_class("st-section-heading");
+        label.add_css_class(style::DIM);
+        let chevron = gtk::Image::from_icon_name("pan-down-symbolic");
+        chevron.add_css_class(style::DIM);
+        let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        content.append(&label);
+        content.append(&chevron);
+        let header = gtk::Button::builder()
+            .child(&content)
+            .css_classes(["flat", "st-section-header"])
+            .build();
+        if first {
+            header.add_css_class("st-first");
+        }
+        header.update_property(&[gtk::accessible::Property::Label(shown)]);
+        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let section = Self {
+            id: ui_state::section_id(title),
+            header,
+            chevron,
+            body,
+        };
+        section.show(!model.is_collapsed(page, &section.id));
+        let toggled = section.clone();
+        section.header.connect_clicked(glib::clone!(
+            #[weak]
+            model,
+            move |_| {
+                let expanded = !toggled.body.get_visible();
+                toggled.show(expanded);
+                model.set_collapsed(page, &toggled.id, !expanded);
+            }
+        ));
+        section
     }
-    heading
+
+    /// Shows the body if `expanded`, otherwise only the header.
+    fn show(&self, expanded: bool) {
+        self.body.set_visible(expanded);
+        self.chevron.set_icon_name(Some(if expanded {
+            "pan-down-symbolic"
+        } else {
+            "pan-end-symbolic"
+        }));
+        self.header
+            .update_state(&[gtk::accessible::State::Expanded(Some(expanded))]);
+    }
 }
 
 /// The list for the rows of a section titled `title`.
@@ -602,8 +720,8 @@ struct DeviceGroup {
     selector: DeviceSelector,
     /// Shown in place of the rows while there is nothing to set.
     hint: gtk::Label,
-    /// The heading and the list of each section.
-    sections: Vec<(gtk::Label, gtk::ListBox)>,
+    /// The header and the list of each section.
+    sections: Vec<(gtk::Widget, gtk::ListBox)>,
     rows: Vec<SettingRow>,
     /// The groups of settings among the rows, whose summary follows the device too.
     group_rows: Vec<GroupRow>,
@@ -614,7 +732,7 @@ struct DeviceGroup {
 impl DeviceGroup {
     /// A group of type `kind` that starts with the section of `heading` and `list`. The selector
     /// becomes the first row of the list.
-    fn new(kind: InputType, heading: gtk::Label, list: &gtk::ListBox) -> Self {
+    fn new(kind: InputType, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
         let selector = DeviceSelector::new(kind);
         list.append(&list_row(&selector));
         let hint = gtk::Label::new(Some(&none_connected(kind)));
@@ -653,7 +771,7 @@ impl DeviceGroup {
                 }
             }
         ));
-        let sections: Vec<(glib::WeakRef<gtk::Label>, glib::WeakRef<gtk::ListBox>)> = self
+        let sections: Vec<(glib::WeakRef<gtk::Widget>, glib::WeakRef<gtk::ListBox>)> = self
             .sections
             .iter()
             .map(|(heading, list)| (heading.downgrade(), list.downgrade()))
