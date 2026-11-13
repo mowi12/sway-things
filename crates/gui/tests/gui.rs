@@ -342,6 +342,10 @@ fn check_setting_rows() -> Vec<(String, Outcome)> {
         ),
         ("rows: a failed change shows why".to_owned(), check_failed()),
         (
+            "rows: a dragged slider snaps to the default, keys don't".to_owned(),
+            check_slider_snap(),
+        ),
+        (
             "rows: a setting waits for the one it depends on".to_owned(),
             check_dependency(),
         ),
@@ -1660,6 +1664,52 @@ fn check_rows() -> Outcome {
         )?;
         window.destroy();
     }
+    Ok(())
+}
+
+/// Pointer speed (default 0, slider -1 to 1, stored 0.3): a drag near 0 lands exactly on 0, one
+/// outside the zone and a key step land where they are.
+fn check_slider_snap() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let speed = row(&window, "input.touchpad.pointer_accel")?;
+    let scale = speed
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::Scale>().ok())
+        .ok_or_else(|| "  the pointer speed has no slider".to_owned())?;
+    let stored = |fixture: &Fixture| -> Result<Value, String> {
+        let setting = Registry::builtin()
+            .get("input.touchpad.pointer_accel")
+            .ok_or_else(|| "  no pointer speed setting".to_owned())?;
+        fixture
+            .model
+            .view(setting, None)
+            .map(|view| view.value)
+            .ok_or_else(|| "  no settings".to_owned())
+    };
+    // How GTK reports a pointer drag, and an arrow key.
+    let mv = |scroll: gtk::ScrollType, value: f64| {
+        scale.emit_by_name::<bool>("change-value", &[&scroll, &value]);
+    };
+    for (scroll, to, expected) in [
+        (gtk::ScrollType::Jump, 0.03, 0.0),
+        (gtk::ScrollType::Jump, -0.04, 0.0),
+        (gtk::ScrollType::Jump, 0.05, 0.05),
+        (gtk::ScrollType::StepLeft, 0.03, 0.03),
+    ] {
+        mv(scroll, to);
+        wait_for_model(&fixture.model)?;
+        ensure(
+            (scale.value() - expected).abs() < 1e-9,
+            &format!("  {scroll:?} to {to} left the slider at {}", scale.value()),
+        )?;
+        ensure(
+            stored(&fixture)? == Value::Decimal(expected),
+            &format!("  {scroll:?} to {to} stored {:?}", stored(&fixture)?),
+        )?;
+    }
+    window.destroy();
     Ok(())
 }
 
