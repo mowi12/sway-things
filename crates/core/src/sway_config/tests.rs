@@ -478,6 +478,103 @@ fn long_lines_take_linear_time() {
 }
 
 #[test]
+fn blocks_nested_too_deeply_are_skipped() {
+    // 32 levels are read.
+    let deepest = format!("{}x 1\n{}", "b {\n".repeat(32), "}\n".repeat(32));
+    let config = parsed(&deepest);
+    assert_eq!(kinds(&config), []);
+    assert_eq!(config.directives[0].block, vec!["b"; 32]);
+
+    // A block deeper than that is skipped up to its brace, with the blocks in it, and what
+    // follows is read in the right block.
+    let deeper = format!(
+        "{}gaps inner 1\n{}x 1\n{}y 2\n{}gaps outer 2\n",
+        "b {\n".repeat(32),
+        "c {\n".repeat(8),
+        "}\n".repeat(8),
+        "}\n".repeat(32),
+    );
+    let config = parsed(&deeper);
+    assert_eq!(kinds(&config), [(34, DiagnosticKind::BlockTooDeep)]);
+    let read: Vec<(usize, usize, &str)> = config
+        .directives
+        .iter()
+        .map(|directive| {
+            (
+                directive.line,
+                directive.block.len(),
+                directive.name.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(read, [(33, 32, "gaps"), (51, 32, "y"), (84, 0, "gaps")]);
+
+    // Each of these lines would take a copy of all the lines before it.
+    let config = parsed(&"a {\n".repeat(2_000_000));
+    assert_eq!(
+        kinds(&config),
+        [
+            (33, DiagnosticKind::BlockTooDeep),
+            (1, DiagnosticKind::UnclosedBlock)
+        ]
+    );
+}
+
+#[test]
+fn short_lines_that_stand_for_long_text_stop_at_the_text_limit() {
+    let text = |config: &SwayConfig| -> usize {
+        config
+            .directives
+            .iter()
+            .flat_map(|directive| directive.block.iter().chain(&directive.args))
+            .map(String::len)
+            .sum()
+    };
+    // Each line takes a copy of the variable, or of the block's first line: 100 MiB in all.
+    let mib = "x".repeat(1024 * 1024);
+    let variable = format!("set $v {mib}\n{}", "gaps $v\n".repeat(100));
+    let block = format!("input {mib} {{\n{}}}\n", "tap enabled\n".repeat(100));
+    for main in [variable, block] {
+        let config = parsed(&main);
+        assert!(matches!(
+            kinds(&config).as_slice(),
+            [(_, DiagnosticKind::TooBig)]
+        ));
+        assert!(config.directives.len() < 100);
+        assert!(text(&config) <= 64 * 1024 * 1024);
+    }
+
+    // The paths of includes count too.
+    let mut files = files(&"include *.conf\n".repeat(10_000));
+    for index in 0..30 {
+        files = files.file(&format!("/home/me/.config/sway/{index:0>4000}.conf"), "");
+    }
+    let config = parse(Path::new(MAIN), &files);
+    assert!(matches!(
+        kinds(&config).last(),
+        Some((_, DiagnosticKind::TooBig))
+    ));
+}
+
+#[test]
+fn variables_that_double_stop_at_the_line_limit() {
+    // Each line doubles $a: 40 of them would need a terabyte. The line that gets longer than
+    // 8 MiB ends the config.
+    let main = format!("set $a xx\n{}gaps inner 1\n", "set $a $a$a\n".repeat(40));
+    let config = parsed(&main);
+    assert_eq!(kinds(&config), [(23, DiagnosticKind::TooBig)]);
+    assert_eq!(config.directives.len(), 22);
+    assert_eq!(config.directives[21].args[1].len(), 4 * 1024 * 1024);
+
+    // In an included file, the including file isn't read on either.
+    let files =
+        files("include a.conf\ngaps inner 1\n").file("/home/me/.config/sway/a.conf", main.clone());
+    let config = parse(Path::new(MAIN), &files);
+    assert_eq!(config.directives.len(), 22);
+    assert_eq!(kinds(&config), [(23, DiagnosticKind::TooBig)]);
+}
+
+#[test]
 fn text_that_is_not_utf8_is_read_anyway() {
     let files = MemoryFiles::new().file(MAIN, b"font \xff\xfe 10\r\ngaps inner 8\r\n".to_vec());
     let config = parse(Path::new(MAIN), &files);
@@ -616,7 +713,7 @@ proptest! {
     fn lines_split_like_the_port_of_sway(text in "[ -~]{0,40}") {
         if let Ok(expected) = model::config_command(text.as_bytes()) {
             let stripped = line::strip_whitespace(text.as_bytes());
-            prop_assert_eq!(line::arguments(stripped, &[]), expected);
+            prop_assert_eq!(line::arguments(stripped, &[], usize::MAX), Some(expected));
         }
     }
 
@@ -624,7 +721,7 @@ proptest! {
     fn hostile_lines_split_like_the_port_of_sway(text in "[a-c \"'\\\\\\[\\]$#{}x0-2]{0,24}") {
         if let Ok(expected) = model::config_command(text.as_bytes()) {
             let stripped = line::strip_whitespace(text.as_bytes());
-            prop_assert_eq!(line::arguments(stripped, &[]), expected);
+            prop_assert_eq!(line::arguments(stripped, &[], usize::MAX), Some(expected));
         }
     }
 
@@ -638,7 +735,7 @@ proptest! {
             name: name.into_bytes(),
             value: value.into_bytes(),
         }];
-        let _ = line::arguments(text.as_bytes(), &variables);
+        let _ = line::arguments(text.as_bytes(), &variables, usize::MAX);
     }
 
     /// Any bytes at all: the parser ends, without a panic.

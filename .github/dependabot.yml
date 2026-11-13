@@ -17,7 +17,8 @@ updates:
     labels: ["area:ci"]
 
   - package-ecosystem: cargo
-    directory: /
+    # fuzz/ is a workspace of its own, with its own Cargo.lock.
+    directories: ["/", "/fuzz"]
     schedule:
       interval: monthly
     cooldown:

@@ -15,11 +15,26 @@ use crate::sway_config::ExpandError;
 /// config that deep.
 const MAX_INCLUDE_DEPTH: usize = 32;
 
+/// Blocks nested deeper than this are skipped with their lines. Every line of a block repeats the
+/// lines that opened it, so deep nesting would take quadratic time; sway's own configs nest two
+/// deep (`bar { colors {`).
+const MAX_BLOCK_DEPTH: usize = 32;
+
 /// A config with more directives than this isn't read to the end.
 const MAX_DIRECTIVES: usize = 100_000;
 
 /// A file bigger than this isn't read.
 const MAX_FILE_SIZE: usize = 8 * 1024 * 1024;
+
+/// A line longer than this once its variables are replaced isn't read, and neither is the rest
+/// of the config.
+const MAX_LINE: usize = 8 * 1024 * 1024;
+
+/// The config isn't read further once the text of its lines adds up to this, counted with their
+/// blocks' prefixes and their variables replaced, and with the paths of their includes. A short
+/// line can stand for a long block prefix or variable, so without a limit the result could grow
+/// with the square of the input.
+const MAX_TEXT: usize = 64 * 1024 * 1024;
 
 /// A directive of the config: one command, as sway runs it while reading the files.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,7 +133,10 @@ pub enum DiagnosticKind {
     UnmatchedBrace,
     /// A block that is still open at the end of the file.
     UnclosedBlock,
-    /// The config has too many directives; the rest wasn't read.
+    /// A block nested too deeply to follow: it was skipped up to its `}`, with everything in it.
+    BlockTooDeep,
+    /// The config has too many directives, or a line that is too long once its variables are
+    /// replaced; the rest wasn't read.
     TooBig,
 }
 
@@ -183,6 +201,8 @@ pub fn parse(main: &Path, files: &dyn Files) -> SwayConfig {
         files,
         config: SwayConfig::default(),
         variables: Vec::new(),
+        stopped: false,
+        budget: MAX_TEXT,
     };
     let path: Arc<Path> = match files.canonicalize(main) {
         Ok(path) => path.into(),
@@ -207,6 +227,10 @@ struct Parser<'a> {
     config: SwayConfig,
     /// The variables set so far, longest name first.
     variables: Vec<Variable>,
+    /// Whether the config was too big to read to the end: nothing more is read.
+    stopped: bool,
+    /// How much more text the config may expand to, see [`MAX_TEXT`].
+    budget: usize,
 }
 
 /// An open block.
@@ -226,6 +250,24 @@ impl Parser<'_> {
             line,
             kind,
         });
+    }
+
+    /// Stops reading the config at this line, because it is too big to read to the end.
+    fn stop(&mut self, file: &Arc<Path>, line: usize) {
+        self.diagnose(file, line, DiagnosticKind::TooBig);
+        self.stopped = true;
+    }
+
+    /// Takes `length` bytes of text from the budget. If that is more than is left, stops reading
+    /// the config at this line and returns false.
+    fn spend(&mut self, length: usize, file: &Arc<Path>, line: usize) -> bool {
+        if let Some(rest) = self.budget.checked_sub(length) {
+            self.budget = rest;
+            true
+        } else {
+            self.stop(file, line);
+            false
+        }
     }
 
     /// Reads the file at `path`, which is canonical. Returns whether it could be read.
@@ -248,12 +290,22 @@ impl Parser<'_> {
             }
         };
         self.config.files.push(Arc::clone(path));
+        self.read_lines(path, &content, depth);
+        true
+    }
 
+    /// Reads the lines of the file at `path`.
+    fn read_lines(&mut self, path: &Arc<Path>, content: &[u8], depth: usize) {
         let mut blocks: Vec<Block> = Vec::new();
-        let mut lines = Lines::new(&content);
+        // How many blocks deeper than MAX_BLOCK_DEPTH are open; their lines are skipped.
+        let mut skipped = 0usize;
+        let mut lines = Lines::new(content);
         while let Some((number, raw)) = lines.next_logical() {
+            if self.stopped {
+                break;
+            }
             if self.config.directives.len() >= MAX_DIRECTIVES {
-                self.diagnose(path, number, DiagnosticKind::TooBig);
+                self.stop(path, number);
                 break;
             }
             let text = line::strip_whitespace(&raw);
@@ -266,7 +318,8 @@ impl Parser<'_> {
                 opens = lines.skip_lone_brace();
             }
             let mut expanded = Vec::new();
-            if let Some(block) = blocks.last() {
+            // Inside a block nested too deeply only the braces count, which need no prefix.
+            if let Some(block) = blocks.last().filter(|_| skipped == 0) {
                 expanded.extend_from_slice(&block.prefix);
                 expanded.push(b' ');
             }
@@ -275,59 +328,94 @@ impl Parser<'_> {
                 expanded.extend_from_slice(b" {");
             }
 
+            if !self.spend(expanded.len(), path, number) {
+                break;
+            }
             let raw_args = line::split_args(&expanded);
             match raw_args.last().map(Vec::as_slice) {
                 None => continue,
-                Some(b"{") if raw_args.len() > 1 => {
-                    let words = &raw_args[..raw_args.len() - 1];
-                    blocks.push(Block {
-                        prefix: words.join(&b' '),
-                        words: words.len(),
-                        line: number,
-                    });
+                // A skipped line is in a block, so it would have a prefix.
+                Some(b"{") if raw_args.len() > 1 || skipped > 0 => {
+                    if skipped > 0 {
+                        skipped += 1;
+                    } else if blocks.len() >= MAX_BLOCK_DEPTH {
+                        self.diagnose(path, number, DiagnosticKind::BlockTooDeep);
+                        skipped = 1;
+                    } else {
+                        let words = &raw_args[..raw_args.len() - 1];
+                        blocks.push(Block {
+                            prefix: words.join(&b' '),
+                            words: words.len(),
+                            line: number,
+                        });
+                    }
                     continue;
                 }
                 Some(b"}") => {
-                    if blocks.pop().is_none() {
+                    if skipped > 0 {
+                        skipped -= 1;
+                    } else if blocks.pop().is_none() {
                         self.diagnose(path, number, DiagnosticKind::UnmatchedBrace);
                     }
                     continue;
                 }
+                Some(_) if skipped > 0 => continue,
                 Some(_) => {}
             }
-
-            let args: Vec<String> = line::arguments(&expanded, &self.variables)
-                .iter()
-                .map(|arg| String::from_utf8_lossy(arg).into_owned())
-                .collect();
-            let block_words = blocks.last().map_or(0, |block| block.words).min(args.len());
-            let (block, rest) = args.split_at(block_words);
-            let Some((name, rest)) = rest.split_first() else {
-                continue;
-            };
-            let mut directive = Directive {
-                file: Arc::clone(path),
-                line: number,
-                block: block.to_vec(),
-                name: name.clone(),
-                args: rest.to_vec(),
-                text: String::from_utf8_lossy(text).into_owned(),
-            };
-            if directive.block.is_empty() {
-                if directive.is(&[], "set") {
-                    self.set(&directive.args);
-                } else if directive.is(&[], "include") {
-                    self.include(&directive, depth);
-                    continue;
-                }
-                normalize(&mut directive);
-            }
-            self.config.directives.push(directive);
+            let block_words = blocks.last().map_or(0, |block| block.words);
+            self.command(path, number, text, &expanded, block_words, depth);
         }
-        if let Some(block) = blocks.first() {
+        // A config that wasn't read to the end may well close its blocks after that.
+        if let Some(block) = blocks.first().filter(|_| !self.stopped) {
             self.diagnose(path, block.line, DiagnosticKind::UnclosedBlock);
         }
-        true
+    }
+
+    /// Runs the line `text` (number `number`) of the file at `path`, which is `expanded` with the
+    /// prefix of its block (`block_words` arguments), the way sway runs it while reading.
+    fn command(
+        &mut self,
+        path: &Arc<Path>,
+        number: usize,
+        text: &[u8],
+        expanded: &[u8],
+        block_words: usize,
+        depth: usize,
+    ) {
+        let limit = MAX_LINE.min(self.budget);
+        let Some(args) = line::arguments(expanded, &self.variables, limit) else {
+            self.stop(path, number);
+            return;
+        };
+        if !self.spend(args.iter().map(Vec::len).sum(), path, number) {
+            return;
+        }
+        let args: Vec<String> = args
+            .iter()
+            .map(|arg| String::from_utf8_lossy(arg).into_owned())
+            .collect();
+        let (block, rest) = args.split_at(block_words.min(args.len()));
+        let Some((name, rest)) = rest.split_first() else {
+            return;
+        };
+        let mut directive = Directive {
+            file: Arc::clone(path),
+            line: number,
+            block: block.to_vec(),
+            name: name.clone(),
+            args: rest.to_vec(),
+            text: String::from_utf8_lossy(text).into_owned(),
+        };
+        if directive.block.is_empty() {
+            if directive.is(&[], "set") {
+                self.set(&directive.args);
+            } else if directive.is(&[], "include") {
+                self.include(&directive, depth);
+                return;
+            }
+            normalize(&mut directive);
+        }
+        self.config.directives.push(directive);
     }
 
     /// `set $name value…`: sway keeps the variables sorted by the length of their names, longest
@@ -389,7 +477,15 @@ impl Parser<'_> {
         let index = self.config.includes.len();
         let paths = include.paths.clone();
         self.config.includes.push(include);
+        // A short pattern can stand for thousands of paths, which are kept and looked up.
+        let length = paths.iter().map(|path| path.as_os_str().len()).sum();
+        if !self.spend(length, file, line) {
+            return;
+        }
         for path in paths {
+            if self.stopped {
+                break;
+            }
             let Ok(real) = self.files.canonicalize(&path) else {
                 self.diagnose(file, line, DiagnosticKind::IncludeNotFound { path });
                 continue;

@@ -36,3 +36,8 @@ allow-wildcard-paths = true
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+
+# libFuzzer, which the fuzz crate (fuzz/) links, is under LLVM's NCSA license, compatible with GPL-3.0-or-later.
+[[licenses.exceptions]]
+crate = "libfuzzer-sys"
+allow = ["NCSA"]

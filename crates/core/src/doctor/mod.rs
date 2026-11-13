@@ -1161,6 +1161,9 @@ fn diagnostic_finding(diagnostic: &Diagnostic) -> Finding {
         DiagnosticKind::TooDeep => "includes are nested too deeply to follow".to_owned(),
         DiagnosticKind::UnmatchedBrace => "a } closes no block".to_owned(),
         DiagnosticKind::UnclosedBlock => "a block is still open at the end of the file".to_owned(),
+        DiagnosticKind::BlockTooDeep => {
+            "blocks are nested too deeply; this one was skipped with everything in it".to_owned()
+        }
         DiagnosticKind::TooBig => "the config is too big; the rest wasn't read".to_owned(),
     };
     let finding = Finding::new(

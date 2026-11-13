@@ -301,6 +301,59 @@ jobs:
       - name: Check Install
         run: scripts/check-install.sh
 
+  fuzz:
+    name: Fuzz Config Parser
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy --no-self-update
+          rustup default stable
+      - name: Install cargo-fuzz
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_FUZZ_VERSION: 0.13.2
+          CARGO_FUZZ_SHA256: b5b704018b63e0f151c17a057ac53b5111e1db545d1b9f72fee79f08a545931c
+        run: |
+          gh release download "$CARGO_FUZZ_VERSION" --repo rust-fuzz/cargo-fuzz \
+            --pattern "cargo-fuzz-$CARGO_FUZZ_VERSION-x86_64-unknown-linux-musl.tar.gz" --output "$RUNNER_TEMP/cargo-fuzz.tar.gz"
+          echo "$CARGO_FUZZ_SHA256  $RUNNER_TEMP/cargo-fuzz.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/cargo-fuzz"
+          tar -xzf "$RUNNER_TEMP/cargo-fuzz.tar.gz" -C "$RUNNER_TEMP/cargo-fuzz" cargo-fuzz
+          echo "$RUNNER_TEMP/cargo-fuzz" >> "$GITHUB_PATH"
+      - name: Install cargo-deny
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_DENY_VERSION: 0.20.2
+          CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+        run: |
+          gh release download "$CARGO_DENY_VERSION" --repo EmbarkStudios/cargo-deny \
+            --pattern "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl.tar.gz" \
+            --output "$RUNNER_TEMP/cargo-deny.tar.gz"
+          echo "$CARGO_DENY_SHA256  $RUNNER_TEMP/cargo-deny.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/cargo-deny"
+          tar -xzf "$RUNNER_TEMP/cargo-deny.tar.gz" -C "$RUNNER_TEMP/cargo-deny" --strip-components 1 \
+            "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl/cargo-deny"
+          echo "$RUNNER_TEMP/cargo-deny" >> "$GITHUB_PATH"
+      - name: Lint Fuzz Crate
+        run: scripts/fuzz.sh lint
+      - name: Fuzz Config Parser
+        id: fuzz
+        run: scripts/fuzz.sh run 60
+      - name: Upload Fuzz Inputs
+        if: failure() && steps.fuzz.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-inputs
+          path: fuzz/artifacts/sway_config/
+          if-no-files-found: ignore
+
   commits:
     name: Check Commits
     if: github.event_name == 'pull_request'

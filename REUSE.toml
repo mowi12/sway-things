@@ -8,6 +8,7 @@ path = [
   "**.json",
   "**.toml",
   "Cargo.lock",
+  "fuzz/Cargo.lock",
   "tools/requirements.*",
   ".gitignore",
   ".gitattributes",
@@ -44,3 +45,10 @@ path = "CODE_OF_CONDUCT.md"
 precedence = "override"
 SPDX-FileCopyrightText = ["Contributor Covenant contributors", "2026 Sway Things contributors"]
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# Fuzzer seeds are inputs, so they stay without a header.
+[[annotations]]
+path = "fuzz/seeds/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
