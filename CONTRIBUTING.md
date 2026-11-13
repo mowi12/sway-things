@@ -123,13 +123,14 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | --- | --- |
 | Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
-| Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
+| Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`; `desktop-file-validate` and `appstreamcli validate` on the desktop entry and metainfo after `msgfmt` merged the translations |
 | Spelling | `typos`, locale en-US |
-| Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` |
+| Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` and those of `data/*.in` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
+| Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
 | Fuzzing | sway config parser (scheduled) |
@@ -148,11 +149,20 @@ Setting::toggle(TAP, Page::MouseTouchpad, true)
     .keywords(&[msg!("touchpad"), msg!("click")])
 ```
 
-A comment starting with `TRANSLATORS:` right above a string goes into the template as a note for translators. After
-adding, changing or removing a string, run `scripts/update-pot.sh` to update `po/sway-things.pot`;
-`scripts/check-pot.sh` and a core test fail while it is out of date. Both scripts need `xgettext` 0.24 or newer, the
-first version that reads Rust. Tests that need a string that is not extracted use `Msg::new`. See
-[wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations are found.
+A comment starting with `TRANSLATORS:` right above a string goes into the template as a note for translators. The
+template also holds the texts of the desktop entry and the AppStream metainfo, from `data/*.desktop.in` and
+`data/*.metainfo.xml.in`. After adding, changing or removing a string, in the Rust sources or in those files, run
+`scripts/update-pot.sh` to update `po/sway-things.pot`; `scripts/check-pot.sh` and a core test fail while it is out of
+date. Both scripts need `xgettext` 0.24 or newer, the first version that reads Rust. Tests that need a string that is
+not extracted use `Msg::new`. See [wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations
+are found.
+
+## Man pages and completions
+
+The man pages in `data/man/` and the shell completions in `data/completions/` are generated from the clap definitions
+and committed. After changing a command, an argument or a help text in `crates/cli`, or the argument of the app, run
+`scripts/update-cli-docs.sh`; a test fails while they are out of date. A version bump and a Dependabot update of clap,
+`clap_mangen` or `clap_complete` need the script too. Don't edit the generated files by hand.
 
 ## Working on the GUI
 
@@ -176,7 +186,8 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Releases
 
-Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. Pushing a version tag triggers the
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. The commit that bumps the version
+also runs `scripts/update-cli-docs.sh`, since every man page names the version. Pushing a version tag triggers the
 release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
 generated from the commits.
 

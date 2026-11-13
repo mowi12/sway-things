@@ -6,7 +6,8 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: planning.** There is no code to install yet. See the [Roadmap](wiki/Roadmap.md) for what comes first.
+> **Status: pre-release.** Not ready for daily use yet. To test it, build it from source (see
+> [Installation](#installation)). The [Roadmap](wiki/Roadmap.md) says what comes first.
 
 ## Why
 
@@ -88,6 +89,19 @@ _Planned interface. Key names may still change._
 
 Not released yet. Planned: native packages for openSUSE, Fedora, Debian and Ubuntu via the openSUSE Build Service, plus
 the AUR for Arch Linux.
+
+### From source
+
+You need Rust 1.85 or newer, the GTK 4.18 development files, gettext and [just](https://just.systems/):
+
+```sh
+just build
+sudo just install      # sudo just uninstall removes it again
+```
+
+Without `just`, run `scripts/build.sh` and `scripts/install.sh` (`--uninstall`) directly. `PREFIX` defaults to
+`/usr/local`, and `DESTDIR` installs into a staging directory. Packages use `PREFIX=/usr` for both steps. fish only
+finds the completions under `/usr/local` if your session's `XDG_DATA_DIRS` includes `/usr/local/share`.
 
 ## Contributing
 

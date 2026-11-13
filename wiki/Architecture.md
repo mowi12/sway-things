@@ -40,10 +40,15 @@ the user's files.**
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
 | `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
+| `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
 
 All crates share the package metadata and lints of the root `Cargo.toml`: edition 2024, MSRV 1.85, `unsafe_code`
 forbidden, clippy pedantic, and no `unwrap`, `expect`, `panic!`, `todo!` or `dbg!` outside tests. The core also denies
 `println!` and requires docs for its public API.
+
+`crates/cli-docs` is no default member (`default-members` in the root `Cargo.toml`): a plain `cargo build` and the
+distro builds compile only the three shipped crates, never `clap_mangen`, `clap_complete` or `roff`. `--workspace`
+includes it, so its tests and clippy run with the others.
 
 The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
 `sway-things` with no arguments, or `sway-things open [<link>]`, starts or activates the GUI.
@@ -795,6 +800,14 @@ session with `Applier::open`, the same start as the app: settings and generated 
 sway or, without one, the installed `sway`, and the main config sway loaded or would find. `doctor` starts on its own so
 it works where that fails, and `open` needs none of it.
 
+The man pages (`data/man/`, one per command plus `sway-things-gui.1`) and the shell completions for bash, zsh and fish
+(`data/completions/`) are generated from these clap definitions by `crates/cli-docs` and committed, like the translation
+template. `sway-things.1` adds the exit status, the environment variables, the files and related pages. The completions
+are static: commands, options and the files of `show-generated` complete, setting keys don't.
+`scripts/update-cli-docs.sh` regenerates them, and a test (`crates/cli-docs/tests/fresh.rs`) fails while they are out of
+date. The page of the app comes from a small clap command that only describes the link argument; a test keeps it in line
+with what the app reads.
+
 | Command | What it does |
 | --- | --- |
 | `get [<key>] [--device <id>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](#settings-registry)): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device under it. |
@@ -1050,6 +1063,10 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test
   (`crates/core/tests/pot.rs`) fails when a string of the registry or the doctor is missing from it. CI runs the check
   in an Arch Linux container, because Debian 13 and Ubuntu 24.04 ship older gettext versions.
+- **Desktop entry and metainfo**: their translatable fields (name, generic name, comment, keywords, summary and
+  description) go into the same template: `scripts/update-pot.sh` extracts them from `data/*.desktop.in` and
+  `data/*.metainfo.xml.in` in a second `xgettext` run. At build time, `msgfmt --desktop` and `msgfmt --xml` merge the
+  translations of the languages in `po/LINGUAS` into the installed files.
 - **Lookup**: each binary calls `i18n::init()` at startup. It reads the catalogs (`.mo` files) of the text domain
   `sway-things` with a small reader of its own, in pure Rust: no C library, no `setlocale`, no global state outside the
   one catalog set. The catalogs are `<dir>/<language>/LC_MESSAGES/sway-things.mo`, where `<dir>` is
@@ -1068,6 +1085,7 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 | Level | What |
 | --- | --- |
 | Unit | the sway config parser (sample configs, the generated files, arbitrary bytes), the IPC client against a stand-in for sway (protocol errors, events), the device list (replies to `GET_INPUTS` as sway sends them, hotplug event sequences against the stand-in, stored devices, what switching devices off would leave), the XKB rules registry (a sample registry and extras file, missing, broken, oversized and entity-declaring files, arbitrary bytes, and the registry of the system if it has one), registry invariants (every setting reads back each value it renders), search (matching in English and in a translation, ranking), reading values as sway reads them, conflict detection (sample configs for each kind of directive, both positions, includes in included files, per-device lines), state merge (shared + overlay), reload and history, the file watcher against real files, the include detection (every spelling of the line, each status, symbolic links) and its watcher, applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, the changes that wait for a reload or a re-login and the reload of sway, letting the user's config win, the safety net: keep, revert, one change at a time, no session, the lockout cases, for a change and for a reset), command builders and escaping (property tests against a port of sway's parser); the doctor against sample setups for each finding (a working setup, the include line missing, partial or unknown, lines after it, conflicts per setting and device, problems of the settings files, files missing, out of date after a switch from SwayFX to sway, changed outside, foreign or rejected, no sway to validate with, compositors it can't use) and its fixes; the command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`) |
+| Install | `scripts/check-install.sh`, in the Debian 13 container: for the default `PREFIX=/usr/local` and for `/usr` as packages use it, builds and installs into a temporary `DESTDIR`, compares the installed files with the expected list, validates desktop entry and metainfo together (`appstreamcli validate-tree`), the man pages (`groff` without warnings) and the completions (`bash -n`, `zsh -n`, `fish --no-execute`), then uninstalls and finds no file left, and checks that an install for another `PREFIX` than the build's is refused. The man pages and completions themselves are compared with the generator's output by `crates/cli-docs/tests/fresh.rs` |
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | sway config parser (`cargo-fuzz`, scheduled CI) |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting set and reset with `--yes`, and `doctor` validating the generated files and replacing a `90-effects.conf` with a SwayFX directive (which only SwayFX accepts) with `--fix --overwrite` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged |
@@ -1078,6 +1096,40 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 - **openSUSE Build Service** builds openSUSE, Fedora, Debian and Ubuntu packages from one project (one `.spec`, one
   `debian/` dir, vendored crates, offline build). **AUR**: release and `-git` packages.
 - Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
-  shell completions (`clap_complete`), translations.
+  shell completions (`clap_complete`), translations. Every package installs the same files the same way, through two
+  plain bash scripts that need neither `just` nor the generators:
+  - **`scripts/build.sh [--data-only] [-- <cargo build arguments>]`** builds into `target/<profile>/`: the binaries
+    (`cargo build --locked --profile $PROFILE`, default members only), the desktop entry and metainfo with the
+    translations merged in (`scripts/merge-metadata.sh`, `msgfmt`), and a `.mo` file per language in `po/LINGUAS`. The
+    binaries look for translations in `$PREFIX/share/locale`, so `build.sh` passes that as `SWAY_THINGS_LOCALEDIR` to
+    cargo and stamps `$PREFIX` into `target/<profile>/data/prefix`. `--data-only` skips cargo, for a packaging macro
+    that already built the binaries with the same `PROFILE`; it fails if they would look for translations elsewhere.
+  - **`scripts/install.sh [--uninstall]`** only copies: the built files and the committed man pages, completions and
+    icons, into `$DESTDIR$PREFIX`. It refuses a `PREFIX` other than the one of the build. `--uninstall` removes the same
+    files (never directories) without a build. Neither script refreshes the desktop, icon or man caches: packages do
+    that in their triggers.
+  - Environment: `PREFIX` (default `/usr/local`), `DESTDIR` (install only), `PROFILE` (cargo profile, default `release`;
+    `dev` is `target/debug`), `CARGO_TARGET_DIR`. `just build`, `just install` and `just uninstall` wrap them.
+- Install layout, below `$DESTDIR$PREFIX`:
+
+  | Path | From |
+  | --- | --- |
+  | `bin/sway-things`, `bin/sway-things-gui` (755) | cargo |
+  | `share/applications/io.github.mowi12.SwayThings.desktop` | `data/io.github.mowi12.SwayThings.desktop.in`, merged |
+  | `share/metainfo/io.github.mowi12.SwayThings.metainfo.xml` | `data/io.github.mowi12.SwayThings.metainfo.xml.in`, merged |
+  | `share/icons/hicolor/*/apps/io.github.mowi12.SwayThings*.svg` | `data/icons/` (once the icon exists) |
+  | `share/man/man1/sway-things.1`, `sway-things-<command>.1`, `sway-things-gui.1` | `data/man/`, uncompressed |
+  | `share/bash-completion/completions/sway-things` | `data/completions/sway-things.bash` |
+  | `share/zsh/site-functions/_sway-things` | `data/completions/_sway-things` |
+  | `share/fish/vendor_completions.d/sway-things.fish` | `data/completions/sway-things.fish` |
+  | `share/locale/<language>/LC_MESSAGES/sway-things.mo` | `po/<language>.po` for each language in `po/LINGUAS` |
+
+- What packagers run: `PREFIX=/usr scripts/build.sh -- --frozen` (or `--offline`), then
+  `PREFIX=/usr DESTDIR=<staging directory> scripts/install.sh`. With a cargo macro such as `%cargo_build`, the build
+  step is `PREFIX=/usr PROFILE=<the macro's profile> scripts/build.sh --data-only`. Build dependencies: Rust ≥ 1.85, the
+  GTK 4.18 development files and gettext (`msgfmt`, with the AppStream ITS rules of gettext or of the appstream
+  package). The desktop entry is GPL-3.0-or-later; the metainfo is CC0-1.0, as AppStream asks of metadata.
+- What packagers adapt: Debian and Ubuntu's zsh doesn't search `/usr/share/zsh/site-functions`, so the Debian packaging
+  moves the zsh completion to `/usr/share/zsh/vendor-completions/`, as `dh_installzshcompletions` does.
 - No Flatpak. Aim for official distro repositories after 1.0.
 - License: `GPL-3.0-or-later`.

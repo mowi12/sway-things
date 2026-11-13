@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Desktop Entry]
+Type=Application
+Name=Sway Things
+GenericName=Settings
+Comment=Change the settings of sway and SwayFX
+# TRANSLATORS: Search terms separated by semicolons; keep the semicolons and the trailing one.
+Keywords=sway;swayfx;wayland;settings;preferences;keyboard;mouse;touchpad;windows;
+Exec=sway-things-gui
+Icon=io.github.mowi12.SwayThings
+Terminal=false
+Categories=Settings;DesktopSettings;GTK;
+StartupNotify=true

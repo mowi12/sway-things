@@ -1,0 +1,31 @@
+[package]
+name = "sway-things-cli-docs"
+description = "Writes the man pages and shell completions of Sway Things"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "cli_docs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sway-things-cli-docs"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+clap_complete.workspace = true
+clap_mangen.workspace = true
+roff.workspace = true
+sway-things-cli = { path = "../cli" }
+sway-things-core = { path = "../core" }
+
+[dev-dependencies]
+sway-things-gui = { path = "../gui" }

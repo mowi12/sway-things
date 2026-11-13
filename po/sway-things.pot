@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-13 14:22+0100\n"
+"POT-Creation-Date: 2026-11-13 21:06+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -45,7 +45,8 @@ msgstr ""
 msgid "The GTK theme’s accent"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs data/io.github.mowi12.SwayThings.desktop.in
+#: data/io.github.mowi12.SwayThings.metainfo.xml.in
 msgid "Sway Things"
 msgstr ""
 
@@ -1967,4 +1968,32 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "height"
+msgstr ""
+
+#: data/io.github.mowi12.SwayThings.desktop.in
+msgid "Settings"
+msgstr ""
+
+#: data/io.github.mowi12.SwayThings.desktop.in
+#: data/io.github.mowi12.SwayThings.metainfo.xml.in
+msgid "Change the settings of sway and SwayFX"
+msgstr ""
+
+#. TRANSLATORS: Search terms separated by semicolons; keep the semicolons and the trailing one.
+#: data/io.github.mowi12.SwayThings.desktop.in
+msgid "sway;swayfx;wayland;settings;preferences;keyboard;mouse;touchpad;windows;"
+msgstr ""
+
+#: data/io.github.mowi12.SwayThings.metainfo.xml.in
+msgid ""
+"Sway Things gives the sway Wayland compositor the familiar shape of a "
+"desktop settings app: a searchable sidebar of pages, controls that apply "
+"instantly, and a safety net for risky changes."
+msgstr ""
+
+#: data/io.github.mowi12.SwayThings.metainfo.xml.in
+msgid ""
+"It never edits your hand-written config. It writes sway config files of its "
+"own, which your config includes with a single line. Changes apply live, and "
+"the same settings are available on the command line with sway-things."
 msgstr ""

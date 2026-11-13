@@ -1,0 +1,238 @@
+#compdef sway-things
+
+autoload -U is-at-least
+
+_sway-things() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_sway-things_commands" \
+"*::: :->sway-things" \
+&& ret=0
+    case $state in
+    (sway-things)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-command-$line[1]:"
+        case $line[1] in
+            (get)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'--json[Print JSON for scripts]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::key -- The setting, e.g. windows.gaps.inner:_default' \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'(--shared)--host[Store the value for this machine only, in settings.d/<hostname>.toml]' \
+'--shared[Store the value in the shared settings.toml]' \
+'--yes[Change a setting that can lock you out without asking to keep it]' \
+'--overwrite[Replace generated files that were changed outside Sway Things]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':key -- The setting, e.g. windows.gaps.inner:_default' \
+':value -- The new value\: true or false, a number, a choice, a color as #rrggbb, text, or a list as items separated by commas (us,de):_default' \
+&& ret=0
+;;
+(reset)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'--yes[Reset a setting that can lock you out without asking to keep it]' \
+'--overwrite[Replace generated files that were changed outside Sway Things]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':key -- The setting, e.g. windows.gaps.inner:_default' \
+&& ret=0
+;;
+(show-generated)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::file -- Only this file:(10-input.conf 30-appearance.conf 40-behavior.conf 90-effects.conf)' \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'--fix[Write the generated files that are missing or out of date. Never touches your own files]' \
+'--overwrite[With --fix, also replace generated files that were changed outside Sway Things]' \
+'--json[Print JSON for scripts]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(open)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::link -- A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_sway-things__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-help-command-$line[1]:"
+        case $line[1] in
+            (get)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reset)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show-generated)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(open)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_sway-things_commands] )) ||
+_sway-things_commands() {
+    local commands; commands=(
+'get:Show the value in effect and where it comes from; without a key, every stored setting' \
+'set:Change a setting\: live, in the settings files and in the generated sway config' \
+'reset:Remove the stored value of a setting and apply its default' \
+'show-generated:Print the generated sway config files as they would be written, without writing them' \
+'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
+'open:Start the app, or bring its window up if it runs, at a page or a setting' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__doctor_commands] )) ||
+_sway-things__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things doctor commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__get_commands] )) ||
+_sway-things__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things get commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help_commands] )) ||
+_sway-things__subcmd__help_commands() {
+    local commands; commands=(
+'get:Show the value in effect and where it comes from; without a key, every stored setting' \
+'set:Change a setting\: live, in the settings files and in the generated sway config' \
+'reset:Remove the stored value of a setting and apply its default' \
+'show-generated:Print the generated sway config files as they would be written, without writing them' \
+'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
+'open:Start the app, or bring its window up if it runs, at a page or a setting' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__doctor_commands] )) ||
+_sway-things__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help doctor commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__get_commands] )) ||
+_sway-things__subcmd__help__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help get commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__help_commands] )) ||
+_sway-things__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__open_commands] )) ||
+_sway-things__subcmd__help__subcmd__open_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help open commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__reset_commands] )) ||
+_sway-things__subcmd__help__subcmd__reset_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help reset commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__set_commands] )) ||
+_sway-things__subcmd__help__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help set commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__show-generated_commands] )) ||
+_sway-things__subcmd__help__subcmd__show-generated_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help show-generated commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__open_commands] )) ||
+_sway-things__subcmd__open_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things open commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__reset_commands] )) ||
+_sway-things__subcmd__reset_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things reset commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__set_commands] )) ||
+_sway-things__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things set commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__show-generated_commands] )) ||
+_sway-things__subcmd__show-generated_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things show-generated commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_sway-things" ]; then
+    _sway-things "$@"
+else
+    compdef _sway-things sway-things
+fi

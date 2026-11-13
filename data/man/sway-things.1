@@ -1,0 +1,108 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things 1 "" "Sway Things 0.0.0" "Sway Things Manual"
+.SH NAME
+sway\-things \- Read and change the settings of Sway Things
+.SH SYNOPSIS
+\fBsway\-things\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+Read and change the settings of Sway Things
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.SH SUBCOMMANDS
+.TP
+sway\-things\-get(1)
+Show the value in effect and where it comes from; without a key, every stored setting
+.TP
+sway\-things\-set(1)
+Change a setting: live, in the settings files and in the generated sway config
+.TP
+sway\-things\-reset(1)
+Remove the stored value of a setting and apply its default
+.TP
+sway\-things\-show\-generated(1)
+Print the generated sway config files as they would be written, without writing them
+.TP
+sway\-things\-doctor(1)
+Check why settings might not take effect: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win
+.TP
+sway\-things\-open(1)
+Start the app, or bring its window up if it runs, at a page or a setting
+.SH "EXIT STATUS"
+.TP
+\fB0\fR
+Done.
+.TP
+\fB1\fR
+Failure: sway rejected a command or a generated file, a file can\*(Aqt be read or written, there is no sway to ask, or the app can\*(Aqt be found or started. For doctor: \-\-fix couldn\*(Aqt write the generated files.
+.TP
+\fB2\fR
+Wrong arguments: an unknown key or page, a value the setting doesn\*(Aqt take, or \-\-device for a setting that isn\*(Aqt per device.
+.TP
+\fB3\fR
+Read\-only: your sway config doesn\*(Aqt include the generated files yet, so nothing was changed. sway\-things doctor shows the line to add.
+.TP
+\fB4\fR
+Refused: a risky setting without a terminal or \-\-yes, a change that wasn\*(Aqt kept, a setting the compositor doesn\*(Aqt support, or a generated file that was changed outside and not overwritten.
+.TP
+\fB5\fR
+doctor found at least one problem, also after \-\-fix.
+.SH ENVIRONMENT
+.TP
+\fBSWAYSOCK\fR
+The IPC socket of the running sway session, which changes are sent to.
+.TP
+\fBXDG_CONFIG_HOME\fR
+Where the settings files, the generated files and your sway config are; ~/.config if unset.
+.TP
+\fBXDG_STATE_HOME\fR
+Where the list of generated files and the history of the settings files are; ~/.local/state if unset.
+.TP
+\fBSWAY_THINGS_GUI\fR
+The binary of the app for open, ahead of the one next to sway\-things and the one in PATH.
+.TP
+\fBSWAY_THINGS_LOCALEDIR\fR
+The directory of the translations, ahead of the one set at build time.
+.TP
+\fBLANGUAGE, LC_ALL, LC_MESSAGES, LANG\fR
+The language of the messages, as gettext reads them.
+.TP
+\fBNO_COLOR, CLICOLOR, CLICOLOR_FORCE\fR
+Whether \-\-color auto colors the output.
+.SH FILES
+.TP
+\fI~/.config/sway\-things/settings.toml\fR
+The settings shared by all machines, e.g. in your dotfiles.
+.TP
+\fI~/.config/sway\-things/settings.d/<hostname>.toml\fR
+The settings of this machine, ahead of the shared ones.
+.TP
+\fI~/.config/sway/sway\-things/*.conf\fR
+The generated sway config files, which your sway config includes. Sway Things never writes your own config.
+.TP
+\fI~/.local/state/sway\-things/\fR
+The list of generated files and the history of the settings files.
+.SH VERSION
+v0.0.0
+.SH "SEE ALSO"
+\fBsway\-things\-get\fR(1), \fBsway\-things\-set\fR(1), \fBsway\-things\-reset\fR(1), \fBsway\-things\-show\-generated\fR(1), \fBsway\-things\-doctor\fR(1), \fBsway\-things\-open\fR(1), \fBsway\-things\-gui\fR(1), \fBsway\fR(1), \fBsway\fR(5)

@@ -18,3 +18,15 @@ check:
 # Format Rust, Markdown, TOML, YAML and JSON files
 fmt:
     scripts/check-fmt.sh --fix
+
+# Build the binaries, the merged metadata and the translations for PREFIX (default /usr/local)
+build *args:
+    scripts/build.sh {{ args }}
+
+# Install into DESTDIR/PREFIX (run `just build` first)
+install:
+    scripts/install.sh
+
+# Remove what `just install` installed from DESTDIR/PREFIX
+uninstall:
+    scripts/install.sh --uninstall

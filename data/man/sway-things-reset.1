@@ -1,0 +1,40 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-reset 1 "" "Sway Things 0.0.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-reset \- Remove the stored value of a setting and apply its default
+.SH SYNOPSIS
+\fBsway\-things reset\fR [\fB\-\-device\fR] [\fB\-\-yes\fR] [\fB\-\-overwrite\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIKEY\fR> 
+.SH DESCRIPTION
+Remove the stored value of a setting and apply its default
+.SH OPTIONS
+.TP
+\fB\-\-device\fR \fI<IDENTIFIER>\fR
+The input device, by its identifier as `swaymsg \-t get_inputs` shows it
+.TP
+\fB\-\-yes\fR
+Reset a setting that can lock you out without asking to keep it
+.TP
+\fB\-\-overwrite\fR
+Replace generated files that were changed outside Sway Things
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fIKEY\fR>
+The setting, e.g. windows.gaps.inner
