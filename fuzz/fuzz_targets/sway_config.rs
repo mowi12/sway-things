@@ -6,18 +6,20 @@
 //!
 //! The input is the main config, `/home/me/.config/sway/config`. A line `#=> PATH` starts another
 //! file: `PATH` is relative to the directory of the main config or absolute. sway reads that line
-//! as a comment, so an input is also a config sway can read.
+//! as a comment, so an input is also a config sway can read. A line `#=| PATH` puts something at
+//! `PATH` that isn't a regular file, like a FIFO, which the parser must not read.
 
 #![no_main]
 
 use std::path::Path;
 
 use libfuzzer_sys::fuzz_target;
-use sway_things_core::sway_config::{MemoryFiles, SwayConfig, parse};
+use sway_things_core::sway_config::{Files, MemoryFiles, SwayConfig, parse};
 
 const DIRECTORY: &str = "/home/me/.config/sway";
 const MAIN: &str = "/home/me/.config/sway/config";
 const MARKER: &[u8] = b"#=> ";
+const SPECIAL: &[u8] = b"#=| ";
 /// More files than this are read as lines of the last one.
 const MAX_FILES: usize = 32;
 
@@ -26,8 +28,9 @@ const MAX_DIRECTIVES: usize = 100_000;
 const MAX_TEXT: usize = 64 * 1024 * 1024;
 
 fuzz_target!(|data: &[u8]| {
-    let config = parse(Path::new(MAIN), &files(data));
-    check(&config);
+    let files = files(data);
+    let config = parse(Path::new(MAIN), &files);
+    check(&config, &files);
 });
 
 /// The files and environment variables of the input.
@@ -43,16 +46,13 @@ fn files(data: &[u8]) -> MemoryFiles {
     let mut content = Vec::new();
     let mut count = 1;
     for line in data.split_inclusive(|&byte| byte == b'\n') {
-        if let Some(name) = line.strip_prefix(MARKER).filter(|_| count < MAX_FILES) {
+        if let Some(name) = line.strip_prefix(SPECIAL).filter(|_| count < MAX_FILES) {
+            files = files.special(&absolute(name));
+            count += 1;
+        } else if let Some(name) = line.strip_prefix(MARKER).filter(|_| count < MAX_FILES) {
             files = files.file(&path, std::mem::take(&mut content));
             count += 1;
-            let name = String::from_utf8_lossy(name);
-            let name = name.trim_end_matches('\n');
-            path = if name.starts_with('/') {
-                name.to_owned()
-            } else {
-                format!("{DIRECTORY}/{name}")
-            };
+            path = absolute(name);
         } else {
             content.extend_from_slice(line);
         }
@@ -60,10 +60,25 @@ fn files(data: &[u8]) -> MemoryFiles {
     files.file(&path, content)
 }
 
+/// The path a marker line names: relative to the directory of the main config, or absolute.
+fn absolute(name: &[u8]) -> String {
+    let name = String::from_utf8_lossy(name);
+    let name = name.trim_end_matches('\n');
+    if name.starts_with('/') {
+        name.to_owned()
+    } else {
+        format!("{DIRECTORY}/{name}")
+    }
+}
+
 /// What holds for every config, whatever the input.
-fn check(config: &SwayConfig) {
+fn check(config: &SwayConfig, files: &MemoryFiles) {
     for (index, file) in config.files.iter().enumerate() {
         assert!(!config.files[..index].contains(file), "a file read twice");
+        assert!(
+            files.is_file(file).unwrap_or(false),
+            "read what isn't a regular file"
+        );
     }
     for directive in &config.directives {
         assert!(config.files.contains(&directive.file));

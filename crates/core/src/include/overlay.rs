@@ -97,6 +97,14 @@ impl Files for Overlay<'_> {
         }
     }
 
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        if self.replacement(path).is_some() || self.generated(path).is_some() {
+            self.read(path)
+        } else {
+            self.inner.read_bounded(path, limit)
+        }
+    }
+
     fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
         let listed = self.inner.list(directory);
         let real = resolve(self.inner, directory);
@@ -133,6 +141,14 @@ impl Files for Overlay<'_> {
             || self.generated(path).is_some()
             || self.replacement(path).is_some()
             || (path.is_absolute() && self.directory.starts_with(resolve(self.inner, path)))
+    }
+
+    fn is_file(&self, path: &Path) -> io::Result<bool> {
+        if self.replacement(path).is_some() || self.generated(path).is_some() {
+            Ok(true)
+        } else {
+            self.inner.is_file(path)
+        }
     }
 
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {

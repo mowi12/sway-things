@@ -618,6 +618,21 @@ fn no_config_and_unreadable_files_are_problems() {
     let unreadable = one(&diagnosis, Code::ConfigDiagnostic);
     assert_eq!(unreadable.severity, Severity::Problem);
 
+    // A directory in the place of the config isn't read.
+    let main = setup.dir.path().join("config/sway");
+    setup.status = IncludeStatus::detect(Some(&main), &Disk, &setup.locations);
+    let diagnosis = setup.diagnose();
+    let not_a_file = one(&diagnosis, Code::ConfigDiagnostic);
+    assert_eq!(not_a_file.severity, Severity::Problem);
+    assert!(
+        not_a_file
+            .message
+            .ends_with("/config/sway: isn't a regular file, so it wasn't read."),
+        "{}",
+        not_a_file.message
+    );
+    assert!(not_a_file.hint.is_some());
+
     // A directory in the place of a generated file.
     fs::create_dir_all(setup.path(ConfigFile::Input)).unwrap();
     let diagnosis = setup.diagnose();

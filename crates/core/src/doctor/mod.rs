@@ -1155,6 +1155,14 @@ fn diagnostic_finding(diagnostic: &Diagnostic) -> Finding {
             "include: {} was read already, so sway doesn't read it again",
             path.display()
         ),
+        DiagnosticKind::NotAFile => {
+            severity = Severity::Problem;
+            hint = Some(
+                "Sway Things reads only regular files, as a device, FIFO or socket might never \
+                 end, so it doesn't know what sway would read from it.",
+            );
+            "isn't a regular file, so it wasn't read".to_owned()
+        }
         DiagnosticKind::InvalidInclude => {
             "include needs exactly one path, so sway rejects it".into()
         }

@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::io;
 use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 
 use super::line::{self, Variable};
 use super::{
-    Diagnostic, DiagnosticKind, Directive, Disk, ExpandError, MemoryFiles, SwayConfig,
+    Diagnostic, DiagnosticKind, Directive, Disk, ExpandError, Files, MemoryFiles, SwayConfig,
     default_path, parse,
 };
 use crate::command::model;
@@ -398,16 +399,112 @@ fn a_missing_or_unreadable_config_is_a_diagnostic() {
             ..
         }]
     ));
-    // On the real file system: a directory where the config should be.
+}
+
+#[test]
+fn only_regular_files_are_read() {
+    let files =
+        files("include /dev/zero\ninclude fifo\ninclude conf.d\ninclude parts/*\ngaps inner 1\n")
+            .special("/dev/zero")
+            .special("/home/me/.config/sway/fifo")
+            .file("/home/me/.config/sway/conf.d/a.conf", "gaps outer 1\n")
+            .file("/home/me/.config/sway/parts/a.conf", "gaps outer 2\n")
+            .special("/home/me/.config/sway/parts/b.sock");
+    let config = parse(Path::new(MAIN), &files);
+    let about: Vec<(&Path, DiagnosticKind)> = config
+        .diagnostics
+        .iter()
+        .map(|diagnostic| (&*diagnostic.file, diagnostic.kind.clone()))
+        .collect();
+    assert_eq!(
+        about,
+        [
+            (Path::new("/dev/zero"), DiagnosticKind::NotAFile),
+            (
+                Path::new("/home/me/.config/sway/fifo"),
+                DiagnosticKind::NotAFile
+            ),
+            (
+                Path::new("/home/me/.config/sway/conf.d"),
+                DiagnosticKind::NotAFile
+            ),
+            (
+                Path::new("/home/me/.config/sway/parts/b.sock"),
+                DiagnosticKind::NotAFile
+            ),
+        ]
+    );
+    assert_eq!(
+        listing(&config),
+        ["a.conf:1: gaps <outer> <2>", "config:5: gaps <inner> <1>"]
+    );
+    assert!(
+        config
+            .includes
+            .iter()
+            .take(3)
+            .all(|include| include.loaded.is_empty())
+    );
+
+    // The main config itself.
+    let config = parse(Path::new(MAIN), &MemoryFiles::new().special(MAIN));
+    assert_eq!(kinds(&config), [(0, DiagnosticKind::NotAFile)]);
+    assert_eq!(config.files, []);
+}
+
+/// Runs `run` on a thread of its own and fails if it takes longer than 10 seconds, so a test of
+/// something that might block can't hang the tests.
+fn within_seconds<T: Send + 'static>(run: impl FnOnce() -> T + Send + 'static) -> T {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || sender.send(run()));
+    receiver
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .expect("blocked for 10 seconds")
+}
+
+#[test]
+fn only_regular_files_are_read_from_the_real_file_system() {
+    use rustix::fs::{CWD, FileType, Mode, mknodat};
     let dir = tempfile::tempdir().unwrap();
-    let config = parse(dir.path(), &Disk);
-    assert!(matches!(
-        &config.diagnostics[..],
-        [Diagnostic {
-            kind: DiagnosticKind::Unreadable { .. },
-            ..
-        }]
-    ));
+    let root = dir.path().to_owned();
+    let fifo = root.join("fifo");
+    mknodat(CWD, &fifo, FileType::Fifo, Mode::RUSR | Mode::WUSR, 0).unwrap();
+    let _socket = std::os::unix::net::UnixListener::bind(root.join("socket")).unwrap();
+    std::fs::create_dir(root.join("dir")).unwrap();
+    std::fs::write(root.join("real.conf"), "gaps inner 1\n").unwrap();
+    std::os::unix::fs::symlink(&fifo, root.join("link-to-fifo")).unwrap();
+    std::os::unix::fs::symlink(root.join("real.conf"), root.join("link.conf")).unwrap();
+    let main = root.join("config");
+    std::fs::write(
+        &main,
+        "include fifo\ninclude socket\ninclude dir\ninclude link-to-fifo\ninclude link.conf\n\
+         include /dev/zero\n",
+    )
+    .unwrap();
+
+    let config = within_seconds(move || parse(&main, &Disk));
+    let not_files: Vec<String> = config
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.kind == DiagnosticKind::NotAFile)
+        .map(|diagnostic| diagnostic.file.display().to_string())
+        .collect();
+    let real = root.canonicalize().unwrap();
+    // The link is followed, so it is the FIFO that isn't read.
+    let mut expected: Vec<String> = ["fifo", "socket", "dir", "fifo"]
+        .iter()
+        .map(|name| real.join(name).display().to_string())
+        .collect();
+    if Path::new("/dev/zero").exists() {
+        expected.push("/dev/zero".to_owned());
+    }
+    assert_eq!(not_files, expected);
+    assert_eq!(listing(&config), ["real.conf:1: gaps <inner> <1>"]);
+
+    // If a FIFO takes the place of a file after it was looked at, opening it doesn't block and
+    // it isn't read.
+    let error = within_seconds(move || Disk.read_bounded(&fifo, 10)).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
 
 #[test]
@@ -453,6 +550,54 @@ fn deep_and_huge_configs_end_with_a_diagnostic() {
     let config = parse(Path::new(MAIN), &files);
     assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
     assert_eq!(listing(&config), ["config:2: gaps <inner> <1>"]);
+}
+
+/// Files that can only be read with a bound: `read` fails, and `read_bounded` reads no further
+/// than the limit allows, like the real file system.
+struct OnlyBounded(MemoryFiles);
+
+impl Files for OnlyBounded {
+    fn read(&self, _: &Path) -> io::Result<Vec<u8>> {
+        Err(io::Error::other("read without a bound"))
+    }
+
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        let mut content = self.0.read(path)?;
+        content.truncate(limit + 1);
+        Ok(content)
+    }
+
+    fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
+        self.0.list(directory)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        self.0.exists(path)
+    }
+
+    fn is_file(&self, path: &Path) -> io::Result<bool> {
+        self.0.is_file(path)
+    }
+
+    fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
+        self.0.canonicalize(path)
+    }
+
+    fn env(&self, name: &str) -> Option<String> {
+        self.0.env(name)
+    }
+}
+
+#[test]
+fn every_file_is_read_with_a_bound() {
+    let config = parse(Path::new(MAIN), &OnlyBounded(files_with_big_include()));
+    assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
+    assert_eq!(listing(&config), ["config:2: gaps <inner> <1>"]);
+
+    let big = vec![b'#'; 9 * 1024 * 1024];
+    let config = parse(Path::new(MAIN), &OnlyBounded(files("").file(MAIN, big)));
+    assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
+    assert_eq!(config.files, []);
 }
 
 fn files_with_big_include() -> MemoryFiles {

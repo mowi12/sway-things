@@ -22,7 +22,8 @@ pub trait Files {
     ///
     /// # Errors
     ///
-    /// The I/O error if the file can't be read.
+    /// The I/O error if the file can't be read. On the real file system also if it isn't a
+    /// regular file: a device, FIFO or socket is never read, and opening it doesn't block.
     fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
         let _ = limit;
         self.read(path)
@@ -37,6 +38,14 @@ pub trait Files {
 
     /// Whether something exists at `path`.
     fn exists(&self, path: &Path) -> bool;
+
+    /// Whether `path`, with symbolic links followed, is a regular file: not a directory, device,
+    /// FIFO or socket. It isn't opened.
+    ///
+    /// # Errors
+    ///
+    /// The I/O error if nothing is there or it can't be looked at.
+    fn is_file(&self, path: &Path) -> io::Result<bool>;
 
     /// The absolute path of `path` with every symbolic link resolved, like `realpath`.
     ///
@@ -59,10 +68,18 @@ impl Files for Disk {
     }
 
     fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        use rustix::fs::{Mode, OFlags};
         use std::io::Read;
+        // The path may lead somewhere else by now than when it was looked at. Opened without
+        // blocking, a FIFO doesn't wait for a writer, and what was opened is checked before
+        // anything is read. O_NONBLOCK doesn't change how a regular file reads.
+        let flags = OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOCTTY | OFlags::CLOEXEC;
+        let file = std::fs::File::from(rustix::fs::open(path, flags, Mode::empty())?);
+        if !file.metadata()?.is_file() {
+            return Err(not_a_file());
+        }
         let mut content = Vec::new();
-        std::fs::File::open(path)?
-            .take(u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1))
+        file.take(u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1))
             .read_to_end(&mut content)?;
         Ok(content)
     }
@@ -82,6 +99,10 @@ impl Files for Disk {
         path.exists()
     }
 
+    fn is_file(&self, path: &Path) -> io::Result<bool> {
+        Ok(std::fs::metadata(path)?.is_file())
+    }
+
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
         std::fs::canonicalize(path)
     }
@@ -91,11 +112,17 @@ impl Files for Disk {
     }
 }
 
+/// The error for reading something that isn't a regular file.
+fn not_a_file() -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, "not a regular file")
+}
+
 /// Files and environment variables in memory, for tests and fuzzing. Paths are absolute, there
 /// are no symbolic links, and a directory exists if a file is in it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MemoryFiles {
-    files: std::collections::BTreeMap<PathBuf, Vec<u8>>,
+    /// The content of each file; none for one that isn't a regular file.
+    files: std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>,
     env: std::collections::BTreeMap<String, String>,
 }
 
@@ -109,7 +136,15 @@ impl MemoryFiles {
     #[must_use]
     pub fn file(mut self, path: &str, content: impl Into<Vec<u8>>) -> Self {
         self.files
-            .insert(normalize(Path::new(path)), content.into());
+            .insert(normalize(Path::new(path)), Some(content.into()));
+        self
+    }
+
+    /// Adds something at `path` (absolute) that isn't a regular file, like a device, a FIFO or a
+    /// socket. Reading it fails; on the real file system, it might never end.
+    #[must_use]
+    pub fn special(mut self, path: &str) -> Self {
+        self.files.insert(normalize(Path::new(path)), None);
         self
     }
 
@@ -145,10 +180,11 @@ fn normalize(path: &Path) -> PathBuf {
 
 impl Files for MemoryFiles {
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
-        self.files
-            .get(&normalize(path))
-            .cloned()
-            .ok_or_else(|| io::ErrorKind::NotFound.into())
+        match self.files.get(&normalize(path)) {
+            Some(Some(content)) => Ok(content.clone()),
+            Some(None) => Err(not_a_file()),
+            None => Err(io::ErrorKind::NotFound.into()),
+        }
     }
 
     fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
@@ -170,6 +206,15 @@ impl Files for MemoryFiles {
     fn exists(&self, path: &Path) -> bool {
         let path = normalize(path);
         self.files.contains_key(&path) || self.is_directory(&path)
+    }
+
+    fn is_file(&self, path: &Path) -> io::Result<bool> {
+        let path = normalize(path);
+        match self.files.get(&path) {
+            Some(content) => Ok(content.is_some()),
+            None if self.is_directory(&path) => Ok(false),
+            None => Err(io::ErrorKind::NotFound.into()),
+        }
     }
 
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {

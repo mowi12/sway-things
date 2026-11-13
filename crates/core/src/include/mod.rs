@@ -174,9 +174,9 @@ impl IncludeStatus {
             .iter()
             .filter(|diagnostic| match diagnostic.kind {
                 DiagnosticKind::UnresolvedInclude { .. } | DiagnosticKind::TooDeep => true,
-                DiagnosticKind::Unreadable { .. } | DiagnosticKind::TooBig => {
-                    !found.config.files.is_empty()
-                }
+                DiagnosticKind::Unreadable { .. }
+                | DiagnosticKind::NotAFile
+                | DiagnosticKind::TooBig => !found.config.files.is_empty(),
                 _ => false,
             })
             .cloned()
@@ -329,6 +329,7 @@ impl IncludeStatus {
             }
             DiagnosticKind::Unreadable { message } => format!("{place} ({message})"),
             DiagnosticKind::TooDeep => format!("{place} (includes are nested too deeply)"),
+            DiagnosticKind::NotAFile => format!("{place} (not a regular file)"),
             _ => format!("{place} (too big to read)"),
         }
     }
