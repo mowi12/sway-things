@@ -40,8 +40,10 @@
 mod risky;
 #[cfg(test)]
 mod tests;
+mod waiting;
 
 pub use risky::{Countdown, Pending, Trial, TriedValue};
+pub use waiting::{Until, Waiting, WaitingChange};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -57,7 +59,9 @@ use crate::generate::{
 };
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
-use crate::registry::{Apply, ConfigFile, Registry, RenderError, Setting, Value, Values};
+use crate::registry::{
+    Apply, ConfigFile, Registry, RenderError, Setting, SwayMapping, Value, Values,
+};
 use crate::state::{ChangedKey, Changes, Layer, Paths, PathsError, State, StateError};
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
@@ -154,6 +158,8 @@ pub struct Applier<V = SwayValidator> {
     unsaved_since: Option<Instant>,
     /// The risky change that waits to be kept or reverted.
     pending: Option<Pending>,
+    /// The stored changes that wait for a reload of sway or the next login.
+    waiting: Waiting,
 }
 
 impl Applier<SwayValidator> {
@@ -221,6 +227,7 @@ impl<V: Validate> Applier<V> {
             validator,
             unsaved_since: None,
             pending: None,
+            waiting: Waiting::default(),
         }
     }
 
@@ -240,6 +247,7 @@ impl<V: Validate> Applier<V> {
             validator,
             unsaved_since: None,
             pending: None,
+            waiting: Waiting::default(),
         }
     }
 
@@ -318,12 +326,15 @@ impl<V: Validate> Applier<V> {
                 unmet,
             })?;
         let before = self.state.clone();
+        let was = before.get(key, device).cloned();
         // A value that is stored already is sent again, but leaves nothing to save.
-        let changed = self.state.get(key, device) != Some(&value);
+        let changed = was.as_ref() != Some(&value);
         if changed {
             self.state.set(key, device, value, None)?;
         }
-        self.finish(setting, device, changed, before).await
+        let applied = self.finish(setting, device, changed, before).await?;
+        self.note(setting, device, &applied.effect, was);
+        Ok(applied)
     }
 
     /// Removes the stored value of `key`, so Sway Things no longer manages the setting, and sends
@@ -342,13 +353,16 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         let setting = self.setting(key)?;
         let before = self.state.clone();
+        let was = before.get(key, device).cloned();
         if !self.state.reset(key, device)? {
             return Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
             });
         }
-        self.finish(setting, device, true, before).await
+        let applied = self.finish(setting, device, true, before).await?;
+        self.note(setting, device, &applied.effect, was);
+        Ok(applied)
     }
 
     /// Moves the stored value of `key` to the settings file `layer`: the host overlay for "this
@@ -410,6 +424,10 @@ impl<V: Validate> Applier<V> {
             for member in registry.group(setting) {
                 let Some(Ok(value)) = member.read(&line.directive) else {
                     self.unsaved_since = Some(Instant::now());
+                    for member in registry.group(setting) {
+                        let was = before.get(member.key(), device).cloned();
+                        self.note(member, device, &Effect::AfterReload, was);
+                    }
                     return Ok(Applied {
                         changed: true,
                         effect: Effect::AfterReload,
@@ -424,6 +442,10 @@ impl<V: Validate> Applier<V> {
         {
             Ok(effect) => {
                 self.unsaved_since = Some(Instant::now());
+                for member in registry.group(setting) {
+                    let was = before.get(member.key(), device).cloned();
+                    self.note(member, device, &effect, was);
+                }
                 Ok(Applied {
                     changed: true,
                     effect,
@@ -565,7 +587,83 @@ impl<V: Validate> Applier<V> {
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        Ok(Persisted { saved, files })
+        let persisted = Persisted { saved, files };
+        let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
+        self.waiting.written(&unwritten);
+        Ok(persisted)
+    }
+
+    /// The stored changes that wait for a reload of sway or the next login.
+    pub fn waiting(&self) -> &Waiting {
+        &self.waiting
+    }
+
+    /// Persists the changes ([`Applier::persist`]) and asks sway to reload its config, so the
+    /// changes that wait for a reload take effect. A reload starts the bars again and runs the
+    /// `exec_always` lines, so the caller asks the user first.
+    ///
+    /// # Errors
+    ///
+    /// Nothing is sent then: [`ApplyError::PendingChange`] while a risky change waits (a reload
+    /// would put the stored value back), [`ApplyError::ReloadWithoutSession`] without a session,
+    /// the errors of [`Applier::persist`], and [`ApplyError::Unwritten`] if a generated file with
+    /// a waiting change couldn't be written. [`ApplyError::Ipc`] if sway refuses the reload or
+    /// can't be reached.
+    pub async fn reload_sway(&mut self, access: &WriteAccess) -> Result<Persisted, ApplyError> {
+        if let Some(pending) = &self.pending {
+            return Err(ApplyError::PendingChange { key: pending.key() });
+        }
+        if self.client.is_none() {
+            return Err(ApplyError::ReloadWithoutSession);
+        }
+        let persisted = self.persist(&[], access).await?;
+        let unwritten = self.waiting.unwritten();
+        if !unwritten.is_empty() {
+            return Err(ApplyError::Unwritten { files: unwritten });
+        }
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::ReloadWithoutSession);
+        };
+        client
+            .run(&crate::command::reload())
+            .await
+            .map_err(ApplyError::Ipc)?;
+        self.waiting.reloaded();
+        Ok(persisted)
+    }
+
+    /// Notes that sway reloaded its config, also when something else asked for it (sway's
+    /// `workspace` event with the change `reload`): the waiting changes that are in the generated
+    /// files are in effect now.
+    pub fn reloaded(&mut self) {
+        self.waiting.reloaded();
+    }
+
+    /// Notes a change of `setting` for `device` that took `effect`, with `was` its stored value
+    /// before, if it waits for a reload or the next login in the running session. Then drops the
+    /// waiting changes that are undone.
+    fn note(
+        &mut self,
+        setting: &'static Setting,
+        device: Option<&str>,
+        effect: &Effect,
+        was: Option<Value>,
+    ) {
+        // Without a session, sway reads the generated files when it starts.
+        if self.client.is_none() {
+            return;
+        }
+        let until = match effect {
+            Effect::AfterReload => Until::Reload,
+            Effect::AfterRelogin => Until::Relogin,
+            _ => {
+                self.waiting.settle(&self.state);
+                return;
+            }
+        };
+        let file = setting.sway().map(SwayMapping::file);
+        self.waiting.note(setting.key(), device, until, file, was);
+        self.waiting.settle(&self.state);
     }
 
     /// Loads the settings files that changed on disk (a hand edit, a `git pull` of the dotfiles;
@@ -576,6 +674,7 @@ impl<V: Validate> Applier<V> {
     /// Risky settings aren't sent: they are in effect after the next reload of sway
     /// ([`Effect::AfterReload`]).
     pub async fn reload(&mut self, _access: &WriteAccess) -> Reloaded {
+        let before = self.state.clone();
         let changes = self.state.reload();
         let registry = self.state.registry();
         let mut seen = BTreeSet::new();
@@ -591,6 +690,16 @@ impl<V: Validate> Applier<V> {
             let effect = self
                 .apply_live(setting, changed.device.as_deref(), None, &BTreeMap::new())
                 .await;
+            // A risky value from disk isn't offered for a reload: that would skip the safety net.
+            if let Ok(effect) = &effect {
+                if setting.apply() != Apply::Risky {
+                    for member in registry.group(setting) {
+                        let device = changed.device.as_deref();
+                        let was = before.get(member.key(), device).cloned();
+                        self.note(member, device, effect, was);
+                    }
+                }
+            }
             applied.push((changed.clone(), effect));
         }
         if !changes.is_empty() {
@@ -695,6 +804,14 @@ pub enum ApplyError {
         /// What would be left out.
         lockout: Lockout,
     },
+    /// sway can only be asked to reload in a running session.
+    ReloadWithoutSession,
+    /// These generated files couldn't be written, so a reload of sway wouldn't read the changes
+    /// that wait for it.
+    Unwritten {
+        /// The files.
+        files: Vec<ConfigFile>,
+    },
 }
 
 impl From<StateError> for ApplyError {
@@ -743,6 +860,17 @@ impl fmt::Display for ApplyError {
                  can be reverted"
             ),
             Self::Lockout { key, lockout } => write!(f, "{key} wasn't changed: {lockout}"),
+            Self::ReloadWithoutSession => {
+                f.write_str("sway isn't running, so it can't reload its config")
+            }
+            Self::Unwritten { files } => {
+                let names: Vec<&str> = files.iter().map(|file| file.file_name()).collect();
+                write!(
+                    f,
+                    "{} couldn't be written, so sway wouldn't read the changes",
+                    names.join(", ")
+                )
+            }
         }
     }
 }
@@ -765,7 +893,9 @@ impl std::error::Error for ApplyError {
             | Self::PendingChange { .. }
             | Self::NothingPending
             | Self::NoSession { .. }
-            | Self::Lockout { .. } => None,
+            | Self::Lockout { .. }
+            | Self::ReloadWithoutSession
+            | Self::Unwritten { .. } => None,
         }
     }
 }
