@@ -29,8 +29,14 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 ```
 
 - **Sidebar** with grouped pages and the search field at the top. The **content pane** on the right.
-- A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the file that
-  page writes to.
+- A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the files
+  that page writes to, each with a _Show_ button that opens it in _Generated config_.
+- **Generated config** is a window of its own, so it can be tiled next to the app and watched while settings change. A
+  tab per generated file shows what Sway Things writes to it for the current settings (also while read-only, since
+  showing writes nothing), with its path, and a copy button in the corner of the text, as on a code snippet. A file
+  changed outside Sway Things gets a banner with _Show file on disk_ and _Overwrite…_, which asks first and needs the
+  include line; a file Sway Things didn't make is never written. The window reads the files again whenever it gets the
+  focus. About & Maintenance opens it from its "Generated config" section.
 - A **setting row** has a title, optional plain-language subtitle and the control on the right. For sway settings an app
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a

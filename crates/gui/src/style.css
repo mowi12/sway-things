@@ -146,7 +146,37 @@ st-setting-row .st-badge.st-attention > image {
 
 st-page .st-page-footer {
   margin-top: 24px;
+}
+
+st-page .st-page-footer > box > label {
   font-size: 0.85em;
+}
+
+/* Show generated config */
+.st-generated-tabs {
+  margin: 12px 16px 4px;
+}
+
+.st-generated-page {
+  margin: 8px 16px 16px;
+}
+
+.st-generated-page > revealer > .st-generated-banner {
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+.st-generated-code {
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+.st-generated-copy {
+  margin: 6px;
+}
+
+.st-generated-text {
+  padding: 10px 12px;
 }
 
 /* Banner above the page */

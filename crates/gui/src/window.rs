@@ -9,11 +9,11 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Pending, Until};
-use sway_things_core::registry::{Link, Page, Registry};
+use sway_things_core::registry::{ConfigFile, Link, Page, Registry};
 
 use crate::i18n::tr;
 use crate::model::Model;
-use crate::widgets::{PageView, Placeholder, Sidebar, Welcome};
+use crate::widgets::{GeneratedWindow, PageView, Placeholder, Sidebar, Welcome};
 
 /// The width of the sidebar, in pixels.
 const SIDEBAR_WIDTH: i32 = 240;
@@ -64,6 +64,8 @@ mod imp {
         pub reload: gtk::Revealer,
         pub reload_text: gtk::Label,
         pub reload_button: gtk::Button,
+        /// The window of "Show generated config", while it is open.
+        pub generated: RefCell<Option<crate::widgets::GeneratedWindow>>,
     }
 
     #[glib::object_subclass]
@@ -201,6 +203,13 @@ impl Window {
         self.set_child(Some(&panes));
 
         self.add_shortcuts();
+        // The window of the generated files goes with the main window, which is unrealized when
+        // it is destroyed.
+        self.connect_unrealize(|window| {
+            if let Some(generated) = window.imp().generated.take() {
+                generated.destroy();
+            }
+        });
 
         if let Some(first) = Page::ALL.first() {
             self.open_page(*first);
@@ -581,6 +590,41 @@ impl Window {
                 }
             ),
         );
+    }
+
+    /// Opens the window of "Show generated config", or brings it to the front, at the tab of
+    /// `file` if given.
+    pub fn show_generated(&self, file: Option<ConfigFile>) {
+        let imp = self.imp();
+        let Some(model) = imp.model.get() else { return };
+        let existing = imp.generated.borrow().clone();
+        let generated = existing.unwrap_or_else(|| {
+            let generated = GeneratedWindow::new(model);
+            if let Some(app) = self.application() {
+                generated.set_application(Some(&app));
+            }
+            generated.connect_close_request(glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[upgrade_or]
+                glib::Propagation::Proceed,
+                move |_| {
+                    window.imp().generated.take();
+                    glib::Propagation::Proceed
+                }
+            ));
+            imp.generated.replace(Some(generated.clone()));
+            generated
+        });
+        if let Some(file) = file {
+            generated.show_file(file);
+        }
+        generated.present();
+    }
+
+    /// The window of "Show generated config", if it is open.
+    pub fn generated(&self) -> Option<GeneratedWindow> {
+        self.imp().generated.borrow().clone()
     }
 
     /// The text of the reload banner, if it is shown.

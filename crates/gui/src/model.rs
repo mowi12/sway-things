@@ -45,10 +45,10 @@ use sway_things_core::apply::{
 use sway_things_core::command::input::{InputSelector, XkbSwitch};
 use sway_things_core::conflict::Report;
 use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
-use sway_things_core::generate::Locations;
+use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor, Reloads};
-use sway_things_core::registry::{Apply, Page, Setting, Value, Values};
+use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::view::SettingView;
 
@@ -97,6 +97,8 @@ enum Op {
     ReloadSway,
     /// Notes that sway reloaded its config.
     SwayReloaded,
+    /// Writes a generated file that was changed outside Sway Things.
+    Overwrite(ConfigFile),
 }
 
 /// What the model works with once it is loaded.
@@ -331,6 +333,22 @@ impl Model {
         self.queue(Op::ReloadSway);
     }
 
+    /// What Sway Things writes to each generated file for the current settings, and the file as
+    /// it is on disk, read now. Nothing is written. `None` if the settings couldn't be loaded.
+    pub fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let files = generate::generate(core.state.registry(), &core.state, core.compositor);
+        let on_disk = generate::on_disk(&files, &core.locations);
+        Some(files.into_iter().zip(on_disk).collect())
+    }
+
+    /// Writes the generated `file` although it was changed outside Sway Things, after the user
+    /// agreed. A failure is shown in the banner above the page.
+    pub fn overwrite(&self, file: ConfigFile) {
+        self.queue(Op::Overwrite(file));
+    }
+
     /// The file the value of `setting` for `device` (`None`: the whole session or input type) is
     /// stored in, or `None` if Sway Things stores no value of its own for it.
     pub fn stored_in(&self, setting: &Setting, device: Option<&str>) -> Option<Layer> {
@@ -492,7 +510,8 @@ impl Model {
             | Op::Persist
             | Op::Reload
             | Op::ReloadSway
-            | Op::SwayReloaded => false,
+            | Op::SwayReloaded
+            | Op::Overwrite(_) => false,
         })
     }
 
@@ -588,7 +607,11 @@ impl Model {
             (Op::LetConfigWin(report), Err(read_only)) => {
                 self.emit_failed(report.key(), report.device(), read_only.explanation());
             }
-            (Op::ResetPage(_) | Op::ReloadSway, Err(read_only)) => {
+            (Op::Overwrite(file), Ok(access)) => match applier.persist(&[file], &access).await {
+                Ok(persisted) => self.emit_persisted(&persisted),
+                Err(error) => self.emit_problem(&error.to_string()),
+            },
+            (Op::ResetPage(_) | Op::ReloadSway | Op::Overwrite(_), Err(read_only)) => {
                 self.emit_problem(read_only.explanation());
             }
             (Op::Reset { key, device }, Ok(access)) => {

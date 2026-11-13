@@ -132,6 +132,10 @@ impl PageView {
     /// [`DeviceSelector`] per input type. `None` if the page has no settings with a row.
     pub fn for_settings(model: &Model, page: Page) -> Option<Self> {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        if page == Page::About {
+            generated_section(&body);
+        }
+        let mut first = page != Page::About;
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
         let mut files = BTreeSet::new();
@@ -158,7 +162,7 @@ impl PageView {
             let list = match &section {
                 Some((title, list)) if *title == setting.section() => list.clone(),
                 _ => {
-                    let heading = heading(tr(setting.section()), section.is_none());
+                    let heading = heading(tr(setting.section()), std::mem::take(&mut first));
                     let list = section_list(setting.section());
                     body.append(&heading);
                     let open = groups
@@ -362,30 +366,86 @@ impl PageView {
 
 /// The paths of the generated `files` a page writes to, for its footer. `None` without files or
 /// without the locations of the generated files.
-fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Label> {
+fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
     let locations = model.locations()?;
     if files.is_empty() {
         return None;
     }
-    let paths: Vec<String> = files
-        .into_iter()
-        .map(|file| tilde(&locations.path(file)))
-        .collect();
-    let footer = gtk::Label::new(Some(&paths.join("\n")));
-    footer.set_xalign(0.0);
-    footer.set_wrap(true);
-    footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    footer.set_selectable(true);
-    // Selectable with the mouse, but not a stop for the keyboard, which would select it all.
-    footer.set_focusable(false);
-    footer.add_css_class("monospace");
+    let footer = gtk::Box::new(gtk::Orientation::Vertical, 2);
     footer.add_css_class("st-page-footer");
-    footer.add_css_class(style::DIM);
-    footer.update_property(&[gtk::accessible::Property::Label(&format!(
-        "Written to {}",
-        paths.join(", ")
-    ))]);
+    for file in files {
+        let path = tilde(&locations.path(file));
+        let label = gtk::Label::new(Some(&path));
+        label.set_xalign(0.0);
+        label.set_hexpand(true);
+        label.set_wrap(true);
+        label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        label.set_selectable(true);
+        // Selectable with the mouse, but not a stop for the keyboard, which would select it all.
+        label.set_focusable(false);
+        label.add_css_class("monospace");
+        label.add_css_class(style::DIM);
+        label.update_property(&[gtk::accessible::Property::Label(&format!(
+            "Written to {path}"
+        ))]);
+        let show = gtk::Button::with_label("Show");
+        show.add_css_class("flat");
+        show.set_valign(gtk::Align::Center);
+        show.set_tooltip_text(Some(&format!(
+            "Show what Sway Things writes to {}",
+            file.file_name()
+        )));
+        show.update_property(&[gtk::accessible::Property::Label(&format!(
+            "Show {}",
+            file.file_name()
+        ))]);
+        show.connect_clicked(move |button| {
+            if let Some(window) = button.root().and_downcast::<crate::window::Window>() {
+                window.show_generated(Some(file));
+            }
+        });
+        let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        line.append(&label);
+        line.append(&show);
+        footer.append(&line);
+    }
     Some(footer)
+}
+
+/// The "Generated config" section of About & Maintenance: a row that opens the window with the
+/// files Sway Things writes.
+fn generated_section(body: &gtk::Box) {
+    body.append(&heading("Generated config", true));
+    let list = gtk::ListBox::new();
+    list.set_selection_mode(gtk::SelectionMode::None);
+    list.add_css_class("st-section");
+    list.update_property(&[gtk::accessible::Property::Label("Generated config")]);
+    let title = gtk::Label::new(Some("Generated config"));
+    title.set_xalign(0.0);
+    let subtitle = gtk::Label::new(Some(
+        "What Sway Things writes for your sway config to include, and which files were changed \
+         outside it",
+    ));
+    subtitle.set_xalign(0.0);
+    subtitle.set_wrap(true);
+    subtitle.add_css_class(style::DIM);
+    let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    text.set_hexpand(true);
+    text.append(&title);
+    text.append(&subtitle);
+    let show = gtk::Button::with_label("Show\u{2026}");
+    show.set_valign(gtk::Align::Center);
+    show.update_property(&[gtk::accessible::Property::Label("Show generated config")]);
+    show.connect_clicked(|button| {
+        if let Some(window) = button.root().and_downcast::<crate::window::Window>() {
+            window.show_generated(None);
+        }
+    });
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    row.append(&text);
+    row.append(&show);
+    list.append(&list_row(&row));
+    body.append(&list);
 }
 
 /// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].

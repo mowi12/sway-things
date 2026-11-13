@@ -605,3 +605,47 @@ fn problems_with_generated_files_read_well() {
         )
     );
 }
+
+#[test]
+fn files_on_disk_are_read_without_writing_anything() {
+    let written = Written::new();
+    let ownership = |written: &Written| -> Vec<Result<super::Ownership, String>> {
+        super::on_disk(&written.files, &written.locations)
+            .into_iter()
+            .map(|file| file.ownership)
+            .collect()
+    };
+    // Nothing written yet: nothing is created by looking either.
+    let before = super::on_disk(&written.files, &written.locations);
+    assert_eq!(
+        before.iter().map(|file| file.file).collect::<Vec<_>>(),
+        ConfigFile::ALL
+    );
+    assert!(before.iter().all(|file| file.content.is_none()));
+    assert_eq!(
+        ownership(&written),
+        [const { Ok(super::Ownership::Absent) }; 4]
+    );
+    assert!(!written.locations.directory().exists());
+
+    written.write(&FakeValidator::default(), &[]);
+    assert_eq!(
+        ownership(&written),
+        [const { Ok(super::Ownership::Current) }; 4]
+    );
+
+    let input = written.path(ConfigFile::Input);
+    let edited = format!("{HEADER}input * tap enabled\n");
+    fs::write(&input, &edited).unwrap();
+    fs::write(
+        written.path(ConfigFile::Behavior),
+        "focus_follows_mouse no\n",
+    )
+    .unwrap();
+    let files = super::on_disk(&written.files, &written.locations);
+    assert_eq!(files[0].path, input);
+    assert_eq!(files[0].ownership, Ok(super::Ownership::Edited));
+    assert_eq!(files[0].content.as_deref(), Some(edited.as_str()));
+    // Recorded, so changed outside even without the header.
+    assert_eq!(files[2].ownership, Ok(super::Ownership::Edited));
+}
