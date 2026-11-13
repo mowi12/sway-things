@@ -184,6 +184,7 @@ $XDG_CONFIG_HOME/sway-things/
 
 $XDG_STATE_HOME/sway-things/
 ├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
+├── ui.toml                # which sections of which pages are collapsed (app state, not a setting)
 └── history/               # snapshots of the settings files (restore, undo)
     └── 20261110T142355Z/  # both files as they were before a save, named after the UTC time
         ├── settings.toml
@@ -244,6 +245,12 @@ tap = false
   unknown keys included (a file that didn't exist then becomes empty), and is written by a normal save, which takes a
   snapshot in turn, so a restore can be undone. A snapshot of a file that can't be loaded can't be restored.
 - **Backups:** we never write user files, so we never need to back them up. `history/` covers our own state.
+- **Window state:** `ui.toml` lists the collapsed sections by page id and section id (the English section title in
+  lowercase words joined by dashes, `focused-tab-title`), version 1. It is UI state, not a setting, so it lives per
+  machine next to the history and never in `settings.toml` or the host overlay, and dotfiles diffs stay clean. The app
+  writes it atomically on each collapse or expand while `app.remember_collapsed_sections` is on, also while read-only; a
+  missing or broken file means every section is expanded, and unknown page or section ids are ignored
+  (`ui_state::UiState`).
 
 ### File watcher
 

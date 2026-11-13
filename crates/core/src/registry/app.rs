@@ -30,5 +30,11 @@ pub(super) fn settings() -> Vec<Setting> {
             .subtitle("Show the line of the sway config below each setting")
             .keywords(&["config", "directive", "monospace", "learn"])
             .build(),
+        Setting::toggle("app.remember_collapsed_sections", Page::About, true)
+            .section("Sway Things")
+            .title("Remember collapsed sections")
+            .subtitle("Keep sections you folded away folded when the app starts again")
+            .keywords(&["collapse", "fold", "expand", "sections"])
+            .build(),
     ]
 }

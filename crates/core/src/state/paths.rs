@@ -15,6 +15,7 @@ pub struct Paths {
     shared: PathBuf,
     host: PathBuf,
     history: PathBuf,
+    ui: PathBuf,
 }
 
 impl Paths {
@@ -40,6 +41,7 @@ impl Paths {
                 .join("settings.d")
                 .join(format!("{hostname}.toml")),
             history: state_dir.join("history"),
+            ui: state_dir.join("ui.toml"),
         })
     }
 
@@ -91,6 +93,12 @@ impl Paths {
     /// The directory with the snapshots of the settings files.
     pub fn history(&self) -> &Path {
         &self.history
+    }
+
+    /// The state of the app's window that isn't a setting (`ui.toml` next to the history):
+    /// which sections are collapsed. See [`UiState`](crate::ui_state::UiState).
+    pub fn ui(&self) -> &Path {
+        &self.ui
     }
 }
 
