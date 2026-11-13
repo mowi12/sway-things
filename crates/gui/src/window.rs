@@ -8,7 +8,7 @@ use std::time::Duration;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::apply::Pending;
+use sway_things_core::apply::{Pending, Until};
 use sway_things_core::registry::{Link, Page, Registry};
 
 use crate::i18n::tr;
@@ -60,6 +60,10 @@ mod imp {
         /// Set when the window was asked to close while a change waited: it closes once the
         /// change is reverted.
         pub closing: Cell<bool>,
+        /// The banner for changes that wait for a reload of sway.
+        pub reload: gtk::Revealer,
+        pub reload_text: gtk::Label,
+        pub reload_button: gtk::Button,
     }
 
     #[glib::object_subclass]
@@ -166,6 +170,7 @@ impl Window {
         imp.status.set_child(Some(&status));
 
         self.build_safety_net(model);
+        self.build_reload(model);
         crate::theme::follow_accent(self, model);
 
         imp.welcome.connect_look_around(glib::clone!(
@@ -185,6 +190,7 @@ impl Window {
         content.set_hexpand(true);
         content.append(&imp.safety);
         content.append(&imp.status);
+        content.append(&imp.reload);
         content.append(&imp.banner);
         content.append(&imp.pages);
 
@@ -476,6 +482,120 @@ impl Window {
         }
     }
 
+    /// The banner for changes that wait for a reload of sway, with its button that asks first.
+    fn build_reload(&self, model: &Model) {
+        let imp = self.imp();
+        imp.reload_text.set_xalign(0.0);
+        imp.reload_text.set_hexpand(true);
+        imp.reload_text.set_wrap(true);
+        imp.reload_text
+            .set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        imp.reload_button.set_label("Reload sway\u{2026}");
+        imp.reload_button.set_valign(gtk::Align::Center);
+        imp.reload_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.confirm_reload()
+        ));
+        let reload = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        reload.add_css_class("st-banner");
+        let icon = gtk::Image::from_icon_name("view-refresh-symbolic");
+        icon.set_valign(gtk::Align::Center);
+        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
+        reload.append(&icon);
+        reload.append(&imp.reload_text);
+        reload.append(&imp.reload_button);
+        imp.reload.set_child(Some(&reload));
+        model.connect_changed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |_| window.follow_reload()
+        ));
+    }
+
+    /// Shows the reload banner while changes wait for a reload of sway. Its button waits while a
+    /// risky change waits, since a reload would put the stored value back.
+    fn follow_reload(&self) {
+        let imp = self.imp();
+        let Some(model) = imp.model.get() else { return };
+        let count = model
+            .waiting()
+            .map_or(0, |waiting| waiting.until(Until::Reload).count());
+        let active = model.status().is_some_and(|status| status.is_active());
+        if count > 0 && active {
+            imp.reload_text.set_text(&reload_text(count));
+        }
+        imp.reload.set_reveal_child(count > 0 && active);
+        imp.reload_button
+            .set_sensitive(model.pending_change().is_none());
+    }
+
+    /// Asks whether to reload sway, and reloads it on yes.
+    fn confirm_reload(&self) {
+        let Some(model) = self.imp().model.get() else {
+            return;
+        };
+        let relogin: Vec<String> = model
+            .waiting()
+            .map(|waiting| {
+                waiting
+                    .until(Until::Relogin)
+                    .filter_map(|change| Registry::builtin().get(change.key))
+                    .map(|setting| tr(setting.title()).to_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut detail = "Sway reads its config again. Open windows stay; the bars start again \
+                          and exec_always lines run again."
+            .to_owned();
+        if !relogin.is_empty() {
+            let lines = if relogin.len() == 1 {
+                "its line"
+            } else {
+                "their lines"
+            };
+            detail = format!(
+                "{detail}\n\n{} changed, which sway only reads at login: until you log in \
+                 again, sway reports {lines} as an error after the reload.",
+                relogin.join(", ")
+            );
+        }
+        let dialog = gtk::AlertDialog::builder()
+            .message("Reload sway?")
+            .detail(detail)
+            .buttons(["Cancel", "Reload"])
+            .cancel_button(0)
+            .default_button(0)
+            .modal(true)
+            .build();
+        dialog.choose(
+            Some(self),
+            gtk::gio::Cancellable::NONE,
+            glib::clone!(
+                #[weak]
+                model,
+                move |answer| {
+                    if answer == Ok(1) {
+                        model.reload_sway();
+                    }
+                }
+            ),
+        );
+    }
+
+    /// The text of the reload banner, if it is shown.
+    pub fn reload_banner(&self) -> Option<String> {
+        let imp = self.imp();
+        imp.reload
+            .reveals_child()
+            .then(|| imp.reload_text.text().to_string())
+    }
+
+    /// The button of the reload banner.
+    pub fn reload_button(&self) -> &gtk::Button {
+        &self.imp().reload_button
+    }
+
     /// The text of the safety-net banner, if it is shown.
     pub fn safety_banner(&self) -> Option<String> {
         let imp = self.imp();
@@ -551,6 +671,15 @@ impl Window {
         let in_content = gtk::prelude::GtkWindowExt::focus(self)
             .is_some_and(|focus| focus.is_ancestor(&imp.pages));
         in_content && imp.sidebar.focus_selected()
+    }
+}
+
+/// "1 change applies after sway reloads its config", or "N changes apply …".
+fn reload_text(count: usize) -> String {
+    if count == 1 {
+        "1 change applies after sway reloads its config".to_owned()
+    } else {
+        format!("{count} changes apply after sway reloads its config")
     }
 }
 

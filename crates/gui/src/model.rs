@@ -24,6 +24,10 @@
 //! [`Model::reset_page`] removes every stored value of a page that can't lock the user out.
 //! [`Model::report`] says where the user's config sets a setting too.
 //!
+//! Settings that sway only reads while it loads its config wait for a reload
+//! ([`Model::waiting`]); [`Model::reload_sway`] saves and asks sway for one. A reload from
+//! elsewhere (`swaymsg reload`, a key binding) counts too: sway reports each one.
+//!
 //! In a session, the model also keeps the input devices current ([`Model::devices`]): a
 //! [`DeviceWatch`] reads them again on each `input` event of sway, and the devices that only have
 //! stored values are listed too. Without a session only those are known.
@@ -35,13 +39,15 @@ use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
+use sway_things_core::apply::{
+    Applier, ApplyError, Countdown, Pending, Persisted, SAVE_DELAY, Waiting,
+};
 use sway_things_core::command::input::{InputSelector, XkbSwitch};
 use sway_things_core::conflict::Report;
 use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::Locations;
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
-use sway_things_core::ipc::{Client, Compositor};
+use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::registry::{Apply, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::view::SettingView;
@@ -87,6 +93,10 @@ enum Op {
     Persist,
     /// Loads the settings files that changed on disk.
     Reload,
+    /// Saves, then asks sway to reload its config.
+    ReloadSway,
+    /// Notes that sway reloaded its config.
+    SwayReloaded,
 }
 
 /// What the model works with once it is loaded.
@@ -98,6 +108,9 @@ struct Core {
     state: State,
     /// The risky change that waits to be kept or reverted, as of the last change.
     pending: Option<Pending>,
+    /// The stored changes that wait for a reload of sway or the next login, as of the last
+    /// change.
+    waiting: Waiting,
     status: IncludeStatus,
     compositor: Compositor,
     locations: Locations,
@@ -217,6 +230,7 @@ impl Model {
         let core = Core {
             state: applier.state().clone(),
             pending: applier.pending().cloned(),
+            waiting: applier.waiting().clone(),
             compositor: applier.compositor(),
             locations: applier.locations().clone(),
             applier: Some(applier),
@@ -227,7 +241,8 @@ impl Model {
         };
         self.imp().core.replace(Some(core));
         if let Some(socket) = socket {
-            self.watch_devices(socket);
+            self.watch_devices(socket.clone());
+            self.watch_reloads(socket);
         }
     }
 
@@ -298,6 +313,22 @@ impl Model {
             .borrow()
             .as_ref()
             .and_then(|core| core.pending.clone())
+    }
+
+    /// The stored changes that wait for a reload of sway or the next login. `None` if the
+    /// settings couldn't be loaded.
+    pub fn waiting(&self) -> Option<Waiting> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.waiting.clone())
+    }
+
+    /// Saves the changes and asks sway to reload its config, so the changes that wait for a
+    /// reload take effect. A failure is shown in the banner above the page.
+    pub fn reload_sway(&self) {
+        self.queue(Op::ReloadSway);
     }
 
     /// The file the value of `setting` for `device` (`None`: the whole session or input type) is
@@ -459,7 +490,9 @@ impl Model {
             | Op::Keep
             | Op::Revert
             | Op::Persist
-            | Op::Reload => false,
+            | Op::Reload
+            | Op::ReloadSway
+            | Op::SwayReloaded => false,
         })
     }
 
@@ -555,7 +588,9 @@ impl Model {
             (Op::LetConfigWin(report), Err(read_only)) => {
                 self.emit_failed(report.key(), report.device(), read_only.explanation());
             }
-            (Op::ResetPage(_), Err(read_only)) => self.emit_problem(read_only.explanation()),
+            (Op::ResetPage(_) | Op::ReloadSway, Err(read_only)) => {
+                self.emit_problem(read_only.explanation());
+            }
             (Op::Reset { key, device }, Ok(access)) => {
                 self.reset_now(&mut applier, key, device.as_deref(), &status, &access)
                     .await;
@@ -597,21 +632,27 @@ impl Model {
                 )),
             },
             (Op::Persist, Ok(access)) => match applier.persist(&[], &access).await {
-                Ok(persisted) => {
-                    for (file, outcome) in persisted.problems() {
-                        if let Some(problem) = outcome.problem(file) {
-                            self.emit_problem(&problem);
-                        }
-                    }
-                }
+                Ok(persisted) => self.emit_persisted(&persisted),
                 Err(error) => self.emit_problem(&error.to_string()),
             },
             (Op::Reload, Ok(access)) => {
                 applier.reload(&access).await;
             }
+            (Op::ReloadSway, Ok(access)) => match applier.reload_sway(&access).await {
+                Ok(persisted) => self.emit_persisted(&persisted),
+                Err(error) => self.emit_problem(&format!("Sway wasn\u{2019}t reloaded: {error}.")),
+            },
+            (Op::SwayReloaded, _) => applier.reloaded(),
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
+        self.give_back(applier, was_pending);
+    }
+
+    /// Takes `applier` back after an operation: copies what the rows read, plans the revert of a
+    /// risky change that started waiting (none waited with the countdown `was_pending`), and
+    /// tells the rows.
+    fn give_back(&self, applier: Applier, was_pending: Option<Countdown>) {
         let pending = applier.pending().cloned();
         if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
             if was_pending != Some(countdown) {
@@ -622,6 +663,7 @@ impl Model {
             core.state = applier.state().clone();
             core.devices.set_stored(&core.state);
             core.pending = pending;
+            core.waiting = applier.waiting().clone();
             core.applier = Some(applier);
         }
         self.emit_by_name::<()>("changed", &[]);
@@ -649,6 +691,36 @@ impl Model {
                 // An error leaves the list as it was; the events after it still come.
                 while watch.changed().await.is_some() {
                     model.take_devices(watch.devices());
+                }
+            }
+        ));
+    }
+
+    /// Follows the reloads of sway's config in the session on `socket`, whoever asks for them, so
+    /// the changes that waited for one count as in effect.
+    fn watch_reloads(&self, socket: PathBuf) {
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                let started = match Client::connect_to(socket).await {
+                    Ok(client) => Reloads::start(&client).await,
+                    Err(error) => Err(error),
+                };
+                let mut reloads = match started {
+                    Ok(reloads) => reloads,
+                    Err(error) => {
+                        model.emit_problem(&format!(
+                            "Reloads of sway from elsewhere won\u{2019}t show: {error}"
+                        ));
+                        return;
+                    }
+                };
+                // An event that can't be read is skipped; the events after it still come.
+                while let Some(reloaded) = reloads.next().await {
+                    if reloaded.is_ok() {
+                        model.queue(Op::SwayReloaded);
+                    }
                 }
             }
         ));
@@ -849,6 +921,15 @@ impl Model {
 
     fn emit_failed(&self, key: &str, device: Option<&str>, message: &str) {
         self.emit_by_name::<()>("failed", &[&key, &device.unwrap_or_default(), &message]);
+    }
+
+    /// Reports the generated files that weren't written.
+    fn emit_persisted(&self, persisted: &Persisted) {
+        for (file, outcome) in persisted.problems() {
+            if let Some(problem) = outcome.problem(file) {
+                self.emit_problem(&problem);
+            }
+        }
     }
 
     fn emit_problem(&self, message: &str) {

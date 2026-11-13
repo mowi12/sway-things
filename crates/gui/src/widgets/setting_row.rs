@@ -26,7 +26,8 @@
 //! under the line, and a ⋮ menu with the line and what to do about it. A setting the compositor
 //! doesn't support shows what it requires as a badge and can't be changed, and so does one that
 //! only matters while another setting is on, with that reason under its line. A setting sway
-//! only reads from its config says so in a badge ("Applies after reload").
+//! only reads from its config says so in a badge ("Applies after reload"), and so does one it
+//! only reads at login ("Applies after re-login").
 //!
 //! The row of a per-device setting is for all devices of its type or, after
 //! [`SettingRow::set_device`], for one of them. Until that device has a value of its own, the
@@ -575,12 +576,18 @@ impl SettingRow {
                 false,
             ));
         }
-        if setting.apply() == Apply::Reload {
-            imp.badges.append(&badge(
+        match setting.apply() {
+            Apply::Reload => imp.badges.append(&badge(
                 "view-refresh-symbolic",
                 "Applies after reload",
                 false,
-            ));
+            )),
+            Apply::Relogin => imp.badges.append(&badge(
+                "system-log-out-symbolic",
+                "Applies after re-login",
+                false,
+            )),
+            Apply::Live | Apply::ToolReload | Apply::Risky => {}
         }
         imp.conflict.set_visible(found.is_some());
         imp.conflict.set_sensitive(!read_only);

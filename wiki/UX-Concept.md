@@ -125,6 +125,20 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   can't be disabled; the row says why.
 - **Badges** for settings that can't apply live: "Applies after re-login" (environment variables, Xwayland), "Applies
   after reload".
+- **Reload banner:** once a change that applies after a reload is saved in a running session, a banner above every page
+  counts the waiting changes:
+
+  ```text
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ ⟳ 2 changes apply after sway reloads its config      [Reload sway…]   │
+  └────────────────────────────────────────────────────────────────────────┘
+  ```
+
+  _Reload sway…_ always asks first: a reload starts the bars again and runs the `exec_always` lines again. If a setting
+  sway only reads at login changed (Xwayland), the question also says that sway reports its line as an error after the
+  reload until the next login. The button can't be pressed while a risky change waits for _Keep_ or _Revert_. A change
+  set back to the value sway runs with no longer counts, and the banner goes after any reload of sway, also one from a
+  key binding or `swaymsg reload`. Without a session nothing waits: sway reads the files when it starts.
 
 ## Per-setting indicators
 
