@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Checks the formatting of Rust code (rustfmt) and of Markdown, TOML, YAML and JSON (dprint, configured in
-# dprint.json). With --fix, formats the files instead.
+# Checks the formatting of Rust code (rustfmt, including the fuzz crate in fuzz/, a workspace of its own) and of
+# Markdown, TOML, YAML and JSON (dprint, configured in dprint.json). With --fix, formats the files instead.
 #
 # Usage: scripts/check-fmt.sh [--fix]
 #
@@ -32,11 +32,13 @@ done
 
 if "$fix"; then
   cargo fmt --all
+  cargo fmt --manifest-path fuzz/Cargo.toml
   dprint fmt
   exit
 fi
 
 status=0
 cargo fmt --all --check || status=1
+cargo fmt --manifest-path fuzz/Cargo.toml --check || status=1
 dprint check || status=1
 exit "$status"

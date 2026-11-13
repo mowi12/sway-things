@@ -225,3 +225,8 @@ tags
 
 ### Node (check tools in tools/) ###
 /tools/node_modules/
+
+### Fuzzing (scripts/fuzz.sh) ###
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/

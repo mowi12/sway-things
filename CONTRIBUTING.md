@@ -133,10 +133,40 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
-| Fuzzing | sway config parser (scheduled) |
+| Fuzzing | sway config parser with `cargo-fuzz` (`scripts/fuzz.sh`, see [Fuzzing](#fuzzing)) |
 | Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
 
 Editors pick up indentation and line endings from `.editorconfig`.
+
+## Fuzzing
+
+The sway config parser reads files from shared dotfiles, so it is fuzzed: `fuzz/fuzz_targets/sway_config.rs` feeds it a
+config and the files it includes, all in memory. `fuzz/` is a workspace of its own, outside `just check`. It needs
+[cargo-fuzz](https://github.com/rust-lang/cargo-fuzz) (`cargo install cargo-fuzz --locked`, or its release binary) and a
+C++ compiler for libFuzzer (`c++`, or `clang++`); the stable toolchain is enough, as it runs without a sanitizer.
+
+```sh
+just fuzz 300                         # fuzz for 300 s (scripts/fuzz.sh run 300)
+scripts/fuzz.sh reproduce FILE        # run the target on one input, e.g. from a fuzzer issue
+scripts/fuzz.sh lint                  # clippy and cargo-deny on the fuzz crate
+```
+
+A run starts from the seeds in `fuzz/seeds/` and the sample configs of `ci/integration/`, bundled with the files they
+include, and keeps what it learns in `fuzz/corpus/sway_config/` (not committed; `scripts/fuzz.sh minimize` shrinks it).
+An input is one config; a line `#=> PATH` in it starts another file, relative to the main config's directory. An input
+that panics, takes more than 10 s or more than 2 GB lands in `fuzz/artifacts/sway_config/`, and the run fails.
+`fuzz/sway_config.dict` gives the fuzzer the words the parser treats specially.
+
+`scripts/fuzz.sh triage` minimizes those inputs and `scripts/fuzz.sh report` opens a Bug issue for each, titled after
+where it panicked (or `timeout`, `out of memory`), with the input as base64 and hex, or comments on the open issue with
+that title. To see what it would post, without posting:
+
+```sh
+scripts/fuzz.sh triage target/fuzz-reports    # from the inputs in fuzz/artifacts/sway_config/
+scripts/fuzz.sh report target/fuzz-reports --dry-run
+```
+
+A fix for a parser bug the fuzzer found comes with a unit test of that input in `crates/core/src/sway_config/tests.rs`.
 
 ## Translatable strings
 

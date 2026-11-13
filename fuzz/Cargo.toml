@@ -1,0 +1,39 @@
+[package]
+name = "sway-things-fuzz"
+description = "Fuzz targets of Sway Things, run with cargo-fuzz (scripts/fuzz.sh)"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/mowi12/sway-things"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# A workspace of its own: libFuzzer needs a C++ compiler, which the main workspace's builds don't.
+[workspace]
+# The lints of the main workspace (../Cargo.toml), which a separate workspace can't inherit.
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+must_use_candidate = "allow"
+
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+allow_attributes_without_reason = "deny"
+
+[dependencies]
+libfuzzer-sys = "0.4"
+sway-things-core = { path = "../crates/core" }
+
+[[bin]]
+name = "sway_config"
+path = "fuzz_targets/sway_config.rs"
+test = false
+doc = false
+bench = false

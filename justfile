@@ -30,3 +30,7 @@ install:
 # Remove what `just install` installed from DESTDIR/PREFIX
 uninstall:
     scripts/install.sh --uninstall
+
+# Fuzz the sway config parser for SECONDS (needs cargo-fuzz and a C++ compiler)
+fuzz seconds="60":
+    scripts/fuzz.sh run {{ seconds }}
