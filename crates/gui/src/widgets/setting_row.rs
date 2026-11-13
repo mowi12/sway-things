@@ -300,6 +300,12 @@ impl SettingRow {
 
     /// The reset button, the "This machine only" toggle and the ⋮ menu of a conflict, after the
     /// control.
+    ///
+    /// They keep their room in the row while they are hidden (shown or hidden with
+    /// `set_child_visible`), so the control never moves when they appear: a slider being dragged
+    /// would otherwise shrink under the pointer once the first change stores a value. The ⋮ menu
+    /// keeps its room only in rows whose setting the user's config sets too, the only rows where
+    /// it can appear.
     fn build_indicators(&self, title: &str) {
         let imp = self.imp();
         imp.reset.set_icon_name("edit-undo-symbolic");
@@ -335,7 +341,7 @@ impl SettingRow {
             imp.conflict.upcast_ref(),
         ] {
             button.set_valign(gtk::Align::Center);
-            button.set_visible(false);
+            button.set_child_visible(false);
             imp.controls.append(button);
         }
     }
@@ -414,19 +420,19 @@ impl SettingRow {
     /// The reset button, if the value is stored.
     pub fn reset_button(&self) -> Option<gtk::Button> {
         let reset = &self.imp().reset;
-        reset.is_visible().then(|| reset.clone())
+        reset.is_child_visible().then(|| reset.clone())
     }
 
     /// The "This machine only" toggle, if the value is stored.
     pub fn machine_toggle(&self) -> Option<gtk::ToggleButton> {
         let machine = &self.imp().machine;
-        machine.is_visible().then(|| machine.clone())
+        machine.is_child_visible().then(|| machine.clone())
     }
 
     /// The ⋮ menu button, if the user's config sets the setting too.
     pub fn conflict_button(&self) -> Option<gtk::MenuButton> {
         let conflict = &self.imp().conflict;
-        conflict.is_visible().then(|| conflict.clone())
+        conflict.is_child_visible().then(|| conflict.clone())
     }
 
     /// The texts of the badges under the line.
@@ -445,7 +451,7 @@ impl SettingRow {
     /// What the ⋮ menu shows: its title, the place of the line, and the line.
     pub fn conflict_details(&self) -> Option<(String, String, String)> {
         let imp = self.imp();
-        imp.conflict.is_visible().then(|| {
+        imp.conflict.is_child_visible().then(|| {
             (
                 imp.conflict_title.text().to_string(),
                 imp.conflict_place.text().to_string(),
@@ -528,7 +534,7 @@ impl SettingRow {
         let Some(model) = imp.model.get() else { return };
         let layer = model.stored_in(setting, device);
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
-        imp.reset.set_visible(layer.is_some());
+        imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
         imp.reset
             .set_tooltip_text(Some(&match (setting.scope(), device) {
@@ -537,7 +543,7 @@ impl SettingRow {
                 }
                 _ => "Reset to default".to_owned(),
             }));
-        imp.machine.set_visible(layer.is_some());
+        imp.machine.set_child_visible(layer.is_some());
         imp.machine.set_sensitive(!read_only);
         imp.updating.set(true);
         imp.machine.set_active(layer == Some(Layer::Host));
@@ -546,7 +552,11 @@ impl SettingRow {
         while let Some(badge) = imp.badges.first_child() {
             imp.badges.remove(&badge);
         }
-        let report = layer.and_then(|_| model.report(setting, device));
+        let users = model.report(setting, device);
+        // Room for the ⋮ menu wherever it could appear once a value is stored.
+        imp.conflict
+            .set_visible(users.as_ref().and_then(conflict_line).is_some());
+        let report = users.filter(|_| layer.is_some());
         let found = report.as_ref().and_then(conflict_line);
         match &found {
             Some((Conflict::Wins, line)) => {
@@ -589,7 +599,7 @@ impl SettingRow {
             )),
             Apply::Live | Apply::ToolReload | Apply::Risky => {}
         }
-        imp.conflict.set_visible(found.is_some());
+        imp.conflict.set_child_visible(found.is_some());
         imp.conflict.set_sensitive(!read_only);
         // The user's config can't win over a setting that can lock the user out: the safety
         // net only resets it.
