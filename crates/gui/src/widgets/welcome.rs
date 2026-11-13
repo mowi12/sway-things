@@ -9,9 +9,9 @@
 //! same: the line is missing, it covers only some of the files, or it may be in a part of the
 //! config the parser can't follow.
 
+use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{gio, glib};
 use sway_things_core::include::{IncludeStatus, Inclusion};
 
 use super::Clamp;
@@ -257,6 +257,12 @@ impl Welcome {
         [imp.open.clone(), imp.copy.clone(), imp.look_around.clone()]
     }
 
+    /// The error under the buttons, if one is shown: why the config can't be opened.
+    pub fn error(&self) -> Option<String> {
+        let error = &self.imp().error;
+        error.is_visible().then(|| error.text().to_string())
+    }
+
     /// Calls `callback` when the user wants to look around first.
     pub fn connect_look_around<F: Fn(&Self) + 'static>(
         &self,
@@ -283,27 +289,26 @@ impl Welcome {
         );
     }
 
-    /// Opens the config with the desktop's default application for text files.
+    /// Opens the config in the user's text editor.
     fn open_config(&self) {
         let imp = self.imp();
         let Some(config) = imp.config.borrow().clone() else {
             return;
         };
         imp.error.set_visible(false);
-        let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&config)));
-        let window = self.root().and_downcast::<gtk::Window>();
-        launcher.launch(
-            window.as_ref(),
-            gio::Cancellable::NONE,
+        let window = self.root().and_downcast::<crate::window::Window>();
+        crate::editor::open(
+            self,
+            window.as_ref().and_then(crate::window::Window::model),
+            &config,
+            None,
             glib::clone!(
                 #[weak(rename_to = welcome)]
                 self,
-                move |result| {
-                    if let Err(error) = result {
-                        let error_label = &welcome.imp().error;
-                        error_label.set_text(&format!("The config can't be opened: {error}"));
-                        error_label.set_visible(true);
-                    }
+                move |message| {
+                    let error_label = &welcome.imp().error;
+                    error_label.set_text(message.unwrap_or_default());
+                    error_label.set_visible(message.is_some());
                 }
             ),
         );

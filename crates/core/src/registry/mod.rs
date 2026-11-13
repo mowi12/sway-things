@@ -58,7 +58,7 @@ pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
     Apply, Dependency, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider,
-    When,
+    TextCheck, When,
 };
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,

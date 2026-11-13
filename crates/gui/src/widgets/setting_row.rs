@@ -493,31 +493,29 @@ impl SettingRow {
         model.let_config_win(report);
     }
 
-    /// Opens the file with the line of the user's config in the desktop's text editor.
-    fn open_config(&self) {
-        let Some(file) = self
+    /// Opens the file with the line of the user's config in the user's text editor, at the line,
+    /// as _Open config in editor_ in the ⋮ menu does.
+    pub fn open_config(&self) {
+        let Some((file, line)) = self
             .imp()
             .report
             .borrow()
             .as_ref()
             .and_then(conflict_line)
-            .map(|(_, line)| line.file().to_owned())
+            .map(|(_, line)| (line.file().to_owned(), line.line()))
         else {
             return;
         };
-        let launcher = gtk::FileLauncher::new(Some(&gtk::gio::File::for_path(&file)));
-        let window = self.root().and_downcast::<gtk::Window>();
-        launcher.launch(
-            window.as_ref(),
-            gtk::gio::Cancellable::NONE,
+        self.show_error(None);
+        crate::editor::open(
+            self,
+            self.imp().model.get(),
+            &file,
+            Some(line),
             glib::clone!(
                 #[weak(rename_to = row)]
                 self,
-                move |result| {
-                    if let Err(error) = result {
-                        row.show_error(Some(&format!("The config can't be opened: {error}")));
-                    }
-                }
+                move |message| row.show_error(message)
             ),
         );
     }
@@ -943,6 +941,13 @@ fn control(setting: &'static Setting) -> Option<Control> {
         Kind::Text { .. } => {
             let entry = gtk::Entry::new();
             entry.set_width_chars(20);
+            if let Some(placeholder) = setting.placeholder() {
+                let placeholder = tr(placeholder);
+                entry.set_placeholder_text(Some(placeholder));
+                // The hint fits in full.
+                let width = i32::try_from(placeholder.chars().count()).unwrap_or(i32::MAX);
+                entry.set_width_chars(width.max(20));
+            }
             entry.set_valign(gtk::Align::Center);
             Control::Text(entry)
         }

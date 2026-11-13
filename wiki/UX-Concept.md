@@ -171,8 +171,8 @@ being dragged stays under the pointer when its first change stores a value.
 | **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover | (comes with the pages that need backends) |
 
 - The ⋮ button appears only on a row with a conflict. _Let my config win_ isn't offered for risky settings; their reset
-  goes through the safety net. _Open config in editor_ opens the file with the desktop's text editor; jumping to the
-  line comes with the editor command preference.
+  goes through the safety net. _Open config in editor_ opens the file at the line in the
+  [user's editor](#opening-the-config-in-an-editor).
 - **Reset page…** in the page header removes every stored value of the page after asking. Values of risky settings stay:
   the question names them and says to reset them from their rows, so a page reset never needs the safety net. The button
   can't be pressed while there is nothing it would remove.
@@ -202,9 +202,8 @@ The app **never** adds the include line itself. On first run (or whenever the li
   read-only, names that include and suggests adding the line to the main config.
 - If there is no config of the user's own yet (sway reads `/etc/sway/config`), the instructions say to create one first.
 - **Where it shows:** the welcome screen takes the place of the page in the content pane; the sidebar stays usable. It
-  has a **Copy** button for the line, **Open config in editor** (the desktop's default application for text files; a
-  terminal editor from `$EDITOR` can't start without a terminal) and _Waiting for the line…_. It closes by itself once
-  the watcher finds the line, and opens the page that was open.
+  has a **Copy** button for the line, **Open config in editor** (the [user's editor](#opening-the-config-in-an-editor))
+  and _Waiting for the line…_. It closes by itself once the watcher finds the line, and opens the page that was open.
 - **Read-only until enabled**: _Look around first_, or opening a page from the sidebar, dismisses the welcome screen,
   after which a persistent banner remains above every page, with **Show instructions** to bring the welcome screen back.
   It shows again at the next start while the line is still missing. All pages show current values (from IPC + parser),
@@ -234,6 +233,22 @@ To manage the bar here, Sway Things keeps its own copy:
 ```
 
 For tools with include support (sway, kanshi), the flow is the same as the first-run instructions: one line to paste.
+
+## Opening the config in an editor
+
+_Open config in editor_ (welcome screen, ⋮ menu of a conflict) follows the _Editor command_ preference:
+
+- **A command** is a program with its arguments, split like a shell splits words (quotes and backslashes group them) but
+  never run by a shell, so nothing in it is expanded. `{file}` and `{line}` are filled in (`foot nvim +{line} {file}`,
+  `code -g {file}:{line}`); without `{file}` the file comes last, and without a known line (the welcome screen) an
+  argument with `{line}` is left out. A command with a quote that isn't closed is refused with the reason on the row.
+  Some terminals need `-e` before the editor (Ghostty, Alacritty: `ghostty -e nvim -c {line} {file}`), while foot takes
+  the editor directly. Ghostty swallows `+LINE` arguments as its own, so with Ghostty (also as `$TERMINAL`) set the
+  command in the field and use `-c {line}` for vim and nvim.
+- **Empty** (the default) means `$VISUAL`, else `$EDITOR`, with `+LINE` and the file. Those are terminal editors as a
+  rule, so they run in a terminal: `xdg-terminal-exec` if it is installed, else `$TERMINAL -e`. Without an editor
+  variable or a terminal, the desktop's default application for text files opens the file.
+- An editor that can't start, or ends with an error, says so where the button is, until an open works.
 
 ## Theming
 

@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 use super::Msg;
 use crate::command::Color;
+use crate::editor::SplitError;
 
 /// The value of a setting.
 #[derive(Debug, Clone, PartialEq)]
@@ -285,6 +286,8 @@ pub enum ValueError {
         /// The choices the setting has.
         choices: &'static [Choice],
     },
+    /// The text can't be split into a program and its arguments.
+    NotACommand(SplitError),
 }
 
 impl fmt::Display for ValueError {
@@ -320,6 +323,7 @@ impl fmt::Display for ValueError {
                 }
                 Ok(())
             }
+            Self::NotACommand(error) => error.fmt(f),
         }
     }
 }

@@ -4,6 +4,7 @@
 //! Preferences of Sway Things itself, stored under `[app]`.
 
 use super::{Choice, Page, Setting};
+use crate::editor;
 
 const ACCENT_SOURCES: &[Choice] = &[
     Choice::new("sway", "Sway\u{2019}s focus color"),
@@ -23,6 +24,17 @@ pub(super) fn settings() -> Vec<Setting> {
             .title("Accent color")
             .subtitle("The color of switches, sliders and selections in this app")
             .keywords(&["theme", "highlight", "color"])
+            .build(),
+        Setting::text(editor::KEY, Page::About, "")
+            .section("Sway Things")
+            .title("Editor command")
+            .subtitle(
+                "The program that opens your sway config, with its arguments; {file} and {line} \
+                 are filled in",
+            )
+            .placeholder("$VISUAL, $EDITOR or the default text editor")
+            .keywords(&["editor", "text editor", "open", "vim", "terminal"])
+            .check_text(editor::check)
             .build(),
         Setting::toggle("app.show_directives", Page::About, false)
             .section("Sway Things")
