@@ -50,7 +50,22 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
+use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
+
+/// The preference whether collapsed sections are remembered across restarts.
+const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
+
+/// Whether `state` asks to remember collapsed sections (`app.remember_collapsed_sections`).
+fn remembers_sections(state: &State) -> bool {
+    let value = state.get(REMEMBER_SECTIONS, None).cloned().or_else(|| {
+        state
+            .registry()
+            .get(REMEMBER_SECTIONS)
+            .map(Setting::default_value)
+    });
+    value == Some(Value::Bool(true))
+}
 
 /// What the model does next, one at a time.
 #[derive(Debug, Clone, PartialEq)]
@@ -122,6 +137,8 @@ struct Core {
     devices_known: bool,
     /// Whether changes are saved by themselves (not in tests, where saving would run sway).
     autosave: bool,
+    /// Which sections are collapsed, saved while `app.remember_collapsed_sections` is on.
+    ui: UiState,
 }
 
 mod imp {
@@ -229,7 +246,14 @@ impl Model {
         let socket = applier.client().map(|client| client.socket().to_path_buf());
         let mut devices = Devices::default();
         devices.set_stored(applier.state());
+        let ui_path = applier.state().paths().ui();
+        let ui = if remembers_sections(applier.state()) {
+            UiState::load(ui_path)
+        } else {
+            UiState::empty(ui_path)
+        };
         let core = Core {
+            ui,
             state: applier.state().clone(),
             pending: applier.pending().cloned(),
             waiting: applier.waiting().clone(),
@@ -347,6 +371,36 @@ impl Model {
     /// agreed. A failure is shown in the banner above the page.
     pub fn overwrite(&self, file: ConfigFile) {
         self.queue(Op::Overwrite(file));
+    }
+
+    /// Whether the section `section` (a [`section_id`](sway_things_core::ui_state::section_id))
+    /// of `page` is collapsed.
+    pub fn is_collapsed(&self, page: Page, section: &str) -> bool {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .is_some_and(|core| core.ui.is_collapsed(page, section))
+    }
+
+    /// Collapses or expands the section `section` of `page`, and saves that while
+    /// `app.remember_collapsed_sections` is on. A failure to save is shown in the banner above
+    /// the page.
+    pub fn set_collapsed(&self, page: Page, section: &str, collapsed: bool) {
+        let saved = {
+            let mut core = self.imp().core.borrow_mut();
+            let Some(core) = core.as_mut() else { return };
+            if !core.ui.set_collapsed(page, section, collapsed) || !remembers_sections(&core.state)
+            {
+                return;
+            }
+            core.ui.save()
+        };
+        if let Err(error) = saved {
+            self.emit_problem(&format!(
+                "Collapsed sections can\u{2019}t be remembered: {error}"
+            ));
+        }
     }
 
     /// The file the value of `setting` for `device` (`None`: the whole session or input type) is

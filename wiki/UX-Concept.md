@@ -31,6 +31,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **Sidebar** with grouped pages and the search field at the top. The **content pane** on the right.
 - A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the files
   that page writes to, each with a _Show_ button that opens it in _Generated config_.
+- **Collapsible sections:** every section header has a chevron; a click, `Enter` or `Space` collapses or expands the
+  section. Sections start expanded. Which ones are collapsed is remembered per machine across restarts while the
+  preference _Remember collapsed sections_ is on (the default); off, all sections are expanded again at the next start.
+  Opening a setting through search or a deep link expands its section for the moment without storing that.
 - **Generated config** is a window of its own, so it can be tiled next to the app and watched while settings change. A
   tab per generated file shows what Sway Things writes to it for the current settings (also while read-only, since
   showing writes nothing), with its path, and a copy button in the corner of the text, as on a code snippet. A file
