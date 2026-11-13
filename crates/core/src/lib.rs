@@ -18,6 +18,7 @@ pub mod editor;
 pub mod generate;
 pub mod include;
 pub mod ipc;
+pub mod preview;
 pub mod registry;
 pub mod state;
 pub mod sway_config;

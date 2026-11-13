@@ -29,6 +29,14 @@ impl Color {
         [self.red, self.green, self.blue]
     }
 
+    /// The alpha channel: 255 for an opaque color.
+    pub const fn alpha(self) -> u8 {
+        match self.alpha {
+            Some(alpha) => alpha,
+            None => u8::MAX,
+        }
+    }
+
     /// A color with alpha, rendered as `#rrggbbaa`.
     pub const fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self {
