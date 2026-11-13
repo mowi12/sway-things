@@ -9,6 +9,11 @@
 "\x0a#=> config.d/b.conf\x0a"
 "\x0a#=> /etc/sway/config\x0a"
 
+# Something that isn't a regular file.
+"\x0a#=| "
+"\x0a#=| config.d/fifo\x0a"
+"\x0a#=| /dev/zero\x0a"
+
 # Lines and blocks.
 "\x0a"
 "\\\x0a"

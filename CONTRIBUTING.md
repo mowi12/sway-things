@@ -153,9 +153,10 @@ scripts/fuzz.sh lint                  # clippy and cargo-deny on the fuzz crate
 
 A run starts from the seeds in `fuzz/seeds/` and the sample configs of `ci/integration/`, bundled with the files they
 include, and keeps what it learns in `fuzz/corpus/sway_config/` (not committed; `scripts/fuzz.sh minimize` shrinks it).
-An input is one config; a line `#=> PATH` in it starts another file, relative to the main config's directory. An input
-that panics, takes more than 10 s or more than 2 GB lands in `fuzz/artifacts/sway_config/`, and the run fails.
-`fuzz/sway_config.dict` gives the fuzzer the words the parser treats specially.
+An input is one config; a line `#=> PATH` in it starts another file, relative to the main config's directory, and a line
+`#=| PATH` puts something there that isn't a regular file, like a FIFO. An input that panics, takes more than 10 s or
+more than 2 GB lands in `fuzz/artifacts/sway_config/`, and the run fails. `fuzz/sway_config.dict` gives the fuzzer the
+words the parser treats specially.
 
 The daily workflow (`.github/workflows/fuzz.yml`, also started by hand with a duration) fuzzes for 15 minutes and keeps
 its corpus in the Actions cache; CI fuzzes every change for 60 s from the seeds. Inputs the fuzzer finds are uploaded as
