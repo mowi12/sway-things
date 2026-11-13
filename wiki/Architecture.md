@@ -1121,7 +1121,7 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 - **openSUSE Build Service** (OBS) builds the openSUSE Tumbleweed, Fedora, Debian 13 and Ubuntu 26.04 packages (and,
   best effort, Fedora Rawhide and Debian unstable) from one project, from the release tarball with the crates vendored,
   offline (see [Release tarball](#release-tarball), [RPM packages](#rpm-packages) and
-  [Debian packages](#debian-packages)). **AUR**: release and `-git` packages.
+  [Debian packages](#debian-packages)). **AUR**: release and `-git` packages (see [AUR](#aur)).
 - Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
   shell completions (`clap_complete`), translations. Every package installs the same files the same way, through two
   plain bash scripts that need neither `just` nor the generators:
@@ -1288,3 +1288,32 @@ project's key.
   (`workflow_call` with the tarball of the tag). It makes the tarball once with `--check` and builds every package from
   it. It isn't a required check on pull requests (too slow); `scripts/check-packaging.sh` is, and catches license and
   version drift there.
+
+### AUR
+
+- `packaging/aur/sway-things-git/` holds the `PKGBUILD`, its `.SRCINFO` and the `LICENSE` of the AUR package
+  `sway-things-git`, which builds the latest commit of `main`. The files are 0BSD, as the AUR asks of package sources
+  (`.SRCINFO` through `REUSE.toml`, `LICENSE` for the AUR repository).
+- The `PKGBUILD` follows the Arch Rust and VCS package guidelines:
+  - `prepare()` runs `cargo fetch --locked --target host-tuple`; everything after it is offline and locked (`--frozen`).
+    No `--all-features`: it would turn on the core's `test-support` feature.
+  - `build()` is `PREFIX=/usr scripts/build.sh -- --frozen`, `check()` runs the unit tests with
+    `cargo test --workspace --frozen`, and `package()` is `PREFIX=/usr DESTDIR="$pkgdir" scripts/install.sh`.
+  - `pkgver()` counts from the last annotated release tag (`0.1.0.r5.g1a2b3c4`); before the first one it is
+    `0.0.0.r<commits>.g<hash>`, so every snapshot sorts below the release.
+  - It `provides` `sway-things=<the release part of pkgver>` and conflicts with `sway-things`, the release package.
+    `depends` lists the libraries the binaries link (namcap checks that) and `sway`, which SwayFX from the AUR provides.
+    `arch=(x86_64)` only.
+- `scripts/build-packages.sh --container NAME` builds a package in a clean container from `ci/packages/NAME/` and runs
+  itself inside it. For `arch-git`, the container is a digest-pinned `archlinux:base` with only `base-devel` and an
+  unprivileged user who may run `pacman`, like a clean chroot: it compares `.SRCINFO` with `makepkg --printsrcinfo` (but
+  for `pkgver`), builds with `makepkg -s`, which installs the declared dependencies and nothing else, runs namcap on the
+  `PKGBUILD` and the packages (an error fails, warnings are printed), installs the package and runs
+  `sway-things --version` and `--help`. The `PKGBUILD` clones GitHub's `main`, so the build needs the network. `--local`
+  builds the HEAD commit of the checkout instead, from a copy of the `PKGBUILD` whose `source` points at a bare clone of
+  the checkout; `.SRCINFO` and namcap still check the `PKGBUILD` unchanged.
+- `.github/workflows/packages.yml` builds `arch-git` as a job of its own on every push to `main`, weekly and by hand,
+  but not for a release, since the `-git` package doesn't use the release tarball. It isn't a check on pull requests:
+  the `-git` package builds `main`, not the pull request.
+- `scripts/check-shell.sh` lints the `PKGBUILD`s with shellcheck as bash, without the warnings that makepkg's way of
+  sourcing them makes moot (unused metadata variables, `pkgdir`, `cd` without `|| exit` under errexit).
