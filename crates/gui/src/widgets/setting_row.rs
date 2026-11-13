@@ -940,7 +940,21 @@ fn control(setting: &'static Setting) -> Option<Control> {
     })
 }
 
-/// A slider over the slider range and a number field for every value the setting accepts.
+/// The share of a slider's range around the default in which dragging locks to the default.
+const SNAP_ZONE: f64 = 0.02;
+
+/// Whether a slider dragged to `value` snaps to `default`: while `value` is within [`SNAP_ZONE`]
+/// of the range `min` to `max` from it. Then the result is `default`; `None` leaves the slider at
+/// `value`. A default outside the range never snaps.
+fn snap(value: f64, default: f64, (min, max): (f64, f64)) -> Option<f64> {
+    let zone = (max - min).abs() * SNAP_ZONE;
+    let in_range = (min.min(max)..=min.max(max)).contains(&default);
+    (in_range && (value - default).abs() <= zone).then_some(default)
+}
+
+/// A slider over the slider range and a number field for every value the setting accepts. The
+/// slider has a mark at the setting's default and snaps to it while it is dragged; keyboard steps
+/// and the number field stay exact.
 fn number_control(setting: &Setting, (min, max): (f64, f64), whole: bool) -> Option<Control> {
     let slider = setting.slider()?;
     let scale = gtk::Scale::with_range(
@@ -949,6 +963,32 @@ fn number_control(setting: &Setting, (min, max): (f64, f64), whole: bool) -> Opt
         slider.max,
         slider.step,
     );
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the ranges of whole-number settings are far below 2^52"
+    )]
+    let default = match setting.default_value() {
+        Value::Integer(number) => Some(number as f64),
+        Value::Decimal(number) => Some(number),
+        _ => None,
+    };
+    let range = (slider.min, slider.max);
+    if let Some(default) = default.filter(|default| (slider.min..=slider.max).contains(default)) {
+        scale.add_mark(default, gtk::PositionType::Bottom, None);
+        // A pointer drag or click moves the slider with `Jump`; keys and the wheel step.
+        scale.connect_change_value(move |scale, scroll, value| {
+            if scroll != gtk::ScrollType::Jump {
+                return glib::Propagation::Proceed;
+            }
+            match snap(value, default, range) {
+                Some(snapped) => {
+                    scale.set_value(snapped);
+                    glib::Propagation::Stop
+                }
+                None => glib::Propagation::Proceed,
+            }
+        });
+    }
     scale.set_draw_value(false);
     scale.set_size_request(200, -1);
     scale.set_valign(gtk::Align::Center);
@@ -1160,7 +1200,7 @@ pub(crate) fn tilde(path: &std::path::Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{digits, number};
+    use super::{digits, number, snap};
     use sway_things_core::registry::Value;
 
     #[test]
@@ -1170,6 +1210,27 @@ mod tests {
         assert_eq!(digits(0.5, false), 1);
         assert_eq!(digits(0.02, false), 2);
         assert_eq!(digits(1.0, false), 0);
+    }
+
+    #[test]
+    fn a_dragged_slider_snaps_to_the_default_within_two_percent() {
+        // A range of 2 (-1 to 1): the zone is 0.04 on each side of the default.
+        let range = (-1.0, 1.0);
+        assert_eq!(snap(0.04, 0.0, range), Some(0.0));
+        assert_eq!(snap(-0.04, 0.0, range), Some(0.0));
+        assert_eq!(snap(0.02, 0.0, range), Some(0.0));
+        assert_eq!(snap(0.0401, 0.0, range), None);
+        assert_eq!(snap(-0.05, 0.0, range), None);
+        // Negative values only.
+        assert_eq!(snap(-49.5, -50.0, (-100.0, 0.0)), Some(-50.0));
+        assert_eq!(snap(-47.9, -50.0, (-100.0, 0.0)), None);
+        // A default at either end snaps from inside the range.
+        assert_eq!(snap(1.5, 0.0, (0.0, 100.0)), Some(0.0));
+        assert_eq!(snap(2.5, 0.0, (0.0, 100.0)), None);
+        assert_eq!(snap(98.0, 100.0, (0.0, 100.0)), Some(100.0));
+        assert_eq!(snap(97.9, 100.0, (0.0, 100.0)), None);
+        // A default outside the range never snaps.
+        assert_eq!(snap(10.5, 5.0, (10.0, 4000.0)), None);
     }
 
     #[test]

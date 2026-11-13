@@ -41,6 +41,8 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
   quieter page. Switching it changes every row at once.
+- **Sliders** mark the setting's default on their track and snap to it while dragged with the pointer (within 2 % of the
+  range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact.
 - **Grouped rows:** settings that are values of one directive (the five colors of `client.focused`) share one row with
   the group's title (_Focused window_), a compact summary of their values (a swatch per color, else the values), the
   directive once in monospace (while _Show sway directives_ is on) and a chevron. It starts collapsed; a click, `Enter`
