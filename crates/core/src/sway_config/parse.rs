@@ -30,6 +30,12 @@ const MAX_FILE_SIZE: usize = 8 * 1024 * 1024;
 /// of the config.
 const MAX_LINE: usize = 8 * 1024 * 1024;
 
+/// The config isn't read further once the text of its lines adds up to this, counted with their
+/// blocks' prefixes and their variables replaced, and with the paths of their includes. A short
+/// line can stand for a long block prefix or variable, so without a limit the result could grow
+/// with the square of the input.
+const MAX_TEXT: usize = 64 * 1024 * 1024;
+
 /// A directive of the config: one command, as sway runs it while reading the files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Directive {
@@ -196,6 +202,7 @@ pub fn parse(main: &Path, files: &dyn Files) -> SwayConfig {
         config: SwayConfig::default(),
         variables: Vec::new(),
         stopped: false,
+        budget: MAX_TEXT,
     };
     let path: Arc<Path> = match files.canonicalize(main) {
         Ok(path) => path.into(),
@@ -222,6 +229,8 @@ struct Parser<'a> {
     variables: Vec<Variable>,
     /// Whether the config was too big to read to the end: nothing more is read.
     stopped: bool,
+    /// How much more text the config may expand to, see [`MAX_TEXT`].
+    budget: usize,
 }
 
 /// An open block.
@@ -247,6 +256,18 @@ impl Parser<'_> {
     fn stop(&mut self, file: &Arc<Path>, line: usize) {
         self.diagnose(file, line, DiagnosticKind::TooBig);
         self.stopped = true;
+    }
+
+    /// Takes `length` bytes of text from the budget. If that is more than is left, stops reading
+    /// the config at this line and returns false.
+    fn spend(&mut self, length: usize, file: &Arc<Path>, line: usize) -> bool {
+        if let Some(rest) = self.budget.checked_sub(length) {
+            self.budget = rest;
+            true
+        } else {
+            self.stop(file, line);
+            false
+        }
     }
 
     /// Reads the file at `path`, which is canonical. Returns whether it could be read.
@@ -307,6 +328,9 @@ impl Parser<'_> {
                 expanded.extend_from_slice(b" {");
             }
 
+            if !self.spend(expanded.len(), path, number) {
+                break;
+            }
             let raw_args = line::split_args(&expanded);
             match raw_args.last().map(Vec::as_slice) {
                 None => continue,
@@ -341,7 +365,8 @@ impl Parser<'_> {
             let block_words = blocks.last().map_or(0, |block| block.words);
             self.command(path, number, text, &expanded, block_words, depth);
         }
-        if let Some(block) = blocks.first() {
+        // A config that wasn't read to the end may well close its blocks after that.
+        if let Some(block) = blocks.first().filter(|_| !self.stopped) {
             self.diagnose(path, block.line, DiagnosticKind::UnclosedBlock);
         }
     }
@@ -357,10 +382,14 @@ impl Parser<'_> {
         block_words: usize,
         depth: usize,
     ) {
-        let Some(args) = line::arguments(expanded, &self.variables, MAX_LINE) else {
+        let limit = MAX_LINE.min(self.budget);
+        let Some(args) = line::arguments(expanded, &self.variables, limit) else {
             self.stop(path, number);
             return;
         };
+        if !self.spend(args.iter().map(Vec::len).sum(), path, number) {
+            return;
+        }
         let args: Vec<String> = args
             .iter()
             .map(|arg| String::from_utf8_lossy(arg).into_owned())
@@ -448,6 +477,11 @@ impl Parser<'_> {
         let index = self.config.includes.len();
         let paths = include.paths.clone();
         self.config.includes.push(include);
+        // A short pattern can stand for thousands of paths, which are kept and looked up.
+        let length = paths.iter().map(|path| path.as_os_str().len()).sum();
+        if !self.spend(length, file, line) {
+            return;
+        }
         for path in paths {
             if self.stopped {
                 break;

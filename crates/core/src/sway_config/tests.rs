@@ -521,6 +521,42 @@ fn blocks_nested_too_deeply_are_skipped() {
 }
 
 #[test]
+fn short_lines_that_stand_for_long_text_stop_at_the_text_limit() {
+    let text = |config: &SwayConfig| -> usize {
+        config
+            .directives
+            .iter()
+            .flat_map(|directive| directive.block.iter().chain(&directive.args))
+            .map(String::len)
+            .sum()
+    };
+    // Each line takes a copy of the variable, or of the block's first line: 100 MiB in all.
+    let mib = "x".repeat(1024 * 1024);
+    let variable = format!("set $v {mib}\n{}", "gaps $v\n".repeat(100));
+    let block = format!("input {mib} {{\n{}}}\n", "tap enabled\n".repeat(100));
+    for main in [variable, block] {
+        let config = parsed(&main);
+        assert!(matches!(
+            kinds(&config).as_slice(),
+            [(_, DiagnosticKind::TooBig)]
+        ));
+        assert!(config.directives.len() < 100);
+        assert!(text(&config) <= 64 * 1024 * 1024);
+    }
+
+    // The paths of includes count too.
+    let mut files = files(&"include *.conf\n".repeat(10_000));
+    for index in 0..30 {
+        files = files.file(&format!("/home/me/.config/sway/{index:0>4000}.conf"), "");
+    }
+    let config = parse(Path::new(MAIN), &files);
+    assert!(matches!(
+        kinds(&config).last(),
+        Some((_, DiagnosticKind::TooBig))
+    ));
+}
+
+#[test]
 fn variables_that_double_stop_at_the_line_limit() {
     // Each line doubles $a: 40 of them would need a terabyte. The line that gets longer than
     // 8 MiB ends the config.
