@@ -9,6 +9,7 @@
 #![warn(missing_docs)]
 
 pub mod app;
+pub mod args;
 pub mod contrast;
 pub mod editor;
 pub mod i18n;

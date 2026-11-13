@@ -17,6 +17,7 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 use sway_things_core::registry::{Link, Registry};
 
+use crate::args;
 use crate::model::Model;
 use crate::style;
 use crate::theme;
@@ -86,25 +87,17 @@ pub fn build() -> gtk::Application {
             .skip(1)
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect();
-        match links.as_slice() {
-            [] => {
+        match args::link_argument(&links) {
+            Ok(None) => {
                 app.activate();
                 glib::ExitCode::SUCCESS
             }
-            [text] => match Link::parse(text, Registry::builtin()) {
-                Ok(_) => {
-                    app.activate_action("open", Some(&text.to_variant()));
-                    glib::ExitCode::SUCCESS
-                }
-                Err(error) => {
-                    command_line.printerr_literal(&format!("error: {error}\n"));
-                    glib::ExitCode::new(USAGE)
-                }
-            },
-            _ => {
-                command_line.printerr_literal(
-                    "error: one link at most: sway-things-gui [<page id or setting key>]\n",
-                );
+            Ok(Some(link)) => {
+                app.activate_action("open", Some(&args::link_text(&link).to_variant()));
+                glib::ExitCode::SUCCESS
+            }
+            Err(error) => {
+                command_line.printerr_literal(&format!("error: {error}\n"));
                 glib::ExitCode::new(USAGE)
             }
         }
