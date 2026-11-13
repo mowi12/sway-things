@@ -9,24 +9,8 @@ use super::sway::{ConfigFile, Directive, RenderFn, SwayMapping};
 use super::value::{Choice, Kind, Value, ValueError};
 use crate::command::Color;
 use crate::command::input::InputType;
+pub use crate::i18n::Msg;
 use crate::version::{SwayFxVersion, SwayVersion};
-
-/// A translatable source string (a gettext msgid, in American English). Translate it before
-/// showing it; search matches the translation and the English original.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Msg(&'static str);
-
-impl Msg {
-    /// Marks `msgid` as translatable.
-    pub const fn new(msgid: &'static str) -> Self {
-        Self(msgid)
-    }
-
-    /// The English source string.
-    pub const fn msgid(self) -> &'static str {
-        self.0
-    }
-}
 
 /// The row the settings of one directive with several values are shown under: the five colors of
 /// `client.focused` are five settings, grouped as "Focused window". Every member names the same
@@ -164,7 +148,7 @@ pub struct Setting {
     kind: Kind,
     title: Msg,
     subtitle: Option<Msg>,
-    keywords: &'static [&'static str],
+    keywords: &'static [Msg],
     page: Page,
     section: Msg,
     group: Option<SettingGroup>,
@@ -304,7 +288,7 @@ impl Setting {
 
     /// Extra search terms; each is a translatable source string.
     pub fn keywords(&self) -> impl Iterator<Item = Msg> + '_ {
-        self.keywords.iter().copied().map(Msg::new)
+        self.keywords.iter().copied()
     }
 
     /// The page the setting is shown on.
@@ -407,32 +391,29 @@ impl Setting {
 pub struct SettingBuilder(Setting);
 
 impl SettingBuilder {
-    /// Sets the title of the row (translatable, American English).
-    pub fn title(mut self, title: &'static str) -> Self {
-        self.0.title = Msg::new(title);
+    /// Sets the title of the row: American English, marked with [`msg!`](crate::msg).
+    pub fn title(mut self, title: Msg) -> Self {
+        self.0.title = title;
         self
     }
 
     /// Sets the explanation under the title (translatable).
-    pub fn subtitle(mut self, subtitle: &'static str) -> Self {
-        self.0.subtitle = Some(Msg::new(subtitle));
+    pub fn subtitle(mut self, subtitle: Msg) -> Self {
+        self.0.subtitle = Some(subtitle);
         self
     }
 
     /// Sets the section of the page the setting is shown in (translatable), e.g. "Touchpad".
-    pub fn section(mut self, section: &'static str) -> Self {
-        self.0.section = Msg::new(section);
+    pub fn section(mut self, section: Msg) -> Self {
+        self.0.section = section;
         self
     }
 
     /// Shows the setting in the group with `id` and `title` (translatable), e.g.
     /// `windows.focused`, "Focused window". Every setting of a directive with several values
     /// names the same group.
-    pub fn group(mut self, id: &'static str, title: &'static str) -> Self {
-        self.0.group = Some(SettingGroup {
-            id,
-            title: Msg::new(title),
-        });
+    pub fn group(mut self, id: &'static str, title: Msg) -> Self {
+        self.0.group = Some(SettingGroup { id, title });
         self
     }
 
@@ -444,7 +425,7 @@ impl SettingBuilder {
     }
 
     /// Sets extra search terms and synonyms (translatable), beyond the words of the title.
-    pub fn keywords(mut self, keywords: &'static [&'static str]) -> Self {
+    pub fn keywords(mut self, keywords: &'static [Msg]) -> Self {
         self.0.keywords = keywords;
         self
     }
@@ -520,8 +501,8 @@ impl SettingBuilder {
     }
 
     /// Sets the hint an empty text field shows (translatable).
-    pub fn placeholder(mut self, placeholder: &'static str) -> Self {
-        self.0.placeholder = Some(Msg::new(placeholder));
+    pub fn placeholder(mut self, placeholder: Msg) -> Self {
+        self.0.placeholder = Some(placeholder);
         self
     }
 

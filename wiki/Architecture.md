@@ -70,10 +70,10 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 ```rust
 // crates/core/src/registry/input.rs
 Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
-    .section("Touchpad")
-    .title("Tap to click")
-    .subtitle("Tap the touchpad instead of pressing it. Unless set, the device decides")
-    .keywords(&["touchpad", "trackpad"])
+    .section(msg!("Touchpad"))
+    .title(msg!("Tap to click"))
+    .subtitle(msg!("Tap the touchpad instead of pressing it. Unless set, the device decides"))
+    .keywords(&[msg!("touchpad"), msg!("trackpad")])
     .scope(Scope::PerDevice(InputType::Touchpad))
     .sway(
         Directive::input("tap"),
@@ -1034,8 +1034,32 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 
 ## Internationalization
 
-gettext from day one. Source strings (msgids) are American English; en_GB and other languages are translations. Registry
-titles, subtitles and keywords are translatable, and search matches both the translated and the English texts.
+gettext from day one. Source strings (msgids) are American English; en_GB and other languages are translations.
+
+- **Marking**: a translatable string is a `Msg` (`crates/core/src/i18n/`), written as `msg!("…")`, which works in
+  constants too. The registry's builder methods (`title`, `subtitle`, `section`, `group`, `keywords`, `placeholder`) and
+  `Choice::new` take `Msg`, so an unmarked literal doesn't compile. Registry titles, subtitles, sections, group titles,
+  keywords, placeholders and choice labels, page and sidebar group titles and descriptions, and the headings of the
+  doctor's report are marked so far; the other messages of the core and both binaries are still English literals. A
+  `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the section
+  ids in `ui.toml`, use the English msgid, never the translation.
+- **Template**: `scripts/update-pot.sh` extracts the marked strings with `xgettext` (0.24 or newer, the first version
+  that reads Rust) into `po/sway-things.pot`, with file names but no line numbers, so the template only changes when the
+  strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test
+  (`crates/core/tests/pot.rs`) fails when a string of the registry or the doctor is missing from it. CI runs the check
+  in an Arch Linux container, because Debian 13 and Ubuntu 24.04 ship older gettext versions.
+- **Lookup**: each binary calls `i18n::init()` at startup. It reads the catalogs (`.mo` files) of the text domain
+  `sway-things` with a small reader of its own, in pure Rust: no C library, no `setlocale`, no global state outside the
+  one catalog set. The catalogs are `<dir>/<language>/LC_MESSAGES/sway-things.mo`, where `<dir>` is
+  `$SWAY_THINGS_LOCALEDIR`, else the directory the build set in the same variable, else `/usr/share/locale`. The
+  languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
+  translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
+  and a string missing from the first language's catalog is looked up in the next. Only singular forms are read so far;
+  plural forms come with the first string that needs them.
+- **Showing**: `i18n::tr(msg)` gives the translation, or the English source string if there is none or `init` wasn't
+  called, so tests stay in English without setup. Search indexes both: `SearchIndex::new(registry, tr)` matches the
+  translated and the English texts. A test with a pseudo-locale (`crates/cli/tests/binary.rs`) writes a catalog and
+  checks that `sway-things doctor` prints its headings translated, while `--json` keeps its English ids.
 
 ## Testing
 

@@ -9,6 +9,8 @@ use clap::Parser;
 use sway_things_cli::{Cli, Command, run_for_user};
 
 fn main() -> ExitCode {
+    // The translations of what the commands print, in the user's language.
+    sway_things_core::i18n::init();
     // Wrong arguments end here with clap's message and exit code 2.
     let cli = Cli::parse();
     // What `--color` says, for everything that colors its output.

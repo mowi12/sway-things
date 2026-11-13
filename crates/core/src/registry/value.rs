@@ -69,12 +69,9 @@ pub struct Choice {
 }
 
 impl Choice {
-    /// A choice with its stored `id` and its English `label`.
-    pub const fn new(id: &'static str, label: &'static str) -> Self {
-        Self {
-            id,
-            label: Msg::new(label),
-        }
+    /// A choice with its stored `id` and its `label`.
+    pub const fn new(id: &'static str, label: Msg) -> Self {
+        Self { id, label }
     }
 }
 

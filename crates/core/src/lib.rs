@@ -16,6 +16,7 @@ pub mod devices;
 pub mod doctor;
 pub mod editor;
 pub mod generate;
+pub mod i18n;
 pub mod include;
 pub mod ipc;
 pub mod registry;

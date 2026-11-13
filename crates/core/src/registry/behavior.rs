@@ -4,6 +4,8 @@
 //! Settings of the Window Behavior page (`man 5 sway`). Defaults are sway's own
 //! (`config_defaults` in `sway/config.c`).
 
+use crate::i18n::Msg;
+use crate::msg;
 use std::num::NonZeroU16;
 
 use super::read::{self, ReadError};
@@ -20,65 +22,68 @@ use crate::command::behavior::{
 
 const FOCUS_FOLLOWS_MOUSE: &str = "behavior.focus_follows_mouse";
 const FOCUS_FOLLOWS_MOUSE_CHOICES: &[Choice] = &[
-    Choice::new("yes", "When the pointer enters a window"),
-    Choice::new("no", "Only on click"),
-    Choice::new("always", "Always the window under the pointer"),
+    Choice::new("yes", msg!("When the pointer enters a window")),
+    Choice::new("no", msg!("Only on click")),
+    Choice::new("always", msg!("Always the window under the pointer")),
 ];
 
 const MOUSE_WARPING: &str = "behavior.mouse_warping";
 const MOUSE_WARPING_CHOICES: &[Choice] = &[
-    Choice::new("output", "Onto the screen that gets the focus"),
-    Choice::new("container", "Into the window that gets the focus"),
-    Choice::new("none", "Never"),
+    Choice::new("output", msg!("Onto the screen that gets the focus")),
+    Choice::new("container", msg!("Into the window that gets the focus")),
+    Choice::new("none", msg!("Never")),
 ];
 
 const FOCUS_WRAPPING: &str = "behavior.focus_wrapping";
 const FOCUS_WRAPPING_CHOICES: &[Choice] = &[
-    Choice::new("yes", "Wraps to the first window"),
-    Choice::new("no", "Stays at the last window"),
-    Choice::new("force", "Wraps inside every container"),
-    Choice::new("workspace", "Wraps, never to another screen"),
+    Choice::new("yes", msg!("Wraps to the first window")),
+    Choice::new("no", msg!("Stays at the last window")),
+    Choice::new("force", msg!("Wraps inside every container")),
+    Choice::new("workspace", msg!("Wraps, never to another screen")),
 ];
 
 const FOCUS_ON_ACTIVATION: &str = "behavior.focus_on_window_activation";
 const FOCUS_ON_ACTIVATION_CHOICES: &[Choice] = &[
-    Choice::new("urgent", "Mark it urgent"),
-    Choice::new("smart", "Focus it if visible, otherwise mark it urgent"),
-    Choice::new("focus", "Focus it"),
-    Choice::new("none", "Ignore the request"),
+    Choice::new("urgent", msg!("Mark it urgent")),
+    Choice::new(
+        "smart",
+        msg!("Focus it if visible, otherwise mark it urgent"),
+    ),
+    Choice::new("focus", msg!("Focus it")),
+    Choice::new("none", msg!("Ignore the request")),
 ];
 
 const WORKSPACE_LAYOUT: &str = "behavior.workspace_layout";
 const WORKSPACE_LAYOUT_CHOICES: &[Choice] = &[
-    Choice::new("default", "Tiled"),
-    Choice::new("stacking", "Stacked"),
-    Choice::new("tabbed", "Tabbed"),
+    Choice::new("default", msg!("Tiled")),
+    Choice::new("stacking", msg!("Stacked")),
+    Choice::new("tabbed", msg!("Tabbed")),
 ];
 
 const DEFAULT_ORIENTATION: &str = "behavior.default_orientation";
 const DEFAULT_ORIENTATION_CHOICES: &[Choice] = &[
-    Choice::new("auto", "By the shape of the screen"),
-    Choice::new("horizontal", "Side by side"),
-    Choice::new("vertical", "One above the other"),
+    Choice::new("auto", msg!("By the shape of the screen")),
+    Choice::new("horizontal", msg!("Side by side")),
+    Choice::new("vertical", msg!("One above the other")),
 ];
 
 const BACK_AND_FORTH: &str = "behavior.workspace_auto_back_and_forth";
 
 const MODIFIER_KEY: &str = "behavior.floating_modifier.key";
 const MODIFIER_KEY_CHOICES: &[Choice] = &[
-    Choice::new("none", "Off"),
-    Choice::new("Mod4", "Super"),
-    Choice::new("Mod1", "Alt"),
-    Choice::new("Ctrl", "Ctrl"),
-    Choice::new("Shift", "Shift"),
+    Choice::new("none", msg!("Off")),
+    Choice::new("Mod4", msg!("Super")),
+    Choice::new("Mod1", msg!("Alt")),
+    Choice::new("Ctrl", msg!("Ctrl")),
+    Choice::new("Shift", msg!("Shift")),
 ];
 /// The modifier choices other than `none`.
 const MODIFIER_KEYS: &[&str] = &["Mod4", "Mod1", "Ctrl", "Shift"];
 
 const MODIFIER_BUTTONS: &str = "behavior.floating_modifier.buttons";
 const MODIFIER_BUTTON_CHOICES: &[Choice] = &[
-    Choice::new("normal", "Left button moves, right button resizes"),
-    Choice::new("inverse", "Left button resizes, right button moves"),
+    Choice::new("normal", msg!("Left button moves, right button resizes")),
+    Choice::new("inverse", msg!("Left button resizes, right button moves")),
 ];
 
 const TILING_DRAG: &str = "behavior.tiling_drag";
@@ -93,18 +98,18 @@ const MIN_SIZE: Size = Size {
     directive: "floating_minimum_size",
     group: (
         "behavior.floating_minimum_size",
-        "Minimum size of floating windows",
+        msg!("Minimum size of floating windows"),
     ),
     choices: &[
-        Choice::new("automatic", "Automatic (75 × 50)"),
-        Choice::new("none", "No limit"),
-        Choice::new("custom", "Custom"),
+        Choice::new("automatic", msg!("Automatic (75 × 50)")),
+        Choice::new("none", msg!("No limit")),
+        Choice::new("custom", msg!("Custom")),
     ],
     defaults: [75, 50],
     titles: [
-        "Smallest floating window",
-        "Smallest width",
-        "Smallest height",
+        msg!("Smallest floating window"),
+        msg!("Smallest width"),
+        msg!("Smallest height"),
     ],
 };
 const MAX_SIZE: Size = Size {
@@ -116,31 +121,35 @@ const MAX_SIZE: Size = Size {
     directive: "floating_maximum_size",
     group: (
         "behavior.floating_maximum_size",
-        "Maximum size of floating windows",
+        msg!("Maximum size of floating windows"),
     ),
     choices: &[
-        Choice::new("automatic", "Automatic (all screens together)"),
-        Choice::new("none", "No limit"),
-        Choice::new("custom", "Custom"),
+        Choice::new("automatic", msg!("Automatic (all screens together)")),
+        Choice::new("none", msg!("No limit")),
+        Choice::new("custom", msg!("Custom")),
     ],
     defaults: [1920, 1080],
-    titles: ["Largest floating window", "Largest width", "Largest height"],
+    titles: [
+        msg!("Largest floating window"),
+        msg!("Largest width"),
+        msg!("Largest height"),
+    ],
 };
 
 const POPUP_DURING_FULLSCREEN: &str = "behavior.popup_during_fullscreen";
 const POPUP_CHOICES: &[Choice] = &[
-    Choice::new("smart", "Show them"),
-    Choice::new("ignore", "Don't show them"),
-    Choice::new("leave_fullscreen", "Leave fullscreen and show them"),
+    Choice::new("smart", msg!("Show them")),
+    Choice::new("ignore", msg!("Don't show them")),
+    Choice::new("leave_fullscreen", msg!("Leave fullscreen and show them")),
 ];
 
 const INHIBIT_IDLE_FULLSCREEN: &str = "behavior.inhibit_idle_fullscreen";
 
 const XWAYLAND: &str = "behavior.xwayland";
 const XWAYLAND_CHOICES: &[Choice] = &[
-    Choice::new("enable", "When the first X11 app starts"),
-    Choice::new("force", "Right away"),
-    Choice::new("disable", "Never: X11 apps don't run"),
+    Choice::new("enable", msg!("When the first X11 app starts")),
+    Choice::new("force", msg!("Right away")),
+    Choice::new("disable", msg!("Never: X11 apps don't run")),
 ];
 
 /// The settings of `floating_minimum_size` or `floating_maximum_size`: whether there is a limit,
@@ -148,10 +157,10 @@ const XWAYLAND_CHOICES: &[Choice] = &[
 struct Size {
     keys: [&'static str; 3],
     directive: &'static str,
-    group: (&'static str, &'static str),
+    group: (&'static str, Msg),
     choices: &'static [Choice],
     defaults: [i64; 2],
-    titles: [&'static str; 3],
+    titles: [Msg; 3],
 }
 
 fn focus_follows_mouse(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
@@ -356,11 +365,11 @@ fn size_settings<const S: usize>() -> Vec<Setting> {
         },
     ];
     let directive = Directive::top(size.directive);
-    let keywords: &'static [&'static str] = &["floating", "window size", "limit"];
+    let keywords: &'static [Msg] = &[msg!("floating"), msg!("window size"), msg!("limit")];
     let [mode, width, height] = size.keys;
     vec![
         Setting::choice(mode, Page::WindowBehavior, "automatic", size.choices)
-            .section("Floating windows")
+            .section(msg!("Floating windows"))
             .group(size.group.0, size.group.1)
             .title(size.titles[0])
             .keywords(keywords)
@@ -373,10 +382,10 @@ fn size_settings<const S: usize>() -> Vec<Setting> {
             1,
             i64::from(u16::MAX),
         )
-        .section("Floating windows")
+        .section(msg!("Floating windows"))
         .group(size.group.0, size.group.1)
         .title(size.titles[1])
-        .subtitle("In pixels")
+        .subtitle(msg!("In pixels"))
         .slider(10.0, 4000.0, 10.0)
         .keywords(keywords)
         .depends_on(mode, When::OneOf(&["custom"]))
@@ -389,10 +398,10 @@ fn size_settings<const S: usize>() -> Vec<Setting> {
             1,
             i64::from(u16::MAX),
         )
-        .section("Floating windows")
+        .section(msg!("Floating windows"))
         .group(size.group.0, size.group.1)
         .title(size.titles[2])
-        .subtitle("In pixels")
+        .subtitle(msg!("In pixels"))
         .slider(10.0, 4000.0, 10.0)
         .keywords(keywords)
         .depends_on(mode, When::OneOf(&["custom"]))
@@ -460,9 +469,9 @@ pub(super) fn settings() -> Vec<Setting> {
             "yes",
             FOCUS_FOLLOWS_MOUSE_CHOICES,
         )
-        .section("Focus")
-        .title("Focus follows mouse")
-        .keywords(&["pointer", "hover", "sloppy focus"])
+        .section(msg!("Focus"))
+        .title(msg!("Focus follows mouse"))
+        .keywords(&[msg!("pointer"), msg!("hover"), msg!("sloppy focus")])
         .sway(
             Directive::top("focus_follows_mouse"),
             ConfigFile::Behavior,
@@ -476,10 +485,10 @@ pub(super) fn settings() -> Vec<Setting> {
             "output",
             MOUSE_WARPING_CHOICES,
         )
-        .section("Focus")
-        .title("Move the pointer with the focus")
-        .subtitle("When the keyboard moves the focus")
-        .keywords(&["mouse warping", "cursor", "jump"])
+        .section(msg!("Focus"))
+        .title(msg!("Move the pointer with the focus"))
+        .subtitle(msg!("When the keyboard moves the focus"))
+        .keywords(&[msg!("mouse warping"), msg!("cursor"), msg!("jump")])
         .sway(
             Directive::top("mouse_warping"),
             ConfigFile::Behavior,
@@ -493,10 +502,10 @@ pub(super) fn settings() -> Vec<Setting> {
             "yes",
             FOCUS_WRAPPING_CHOICES,
         )
-        .section("Focus")
-        .title("Focus past the last window")
-        .subtitle("When the keyboard moves the focus beyond the edge")
-        .keywords(&["focus wrapping", "cycle", "edge"])
+        .section(msg!("Focus"))
+        .title(msg!("Focus past the last window"))
+        .subtitle(msg!("When the keyboard moves the focus beyond the edge"))
+        .keywords(&[msg!("focus wrapping"), msg!("cycle"), msg!("edge")])
         .sway(
             Directive::top("focus_wrapping"),
             ConfigFile::Behavior,
@@ -510,14 +519,14 @@ pub(super) fn settings() -> Vec<Setting> {
             "urgent",
             FOCUS_ON_ACTIVATION_CHOICES,
         )
-        .section("Focus")
-        .title("When an app asks for focus")
-        .subtitle("E.g. a browser opening a link from another app")
+        .section(msg!("Focus"))
+        .title(msg!("When an app asks for focus"))
+        .subtitle(msg!("E.g. a browser opening a link from another app"))
         .keywords(&[
-            "focus on window activation",
-            "urgent",
-            "steal focus",
-            "attention",
+            msg!("focus on window activation"),
+            msg!("urgent"),
+            msg!("steal focus"),
+            msg!("attention"),
         ])
         .sway(
             Directive::top("focus_on_window_activation"),
@@ -538,9 +547,9 @@ pub(super) fn settings() -> Vec<Setting> {
             "default",
             WORKSPACE_LAYOUT_CHOICES,
         )
-        .section("Workspaces")
-        .title("Layout of new workspaces")
-        .keywords(&["tabs", "stack", "tiling"])
+        .section(msg!("Workspaces"))
+        .title(msg!("Layout of new workspaces"))
+        .keywords(&[msg!("tabs"), msg!("stack"), msg!("tiling")])
         .apply(Apply::Reload)
         .sway(
             Directive::top("workspace_layout"),
@@ -555,10 +564,15 @@ pub(super) fn settings() -> Vec<Setting> {
             "auto",
             DEFAULT_ORIENTATION_CHOICES,
         )
-        .section("Workspaces")
-        .title("Split of new workspaces")
-        .subtitle("How the windows of a new workspace are arranged")
-        .keywords(&["default orientation", "horizontal", "vertical", "tiling"])
+        .section(msg!("Workspaces"))
+        .title(msg!("Split of new workspaces"))
+        .subtitle(msg!("How the windows of a new workspace are arranged"))
+        .keywords(&[
+            msg!("default orientation"),
+            msg!("horizontal"),
+            msg!("vertical"),
+            msg!("tiling"),
+        ])
         .apply(Apply::Reload)
         .sway(
             Directive::top("default_orientation"),
@@ -568,13 +582,15 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::toggle(BACK_AND_FORTH, Page::WindowBehavior, false)
-            .section("Workspaces")
-            .title("Back and forth")
-            .subtitle("Switching to the current workspace again goes back to the previous one")
+            .section(msg!("Workspaces"))
+            .title(msg!("Back and forth"))
+            .subtitle(msg!(
+                "Switching to the current workspace again goes back to the previous one"
+            ))
             .keywords(&[
-                "workspace_auto_back_and_forth",
-                "previous workspace",
-                "toggle",
+                msg!("workspace_auto_back_and_forth"),
+                msg!("previous workspace"),
+                msg!("toggle"),
             ])
             .sway(
                 Directive::top("workspace_auto_back_and_forth"),
@@ -593,11 +609,18 @@ pub(super) fn settings() -> Vec<Setting> {
             "none",
             MODIFIER_KEY_CHOICES,
         )
-        .section("Mouse")
-        .group("behavior.floating_modifier", "Drag modifier")
-        .title("Drag modifier")
-        .subtitle("Hold this key to move and resize windows from anywhere inside them")
-        .keywords(&["floating modifier", "mod key", "move", "resize"])
+        .section(msg!("Mouse"))
+        .group("behavior.floating_modifier", msg!("Drag modifier"))
+        .title(msg!("Drag modifier"))
+        .subtitle(msg!(
+            "Hold this key to move and resize windows from anywhere inside them"
+        ))
+        .keywords(&[
+            msg!("floating modifier"),
+            msg!("mod key"),
+            msg!("move"),
+            msg!("resize"),
+        ])
         .sway(
             Directive::top("floating_modifier"),
             ConfigFile::Behavior,
@@ -611,10 +634,15 @@ pub(super) fn settings() -> Vec<Setting> {
             "normal",
             MODIFIER_BUTTON_CHOICES,
         )
-        .section("Mouse")
-        .group("behavior.floating_modifier", "Drag modifier")
-        .title("Mouse buttons with the drag modifier")
-        .keywords(&["floating modifier", "inverse", "move", "resize"])
+        .section(msg!("Mouse"))
+        .group("behavior.floating_modifier", msg!("Drag modifier"))
+        .title(msg!("Mouse buttons with the drag modifier"))
+        .keywords(&[
+            msg!("floating modifier"),
+            msg!("inverse"),
+            msg!("move"),
+            msg!("resize"),
+        ])
         .depends_on(MODIFIER_KEY, When::OneOf(MODIFIER_KEYS))
         .sway(
             Directive::top("floating_modifier"),
@@ -624,10 +652,10 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::toggle(TILING_DRAG, Page::WindowBehavior, true)
-            .section("Mouse")
-            .title("Drag tiled windows")
-            .subtitle("By the title bar, or anywhere with the drag modifier")
-            .keywords(&["tiling drag", "move", "rearrange"])
+            .section(msg!("Mouse"))
+            .title(msg!("Drag tiled windows"))
+            .subtitle(msg!("By the title bar, or anywhere with the drag modifier"))
+            .keywords(&[msg!("tiling drag"), msg!("move"), msg!("rearrange")])
             .sway(
                 Directive::top("tiling_drag"),
                 ConfigFile::Behavior,
@@ -642,11 +670,13 @@ pub(super) fn settings() -> Vec<Setting> {
             0,
             i64::from(u16::MAX),
         )
-        .section("Mouse")
-        .title("Drag threshold")
-        .subtitle("How far a title bar must be dragged before the window moves, in pixels")
+        .section(msg!("Mouse"))
+        .title(msg!("Drag threshold"))
+        .subtitle(msg!(
+            "How far a title bar must be dragged before the window moves, in pixels"
+        ))
         .slider(0.0, 50.0, 1.0)
-        .keywords(&["tiling drag threshold", "distance"])
+        .keywords(&[msg!("tiling drag threshold"), msg!("distance")])
         .depends_on(TILING_DRAG, When::On)
         .sway(
             Directive::top("tiling_drag_threshold"),
@@ -672,9 +702,13 @@ pub(super) fn settings() -> Vec<Setting> {
             "smart",
             POPUP_CHOICES,
         )
-        .section("Fullscreen")
-        .title("Dialogs of a fullscreen window")
-        .keywords(&["popup during fullscreen", "popups", "dialog"])
+        .section(msg!("Fullscreen"))
+        .title(msg!("Dialogs of a fullscreen window"))
+        .keywords(&[
+            msg!("popup during fullscreen"),
+            msg!("popups"),
+            msg!("dialog"),
+        ])
         .sway(
             Directive::top("popup_during_fullscreen"),
             ConfigFile::Behavior,
@@ -689,10 +723,18 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::toggle(INHIBIT_IDLE_FULLSCREEN, Page::WindowBehavior, false)
-            .section("Fullscreen")
-            .title("Stay awake while a window is fullscreen")
-            .subtitle("Keeps the screen from locking or turning off, e.g. during a video")
-            .keywords(&["inhibit idle", "screensaver", "lock", "video", "sleep"])
+            .section(msg!("Fullscreen"))
+            .title(msg!("Stay awake while a window is fullscreen"))
+            .subtitle(msg!(
+                "Keeps the screen from locking or turning off, e.g. during a video"
+            ))
+            .keywords(&[
+                msg!("inhibit idle"),
+                msg!("screensaver"),
+                msg!("lock"),
+                msg!("video"),
+                msg!("sleep"),
+            ])
             .apply(Apply::Reload)
             .sway(
                 Directive::top("for_window").arguments(&["[all]", "inhibit_idle"]),
@@ -702,10 +744,10 @@ pub(super) fn settings() -> Vec<Setting> {
             )
             .build(),
         Setting::choice(XWAYLAND, Page::WindowBehavior, "enable", XWAYLAND_CHOICES)
-            .section("X11 apps")
-            .title("Start Xwayland")
-            .subtitle("Runs apps made for X11")
-            .keywords(&["xwayland", "x11", "xorg", "legacy"])
+            .section(msg!("X11 apps"))
+            .title(msg!("Start Xwayland"))
+            .subtitle(msg!("Runs apps made for X11"))
+            .keywords(&[msg!("xwayland"), msg!("x11"), msg!("xorg"), msg!("legacy")])
             .apply(Apply::Relogin)
             .sway(
                 Directive::top("xwayland"),
