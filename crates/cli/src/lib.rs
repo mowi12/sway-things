@@ -144,9 +144,26 @@ pub enum Exit {
     Problems = 5,
 }
 
+impl Exit {
+    /// Every exit status, in the order of its code.
+    pub const ALL: [Self; 6] = [
+        Self::Ok,
+        Self::Failure,
+        Self::Usage,
+        Self::ReadOnly,
+        Self::Refused,
+        Self::Problems,
+    ];
+
+    /// The exit code.
+    pub const fn code(self) -> u8 {
+        self as u8
+    }
+}
+
 impl From<Exit> for ExitCode {
     fn from(exit: Exit) -> Self {
-        Self::from(exit as u8)
+        Self::from(exit.code())
     }
 }
 
@@ -821,5 +838,16 @@ fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
         | ApplyError::NoSession { .. }
         | ApplyError::Lockout { .. } => Exit::Refused,
         _ => Exit::Failure,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Exit;
+
+    #[test]
+    fn all_lists_every_exit_code_once_in_order() {
+        let codes: Vec<u8> = Exit::ALL.iter().map(|exit| exit.code()).collect();
+        assert_eq!(codes, [0, 1, 2, 3, 4, 5]);
     }
 }
