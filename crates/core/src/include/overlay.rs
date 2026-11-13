@@ -97,6 +97,14 @@ impl Files for Overlay<'_> {
         }
     }
 
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        if self.replacement(path).is_some() || self.generated(path).is_some() {
+            self.read(path)
+        } else {
+            self.inner.read_bounded(path, limit)
+        }
+    }
+
     fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
         let listed = self.inner.list(directory);
         let real = resolve(self.inner, directory);

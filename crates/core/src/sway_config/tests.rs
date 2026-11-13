@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::io;
 use std::path::{Path, PathBuf};
 
 use proptest::prelude::*;
 
 use super::line::{self, Variable};
 use super::{
-    Diagnostic, DiagnosticKind, Directive, Disk, ExpandError, MemoryFiles, SwayConfig,
+    Diagnostic, DiagnosticKind, Directive, Disk, ExpandError, Files, MemoryFiles, SwayConfig,
     default_path, parse,
 };
 use crate::command::model;
@@ -453,6 +454,50 @@ fn deep_and_huge_configs_end_with_a_diagnostic() {
     let config = parse(Path::new(MAIN), &files);
     assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
     assert_eq!(listing(&config), ["config:2: gaps <inner> <1>"]);
+}
+
+/// Files that can only be read with a bound: `read` fails, and `read_bounded` reads no further
+/// than the limit allows, like the real file system.
+struct OnlyBounded(MemoryFiles);
+
+impl Files for OnlyBounded {
+    fn read(&self, _: &Path) -> io::Result<Vec<u8>> {
+        Err(io::Error::other("read without a bound"))
+    }
+
+    fn read_bounded(&self, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        let mut content = self.0.read(path)?;
+        content.truncate(limit + 1);
+        Ok(content)
+    }
+
+    fn list(&self, directory: &Path) -> io::Result<Vec<String>> {
+        self.0.list(directory)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        self.0.exists(path)
+    }
+
+    fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
+        self.0.canonicalize(path)
+    }
+
+    fn env(&self, name: &str) -> Option<String> {
+        self.0.env(name)
+    }
+}
+
+#[test]
+fn every_file_is_read_with_a_bound() {
+    let config = parse(Path::new(MAIN), &OnlyBounded(files_with_big_include()));
+    assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
+    assert_eq!(listing(&config), ["config:2: gaps <inner> <1>"]);
+
+    let big = vec![b'#'; 9 * 1024 * 1024];
+    let config = parse(Path::new(MAIN), &OnlyBounded(files("").file(MAIN, big)));
+    assert_eq!(kinds(&config), [(0, DiagnosticKind::TooBig)]);
+    assert_eq!(config.files, []);
 }
 
 fn files_with_big_include() -> MemoryFiles {

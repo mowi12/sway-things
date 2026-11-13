@@ -272,7 +272,7 @@ impl Parser<'_> {
 
     /// Reads the file at `path`, which is canonical. Returns whether it could be read.
     fn load(&mut self, path: &Arc<Path>, depth: usize) -> bool {
-        let content = match self.files.read(path) {
+        let content = match self.files.read_bounded(path, MAX_FILE_SIZE) {
             Ok(content) if content.len() <= MAX_FILE_SIZE => content,
             Ok(_) => {
                 self.diagnose(path, 0, DiagnosticKind::TooBig);
