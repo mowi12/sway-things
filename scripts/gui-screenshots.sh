@@ -22,6 +22,7 @@ if ! command -v gtk4-broadwayd >/dev/null; then
 fi
 
 runtime=$(mktemp -d)
+chmod 700 "$runtime"
 pid=""
 cleanup() {
   if [[ -n $pid ]]; then
@@ -32,24 +33,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# A display number that is free: Broadway listens on port 8080 + the number.
+# The daemon and the tests get their own XDG_RUNTIME_DIR, so the daemon's socket lives in $runtime (removed on exit)
+# and never meets the socket of another run. Broadway also listens on TCP port 8080 + the display number; that bind is
+# what tells whether a display is free, so try the next number while the daemon exits right away.
+export XDG_RUNTIME_DIR=$runtime
 display=""
-for number in $(seq 40 60); do
-  if [[ ! -e $XDG_RUNTIME_DIR/broadway$number.socket ]]; then
+for number in $(seq 40 99); do
+  gtk4-broadwayd ":$number" >"$runtime/broadway.log" 2>&1 &
+  pid=$!
+  sleep 1
+  if kill -0 "$pid" 2>/dev/null; then
     display=:$number
     break
   fi
+  wait "$pid" 2>/dev/null || true
+  pid=""
 done
 if [[ -z $display ]]; then
-  echo "error: no free Broadway display" >&2
-  exit 1
-fi
-
-gtk4-broadwayd "$display" >"$runtime/broadway.log" 2>&1 &
-pid=$!
-sleep 1
-if ! kill -0 "$pid" 2>/dev/null; then
-  echo "error: gtk4-broadwayd didn't start:" >&2
+  echo "error: gtk4-broadwayd didn't start on any display from :40 to :99, last attempt:" >&2
   cat "$runtime/broadway.log" >&2
   exit 1
 fi
