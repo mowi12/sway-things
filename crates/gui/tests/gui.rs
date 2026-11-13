@@ -9,6 +9,9 @@
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
 //! - Deep links: a link opens its page, and with a setting, focuses and tints its row (expanding
 //!   its group first).
+//! - Narrow mode: the four real pages fit next to the sidebar at the threshold; below it the
+//!   window shows one pane at a time, keeps the page and the pane with the focus when it switches,
+//!   and Esc, the back button, search and deep links move between the panes.
 //! - Search: results replace the pages, a result opens its page and points to its row, pages
 //!   without settings are found by name, and Esc goes back and ends the search.
 //! - Rows: the pages built from the registry have a row per setting, a change reaches the
@@ -65,7 +68,7 @@ use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
 };
-use sway_things_gui::window::Window;
+use sway_things_gui::window::{NARROW_WIDTH, Window};
 
 /// The theme the window is checked in: the one GTK ships, so results don't depend on the machine.
 const THEME: &str = "Default";
@@ -261,16 +264,9 @@ fn main() -> ExitCode {
     set_dark(&settings, false);
     results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
     results.push(("keyboard: Esc goes back".to_owned(), check_escape()));
-    results.push(("deep links: page and setting".to_owned(), check_open_link()));
-    results.push((
-        "deep links: a hidden row only opens the page".to_owned(),
-        check_open_hidden_link(),
-    ));
-    results.push((
-        "deep links: a member of a group expands it".to_owned(),
-        check_open_group_link(),
-    ));
+    results.extend(check_links());
     results.extend(check_searches());
+    results.extend(check_narrow());
     results.extend(check_setting_rows());
     results.extend(check_safety_net());
     results.extend(check_reload());
@@ -1258,6 +1254,21 @@ fn check_escape() -> Outcome {
     Ok(())
 }
 
+/// The checks of the deep links.
+fn check_links() -> Vec<(String, Outcome)> {
+    vec![
+        ("deep links: page and setting".to_owned(), check_open_link()),
+        (
+            "deep links: a hidden row only opens the page".to_owned(),
+            check_open_hidden_link(),
+        ),
+        (
+            "deep links: a member of a group expands it".to_owned(),
+            check_open_group_link(),
+        ),
+    ]
+}
+
 /// A link to a page opens it; a link to a setting opens its page, tints its row and gives its
 /// control the focus, and the tint goes again.
 fn check_open_link() -> Outcome {
@@ -1579,6 +1590,319 @@ fn check_open_group_link() -> Outcome {
         gtk::prelude::GtkWindowExt::focus(&window).is_some_and(|focus| focus.is_ancestor(&row))
     });
     ensure(focused, "  the member's control didn't get the focus")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The checks of narrow mode.
+fn check_narrow() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "narrow: the real pages fit next to the sidebar at the threshold".to_owned(),
+            check_narrow_threshold(),
+        ),
+        (
+            "narrow: one pane at a time, Esc and the back button".to_owned(),
+            check_narrow_panes(),
+        ),
+        (
+            "narrow: switching keeps the page and the focus".to_owned(),
+            check_narrow_switch(),
+        ),
+        (
+            "narrow: search and deep links".to_owned(),
+            check_narrow_search(),
+        ),
+    ]
+}
+
+/// The pages of v0.1, whose widths decide the threshold.
+const REAL_PAGES: [Page; 4] = [
+    Page::MouseTouchpad,
+    Page::Keyboard,
+    Page::Windows,
+    Page::WindowBehavior,
+];
+
+/// Makes the panes of `window` narrow or wide, as resizing the window across the threshold
+/// does, and waits for the new layout.
+fn set_narrow(window: &Window, narrow: bool) -> Outcome {
+    let panes = window.panes().ok_or("  the window has no panes")?;
+    panes.set_threshold(if narrow { i32::MAX } else { 0 });
+    let switched = run_until(Duration::from_secs(5), || {
+        panes.is_narrow() == narrow && window.back_button().is_visible() == narrow
+    });
+    ensure(
+        switched,
+        if narrow {
+            "  the window didn't get narrow"
+        } else {
+            "  the window didn't get wide"
+        },
+    )?;
+    settle(window)
+}
+
+/// Which panes of `window` are shown (mapped): the sidebar, and the content pane.
+fn shown_panes(window: &Window) -> (bool, bool) {
+    let content = window.back_button().parent().and_then(|bar| bar.parent());
+    (
+        window.sidebar().is_mapped(),
+        content.is_some_and(|content| content.is_mapped()),
+    )
+}
+
+/// The widget with the keyboard focus in `window`.
+fn focus(window: &Window) -> Option<gtk::Widget> {
+    gtk::prelude::GtkWindowExt::focus(window)
+}
+
+/// Every real page, with its groups expanded, fits next to the sidebar in a window as wide as
+/// the threshold, and the window can get narrower than that.
+fn check_narrow_threshold() -> Outcome {
+    let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let (_, sidebar, _, _) = window.sidebar().measure(gtk::Orientation::Horizontal, -1);
+    let mut problems = String::new();
+    for page in REAL_PAGES {
+        window.show_page(page);
+        for group in page_view(&window).iter().flat_map(PageView::groups) {
+            group.set_expanded(true);
+        }
+        settle(&window)?;
+        let view = page_view(&window).ok_or("  no page view")?;
+        let (minimum, _, _, _) = view.measure(gtk::Orientation::Horizontal, -1);
+        // The separator between the panes is 1 px wide.
+        if sidebar + 1 + minimum > NARROW_WIDTH {
+            let _ = writeln!(
+                problems,
+                "    {} needs {minimum} px next to the {sidebar} px sidebar, more than the \
+                 {NARROW_WIDTH} px of the threshold",
+                page.id()
+            );
+        }
+    }
+    let panes = window.panes().ok_or("  the window has no panes")?;
+    let (minimum, _, _, _) = panes.measure(gtk::Orientation::Horizontal, -1);
+    if minimum >= NARROW_WIDTH {
+        let _ = writeln!(
+            problems,
+            "    the window can't get narrower than {minimum} px, not below the threshold"
+        );
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// Narrow, the window shows the sidebar, then the page with the back button; Esc and the back
+/// button go back to the sidebar, at the open page.
+fn check_narrow_panes() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, true) && !window.back_button().is_visible(),
+        "  the window doesn't start with both panes and no back button",
+    )?;
+    let sidebar = window.sidebar();
+    ensure(
+        sidebar.focus_selected(),
+        "  the sidebar can't take the focus",
+    )?;
+    set_narrow(&window, true)?;
+    ensure(
+        shown_panes(&window) == (true, false),
+        "  with the focus in the sidebar, narrow doesn't show only the sidebar",
+    )?;
+
+    let list = sidebar.list();
+    list.emit_move_cursor(gtk::MovementStep::DisplayLines, 1, false, false);
+    list.emit_activate_cursor_row();
+    settle(&window)?;
+    ensure(
+        window.page() == Page::ALL.get(1).copied(),
+        "  Enter doesn't open the page",
+    )?;
+    ensure(
+        shown_panes(&window) == (false, true),
+        "  the page doesn't replace the sidebar",
+    )?;
+    let content = window.content().ok_or("  no content pane")?;
+    let back = window.back_button();
+    ensure(
+        focus(&window).is_some_and(|focus| {
+            focus.is_ancestor(&content) || focus == *back.upcast_ref::<gtk::Widget>()
+        }),
+        "  the focus didn't move to the page",
+    )?;
+
+    ensure(window.back_to_sidebar(), "  Esc didn't go back")?;
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, false),
+        "  Esc doesn't show the sidebar instead of the page",
+    )?;
+    let focused = focus(&window)
+        .and_downcast::<gtk::ListBoxRow>()
+        .map(|row| row.index());
+    ensure(
+        focused == Some(1),
+        "  the focus isn't on the open page's row",
+    )?;
+    ensure(
+        !window.back_to_sidebar(),
+        "  Esc went back from the sidebar",
+    )?;
+
+    window.show_page(Page::Keyboard);
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (false, true),
+        "  opening a page doesn't show it",
+    )?;
+    back.emit_clicked();
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, false) && sidebar.selected() == Some(Page::Keyboard),
+        "  the back button doesn't show the sidebar at the open page",
+    )?;
+
+    set_narrow(&window, false)?;
+    ensure(
+        shown_panes(&window) == (true, true) && window.page() == Some(Page::Keyboard),
+        "  wide again, the window doesn't show both panes with the open page",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// A window of `fixture` with `page` open, shown and laid out.
+fn window_at(fixture: &Fixture, page: Page) -> Result<Window, String> {
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    window.show_page(page);
+    settle(&window)?;
+    Ok(window)
+}
+
+/// Switching between narrow and wide keeps the open page, the pane with the focus and the focus.
+fn check_narrow_switch() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = window_at(&fixture, Page::Keyboard)?;
+    let row = row(&window, "input.keyboard.repeat_rate")?;
+    ensure(
+        row.child_focus(gtk::DirectionType::TabForward),
+        "  the row's control can't take the focus",
+    )?;
+    let focused = focus(&window).ok_or("  nothing has the focus")?;
+
+    set_narrow(&window, true)?;
+    ensure(
+        shown_panes(&window) == (false, true) && window.page() == Some(Page::Keyboard),
+        "  with the focus on the page, narrow doesn't show the page",
+    )?;
+    ensure(
+        focus(&window).as_ref() == Some(&focused),
+        "  getting narrow moved the focus",
+    )?;
+    set_narrow(&window, false)?;
+    ensure(
+        shown_panes(&window) == (true, true) && window.page() == Some(Page::Keyboard),
+        "  wide again, the window doesn't show both panes with the open page",
+    )?;
+    ensure(
+        focus(&window).as_ref() == Some(&focused),
+        "  getting wide moved the focus",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Narrow, a search typed on the page shows the sidebar with the results, a result opens its
+/// page and points to its row, Esc goes back to the result, the search field shows the sidebar,
+/// and a deep link opens its page from the sidebar.
+fn check_narrow_search() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = window_at(&fixture, Page::Keyboard)?;
+    set_narrow(&window, true)?;
+    window.show_page(Page::Keyboard);
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (false, true),
+        "  opening a page doesn't show it",
+    )?;
+    let sidebar = window.sidebar();
+    sidebar.search("DPI");
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, false) && sidebar.is_searching(),
+        "  a search doesn't show the sidebar with the results",
+    )?;
+    ensure(
+        focus(&window).is_some_and(|focus| focus.is_ancestor(sidebar.search_entry())),
+        "  the search field doesn't have the focus",
+    )?;
+    let results = sidebar.results();
+    ensure(
+        sidebar.focus_selected(),
+        "  the results can't take the focus",
+    )?;
+    results.emit_activate_cursor_row();
+    settle(&window)?;
+    ensure(
+        window.page() == Some(Page::MouseTouchpad) && shown_panes(&window) == (false, true),
+        "  the result doesn't show its page",
+    )?;
+    let accel = row(&window, "input.pointer.pointer_accel")?;
+    let pointed = run_until(Duration::from_secs(5), || {
+        focus(&window).is_some_and(|focus| focus.is_ancestor(&accel))
+    });
+    ensure(pointed, "  the setting's control didn't get the focus")?;
+    ensure(window.back_to_sidebar(), "  Esc didn't go back")?;
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, false)
+            && focus(&window)
+                .and_downcast::<gtk::ListBoxRow>()
+                .is_some_and(|row| row.index() == 0 && row.is_ancestor(results)),
+        "  Esc doesn't show the results with the focus on the opened one",
+    )?;
+    ensure(sidebar.stop_search(), "  Esc didn't end the search")?;
+
+    // Ctrl+F on the page.
+    window.show_page(Page::Keyboard);
+    settle(&window)?;
+    ensure(
+        sidebar.focus_search(),
+        "  the search field can't take the focus",
+    )?;
+    settle(&window)?;
+    ensure(
+        shown_panes(&window) == (true, false),
+        "  the search field with the focus doesn't show the sidebar",
+    )?;
+
+    let key = "windows.focused.indicator";
+    let link = Link::parse(key, Registry::builtin()).map_err(|error| error.to_string())?;
+    window.open_link(&link);
+    settle(&window)?;
+    ensure(
+        window.page() == Some(Page::Windows) && shown_panes(&window) == (false, true),
+        "  a deep link doesn't show its page",
+    )?;
+    let row = row(&window, key)?;
+    let pointed = run_until(Duration::from_secs(5), || {
+        focus(&window).is_some_and(|focus| focus.is_ancestor(&row))
+    });
+    ensure(pointed, "  the deep link's row didn't get the focus")?;
     window.destroy();
     Ok(())
 }
