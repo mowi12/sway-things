@@ -5,6 +5,7 @@
 
 mod clamp;
 mod device_selector;
+mod generated;
 mod group_row;
 mod keyboard;
 mod layout_list;
@@ -19,6 +20,7 @@ mod xkb_options;
 
 pub use clamp::Clamp;
 pub use device_selector::DeviceSelector;
+pub use generated::GeneratedWindow;
 pub use group_row::GroupRow;
 pub use layout_list::LayoutList;
 pub use page_header::PageHeader;
