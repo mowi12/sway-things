@@ -10,6 +10,7 @@
 
 pub mod app;
 pub mod contrast;
+pub mod editor;
 pub mod i18n;
 pub mod model;
 pub mod style;

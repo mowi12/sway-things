@@ -23,7 +23,7 @@ Milestones on GitHub correspond to releases.
       navigation, single instance + deep links, theming with sway accent, light and dark
 - [ ] Narrow mode: decide the width threshold from the real pages, then document it in [UX Concept](UX-Concept.md)
 - [ ] Indicators: reset, overridden / your config wins, requires sway ≥ x.y, requires SwayFX
-- [ ] "Sway Things" preferences section (accent source, safety-net timeout, editor command, show sway directives)
+- [x] "Sway Things" preferences section (accent source, safety-net timeout, editor command, show sway directives)
 - [ ] gettext wiring (American English source strings only at first)
 
 ### Four pages
