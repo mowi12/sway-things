@@ -151,7 +151,9 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 ## Per-setting indicators
 
 A row stays lean: status as small badges (icon and text) under the sway line, actions behind buttons next to the
-control. Badges are labels, never buttons.
+control. Badges are labels, never buttons. The reset and _This machine only_ buttons keep their room while hidden, and
+so does the ⋮ menu in rows whose setting the user's config sets too, so a control never moves when they appear: a slider
+being dragged stays under the pointer when its first change stores a value.
 
 | Indicator | When | Shown as | Actions |
 | --- | --- | --- | --- |

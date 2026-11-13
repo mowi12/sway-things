@@ -346,6 +346,10 @@ fn check_setting_rows() -> Vec<(String, Outcome)> {
             check_slider_snap(),
         ),
         (
+            "rows: a control keeps its place when the reset buttons appear".to_owned(),
+            check_control_stays(),
+        ),
+        (
             "rows: a setting waits for the one it depends on".to_owned(),
             check_dependency(),
         ),
@@ -1709,6 +1713,44 @@ fn check_slider_snap() -> Outcome {
             &format!("  {scroll:?} to {to} stored {:?}", stored(&fixture)?),
         )?;
     }
+    window.destroy();
+    Ok(())
+}
+
+/// The slider of a setting without a stored value stays where it is once a change stores one
+/// and the reset and machine buttons appear, so a drag doesn't jump.
+fn check_control_stays() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::MouseTouchpad)?;
+    let key = "input.touchpad.scroll_factor";
+    let speed = row(&window, key)?;
+    let scale = speed
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::Scale>().ok())
+        .ok_or_else(|| "  the scroll speed has no slider".to_owned())?;
+    let bounds = |scale: &gtk::Scale| {
+        scale
+            .compute_bounds(&window)
+            .map(|rect| (rect.x(), rect.width()))
+    };
+    ensure(
+        speed.reset_button().is_none(),
+        "scroll speed is stored already",
+    )?;
+    let before = bounds(&scale);
+    fixture.model.set(key, None, Value::Decimal(1.5));
+    wait_for_model(&fixture.model)?;
+    settle(&window)?;
+    ensure(
+        speed.reset_button().is_some(),
+        "the reset button didn't appear",
+    )?;
+    let after = bounds(&scale);
+    ensure(
+        before.is_some() && before == after,
+        &format!("  the slider moved from {before:?} to {after:?}"),
+    )?;
     window.destroy();
     Ok(())
 }
