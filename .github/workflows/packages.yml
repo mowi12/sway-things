@@ -1,8 +1,9 @@
 name: Packages
 
-# Builds the distribution packages in clean containers, from the release tarball as the openSUSE Build Service gets it.
-# Not a check on pull requests: the builds take long. A break shows up here right after the merge, or in the weekly run
-# that catches changes in the distributions. The release workflow calls it with the tarball of the tag.
+# Builds the distribution packages in clean containers: the OBS packages from the release tarball as the openSUSE Build
+# Service gets it, and the AUR -git package from GitHub's main. Not a check on pull requests: the builds take long. A
+# break shows up here right after the merge, or in the weekly run that catches changes in the distributions. The release
+# workflow calls it with the tarball of the tag; the AUR -git package isn't built then, since it doesn't use the tarball.
 on:
   push:
     branches: [main]
@@ -74,3 +75,17 @@ jobs:
         run: |
           tarball=("$RUNNER_TEMP"/dist/sway-things-*.tar.xz)
           scripts/build-packages.sh --container "$NAME" --tarball "${tarball[0]}"
+
+  aur:
+    name: Build Package (arch-git)
+    if: inputs.artifact == ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build Package
+        run: scripts/build-packages.sh --container arch-git
