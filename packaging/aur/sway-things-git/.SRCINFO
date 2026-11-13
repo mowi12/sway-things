@@ -1,0 +1,23 @@
+pkgbase = sway-things-git
+	pkgdesc = Settings app for the sway Wayland compositor and SwayFX
+	pkgver = 0.0.0.r278.g1ee64da
+	pkgrel = 1
+	url = https://github.com/mowi12/sway-things
+	arch = x86_64
+	license = GPL-3.0-or-later
+	makedepends = cargo
+	makedepends = git
+	depends = cairo
+	depends = glib2
+	depends = glibc
+	depends = graphene
+	depends = gtk4
+	depends = libgcc
+	depends = pango
+	depends = sway
+	provides = sway-things=0.0.0
+	conflicts = sway-things
+	source = sway-things-git::git+https://github.com/mowi12/sway-things.git
+	sha256sums = SKIP
+
+pkgname = sway-things-git
