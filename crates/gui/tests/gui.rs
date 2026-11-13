@@ -17,6 +17,8 @@
 //! - Groups: the settings of one directive are rows below a group row, which shows their values
 //!   and the line once, and expands and collapses with `Enter` and `Space`.
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
+//! - Reload: a change sway only reads from its config shows the reload banner, which goes once
+//!   sway reloaded; a setting sway only reads at login has its badge.
 //! - Indicators: reset, this machine only, the badges of a conflict with the user's config and
 //!   its ⋮ menu, the badge of a requirement, and the reset of a whole page.
 //! - Devices: the device selectors list the devices of their type, a row changes the value of
@@ -26,8 +28,8 @@
 //!   switch and browser, the model is a drop-down, and the active layout switches.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
-//! without a session or in the session of the stand-in for sway, and never saves, so nothing
-//! runs sway.
+//! without a session or in the session of the stand-in for sway. It never saves by itself, and
+//! the files of a reload are validated with `true`, so nothing runs sway.
 //!
 //! GTK runs on one thread, so this is a plain program (`harness = false`), not `#[test]`s. With
 //! `SWAY_THINGS_SCREENSHOTS=<dir>` it also saves the window with each page as a PNG there.
@@ -174,9 +176,11 @@ fn fixture_in(
         _dir: dir,
     };
     let status = fixture.status(users, include);
+    // `true` accepts every file, so a reload of sway saves without running sway.
+    let validator = SwayValidator::with_program("true");
     let applier = match sway {
-        Some(sway) => Applier::with_session(state, locations, SwayValidator::new(), sway.connect()),
-        None => Applier::without_session(state, locations, SwayValidator::new(), compositor),
+        Some(sway) => Applier::with_session(state, locations, validator, sway.connect()),
+        None => Applier::without_session(state, locations, validator, compositor),
     };
     fixture.model = Model::with_applier(applier, status);
     Ok(fixture)
@@ -244,6 +248,7 @@ fn main() -> ExitCode {
     results.extend(check_searches());
     results.extend(check_setting_rows());
     results.extend(check_safety_net());
+    results.extend(check_reload());
     results.push((
         "theme: the accent follows sway's focus color".to_owned(),
         check_accent(),
@@ -295,6 +300,10 @@ fn check_screens(screenshots: Option<&Path>, scheme: &str) -> Vec<(String, Outco
     results.push((
         format!("contrast: safety-net banner ({scheme})"),
         check_safety_net_screen(screenshots, scheme),
+    ));
+    results.push((
+        format!("contrast: reload banner ({scheme})"),
+        check_reload_screen(screenshots, scheme),
     ));
     results.push((
         format!("contrast: indicators ({scheme})"),
@@ -358,6 +367,118 @@ fn check_safety_net() -> Vec<(String, Outcome)> {
             check_close_reverts(),
         ),
     ]
+}
+
+/// The checks of the reload banner and the badges of settings that don't apply live.
+fn check_reload() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "reload: the banner counts the waiting changes and goes after the reload".to_owned(),
+            check_reload_banner(),
+        ),
+        (
+            "reload: a setting for the next login has its badge".to_owned(),
+            check_relogin_badge(),
+        ),
+    ]
+}
+
+const WORKSPACE_LAYOUT: &str = "behavior.workspace_layout";
+const XWAYLAND: &str = "behavior.xwayland";
+
+/// A window on the Window Behavior page in the session of `sway`, with the default layout of new
+/// workspaces changed, which waits for a reload of sway.
+fn reload_waits(sway: &FakeSway) -> Result<(Fixture, Window), String> {
+    let fixture = live_fixture(sway, STORED)?;
+    let window = open(&fixture, Page::WindowBehavior)?;
+    ensure(
+        window.reload_banner().is_none(),
+        "the reload banner shows before a change",
+    )?;
+    fixture
+        .model
+        .set(WORKSPACE_LAYOUT, None, Value::Choice("tabbed".to_owned()));
+    wait_for_model(&fixture.model)?;
+    settle(&window)?;
+    Ok((fixture, window))
+}
+
+/// A change for the config only shows the banner; a change for the next login doesn't count;
+/// the reload saves, asks sway and hides the banner.
+fn check_reload_banner() -> Outcome {
+    let sway = laptop();
+    let (fixture, window) = reload_waits(&sway)?;
+    let expected = Some("1 change applies after sway reloads its config".to_owned());
+    ensure(
+        window.reload_banner() == expected,
+        &format!("  the reload banner says {:?}", window.reload_banner()),
+    )?;
+    ensure(
+        window.reload_button().is_sensitive(),
+        "Reload sway… can't be pressed",
+    )?;
+    fixture
+        .model
+        .set(XWAYLAND, None, Value::Choice("force".to_owned()));
+    wait_for_model(&fixture.model)?;
+    ensure(
+        window.reload_banner() == expected,
+        &format!(
+            "  after a change for the next login the banner says {:?}",
+            window.reload_banner()
+        ),
+    )?;
+    fixture.model.reload_sway();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        sway.commands().iter().any(|command| command == "reload"),
+        "sway wasn't asked to reload",
+    )?;
+    ensure(
+        window.reload_banner().is_none(),
+        "the reload banner stays after the reload",
+    )?;
+    ensure(
+        window.problem().is_none(),
+        &format!("  problem: {:?}", window.problem()),
+    )?;
+    let generated = std::fs::read_to_string(fixture.locations.path(ConfigFile::Behavior))
+        .map_err(|error| format!("  {error}"))?;
+    ensure(
+        generated.contains("workspace_layout tabbed"),
+        "the change wasn't saved before the reload",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Xwayland, which sway only reads at login, says so in a badge.
+fn check_relogin_badge() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::WindowBehavior)?;
+    let xwayland = row(&window, XWAYLAND)?;
+    ensure(
+        xwayland.badges() == ["Applies after re-login"],
+        &format!("  Xwayland has the badges {:?}", xwayland.badges()),
+    )?;
+    let layout = row(&window, WORKSPACE_LAYOUT)?;
+    ensure(
+        layout.badges() == ["Applies after reload"],
+        &format!("  the default layout has the badges {:?}", layout.badges()),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The Window Behavior page with the reload banner, checked like the pages.
+fn check_reload_screen(screenshots: Option<&Path>, scheme: &str) -> Outcome {
+    let sway = laptop();
+    let (_fixture, window) = reload_waits(&sway)?;
+    ensure(window.reload_banner().is_some(), "no reload banner")?;
+    let directory = screenshots.map(|dir| dir.join("reload"));
+    let outcome = check_page(&window, Page::WindowBehavior, directory.as_deref(), scheme);
+    window.destroy();
+    outcome
 }
 
 /// Switches GTK between its light and dark style, as the desktop's preference would.

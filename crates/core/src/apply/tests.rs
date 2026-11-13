@@ -933,6 +933,11 @@ fn one_risky_change_waits_at_a_time() {
         ),
         Err(ApplyError::PendingChange { key: LAYOUT })
     ));
+    // A reload would put the stored layout back under the safety net's feet.
+    assert!(matches!(
+        block_on(setup.applier.reload_sway(&setup.access)),
+        Err(ApplyError::PendingChange { key: LAYOUT })
+    ));
     block_on(setup.applier.revert()).unwrap();
     assert!(matches!(
         setup.applier.keep(&setup.access),
@@ -1418,4 +1423,125 @@ fn a_change_of_several_settings_is_refused_like_one() {
         Err(ApplyError::NoSession { key: LAYOUT })
     ));
     assert_eq!(sway.commands(), [] as [&str; 0]);
+}
+
+const WORKSPACE_LAYOUT: &str = "behavior.workspace_layout";
+const XWAYLAND: &str = "behavior.xwayland";
+
+fn choice(id: &str) -> Value {
+    Value::Choice(id.to_owned())
+}
+
+fn waiting(applier: &Applier<FakeValidator>, until: super::Until) -> Vec<&'static str> {
+    applier
+        .waiting()
+        .until(until)
+        .map(|change| change.key)
+        .collect()
+}
+
+#[test]
+fn a_change_for_the_config_only_waits_for_a_reload_of_sway() {
+    use super::Until;
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup.set(GAPS, Value::Integer(8)).unwrap();
+    assert!(!setup.applier.waiting().any(Until::Reload));
+
+    setup.set(WORKSPACE_LAYOUT, choice("tabbed")).unwrap();
+    setup.set(WORKSPACE_LAYOUT, choice("stacking")).unwrap();
+    assert_eq!(waiting(&setup.applier, Until::Reload), [WORKSPACE_LAYOUT]);
+    assert_eq!(
+        setup.applier.waiting().get(WORKSPACE_LAYOUT, None),
+        Some(Until::Reload)
+    );
+    // Back to what sway runs with: nothing waits.
+    setup.reset(WORKSPACE_LAYOUT).unwrap();
+    assert!(!setup.applier.waiting().any(Until::Reload));
+
+    // The reload writes the files first, then asks sway.
+    setup.set(WORKSPACE_LAYOUT, choice("tabbed")).unwrap();
+    block_on(setup.applier.reload_sway(&setup.access)).unwrap();
+    assert_eq!(sway.commands().last().map(String::as_str), Some("reload"));
+    assert_eq!(
+        setup.generated(ConfigFile::Behavior),
+        format!("{HEADER}workspace_layout tabbed\n")
+    );
+    assert!(!setup.applier.waiting().any(Until::Reload));
+
+    // Back to the default is a change too now, since sway runs with tabbed.
+    setup.reset(WORKSPACE_LAYOUT).unwrap();
+    assert_eq!(waiting(&setup.applier, Until::Reload), [WORKSPACE_LAYOUT]);
+}
+
+#[test]
+fn a_change_for_the_next_login_outlasts_a_reload() {
+    use super::Until;
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let applied = setup.set(XWAYLAND, choice("disable")).unwrap();
+    assert_eq!(applied.effect, Effect::AfterRelogin);
+    assert_eq!(waiting(&setup.applier, Until::Relogin), [XWAYLAND]);
+    assert!(!setup.applier.waiting().any(Until::Reload));
+    block_on(setup.applier.reload_sway(&setup.access)).unwrap();
+    assert_eq!(waiting(&setup.applier, Until::Relogin), [XWAYLAND]);
+}
+
+#[test]
+fn a_reload_from_elsewhere_only_counts_for_written_changes() {
+    use super::Until;
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup.set(WORKSPACE_LAYOUT, choice("tabbed")).unwrap();
+    // Not saved yet: sway read the old file.
+    setup.applier.reloaded();
+    assert_eq!(waiting(&setup.applier, Until::Reload), [WORKSPACE_LAYOUT]);
+    setup.persist(&[]);
+    setup.applier.reloaded();
+    assert!(!setup.applier.waiting().any(Until::Reload));
+}
+
+#[test]
+fn a_reload_of_sway_is_refused_when_it_couldnt_apply_the_changes() {
+    let mut setup = Setup::offline("version = 1\n");
+    setup.set(WORKSPACE_LAYOUT, choice("tabbed")).unwrap();
+    // Nothing waits: sway reads the files when it starts.
+    assert!(!setup.applier.waiting().any(super::Until::Reload));
+    assert!(matches!(
+        block_on(setup.applier.reload_sway(&setup.access)),
+        Err(ApplyError::ReloadWithoutSession)
+    ));
+
+    // A generated file that was changed outside isn't replaced, so sway wouldn't read the change.
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[behavior]\nworkspace_layout = \"stacking\"\n",
+    );
+    setup.persist(&[]);
+    let behavior = setup.applier.locations().path(ConfigFile::Behavior);
+    fs::write(&behavior, format!("{HEADER}workspace_layout default\n")).unwrap();
+    setup.set(WORKSPACE_LAYOUT, choice("tabbed")).unwrap();
+    match block_on(setup.applier.reload_sway(&setup.access)) {
+        Err(ApplyError::Unwritten { files }) => assert_eq!(files, [ConfigFile::Behavior]),
+        other => panic!("{other:?}"),
+    }
+    assert!(!sway.commands().iter().any(|command| command == "reload"));
+}
+
+#[test]
+fn changes_on_disk_for_the_config_only_wait_for_a_reload_of_sway() {
+    use super::Until;
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup.persist(&[]);
+    fs::write(
+        setup.settings(),
+        "version = 1\n\n[behavior]\nworkspace_layout = \"tabbed\"\n\n[input.keyboard]\n\
+         xkb_layout = [\"de\"]\n",
+    )
+    .unwrap();
+    block_on(setup.applier.reload(&setup.access));
+    // The risky layout is left to the safety net.
+    assert_eq!(waiting(&setup.applier, Until::Reload), [WORKSPACE_LAYOUT]);
 }
