@@ -135,6 +135,23 @@ jobs:
       - name: Validate Metadata
         run: scripts/check-metadata.sh
 
+  pot:
+    name: Check Translation Template
+    runs-on: ubuntu-24.04
+    # xgettext reads Rust from gettext 0.24 on; Debian 13 and Ubuntu 24.04 have older versions.
+    container: archlinux:base@sha256:b1c2fe6e717bfd5673af8fc217e1e1c3ce0dcbb1d53c3414c8425e7ce79fc6d9
+    permissions:
+      contents: read
+    steps:
+      - name: Install gettext and diffutils
+        run: pacman -Syu --noconfirm --needed gettext diffutils
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check Translation Template
+        run: scripts/check-pot.sh
+
   spelling:
     name: Check Spelling
     runs-on: ubuntu-24.04

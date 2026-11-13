@@ -1,0 +1,1970 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Sway Things contributors
+# This file is distributed under the same license as the sway-things package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: sway-things\n"
+"Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
+"POT-Creation-Date: 2026-11-13 14:22+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: crates/core/src/doctor/mod.rs
+msgid "Compositor"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Sway config"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Settings files"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Generated files"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Conflicts"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Sway’s focus color"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "The GTK theme’s accent"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Sway Things"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Safety net timeout"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Seconds until a risky change is reverted unless you keep it"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "revert"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "countdown"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "keep"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Accent color"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "The color of switches, sliders and selections in this app"
+msgstr ""
+
+#: crates/core/src/registry/app.rs crates/core/src/registry/windows.rs
+msgid "theme"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "highlight"
+msgstr ""
+
+#: crates/core/src/registry/app.rs crates/core/src/registry/windows.rs
+msgid "color"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Editor command"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+#, rust-format
+msgid ""
+"The program that opens your sway config, with its arguments; {file} and "
+"{line} are filled in"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "$VISUAL, $EDITOR or the default text editor"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "editor"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "text editor"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "open"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "vim"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "terminal"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Show sway directives"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Show the line of the sway config below each setting"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "config"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "directive"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "monospace"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "learn"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Remember collapsed sections"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Keep sections you folded away folded when the app starts again"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "collapse"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "fold"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "expand"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "sections"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "When the pointer enters a window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Only on click"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Always the window under the pointer"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Onto the screen that gets the focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Into the window that gets the focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "Never"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Wraps to the first window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Stays at the last window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Wraps inside every container"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Wraps, never to another screen"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Mark it urgent"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Focus it if visible, otherwise mark it urgent"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Focus it"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Ignore the request"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Tiled"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Stacked"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Tabbed"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "By the shape of the screen"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Side by side"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "One above the other"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
+msgid "Off"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Super"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Alt"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Ctrl"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Shift"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Left button moves, right button resizes"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Left button resizes, right button moves"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Minimum size of floating windows"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Automatic (75 × 50)"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "No limit"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Custom"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Smallest floating window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Smallest width"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Smallest height"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Maximum size of floating windows"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Automatic (all screens together)"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Largest floating window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Largest width"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Largest height"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Show them"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Don't show them"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Leave fullscreen and show them"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "When the first X11 app starts"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Right away"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Never: X11 apps don't run"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "floating"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "window size"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "limit"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "Floating windows"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "In pixels"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Focus follows mouse"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "pointer"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "hover"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "sloppy focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Move the pointer with the focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "When the keyboard moves the focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "mouse warping"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "cursor"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "jump"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Focus past the last window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "When the keyboard moves the focus beyond the edge"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "focus wrapping"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "cycle"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "edge"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "When an app asks for focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "E.g. a browser opening a link from another app"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "focus on window activation"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/effects.rs
+msgid "urgent"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "steal focus"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/effects.rs
+#: crates/core/src/registry/windows.rs
+msgid "attention"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/page.rs
+msgid "Workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Layout of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tabs"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "stack"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "tiling"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Split of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "How the windows of a new workspace are arranged"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "default orientation"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "horizontal"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "vertical"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Back and forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Switching to the current workspace again goes back to the previous one"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "workspace_auto_back_and_forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "previous workspace"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "toggle"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
+msgid "Mouse"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Drag modifier"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Hold this key to move and resize windows from anywhere inside them"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "floating modifier"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "mod key"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "move"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "resize"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Mouse buttons with the drag modifier"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "inverse"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Drag tiled windows"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "By the title bar, or anywhere with the drag modifier"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tiling drag"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "rearrange"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Drag threshold"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "How far a title bar must be dragged before the window moves, in pixels"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tiling drag threshold"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "distance"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Fullscreen"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Dialogs of a fullscreen window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "popup during fullscreen"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "popups"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "dialog"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Stay awake while a window is fullscreen"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Keeps the screen from locking or turning off, e.g. during a video"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "inhibit idle"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "screensaver"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "lock"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "video"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "sleep"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "X11 apps"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Start Xwayland"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Runs apps made for X11"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "xwayland"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "x11"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "xorg"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "legacy"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Blur"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Shadows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Corners"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Corner radius"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Rounded window corners, in pixels, for windows opened from now on"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "rounded"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "round corners"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Square corners without gaps"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Round corners only where there are gaps around the window"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "smart corners"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Blurs what is behind transparent windows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "transparency"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "frosted glass"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Passes"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "More passes blur more strongly and cost more; 0 turns blur off"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "blur strength"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Radius"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "How far each pass blurs; 0 turns blur off"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "blur size"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Noise"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Grain over the blur, against banding"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "grain"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "dither"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Brightness"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "1 keeps the brightness"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Contrast"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "1 keeps the contrast"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Saturation"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "1 keeps the saturation"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "colorfulness"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Drop shadows behind windows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "drop shadow"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "depth"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Color"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Of the focused window, usually partly transparent"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "shadow color"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Color of other windows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Unless set, it follows the color"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs crates/core/src/registry/windows.rs
+msgid "inactive"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "unfocused"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Softness"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "How far the shadow fades out, in pixels"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "shadow blur"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "shadow size"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Shadow offset"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Offset to the right"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "In pixels; negative values move it left"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "shadow position"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Offset down"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "In pixels; negative values move it up"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Dim inactive"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Dim other windows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "0 leaves them as they are, 1 covers them with the dim color"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "dimming"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "fade"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Dim color"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Dim color of urgent windows"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Animations"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Animation length"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "Of opening and closing windows, in milliseconds; 0 turns animations off"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "animate"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+msgid "transition"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs crates/core/src/registry/input.rs
+msgid "speed"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "On"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off while a mouse is connected"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Adaptive"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Flat"
+msgstr ""
+
+#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+msgid "None"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "While a button is held"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Two fingers"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Along the edge"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Middle"
+msgstr ""
+
+#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+msgid "Right"
+msgstr ""
+
+#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+msgid "Left"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Back"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Forward"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Left, right, middle"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Left, middle, right"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Until a short pause"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Until the next tap"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Areas at the bottom"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Number of fingers"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Enabled"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off ignores the mouse until it is turned on again"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "mouse"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "trackpoint"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "disable"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "turn off"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Touchpad"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off ignores the touchpad until it is turned on again"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "touchpad"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "trackpad"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "palm"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Pointer speed"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "acceleration"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "sensitivity"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "dpi"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Acceleration"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Adaptive moves farther the faster you move; flat keeps the same speed"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "acceleration profile"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "gaming"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Natural scrolling"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Content moves with your fingers, like on a phone"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "reverse"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "invert"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "scroll direction"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Scroll speed"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "How far one step of scrolling goes; 1 is unchanged"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "scroll factor"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "wheel"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Scroll method"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"Unless set, the device decides: trackpoints scroll while the middle button "
+"is held"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "scrolling"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "button scrolling"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "two finger"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "edge scrolling"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Scroll button"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "The button to hold while scrolling with a held button"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Left-handed"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Swaps the left and right buttons"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "swap buttons"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "primary button"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Middle-click emulation"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"Pressing left and right together clicks the middle button. Unless set, the "
+"device decides"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "middle button"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "paste"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Tap to click"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Tap the touchpad instead of pressing it. Unless set, the device decides"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Tapping with fingers"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "The buttons a tap with one, two and three fingers clicks"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "tap button map"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "two finger tap"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "right click"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Tap and drag"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Tap, then touch again and move to drag"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "drag"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Drag lock"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Keeps dragging when the finger is lifted"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off while typing"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Ignores the touchpad while you type"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "disable while typing"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off while using the trackpoint"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Ignores the touchpad while the trackpoint is used"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "disable while trackpointing"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Right click"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"Press the bottom right corner, or press with two fingers. Unless set, the "
+"device decides"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "click method"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "clickfinger"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "button areas"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Pressing with fingers"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"The buttons a press with one, two and three fingers clicks, when the number "
+"of fingers decides"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "clickfinger button map"
+msgstr ""
+
+#: crates/core/src/registry/input.rs crates/core/src/registry/page.rs
+msgid "Keyboard"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Off ignores the keyboard until it is turned on again"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "keyboard"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Layouts"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"The keymaps you type with, in the order the layout switching goes through "
+"them"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "language"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "xkb"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "keymap"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "qwerty"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "azerty"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "qwertz"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Variants"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"One for each layout, e.g. Dvorak or without dead keys; empty keeps the "
+"layout as it is"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "dvorak"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "colemak"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "dead keys"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "nodeadkeys"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Keyboard model"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"The physical keyboard, for keys only some models have. Empty uses the "
+"default model, pc105"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "hardware"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "pc105"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Options"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "XKB options"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid ""
+"Extra key behavior, e.g. Caps Lock as Ctrl, a Compose key or the shortcut "
+"that switches layouts"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "caps lock"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "ctrl"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "control"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "escape"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "compose"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "alt"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "super"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "switch layout"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "remap"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Typing"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Repeat delay"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Milliseconds a key is held before it repeats"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "typing"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "key repeat"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "hold"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Repeat rate"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Characters per second while a key is held"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Num Lock on at startup"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Turns Num Lock on when sway sets up the keyboard"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "numlock"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "number pad"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "numpad"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Caps Lock on at startup"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "Turns Caps Lock on when sway sets up the keyboard"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "capslock"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "uppercase"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Devices"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Appearance"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Desktop"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "System"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Mouse & Touchpad"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Cursor & Tablet"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Displays"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Sound"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Bluetooth & Network"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Windows"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Wallpaper"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Apps Look & Feel"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Bar"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Window Behavior"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Notifications"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Apps & Autostart"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Screenshots & Clipboard"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Power & Lock"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Brightness & Night Light"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Region & Time"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Accessibility"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Environment"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "About & Maintenance"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Pointer speed, scrolling and touchpad"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Layouts, switching shortcut, key repeat and XKB options"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Cursor theme, size and visibility"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Arrange outputs, resolution, scale and profiles"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Devices, volume and per-application levels"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Connect devices and Wi-Fi networks"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Borders, colors, gaps and title bars of tiled windows"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Background image or color per output"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Theme, icons, fonts and dark mode for applications"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Position, modules and style of the bar"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "How focus, floating and tiling behave"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Names, icons and the number of workspaces"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "All bindings, gestures and media keys"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Notification daemon settings"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Default applications and everything that starts with sway"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Capturing the screen and clipboard history"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Idle timeouts, lock screen and power profile"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Screen brightness and color temperature"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Time zone, language and formats"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Larger cursor, larger text and key repeat"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Environment variables and Wayland compatibility"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Versions, config check, history and Sway Things preferences"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Focused window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "focus"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "active"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Inactive window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "focused inactive"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Unfocused windows"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Urgent window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "alert"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar border"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar background"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar text"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Split indicator"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Border"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "The border edge where the next window opens"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "The border around the window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Focused tab title"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid ""
+"The tab or stack title of a container with the focus inside. Unless set, "
+"like an inactive window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "tabbed"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "stacking"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Border and title bar"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Border only"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Floating border width"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "frame"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "decoration"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Tiled windows"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Tiled border width"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Floating window borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Tiled window borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Applies to windows opened from now on"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "In pixels, for windows opened from now on"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Left and right"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Top and bottom"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "All sides"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Always"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Only with more than one window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Only with more than one window or with gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Outer gaps only with one window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Center"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Edge borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Hide borders at the screen edge"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "edges"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "hide_edge_borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Hide the title bar of a lone tab"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "A tabbed or stacked container with one window shows no title bar"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "i3"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Show borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "smart borders"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "single window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Inner gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Space between windows, in pixels"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "spacing"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "margin"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Outer gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid ""
+"Space around the windows of a workspace, in pixels, added to the inner gaps; "
+"negative values take some of them away"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "padding"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "screen edge"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Show gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "smart gaps"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bars"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar font"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Font family and size, e.g. \"monospace 10\""
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "typeface"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "text size"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title alignment"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "title"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "center"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "In pixels, at most the padding"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar padding"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar padding, left and right"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "In pixels, at least the title bar border"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "Title bar padding, top and bottom"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+msgid "height"
+msgstr ""

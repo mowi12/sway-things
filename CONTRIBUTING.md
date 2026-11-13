@@ -125,6 +125,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`, `desktop-file-validate`, `appstreamcli validate` |
 | Spelling | `typos`, locale en-US |
+| Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
@@ -135,6 +136,23 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Code scanning | CodeQL default setup for Rust and GitHub Actions, on every PR and weekly |
 
 Editors pick up indentation and line endings from `.editorconfig`.
+
+## Translatable strings
+
+Every string a user reads is translatable. Write it in American English and mark it with `msg!`, which makes a `Msg`;
+show it through `tr` (`sway_things_core::i18n::tr`), which gives the user's language:
+
+```rust
+Setting::toggle(TAP, Page::MouseTouchpad, true)
+    .title(msg!("Tap to click"))
+    .keywords(&[msg!("touchpad"), msg!("click")])
+```
+
+A comment starting with `TRANSLATORS:` right above a string goes into the template as a note for translators. After
+adding, changing or removing a string, run `scripts/update-pot.sh` to update `po/sway-things.pot`;
+`scripts/check-pot.sh` and a core test fail while it is out of date. Both scripts need `xgettext` 0.24 or newer, the
+first version that reads Rust. Tests that need a string that is not extracted use `Msg::new`. See
+[wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations are found.
 
 ## Working on the GUI
 
