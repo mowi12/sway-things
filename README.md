@@ -87,8 +87,27 @@ _Planned interface. Key names may still change._
 
 ## Installation
 
-Not released yet. Planned: native packages for openSUSE, Fedora, Debian and Ubuntu via the openSUSE Build Service, plus
-the AUR for Arch Linux.
+Not released yet. Packages for openSUSE Tumbleweed and Fedora (x86_64 and aarch64) will come from the
+[openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands below work once it
+is published. Debian and Ubuntu packages from the same project, and the AUR for Arch Linux, are planned.
+
+### openSUSE Tumbleweed
+
+```sh
+repo=https://download.opensuse.org/repositories/home:/mowi12:/sway-things
+sudo zypper addrepo "$repo/openSUSE_Tumbleweed/home:mowi12:sway-things.repo"
+sudo zypper install sway-things
+```
+
+### Fedora
+
+```sh
+repo=https://download.opensuse.org/repositories/home:/mowi12:/sway-things
+sudo dnf config-manager addrepo --from-repofile="$repo/Fedora_$(rpm -E %fedora)/home:mowi12:sway-things.repo"
+sudo dnf install sway-things
+```
+
+Both ask you to trust the repository's signing key on first use.
 
 ### From source
 

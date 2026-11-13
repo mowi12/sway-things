@@ -131,6 +131,8 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
+| Packaging | the version in `Cargo.toml`, both RPM specs and the man pages agree; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates (`scripts/check-packaging.sh`) |
+| Packages | not a pull request check: on every push to `main`, weekly and for a release, the reproducible tarball (`scripts/make-tarball.sh --check`) and the openSUSE Tumbleweed and Fedora packages built from it offline in containers (`ci/packages/`), with `rpmlint` and an install test; locally `scripts/build-packages.sh --container all` |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
 | Fuzzing | sway config parser with `cargo-fuzz` (`scripts/fuzz.sh`, see [Fuzzing](#fuzzing)): lint and 60 s on every change, 15 min daily |
@@ -222,7 +224,9 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. The commit that bumps the version
 also runs `scripts/update-cli-docs.sh`, since every man page names the version. Pushing a version tag triggers the
 release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
-generated from the commits.
+generated from the commits. Publishing the release makes the openSUSE Build Service fetch the tarball and the specs and
+build the packages. A version bump changes the `Version` of both specs in `packaging/rpm/` too
+(`scripts/check-packaging.sh` checks it). See [wiki/Architecture.md](wiki/Architecture.md#packaging).
 
 ## AI-assisted contributions
 
