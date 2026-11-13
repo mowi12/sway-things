@@ -53,6 +53,33 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   or `Space` expands it to the members' rows, indented below it, which don't repeat the directive. A link to a member
   expands its group first.
 
+### Window preview
+
+```text
+│  Windows                                          │
+│ ┌───────────────────────────────────────────────┐ │  pinned
+│ │  ┌▓▓ Terminal ▓▓▓▓▓▓▓▓┐   ┌░░ Editor ░░░░░░░░┐ │ │
+│ │  █ ═══════          █▌  ▒ ═══════          ▒ │ │
+│ │  █ ═════            █▌  ▒ ═════            ▒ │ │
+│ │  └██████████████████┘   └▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒┘ │ │
+│ └───────────────────────────────────────────────┘ │
+│ ───────────────────────────────────────────────── │
+│  Windows                         [Reset page…]    │  scrolls
+│  FOCUSED WINDOW  …                                │
+```
+
+- The Windows page pins a **live preview** above the scrolled page, so it stays in view while any section changes: a
+  focused and an unfocused window side by side, with their colors, the border style and width, the gaps, and the title
+  bar (font, alignment, padding, border). The focused window shows its split indicator on its right edge.
+- It follows a control while it moves (a slider being dragged), before the change reaches sway.
+- Sizes are 1:1 logical pixels at a fixed height. Gaps over 48 px per side and borders or padding over 24 px are drawn
+  at that size, and a _Not to scale_ note shows.
+- On SwayFX it also draws rounded corners (square without gaps when smart corner radius is on), shadows with their
+  colors, softness and offset, and the dimming of the unfocused window. Blur and animations aren't drawn. On sway it
+  draws no effects.
+- The surface behind the windows and their contents take the theme's colors, so it works in light and dark; the
+  decorations are sway's colors as set. It is a picture for assistive technology, with a label.
+
 ### Input devices
 
 Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a type or to one device:

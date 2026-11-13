@@ -14,6 +14,9 @@
 //! The settings of a directive with several values form a [`GroupRow`], collapsed, with their
 //! rows below it.
 //!
+//! The Windows page pins a [`WindowPreview`] above the scrolled page
+//! ([`PageView::set_pinned`]), so it stays in view while any of its sections is changed.
+//!
 //! A deep link points to a row: [`PageView::point_to`] expands its group, scrolls it into view,
 //! gives its control the keyboard focus and tints it with the accent for a moment.
 
@@ -31,7 +34,9 @@ use sway_things_core::view::Source;
 use super::device_selector::none_connected;
 use super::keyboard;
 use super::setting_row::tilde;
-use super::{Clamp, DeviceSelector, GroupRow, PageHeader, Placeholder, SettingRow, TestArea};
+use super::{
+    Clamp, DeviceSelector, GroupRow, PageHeader, Placeholder, SettingRow, TestArea, WindowPreview,
+};
 use crate::i18n::tr;
 use crate::model::Model;
 use crate::style;
@@ -51,6 +56,10 @@ mod imp {
 
     #[derive(Debug, Default)]
     pub struct PageView {
+        /// The pinned widget above the scrolled page, then the scrolled page.
+        pub frame: gtk::Box,
+        /// Holds the pinned widget, if the page has one.
+        pub pinned: gtk::Box,
         pub scroller: gtk::ScrolledWindow,
         pub content: gtk::Box,
         pub header: OnceCell<super::PageHeader>,
@@ -88,11 +97,20 @@ mod imp {
             self.scroller
                 .set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
             self.scroller.set_child(Some(&clamp));
-            self.scroller.set_parent(&*self.obj());
+            self.scroller.set_vexpand(true);
+            self.pinned.set_orientation(gtk::Orientation::Vertical);
+            self.pinned.add_css_class("st-page-pinned-content");
+            let pinned = super::Clamp::new(&self.pinned, super::MAXIMUM_WIDTH);
+            pinned.add_css_class("st-page-pinned");
+            pinned.set_visible(false);
+            self.frame.set_orientation(gtk::Orientation::Vertical);
+            self.frame.append(&pinned);
+            self.frame.append(&self.scroller);
+            self.frame.set_parent(&*self.obj());
         }
 
         fn dispose(&self) {
-            self.scroller.unparent();
+            self.frame.unparent();
         }
     }
 
@@ -230,6 +248,9 @@ impl PageView {
         view.imp().groups.replace(grouping.rows);
         view.imp().sections.replace(sections);
         view.add_page_reset(model, page);
+        if page == Page::Windows {
+            view.set_pinned(&WindowPreview::new(model));
+        }
         Some(view)
     }
 
@@ -256,6 +277,23 @@ impl PageView {
             header.set_end(&button);
         }
         let _ = self.imp().reset.set(button);
+    }
+
+    /// Pins `widget` above the scrolled page: it stays in view while the page scrolls below it.
+    pub fn set_pinned(&self, widget: &impl IsA<gtk::Widget>) {
+        let pinned = &self.imp().pinned;
+        while let Some(child) = pinned.first_child() {
+            pinned.remove(&child);
+        }
+        pinned.append(widget);
+        if let Some(clamp) = pinned.parent() {
+            clamp.set_visible(true);
+        }
+    }
+
+    /// The widget pinned above the scrolled page, if there is one.
+    pub fn pinned(&self) -> Option<gtk::Widget> {
+        self.imp().pinned.first_child()
     }
 
     /// The "Reset page…" button, on a page built from the registry.

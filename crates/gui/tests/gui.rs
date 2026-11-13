@@ -28,6 +28,10 @@
 //!   its ⋮ menu, the badge of a requirement, and the reset of a whole page.
 //! - Devices: the device selectors list the devices of their type, a row changes the value of
 //!   the device picked, a type without devices shows a hint, and devices come and go live.
+//! - Window preview: the Windows page pins it above the scrolled page; it draws the focused
+//!   window's colors, follows a change before it is sent, marks sizes over its caps and draws
+//!   the SwayFX effects only on SwayFX. Its title bars show sway's colors as the user set them,
+//!   so the contrast check leaves them out, like the text of a picture (WCAG 1.4.3).
 //! - Keyboard page: the layout list moves, adds and removes layouts with their variants through
 //!   the safety net, keeps the last layout, the XKB options change through their drop-downs,
 //!   switch and browser, the model is a drop-down, and the active layout switches.
@@ -64,6 +68,7 @@ use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
+    WindowPreview,
 };
 use sway_things_gui::window::Window;
 
@@ -276,11 +281,8 @@ fn main() -> ExitCode {
     results.extend(check_reload());
     results.extend(check_generated());
     results.extend(check_sections());
-    results.push((
-        "theme: the accent follows sway's focus color".to_owned(),
-        check_accent(),
-    ));
     results.extend(check_devices());
+    results.extend(check_windows_page());
     results.extend(check_keyboard());
     results.extend(check_indicators());
     results.push((
@@ -1097,19 +1099,53 @@ fn check_screen(
     // WCAG exempts inactive controls (1.4.3), like those of a read-only page: GTK draws their
     // text faint on purpose.
     let inactive = insensitive_areas(window.upcast_ref(), window.upcast_ref());
+    let pictures = title_bar_areas(window.upcast_ref());
     let mut problems = String::new();
     for sample in samples.iter().filter(|sample| {
         let center = gtk::graphene::Point::new(
             sample.bounds.x() + sample.bounds.width() / 2.0,
             sample.bounds.y() + sample.bounds.height() / 2.0,
         );
-        !inactive.iter().any(|area| area.contains_point(&center))
+        !inactive
+            .iter()
+            .chain(&pictures)
+            .any(|area| area.contains_point(&center))
     }) {
         if let Some(problem) = problem(sample) {
             let _ = writeln!(problems, "  {problem}");
         }
     }
     Ok(problems)
+}
+
+/// The title bars of the window preview, if `window` shows it: in sway's colors as the user set
+/// them, not the app's.
+fn title_bar_areas(window: &gtk::Widget) -> Vec<gtk::graphene::Rect> {
+    let Some(preview) = find::<WindowPreview>(window) else {
+        return Vec::new();
+    };
+    let Some(origin) = preview.compute_point(window, &gtk::graphene::Point::zero()) else {
+        return Vec::new();
+    };
+    preview
+        .layout()
+        .into_iter()
+        .flat_map(|layout| layout.windows)
+        .filter_map(|window| window.title_bar)
+        .map(|title| {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "preview coordinates are small"
+            )]
+            let area = gtk::graphene::Rect::new(
+                origin.x() + title.area.x as f32,
+                origin.y() + title.area.y as f32,
+                title.area.width as f32,
+                title.area.height as f32,
+            );
+            area
+        })
+        .collect()
 }
 
 /// The first widget of type `T` in `widget` and below it.
@@ -3498,5 +3534,152 @@ fn check_model_and_active_layout() -> Outcome {
         &format!("  sway got {:?}", sway.commands()),
     )?;
     window.destroy();
+    Ok(())
+}
+
+/// The checks of the Windows page: the accent and the window preview.
+fn check_windows_page() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "theme: the accent follows sway's focus color".to_owned(),
+            check_accent(),
+        ),
+        (
+            "window preview: pinned, drawn and live".to_owned(),
+            check_preview_live(),
+        ),
+        (
+            "window preview: sizes over the caps are not to scale".to_owned(),
+            check_preview_not_to_scale(),
+        ),
+        (
+            "window preview: effects only on SwayFX".to_owned(),
+            check_preview_effects(),
+        ),
+    ]
+}
+
+/// The window preview of the open page of `window`.
+fn preview(window: &Window) -> Result<WindowPreview, String> {
+    page_view(window)
+        .and_then(|view| view.pinned())
+        .and_then(|pinned| pinned.downcast::<WindowPreview>().ok())
+        .ok_or_else(|| "  the Windows page has no pinned window preview".to_owned())
+}
+
+/// Whether `pixels` (RGBA) has a pixel of `color`.
+fn has_color(pixels: &[u8], color: [u8; 3]) -> bool {
+    pixels
+        .chunks_exact(4)
+        .any(|pixel| pixel.get(..3) == Some(&color[..]))
+}
+
+/// The preview sits outside the scrolled page, draws the focused window's border in its color,
+/// and follows a change before the model has sent it.
+fn check_preview_live() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let preview = preview(&window)?;
+    ensure(
+        preview
+            .ancestor(gtk::ScrolledWindow::static_type())
+            .is_none(),
+        "the preview scrolls with the page",
+    )?;
+    ensure(
+        preview.height() >= sway_things_gui::widgets::PREVIEW_HEIGHT,
+        &format!("the preview is {} px high", preview.height()),
+    )?;
+    let pixels = pixels_of(&window, preview.upcast_ref())?;
+    ensure(
+        has_color(&pixels, [0x3b, 0x6e, 0x4f]),
+        "the focused window's border isn't drawn in the stored color",
+    )?;
+    fixture.model.set(
+        "windows.focused.child_border",
+        None,
+        Value::Color(sway_things_core::command::Color::rgb(0xe0, 0x1b, 0x24)),
+    );
+    fixture
+        .model
+        .set("windows.gaps.inner", None, Value::Integer(20));
+    // Before the model sent the changes.
+    ensure(
+        preview.look().gaps_inner == 20,
+        "the preview doesn't follow a change on its way",
+    )?;
+    wait_for_model(&fixture.model)?;
+    wait_for_paint(&window)?;
+    ensure(
+        preview.look().gaps_inner == 20,
+        "the preview lost the change once it was sent",
+    )?;
+    let layout = preview
+        .layout()
+        .ok_or_else(|| "  the preview has no layout".to_owned())?;
+    ensure(
+        (layout.windows[0].area.x - 20.0).abs() < 0.5,
+        &format!(
+            "the focused window isn't 20 px from the edge: {:?}",
+            layout.windows[0].area
+        ),
+    )?;
+    let pixels = pixels_of(&window, preview.upcast_ref())?;
+    ensure(
+        has_color(&pixels, [0xe0, 0x1b, 0x24]),
+        "the focused window's border didn't follow the change",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Gaps over the cap are drawn at the cap, and the preview says it is not to scale.
+fn check_preview_not_to_scale() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::Windows)?;
+    let preview = preview(&window)?;
+    ensure(!preview.is_not_to_scale(), "the defaults are not to scale")?;
+    fixture
+        .model
+        .set("windows.gaps.inner", None, Value::Integer(200));
+    wait_for_model(&fixture.model)?;
+    wait_for_paint(&window)?;
+    ensure(
+        preview.is_not_to_scale(),
+        "200 px gaps don't say not to scale",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Rounded corners and shadows show on SwayFX, and not on sway even with the values stored.
+fn check_preview_effects() -> Outcome {
+    let stored = "version = 1\n\n[windows.gaps]\ninner = 10\n\n\
+                  [effects]\ncorner_radius = 8\nshadows = true\ndim_inactive = 0.5\n\n\
+                  [windows]\ntitle_align = \"center\"\n";
+    for (compositor, swayfx) in [(SWAYFX, true), (SWAY, false)] {
+        let fixture = fixture(compositor, stored, "", true)?;
+        let window = open(&fixture, Page::Windows)?;
+        let layout = preview(&window)?
+            .layout()
+            .ok_or_else(|| "  the preview has no layout".to_owned())?;
+        let [focused, unfocused] = &layout.windows;
+        let drawn = (
+            focused.corner_radius > 0.0,
+            focused.shadow.is_some(),
+            unfocused.dim.is_some(),
+        );
+        ensure(
+            drawn == (swayfx, swayfx, swayfx),
+            &format!("swayfx {swayfx}: corners, shadow, dim drawn: {drawn:?}"),
+        )?;
+        let name = if swayfx { "swayfx" } else { "sway" };
+        let screenshot = std::env::var_os("SWAY_THINGS_SCREENSHOTS")
+            .map(|dir| PathBuf::from(dir).join(format!("windows-preview--{name}.png")));
+        wait_for_paint(&window)?;
+        let problems = check_screen(&window, screenshot)?;
+        ensure(problems.is_empty(), &problems)?;
+        window.destroy();
+    }
     Ok(())
 }

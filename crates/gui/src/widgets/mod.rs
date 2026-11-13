@@ -16,6 +16,7 @@ mod setting_row;
 mod sidebar;
 mod test_area;
 mod welcome;
+mod window_preview;
 mod xkb_options;
 
 pub use clamp::Clamp;
@@ -30,4 +31,5 @@ pub use setting_row::SettingRow;
 pub use sidebar::Sidebar;
 pub use test_area::TestArea;
 pub use welcome::Welcome;
+pub use window_preview::{HEIGHT as PREVIEW_HEIGHT, WindowPreview};
 pub use xkb_options::OptionBrowser;

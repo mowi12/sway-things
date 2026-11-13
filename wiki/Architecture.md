@@ -174,7 +174,9 @@ settings that name a `SettingGroup` are exactly those that render one directive 
 and in one section.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
-layout editor and the window preview. They still read and write settings through the registry.
+layout editor and the window preview. They still read and write settings through the registry. The window preview's
+geometry (title bar height, borders, gaps, title position, which SwayFX effects apply) is computed in `core::preview`
+from the setting values and tested there; the widget only measures the title font and paints.
 
 ## State
 

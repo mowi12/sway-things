@@ -210,3 +210,32 @@ st-placeholder {
 st-placeholder > image {
   margin-bottom: 12px;
 }
+
+/* A widget pinned above the scrolled page, like the window preview */
+st-page .st-page-pinned {
+  border-bottom: 1px solid @borders;
+}
+
+st-page .st-page-pinned-content {
+  margin: 16px 32px;
+}
+
+/* The window preview: the surface between the windows is a shade of the theme, the windows'
+   contents its view color */
+st-window-preview {
+  background-color: mix(@theme_bg_color, @theme_fg_color, 0.12);
+  border-radius: 10px;
+}
+
+st-window-preview > .st-preview-content {
+  background-color: @theme_base_color;
+  color: @theme_text_color;
+}
+
+st-window-preview > .st-preview-note {
+  background-color: @theme_bg_color;
+  color: @theme_fg_color;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+}

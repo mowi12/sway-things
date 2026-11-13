@@ -9,7 +9,9 @@
 //! setting that changes again before its turn (a slider being dragged) only the newest value is
 //! sent. The settings files and the generated files are written [`SAVE_DELAY`] after the last
 //! change. The model tells the rows when to read again (`changed`), when a change failed
-//! (`failed`) and when something went wrong that isn't one row's (`problem`).
+//! (`failed`) and when something went wrong that isn't one row's (`problem`). A widget that
+//! follows a control as it moves (the window preview) also listens to `queued` and reads
+//! [`Model::current`], which includes the changes on their way.
 //!
 //! A risky setting (an input device switched off, the keyboard layout) changes through the core's
 //! safety net: it is tried live, and only stored when the user keeps it ([`Model::keep`]).
@@ -157,6 +159,8 @@ mod imp {
         pub(super) error: RefCell<Option<String>>,
         pub(super) queue: RefCell<VecDeque<super::Op>>,
         pub(super) busy: Cell<bool>,
+        /// The change being sent, if it is a [`super::Op::Set`].
+        pub(super) sending: RefCell<Option<super::Op>>,
         pub(super) save_planned: Cell<bool>,
     }
 
@@ -181,6 +185,8 @@ mod imp {
                             String::static_type(),
                         ])
                         .build(),
+                    // A change was queued: a value to show before it is sent.
+                    Signal::builder("queued").build(),
                     // Something went wrong that isn't one setting's: the message.
                     Signal::builder("problem")
                         .param_types([String::static_type()])
@@ -310,6 +316,34 @@ impl Model {
             }
         }
         Some(view)
+    }
+
+    /// The value of `setting` for the whole session as last chosen: the newest change still
+    /// queued or being sent, otherwise the value in effect. `None` if the settings couldn't be
+    /// loaded.
+    pub fn current(&self, setting: &'static Setting) -> Option<Value> {
+        let imp = self.imp();
+        let changed = |op: &Op| match op {
+            Op::Set {
+                key,
+                device: None,
+                value,
+            } if *key == setting.key() => Some(value.clone()),
+            _ => None,
+        };
+        let queued = imp.queue.borrow().iter().rev().find_map(changed);
+        queued
+            .or_else(|| imp.sending.borrow().as_ref().and_then(changed))
+            .or_else(|| self.view(setting, None).map(|view| view.value))
+    }
+
+    /// Whether the compositor is SwayFX.
+    pub fn is_swayfx(&self) -> bool {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .is_some_and(|core| core.compositor.is_swayfx())
     }
 
     /// The input devices: in a session the connected ones, then those that only have stored
@@ -595,6 +629,7 @@ impl Model {
                 None => queue.push_back(op),
             }
         }
+        self.emit_by_name::<()>("queued", &[]);
         self.run_queue();
     }
 
@@ -621,7 +656,11 @@ impl Model {
                 loop {
                     let op = model.imp().queue.borrow_mut().pop_front();
                     let Some(op) = op else { break };
+                    if matches!(op, Op::Set { .. }) {
+                        model.imp().sending.replace(Some(op.clone()));
+                    }
                     model.run(op).await;
+                    model.imp().sending.take();
                 }
                 model.imp().busy.set(false);
                 model.plan_save();
@@ -1011,6 +1050,15 @@ impl Model {
 
     fn emit_problem(&self, message: &str) {
         self.emit_by_name::<()>("problem", &[&message]);
+    }
+
+    /// Calls `callback` when a change was queued, before it is sent.
+    pub fn connect_queued<F: Fn(&Self) + 'static>(&self, callback: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "queued",
+            false,
+            closure_local!(move |model: &Self| callback(model)),
+        )
     }
 
     /// Calls `callback` when the state or the include status changed.
