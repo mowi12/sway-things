@@ -60,7 +60,7 @@ updates:
     labels: ["area:ci"]
 
   - package-ecosystem: docker
-    directories: ["/ci/containers/*"]
+    directories: ["/ci/containers/*", "/ci/packages/*"]
     schedule:
       interval: monthly
     cooldown:

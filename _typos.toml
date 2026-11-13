@@ -12,3 +12,5 @@ Relm4 = "Relm4"
 [default.extend-words]
 # systemd-localed, the D-Bus service for locale and keyboard layout
 localed = "localed"
+# rpmbuild -ba: build the source and the binary packages
+ba = "ba"
