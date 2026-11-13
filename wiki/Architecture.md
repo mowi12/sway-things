@@ -1095,6 +1095,40 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 - **openSUSE Build Service** builds openSUSE, Fedora, Debian and Ubuntu packages from one project (one `.spec`, one
   `debian/` dir, vendored crates, offline build). **AUR**: release and `-git` packages.
 - Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
-  shell completions (`clap_complete`), translations.
+  shell completions (`clap_complete`), translations. Every package installs the same files the same way, through two
+  plain bash scripts that need neither `just` nor the generators:
+  - **`scripts/build.sh [--data-only] [-- <cargo build arguments>]`** builds into `target/<profile>/`: the binaries
+    (`cargo build --locked --profile $PROFILE`, default members only), the desktop entry and metainfo with the
+    translations merged in (`scripts/merge-metadata.sh`, `msgfmt`), and a `.mo` file per language in `po/LINGUAS`. The
+    binaries look for translations in `$PREFIX/share/locale`, so `build.sh` passes that as `SWAY_THINGS_LOCALEDIR` to
+    cargo and stamps `$PREFIX` into `target/<profile>/data/prefix`. `--data-only` skips cargo, for a packaging macro
+    that already built the binaries with the same `PROFILE`; it fails if they would look for translations elsewhere.
+  - **`scripts/install.sh [--uninstall]`** only copies: the built files and the committed man pages, completions and
+    icons, into `$DESTDIR$PREFIX`. It refuses a `PREFIX` other than the one of the build. `--uninstall` removes the same
+    files (never directories) without a build. Neither script refreshes the desktop, icon or man caches: packages do
+    that in their triggers.
+  - Environment: `PREFIX` (default `/usr/local`), `DESTDIR` (install only), `PROFILE` (cargo profile, default `release`;
+    `dev` is `target/debug`), `CARGO_TARGET_DIR`. `just build`, `just install` and `just uninstall` wrap them.
+- Install layout, below `$DESTDIR$PREFIX`:
+
+  | Path | From |
+  | --- | --- |
+  | `bin/sway-things`, `bin/sway-things-gui` (755) | cargo |
+  | `share/applications/io.github.mowi12.SwayThings.desktop` | `data/io.github.mowi12.SwayThings.desktop.in`, merged |
+  | `share/metainfo/io.github.mowi12.SwayThings.metainfo.xml` | `data/io.github.mowi12.SwayThings.metainfo.xml.in`, merged |
+  | `share/icons/hicolor/*/apps/io.github.mowi12.SwayThings*.svg` | `data/icons/` (once the icon exists) |
+  | `share/man/man1/sway-things.1`, `sway-things-<command>.1`, `sway-things-gui.1` | `data/man/`, uncompressed |
+  | `share/bash-completion/completions/sway-things` | `data/completions/sway-things.bash` |
+  | `share/zsh/site-functions/_sway-things` | `data/completions/_sway-things` |
+  | `share/fish/vendor_completions.d/sway-things.fish` | `data/completions/sway-things.fish` |
+  | `share/locale/<language>/LC_MESSAGES/sway-things.mo` | `po/<language>.po` for each language in `po/LINGUAS` |
+
+- What packagers run: `PREFIX=/usr scripts/build.sh -- --frozen` (or `--offline`), then
+  `PREFIX=/usr DESTDIR=<staging directory> scripts/install.sh`. With a cargo macro such as `%cargo_build`, the build
+  step is `PREFIX=/usr PROFILE=<the macro's profile> scripts/build.sh --data-only`. Build dependencies: Rust ≥ 1.85, the
+  GTK 4.18 development files and gettext (`msgfmt`, with the AppStream ITS rules of gettext or of the appstream
+  package). The desktop entry is GPL-3.0-or-later; the metainfo is CC0-1.0, as AppStream asks of metadata.
+- What packagers adapt: Debian and Ubuntu's zsh doesn't search `/usr/share/zsh/site-functions`, so the Debian packaging
+  moves the zsh completion to `/usr/share/zsh/vendor-completions/`, as `dh_installzshcompletions` does.
 - No Flatpak. Aim for official distro repositories after 1.0.
 - License: `GPL-3.0-or-later`.
