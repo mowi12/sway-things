@@ -244,6 +244,43 @@ impl Outcome {
 /// The files in the order they were given, each with what happened to it.
 pub type Report = Vec<(ConfigFile, Outcome)>;
 
+/// A generated file as it is on disk, next to what Sway Things would write now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OnDisk {
+    /// Which file this is.
+    pub file: ConfigFile,
+    /// Where it is.
+    pub path: PathBuf,
+    /// How the file relates to what Sway Things would write, or why that can't be told.
+    pub ownership: Result<Ownership, String>,
+    /// The text of the file, if it exists and can be read; bytes that aren't UTF-8 are replaced.
+    pub content: Option<String>,
+}
+
+/// Reads the generated `files` as they are in `locations`, without writing anything: for "Show
+/// generated config", which marks the files that were changed outside Sway Things.
+pub fn on_disk(files: &[GeneratedFile], locations: &Locations) -> Vec<OnDisk> {
+    let manifest = Manifest::load(locations.manifest());
+    files
+        .iter()
+        .map(|file| {
+            let path = locations.path(file.file());
+            let ownership = manifest
+                .ownership(&path, &file.text())
+                .map_err(|error| error.to_string());
+            let content = fs::read(&path)
+                .ok()
+                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+            OnDisk {
+                file: file.file(),
+                path,
+                ownership,
+                content,
+            }
+        })
+        .collect()
+}
+
 /// Writes `files` to their places in `locations`.
 ///
 /// For each file whose content changed: the new content is staged next to it, `validator` checks

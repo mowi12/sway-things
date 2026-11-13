@@ -296,10 +296,11 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 `90-effects.conf`.
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
-  "Show generated config" and `sway-things show-generated` display. Below the header, each line is one command exactly
-  as the command builders render it for a config file; there are no blocks. The settings of one directive make one line.
-  The order is the order of the registry, the lines for input types before those for single devices, so the same state
-  gives the same bytes. The registry decides the file of each setting.
+  "Show generated config" and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
+  ownership (absent, current, ours, edited outside, foreign), for the window to mark. Below the header, each line is one
+  command exactly as the command builders render it for a config file; there are no blocks. The settings of one
+  directive make one line. The order is the order of the registry, the lines for input types before those for single
+  devices, so the same state gives the same bytes. The registry decides the file of each setting.
 - **Unsupported settings:** a stored setting the compositor doesn't support becomes a comment instead of a command, e.g.
   `# effects.corner_radius: requires SwayFX 0.5 or newer`, so the file stays valid and says why a setting has no effect.
   The same happens to a value the command builders reject. The value stays stored. The compositor is the running one,
