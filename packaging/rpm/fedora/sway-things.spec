@@ -36,7 +36,7 @@ License:        %{shrink:
     (MIT OR Apache-2.0) AND
     (Unlicense OR MIT)
 }
-URL:            https://github.com/mowi12/sway-things
+URL:            https://sway-things.org
 Source:         %{url}/releases/download/v%{version}/%{name}-%{version}.tar.xz
 
 BuildRequires:  cargo-rpm-macros >= 25

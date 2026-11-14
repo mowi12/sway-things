@@ -10,6 +10,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
+homepage = "https://sway-things.org"
 repository = "https://github.com/mowi12/sway-things"
 publish = false
 
