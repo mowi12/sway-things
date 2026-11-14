@@ -5,7 +5,7 @@
 # the crates in vendor/ and a .cargo/config.toml that points cargo at them. Uses the cargo-packaging macros.
 
 Name:           sway-things
-Version:        0.0.0
+Version:        0.1.0
 Release:        0
 Summary:        Settings app for the sway Wayland compositor and SwayFX
 # The binaries with the crates linked into them, and the metainfo (CC0-1.0). scripts/check-packaging.sh keeps it
