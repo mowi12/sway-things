@@ -1477,12 +1477,14 @@ name = "sway-things-gui"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "async-io",
  "futures-lite",
  "gio",
  "glib-build-tools",
  "gtk4",
  "sway-things-core",
  "tempfile",
+ "zbus",
 ]
 
 [[package]]
