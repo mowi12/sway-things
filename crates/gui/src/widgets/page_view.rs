@@ -33,6 +33,7 @@ use super::keyboard;
 use super::setting_row::tilde;
 use super::{Clamp, DeviceSelector, GroupRow, PageHeader, Placeholder, SettingRow, TestArea};
 use crate::i18n::tr;
+use crate::icons;
 use crate::model::Model;
 use crate::style;
 
@@ -471,19 +472,15 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
 /// The project's links below the "About" section: what they are called, their icon and where
 /// they lead.
 const PROJECT_LINKS: [(&str, &str, &str); 3] = [
-    (
-        "Website",
-        "web-browser-symbolic",
-        env!("CARGO_PKG_HOMEPAGE"),
-    ),
+    ("Website", icons::WEBSITE, env!("CARGO_PKG_HOMEPAGE")),
     (
         "Source Code (GitHub)",
-        "text-x-script-symbolic",
+        icons::SOURCE_CODE,
         env!("CARGO_PKG_REPOSITORY"),
     ),
     (
         "Report a Bug",
-        "dialog-warning-symbolic",
+        icons::BUG,
         concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"),
     ),
 ];

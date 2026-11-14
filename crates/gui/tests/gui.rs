@@ -233,6 +233,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     style::load();
+    sway_things_gui::icons::register();
     let Some(settings) = gtk::Settings::default() else {
         eprintln!("error: no GTK settings");
         return ExitCode::FAILURE;
@@ -822,6 +823,17 @@ fn check_about() -> Outcome {
         .iter()
         .filter_map(|button| button.tooltip_text().map(|text| text.to_string()))
         .collect();
+    let theme = gtk::IconTheme::for_display(&WidgetExt::display(&window));
+    for icon in [
+        sway_things_gui::icons::WEBSITE,
+        sway_things_gui::icons::SOURCE_CODE,
+        sway_things_gui::icons::BUG,
+    ] {
+        ensure(
+            theme.has_icon(icon),
+            &format!("  the icon theme has no {icon}"),
+        )?;
+    }
     let repository = env!("CARGO_PKG_REPOSITORY");
     for uri in [
         env!("CARGO_PKG_HOMEPAGE").to_owned(),
