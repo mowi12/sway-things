@@ -42,7 +42,7 @@ Milestones on GitHub correspond to releases.
 - Every setting on the four pages can be set from the GUI and the CLI, survives a sway reload, and shows conflicts with
   hand-written lines correctly.
 - All CI checks are green, including the integration matrix (sway 1.10, sway latest, SwayFX latest) and the MSRV job.
-- Installable from OBS (at least openSUSE Tumbleweed) and the AUR (`-git`).
+- Installable from OBS (at least openSUSE Tumbleweed and Debian 13). The AUR follows after v0.1.
 
 ## After v0.1
 
