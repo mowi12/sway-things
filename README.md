@@ -87,9 +87,10 @@ _Planned interface. Key names may still change._
 
 ## Installation
 
-Not released yet. Packages for openSUSE Tumbleweed and Fedora (x86_64 and aarch64) will come from the
-[openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands below work once it
-is published. Debian and Ubuntu packages from the same project, and the AUR for Arch Linux, are planned.
+Not released yet. Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64)
+will come from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands
+below work once it is published. Fedora Rawhide and Debian unstable are built too, on a best-effort basis: their
+packages may lag behind when those distributions change under them. The AUR for Arch Linux is planned.
 
 ### openSUSE Tumbleweed
 
@@ -107,7 +108,20 @@ sudo dnf config-manager addrepo --from-repofile="$repo/Fedora_$(rpm -E %fedora)/
 sudo dnf install sway-things
 ```
 
+On Fedora Rawhide, use `Fedora_Rawhide` instead of `Fedora_$(rpm -E %fedora)`.
+
 Both ask you to trust the repository's signing key on first use.
+
+### Debian and Ubuntu
+
+```sh
+distribution=Debian_13 # or Debian_Unstable, xUbuntu_26.04
+repo=https://download.opensuse.org/repositories/home:/mowi12:/sway-things/$distribution
+curl -fsSL "$repo/Release.key" | gpg --dearmor | sudo tee /etc/apt/keyrings/sway-things.gpg >/dev/null
+echo "deb [signed-by=/etc/apt/keyrings/sway-things.gpg] $repo/ /" | sudo tee /etc/apt/sources.list.d/sway-things.list
+sudo apt update
+sudo apt install sway-things
+```
 
 ### From source
 

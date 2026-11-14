@@ -14,6 +14,10 @@
 # package is installed and runs `sway-things --version` and `--help`. sway is installed for the dependency, but never
 # started.
 #
+# debian-13, ubuntu-26.04: the Debian packages, the same way from the tarball and debian.tar.gz: dpkg-buildpackage runs
+# the unit tests, lintian checks the package (errors fail, warnings are printed), the zsh completion must be in
+# Debian's vendor-completions, and the package is installed and runs as above.
+#
 # Usage: scripts/build-packages.sh --container NAME|all [--tarball FILE]
 #
 # Needs docker or podman (CONTAINER_ENGINE overrides the choice), and without --tarball what scripts/make-tarball.sh
@@ -61,6 +65,58 @@ build_rpm() {
   echo "The package $(rpm --query --package --nosignature "${packages[@]}") built and installed."
 }
 
+# Inside the container: build a Debian package from the tarball and debian.tar.gz in /work/input. lintian leaves out
+# the TAGs.
+build_deb() {
+  local suppress
+  suppress=$(
+    IFS=,
+    echo "$*"
+  )
+  local top=$HOME/build
+  rm -rf "$top"
+  mkdir -p "$top"
+  local tarballs=(/work/input/sway-things-*.tar.xz)
+  tar -xf "${tarballs[0]}" -C "$top"
+  local source=("$top"/sway-things-*/)
+  tar -xzf /work/input/debian.tar.gz -C "${source[0]}"
+  (cd "${source[0]}" && dpkg-buildpackage --unsigned-source --unsigned-changes --build=binary)
+
+  local changes=("$top"/sway-things_*.changes)
+  local packages=("$top"/sway-things_*.deb)
+  local report
+  report=$(lintian --info ${suppress:+--suppress-tags "$suppress"} "${changes[@]}") || true
+  printf '%s\n' "$report"
+  if grep -q '^E: ' <<<"$report"; then
+    echo "error: lintian found errors" >&2
+    exit 1
+  fi
+
+  local contents
+  contents=$(dpkg-deb --contents "${packages[@]}")
+  if ! grep -q ' \./usr/share/zsh/vendor-completions/_sway-things$' <<<"$contents" ||
+    grep -q 'site-functions' <<<"$contents"; then
+    echo "error: the zsh completion isn't (only) in /usr/share/zsh/vendor-completions" >&2
+    exit 1
+  fi
+
+  sudo dpkg --install "${packages[@]}"
+  sway-things --version
+  sway-things --help
+  echo "The package $(dpkg-deb --show "${packages[@]}" | tr '\t' ' ') built and installed."
+}
+
+# Inside the container: build the Debian 13 package.
+build_debian_13() {
+  build_deb
+}
+
+# Inside the container: build the Ubuntu 26.04 package. Its changelog names Debian's distribution unstable: OBS builds
+# both from the same one.
+build_ubuntu_26_04() {
+  build_deb bad-distribution-in-changes-file
+}
+
 # Inside the container: build the openSUSE package. The spec has no %changelog, which an OBS home project doesn't need,
 # and its name carries the repository, so that OBS picks it for openSUSE_Tumbleweed.
 build_opensuse_tumbleweed() {
@@ -98,6 +154,8 @@ if [[ -n $build ]]; then
   case $build in
     opensuse-tumbleweed) build_opensuse_tumbleweed ;;
     fedora) build_fedora ;;
+    debian-13) build_debian_13 ;;
+    ubuntu-26.04) build_ubuntu_26_04 ;;
     *)
       echo "error: unknown package build: $build" >&2
       exit 1
@@ -125,10 +183,10 @@ else
   exit 1
 fi
 
-# The RPM builds get the release tarball and the specs next to it, made from HEAD unless --tarball names them.
+# The builds get the release tarball and the files next to it, made from HEAD unless --tarball names them.
 for name in "${names[@]}"; do
   case $name in
-    opensuse-tumbleweed | fedora)
+    opensuse-tumbleweed | fedora | debian-13 | ubuntu-26.04)
       if [[ -z $tarball ]]; then
         if [[ -n $(git status --porcelain) ]]; then
           echo "warning: uncommitted changes aren't built, only HEAD" >&2
@@ -163,6 +221,11 @@ for name in "${names[@]}"; do
       files+=(packaging/rpm/fedora)
       mkdir "$context/input"
       cp "$tarball" "$(dirname "$tarball")/sway-things.spec" "$context/input/"
+      ;;
+    debian-13 | ubuntu-26.04)
+      files+=(packaging/debian/control)
+      mkdir "$context/input"
+      cp "$tarball" "$(dirname "$tarball")/debian.tar.gz" "$context/input/"
       ;;
   esac
   tar -c "${files[@]}" | tar -x -C "$context"

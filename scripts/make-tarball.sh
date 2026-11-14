@@ -11,17 +11,21 @@
 #                                          spec of its own
 #   sway-things-openSUSE_Tumbleweed.spec   the openSUSE spec (packaging/rpm/opensuse/), which OBS picks for the
 #                                          repository openSUSE_Tumbleweed because of its name
+#   sway-things.dsc                        the Debian source control file for OBS's debtransform, made from
+#                                          packaging/debian/control: it names the tarball and the build dependencies
+#   debian.tar.gz                          packaging/debian/ as debian/, plus a changelog with this version and a
+#                                          copyright file made by scripts/debian-copyright.sh
 #
 # The version is X.Y.Z for a tag vX.Y.Z, which must match [workspace.package] version and the specs. For any other REF
 # it is a snapshot version, <version>+git<commit count>.g<short hash>, which sorts after <version> and before the next
-# release; it replaces the version in the specs.
+# release; it replaces the version in the specs. The Debian version is the same with the revision -1.
 #
 # Usage: scripts/make-tarball.sh [--ref REF] [--out DIR] [--check]
 #   --ref REF   the commit, branch or tag to package (default HEAD)
 #   --out DIR   where to put the files (default target/dist in the repository)
 #   --check     make everything twice and fail unless both runs give the same bytes
 #
-# Needs git, cargo (and the network, to download the crates), GNU tar, xz and sha256sum.
+# Needs git, cargo (and the network, to download the crates), jq, GNU tar, xz, gzip and sha256sum.
 
 set -euo pipefail
 
@@ -67,7 +71,7 @@ if $check; then
   exit
 fi
 
-for tool in git cargo tar xz sha256sum; do
+for tool in git cargo jq tar xz gzip sha256sum; do
   if ! command -v "$tool" >/dev/null; then
     echo "error: needs $tool" >&2
     exit 1
@@ -139,6 +143,49 @@ spec() {
 spec packaging/rpm/fedora/sway-things.spec sway-things.spec
 spec packaging/rpm/opensuse/sway-things.spec sway-things-openSUSE_Tumbleweed.spec
 
+# The Debian inputs. The changelog has one entry for this version, dated at the commit time. debian.tar.gz holds
+# debian/…, which debtransform adds as it is; it writes debian/source/format itself, from the .dsc.
+control=$tree/packaging/debian/control
+# The value of FIELD in the first paragraph of the control file, continuation lines joined.
+control_field() {
+  awk -v field="$1" '
+    /^$/ { exit }
+    /^#/ { next }
+    /^[^ \t]/ { in_field = (index($0, field ":") == 1); if (in_field) { sub(/^[^:]*:[ \t]*/, ""); value = $0 }; next }
+    in_field { sub(/^[ \t]+/, ""); value = (value == "" ? "" : value " ") $0 }
+    END { sub(/,[ \t]*$/, "", value); gsub(/,[ \t]+/, ", ", value); print value }
+  ' "$control"
+}
+maintainer=$(control_field Maintainer)
+debian_version=$version-1
+debian=$work/debian
+mkdir -p "$debian"
+cp -R "$tree/packaging/debian/." "$debian/"
+cat >"$debian/changelog" <<CHANGELOG
+sway-things ($debian_version) unstable; urgency=medium
+
+  * Release $version.
+
+ -- $maintainer  $(LC_ALL=C TZ=UTC date --rfc-email --date="@$epoch")
+CHANGELOG
+"$tree/scripts/debian-copyright.sh" "$tree" >"$debian/copyright"
+tar --create --format=pax --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
+  --mode='a+rX,u+w,go-w' --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+  -C "$work" debian | gzip -n -9 >"$out/debian.tar.gz"
+cat >"$out/sway-things.dsc" <<DSC
+Format: 3.0 (quilt)
+Source: sway-things
+Binary: sway-things
+Architecture: any
+Version: $debian_version
+Maintainer: $maintainer
+Homepage: $(control_field Homepage)
+Standards-Version: $(control_field Standards-Version)
+Build-Depends: $(control_field Build-Depends)
+DEBTRANSFORM-TAR: $name.tar.xz
+DEBTRANSFORM-FILES-TAR: debian.tar.gz
+DSC
+
 # Reproducible: sorted names, the commit time, no owner, no access or change times, modes independent of the umask, and
 # a single xz thread, so the bytes don't depend on the machine.
 tar --create --format=pax --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
@@ -146,4 +193,4 @@ tar --create --format=pax --sort=name --mtime="@$epoch" --owner=0 --group=0 --nu
   -C "$work" "$name" | xz -T1 -9 >"$out/$name.tar.xz"
 (cd "$out" && sha256sum "$name.tar.xz" >"$name.tar.xz.sha256")
 
-echo "Wrote $out/$name.tar.xz, its .sha256 and the specs"
+echo "Wrote $out/$name.tar.xz, its .sha256, the specs and the Debian inputs"
