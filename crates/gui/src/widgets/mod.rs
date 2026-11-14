@@ -3,6 +3,7 @@
 
 //! The building blocks of the app.
 
+mod bluetooth;
 mod clamp;
 mod device_selector;
 mod generated;
@@ -19,6 +20,7 @@ mod test_area;
 mod welcome;
 mod xkb_options;
 
+pub use bluetooth::{BluetoothPage, Bus as BluetoothBus};
 pub use clamp::Clamp;
 pub use device_selector::DeviceSelector;
 pub use generated::GeneratedWindow;

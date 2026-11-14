@@ -220,3 +220,15 @@ st-placeholder {
 st-placeholder > image {
   margin-bottom: 12px;
 }
+
+/* Bluetooth pairing dialogs: the code to compare or type, and the digits already typed */
+.st-dialog .st-passkey {
+  font-family: monospace;
+  font-size: 2em;
+  font-weight: bold;
+  margin: 4px 0;
+}
+
+.st-dialog .st-passkey-typed {
+  text-decoration: underline;
+}
