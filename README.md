@@ -87,10 +87,10 @@ _Planned interface. Key names may still change._
 
 ## Installation
 
-Not released yet. Packages for openSUSE Tumbleweed, Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64) will come
-from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands below work
-once it is published. Fedora Rawhide and Debian unstable are built too, on a best-effort basis: their packages may lag
-behind when those distributions change under them. The AUR for Arch Linux is planned.
+Not released yet. Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64)
+will come from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands
+below work once it is published. Fedora Rawhide and Debian unstable are built too, on a best-effort basis: their
+packages may lag behind when those distributions change under them. The AUR for Arch Linux is planned.
 
 ### openSUSE Tumbleweed
 

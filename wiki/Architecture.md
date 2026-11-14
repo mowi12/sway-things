@@ -1224,8 +1224,10 @@ Two specs, each following its distribution's guidelines, from the same tarball:
 ### openSUSE Build Service
 
 Project `home:mowi12:sway-things`, package `sway-things`, repositories `openSUSE_Tumbleweed`, the supported Fedora
-releases (`Fedora_<N>`), `Debian_13` and `xUbuntu_26.04`, for x86_64 and aarch64. OBS signs the published repositories
-with the project's key.
+releases (`Fedora_<N>`), `Debian_13` and `xUbuntu_26.04`, for x86_64 and aarch64; Tumbleweed only for x86_64, since
+openSUSE builds aarch64 in another project (`openSUSE:Factory:ARM`), which as a second path breaks the x86_64 build and
+as a repository of its own would need another copy of the openSUSE spec. OBS signs the published repositories with the
+project's key.
 
 - **Development branches, best effort:** `Fedora_Rawhide` and `Debian_Unstable` build from the same files (the Fedora
   spec; the `.dsc` and `debian.tar.gz`). They have no container in the package CI, and a failure there, often a library
@@ -1254,14 +1256,26 @@ with the project's key.
 2. **Project:** home project → _Subprojects_ → _New subproject_ `sway-things`, which makes `home:mowi12:sway-things`.
 3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed, every Fedora release offered that
    is still supported and Fedora Rawhide, Debian 13, Debian Unstable and Ubuntu 26.04, then for each, keep x86_64 and
-   aarch64 (and only those) ticked. The names must stay `openSUSE_Tumbleweed`, `Fedora_<N>`, `Fedora_Rawhide`,
-   `Debian_13`, `Debian_Unstable` and `xUbuntu_26.04`, which the README's commands use.
-4. **Package:** _Create Package_ `sway-things`.
-5. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
+   aarch64 (and only those) ticked; for Tumbleweed only x86_64. The names must stay `openSUSE_Tumbleweed`, `Fedora_<N>`,
+   `Fedora_Rawhide`, `Debian_13`, `Debian_Unstable` and `xUbuntu_26.04`, which the README's commands use.
+4. **Project Config:** where a Debian build dependency can be met by two packages, OBS doesn't pick one ("unresolvable:
+   have choice for …"); the project configuration names the real one:
+
+   ```text
+   %if "%_repository" == "Debian_13"
+   Prefer: libjpeg62-turbo-dev
+   %endif
+   %if "%_repository" == "Debian_Unstable"
+   Prefer: libselinux-dev
+   %endif
+   ```
+
+5. **Package:** _Create Package_ `sway-things`.
+6. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
    tarball from the checkout, copy the tarball, both specs, `sway-things.dsc` and `debian.tar.gz` from `target/dist/`
    into it, `osc addremove` and `osc commit`. Every repository but the best-effort ones must build green; repeat
    whenever the packaging changes before the release.
-6. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
+7. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
    token that can only run the package's source services:
    `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
    `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow (#89) uses it.
