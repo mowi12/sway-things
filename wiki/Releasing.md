@@ -29,7 +29,8 @@ tag pushed again.
    - The changelog section `## X.Y.Z (YYYY-MM-DD)` at the top of `CHANGELOG.md`, with the same date as the metainfo: for
      0.1.0 a short hand-written summary; for every later release
      `git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md`, then read and trim it. Commit:
-     `docs: add the changelog for X.Y.Z`. The section is also the text of the release page.
+     `docs: add the changelog for X.Y.Z`. The section is also the text of the release page: `scripts/release-notes.sh`
+     joins its wrapped lines into one line per paragraph and list item, because GitHub shows every line break there.
    - README, wiki and roadmap describe the released state. Commit: `docs: describe the X.Y.Z release`.
    - `scripts/check-packaging.sh` (in CI) checks that all versions agree.
 3. **Merge** the pull request.
