@@ -34,11 +34,13 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 ├── fuzz/            # cargo-fuzz target for the sway config parser, its seeds and dictionary; own workspace and Cargo.lock
 ├── po/              # gettext template sway-things.pot, made by scripts/update-pot.sh; LINGUAS lists the languages
 ├── packaging/
-│   └── rpm/         # RPM specs for the openSUSE Build Service: opensuse/ (cargo-packaging), fedora/ (cargo-rpm-macros)
+│   ├── rpm/         # RPM specs for the openSUSE Build Service: opensuse/ (cargo-packaging), fedora/ (cargo-rpm-macros)
+│   └── debian/      # control and rules for Debian 13 and Ubuntu 26.04; changelog and copyright made by make-tarball.sh
 ├── ci/              # containers (sway 1.10, sway latest, SwayFX; each builds the IPC tests) and sample configs;
 │                    #   packages/: one container per distribution package (scripts/build-packages.sh)
 ├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like
-│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh and build-packages.sh
+│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh and
+│                    #   build-packages.sh
 ├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts

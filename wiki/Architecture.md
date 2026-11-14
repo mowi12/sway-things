@@ -1108,10 +1108,9 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 
 ## Packaging
 
-- **openSUSE Build Service** (OBS) builds the openSUSE Tumbleweed and Fedora packages from one project, each with a spec
-  of its own, from the release tarball with the crates vendored, offline (see [Release tarball](#release-tarball) and
-  [RPM packages](#rpm-packages)). Debian and Ubuntu are to follow from the same project. **AUR**: release and `-git`
-  packages.
+- **openSUSE Build Service** (OBS) builds the openSUSE Tumbleweed, Fedora, Debian 13 and Ubuntu 26.04 packages from one
+  project, from the release tarball with the crates vendored, offline (see [Release tarball](#release-tarball),
+  [RPM packages](#rpm-packages) and [Debian packages](#debian-packages)). **AUR**: release and `-git` packages.
 - Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
   shell completions (`clap_complete`), translations. Every package installs the same files the same way, through two
   plain bash scripts that need neither `just` nor the generators:
@@ -1168,7 +1167,8 @@ package builds from:
   single-threaded `xz -9`. `--check` makes everything twice and fails unless the bytes agree; the package workflow runs
   it.
 - Next to the tarball (default `target/dist/`): its `.sha256`, and the OBS inputs under names that don't change with the
-  version: `sway-things-openSUSE_Tumbleweed.spec` (the openSUSE spec) and `sway-things.spec` (the Fedora spec).
+  version: `sway-things-openSUSE_Tumbleweed.spec` (the openSUSE spec), `sway-things.spec` (the Fedora spec),
+  `sway-things.dsc` and `debian.tar.gz` (see [Debian packages](#debian-packages)).
 
 ### RPM packages
 
@@ -1195,10 +1195,36 @@ Two specs, each following its distribution's guidelines, from the same tarball:
 - No `%changelog` and no `.changes` file: an OBS home project doesn't need them, and the release notes live on GitHub.
   OBS sets `Release` itself.
 
+### Debian packages
+
+`packaging/debian/` holds `control` and `rules`; `make-tarball.sh` adds what depends on the version and the crates:
+
+- **`debian.tar.gz`:** `packaging/debian/` as `debian/`, plus a `changelog` with one entry for this version (revision
+  `-1`, distribution `unstable`, dated at the commit) and a `copyright` file.
+- **`sway-things.dsc`:** the input of OBS's debtransform, with `Format: 3.0 (quilt)`, the version, the maintainer, the
+  `Build-Depends` taken from `control`, and `DEBTRANSFORM-TAR` naming the tarball. debtransform makes the source package
+  from the tarball and `debian.tar.gz` (whose entries it adds as they are, so they start with `debian/`) and writes
+  `debian/source/format` itself.
+- **`copyright`** (machine-readable format 1.0), from `scripts/debian-copyright.sh`: our files as `GPL-3.0-or-later`,
+  except those whose REUSE information says otherwise; a paragraph per crate in `vendor/` with its license expression
+  and authors from `cargo metadata` (else "The `<crate>` developers", so the copyright lines of crates are approximate).
+  Licenses in `/usr/share/common-licenses` are referred to; the others get their text from `LICENSES/` or the first
+  vendored crate that ships one (`LICENSE-MIT`, `UNLICENSE`, …; the LLVM exception without the Apache license it
+  follows). A license it finds no text for fails the tarball.
+- **`rules`:** plain `dh` around `scripts/build.sh` and `scripts/install.sh`, with `CARGO_HOME` in the build directory,
+  the linker flags of `dpkg-buildflags` passed to rustc, and line tables for the `-dbgsym` package. Not `dh-cargo`: it
+  builds against Debian's packaged crates, not vendored ones. `dh_clean` keeps the vendored `Cargo.toml.orig` files,
+  which the crates' checksums cover. `dh_auto_test` runs `cargo test --workspace --offline --locked` (skipped with
+  `nocheck`); the install step validates the desktop entry and metainfo and moves the zsh completion to
+  `/usr/share/zsh/vendor-completions/`.
+- **Maintainer:** `Sway Things Maintainers <packaging@sway-things.org>`. `Depends: sway (>= 1.10) | swayfx`.
+- Debian 13's rustc is exactly the MSRV (1.85), so raising the MSRV needs trixie-backports in the OBS repository.
+
 ### openSUSE Build Service
 
-Project `home:mowi12:sway-things`, package `sway-things`, repositories `openSUSE_Tumbleweed` and the supported Fedora
-releases (`Fedora_<N>`), for x86_64 and aarch64. OBS signs the published repositories with the project's key.
+Project `home:mowi12:sway-things`, package `sway-things`, repositories `openSUSE_Tumbleweed`, the supported Fedora
+releases (`Fedora_<N>`), `Debian_13` and `xUbuntu_26.04`, for x86_64 and aarch64. OBS signs the published repositories
+with the project's key.
 
 - **Which spec builds where:** an OBS package holds both specs. Among several, OBS takes `<package>-<repository>.spec`
   for that repository, else `<package>.spec`
@@ -1208,22 +1234,27 @@ releases (`Fedora_<N>`), for x86_64 and aarch64. OBS signs the published reposit
   Tumbleweed repository must keep its default name `openSUSE_Tumbleweed`. Files fetched by a source service count under
   their plain names. Another openSUSE repository (Slowroll, Leap) would need its own copy,
   `sway-things-<repository>.spec`.
+- **Debian and Ubuntu:** the Debian repositories build from `sway-things.dsc` with `debian.tar.gz`, through
+  debtransform.
 - **Sources before v0.1:** the maintainer uploads a snapshot (`make-tarball.sh`, then `osc`).
-- **Sources after v0.1:** the package's `_service` fetches the specs from the latest GitHub release (`download_url`),
-  then the tarball the specs name (`download_files`). The services run on the server; the release workflow (#89)
-  triggers them after the release is published, with an OBS token bound to the package that can do nothing but run them.
+- **Sources after v0.1:** the package's `_service` fetches the specs, `sway-things.dsc` and `debian.tar.gz` from the
+  latest GitHub release (`download_url`), then the tarball the specs name (`download_files`). The services run on the
+  server; the release workflow (#89) triggers them after the release is published, with an OBS token bound to the
+  package that can do nothing but run them.
 
 #### OBS setup (maintainer, once)
 
 1. An account on [build.opensuse.org](https://build.opensuse.org) (an openSUSE account), and `osc` (the OBS command line
    client; `zypper install osc` on openSUSE, `dnf install osc` on Fedora).
 2. **Project:** home project → _Subprojects_ → _New subproject_ `sway-things`, which makes `home:mowi12:sway-things`.
-3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed and every Fedora release offered
-   that is still supported, then for each, keep x86_64 and aarch64 (and only those) ticked.
+3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed, every Fedora release offered that
+   is still supported, Debian 13 and Ubuntu 26.04, then for each, keep x86_64 and aarch64 (and only those) ticked. The
+   names must stay `openSUSE_Tumbleweed`, `Debian_13` and `xUbuntu_26.04`, which the README's commands use.
 4. **Package:** _Create Package_ `sway-things`.
 5. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
-   tarball from the checkout, copy the tarball and both specs from `target/dist/` into it, `osc addremove` and
-   `osc commit`. Every repository must build green; repeat whenever the packaging changes before the release.
+   tarball from the checkout, copy the tarball, both specs, `sway-things.dsc` and `debian.tar.gz` from `target/dist/`
+   into it, `osc addremove` and `osc commit`. Every repository must build green; repeat whenever the packaging changes
+   before the release.
 6. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
    token that can only run the package's source services:
    `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
@@ -1232,15 +1263,19 @@ releases (`Fedora_<N>`), for x86_64 and aarch64. OBS signs the published reposit
 ### Package CI
 
 - `scripts/build-packages.sh --container NAME|all [--tarball FILE]` builds the packages in containers from
-  `ci/packages/<name>/Dockerfile` (digest-pinned images): `opensuse-tumbleweed` and `fedora` (the newest release).
-  Without `--tarball`, it makes one from `HEAD`.
-  - The image holds the build dependencies of the spec (with the network); the build runs with `--network none`, as an
-    unprivileged user, like on OBS.
+  `ci/packages/<name>/Dockerfile` (digest-pinned images): `opensuse-tumbleweed`, `fedora` (the newest release),
+  `debian-13` and `ubuntu-26.04`. Without `--tarball`, it makes one from `HEAD`.
+  - The image holds the build dependencies of the spec or of `control` (with the network); the build runs with
+    `--network none`, as an unprivileged user, like on OBS.
   - Then `rpmlint` checks the source and the main package, not the debug packages. Any error in its report fails the
     build (openSUSE's rpmlint exits 0 even with errors). Left out: `no-changelogname-tag` (the specs have no
     `%changelog`) and, on openSUSE, `invalid-spec-name` (the spec is named for its OBS repository).
-  - The package is installed (`rpm --nosignature`: it is unsigned, OBS signs the repository) and runs
-    `sway-things --version` and `--help`. sway is installed for the dependency, never started.
+  - Debian and Ubuntu: `dpkg-buildpackage --build=binary` from the tarball and `debian.tar.gz`, then `lintian` on the
+    `.changes`: any error fails, warnings are printed. Left out on Ubuntu: `bad-distribution-in-changes-file` (the
+    changelog names Debian's `unstable`, as OBS builds both from it). The zsh completion must be in `vendor-completions`
+    and nowhere else.
+  - The package is installed (`rpm --nosignature`, as it is unsigned and OBS signs the repository; `dpkg --install`) and
+    runs `sway-things --version` and `--help`. sway is installed for the dependency, never started.
 - `.github/workflows/packages.yml` runs it on every push to `main`, weekly, by hand, and from the release workflow
   (`workflow_call` with the tarball of the tag). It makes the tarball once with `--check` and builds every package from
   it. It isn't a required check on pull requests (too slow); `scripts/check-packaging.sh` is, and catches license and
