@@ -127,7 +127,8 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 
 ## Apply model
 
-- **Instant.** No Apply buttons anywhere. Changes take effect live and are saved after a short debounce.
+- **Instant.** No Apply buttons anywhere. Changes take effect live and are saved after a short debounce, as in
+  mainstream settings apps; the safety net keeps that from locking anyone out.
 - **Safety net** for risky changes (display mode, disabling an output or input device, keyboard layouts, variants and
   XKB options):
 
@@ -189,7 +190,8 @@ being dragged stays under the pointer when its first change stores a value.
 
 ## First run: instructions only
 
-The app **never** adds the include line itself. On first run (or whenever the line is missing) it shows:
+The app **never** adds the include line itself: not touching a hand-written file is the core promise, and one copied
+line is little to ask for it. On first run (or whenever the line is missing) it shows:
 
 ```text
 ┌ Welcome to Sway Things ──────────────────────────────────────────┐
@@ -216,7 +218,8 @@ The app **never** adds the include line itself. On first run (or whenever the li
 - **Read-only until enabled**: _Look around first_, or opening a page from the sidebar, dismisses the welcome screen,
   after which a persistent banner remains above every page, with **Show instructions** to bring the welcome screen back.
   It shows again at the next start while the line is still missing. All pages show current values (from IPC + parser),
-  conflicts and the generated-config preview. Controls are disabled with "Add the include line to change settings".
+  conflicts and the generated-config preview. Controls are disabled with "Add the include line to change settings". So
+  users see what the app would manage before they enable it, and it works as a viewer of their config.
 - **Line not last:** once enabled, if some of the user's lines come after the include, a banner says how many and that
   they win where they set the same thing; it can be dismissed.
 
@@ -245,7 +248,9 @@ For tools with include support (sway, kanshi), the flow is the same as the first
 
 ## Opening the config in an editor
 
-_Open config in editor_ (welcome screen, ⋮ menu of a conflict) follows the _Editor command_ preference:
+The app doesn't fix a conflict itself, since it never edits the user's config; opening the file at the line keeps the
+fix one click away. _Open config in editor_ (welcome screen, ⋮ menu of a conflict) follows the _Editor command_
+preference:
 
 - **A command** is a program with its arguments, split like a shell splits words (quotes and backslashes group them) but
   never run by a shell, so nothing in it is expanded. `{file}` and `{line}` are filled in (`foot nvim +{line} {file}`,
@@ -266,9 +271,10 @@ _Open config in editor_ (welcome screen, ⋮ menu of a conflict) follows the _Ed
   switches live when the preference changes. Our own CSS uses theme colors (named colors or the theme's tokens), never
   hard-coded light or dark values, so a custom GTK theme keeps working.
 - **Accent = sway's focus color** (`client.focused` child border, default `#285577`). Changing it on the Windows page
-  recolors the app live. An app preference switches back to the theme's accent.
+  recolors the app live, so the accent is personal to each setup. An app preference switches back to the theme's accent.
 - **App preferences** (accent source, safety-net timeout, editor command, show sway directives) are a "Sway Things"
-  section at the bottom of About & Maintenance.
+  section at the bottom of About & Maintenance. There search, the CLI and reset work for them like for any setting,
+  without a separate preferences window in a tiling window manager.
 - Our own CSS only for structure (sidebar, rows, cards, banners).
 
 ## SwayFX

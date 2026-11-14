@@ -183,6 +183,11 @@ layout editor and the window preview. They still read and write settings through
 
 ## State
 
+Sway Things keeps its own settings files as the source of truth instead of reading values back from sway: IPC can't
+report many values (client colors, gaps, the font) and can't tell a value the user chose from a sway default, and
+rewriting sway syntax in place is fragile. The CLI, export and import, and the history build on the same files. The
+per-machine overlay exists because dotfiles are shared between machines, and some values differ per machine.
+
 ```text
 $XDG_CONFIG_HOME/sway-things/
 ├── settings.toml          # shared values: commit to dotfiles
@@ -282,6 +287,10 @@ for the [include detection](#include-detection).
 
 **Rule: Sway Things only writes files it created**. A file we created carries a header and is recorded in
 `manifest.toml`. If its hash no longer matches, someone edited it. The app shows a warning and asks before overwriting.
+The rule is the same for sway and every companion tool, so the promise stays one rule that is easy to explain.
+
+The user includes our files at the end of their config, so that a change made in the app survives a reload; their own
+lines that come after the include and set the same thing win, and conflict detection shows them.
 
 ### sway
 
@@ -939,7 +948,7 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   values need a newer sway than their directive) and, for SwayFX directives, its minimum SwayFX version. Controls the
   running compositor doesn't support show as disabled with a reason, instead of disappearing.
 - SwayFX settings go to `90-effects.conf`. While vanilla sway runs, the generator writes a comment per stored effect
-  instead of the directive.
+  instead of the directive, so a vanilla sway config stays valid (sway rejects SwayFX directives).
 
 ## Security model
 
@@ -1060,7 +1069,8 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   made readable on a background) lives in `crates/core/src/theme.rs`, shared with the GUI's contrast check.
 - **Concurrency**: one event loop. Futures run on the GTK main context (`glib::spawn_future_local`); I/O uses
   executor-agnostic, async-io based crates (zbus, swayipc-async, async-process); the CLI uses `async_io::block_on`. No
-  tokio. `crates/core` must not depend on a specific executor.
+  tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly in futures without
+  bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
 
 ## Internationalization
 
@@ -1158,7 +1168,8 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   whole pixels. Both are GPL-3.0-or-later, with the SPDX header in an XML comment. The desktop entry and the metainfo
   name the icon by the app ID; the RPM specs list both files, and the openSUSE spec needs `hicolor-icon-theme` for the
   directories.
-- License: `GPL-3.0-or-later`.
+- License: `GPL-3.0-or-later`, the norm for GTK desktop apps and what packagers expect; _or later_ keeps it compatible
+  with future GPL versions without asking every contributor to relicense.
 
 ### Release tarball
 

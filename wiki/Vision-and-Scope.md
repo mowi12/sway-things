@@ -32,14 +32,16 @@ single hand-written line changes.
 1. **Cover sway completely**: every common sway option has a control, live preview where it makes sense, and conflict
    detection against the user's own config.
 2. **Cover the companion tools** (kanshi, waybar/swaybar, swayidle, swaylock, notification daemons, night light,
-   wallpaper, launchers) through **pluggable, auto-detected backends**.
-3. **Cover the system basics natively** (sound, Bluetooth, Wi-Fi, power profile, battery, time zone). "Advanced…"
-   buttons hand off to specialist tools.
+   wallpaper, launchers) through **pluggable, auto-detected backends**: sway users choose their tools deliberately, so
+   the app adapts to the ones they run and never fights a script of their own.
+3. **Cover the system basics natively** (sound, Bluetooth, Wi-Fi, power profile, battery, time zone), which is what
+   makes it feel like a complete settings app. "Advanced…" buttons hand off to specialist tools instead of duplicating
+   them.
 4. **Be safe**: memory-safe code, no privileged code, no shell strings, never write user files, a 15 s revert for risky
    changes.
 5. **Be transparent**: every generated line is visible, every conflict points to file:line, every setting can be reset.
 6. **Be packaged properly**: native packages for openSUSE, Fedora, Debian, Ubuntu (via OBS) and Arch (AUR), aiming for
-   the official distro repositories after 1.0.
+   the official distro repositories after 1.0. One build service covers four distribution families with one pipeline.
 
 ## Non-goals
 
