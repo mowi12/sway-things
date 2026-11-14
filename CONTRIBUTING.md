@@ -1,8 +1,8 @@
 # Contributing to Sway Things
 
-Thanks for your interest! Sway Things is working toward its first release, v0.1; the design of everything after it is
-written down in the wiki and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report
-security issues privately as described in [SECURITY.md](SECURITY.md), never in public issues.
+Thanks for your interest! Sway Things 0.1.0 is out, the first release; the design of everything after it is written down
+in the wiki and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues
+privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Read first
 
@@ -22,7 +22,7 @@ security issues privately as described in [SECURITY.md](SECURITY.md), never in p
 - **Labels** are defined in [.github/labels.yml](.github/labels.yml): `area:`, `page:`, `status:`, `compat:swayfx`, plus
   `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview, and
   `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
-- **Milestones** are releases. Only `v0.1` exists for now.
+- **Milestones** are releases.
 - **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
   large.
 
