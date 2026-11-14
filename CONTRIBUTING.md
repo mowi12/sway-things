@@ -129,7 +129,7 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 
 | Check | Tools |
 | --- | --- |
-| Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON |
+| Formatting | `rustfmt` (default style); `dprint` for Markdown (120 columns), TOML, YAML, JSON, and the website's JavaScript, CSS and Astro files |
 | Rust lints | `clippy` with `-D warnings`, pedantic + safety picks; every `#[allow]` needs a `reason` |
 | Other lints | `markdownlint-cli2`, `actionlint`, `shellcheck`; `desktop-file-validate` and `appstreamcli validate` on the desktop entry and metainfo after `msgfmt` merged the translations |
 | Spelling | `typos`, locale en-US |
@@ -137,6 +137,8 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
+| npm licenses | `license-checker-rseidelsohn`: the packages of `website/` and `tools/` against the allow list of `deny.toml`, with a few reasoned exceptions for build-only packages (`scripts/check-npm-licenses.sh`) |
+| Website | `scripts/check-website.sh`: builds the site, then `html-validate` and `lychee --offline` on the built pages; `scripts/check-website-performance.sh`: Lighthouse on every page (performance ≥ 95, accessibility, best practices and SEO 100) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Packaging | the version in `Cargo.toml`, both RPM specs and the man pages agree; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates (`scripts/check-packaging.sh`) |
@@ -217,6 +219,12 @@ and committed. After changing a command, an argument or a help text in `crates/c
   on a private display instead and keeps a PNG of every page in `target/screenshots/`.
 
 See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structure.
+
+## Working on the website
+
+The project site in `website/` is built with Astro: `npm ci --prefix website`, then `npm --prefix website run dev`
+serves it with live reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the
+build says when one doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
 
 ## Documentation
 

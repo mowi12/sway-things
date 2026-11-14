@@ -1,0 +1,21 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// The app icon inline. The SVG's ids are made unique per use, so two icons on a page don't share a clip path.
+import { iconSvg } from '../lib/icon.mjs';
+
+interface Props {
+  size: number;
+  id: string;
+}
+
+const { size, id } = Astro.props;
+const svg = iconSvg
+  .replace(/id="([^"]+)"/g, `id="${id}-$1"`)
+  .replace(/url\(#([^)]+)\)/g, `url(#${id}-$1)`)
+  .replace('<svg ', `<svg aria-hidden="true" focusable="false" width="${size}" height="${size}" `)
+  .replace(/ width="128" height="128"/, '');
+---
+
+<Fragment set:html={svg} />

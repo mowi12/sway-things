@@ -1,0 +1,62 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { repo } from '../data/links.mjs';
+
+const project = [
+  { href: repo, label: 'Source code' },
+  { href: `${repo}/wiki`, label: 'Wiki' },
+  { href: `${repo}/issues`, label: 'Issues' },
+  { href: `${repo}/releases`, label: 'Releases' },
+];
+---
+
+<footer>
+  <nav aria-label="Project">
+    <ul>{project.map(({ href, label }) => <li><a href={href}>{label}</a></li>)}</ul>
+  </nav>
+  <p>
+    Sway Things is free software under the <a href={`${repo}/blob/main/LICENSE`}>GPL-3.0-or-later</a>. This site sets no
+    cookies and loads nothing from other servers. Set in IBM Plex, under the <a href="/fonts/LICENSE.txt"
+    >SIL Open Font License</a>.
+  </p>
+</footer>
+
+<style>
+footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 32px;
+  padding: 32px var(--gutter) 40px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.92rem;
+}
+
+ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-weight: 600;
+}
+
+a {
+  text-decoration-color: currentColor;
+}
+
+p {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: var(--measure);
+}
+
+@media (max-width: 640px) {
+  footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>
