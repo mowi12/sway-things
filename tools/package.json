@@ -1,6 +1,7 @@
 {
   "private": true,
   "devDependencies": {
+    "html-validate": "11.19.0",
     "markdownlint-cli2": "0.24.0"
   }
 }
