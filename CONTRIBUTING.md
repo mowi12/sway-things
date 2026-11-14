@@ -12,8 +12,9 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Issues
 
-- **Issues on demand.** The full scope lives in [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue when
-  you start or plan an item, not before.
+- **Issues on demand.** The full scope and the status of every item live in
+  [wiki/Feature-Catalog.md](wiki/Feature-Catalog.md). Open an issue when you start or plan an item, not before. The PR
+  that implements an item ticks its checkbox there; one that drops it strikes it through with the reason.
 - Use the **issue forms** (Bug, Feature, Docs, Refactor). Blank issues are disabled.
 - The **issue type** says what sort of work it is: Bug, Feature, Maintenance, Docs or Security. The forms set it, so
   titles carry no prefix.

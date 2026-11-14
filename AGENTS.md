@@ -19,9 +19,9 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
   model, testing
 - `wiki/Sway-Reference.md`: verified facts about sway, SwayFX, the companion tools and the distributions, with sources
 - `wiki/UX-Concept.md`: window layout, navigation, apply model, indicators, first run, theming
-- `wiki/Roadmap.md`: v0.1 scope and what comes after
+- `wiki/Roadmap.md`: how work continues after v0.1, v1.0 criteria, the v0.1 scope
 - `wiki/Releasing.md`: how to release: steps, dry run, snapshots
-- `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
+- `wiki/Feature-Catalog.md`: the full feature scope per page (unordered), with the status of every item
 
 ## Structure
 
