@@ -1270,12 +1270,15 @@ project's key.
    %endif
    ```
 
-5. **Package:** _Create Package_ `sway-things`.
-6. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
+5. **Debuginfo:** _Repositories_ → _Debuginfo Flag_ → enable "All". Without it OBS doesn't split the debug info off on
+   openSUSE, and the binaries ship unstripped (rpmlint's `unstripped-binary-or-object`); with it every distribution gets
+   separate `-debuginfo` or `-dbgsym` packages. A flag change doesn't rebuild by itself (`osc rebuild`).
+6. **Package:** _Create Package_ `sway-things`.
+7. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
    tarball from the checkout, copy the tarball, both specs, `sway-things.dsc` and `debian.tar.gz` from `target/dist/`
    into it, `osc addremove` and `osc commit`. Every repository but the best-effort ones must build green; repeat
    whenever the packaging changes before the release.
-7. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
+8. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
    token that can only run the package's source services:
    `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
    `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow (#89) uses it.
