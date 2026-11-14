@@ -4,8 +4,8 @@ config:
     tables: false
   table-column-style:
     style: compact
-  # Only for the centered app icon at the top of the README; other HTML stays forbidden.
+  # Only for the centered app icon and badges at the top of the README; other HTML stays forbidden.
   no-inline-html:
-    allowed_elements: [p, img]
+    allowed_elements: [p, img, a]
   # The PR template, CLAUDE.md and the wiki sidebar and footer have no title.
   first-line-heading: false
