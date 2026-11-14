@@ -7,6 +7,27 @@
   >
 </p>
 
+<p align="center">
+  <a href="https://github.com/mowi12/sway-things/actions/workflows/ci.yml">
+    <img src="https://github.com/mowi12/sway-things/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
+  </a>
+  <a href="https://github.com/mowi12/sway-things/releases">
+    <img src="https://img.shields.io/github/v/release/mowi12/sway-things?include_prereleases" alt="Latest release">
+  </a>
+  <a href="LICENSES/GPL-3.0-or-later.txt">
+    <img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later">
+  </a>
+  <a href="https://build.opensuse.org/package/show/home:mowi12:sway-things/sway-things">
+    <img
+      src="https://build.opensuse.org/projects/home:mowi12:sway-things/packages/sway-things/badge.svg?type=default"
+      alt="openSUSE Build Service status"
+    >
+  </a>
+  <a href="https://api.reuse.software/info/github.com/mowi12/sway-things">
+    <img src="https://api.reuse.software/badge/github.com/mowi12/sway-things" alt="REUSE status">
+  </a>
+</p>
+
 # Sway Things
 
 A settings app for the [sway](https://swaywm.org) Wayland compositor and the tools around it.
