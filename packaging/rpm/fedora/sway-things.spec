@@ -80,7 +80,7 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.mowi12.Sway
 
 %files
 %license LICENSE LICENSE.dependencies cargo-vendor.txt
-%doc README.md
+%doc README.md CHANGELOG.md
 %{_bindir}/sway-things
 %{_bindir}/sway-things-gui
 %{_datadir}/applications/io.github.mowi12.SwayThings.desktop

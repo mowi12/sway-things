@@ -60,7 +60,7 @@ appstreamcli validate --no-net %{buildroot}%{_datadir}/metainfo/io.github.mowi12
 
 %files
 %license LICENSE
-%doc README.md
+%doc README.md CHANGELOG.md
 %{_bindir}/sway-things
 %{_bindir}/sway-things-gui
 %{_datadir}/applications/io.github.mowi12.SwayThings.desktop
