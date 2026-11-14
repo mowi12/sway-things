@@ -57,3 +57,5 @@ sha2 = "0.11"
 swayipc-types = { version = "2", default-features = false }
 tempfile = "3"
 toml_edit = "0.25"
+# 5.13 is the newest line that builds with the MSRV 1.85. Without tokio: async-io, no blocking API.
+zbus = { version = "5.13", default-features = false, features = ["async-io"] }
