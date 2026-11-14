@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: 0BSD
+# Maintainer: Moritz Wieland <81433802+mowi12@users.noreply.github.com>
+
+pkgname=sway-things-git
+pkgver=0.0.0.r278.g1ee64da
+pkgrel=1
+pkgdesc='Settings app for the sway Wayland compositor and SwayFX'
+arch=(x86_64)
+url='https://github.com/mowi12/sway-things'
+license=(GPL-3.0-or-later)
+depends=(cairo glib2 glibc graphene gtk4 libgcc pango sway)
+makedepends=(cargo git)
+provides=("sway-things=${pkgver%%.r*}")
+conflicts=(sway-things)
+source=("$pkgname::git+$url.git")
+sha256sums=(SKIP)
+
+pkgver() {
+  cd "$pkgname"
+  local described
+  # Annotated release tags (vX.Y.Z); before the first one, 0.0.0 keeps the versions below the first release.
+  if described=$(git describe --long --abbrev=7 2>/dev/null); then
+    printf '%s\n' "$described" | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  else
+    printf '0.0.0.r%s.g%s\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+  fi
+}
+
+prepare() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target host-tuple
+}
+
+build() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  PREFIX=/usr scripts/build.sh -- --frozen
+}
+
+check() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo test --workspace --frozen
+}
+
+package() {
+  cd "$pkgname"
+  export CARGO_TARGET_DIR=target
+  PREFIX=/usr DESTDIR="$pkgdir" scripts/install.sh
+}

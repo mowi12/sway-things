@@ -52,3 +52,11 @@ path = "fuzz/seeds/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# The AUR package files are 0BSD, as the AUR asks. .SRCINFO is written by makepkg and can't carry a header. (REUSE
+# ignores the LICENSE file next to it, the license text for the AUR repository.)
+[[annotations]]
+path = "packaging/aur/**/.SRCINFO"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "0BSD"

@@ -147,6 +147,23 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 
 Editors pick up indentation and line endings from `.editorconfig`.
 
+### Package builds
+
+`scripts/build-packages.sh` builds the distribution packages in clean containers with docker or podman. It isn't a check
+and `just check` doesn't run it: CI runs it on every push to `main`, weekly and by hand (`packages.yml`), not on pull
+requests. Run it yourself when you change the packaging, the build or install scripts, or the dependencies:
+
+```sh
+scripts/build-packages.sh --container arch-git --local   # the AUR package, built from your HEAD commit
+```
+
+Without `--local`, the `-git` package builds GitHub's `main`, as it does for users. With it, the package is built from
+the committed state of your checkout (uncommitted changes are left out). The build needs the network: it fetches the
+Arch packages and the crates. When you change `packaging/aur/sway-things-git/PKGBUILD`, set its `pkgver` to the current
+version of `main` (`0.0.0.r<commits>.g<hash>`, from `git rev-list --count` and `git rev-parse --short=7`) and regenerate
+`.SRCINFO` next to it with `makepkg --printsrcinfo >.SRCINFO` on Arch. The build fails while `.SRCINFO` is out of date
+and prints the difference, which is enough to fix it elsewhere.
+
 ## Fuzzing
 
 The sway config parser reads files from shared dotfiles, so it is fuzzed: `fuzz/fuzz_targets/sway_config.rs` feeds it a
