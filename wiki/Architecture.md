@@ -1108,8 +1108,10 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 
 ## Packaging
 
-- **openSUSE Build Service** builds openSUSE, Fedora, Debian and Ubuntu packages from one project (one `.spec`, one
-  `debian/` dir, vendored crates, offline build). **AUR**: release and `-git` packages.
+- **openSUSE Build Service** (OBS) builds the openSUSE Tumbleweed and Fedora packages from one project, each with a spec
+  of its own, from the release tarball with the crates vendored, offline (see [Release tarball](#release-tarball) and
+  [RPM packages](#rpm-packages)). Debian and Ubuntu are to follow from the same project. **AUR**: release and `-git`
+  packages.
 - Shipped: both binaries, `io.github.mowi12.SwayThings.desktop`, AppStream metainfo, icon, man pages (`clap_mangen`),
   shell completions (`clap_complete`), translations. Every package installs the same files the same way, through two
   plain bash scripts that need neither `just` nor the generators:
@@ -1146,5 +1148,100 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   package). The desktop entry is GPL-3.0-or-later; the metainfo is CC0-1.0, as AppStream asks of metadata.
 - What packagers adapt: Debian and Ubuntu's zsh doesn't search `/usr/share/zsh/site-functions`, so the Debian packaging
   moves the zsh completion to `/usr/share/zsh/vendor-completions/`, as `dh_installzshcompletions` does.
-- No Flatpak. Aim for official distro repositories after 1.0.
+- No Flatpak. Aim for official distro repositories after 1.0; for Debian,
+  [#138](https://github.com/mowi12/sway-things/issues/138) tracks the way into the archive.
 - License: `GPL-3.0-or-later`.
+
+### Release tarball
+
+`scripts/make-tarball.sh [--ref REF] [--out DIR] [--check]` makes `sway-things-<version>.tar.xz`, the one source every
+package builds from:
+
+- The tree of `REF` (`git archive`, so uncommitted files never get in), plus `vendor/`
+  (`cargo vendor --locked --versioned-dirs`, every crate of `Cargo.lock`) and a `.cargo/config.toml` that replaces
+  crates.io with `vendor/`. So a plain `cargo build` in the unpacked tarball works offline. The script fails if
+  vendoring changed `Cargo.lock`. The whole tree, because the unit tests read `ci/integration/` and `po/`.
+- **Version:** `X.Y.Z` for a tag `vX.Y.Z`, which must match `[workspace.package] version` and both specs. Any other
+  `REF` is a snapshot, `<version>+git<commit count>.g<short hash>` (`0.0.0+git286.g4a10379`), which sorts after
+  `<version>` and before the next release in rpm and dpkg; the script writes it into the specs.
+- **Reproducible:** sorted names, the commit time as every file's time, no owners, modes independent of the umask,
+  single-threaded `xz -9`. `--check` makes everything twice and fails unless the bytes agree; the package workflow runs
+  it.
+- Next to the tarball (default `target/dist/`): its `.sha256`, and the OBS inputs under names that don't change with the
+  version: `sway-things-openSUSE_Tumbleweed.spec` (the openSUSE spec) and `sway-things.spec` (the Fedora spec).
+
+### RPM packages
+
+Two specs, each following its distribution's guidelines, from the same tarball:
+
+| | `packaging/rpm/opensuse/sway-things.spec` | `packaging/rpm/fedora/sway-things.spec` |
+| --- | --- | --- |
+| Macros | `cargo-packaging`: `%cargo_build --locked` (release profile, `cargo auditable`), `%cargo_test` | `cargo-rpm-macros`: `%cargo_prep -v vendor`, `%cargo_build` (`rpm` profile), `%cargo_test` |
+| Install | `PROFILE=release scripts/build.sh --data-only`, then `scripts/install.sh` | `PROFILE=rpm`, the same |
+| Licenses | `License` | `License`, `SourceLicense`, `LICENSE.dependencies` and `cargo-vendor.txt` (bundled crates as `Provides: bundled(crate(…))`) |
+| Completion directories | owns the zsh and fish ones (`%dir`) | owned by `filesystem` (`%{zsh_completions_dir}`, …) |
+
+- Both build only the default members (no `crates/cli-docs`). `%check` runs `cargo test --workspace --locked` offline
+  (unit, golden-file and binary tests, and the freshness test of the committed man pages and completions; the ones that
+  need sway or a display are `#[ignore]`d), then `desktop-file-validate` and `appstreamcli validate`.
+- `Requires: (sway or swayfx)`, a rich dependency both rpm families support; Fedora has no SwayFX package.
+- Hardening flags and debug info come from the distribution macros; `Cargo.toml` sets no profile that would override
+  them.
+- **License tags:** `License` is every license expression of the crates linked into the binaries (as Fedora's
+  `%cargo_license_summary` counts them: no build, dev or proc-macro dependencies, every target), plus `CC0-1.0` of the
+  metainfo. Fedora's `SourceLicense` covers the whole tarball: every crate in `vendor/` and the licenses in `LICENSES/`.
+  Each is a `%{shrink:…}` with one expression per line; `scripts/check-packaging.sh` fails when one is out of date, so a
+  dependency with a new license is caught on its pull request.
+- No `%changelog` and no `.changes` file: an OBS home project doesn't need them, and the release notes live on GitHub.
+  OBS sets `Release` itself.
+
+### openSUSE Build Service
+
+Project `home:mowi12:sway-things`, package `sway-things`, repositories `openSUSE_Tumbleweed` and the supported Fedora
+releases (`Fedora_<N>`), for x86_64 and aarch64. OBS signs the published repositories with the project's key.
+
+- **Which spec builds where:** an OBS package holds both specs. Among several, OBS takes `<package>-<repository>.spec`
+  for that repository, else `<package>.spec`
+  ([Multiple Build Description File Handling](https://openbuildservice.org/help/manuals/obs-user-guide/cha-obs-multibuild)).
+  So `sway-things-openSUSE_Tumbleweed.spec` builds in `openSUSE_Tumbleweed` and `sway-things.spec` in every other RPM
+  repository, so a new Fedora release needs no new file. The match is on the repository's name in the project, so the
+  Tumbleweed repository must keep its default name `openSUSE_Tumbleweed`. Files fetched by a source service count under
+  their plain names. Another openSUSE repository (Slowroll, Leap) would need its own copy,
+  `sway-things-<repository>.spec`.
+- **Sources before v0.1:** the maintainer uploads a snapshot (`make-tarball.sh`, then `osc`).
+- **Sources after v0.1:** the package's `_service` fetches the specs from the latest GitHub release (`download_url`),
+  then the tarball the specs name (`download_files`). The services run on the server; the release workflow (#89)
+  triggers them after the release is published, with an OBS token bound to the package that can do nothing but run them.
+
+#### OBS setup (maintainer, once)
+
+1. An account on [build.opensuse.org](https://build.opensuse.org) (an openSUSE account), and `osc` (the OBS command line
+   client; `zypper install osc` on openSUSE, `dnf install osc` on Fedora).
+2. **Project:** home project → _Subprojects_ → _New subproject_ `sway-things`, which makes `home:mowi12:sway-things`.
+3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed and every Fedora release offered
+   that is still supported, then for each, keep x86_64 and aarch64 (and only those) ticked.
+4. **Package:** _Create Package_ `sway-things`.
+5. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
+   tarball from the checkout, copy the tarball and both specs from `target/dist/` into it, `osc addremove` and
+   `osc commit`. Every repository must build green; repeat whenever the packaging changes before the release.
+6. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
+   token that can only run the package's source services:
+   `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
+   `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow (#89) uses it.
+
+### Package CI
+
+- `scripts/build-packages.sh --container NAME|all [--tarball FILE]` builds the packages in containers from
+  `ci/packages/<name>/Dockerfile` (digest-pinned images): `opensuse-tumbleweed` and `fedora` (the newest release).
+  Without `--tarball`, it makes one from `HEAD`.
+  - The image holds the build dependencies of the spec (with the network); the build runs with `--network none`, as an
+    unprivileged user, like on OBS.
+  - Then `rpmlint` checks the source and the main package, not the debug packages. Any error in its report fails the
+    build (openSUSE's rpmlint exits 0 even with errors). Left out: `no-changelogname-tag` (the specs have no
+    `%changelog`) and, on openSUSE, `invalid-spec-name` (the spec is named for its OBS repository).
+  - The package is installed (`rpm --nosignature`: it is unsigned, OBS signs the repository) and runs
+    `sway-things --version` and `--help`. sway is installed for the dependency, never started.
+- `.github/workflows/packages.yml` runs it on every push to `main`, weekly, by hand, and from the release workflow
+  (`workflow_call` with the tarball of the tag). It makes the tarball once with `--check` and builds every package from
+  it. It isn't a required check on pull requests (too slow); `scripts/check-packaging.sh` is, and catches license and
+  version drift there.
