@@ -2,10 +2,13 @@ name: Release
 
 # A signed version tag vX.Y.Z (or vX.Y.Z-rc.N for a dry run) makes a draft release: the tag is checked, the reproducible
 # tarball and the OBS inputs are made from it, every package is built from that tarball, the files are attested, and
-# the draft gets the notes from CHANGELOG.md. Nothing is public until the maintainer publishes the draft.
+# the draft gets the notes from CHANGELOG.md. Nothing is public until the maintainer publishes the draft; publishing a
+# release (not a pre-release) makes the openSUSE Build Service fetch it.
 on:
   push:
     tags: ["v*"]
+  release:
+    types: [published]
 
 permissions: {}
 
@@ -16,6 +19,7 @@ concurrency:
 jobs:
   verify:
     name: Verify Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -100,3 +104,21 @@ jobs:
           fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag "${prerelease[@]}" \
             --title "Sway Things ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/dist/*
+
+  obs:
+    name: Trigger OBS
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-24.04
+    # Only v* tags may use the environment and its secret.
+    environment: obs
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Trigger OBS
+        env:
+          OBS_TOKEN: ${{ secrets.OBS_TOKEN }}
+        run: scripts/trigger-obs.sh
