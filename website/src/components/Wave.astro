@@ -1,0 +1,40 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// The wave of the app icon, stretched across the page. Its color is --accent; its shape is the only part of the page
+// drawn after the icon, so a new icon means a new path here.
+---
+
+<div class="wave" aria-hidden="true">
+  <svg viewBox="0 0 1440 300" preserveAspectRatio="none">
+    <path d="M-40 150C300 20 420 300 760 150S1200 20 1480 120V300H-40Z" />
+  </svg>
+</div>
+
+<style>
+.wave {
+  position: relative;
+  z-index: 0;
+  margin-top: calc(-1 * clamp(80px, 9vw, 130px));
+  pointer-events: none;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: clamp(140px, 20vw, 280px);
+}
+
+path {
+  fill: var(--accent);
+  transform-origin: 50% 100%;
+  animation: drift 16s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes drift {
+  to {
+    transform: translateX(-2.5%) scaleY(1.07);
+  }
+}
+</style>

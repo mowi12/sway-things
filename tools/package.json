@@ -1,6 +1,8 @@
 {
   "private": true,
   "devDependencies": {
+    "html-validate": "11.19.0",
+    "license-checker-rseidelsohn": "5.0.1",
     "markdownlint-cli2": "0.24.0"
   }
 }
