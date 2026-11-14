@@ -22,6 +22,8 @@
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
 //! - Sections: a header collapses and expands its section, which is remembered in `ui.toml`
 //!   while the preference is on, and a deep link opens a collapsed section without storing it.
+//! - About: About & Maintenance shows the versions of Sway Things and the compositor and the
+//!   project's links.
 //! - Generated config: the footers and About & Maintenance open the window at their file, it
 //!   follows changes, and a file changed outside has its banner, its content on disk and an
 //!   Overwrite that asks first and only works with the include line.
@@ -271,6 +273,10 @@ fn main() -> ExitCode {
     results.extend(check_safety_net());
     results.extend(check_reload());
     results.extend(check_generated());
+    results.push((
+        "about: the versions and the project's links".to_owned(),
+        check_about(),
+    ));
     results.extend(check_sections());
     results.push((
         "theme: the accent follows sway's focus color".to_owned(),
@@ -782,6 +788,51 @@ fn check_generated_footer() -> Outcome {
         window.generated().is_none(),
         "the window stays after closing",
     )?;
+    window.destroy();
+    Ok(())
+}
+
+/// About & Maintenance starts with the version of Sway Things and of the compositor, and the
+/// project's links.
+fn check_about() -> Outcome {
+    let fixture = fixture(SWAYFX, STORED, USERS, true)?;
+    let window = open(&fixture, Page::About)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  About & Maintenance has no content".to_owned())?;
+    let texts: Vec<String> = all::<gtk::Label>(&content)
+        .iter()
+        .map(|label| label.label().to_string())
+        .collect();
+    for expected in [
+        "Sway Things",
+        env!("CARGO_PKG_VERSION"),
+        "Compositor",
+        &SWAYFX.to_string(),
+        "Website",
+        "Source Code (GitHub)",
+        "Report a Bug",
+    ] {
+        ensure(
+            texts.iter().any(|text| text == expected),
+            &format!("  no {expected:?} among {texts:?}"),
+        )?;
+    }
+    let links: Vec<String> = all::<gtk::Button>(&content)
+        .iter()
+        .filter_map(|button| button.tooltip_text().map(|text| text.to_string()))
+        .collect();
+    let repository = env!("CARGO_PKG_REPOSITORY");
+    for uri in [
+        env!("CARGO_PKG_HOMEPAGE").to_owned(),
+        repository.to_owned(),
+        format!("{repository}/issues"),
+    ] {
+        ensure(
+            links.contains(&uri),
+            &format!("  no link to {uri} among {links:?}"),
+        )?;
+    }
     window.destroy();
     Ok(())
 }
