@@ -9,12 +9,22 @@
     "cargo.applyConventions": false
   },
   "excludes": [
-    ".github/pull_request_template.md"
+    ".github/pull_request_template.md",
+    "website/dist",
+    "**/node_modules",
+    "**/package-lock.json",
+    "**/*.svg"
   ],
   "plugins": [
     "https://plugins.dprint.dev/markdown-0.28.2.wasm@77d0095123be1df7c802ef1b8875433c757f79238c26a58d1c49b8cafca44e2c",
     "https://plugins.dprint.dev/toml-0.9.0.wasm@776e088ed4255a51a80e3640e5fd20b15661147e86df3e99611aaa37e9c59852",
     "https://plugins.dprint.dev/json-0.25.2.wasm@811ca4c6f732bcd6f707bc2f42d42395bb4127cdf829960cf628a18fc149777e",
-    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm@40a2fdda7040317eb1b23520f3a00769a5571eedb049c4ca9175c1b9eeba01ae"
-  ]
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm@40a2fdda7040317eb1b23520f3a00769a5571eedb049c4ca9175c1b9eeba01ae",
+    "https://plugins.dprint.dev/typescript-0.101.0.wasm@4401b6e344db92a5e661a05958267d4b3068fa82c89067e9e8ffe849798644f4",
+    "https://plugins.dprint.dev/g-plane/malva-v0.16.1.wasm@ea107342885e7a337b5da1ddf67101400e2621732556ec761f66d00208e74453",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.6.wasm@93dd0c870b60431ceea59f055792fee4a353868223c813d3a44414b31d1df602"
+  ],
+  "typescript": {
+    "quoteStyle": "preferSingle"
+  }
 }

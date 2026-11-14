@@ -221,6 +221,45 @@ jobs:
       - name: Check Links
         run: scripts/check-links.sh
 
+  website:
+    name: Check Website
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set Up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install Check Tools
+        run: npm ci --prefix tools --no-audit --no-fund
+      - name: Install Website Packages
+        run: npm ci --prefix website --no-audit --no-fund
+      - name: Install lychee
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LYCHEE_VERSION: 0.24.2
+          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        run: |
+          gh release download "lychee-v$LYCHEE_VERSION" --repo lycheeverse/lychee \
+            --pattern lychee-x86_64-unknown-linux-gnu.tar.gz --output "$RUNNER_TEMP/lychee.tar.gz"
+          echo "$LYCHEE_SHA256  $RUNNER_TEMP/lychee.tar.gz" | sha256sum --check --quiet
+          mkdir "$RUNNER_TEMP/lychee"
+          tar -xzf "$RUNNER_TEMP/lychee.tar.gz" -C "$RUNNER_TEMP/lychee" --strip-components 1 \
+            lychee-x86_64-unknown-linux-gnu/lychee
+          echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+      - name: Check Website
+        run: scripts/check-website.sh
+      # The runner image has Google Chrome.
+      - name: Check Website Performance
+        run: scripts/check-website-performance.sh
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
   deps:
     name: Check Dependencies
     runs-on: ubuntu-24.04
