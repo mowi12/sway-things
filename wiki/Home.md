@@ -14,7 +14,7 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 | Page | What it covers |
 | --- | --- |
 | [Vision & Scope](Vision-and-Scope.md) | Problem, target users, goals, non-goals, prior art |
-| [Architecture](Architecture.md) | Crates, settings registry, state files, generators, command builders, parser, conflicts, backends, CLI, security, testing, packaging |
+| [Architecture](Architecture.md) | Crates, settings registry, state files, generators, command builders, parser, conflicts, backends, CLI, security, testing, packaging, website |
 | [Sway Reference](Sway-Reference.md) | Verified facts about sway, SwayFX, the companion tools and the distributions, with sources |
 | [UX Concept](UX-Concept.md) | Window layout, navigation, search, apply model, indicators, first run, theming |
 | [Roadmap](Roadmap.md) | How work continues after v0.1, v1.0 criteria, the v0.1 scope |
