@@ -36,8 +36,8 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: pre-release.** Not ready for daily use yet. To test it, build it from source (see
-> [Installation](#installation)). The [Roadmap](wiki/Roadmap.md) says what comes first.
+> **Status: before the first release.** Packages built from the current development state are available for testing (see
+> [Installation](#installation)). The [Roadmap](wiki/Roadmap.md) says what v0.1 contains.
 
 ## Why
 
@@ -62,7 +62,11 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
   background.
 - **Shareable.** One settings file you can keep in your dotfiles, with optional per-machine overrides.
 
-## Planned features
+## Features
+
+The first release, v0.1, brings the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and
+**Window Behavior**, the view of the generated config, and the app's own preferences on About & Maintenance. The other
+pages below are planned.
 
 ### Devices
 
@@ -105,22 +109,20 @@ sway-things get windows.gaps.inner        # read a setting
 sway-things doctor                        # check setup, missing tools and conflicts
 ```
 
-_Planned interface. Key names may still change._
-
-## Requirements (planned)
+## Requirements
 
 - sway ≥ 1.10, or SwayFX ≥ 0.5
-- GTK 4
-- Optional companion tools unlock their pages, for example kanshi, swayidle, swaylock, waybar, mako or swaync, gammastep
-  or wlsunset, brightnessctl, PipeWire, NetworkManager and BlueZ. Pages for missing tools stay visible and tell you how
-  to install them.
+- GTK ≥ 4.18
+- Later pages will use optional companion tools, for example kanshi, swayidle, swaylock, waybar, mako or swaync,
+  gammastep or wlsunset, brightnessctl, PipeWire, NetworkManager and BlueZ. Pages for missing tools stay visible and
+  tell you how to install them.
 
 ## Installation
 
 Not released yet. Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64)
-will come from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; the commands
-below work once it is published. Fedora Rawhide and Debian unstable are built too, on a best-effort basis: their
-packages may lag behind when those distributions change under them. The AUR for Arch Linux is planned.
+come from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; until the release,
+they are built from the current development state. Fedora Rawhide and Debian unstable are built too, on a best-effort
+basis: their packages may lag behind when those distributions change under them. The AUR for Arch Linux is planned.
 
 ### openSUSE Tumbleweed
 

@@ -1,7 +1,7 @@
 # Architecture
 
-> Status: **design, no code yet.** Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on 2026-11-07
-> against their man pages, source and releases (sway 1.12, SwayFX 0.6).
+> Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on 2026-11-07 against their man pages, source
+> and releases (sway 1.12, SwayFX 0.6).
 
 ## Overview
 

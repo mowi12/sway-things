@@ -17,12 +17,12 @@ Milestones on GitHub correspond to releases.
 - [x] Generators with header, manifest hashes, atomic writes, `sway --validate`
 - [x] Sway config parser (includes, variables, blocks, file:line) + conflict detection
 - [x] Include-line detection, first-run instructions, read-only mode until enabled
-- [ ] CLI: `get`, `set` and `reset` (terminal countdown, or `--yes` without a TTY, for risky settings), `open`,
+- [x] CLI: `get`, `set` and `reset` (terminal countdown, or `--yes` without a TTY, for risky settings), `open`,
       `doctor`, `show-generated`
-- [ ] App shell: sidebar with all pages listed (unbuilt ones show a placeholder), setting-level search, keyboard
+- [x] App shell: sidebar with all pages listed (unbuilt ones show a placeholder), setting-level search, keyboard
       navigation, single instance + deep links, theming with sway accent, light and dark
 - [x] Narrow mode: decide the width threshold from the real pages, then document it in [UX Concept](UX-Concept.md)
-- [ ] Indicators: reset, overridden / your config wins, requires sway ≥ x.y, requires SwayFX
+- [x] Indicators: reset, overridden / your config wins, requires sway ≥ x.y, requires SwayFX
 - [x] "Sway Things" preferences section (accent source, safety-net timeout, editor command, show sway directives)
 - [x] gettext wiring (American English source strings only at first)
 
@@ -32,7 +32,7 @@ Milestones on GitHub correspond to releases.
 | --- | --- |
 | Mouse & Touchpad | per-device scope and host overlay, input hotplug events, device disable with safety net and lockout protection, registry row builder at volume |
 | Keyboard | safety net for layout changes, reorderable list widget, XKB rules parsing |
-| Windows (incl. SwayFX effects) | conflict detection on `client.*`, live accent theming of the app, live preview widget, SwayFX gating + `90-effects.conf` |
+| Windows (incl. SwayFX effects) | conflict detection on `client.*`, live accent theming of the app, SwayFX gating + `90-effects.conf` |
 | Window Behavior | many simple rows; cheap breadth |
 
 ### Definition of done

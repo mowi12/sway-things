@@ -22,4 +22,5 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 
 ## Status
 
-Planning phase, no code yet. The first milestone is v0.1, described in the [Roadmap](Roadmap.md).
+Working toward v0.1: the core, the CLI and the app with the pages of the v0.1 scope exist, and packages are built on the
+openSUSE Build Service. What v0.1 contains and what comes after is in the [Roadmap](Roadmap.md).

@@ -2,14 +2,15 @@
 
 ## Overview
 
-Sway Things is a GTK4 settings app for the sway Wayland compositor (and SwayFX), written in Rust. The project is in the
-**planning phase**: the design is documented, and there is no code yet.
+Sway Things is a GTK4 settings app for the sway Wayland compositor (and SwayFX), written in Rust. It is working toward
+v0.1: the core, the CLI and the app with the pages of the v0.1 scope exist, and packages are built on the openSUSE Build
+Service. The design for everything after v0.1 is documented in the wiki.
 
 Prefer the wiki and existing docs over restating them. If you summarize, keep it short and link the canonical page.
 
 ## Canonical documentation
 
-- `README.md`: user-facing overview (what, why, planned features)
+- `README.md`: user-facing overview (what, why, features, installation)
 - `CONTRIBUTING.md`: workflow, commit convention, engineering rules, quality gates
 - `.conventional-commit-types.json`: the allowed commit types, source of truth
 - `wiki/Home.md`: developer documentation index
