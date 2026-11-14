@@ -1,0 +1,21 @@
+{
+  "name": "sway-things-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev",
+    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.6",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/ibm-plex-sans-condensed": "5.3.0",
+    "astro": "7.4.7",
+    "sharp": "0.35.5"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

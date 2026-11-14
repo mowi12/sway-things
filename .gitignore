@@ -230,3 +230,8 @@ tags
 /fuzz/corpus/
 /fuzz/artifacts/
 /fuzz/coverage/
+
+### Website (website/, built with Astro) ###
+/website/node_modules/
+/website/dist/
+/website/.astro/
