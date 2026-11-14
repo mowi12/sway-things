@@ -28,6 +28,15 @@ unused-allowed-license = "allow"
 [licenses.private]
 ignore = true
 
+# Unmaintained, not vulnerable: zbus 6 merged these crates into itself, but it needs Rust 1.89 and the MSRV is 1.85,
+# so zbus 5 still depends on them. Drop the ignores once the MSRV allows zbus 6.
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2026-0370", reason = "zvariant is unmaintained, merged into zbus 6, which needs Rust 1.89" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names is unmaintained, merged into zbus 6, which needs Rust 1.89" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive is unmaintained, merged into zbus 6, which needs Rust 1.89" },
+]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

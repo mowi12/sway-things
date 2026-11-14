@@ -360,7 +360,7 @@ mod tests {
         // The description counts too, after the titles.
         let hits = index.search("wi-fi");
         assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].page(), Page::BluetoothNetwork);
+        assert_eq!(hits[0].page(), Page::Network);
         assert_eq!(hits[0].field(), Field::Subtitle);
     }
 

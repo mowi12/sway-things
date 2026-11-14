@@ -14,6 +14,7 @@ workspace = true
 
 [dependencies]
 async-channel.workspace = true
+futures-lite.workspace = true
 gio.workspace = true
 gtk.workspace = true
 sway-things-core = { path = "../core" }
@@ -22,8 +23,10 @@ sway-things-core = { path = "../core" }
 glib-build-tools.workspace = true
 
 [dev-dependencies]
+async-io.workspace = true
 sway-things-core = { path = "../core", features = ["test-support"] }
 tempfile.workspace = true
+zbus.workspace = true
 
 [[test]]
 name = "gui"

@@ -52,6 +52,7 @@ use std::time::{Duration, Instant};
 use gtk::prelude::*;
 use gtk::{glib, gsk};
 use sway_things_core::apply::Applier;
+use sway_things_core::bluetooth::stand_in::StandIn;
 use sway_things_core::command::input::InputType;
 use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
@@ -68,7 +69,8 @@ use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
-    DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView, SettingRow, TestArea,
+    BluetoothBus, BluetoothPage, DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView,
+    SettingRow, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -245,6 +247,9 @@ fn main() -> ExitCode {
     let screenshots = std::env::var_os("SWAY_THINGS_SCREENSHOTS").map(PathBuf::from);
 
     let mut results: Vec<(String, Outcome)> = Vec::new();
+    // The Bluetooth page shows the stand-in's devices; without python-dbusmock (screenshots on
+    // a desktop) it shows Bluetooth as unavailable, never the machine's own.
+    let bluetooth = bluetooth_stand_in();
     let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
@@ -256,6 +261,7 @@ fn main() -> ExitCode {
         set_dark(&settings, dark);
         let scheme = if dark { "dark" } else { "light" };
         let window = Window::with_model(&fixture.model);
+        use_stand_in(&window, bluetooth.as_ref().ok());
         window.present();
         for page in Page::ALL {
             let outcome = check_page(&window, page, screenshots.as_deref(), scheme);
@@ -284,21 +290,13 @@ fn main() -> ExitCode {
         check_accent(),
     ));
     results.extend(check_devices());
+    results.push((
+        "bluetooth: devices, pairing and power".to_owned(),
+        check_bluetooth(),
+    ));
     results.extend(check_keyboard());
     results.extend(check_indicators());
-    results.push((
-        "welcome: the spinner turns after coming back".to_owned(),
-        check_spinner(&settings),
-    ));
-    results.push(("welcome: look around and back".to_owned(), check_welcome()));
-    results.push((
-        "welcome: closes once the line is there".to_owned(),
-        check_welcome_closes(),
-    ));
-    results.push((
-        "welcome: a line that isn't last".to_owned(),
-        check_not_last(),
-    ));
+    results.extend(check_welcomes(&settings));
 
     let mut failed = 0;
     for (name, outcome) in &results {
@@ -1558,7 +1556,7 @@ fn check_search_pages() -> Outcome {
     )?;
     sidebar.search_entry().emit_activate();
     ensure(
-        window.page() == Some(Page::BluetoothNetwork),
+        window.page() == Some(Page::Bluetooth),
         "  Enter didn't open the page",
     )?;
     window.destroy();
@@ -3886,4 +3884,202 @@ fn check_model_and_active_layout() -> Outcome {
     )?;
     window.destroy();
     Ok(())
+}
+
+/// The address of the headset of [`bluetooth_stand_in`], paired, with a battery.
+const HEADSET: &str = "AA:BB:CC:DD:EE:FF";
+/// The address of its speaker, not paired.
+const SPEAKER: &str = "11:22:33:44:55:66";
+
+/// A stand-in for BlueZ with two adapters, a paired headset and a speaker nearby.
+fn bluetooth_stand_in() -> Result<StandIn, String> {
+    async_io::block_on(async {
+        let stand_in = StandIn::start().await?;
+        stand_in.add_adapter("hci0", "laptop").await?;
+        stand_in.add_adapter("hci1", "dongle").await?;
+        let headset = stand_in.add_device("hci0", HEADSET, "Headset").await?;
+        stand_in.pair_device("hci0", HEADSET).await?;
+        stand_in
+            .add_properties(
+                &headset,
+                "org.bluez.Battery1",
+                &[("Percentage", zbus::zvariant::Value::from(80u8))],
+            )
+            .await?;
+        stand_in.add_device("hci0", SPEAKER, "Speaker").await?;
+        Ok::<_, sway_things_core::bluetooth::stand_in::Error>(stand_in)
+    })
+    .map_err(|error| format!("  BlueZ's stand-in: {error}"))
+}
+
+/// Points the Bluetooth page of `window` at `stand_in`, if there is one.
+fn use_stand_in(window: &Window, stand_in: Option<&StandIn>) {
+    if let Some(stand_in) = stand_in {
+        window.use_bluetooth_bus(BluetoothBus::Address(stand_in.address().to_owned()));
+    }
+}
+
+/// The first button labeled `label` in `widget`.
+fn button_labeled(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
+    if let Some(button) = widget.downcast_ref::<gtk::Button>() {
+        if button.label().as_deref() == Some(label) {
+            return Some(button.clone());
+        }
+    }
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Some(found) = button_labeled(&current, label) {
+            return Some(found);
+        }
+        child = current.next_sibling();
+    }
+    None
+}
+
+/// The Bluetooth page against the stand-in: the devices in their lists, discovery while it is
+/// shown, connecting, pairing through the agent's dialog, and switching the radio off.
+fn check_bluetooth() -> Outcome {
+    let stand_in = bluetooth_stand_in()?;
+    let page = BluetoothPage::new(&BluetoothBus::Address(stand_in.address().to_owned()));
+    let window = gtk::Window::new();
+    window.set_default_size(720, 700);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let shown = run_until(Duration::from_secs(10), || {
+        page.device_rows(true).len() == 1 && page.device_rows(false).len() == 1
+    });
+    let rows = |mine| page.device_rows(mine);
+    ensure(
+        shown,
+        &format!(
+            "  the devices didn't show: {:?} / {:?}",
+            rows(true),
+            rows(false)
+        ),
+    )?;
+    let row = |name: &str, status: &str, button: &str| {
+        (name.to_owned(), status.to_owned(), button.to_owned())
+    };
+    ensure(
+        rows(true)
+            == [row(
+                "Headset",
+                "Not connected \u{b7} Battery 80 %",
+                "Connect",
+            )],
+        &format!("  my devices: {:?}", rows(true)),
+    )?;
+    ensure(
+        rows(false) == [row("Speaker", "Not paired", "Connect")],
+        &format!("  other devices: {:?}", rows(false)),
+    )?;
+    ensure(
+        page.adapter_choice().is_visible(),
+        "  two adapters but no adapter choice",
+    )?;
+    let calls = |path: &str, method: &str| {
+        async_io::block_on(stand_in.calls(path, method)).map_or(0, |calls| calls.len())
+    };
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            calls("/org/bluez/hci0", "StartDiscovery") > 0
+        }),
+        "  the page didn't look for devices while shown",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.is_searching()),
+        "  no turning spinner while looking for devices",
+    )?;
+
+    page.device_button("Headset")
+        .ok_or("  no button for the headset")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            rows(true).first().is_some_and(|(_, status, button)| {
+                status.starts_with("Connected") && button == "Disconnect"
+            })
+        }),
+        &format!("  the headset didn't connect: {:?}", rows(true)),
+    )?;
+
+    check_bluetooth_pairing(&page, &stand_in)?;
+
+    page.power_switch().set_active(false);
+    ensure(
+        run_until(Duration::from_secs(5), || !page.power_switch().state()),
+        "  Bluetooth didn't turn off",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            calls("/org/bluez/hci0", "StopDiscovery") > 0
+        }),
+        "  the page didn't stop looking for devices when the radio went off",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Pairing the speaker of [`bluetooth_stand_in`] on `page`: it asks to confirm a code, and
+/// confirming pairs and connects it.
+fn check_bluetooth_pairing(page: &BluetoothPage, stand_in: &StandIn) -> Outcome {
+    let rows = |mine| page.device_rows(mine);
+    let speaker = format!("/org/bluez/hci0/dev_{}", SPEAKER.replace(':', "_"));
+    let name = page.bus_name().ok_or("  the page has no bus name")?;
+    async_io::block_on(stand_in.pair_asks(
+        &speaker,
+        &name,
+        "agent.RequestConfirmation(device, dbus.UInt32(12345))",
+        "True",
+    ))
+    .map_err(|error| format!("  {error}"))?;
+    page.device_button("Speaker")
+        .ok_or("  no button for the speaker")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || page.pairing_dialog().is_some()),
+        "  pairing didn't ask to confirm the code",
+    )?;
+    let dialog = page.pairing_dialog().ok_or("  no dialog")?;
+    let code = find::<gtk::Label>(dialog.upcast_ref());
+    ensure(code.is_some(), "  the dialog has no text")?;
+    button_labeled(dialog.upcast_ref(), "Pair")
+        .ok_or("  the dialog has no Pair button")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            rows(true)
+                .iter()
+                .any(|(name, status, _)| name == "Speaker" && status.starts_with("Connected"))
+        }),
+        &format!(
+            "  the speaker wasn't paired and connected: {:?} / {:?}; error: {}",
+            rows(true),
+            rows(false),
+            page.error_text()
+        ),
+    )?;
+    ensure(page.pairing_dialog().is_none(), "  the dialog stayed open")?;
+    Ok(())
+}
+
+/// The welcome screen: its spinner, looking around and back, closing once the line is there,
+/// and a line that isn't last.
+fn check_welcomes(settings: &gtk::Settings) -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "welcome: the spinner turns after coming back".to_owned(),
+            check_spinner(settings),
+        ),
+        ("welcome: look around and back".to_owned(), check_welcome()),
+        (
+            "welcome: closes once the line is there".to_owned(),
+            check_welcome_closes(),
+        ),
+        (
+            "welcome: a line that isn't last".to_owned(),
+            check_not_last(),
+        ),
+    ]
 }

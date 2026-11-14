@@ -120,9 +120,18 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [ ] 🟡 Alert sound volume / event sounds
 - [ ] 🟢 "Advanced…" → pavucontrol (or similar)
 
-### Bluetooth & Network
+### Bluetooth
 
-- [ ] 🟡 Bluetooth on/off, scan, pair, connect, forget (BlueZ D-Bus). Device names are attacker-controlled data
+- [x] 🟡 Bluetooth on/off, scan, pair, connect, forget (BlueZ D-Bus). Device names are attacker-controlled data
+- [x] 🟡 Pairing dialogs through our own agent: compare a code, type a code or PIN, authorize
+- [x] 🟢 Lift an rfkill soft block when switching on; explain a hard block
+- [x] 🟢 Several adapters: pick the one the page shows
+- [x] 🟢 Battery level of connected devices
+- [x] 🟢 Rename a device
+- [x] 🟢 "Advanced…" → blueman-manager
+
+### Network
+
 - [ ] 🟡 Wi-Fi list and connect (NetworkManager D-Bus). SSIDs are attacker-controlled data
 - [ ] 🟡 Wired / VPN status; "Advanced…" → `nm-connection-editor`
 - **Not planned:** a full network editor (delegate)

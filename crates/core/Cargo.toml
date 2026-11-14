@@ -30,8 +30,13 @@ sha2.workspace = true
 swayipc-types.workspace = true
 tempfile = { workspace = true, optional = true }
 toml_edit.workspace = true
+zbus.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
 regex.workspace = true
 tempfile.workspace = true
+
+[[test]]
+name = "bluetooth_bluez"
+required-features = ["test-support"]

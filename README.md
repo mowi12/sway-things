@@ -78,7 +78,8 @@ pages below are planned.
 - **Cursor:** cursor theme and size, hiding the cursor
 - **Displays:** drag-and-drop arrangement, resolution, scale, rotation, profiles (kanshi), lid handling
 - **Sound:** output and input devices, volume, per-app volume
-- **Bluetooth & Network:** pairing devices, Wi-Fi
+- **Bluetooth:** turning it on and off, finding, pairing and connecting devices
+- **Network:** Wi-Fi
 
 ### Appearance
 

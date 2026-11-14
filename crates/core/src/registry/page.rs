@@ -54,8 +54,10 @@ pub enum Page {
     Displays,
     /// Sound
     Sound,
-    /// Bluetooth & Network
-    BluetoothNetwork,
+    /// Bluetooth
+    Bluetooth,
+    /// Network
+    Network,
     /// Windows, including the SwayFX effects
     Windows,
     /// Wallpaper
@@ -92,13 +94,14 @@ pub enum Page {
 
 impl Page {
     /// Every page, in sidebar order: grouped as in [`Group::ALL`].
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 23] = [
         Self::MouseTouchpad,
         Self::Keyboard,
         Self::CursorTablet,
         Self::Displays,
         Self::Sound,
-        Self::BluetoothNetwork,
+        Self::Bluetooth,
+        Self::Network,
         Self::Windows,
         Self::Wallpaper,
         Self::AppsLookFeel,
@@ -130,7 +133,8 @@ impl Page {
             Self::CursorTablet => "cursor-tablet",
             Self::Displays => "displays",
             Self::Sound => "sound",
-            Self::BluetoothNetwork => "bluetooth-network",
+            Self::Bluetooth => "bluetooth",
+            Self::Network => "network",
             Self::Windows => "windows",
             Self::Wallpaper => "wallpaper",
             Self::AppsLookFeel => "apps-look-feel",
@@ -158,7 +162,8 @@ impl Page {
             | Self::CursorTablet
             | Self::Displays
             | Self::Sound
-            | Self::BluetoothNetwork => Group::Devices,
+            | Self::Bluetooth
+            | Self::Network => Group::Devices,
             Self::Windows | Self::Wallpaper | Self::AppsLookFeel | Self::Bar => Group::Appearance,
             Self::WindowBehavior
             | Self::Workspaces
@@ -183,7 +188,8 @@ impl Page {
             Self::CursorTablet => msg!("Cursor & Tablet"),
             Self::Displays => msg!("Displays"),
             Self::Sound => msg!("Sound"),
-            Self::BluetoothNetwork => msg!("Bluetooth & Network"),
+            Self::Bluetooth => msg!("Bluetooth"),
+            Self::Network => msg!("Network"),
             Self::Windows => msg!("Windows"),
             Self::Wallpaper => msg!("Wallpaper"),
             Self::AppsLookFeel => msg!("Apps Look & Feel"),
@@ -211,7 +217,8 @@ impl Page {
             Self::CursorTablet => msg!("Cursor theme, size and visibility"),
             Self::Displays => msg!("Arrange outputs, resolution, scale and profiles"),
             Self::Sound => msg!("Devices, volume and per-application levels"),
-            Self::BluetoothNetwork => msg!("Connect devices and Wi-Fi networks"),
+            Self::Bluetooth => msg!("Turn Bluetooth on and off, find and connect devices"),
+            Self::Network => msg!("Wi-Fi networks, wired and VPN connections"),
             Self::Windows => msg!("Borders, colors, gaps and title bars of tiled windows"),
             Self::Wallpaper => msg!("Background image or color per output"),
             Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),

@@ -10,8 +10,10 @@
 
 pub mod apply;
 mod atomic;
+pub mod bluetooth;
 pub mod command;
 pub mod conflict;
+pub mod delegate;
 pub mod devices;
 pub mod doctor;
 pub mod editor;

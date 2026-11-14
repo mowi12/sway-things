@@ -22,7 +22,8 @@ body:
         - Cursor & Tablet
         - Displays
         - Sound
-        - Bluetooth & Network
+        - Bluetooth
+        - Network
         - Windows (incl. SwayFX effects)
         - Wallpaper
         - Apps Look & Feel

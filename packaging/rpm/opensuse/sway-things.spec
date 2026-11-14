@@ -18,6 +18,8 @@ License:        %{shrink:
     ISC AND
     MIT AND
     (MIT OR Apache-2.0) AND
+    ((MIT OR Apache-2.0) AND Unicode-3.0) AND
+    (MIT OR Apache-2.0 OR LGPL-2.1-or-later) AND
     (Unlicense OR MIT)
 }
 URL:            https://sway-things.org

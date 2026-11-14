@@ -62,7 +62,7 @@ single hand-written line changes.
 
 | Group | Pages | Depth |
 | --- | --- | --- |
-| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth & Network | sway-native pages are complete; Sound and Bluetooth & Network cover the basics natively, then delegate |
+| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network | sway-native pages are complete; Sound, Bluetooth and Network cover the basics natively, then delegate |
 | **Appearance** | Windows (incl. SwayFX effects) · Wallpaper · Apps Look & Feel · Bar | complete, through backends |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard | complete, through backends |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance | basics natively; anything that needs a root file edit is read-only with instructions |

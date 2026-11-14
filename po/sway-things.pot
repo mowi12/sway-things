@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-13 21:06+0100\n"
+"POT-Creation-Date: 2026-11-14 22:32+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1519,7 +1519,11 @@ msgid "Sound"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Bluetooth & Network"
+msgid "Bluetooth"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Network"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -1603,7 +1607,11 @@ msgid "Devices, volume and per-application levels"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Connect devices and Wi-Fi networks"
+msgid "Turn Bluetooth on and off, find and connect devices"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Wi-Fi networks, wired and VPN connections"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
