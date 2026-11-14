@@ -18,6 +18,7 @@ use gtk::{gio, glib};
 use sway_things_core::registry::{Link, Registry};
 
 use crate::args;
+use crate::icons;
 use crate::model::Model;
 use crate::style;
 use crate::theme;
@@ -53,6 +54,7 @@ pub fn build() -> gtk::Application {
         loading,
         move |app| {
             style::load();
+            icons::register();
             theme::follow_color_scheme();
             let open = gio::ActionEntry::builder("open")
                 .parameter_type(Some(&String::static_variant_type()))

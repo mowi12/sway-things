@@ -13,6 +13,7 @@ pub mod args;
 pub mod contrast;
 pub mod editor;
 pub mod i18n;
+pub mod icons;
 pub mod model;
 pub mod style;
 pub mod theme;

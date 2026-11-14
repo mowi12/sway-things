@@ -18,6 +18,9 @@ gio.workspace = true
 gtk.workspace = true
 sway-things-core = { path = "../core" }
 
+[build-dependencies]
+glib-build-tools.workspace = true
+
 [dev-dependencies]
 sway-things-core = { path = "../core", features = ["test-support"] }
 tempfile.workspace = true
