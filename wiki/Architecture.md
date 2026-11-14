@@ -1,7 +1,7 @@
 # Architecture
 
-> Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on 2026-11-07 against their man pages, source
-> and releases (sway 1.12, SwayFX 0.6).
+> The facts about sway, SwayFX and the companion tools this design relies on, with their sources, are in the
+> [Sway Reference](Sway-Reference.md).
 
 ## Overview
 

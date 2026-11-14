@@ -17,6 +17,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 - `wiki/Vision-and-Scope.md`: goals, target users, non-goals, prior art
 - `wiki/Architecture.md`: crates, registry, state files, generators, parser, conflict detection, backends, CLI, security
   model, testing
+- `wiki/Sway-Reference.md`: verified facts about sway, SwayFX, the companion tools and the distributions, with sources
 - `wiki/UX-Concept.md`: window layout, navigation, apply model, indicators, first run, theming
 - `wiki/Roadmap.md`: v0.1 scope and what comes after
 - `wiki/Releasing.md`: how to release: steps, dry run, snapshots
