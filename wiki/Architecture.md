@@ -1134,7 +1134,8 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   | `bin/sway-things`, `bin/sway-things-gui` (755) | cargo |
   | `share/applications/io.github.mowi12.SwayThings.desktop` | `data/io.github.mowi12.SwayThings.desktop.in`, merged |
   | `share/metainfo/io.github.mowi12.SwayThings.metainfo.xml` | `data/io.github.mowi12.SwayThings.metainfo.xml.in`, merged |
-  | `share/icons/hicolor/*/apps/io.github.mowi12.SwayThings*.svg` | `data/icons/` (once the icon exists) |
+  | `share/icons/hicolor/scalable/apps/io.github.mowi12.SwayThings.svg` | `data/icons/hicolor/scalable/apps/` |
+  | `share/icons/hicolor/symbolic/apps/io.github.mowi12.SwayThings-symbolic.svg` | `data/icons/hicolor/symbolic/apps/` |
   | `share/man/man1/sway-things.1`, `sway-things-<command>.1`, `sway-things-gui.1` | `data/man/`, uncompressed |
   | `share/bash-completion/completions/sway-things` | `data/completions/sway-things.bash` |
   | `share/zsh/site-functions/_sway-things` | `data/completions/_sway-things` |
@@ -1150,6 +1151,13 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   moves the zsh completion to `/usr/share/zsh/vendor-completions/`, as `dh_installzshcompletions` does.
 - No Flatpak. Aim for official distro repositories after 1.0; for Debian,
   [#138](https://github.com/mowi12/sway-things/issues/138) tracks the way into the archive.
+- **App icon:** a window whose lower part is an aqua wave, with a short divider above it: tiling softened by sway, in
+  sway's focus blue (`#285577`) and aqua (`#2fb5a8`). Hand-written SVG on GNOME's app icon grid: a 128 px canvas with
+  the window frame on the 104 px square keyline (12 px margin), whole-number coordinates and one clip path. The symbolic
+  icon draws the same window, divider and wave at 16 px, as filled shapes only (GTK recolors fills, not strokes) on
+  whole pixels. Both are GPL-3.0-or-later, with the SPDX header in an XML comment. The desktop entry and the metainfo
+  name the icon by the app ID; the RPM specs list both files, and the openSUSE spec needs `hicolor-icon-theme` for the
+  directories.
 - License: `GPL-3.0-or-later`.
 
 ### Release tarball
