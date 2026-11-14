@@ -15,7 +15,8 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 │   Cursor & Tablet          │  pointer_accel 0.30                       │
 │   Displays                 │  Acceleration profile    [ Adaptive ▾ ]   │
 │   Sound                    │  Natural scrolling                 [  ●]  │
-│   Bluetooth & Network      │                                           │
+│   Bluetooth                │                                           │
+│   Network                  │                                           │
 │ APPEARANCE                 │  TOUCHPAD                                 │
 │   Windows                  │  Tap to click                      [  ●]  │
 │   Wallpaper                │  …                                        │
@@ -89,7 +90,7 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 
 | Group | Pages |
 | --- | --- |
-| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth & Network |
+| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network |
 | **Appearance** | Windows · Wallpaper · Apps Look & Feel · Bar |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance |

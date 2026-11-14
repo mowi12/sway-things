@@ -1558,7 +1558,7 @@ fn check_search_pages() -> Outcome {
     )?;
     sidebar.search_entry().emit_activate();
     ensure(
-        window.page() == Some(Page::BluetoothNetwork),
+        window.page() == Some(Page::Bluetooth),
         "  Enter didn't open the page",
     )?;
     window.destroy();
