@@ -1,3 +1,12 @@
+<p align="center">
+  <img
+    src="data/icons/hicolor/scalable/apps/io.github.mowi12.SwayThings.svg"
+    width="128"
+    height="128"
+    alt="Sway Things app icon"
+  >
+</p>
+
 # Sway Things
 
 A settings app for the [sway](https://swaywm.org) Wayland compositor and the tools around it.

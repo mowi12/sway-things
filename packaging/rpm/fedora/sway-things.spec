@@ -84,6 +84,8 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.mowi12.Sway
 %{_bindir}/sway-things
 %{_bindir}/sway-things-gui
 %{_datadir}/applications/io.github.mowi12.SwayThings.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.mowi12.SwayThings.svg
+%{_datadir}/icons/hicolor/symbolic/apps/io.github.mowi12.SwayThings-symbolic.svg
 %{_metainfodir}/io.github.mowi12.SwayThings.metainfo.xml
 %{_mandir}/man1/sway-things.1*
 %{_mandir}/man1/sway-things-*.1*
