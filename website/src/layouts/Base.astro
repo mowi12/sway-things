@@ -1,0 +1,57 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Every page: the navy frame of the app icon around a white pane, and the footer.
+import '../styles/tokens.css';
+import '../styles/global.css';
+
+import Footer from '../components/Footer.astro';
+import { faces, fontFaceCss } from '../lib/fonts.mjs';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {faces.filter((face) => face.preload).map(({ url }) => (
+      <link rel="preload" href={url} as="font" type="font/woff2" crossorigin />
+    ))}
+    <style is:inline set:html={fontFaceCss} />
+    <meta name="theme-color" content="#285577" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <div class="pane">
+      <slot />
+      <Footer />
+    </div>
+  </body>
+</html>
+
+<style>
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 2 * var(--frame-width));
+  background: var(--pane);
+  border-radius: var(--radius-pane);
+  overflow: clip;
+}
+</style>

@@ -1,0 +1,140 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { repo } from '../data/links.mjs';
+import AppIcon from './AppIcon.astro';
+---
+
+<header>
+  <a class="brand" href="/"><AppIcon size={30} id="brand" /><span>Sway Things</span></a>
+  <nav aria-label="Sections">
+    <ul>
+      <li><a href="/#principles">Principles</a></li>
+      <li><a href="/#pages">Pages</a></li>
+      <li>
+        <a href="/#command-line" aria-label="Command line"><span class="long">Command line</span><span class="short"
+          >CLI</span></a>
+      </li>
+      <li><a href="/#install">Install</a></li>
+    </ul>
+  </nav>
+  <a class="pill" href={repo}>GitHub</a>
+</header>
+
+<style>
+/* Wide: brand, section links and the GitHub link in one row. Narrow: brand and GitHub on top, the section links in a
+   row of their own below, scrollable sideways if they ever don't fit. */
+header {
+  display: grid;
+  grid-template-areas: "brand nav pill";
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 26px;
+  padding: 22px var(--gutter);
+}
+
+.brand {
+  grid-area: brand;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 1.1rem/1 var(--font-display);
+  color: var(--heading);
+  text-decoration: none;
+}
+
+/* The list scrolls sideways if it ever doesn't fit; its padding leaves room for the focus ring, and the negative margin
+   keeps the links where they would be without it. */
+nav {
+  grid-area: nav;
+  justify-self: end;
+  min-width: 0;
+  max-width: calc(100% + 16px);
+  margin: -8px;
+}
+
+ul {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+ul::-webkit-scrollbar {
+  display: none;
+}
+
+nav a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+nav a:hover {
+  color: var(--heading);
+}
+
+/* "Command line" is "CLI" on the narrowest phones; the link's aria-label keeps its name. Exactly one label shows. */
+.short {
+  display: none;
+}
+
+@media (max-width: 400px) {
+  .long {
+    display: none;
+  }
+
+  .short {
+    display: inline;
+  }
+}
+
+.pill {
+  grid-area: pill;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: var(--brand-white);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+@media (max-width: 720px) {
+  header {
+    grid-template-areas:
+      "brand pill"
+      "nav nav";
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-bottom: 8px;
+  }
+
+  nav {
+    justify-self: stretch;
+  }
+
+  ul {
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  /* Touch-sized targets */
+  .brand,
+  nav a,
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .pill {
+    padding: 0 18px;
+  }
+}
+</style>
