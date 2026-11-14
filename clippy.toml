@@ -2,4 +2,4 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
 # Product names that doc_markdown would otherwise ask to put in backticks; ".." keeps clippy's defaults.
-doc-valid-idents = ["SwayFX", ".."]
+doc-valid-idents = ["SwayFX", "BlueZ", ".."]
