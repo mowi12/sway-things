@@ -1268,41 +1268,6 @@ project's key.
   server; the release workflow triggers them after the release is published, with an OBS token bound to the package that
   can do nothing but run them.
 
-#### OBS setup (maintainer, once)
-
-1. An account on [build.opensuse.org](https://build.opensuse.org) (an openSUSE account), and `osc` (the OBS command line
-   client; `zypper install osc` on openSUSE, `dnf install osc` on Fedora).
-2. **Project:** home project → _Subprojects_ → _New subproject_ `sway-things`, which makes `home:mowi12:sway-things`.
-3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed, every Fedora release offered that
-   is still supported and Fedora Rawhide, Debian 13, Debian Unstable and Ubuntu 26.04, then for each, keep x86_64 and
-   aarch64 (and only those) ticked; for Tumbleweed only x86_64. The names must stay `openSUSE_Tumbleweed`, `Fedora_<N>`,
-   `Fedora_Rawhide`, `Debian_13`, `Debian_Unstable` and `xUbuntu_26.04`, which the README's commands use.
-4. **Project Config:** where a Debian build dependency can be met by two packages, OBS doesn't pick one ("unresolvable:
-   have choice for …"); the project configuration names the real one:
-
-   ```text
-   %if "%_repository" == "Debian_13"
-   Prefer: libjpeg62-turbo-dev
-   %endif
-   %if "%_repository" == "Debian_Unstable"
-   Prefer: libselinux-dev
-   %endif
-   ```
-
-5. **Debuginfo:** _Repositories_ → _Debuginfo Flag_ → enable "All". Without it OBS doesn't split the debug info off on
-   openSUSE, and the binaries ship unstripped (rpmlint's `unstripped-binary-or-object`); with it every distribution gets
-   separate `-debuginfo` or `-dbgsym` packages. A flag change doesn't rebuild by itself (`osc rebuild`).
-6. **Package:** _Create Package_ `sway-things`.
-7. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
-   tarball from the checkout, copy the tarball, both specs, `sway-things.dsc` and `debian.tar.gz` from `target/dist/`
-   into it, `osc addremove` and `osc commit`. Every repository but the best-effort ones must build green; repeat
-   whenever the packaging changes before the release.
-8. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
-   token that can only run the package's source services:
-   `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
-   `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow uses it; the steps are in
-   [Releasing](Releasing.md).
-
 ### Package CI
 
 - `scripts/build-packages.sh --container NAME|all [--tarball FILE]` builds the packages in containers from
