@@ -28,6 +28,8 @@ BuildRequires:  pkgconfig(gtk4) >= 4.18
 # msgfmt, with the ITS rules for the AppStream metainfo
 BuildRequires:  gettext-tools
 BuildRequires:  desktop-file-utils
+# Owns the icon directories.
+BuildRequires:  hicolor-icon-theme
 BuildRequires:  AppStream
 Requires:       (sway or swayfx)
 
@@ -62,6 +64,8 @@ appstreamcli validate --no-net %{buildroot}%{_datadir}/metainfo/io.github.mowi12
 %{_bindir}/sway-things
 %{_bindir}/sway-things-gui
 %{_datadir}/applications/io.github.mowi12.SwayThings.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.mowi12.SwayThings.svg
+%{_datadir}/icons/hicolor/symbolic/apps/io.github.mowi12.SwayThings-symbolic.svg
 %{_datadir}/metainfo/io.github.mowi12.SwayThings.metainfo.xml
 %{_mandir}/man1/sway-things.1%{?ext_man}
 %{_mandir}/man1/sway-things-*.1%{?ext_man}

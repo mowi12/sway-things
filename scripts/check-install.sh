@@ -48,6 +48,8 @@ check_prefix() {
     "644 $root/share/applications/$app.desktop"
     "644 $root/share/bash-completion/completions/sway-things"
     "644 $root/share/fish/vendor_completions.d/sway-things.fish"
+    "644 $root/share/icons/hicolor/scalable/apps/$app.svg"
+    "644 $root/share/icons/hicolor/symbolic/apps/$app-symbolic.svg"
     "644 $root/share/metainfo/$app.metainfo.xml"
     "644 $root/share/zsh/site-functions/_sway-things"
   )
