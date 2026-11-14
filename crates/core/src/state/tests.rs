@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -1078,32 +1079,32 @@ fn the_watcher_reports_outside_changes_and_our_own_saves() {
     let mut state = fixture.load();
     let watcher = state.watch().unwrap();
 
-    // Our own save is reported, but the reload finds nothing new.
+    // Our own save is reported, but the reload finds nothing new. The watcher batches events by
+    // time, so the two files may come in one report or several, and a file may come twice.
     state.set(GAPS, None, Value::Integer(4), None).unwrap();
     state
         .set(TAP, Some(TOUCHPAD), Value::Bool(true), None)
         .unwrap();
     state.save(&WriteAccess::for_tests()).unwrap();
-    let mut reported = Vec::new();
-    while reported.len() < 2 {
+    let ours = BTreeSet::from([fixture.path(Layer::Host), fixture.path(Layer::Shared)]);
+    let mut reported = BTreeSet::new();
+    while reported != ours {
         reported.extend(watcher.changed_blocking().unwrap());
+        assert!(reported.is_subset(&ours));
         assert_eq!(state.reload(), Changes::default());
     }
-    reported.sort();
-    assert_eq!(
-        reported,
-        [fixture.path(Layer::Host), fixture.path(Layer::Shared)]
-    );
 
-    // A hand edit is reported, and the reload picks it up.
+    // A hand edit is reported, and the reload picks it up. A late report of our own save may come
+    // with it; the reload tells it apart.
     fs::write(
         fixture.path(Layer::Shared),
         "version = 1\n[windows.gaps]\ninner = 8\n",
     )
     .unwrap();
-    assert_eq!(
-        watcher.changed_blocking().unwrap(),
-        [fixture.path(Layer::Shared)]
-    );
+    let mut reported = BTreeSet::new();
+    while !reported.contains(&fixture.path(Layer::Shared)) {
+        reported.extend(watcher.changed_blocking().unwrap());
+        assert!(reported.is_subset(&ours));
+    }
     assert_eq!(state.reload().keys, [changed(None, GAPS)]);
 }
