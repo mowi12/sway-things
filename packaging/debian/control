@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Built from the release tarball of scripts/make-tarball.sh, which also makes the .dsc for the openSUSE Build Service
+# from the first paragraph, and the changelog and copyright file.
+Source: sway-things
+Section: x11
+Priority: optional
+Maintainer: Sway Things Maintainers <packaging@sway-things.org>
+Build-Depends:
+ appstream,
+ cargo,
+ debhelper-compat (= 13),
+ desktop-file-utils,
+ gettext,
+ libgtk-4-dev (>= 4.18),
+ pkgconf,
+ rustc (>= 1.85),
+Rules-Requires-Root: no
+Standards-Version: 4.7.2
+Homepage: https://github.com/mowi12/sway-things
+Vcs-Browser: https://github.com/mowi12/sway-things
+Vcs-Git: https://github.com/mowi12/sway-things.git
+
+Package: sway-things
+Architecture: any
+Depends:
+ sway (>= 1.10) | swayfx,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: settings app for the sway Wayland compositor and SwayFX
+ Sway Things is a settings app for the sway Wayland compositor and SwayFX: a
+ searchable sidebar of pages, controls that apply instantly, and a safety net
+ for risky changes. It never edits your hand-written configuration; it writes
+ sway configuration files of its own, which your configuration includes with a
+ single line. The same settings are available on the command line with
+ sway-things.

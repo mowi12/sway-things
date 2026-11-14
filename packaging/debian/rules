@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds from the release tarball of scripts/make-tarball.sh, whose .cargo/config.toml points cargo at the crates in
+# vendor/. Not dh-cargo: it builds against Debian's packaged crates, not vendored ones.
+
+export CARGO_HOME = $(CURDIR)/debian/cargo-home
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+# Line tables for the -dbgsym package, which dh_strip splits off.
+export CARGO_PROFILE_RELEASE_DEBUG = line-tables-only
+# The linker flags of dpkg-buildflags, which cargo doesn't read itself.
+export RUSTFLAGS = $(foreach flag,$(shell dpkg-buildflags --get LDFLAGS),-C link-arg=$(flag))
+
+%:
+	dh $@
+
+# dh_clean deletes *.orig files, but the checksums of the vendored crates cover their Cargo.toml.orig.
+override_dh_clean:
+	dh_clean -XCargo.toml.orig
+
+override_dh_auto_build:
+	PREFIX=/usr scripts/build.sh -- --offline
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	cargo test --workspace --offline --locked
+endif
+
+override_dh_auto_install:
+	PREFIX=/usr DESTDIR=debian/sway-things scripts/install.sh
+	desktop-file-validate debian/sway-things/usr/share/applications/io.github.mowi12.SwayThings.desktop
+	appstreamcli validate --no-net debian/sway-things/usr/share/metainfo/io.github.mowi12.SwayThings.metainfo.xml
+# Debian's zsh searches /usr/share/zsh/vendor-completions, not site-functions.
+	mkdir -p debian/sway-things/usr/share/zsh/vendor-completions
+	mv debian/sway-things/usr/share/zsh/site-functions/_sway-things debian/sway-things/usr/share/zsh/vendor-completions/
+	rmdir debian/sway-things/usr/share/zsh/site-functions
