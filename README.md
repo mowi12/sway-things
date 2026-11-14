@@ -8,6 +8,9 @@
 </p>
 
 <p align="center">
+  <a href="https://sway-things.org">
+    <img src="https://img.shields.io/badge/website-sway--things.org-2fb5a8" alt="Website: sway-things.org">
+  </a>
   <a href="https://github.com/mowi12/sway-things/actions/workflows/ci.yml">
     <img src="https://github.com/mowi12/sway-things/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
   </a>

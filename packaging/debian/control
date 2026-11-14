@@ -18,7 +18,7 @@ Build-Depends:
  rustc (>= 1.85),
 Rules-Requires-Root: no
 Standards-Version: 4.7.2
-Homepage: https://github.com/mowi12/sway-things
+Homepage: https://sway-things.org
 Vcs-Browser: https://github.com/mowi12/sway-things
 Vcs-Git: https://github.com/mowi12/sway-things.git
 

@@ -4,6 +4,7 @@ description = "Fuzz targets of Sway Things, run with cargo-fuzz (scripts/fuzz.sh
 version = "0.0.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
+homepage = "https://sway-things.org"
 repository = "https://github.com/mowi12/sway-things"
 publish = false
 
