@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Bluetooth through BlueZ on the system D-Bus: the adapters, their devices, what can be done with
-//! them, and the pairing agent.
+//! them, the pairing agent, and the radio's kill switch (rfkill).
 //!
 //! [`Bluez`] is the backend; the types here are plain data, free of D-Bus. Device names come from
 //! anyone in radio range: they are data, shown as plain text and never put into commands.
@@ -12,6 +12,7 @@
 
 mod agent;
 mod bluez;
+pub mod rfkill;
 
 use std::fmt;
 
