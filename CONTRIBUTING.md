@@ -1,8 +1,8 @@
 # Contributing to Sway Things
 
-Thanks for your interest! Sway Things is in the **planning phase**. There's no code yet, but the design is written down
-and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues privately
-as described in [SECURITY.md](SECURITY.md), never in public issues.
+Thanks for your interest! Sway Things is working toward its first release, v0.1; the design of everything after it is
+written down in the wiki and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report
+security issues privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Read first
 
@@ -30,20 +30,24 @@ as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 - **Trunk-based.** `main` is the only long-lived branch and is always green.
 - **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose:
-  `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`.
+  `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`. The purpose shows in branch lists, and the issue number
+  gives the context.
 - **Every change goes through a pull request**:
   - all required CI checks must pass, and **nobody can bypass them**;
-  - **one approving review** is required (the repository owner may bypass the review, never CI);
+  - **one approving review** is required, four eyes on code that writes `exec` lines and config (the repository owner
+    may bypass the review, never CI);
   - new commits dismiss earlier approvals, and all review conversations must be resolved;
   - no force pushes to `main`.
 - **Merge commits only**: a PR lands as a merge commit ("Merge pull request #N from …"), and every commit of the PR
   stays in the history as is. Keep commits meaningful and conventional, and clean them up with an interactive rebase
-  before merging. Branches are deleted automatically after merge.
+  before merging. The merge commit keeps the PR's boundary visible: it groups the PR's commits and names its number.
+  Branches are deleted automatically after merge.
 - **Updating your branch:** when `main` has moved on, use **Update with rebase** (or rebase locally), never a merge
   commit. A "Merge branch 'main' into …" commit would end up in the history and isn't a conventional commit.
 - **Auto-merge** is available: enable it, and the PR merges once it's approved and all checks are green.
 - Keep PRs small and fill in the PR template checklist (tick each item, or cross it out with a reason).
-- **Labels and milestones go on the issue**, not on the PR. Link the issue in the PR description with `Closes #N`.
+- **Labels and milestones go on the issue**, not on the PR: GitHub's milestone progress counts issues and PRs together,
+  so a milestone on both would count the same work twice. Link the issue in the PR description with `Closes #N`.
 
 ## Commit messages
 
@@ -69,7 +73,8 @@ The JSON file is the source of truth. If the two disagree, the JSON wins. CI che
 `docs(wiki): describe conflict detection`. Mark breaking changes with `!` (`feat(cli)!: rename get to show`).
 
 Commit messages feed the generated `CHANGELOG.md` ([git-cliff](https://git-cliff.org/)), so write them for users, in
-American English.
+American English. American English is the language of the whole project (code, UI strings, docs), as sway (`colors`) and
+GTK (`color-scheme`) use it, and it gives the spell checker one locale.
 
 ## Engineering rules (non-negotiable)
 
@@ -82,11 +87,13 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 3. **Treat external strings as data.** Device names, SSIDs, Bluetooth names, file names and window titles can be
    attacker-controlled. Escape them with the typed sway command builders. Never interpolate them.
 4. **No `unsafe`.** The root `Cargo.toml` forbids `unsafe_code` for every crate.
-5. **No panics in non-test code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by clippy. Handle errors.
+5. **No panics in non-test code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by clippy. Handle errors:
+   a panic must not end a hook at login or leave a change half applied.
 6. **No privileged code.** System changes only go through existing polkit-guarded D-Bus services.
 7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
    Writes are atomic. **No network access, no telemetry.**
-8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop.
+8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop, so UI updates run
+   directly in futures and CLI hooks start fast.
 9. **REUSE headers.** Every source file (`.rs`, scripts) starts with:
 
    ```text
@@ -105,9 +112,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 ## Checks
 
-**Every check is one script in `scripts/`, and that script is the only place its command is written down**. CI calls the
-scripts directly; the `justfile` just wraps them for convenience. There are no git hooks. Run checks yourself before
-pushing:
+**Every check is one script in `scripts/`, and that script is the only place its command is written down**, so local
+runs and CI can't drift. CI calls the scripts directly; the `justfile` just wraps them for convenience. There are no git
+hooks. Run checks yourself before pushing:
 
 ```sh
 just check              # run every check, like CI
@@ -221,13 +228,10 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Releases
 
-Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. The commit that bumps the version
-also runs `scripts/update-cli-docs.sh`, since every man page names the version. Pushing a version tag triggers the
-release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
-generated from the commits. Publishing the release makes the openSUSE Build Service fetch the tarball and the specs and
-build the packages (the Debian changelog is made from the version). A version bump changes the `Version` of both specs
-in `packaging/rpm/` too (`scripts/check-packaging.sh` checks it). See
-[wiki/Architecture.md](wiki/Architecture.md#packaging).
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. A release pull request sets the
+version (`scripts/bump-version.sh`) and adds the changelog section; the maintainer then pushes a signed tag, the release
+workflow creates a draft release, and publishing it makes the openSUSE Build Service build the packages. The steps and
+the dry run are in [wiki/Releasing.md](wiki/Releasing.md).
 
 ## AI-assisted contributions
 

@@ -1,0 +1,124 @@
+name: Release
+
+# A signed version tag vX.Y.Z (or vX.Y.Z-rc.N for a dry run) makes a draft release: the tag is checked, the reproducible
+# tarball and the OBS inputs are made from it, every package is built from that tarball, the files are attested, and
+# the draft gets the notes from CHANGELOG.md. Nothing is public until the maintainer publishes the draft; publishing a
+# release (not a pre-release) makes the openSUSE Build Service fetch it.
+on:
+  push:
+    tags: ["v*"]
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify Release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The tag, and main to check that the tag is on it.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: scripts/verify-release.sh "$TAG"
+
+  tarball:
+    name: Make Tarball
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A pre-release gets a snapshot version, which counts the commits.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Make Tarball Twice
+        env:
+          TAG: ${{ github.ref_name }}
+        run: scripts/make-tarball.sh --ref "$TAG" --check --out "$RUNNER_TEMP/dist"
+      - name: Upload Tarball
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-tarball
+          path: ${{ runner.temp }}/dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  packages:
+    name: Build Packages
+    needs: tarball
+    permissions:
+      contents: read
+    uses: ./.github/workflows/packages.yml
+    with:
+      artifact: release-tarball
+
+  draft:
+    name: Create Draft Release
+    needs: packages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download Tarball
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-tarball
+          path: ${{ runner.temp }}/dist
+      - name: Attest Release Files
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/dist/*
+      - name: Create Draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          scripts/release-notes.sh "$TAG" >"$RUNNER_TEMP/notes.md"
+          prerelease=()
+          if [[ $TAG == *-rc.* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag "${prerelease[@]}" \
+            --title "Sway Things ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md" "$RUNNER_TEMP"/dist/*
+
+  obs:
+    name: Trigger OBS
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-24.04
+    # Only v* tags may use the environment and its secret.
+    environment: obs
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Trigger OBS
+        env:
+          OBS_TOKEN: ${{ secrets.OBS_TOKEN }}
+        run: scripts/trigger-obs.sh

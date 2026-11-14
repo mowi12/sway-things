@@ -1,7 +1,7 @@
 # Architecture
 
-> Status: **design, no code yet.** Facts about sway, SwayFX, kanshi, waybar, mako and swaync were checked on 2026-11-07
-> against their man pages, source and releases (sway 1.12, SwayFX 0.6).
+> The facts about sway, SwayFX and the companion tools this design relies on, with their sources, are in the
+> [Sway Reference](Sway-Reference.md).
 
 ## Overview
 
@@ -183,6 +183,11 @@ layout editor and the window preview. They still read and write settings through
 
 ## State
 
+Sway Things keeps its own settings files as the source of truth instead of reading values back from sway: IPC can't
+report many values (client colors, gaps, the font) and can't tell a value the user chose from a sway default, and
+rewriting sway syntax in place is fragile. The CLI, export and import, and the history build on the same files. The
+per-machine overlay exists because dotfiles are shared between machines, and some values differ per machine.
+
 ```text
 $XDG_CONFIG_HOME/sway-things/
 ├── settings.toml          # shared values: commit to dotfiles
@@ -282,6 +287,10 @@ for the [include detection](#include-detection).
 
 **Rule: Sway Things only writes files it created**. A file we created carries a header and is recorded in
 `manifest.toml`. If its hash no longer matches, someone edited it. The app shows a warning and asks before overwriting.
+The rule is the same for sway and every companion tool, so the promise stays one rule that is easy to explain.
+
+The user includes our files at the end of their config, so that a change made in the app survives a reload; their own
+lines that come after the include and set the same thing win, and conflict detection shows them.
 
 ### sway
 
@@ -939,7 +948,7 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   values need a newer sway than their directive) and, for SwayFX directives, its minimum SwayFX version. Controls the
   running compositor doesn't support show as disabled with a reason, instead of disappearing.
 - SwayFX settings go to `90-effects.conf`. While vanilla sway runs, the generator writes a comment per stored effect
-  instead of the directive.
+  instead of the directive, so a vanilla sway config stays valid (sway rejects SwayFX directives).
 
 ## Security model
 
@@ -1060,7 +1069,8 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   made readable on a background) lives in `crates/core/src/theme.rs`, shared with the GUI's contrast check.
 - **Concurrency**: one event loop. Futures run on the GTK main context (`glib::spawn_future_local`); I/O uses
   executor-agnostic, async-io based crates (zbus, swayipc-async, async-process); the CLI uses `async_io::block_on`. No
-  tokio. `crates/core` must not depend on a specific executor.
+  tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly in futures without
+  bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
 
 ## Internationalization
 
@@ -1158,7 +1168,8 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   whole pixels. Both are GPL-3.0-or-later, with the SPDX header in an XML comment. The desktop entry and the metainfo
   name the icon by the app ID; the RPM specs list both files, and the openSUSE spec needs `hicolor-icon-theme` for the
   directories.
-- License: `GPL-3.0-or-later`.
+- License: `GPL-3.0-or-later`, the norm for GTK desktop apps and what packagers expect; _or later_ keeps it compatible
+  with future GPL versions without asking every contributor to relicense.
 
 ### Release tarball
 
@@ -1254,42 +1265,8 @@ project's key.
 - **Sources before v0.1:** the maintainer uploads a snapshot (`make-tarball.sh`, then `osc`).
 - **Sources after v0.1:** the package's `_service` fetches the specs, `sway-things.dsc` and `debian.tar.gz` from the
   latest GitHub release (`download_url`), then the tarball the specs name (`download_files`). The services run on the
-  server; the release workflow (#89) triggers them after the release is published, with an OBS token bound to the
-  package that can do nothing but run them.
-
-#### OBS setup (maintainer, once)
-
-1. An account on [build.opensuse.org](https://build.opensuse.org) (an openSUSE account), and `osc` (the OBS command line
-   client; `zypper install osc` on openSUSE, `dnf install osc` on Fedora).
-2. **Project:** home project → _Subprojects_ → _New subproject_ `sway-things`, which makes `home:mowi12:sway-things`.
-3. **Repositories:** _Repositories_ → _Add from a Distribution_: openSUSE Tumbleweed, every Fedora release offered that
-   is still supported and Fedora Rawhide, Debian 13, Debian Unstable and Ubuntu 26.04, then for each, keep x86_64 and
-   aarch64 (and only those) ticked; for Tumbleweed only x86_64. The names must stay `openSUSE_Tumbleweed`, `Fedora_<N>`,
-   `Fedora_Rawhide`, `Debian_13`, `Debian_Unstable` and `xUbuntu_26.04`, which the README's commands use.
-4. **Project Config:** where a Debian build dependency can be met by two packages, OBS doesn't pick one ("unresolvable:
-   have choice for …"); the project configuration names the real one:
-
-   ```text
-   %if "%_repository" == "Debian_13"
-   Prefer: libjpeg62-turbo-dev
-   %endif
-   %if "%_repository" == "Debian_Unstable"
-   Prefer: libselinux-dev
-   %endif
-   ```
-
-5. **Debuginfo:** _Repositories_ → _Debuginfo Flag_ → enable "All". Without it OBS doesn't split the debug info off on
-   openSUSE, and the binaries ship unstripped (rpmlint's `unstripped-binary-or-object`); with it every distribution gets
-   separate `-debuginfo` or `-dbgsym` packages. A flag change doesn't rebuild by itself (`osc rebuild`).
-6. **Package:** _Create Package_ `sway-things`.
-7. **Snapshot:** `scripts/make-tarball.sh`, then `osc checkout home:mowi12:sway-things sway-things`, delete the old
-   tarball from the checkout, copy the tarball, both specs, `sway-things.dsc` and `debian.tar.gz` from `target/dist/`
-   into it, `osc addremove` and `osc commit`. Every repository but the best-effort ones must build green; repeat
-   whenever the packaging changes before the release.
-8. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
-   token that can only run the package's source services:
-   `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
-   `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow (#89) uses it.
+  server; the release workflow triggers them after the release is published, with an OBS token bound to the package that
+  can do nothing but run them.
 
 ### Package CI
 

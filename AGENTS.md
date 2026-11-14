@@ -2,22 +2,25 @@
 
 ## Overview
 
-Sway Things is a GTK4 settings app for the sway Wayland compositor (and SwayFX), written in Rust. The project is in the
-**planning phase**: the design is documented, and there is no code yet.
+Sway Things is a GTK4 settings app for the sway Wayland compositor (and SwayFX), written in Rust. It is working toward
+v0.1: the core, the CLI and the app with the pages of the v0.1 scope exist, and packages are built on the openSUSE Build
+Service. The design for everything after v0.1 is documented in the wiki.
 
 Prefer the wiki and existing docs over restating them. If you summarize, keep it short and link the canonical page.
 
 ## Canonical documentation
 
-- `README.md`: user-facing overview (what, why, planned features)
+- `README.md`: user-facing overview (what, why, features, installation)
 - `CONTRIBUTING.md`: workflow, commit convention, engineering rules, quality gates
 - `.conventional-commit-types.json`: the allowed commit types, source of truth
 - `wiki/Home.md`: developer documentation index
 - `wiki/Vision-and-Scope.md`: goals, target users, non-goals, prior art
 - `wiki/Architecture.md`: crates, registry, state files, generators, parser, conflict detection, backends, CLI, security
   model, testing
+- `wiki/Sway-Reference.md`: verified facts about sway, SwayFX, the companion tools and the distributions, with sources
 - `wiki/UX-Concept.md`: window layout, navigation, apply model, indicators, first run, theming
 - `wiki/Roadmap.md`: v0.1 scope and what comes after
+- `wiki/Releasing.md`: how to release: steps, dry run, snapshots
 - `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
 
 ## Structure
@@ -40,8 +43,9 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 ├── ci/              # containers (sway 1.10, sway latest, SwayFX; each builds the IPC tests) and sample configs;
 │                    #   packages/: one container per distribution package (scripts/build-packages.sh)
 ├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like
-│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh and
-│                    #   build-packages.sh
+│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh,
+│                    #   build-packages.sh, and for releases bump-version.sh, verify-release.sh, release-notes.sh and
+│                    #   trigger-obs.sh
 ├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
@@ -116,3 +120,4 @@ Never break these, even if a task seems to ask for it. Ask instead.
 | How does a setting flow from UI to sway? | `wiki/Architecture.md` → "Data flow" |
 | How must a page behave? | `wiki/UX-Concept.md` |
 | What's next? | `wiki/Roadmap.md` |
+| How do I release? | `wiki/Releasing.md` |
