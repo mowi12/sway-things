@@ -87,6 +87,11 @@ st-page list.st-section > row:not(:last-child) {
   border-bottom: 1px solid @borders;
 }
 
+/* The project's links below the versions on About & Maintenance. */
+st-page .st-about-links {
+  margin-top: 6px;
+}
+
 /* A group of settings of one directive: its row, then the members' rows, indented */
 st-page list.st-section > row.st-member {
   padding-left: 40px;

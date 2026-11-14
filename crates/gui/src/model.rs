@@ -525,6 +525,16 @@ impl Model {
         self.emit_by_name::<()>("changed", &[]);
     }
 
+    /// The compositor the settings are checked against: the running one, else the installed
+    /// one. `None` if the settings couldn't be loaded.
+    pub fn compositor(&self) -> Option<Compositor> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.compositor)
+    }
+
     /// Where the generated files go.
     pub fn locations(&self) -> Option<Locations> {
         self.imp()

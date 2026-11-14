@@ -137,6 +137,7 @@ impl PageView {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let mut sections = Vec::new();
         if page == Page::About {
+            sections.push(about_section(model, &body));
             sections.push(generated_section(model, &body));
         }
         let mut first = page != Page::About;
@@ -467,6 +468,98 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
     section
 }
 
+/// The project's links below the "About" section: what they are called, their icon and where
+/// they lead.
+const PROJECT_LINKS: [(&str, &str, &str); 3] = [
+    (
+        "Website",
+        "web-browser-symbolic",
+        env!("CARGO_PKG_HOMEPAGE"),
+    ),
+    (
+        "Source Code (GitHub)",
+        "text-x-script-symbolic",
+        env!("CARGO_PKG_REPOSITORY"),
+    ),
+    (
+        "Report a Bug",
+        "dialog-warning-symbolic",
+        concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"),
+    ),
+];
+
+/// The "About" section of About & Maintenance: a row per version (Sway Things, the compositor),
+/// then the project's links, which open in the default browser.
+fn about_section(model: &Model, body: &gtk::Box) -> Section {
+    let section = Section::new(model, Page::About, "About", "About", true);
+    body.append(&section.header);
+    body.append(&section.body);
+    let list = gtk::ListBox::new();
+    list.set_selection_mode(gtk::SelectionMode::None);
+    list.add_css_class("st-section");
+    list.update_property(&[gtk::accessible::Property::Label("About")]);
+    let compositor = model
+        .compositor()
+        .map_or_else(|| "Unknown".to_owned(), |compositor| compositor.to_string());
+    for (title, value) in [
+        ("Sway Things", env!("CARGO_PKG_VERSION").to_owned()),
+        ("Compositor", compositor),
+    ] {
+        list.append(&list_row(&info_row(title, &value)));
+    }
+    section.body.append(&list);
+    let links = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    links.set_halign(gtk::Align::Center);
+    links.add_css_class("st-about-links");
+    for (label, icon, uri) in PROJECT_LINKS {
+        links.append(&link_button(label, icon, uri));
+    }
+    section.body.append(&links);
+    section
+}
+
+/// A row with `title` on the left and `value` on the right, selectable for bug reports.
+fn info_row(title: &str, value: &str) -> gtk::Box {
+    let title = gtk::Label::new(Some(title));
+    title.set_xalign(0.0);
+    title.set_hexpand(true);
+    let value = gtk::Label::new(Some(value));
+    value.set_xalign(1.0);
+    value.set_selectable(true);
+    value.set_wrap(true);
+    value.add_css_class(style::DIM);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    row.append(&title);
+    row.append(&value);
+    row
+}
+
+/// A flat button with `icon` and `label` that opens `uri` in the default browser.
+fn link_button(label: &str, icon: &str, uri: &'static str) -> gtk::Button {
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    content.append(&gtk::Image::from_icon_name(icon));
+    content.append(&gtk::Label::new(Some(label)));
+    let button = gtk::Button::builder()
+        .child(&content)
+        .css_classes(["flat"])
+        .tooltip_text(uri)
+        .build();
+    button.update_property(&[gtk::accessible::Property::Label(label)]);
+    button.connect_clicked(move |button| {
+        let window = button.root().and_downcast::<gtk::Window>();
+        gtk::UriLauncher::new(uri).launch(
+            window.as_ref(),
+            gtk::gio::Cancellable::NONE,
+            move |result| {
+                if let Err(error) = result {
+                    glib::g_warning!("sway-things", "{uri} can't be opened: {error}");
+                }
+            },
+        );
+    });
+    button
+}
+
 /// The "Generated config" section of About & Maintenance: a row that opens the window with the
 /// files Sway Things writes.
 fn generated_section(model: &Model, body: &gtk::Box) -> Section {
@@ -475,7 +568,7 @@ fn generated_section(model: &Model, body: &gtk::Box) -> Section {
         Page::About,
         "Generated config",
         "Generated config",
-        true,
+        false,
     );
     body.append(&section.header);
     body.append(&section.body);
