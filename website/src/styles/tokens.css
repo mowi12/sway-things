@@ -1,0 +1,64 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Sway Things contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Design tokens. The brand colors come from the app icon (data/icons/hicolor/scalable/apps/): change them here when
+ * the icon changes.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* From the app icon */
+  --brand-navy: #285577;
+  --brand-teal: #2fb5a8;
+  --brand-white: #ffffff;
+
+  /* Light theme */
+  --page: var(--brand-navy);
+  --frame: var(--brand-navy);
+  --pane: var(--brand-white);
+  --surface: #ffffff;
+  --surface-muted: #f2f6f8;
+  --ink: #10283a;
+  --ink-muted: #4b6272;
+  --heading: var(--brand-navy);
+  --accent: var(--brand-teal);
+  --accent-ink: #0f6f66;
+  --on-accent: #0b2230;
+  --mark: #e5f5f3;
+  --line: #dfe7ec;
+  --code-bg: #163449;
+  --code-ink: #dbe9f0;
+  --shadow: 0 24px 50px -26px rgb(16 40 58 / 0.5);
+
+  /* Shape */
+  --frame-width: clamp(8px, 1.3vw, 18px);
+  --radius-pane: clamp(20px, 3vw, 44px);
+  --radius: 14px;
+  --gutter: clamp(16px, 4vw, 56px);
+  --measure: 68ch;
+
+  /* Type: IBM Plex, self-hosted (src/lib/fonts.mjs) */
+  --font-display: "IBM Plex Sans Condensed", system-ui, sans-serif;
+  --font-text: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #1d4562;
+    --frame: var(--brand-navy);
+    --pane: #0f1f2b;
+    --surface: #142a3a;
+    --surface-muted: #11242f;
+    --ink: #e6eff4;
+    --ink-muted: #a3b7c4;
+    --heading: #e6eff4;
+    --accent-ink: #5fd3c6;
+    --mark: rgb(47 181 168 / 0.16);
+    --line: #23394a;
+    --code-bg: #081420;
+    --shadow: 0 24px 50px -26px rgb(0 0 0 / 0.8);
+  }
+}

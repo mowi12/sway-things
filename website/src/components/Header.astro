@@ -1,0 +1,68 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { repo } from '../data/links.mjs';
+import AppIcon from './AppIcon.astro';
+---
+
+<header>
+  <a class="brand" href="/"><AppIcon size={30} id="brand" /><span>Sway Things</span></a>
+  <nav aria-label="Sections">
+    <ul>
+      <li><a href="/#principles">Principles</a></li>
+      <li><a href="/#pages">Pages</a></li>
+      <li><a href="/#command-line">Command line</a></li>
+      <li><a href="/#install">Install</a></li>
+      <li><a class="pill" href={repo}>GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<style>
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 28px;
+  padding: 22px var(--gutter);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 1.1rem/1 var(--font-display);
+  color: var(--heading);
+  text-decoration: none;
+}
+
+ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+nav a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+nav a:hover {
+  color: var(--heading);
+}
+
+nav .pill {
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: var(--brand-white);
+}
+</style>

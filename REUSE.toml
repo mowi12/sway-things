@@ -52,3 +52,10 @@ path = "fuzz/seeds/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Screenshots of the app for the website, made by scripts/update-website-screenshots.sh.
+[[annotations]]
+path = "website/src/assets/screenshots/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

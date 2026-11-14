@@ -1,0 +1,62 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// A screenshot of a page of the app in the visitor's color scheme, as AVIF with a WebP fallback. The PNG files in
+// src/assets/screenshots/ come from scripts/update-website-screenshots.sh.
+import type { ImageMetadata } from 'astro';
+import { getImage } from 'astro:assets';
+
+interface Props {
+  id: string;
+  alt: string;
+  sizes: string;
+  eager?: boolean;
+}
+
+const { id, alt, sizes, eager = false } = Astro.props;
+
+const files = import.meta.glob<{ default: ImageMetadata }>('../assets/screenshots/*.png', { eager: true });
+function screenshot(scheme: string): ImageMetadata {
+  const file = files[`../assets/screenshots/${id}--${scheme}.png`];
+  if (!file) {
+    throw new Error(`no screenshot ${id}--${scheme}.png; run scripts/update-website-screenshots.sh`);
+  }
+  return file.default;
+}
+
+const light = screenshot('light');
+const dark = screenshot('dark');
+const widths = [490, 980];
+const render = (src: ImageMetadata, format: 'avif' | 'webp') => getImage({ src, widths, sizes, format });
+const [lightAvif, lightWebp, darkAvif, darkWebp] = await Promise.all([
+  render(light, 'avif'),
+  render(light, 'webp'),
+  render(dark, 'avif'),
+  render(dark, 'webp'),
+]);
+---
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" type="image/avif" srcset={darkAvif.srcSet.attribute} sizes={sizes} />
+  <source media="(prefers-color-scheme: dark)" type="image/webp" srcset={darkWebp.srcSet.attribute} sizes={sizes} />
+  <source type="image/avif" srcset={lightAvif.srcSet.attribute} sizes={sizes} />
+  <img
+    src={lightWebp.src}
+    srcset={lightWebp.srcSet.attribute}
+    sizes={sizes}
+    width={light.width}
+    height={light.height}
+    alt={alt}
+    loading={eager ? 'eager' : 'lazy'}
+    decoding="async"
+  />
+</picture>
+
+<style>
+img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+</style>

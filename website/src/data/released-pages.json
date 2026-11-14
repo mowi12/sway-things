@@ -1,0 +1,6 @@
+[
+  { "id": "mouse-touchpad", "name": "Mouse & Touchpad" },
+  { "id": "keyboard", "name": "Keyboard" },
+  { "id": "windows", "name": "Windows" },
+  { "id": "window-behavior", "name": "Window Behavior" }
+]
