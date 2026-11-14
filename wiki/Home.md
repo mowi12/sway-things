@@ -23,5 +23,6 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 
 ## Status
 
-Working toward v0.1: the core, the CLI and the app with the pages of the v0.1 scope exist, and packages are built on the
-openSUSE Build Service. What v0.1 contains and what comes after is in the [Roadmap](Roadmap.md).
+Version 0.1.0 is released: the core, the CLI and the app with the four pages of the v0.1 scope, packaged on the openSUSE
+Build Service. What v0.1 contains and what comes after is in the [Roadmap](Roadmap.md); the changes per release are in
+the [changelog](../CHANGELOG.md).

@@ -1,12 +1,13 @@
 # Roadmap
 
 Only **v0.1** is planned in detail. Everything after it is an **unordered backlog** in the
-[Feature Catalog](Feature-Catalog.md). Features aren't mapped to later versions; priorities get set once v0.1 is done.
-Milestones on GitHub correspond to releases.
+[Feature Catalog](Feature-Catalog.md). Features aren't mapped to later versions; with v0.1 done, priorities get set from
+there. Milestones on GitHub correspond to releases.
 
 ## v0.1: prove the pipeline
 
-**Goal:** the whole architecture works end to end on real machines (vanilla sway and SwayFX), with low UI risk.
+**Goal:** the whole architecture works end to end on real machines (vanilla sway and SwayFX), with low UI risk. Released
+as 0.1.0 on 2026-11-14.
 
 ### Core
 

@@ -36,8 +36,8 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: before the first release.** Packages built from the current development state are available for testing (see
-> [Installation](#installation)). The [Roadmap](wiki/Roadmap.md) says what v0.1 contains.
+> **Status: 0.1.0, the first release.** It covers the pages listed under [Features](#features); packages are in
+> [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
 
@@ -119,10 +119,10 @@ sway-things doctor                        # check setup, missing tools and confl
 
 ## Installation
 
-Not released yet. Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64)
-come from the [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`; until the release,
-they are built from the current development state. Fedora Rawhide and Debian unstable are built too, on a best-effort
-basis: their packages may lag behind when those distributions change under them. The AUR for Arch Linux is planned.
+Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64) come from the
+[openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`. Fedora Rawhide and Debian
+unstable are built too, on a best-effort basis: their packages may lag behind when those distributions change under
+them. The AUR for Arch Linux is planned.
 
 ### openSUSE Tumbleweed
 

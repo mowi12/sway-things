@@ -5,8 +5,7 @@ seriously.
 
 ## Supported versions
 
-There's no release yet; reports against `main` are welcome. Once releases exist, only the latest release gets security
-fixes.
+Only the latest release gets security fixes. Reports against `main` are welcome too.
 
 ## Reporting a vulnerability
 
