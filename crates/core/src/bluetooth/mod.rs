@@ -13,6 +13,8 @@
 mod agent;
 mod bluez;
 pub mod rfkill;
+#[cfg(any(test, feature = "test-support"))]
+pub mod stand_in;
 
 use std::fmt;
 

@@ -36,3 +36,7 @@ zbus.workspace = true
 proptest.workspace = true
 regex.workspace = true
 tempfile.workspace = true
+
+[[test]]
+name = "bluetooth_bluez"
+required-features = ["test-support"]
