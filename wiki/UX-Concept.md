@@ -86,6 +86,26 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   _Right click_, …) to try tapping, the button maps and left-handed mode, and a strip of lines to scroll to feel scroll
   speed and natural scrolling.
 
+### Bluetooth
+
+The Bluetooth page shows BlueZ's live state; nothing of it is stored by Sway Things, so it has no reset, no indicators
+and no generated file.
+
+- **Bluetooth section:** a switch for the radio, its subtitle the name other devices see and the address. With two or
+  more adapters an _Adapter_ drop-down comes first (not remembered; the first adapter after a restart). A soft-blocked
+  radio (airplane mode, `rfkill`) says so and switching it on lifts the block; a hard block (a switch or key) locks the
+  switch and says how to turn it back on. Without access to `/dev/rfkill`, the page shows `rfkill unblock bluetooth`
+  with _Copy_.
+- **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
+  level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
+- **Other devices:** the devices around. While the page is on screen and the radio is on, it searches (a spinner says
+  so) and stops when the page goes. _Connect_ pairs, trusts and connects in one step.
+- **Pairing dialogs:** compare a code (_Pair_ / _Cancel_), type a shown code on a keyboard (the digits typed so far are
+  underlined), enter a PIN or a code, or allow a device without a code. A dialog closes when the device cancels.
+- **Advanced…:** in the header, while blueman is installed: starts blueman-manager for what the page doesn't do.
+- **Not available:** without BlueZ or without an adapter, the page shows a placeholder and updates by itself once either
+  appears.
+
 ### Sidebar groups
 
 | Group | Pages |
