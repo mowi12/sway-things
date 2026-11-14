@@ -1254,8 +1254,8 @@ project's key.
 - **Sources before v0.1:** the maintainer uploads a snapshot (`make-tarball.sh`, then `osc`).
 - **Sources after v0.1:** the package's `_service` fetches the specs, `sway-things.dsc` and `debian.tar.gz` from the
   latest GitHub release (`download_url`), then the tarball the specs name (`download_files`). The services run on the
-  server; the release workflow (#89) triggers them after the release is published, with an OBS token bound to the
-  package that can do nothing but run them.
+  server; the release workflow triggers them after the release is published, with an OBS token bound to the package that
+  can do nothing but run them.
 
 #### OBS setup (maintainer, once)
 
@@ -1289,7 +1289,8 @@ project's key.
 8. **After the first published release:** replace the files with a `_service` that fetches the release, and create a
    token that can only run the package's source services:
    `osc token --create --operation runservice home:mowi12:sway-things sway-things`. Its secret goes into the secret
-   `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow (#89) uses it.
+   `OBS_TOKEN` of a GitHub environment `obs` that only `v*` tags may use. The release workflow uses it; the steps are in
+   [Releasing](Releasing.md).
 
 ### Package CI
 

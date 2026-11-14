@@ -18,6 +18,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
   model, testing
 - `wiki/UX-Concept.md`: window layout, navigation, apply model, indicators, first run, theming
 - `wiki/Roadmap.md`: v0.1 scope and what comes after
+- `wiki/Releasing.md`: how to release: steps, dry run, snapshots
 - `wiki/Feature-Catalog.md`: the full feature scope per page (unordered)
 
 ## Structure
@@ -40,8 +41,9 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 ├── ci/              # containers (sway 1.10, sway latest, SwayFX; each builds the IPC tests) and sample configs;
 │                    #   packages/: one container per distribution package (scripts/build-packages.sh)
 ├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like
-│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh and
-│                    #   build-packages.sh
+│                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh,
+│                    #   build-packages.sh, and for releases bump-version.sh, verify-release.sh, release-notes.sh and
+│                    #   trigger-obs.sh
 ├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
@@ -116,3 +118,4 @@ Never break these, even if a task seems to ask for it. Ask instead.
 | How does a setting flow from UI to sway? | `wiki/Architecture.md` → "Data flow" |
 | How must a page behave? | `wiki/UX-Concept.md` |
 | What's next? | `wiki/Roadmap.md` |
+| How do I release? | `wiki/Releasing.md` |

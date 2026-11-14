@@ -221,13 +221,10 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Releases
 
-Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. The commit that bumps the version
-also runs `scripts/update-cli-docs.sh`, since every man page names the version. Pushing a version tag triggers the
-release workflow: a source tarball with vendored crates for the openSUSE Build Service and the AUR, and the changelog
-generated from the commits. Publishing the release makes the openSUSE Build Service fetch the tarball and the specs and
-build the packages (the Debian changelog is made from the version). A version bump changes the `Version` of both specs
-in `packaging/rpm/` too (`scripts/check-packaging.sh` checks it). See
-[wiki/Architecture.md](wiki/Architecture.md#packaging).
+Semantic Versioning, `0.x` until 1.0. Closing a milestone means tagging its release. A release pull request sets the
+version (`scripts/bump-version.sh`) and adds the changelog section; the maintainer then pushes a signed tag, the release
+workflow creates a draft release, and publishing it makes the openSUSE Build Service build the packages. The steps and
+the dry run are in [wiki/Releasing.md](wiki/Releasing.md).
 
 ## AI-assisted contributions
 
