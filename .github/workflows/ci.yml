@@ -252,6 +252,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/lychee.tar.gz" -C "$RUNNER_TEMP/lychee" --strip-components 1 \
             lychee-x86_64-unknown-linux-gnu/lychee
           echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+      - name: Check npm Licenses
+        run: scripts/check-npm-licenses.sh
       - name: Check Website
         run: scripts/check-website.sh
       # The runner image has Google Chrome.
