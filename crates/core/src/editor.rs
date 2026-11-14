@@ -9,15 +9,15 @@
 //! means `$VISUAL`, then `$EDITOR`, run in a terminal (most of them need one), and without those or
 //! a terminal the desktop's default application for text files.
 
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fmt;
 use std::io;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 
 use async_process::{Child, Command};
 
+use crate::delegate::find_program;
 use crate::registry::ValueError;
 
 /// The key of the preference that holds the editor command.
@@ -244,22 +244,13 @@ fn with_file(text: &str, file: &Path) -> OsString {
     filled
 }
 
-/// The path of the executable `name` in one of the directories of `path` (a `PATH` value).
-fn find_program(name: &str, path: Option<&OsStr>) -> Option<PathBuf> {
-    std::env::split_paths(path?)
-        .filter(|dir| dir.is_absolute())
-        .map(|dir| dir.join(name))
-        .find(|candidate| {
-            candidate
-                .metadata()
-                .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
-        })
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
     use std::fs;
+
+    use std::ffi::OsStr;
+    use std::os::unix::fs::PermissionsExt;
 
     use super::*;
 
