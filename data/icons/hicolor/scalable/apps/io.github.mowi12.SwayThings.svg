@@ -3,13 +3,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
     <clipPath id="pane">
-      <rect x="18" y="18" width="92" height="92" rx="12"/>
+      <rect x="15" y="15" width="98" height="98" rx="15"/>
     </clipPath>
   </defs>
-  <rect x="18" y="18" width="92" height="92" rx="12" fill="#ffffff"/>
+  <rect x="15" y="15" width="98" height="98" rx="15" fill="#ffffff"/>
   <g clip-path="url(#pane)">
     <path d="M14 64C40 43 51 85 70 64S98 43 114 60V114H14Z" fill="#2fb5a8"/>
-    <path d="M64 18V54" stroke="#285577" stroke-width="6"/>
+    <path d="M64 15V54" stroke="#285577" stroke-width="6"/>
   </g>
   <path d="M30 12H98A18 18 0 0 1 116 30V98A18 18 0 0 1 98 116H30A18 18 0 0 1 12 98V30A18 18 0 0 1 30 12ZM30 18A12 12 0 0 0 18 30V98A12 12 0 0 0 30 110H98A12 12 0 0 0 110 98V30A12 12 0 0 0 98 18Z" fill="#285577" fill-rule="evenodd"/>
 </svg>
