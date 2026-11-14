@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 Sway Things contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<gresources>
+  <gresource prefix="/io/github/mowi12/SwayThings">
+    <file preprocess="xml-stripblanks">icons/scalable/actions/st-bug-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/st-code-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/st-globe-symbolic.svg</file>
+  </gresource>
+</gresources>

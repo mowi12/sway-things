@@ -59,3 +59,22 @@ path = "website/src/assets/screenshots/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Icons from Lucide (https://lucide.dev), recolored as GTK symbolic icons. The code icon is derived from Feather.
+[[annotations]]
+path = "crates/gui/resources/icons/scalable/actions/st-bug-symbolic.svg"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Lucide Icons and Contributors"
+SPDX-License-Identifier = "ISC"
+
+[[annotations]]
+path = "crates/gui/resources/icons/scalable/actions/st-globe-symbolic.svg"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Lucide Icons and Contributors"
+SPDX-License-Identifier = "ISC"
+
+[[annotations]]
+path = "crates/gui/resources/icons/scalable/actions/st-code-symbolic.svg"
+precedence = "override"
+SPDX-FileCopyrightText = ["2013-present Cole Bemis", "2026 Lucide Icons and Contributors"]
+SPDX-License-Identifier = "ISC AND MIT"
