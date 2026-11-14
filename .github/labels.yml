@@ -18,6 +18,9 @@
 - name: "area:ci"
   color: "ecd8ff"
   description: "Workflows, checks and scripts"
+- name: "area:website"
+  color: "e2d0fb"
+  description: "website/: the project site at sway-things.org"
 
 # page: which settings page (ids as in `sway-things open <page>`). Teal, one shade per sidebar group:
 # Devices darkest, then Appearance, Desktop, System

@@ -45,6 +45,21 @@ updates:
       include: scope
     labels: ["area:ci"]
 
+  # The website's build tools; nothing from them is published but the built site.
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      website:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+    labels: ["area:website"]
+
   - package-ecosystem: pip
     directory: /tools
     schedule:
