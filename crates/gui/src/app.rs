@@ -11,6 +11,7 @@
 //! presents the window.
 
 use std::cell::{Cell, RefCell};
+use std::ops::ControlFlow;
 use std::rc::Rc;
 
 use gtk::prelude::*;
@@ -48,6 +49,23 @@ pub fn build() -> gtk::Application {
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
         .build();
+    app.add_main_option(
+        "version",
+        glib::Char::from(b'\0'),
+        glib::OptionFlags::NONE,
+        glib::OptionArg::None,
+        "Print the versions of Sway Things and GTK",
+        None,
+    );
+    // Before the application registers on the bus: no running instance, no display needed.
+    app.connect_handle_local_options(|_, options| {
+        if options.contains("version") {
+            print!("{}", version_text());
+            ControlFlow::Break(glib::ExitCode::SUCCESS)
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
     let loading = Rc::new(Loading::default());
     app.connect_startup(glib::clone!(
         #[strong]
@@ -105,6 +123,26 @@ pub fn build() -> gtk::Application {
         }
     });
     app
+}
+
+/// What `--version` prints: the version of Sway Things, then the version of GTK it runs with,
+/// which `sway-things doctor` reads.
+pub fn version_text() -> String {
+    format!(
+        "sway-things-gui {}\nGTK {}\n",
+        env!("CARGO_PKG_VERSION"),
+        gtk_version()
+    )
+}
+
+/// The version of GTK the app runs with, not the one it was built with.
+pub fn gtk_version() -> String {
+    format!(
+        "{}.{}.{}",
+        gtk::major_version(),
+        gtk::minor_version(),
+        gtk::micro_version()
+    )
 }
 
 /// Presents the window of `app` at `link`, if one is given. The first time, it builds the window

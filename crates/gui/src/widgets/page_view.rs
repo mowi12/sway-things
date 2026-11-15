@@ -17,21 +17,27 @@
 //! A deep link points to a row: [`PageView::point_to`] expands its group, scrolls it into view,
 //! gives its control the keyboard focus and tints it with the accent for a moment.
 
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
+use std::rc::Rc;
 use std::time::Duration;
 
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
+use sway_things_core::network::NetworkManager;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
+use sway_things_core::system::{self, Details, Value};
 use sway_things_core::ui_state;
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
 use super::keyboard;
 use super::setting_row::tilde;
-use super::{Clamp, DeviceSelector, GroupRow, PageHeader, Placeholder, SettingRow, TestArea};
+use super::{
+    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
+};
 use crate::i18n::tr;
 use crate::icons;
 use crate::model::Model;
@@ -485,8 +491,17 @@ const PROJECT_LINKS: [(&str, &str, &str); 3] = [
     ),
 ];
 
-/// The "About" section of About & Maintenance: a row per version (Sway Things, the compositor),
-/// then the project's links, which open in the default browser.
+/// The label of the button that copies the system details.
+const COPY_DETAILS: &str = "Copy System Details";
+/// Its label right after a click.
+const COPIED: &str = "Copied";
+/// How long it says so.
+const COPIED_FOR: Duration = Duration::from_secs(2);
+
+/// The "About" section of About & Maintenance: a row per line of the system details (Sway
+/// Things, the compositor, GTK, the distribution, NetworkManager, the kernel and the tools the
+/// pages delegate to), a button that copies them for a bug report, then the project's links,
+/// which open in the default browser. The details are read again each time the section shows.
 fn about_section(model: &Model, body: &gtk::Box) -> Section {
     let section = Section::new(model, Page::About, "About", "About", true);
     body.append(&section.header);
@@ -495,16 +510,62 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
     list.set_selection_mode(gtk::SelectionMode::None);
     list.add_css_class("st-section");
     list.update_property(&[gtk::accessible::Property::Label("About")]);
-    let compositor = model
-        .compositor()
-        .map_or_else(|| "Unknown".to_owned(), |compositor| compositor.to_string());
-    for (title, value) in [
-        ("Sway Things", env!("CARGO_PKG_VERSION").to_owned()),
-        ("Compositor", compositor),
-    ] {
-        list.append(&list_row(&info_row(title, &value)));
+    let details = Rc::new(RefCell::new(None::<Details>));
+    // The labels; the values follow once the details are read.
+    let labels = Details {
+        compositor: None,
+        gtk: None,
+        distribution: None,
+        network_manager: None,
+        kernel: None,
+        tools: system::TOOLS.iter().map(|tool| (*tool, false)).collect(),
+    }
+    .lines();
+    let mut values = Vec::new();
+    for (label, _) in labels {
+        let (row, value) = info_row(label, "");
+        values.push(value);
+        list.append(&list_row(&row));
     }
     section.body.append(&list);
+    let copy = copy_button(&details);
+    section.body.append(&copy);
+    let compositor = model.compositor();
+    list.connect_map(glib::clone!(
+        #[strong]
+        details,
+        #[weak]
+        copy,
+        move |list| {
+            let bus = list
+                .root()
+                .and_downcast::<crate::window::Window>()
+                .map_or(NetworkBus::Off, |window| window.network_bus());
+            let values = values.clone();
+            let details = details.clone();
+            glib::spawn_future_local(glib::clone!(
+                #[weak]
+                copy,
+                async move {
+                    let nm = match &bus {
+                        NetworkBus::System => NetworkManager::connect().await.ok(),
+                        NetworkBus::Address(address) => {
+                            NetworkManager::connect_to(address).await.ok()
+                        }
+                        NetworkBus::Off => None,
+                    };
+                    let read =
+                        Details::read(compositor, Some(crate::app::gtk_version()), nm.as_ref())
+                            .await;
+                    for (label, (_, value)) in values.iter().zip(read.lines()) {
+                        label.set_label(&shown(&value));
+                    }
+                    details.replace(Some(read));
+                    copy.set_sensitive(true);
+                }
+            ));
+        }
+    ));
     let links = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     links.set_halign(gtk::Align::Center);
     links.add_css_class("st-about-links");
@@ -515,8 +576,58 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
     section
 }
 
-/// A row with `title` on the left and `value` on the right, selectable for bug reports.
-fn info_row(title: &str, value: &str) -> gtk::Box {
+/// The button that copies `details` once they are read, and says so for a moment.
+fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
+    let copy = gtk::Button::with_label(COPY_DETAILS);
+    copy.set_halign(gtk::Align::Center);
+    copy.add_css_class("st-about-copy");
+    copy.set_sensitive(false);
+    // Each click says "Copied" for a while; only the latest click's timeout restores the label.
+    let clicks = Rc::new(Cell::new(0_u32));
+    copy.connect_clicked(glib::clone!(
+        #[strong]
+        details,
+        move |button| {
+            let Some(text) = details.borrow().as_ref().map(Details::text) else {
+                return;
+            };
+            button.clipboard().set_text(&text);
+            button.set_label(COPIED);
+            let click = clicks.get().wrapping_add(1);
+            clicks.set(click);
+            glib::timeout_add_local_once(
+                COPIED_FOR,
+                glib::clone!(
+                    #[weak]
+                    button,
+                    #[strong]
+                    clicks,
+                    move || {
+                        if clicks.get() == click {
+                            button.set_label(COPY_DETAILS);
+                        }
+                    }
+                ),
+            );
+        }
+    ));
+    copy
+}
+
+/// A value of the system details as a row shows it, capitalized like a label.
+fn shown(value: &Value) -> String {
+    match value {
+        Value::Text(text) => text.clone(),
+        Value::Unknown => "Unknown".to_owned(),
+        Value::NotRunning => "Not running".to_owned(),
+        Value::Installed => "Installed".to_owned(),
+        Value::NotInstalled => "Not installed".to_owned(),
+    }
+}
+
+/// A row with `title` on the left and `value` on the right, selectable for bug reports, and the
+/// label of the value.
+fn info_row(title: &str, value: &str) -> (gtk::Box, gtk::Label) {
     let title = gtk::Label::new(Some(title));
     title.set_xalign(0.0);
     title.set_hexpand(true);
@@ -528,7 +639,7 @@ fn info_row(title: &str, value: &str) -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     row.append(&title);
     row.append(&value);
-    row
+    (row, value)
 }
 
 /// A flat button with `icon` and `label` that opens `uri` in the default browser.

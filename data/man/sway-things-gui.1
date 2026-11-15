@@ -4,12 +4,15 @@
 .SH NAME
 sway\-things\-gui \- Settings app for sway and SwayFX
 .SH SYNOPSIS
-\fBsway\-things\-gui\fR [\fILINK\fR] 
+\fBsway\-things\-gui\fR [\fB\-\-version\fR] [\fILINK\fR] 
 .SH DESCRIPTION
 Sway Things changes the settings of sway and SwayFX: live, in its own settings files and in sway config files of its own, which your sway config includes. It never edits your config.
 .PP
 The app runs once per session. Starting sway\-things\-gui again brings the running window up, at the link if one is given; sway\-things open does the same from the command line.
 .SH OPTIONS
+.TP
+\fB\-\-version\fR
+Print the versions of Sway Things and GTK
 .TP
 [\fILINK\fR]
 A page id, e.g. keyboard, or a setting key, e.g. input.keyboard.repeat_rate

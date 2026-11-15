@@ -88,6 +88,10 @@ st-page list.st-section > row:not(:last-child) {
 }
 
 /* The project's links below the versions on About & Maintenance. */
+st-page .st-about-copy {
+  margin-top: 12px;
+}
+
 st-page .st-about-links {
   margin-top: 6px;
 }

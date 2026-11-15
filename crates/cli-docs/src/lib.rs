@@ -12,7 +12,7 @@
 use std::io;
 use std::path::PathBuf;
 
-use clap::{Arg, Command, CommandFactory as _};
+use clap::{Arg, ArgAction, Command, CommandFactory as _};
 use clap_complete::Shell;
 use clap_mangen::Man;
 use roff::{Roff, bold, italic, roman};
@@ -80,6 +80,12 @@ pub fn gui_command() -> Command {
         )
         .disable_help_flag(true)
         .disable_version_flag(true)
+        .arg(
+            Arg::new("version")
+                .long("version")
+                .action(ArgAction::SetTrue)
+                .help("Print the versions of Sway Things and GTK"),
+        )
         .arg(
             Arg::new("link").value_name("LINK").help(
                 "A page id, e.g. keyboard, or a setting key, e.g. input.keyboard.repeat_rate",

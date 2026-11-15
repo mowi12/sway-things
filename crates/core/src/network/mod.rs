@@ -684,7 +684,7 @@ pub fn vpn_reason_text(reason: u32) -> String {
 
 /// `text` without control characters (newlines, escape sequences), which an SSID could carry,
 /// and without surrounding white space.
-fn clean(text: &str) -> String {
+pub(crate) fn clean(text: &str) -> String {
     text.chars()
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect::<String>()

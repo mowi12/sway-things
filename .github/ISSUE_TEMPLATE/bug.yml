@@ -40,45 +40,11 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: version
-    attributes:
-      label: Sway Things version
-      description: Output of `sway-things --version`, or the commit you built from.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: compositor
-    attributes:
-      label: Compositor
-      options:
-        - sway
-        - SwayFX
-    validations:
-      required: true
-
-  - type: input
-    id: compositor-version
-    attributes:
-      label: Compositor version
-      description: Output of `sway --version`.
-    validations:
-      required: true
-
-  - type: input
-    id: distribution
-    attributes:
-      label: Distribution
-      placeholder: e.g. openSUSE Tumbleweed, Arch Linux, Debian 13
-    validations:
-      required: true
-
   - type: textarea
     id: doctor
     attributes:
       label: Output of `sway-things doctor`
-      description: It checks the setup, missing tools and conflicts. Remove anything you consider private.
+      description: It starts with the system details (the versions of Sway Things, the compositor, GTK, the distribution, …) and checks the setup and conflicts. Without a terminal, use "Copy System Details" on the About & Maintenance page instead. Remove anything you consider private.
       render: text
     validations:
       required: true

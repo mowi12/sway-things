@@ -166,11 +166,14 @@ fn network_manager_going_away_and_coming_back_is_reported() -> Result<()> {
         let mut stand_in = StandIn::start().await?;
         let nm = stand_in.network_manager().await?;
         let first = nm.owner().await.ok_or("no owner")?;
+        let version = nm.version().await.ok_or("no version")?;
+        assert!(version.contains('.'), "{version}");
         let mut changes = nm.changes().await?;
         stand_in.stop_nm();
         changes.next().await.ok_or("the stream ended")?;
         assert!(matches!(nm.snapshot().await, Err(NetError::Unavailable(_))));
         assert_eq!(nm.owner().await, None);
+        assert_eq!(nm.version().await, None);
         stand_in.start_nm().await?;
         changes.next().await.ok_or("the stream ended")?;
         // Another program now: our agent would have to register again.
