@@ -141,6 +141,14 @@ impl NetworkManager {
         reply.body().deserialize::<String>().ok()
     }
 
+    /// NetworkManager's version (`1.52.0`), from its `Version` property; `None` while it isn't
+    /// running. Asks who owns its bus name first, so the question doesn't start it.
+    pub async fn version(&self) -> Option<String> {
+        self.owner().await?;
+        let manager = self.properties(MANAGER_PATH, MANAGER).await.ok()?;
+        text(&manager, "Version")
+    }
+
     /// What the secret agent asks while it is registered (see
     /// [`register_agent`](Self::register_agent)). Every clone of this connection shares one
     /// queue, so one place should read it.

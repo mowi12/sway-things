@@ -25,6 +25,7 @@ pub mod network;
 pub mod registry;
 pub mod state;
 pub mod sway_config;
+pub mod system;
 pub mod theme;
 pub mod ui_state;
 pub mod version;
