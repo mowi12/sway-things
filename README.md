@@ -39,7 +39,7 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: 0.1.0, the first release.** It covers the pages listed under [Features](#features); packages are in
+> **Status: 0.2.0.** It covers the pages listed under [Features](#features); packages are in
 > [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
@@ -67,9 +67,9 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 
 ## Features
 
-The first release, v0.1, brings the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and
-**Window Behavior**, the view of the generated config, and the app's own preferences on About & Maintenance. The other
-pages below are planned.
+Released so far are the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and **Window
+Behavior** (v0.1), **Bluetooth** and **Network** (v0.2), and on About & Maintenance the system details for bug reports,
+the view of the generated config and the app's own preferences. The other pages below are planned.
 
 ### Devices
 
@@ -98,7 +98,7 @@ pages below are planned.
 - **Power & Lock:** idle timeouts, lock screen, power profile, battery
 - **Brightness & Night Light** · **Region & Time** · **Accessibility**
 - **Environment:** Wayland compatibility toggles, environment variables
-- **About & Maintenance:** versions, dependency check, generated config, export / import
+- **About & Maintenance:** system details, dependency check, generated config, export / import
 
 The complete list is in the [Feature Catalog](wiki/Feature-Catalog.md).
 
@@ -110,16 +110,18 @@ Everything the app can set is also scriptable:
 sway-things open keyboard                 # open the app on a page
 sway-things set input.touchpad.tap true   # change a setting
 sway-things get windows.gaps.inner        # read a setting
-sway-things doctor                        # check setup, missing tools and conflicts
+sway-things doctor                        # system details, setup and conflicts
 ```
 
 ## Requirements
 
 - sway ≥ 1.10, or SwayFX ≥ 0.5
 - GTK ≥ 4.18
+- The Bluetooth page uses BlueZ and the Network page NetworkManager; blueman and nm-connection-editor are optional, for
+  what these pages hand over to them.
 - Later pages will use optional companion tools, for example kanshi, swayidle, swaylock, waybar, mako or swaync,
-  gammastep or wlsunset, brightnessctl, PipeWire, NetworkManager and BlueZ. Pages for missing tools stay visible and
-  tell you how to install them.
+  gammastep or wlsunset, brightnessctl and PipeWire. Pages for missing tools stay visible and tell you how to install
+  them.
 
 ## Installation
 
