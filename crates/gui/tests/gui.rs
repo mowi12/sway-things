@@ -58,6 +58,7 @@ use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs};
+use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
 use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
@@ -69,8 +70,8 @@ use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
-    BluetoothBus, BluetoothPage, DeviceSelector, GroupRow, LayoutList, OptionBrowser, PageView,
-    SettingRow, TestArea,
+    BluetoothBus, BluetoothPage, DeviceSelector, GroupRow, LayoutList, NetworkBus, NetworkPage,
+    OptionBrowser, PageView, SettingRow, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -250,6 +251,8 @@ fn main() -> ExitCode {
     // The Bluetooth page shows the stand-in's devices; without python-dbusmock (screenshots on
     // a desktop) it shows Bluetooth as unavailable, never the machine's own.
     let bluetooth = bluetooth_stand_in();
+    // Likewise the Network page and NetworkManager.
+    let network = network_stand_in().map(|(stand_in, _)| stand_in);
     let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
@@ -262,6 +265,9 @@ fn main() -> ExitCode {
         let scheme = if dark { "dark" } else { "light" };
         let window = Window::with_model(&fixture.model);
         use_stand_in(&window, bluetooth.as_ref().ok());
+        if let Ok(network) = &network {
+            window.use_network_bus(NetworkBus::Address(network.address().to_owned()));
+        }
         window.present();
         for page in Page::ALL {
             let outcome = check_page(&window, page, screenshots.as_deref(), scheme);
@@ -293,6 +299,10 @@ fn main() -> ExitCode {
     results.push((
         "bluetooth: devices, pairing and power".to_owned(),
         check_bluetooth(),
+    ));
+    results.push((
+        "network: networks, passwords, wired, VPN and Wi-Fi".to_owned(),
+        check_network(),
     ));
     results.extend(check_keyboard());
     results.extend(check_indicators());
@@ -4061,6 +4071,339 @@ fn check_bluetooth_pairing(page: &BluetoothPage, stand_in: &StandIn) -> Outcome 
         ),
     )?;
     ensure(page.pairing_dialog().is_none(), "  the dialog stayed open")?;
+    Ok(())
+}
+
+/// The NetworkManager manager object.
+const NM_MANAGER: &str = "/org/freedesktop/NetworkManager";
+
+/// A stand-in for NetworkManager with a Wi-Fi adapter that sees a saved network ("Home", WPA2),
+/// a new one ("Office", WPA2), an open one ("Cafe") and an 802.1X one ("eduroam"), a saved
+/// network that isn't around ("Attic"), a wired device with a saved connection and a VPN; the
+/// path of the Wi-Fi device too.
+fn network_stand_in() -> Result<(NmStandIn, String), String> {
+    async_io::block_on(async {
+        let stand_in = NmStandIn::start().await?;
+        let wlan = stand_in.add_wifi_device("wlan0", "wlan0").await?;
+        for (name, ssid, strength, security) in [
+            ("home", "Home", 90, nm_stand_in::WPA2),
+            ("office", "Office", 70, nm_stand_in::WPA2),
+            ("cafe", "Cafe", 40, nm_stand_in::OPEN),
+            ("eduroam", "eduroam", 60, 0x200),
+        ] {
+            stand_in
+                .add_access_point(&wlan, name, ssid, "00:11:22:33:44:55", strength, security)
+                .await?;
+        }
+        stand_in.add_wifi_connection(&wlan, "home", "Home").await?;
+        let value = |text: &str| zbus::zvariant::Value::from(text.to_owned());
+        let settings = |id: &str, kind: &str| {
+            std::collections::HashMap::from([(
+                "connection",
+                std::collections::HashMap::from([("id", value(id)), ("type", value(kind))]),
+            )])
+        };
+        let mut attic = settings("Attic", "802-11-wireless");
+        attic.insert(
+            "802-11-wireless",
+            std::collections::HashMap::from([(
+                "ssid",
+                zbus::zvariant::Value::from(b"Attic".to_vec()),
+            )]),
+        );
+        stand_in.add_connection(&attic).await?;
+        let eth = stand_in
+            .add_ethernet_device("eth0", "eth0", nm_stand_in::DISCONNECTED)
+            .await?;
+        let wired = stand_in
+            .add_connection(&settings("Wired", "802-3-ethernet"))
+            .await?;
+        stand_in.make_available(&eth, &wired).await?;
+        let mut vpn = settings("Office VPN", "vpn");
+        vpn.insert(
+            "vpn",
+            std::collections::HashMap::from([(
+                "service-type",
+                value("org.freedesktop.NetworkManager.openvpn"),
+            )]),
+        );
+        stand_in.add_connection(&vpn).await?;
+        Ok::<_, nm_stand_in::Error>((stand_in, wlan))
+    })
+    .map_err(|error| format!("  NetworkManager's stand-in: {error}"))
+}
+
+/// The Network page against the stand-in: the networks in their lists, scans and the agent while
+/// it is shown, connecting to a saved network and to a new one with its password, the agent's
+/// dialog for a wrong password, the wired device and the VPN, the captive portal note, and
+/// switching Wi-Fi off.
+fn check_network() -> Outcome {
+    let (stand_in, wlan) = network_stand_in()?;
+    let page = NetworkPage::new(&NetworkBus::Address(stand_in.address().to_owned()));
+    let window = gtk::Window::new();
+    window.set_default_size(720, 900);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let rows = |list: &str| page.rows(list);
+    let row = |name: &str, status: &str, control: &str| {
+        (name.to_owned(), status.to_owned(), control.to_owned())
+    };
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            rows("known").len() == 2 && rows("others").len() == 3
+        }),
+        &format!(
+            "  the networks didn't show: {:?} / {:?}",
+            rows("known"),
+            rows("others")
+        ),
+    )?;
+    ensure(
+        rows("known")
+            == [
+                row("Home", "Saved \u{b7} WPA2", "Connect"),
+                row("Attic", "Not in range", ""),
+            ],
+        &format!("  known networks: {:?}", rows("known")),
+    )?;
+    let editor = sway_things_core::delegate::NM_CONNECTION_EDITOR
+        .find()
+        .is_some();
+    let eduroam = if editor {
+        row("eduroam", "Enterprise (802.1X)", "Set Up…")
+    } else {
+        row(
+            "eduroam",
+            "Enterprise (802.1X) \u{b7} needs nm-connection-editor",
+            "",
+        )
+    };
+    ensure(
+        rows("others")
+            == [
+                eduroam,
+                row("Office", "WPA2", "Connect"),
+                row("Cafe", "Open, not encrypted", "Connect"),
+            ],
+        &format!("  other networks: {:?}", rows("others")),
+    )?;
+    ensure(
+        rows("wired") == [row("Wired", "Off", "off")],
+        &format!("  wired: {:?}", rows("wired")),
+    )?;
+    ensure(
+        rows("vpns") == [row("Office VPN", "OpenVPN \u{b7} Off", "off")],
+        &format!("  VPN: {:?}", rows("vpns")),
+    )?;
+    check_network_while_shown(&page, &stand_in, &wlan)?;
+
+    page.row_button("Home")
+        .ok_or("  no button for Home")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            rows("known").first().is_some_and(|(_, status, button)| {
+                status.starts_with("Connected") && button == "Disconnect"
+            })
+        }),
+        &format!(
+            "  Home didn't connect: {:?}; error: {}",
+            rows("known"),
+            page.error_text()
+        ),
+    )?;
+
+    check_network_password(&page, &stand_in)?;
+    check_network_agent(&page, &stand_in)?;
+
+    check_network_wired_vpn(&page, &stand_in)?;
+
+    page.wifi_switch().set_active(false);
+    ensure(
+        run_until(Duration::from_secs(5), || !page.wifi_switch().state()),
+        "  Wi-Fi didn't turn off",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || !page.is_searching()),
+        "  the page kept scanning with Wi-Fi off",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// What `page` does while it is shown: it asks the Wi-Fi device `wlan` for scans, with the
+/// spinner, and registers the agent.
+fn check_network_while_shown(page: &NetworkPage, stand_in: &NmStandIn, wlan: &str) -> Outcome {
+    let calls = |path: &str, method: &str| {
+        async_io::block_on(stand_in.calls(path, method)).map_or(0, |calls| calls.len())
+    };
+    ensure(
+        run_until(Duration::from_secs(5), || calls(wlan, "RequestScan") > 0),
+        "  the page didn't ask for a scan while shown",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.is_searching()),
+        "  no turning spinner while scanning",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            calls(stand_in.agent_manager(), "Register") > 0
+        }),
+        "  the agent wasn't registered while the page is shown",
+    )?;
+    Ok(())
+}
+
+/// The wired device and the VPN on `page`, switched on, and the captive portal note.
+fn check_network_wired_vpn(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
+    page.row_switch("Wired")
+        .ok_or("  no switch for the wired device")?
+        .set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.rows("wired")
+                .first()
+                .is_some_and(|(_, status, on)| status.starts_with("Connected") && on == "on")
+        }),
+        &format!("  the cable didn't connect: {:?}", page.rows("wired")),
+    )?;
+    page.row_switch("Office VPN")
+        .ok_or("  no switch for the VPN")?
+        .set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.rows("vpns")
+                .first()
+                .is_some_and(|(_, status, on)| status == "OpenVPN \u{b7} Connected" && on == "on")
+        }),
+        &format!("  the VPN didn't connect: {:?}", page.rows("vpns")),
+    )?;
+
+    // Unplugged: nothing to switch, the row only says so.
+    async_io::block_on(stand_in.update(
+        "/org/freedesktop/NetworkManager/Devices/eth0",
+        "org.freedesktop.NetworkManager.Device",
+        &[("State", zbus::zvariant::Value::from(20u32))],
+    ))
+    .map_err(|error| format!("  {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.rows("wired")
+                == [(
+                    "Wired".to_owned(),
+                    "Cable unplugged".to_owned(),
+                    String::new(),
+                )]
+        }),
+        &format!("  the unplugged cable: {:?}", page.rows("wired")),
+    )?;
+
+    ensure(
+        page.portal_note() == (false, false),
+        "  a portal note without a portal",
+    )?;
+    async_io::block_on(async {
+        stand_in
+            .add_properties(
+                NM_MANAGER,
+                "org.freedesktop.NetworkManager",
+                &[(
+                    "ConnectivityCheckUri",
+                    zbus::zvariant::Value::from("http://check.invalid/"),
+                )],
+            )
+            .await?;
+        stand_in
+            .update(
+                NM_MANAGER,
+                "org.freedesktop.NetworkManager",
+                &[("Connectivity", zbus::zvariant::Value::from(2u32))],
+            )
+            .await
+    })
+    .map_err(|error| format!("  {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.portal_note() == (true, true)
+        }),
+        "  no note and login button behind a captive portal",
+    )?;
+    Ok(())
+}
+
+/// Connecting to the new network "Office" on `page`: the password dialog takes no short
+/// password, and the one given goes to NetworkManager.
+fn check_network_password(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
+    page.row_button("Office")
+        .ok_or("  no button for Office")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || page.open_dialog().is_some()),
+        "  connecting to Office didn't ask for a password",
+    )?;
+    let dialog = page.open_dialog().ok_or("  no dialog")?;
+    let entry = find::<gtk::PasswordEntry>(dialog.upcast_ref()).ok_or("  no password field")?;
+    let connect =
+        button_labeled(dialog.upcast_ref(), "Connect").ok_or("  the dialog has no Connect")?;
+    entry.set_text("short");
+    ensure(!connect.is_sensitive(), "  a short password was taken")?;
+    entry.set_text("password1");
+    ensure(connect.is_sensitive(), "  a good password wasn't taken")?;
+    connect.emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.rows("known")
+                .iter()
+                .any(|(name, status, _)| name == "Office" && status.starts_with("Connected"))
+        }),
+        &format!(
+            "  Office didn't connect: {:?}; error: {}",
+            page.rows("known"),
+            page.error_text()
+        ),
+    )?;
+    let calls = async_io::block_on(stand_in.calls(NM_MANAGER, "AddAndActivateConnection"))
+        .map_err(|error| format!("  {error}"))?;
+    let sent = format!("{calls:?}");
+    ensure(
+        sent.contains("password1"),
+        &format!("  the password didn't reach NetworkManager: {sent}"),
+    )?;
+    ensure(page.open_dialog().is_none(), "  the dialog stayed open")?;
+    Ok(())
+}
+
+/// The secret agent on `page`: NetworkManager asks again for the password of "Home", and the
+/// dialog's answer goes back.
+fn check_network_agent(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
+    let name = page.bus_name().ok_or("  the page has no bus name")?;
+    let home = "/org/freedesktop/NetworkManager/Settings/home";
+    // Allowed to ask, and the old password failed.
+    async_io::block_on(stand_in.ask_secrets(&name, home, 0x1 | 0x2))
+        .map_err(|error| format!("  {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.open_dialog().is_some()),
+        "  the agent didn't ask for the password again",
+    )?;
+    let dialog = page.open_dialog().ok_or("  no dialog")?;
+    ensure(
+        dialog.title().as_deref() == Some("Wrong password for “Home”"),
+        &format!("  the dialog is titled {:?}", dialog.title()),
+    )?;
+    find::<gtk::PasswordEntry>(dialog.upcast_ref())
+        .ok_or("  no password field")?
+        .set_text("new password");
+    button_labeled(dialog.upcast_ref(), "Connect")
+        .ok_or("  the dialog has no Connect")?
+        .emit_clicked();
+    let reply =
+        async_io::block_on(stand_in.secrets_reply()).map_err(|error| format!("  {error}"))?;
+    ensure(
+        reply == Ok("new password".to_owned()),
+        &format!("  the agent answered {reply:?}"),
+    )?;
+    ensure(page.open_dialog().is_none(), "  the dialog stayed open")?;
     Ok(())
 }
 
