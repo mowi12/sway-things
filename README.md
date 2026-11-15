@@ -39,7 +39,7 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: 0.2.0.** It covers the pages listed under [Features](#features); packages are in
+> **Status: 0.2.1.** It covers the pages listed under [Features](#features); packages are in
 > [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
