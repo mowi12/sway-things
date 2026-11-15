@@ -9,3 +9,6 @@ config:
     allowed_elements: [p, img, a]
   # The PR template, CLAUDE.md and the wiki sidebar and footer have no title.
   first-line-heading: false
+  # Every release in CHANGELOG.md has its own Pages, Packages, … sections.
+  no-duplicate-heading:
+    siblings_only: true

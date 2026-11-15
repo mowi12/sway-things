@@ -73,9 +73,9 @@ The JSON file is the source of truth. If the two disagree, the JSON wins. CI che
 **Scope** is a page id or an area: `feat(keyboard): add layout reordering`, `fix(core): quote device identifiers`,
 `docs(wiki): describe conflict detection`. Mark breaking changes with `!` (`feat(cli)!: rename get to show`).
 
-Commit messages feed the generated `CHANGELOG.md` ([git-cliff](https://git-cliff.org/)), so write them for users, in
-American English. American English is the language of the whole project (code, UI strings, docs), as sway (`colors`) and
-GTK (`color-scheme`) use it, and it gives the spell checker one locale.
+Commit messages are the draft of each `CHANGELOG.md` section ([git-cliff](https://git-cliff.org/)), so write them for
+users, in American English. American English is the language of the whole project (code, UI strings, docs), as sway
+(`colors`) and GTK (`color-scheme`) use it, and it gives the spell checker one locale.
 
 ## Engineering rules (non-negotiable)
 

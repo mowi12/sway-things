@@ -26,11 +26,13 @@ tag pushed again.
    - `scripts/bump-version.sh X.Y.Z` sets the version in `Cargo.toml`, both lock files and both specs, adds the
      `<release>` to the AppStream metainfo (dated today, or pass the date as second argument) and regenerates the man
      pages. Commit: `build: set the version to X.Y.Z`.
-   - The changelog section `## X.Y.Z (YYYY-MM-DD)` at the top of `CHANGELOG.md`, with the same date as the metainfo: for
-     0.1.0 a short hand-written summary; for every later release
-     `git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md`, then read and trim it. Commit:
-     `docs: add the changelog for X.Y.Z`. The section is also the text of the release page: `scripts/release-notes.sh`
-     joins its wrapped lines into one line per paragraph and list item, because GitHub shows every line break there.
+   - The changelog section `## X.Y.Z (YYYY-MM-DD)` at the top of `CHANGELOG.md`, with the same date as the metainfo.
+     `git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md` drafts it from the commits; then it is rewritten for
+     users in the style of the earlier sections: a short summary of the release, then grouped descriptions of what
+     changed (such as _Pages_ or _Bug reports_, and _Packages_ with the distributions and requirements), not a list of
+     commit subjects. Commit: `docs: add the changelog for X.Y.Z`. The section is also the text of the release page:
+     `scripts/release-notes.sh` joins its wrapped lines into one line per paragraph and list item, because GitHub shows
+     every line break there.
    - README, wiki and roadmap describe the released state. Commit: `docs: describe the X.Y.Z release`.
    - The website describes the released state too: list the pages the release has in
      `website/src/data/released-pages.json`, then `scripts/update-website-screenshots.sh` takes their screenshots in
