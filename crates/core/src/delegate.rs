@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The specialist tools a page hands what it doesn't cover to: its "Advanced…" button starts one
-//! (blueman-manager for Bluetooth). A button only shows while its tool is installed.
+//! (blueman-manager for Bluetooth, nm-connection-editor for Network). A button only shows while
+//! its tool is installed.
 
 use std::ffi::OsStr;
 use std::io;
@@ -25,6 +26,29 @@ pub const BLUEMAN: Tool = Tool {
     program: "blueman-manager",
 };
 
+/// NetworkManager's connection editor, for what the Network page doesn't do (802.1X, VPNs, IP
+/// settings, other kinds of connections).
+pub const NM_CONNECTION_EDITOR: Tool = Tool {
+    program: "nm-connection-editor",
+};
+
+/// nm-connection-editor's arguments for a new Wi-Fi connection.
+pub const NEW_WIFI: &[&str] = &["--create", "--type=802-11-wireless"];
+
+/// nm-connection-editor's arguments to edit the connection with `uuid`; `None` if `uuid` isn't
+/// one (36 hexadecimal digits and dashes), so nothing else becomes an argument.
+pub fn edit_connection(uuid: &str) -> Option<[String; 2]> {
+    let valid = uuid.len() == 36
+        && uuid.chars().enumerate().all(|(i, c)| {
+            if matches!(i, 8 | 13 | 18 | 23) {
+                c == '-'
+            } else {
+                c.is_ascii_hexdigit()
+            }
+        });
+    valid.then(|| ["--edit".to_owned(), uuid.to_owned()])
+}
+
 impl Tool {
     /// Where the tool is installed, if it is.
     pub fn find(self) -> Option<PathBuf> {
@@ -38,8 +62,19 @@ impl Tool {
     ///
     /// [`io::ErrorKind::NotFound`] if it isn't installed, else the error of starting it.
     pub fn launch(self) -> io::Result<Child> {
+        self.launch_with(&[])
+    }
+
+    /// Starts the tool with the arguments `args`, each passed as it is (never through a shell).
+    /// Wait for the child, as for [`launch`](Self::launch).
+    ///
+    /// # Errors
+    ///
+    /// As [`launch`](Self::launch).
+    pub fn launch_with(self, args: &[&str]) -> io::Result<Child> {
         let program = self.find().ok_or(io::ErrorKind::NotFound)?;
         Command::new(program)
+            .args(args)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -65,6 +100,21 @@ mod tests {
     use std::fs;
 
     use super::*;
+
+    #[test]
+    fn only_uuids_are_edited() {
+        let uuid = "0b9e5d6c-1f2a-4b3c-8d4e-5f6a7b8c9d0e";
+        assert_eq!(
+            edit_connection(uuid),
+            Some(["--edit".to_owned(), uuid.to_owned()])
+        );
+        assert_eq!(edit_connection("--help"), None);
+        assert_eq!(
+            edit_connection("0b9e5d6c 1f2a-4b3c-8d4e-5f6a7b8c9d0e"),
+            None
+        );
+        assert_eq!(edit_connection(""), None);
+    }
 
     #[test]
     fn programs_are_found_only_as_executable_files_in_absolute_directories() {

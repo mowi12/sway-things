@@ -14,7 +14,8 @@ use sway_things_core::registry::{ConfigFile, Link, Page, Registry};
 use crate::i18n::tr;
 use crate::model::Model;
 use crate::widgets::{
-    BluetoothBus, BluetoothPage, GeneratedWindow, PageView, Panes, Placeholder, Sidebar, Welcome,
+    BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
+    Placeholder, Sidebar, Welcome,
 };
 
 /// The width of the sidebar, in pixels.
@@ -35,7 +36,7 @@ mod imp {
     use sway_things_core::registry::Page;
 
     use crate::model::Model;
-    use crate::widgets::{BluetoothBus, Panes, Sidebar, Welcome};
+    use crate::widgets::{BluetoothBus, NetworkBus, Panes, Sidebar, Welcome};
 
     #[derive(Debug, Default)]
     pub struct Window {
@@ -62,6 +63,8 @@ mod imp {
         pub last_page: Cell<Option<Page>>,
         /// Where the Bluetooth page finds BlueZ.
         pub bluetooth_bus: RefCell<BluetoothBus>,
+        /// Where the Network page finds NetworkManager.
+        pub network_bus: RefCell<NetworkBus>,
         /// The banner of the safety net: keep or revert the risky change that waits.
         pub safety: gtk::Revealer,
         pub safety_text: gtk::Label,
@@ -111,10 +114,13 @@ impl Window {
     }
 
     /// A main window for the settings of `model` that belongs to no application, e.g. in tests.
-    /// Its Bluetooth page talks to no bus until [`use_bluetooth_bus`](Self::use_bluetooth_bus).
+    /// Its Bluetooth and Network pages talk to no bus until
+    /// [`use_bluetooth_bus`](Self::use_bluetooth_bus) and
+    /// [`use_network_bus`](Self::use_network_bus).
     pub fn with_model(model: &Model) -> Self {
         let window: Self = glib::Object::new();
         window.imp().bluetooth_bus.replace(BluetoothBus::Off);
+        window.imp().network_bus.replace(NetworkBus::Off);
         window.build(model);
         window
     }
@@ -784,10 +790,25 @@ impl Window {
         self.imp().bluetooth_bus.replace(bus);
     }
 
+    /// Points the Network page at another bus than the system bus, for tests. Takes effect when
+    /// the page is built next.
+    pub fn use_network_bus(&self, bus: NetworkBus) {
+        self.imp().network_bus.replace(bus);
+    }
+
     fn build_page(&self, page: Page) -> PageView {
         // Live state from BlueZ, not settings: it needs neither the model nor the registry.
         if page == Page::Bluetooth {
             let body = BluetoothPage::new(&self.imp().bluetooth_bus.borrow());
+            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
+            if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
+                header.set_end(&advanced);
+            }
+            return view;
+        }
+        // Live state from NetworkManager, likewise.
+        if page == Page::Network {
+            let body = NetworkPage::new(&self.imp().network_bus.borrow());
             let view = PageView::new(tr(page.title()), tr(page.description()), &body);
             if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
                 header.set_end(&advanced);

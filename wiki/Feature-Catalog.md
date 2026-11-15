@@ -132,8 +132,18 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 
 ### Network
 
-- [ ] 🟡 Wi-Fi list and connect (NetworkManager D-Bus). SSIDs are attacker-controlled data
-- [ ] 🟡 Wired / VPN status; "Advanced…" → `nm-connection-editor`
+- [x] 🟡 Wi-Fi list and connect (NetworkManager D-Bus). SSIDs are attacker-controlled data
+- [x] 🟡 Wired / VPN status; "Advanced…" → `nm-connection-editor`
+- [x] 🟡 Asking again for a wrong or changed Wi-Fi password, through our own secret agent
+- [x] 🟢 Wi-Fi on/off (`WirelessEnabled`); explain a hardware block
+- [x] 🟢 Connect to a hidden network
+- [x] 🟢 Forget a saved network; edit a connection in `nm-connection-editor`
+- [x] 🟢 Several Wi-Fi adapters: pick the one the page shows
+- [x] 🟢 Network details: addresses, gateway, DNS, signal, speed
+- [x] 🟢 Captive portal note with the login page
+- [x] 🟢 Switches for the wired devices and the VPN and WireGuard connections
+- [ ] 🟡 WPA-Enterprise (802.1X) dialog: PEAP and TTLS with MSCHAPv2 or PAP, TLS with certificates, a CA file
+- [ ] 🟡 Ask for VPN passwords through the VPN plugin's dialog
 - **Not planned:** a full network editor (delegate)
 
 ---
