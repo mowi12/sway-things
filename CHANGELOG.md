@@ -2,6 +2,11 @@
 
 All notable changes to Sway Things, written for users. git-cliff drafts each section from the Conventional Commits.
 
+## 0.2.1 (2026-11-15)
+
+A packaging fix: the openSUSE Build Service couldn't download the 0.2.0 sources and built no packages. The app is the
+same as in 0.2.0.
+
 ## 0.2.0 (2026-11-15)
 
 Bluetooth and Wi-Fi join the app: two new pages that talk to BlueZ and NetworkManager directly, and system details for
