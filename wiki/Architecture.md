@@ -1254,6 +1254,10 @@ Two specs, each following its distribution's guidelines, from the same tarball:
   metainfo. Fedora's `SourceLicense` covers the whole tarball: every crate in `vendor/` and the licenses in `LICENSES/`.
   Each is a `%{shrink:…}` with one expression per line; `scripts/check-packaging.sh` fails when one is out of date, so a
   dependency with a new license is caught on its pull request.
+- **Source:** the tarball of the GitHub release, written out
+  (`https://github.com/mowi12/sway-things/releases/download/v%{version}/…`), not built from `%{url}`: `URL` is the
+  homepage, which hosts no releases, and OBS's `download_files` service fetches exactly this URL.
+  `scripts/check-packaging.sh` fails when a spec's source isn't the release URL of the repository in `Cargo.toml`.
 - No `%changelog` and no `.changes` file: an OBS home project doesn't need them, and the release notes live on GitHub.
   OBS sets `Release` itself.
 
@@ -1329,7 +1333,7 @@ project's key.
 - `.github/workflows/packages.yml` runs it on every push to `main`, weekly, by hand, and from the release workflow
   (`workflow_call` with the tarball of the tag). It makes the tarball once with `--check` and builds every package from
   it. It isn't a required check on pull requests (too slow); `scripts/check-packaging.sh` is, and catches license and
-  version drift there.
+  version drift and a wrong source URL there.
 
 ## Website
 

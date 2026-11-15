@@ -23,7 +23,7 @@ License:        %{shrink:
     (Unlicense OR MIT)
 }
 URL:            https://sway-things.org
-Source0:        %{url}/releases/download/v%{version}/%{name}-%{version}.tar.xz
+Source0:        https://github.com/mowi12/sway-things/releases/download/v%{version}/%{name}-%{version}.tar.xz
 BuildRequires:  cargo >= 1.85
 BuildRequires:  cargo-packaging
 BuildRequires:  pkgconfig(gtk4) >= 4.18
