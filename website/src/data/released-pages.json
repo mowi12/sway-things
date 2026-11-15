@@ -1,6 +1,8 @@
 [
   { "id": "mouse-touchpad", "name": "Mouse & Touchpad" },
   { "id": "keyboard", "name": "Keyboard" },
+  { "id": "bluetooth", "name": "Bluetooth" },
+  { "id": "network", "name": "Network" },
   { "id": "windows", "name": "Windows" },
   { "id": "window-behavior", "name": "Window Behavior" }
 ]
