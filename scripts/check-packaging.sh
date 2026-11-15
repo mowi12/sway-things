@@ -45,6 +45,17 @@ for spec in "$opensuse" "$fedora"; do
 done
 check_version data/man/sway-things.1 \
   "$(sed -n 's/^\.TH .* "Sway Things \([^"]*\)" .*/\1/p' data/man/sway-things.1)"
+# The tarball is a file of the GitHub release, which OBS's download_files fetches from the spec's Source; the URL tag is
+# the homepage, which hosts no releases.
+repository=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^repository = "\(.*\)"$/\1/p' Cargo.toml)
+source_url="$repository/releases/download/v%{version}/%{name}-%{version}.tar.xz"
+for spec in "$opensuse" "$fedora"; do
+  found=$(sed -n 's/^Source0\{0,1\}:[[:space:]]*//p' "$spec")
+  if [[ $found != "$source_url" ]]; then
+    echo "error: $spec has the source ${found:-(none)}, expected $source_url" >&2
+    status=1
+  fi
+done
 metainfo=data/io.github.mowi12.SwayThings.metainfo.xml.in
 if grep -q '<release ' "$metainfo"; then
   check_version "$metainfo" "$(grep -o -m 1 '<release [^>]*version="[^"]*"' "$metainfo" | sed 's/.*version="//; s/"$//')"
