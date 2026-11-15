@@ -325,7 +325,11 @@ swaybar via our sway include.
 
 ### About & Maintenance
 
-- [ ] 🟢 About: sway / SwayFX and wlroots versions, GPU, distro, outputs, inputs
+- [x] 🟢 About: system details for bug reports (versions of Sway Things, sway / SwayFX, GTK, the distribution,
+      NetworkManager and the kernel; whether the delegated tools are installed), copied as text and in
+      `sway-things doctor`
+- [ ] 🟢 About: GPU
+- [ ] 🟢 About: outputs and inputs
 - [ ] 🟢 Include-line status and conflict overview (same as `sway-things doctor`)
 - [ ] 🟢 Validate the config (`sway --validate`) and show errors
 - [ ] 🟢 Reload sway

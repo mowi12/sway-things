@@ -915,6 +915,15 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
 
+- **System details:** the text report starts with a _System_ block and `--json` has a `system` object, read by
+  `crates/core/src/system.rs` for the About section too: the versions of Sway Things, the compositor, GTK, the
+  distribution (`PRETTY_NAME` of `/etc/os-release`, else `/usr/lib/os-release`), NetworkManager (its `Version` property,
+  asked only while its bus name has an owner, so the question doesn't start it) and the kernel
+  (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor and blueman-manager are in `PATH`, without a version.
+  The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a `GApplication` option handled before the app
+  registers on the bus, so it needs no display and reaches no running instance) and reads its `GTK` line; without the
+  app the value is `unknown`. BlueZ (no version on D-Bus, `bluetoothd` in a different `libexec` per distribution) and
+  wlroots (reported neither by IPC nor by `sway --version`) are left out: an unreliable value is worse than none.
 - **Severity:** a problem means a stored setting doesn't take effect, nothing can be saved, or sway reports errors when
   it starts. A warning is worth knowing, but the settings work. A dead line of the user's is ok: that is what storing a
   value means.
