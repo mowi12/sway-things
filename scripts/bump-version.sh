@@ -10,8 +10,8 @@
 #   today, UTC);
 # - the man pages, whose headers name the version (scripts/update-cli-docs.sh).
 #
-# The changelog is written separately: by hand for the first release, with git-cliff for every later one (see
-# wiki/Architecture.md → Releases). scripts/check-packaging.sh checks afterwards that all versions agree.
+# The changelog is written separately: git-cliff drafts the section from the commits, which is then rewritten for
+# users (see wiki/Releasing.md). scripts/check-packaging.sh checks afterwards that all versions agree.
 #
 # Usage: scripts/bump-version.sh VERSION [DATE]
 #
