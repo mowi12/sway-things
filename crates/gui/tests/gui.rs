@@ -22,8 +22,8 @@
 //! - Safety net: a risky change shows the Keep / Revert banner and is stored only when kept.
 //! - Sections: a header collapses and expands its section, which is remembered in `ui.toml`
 //!   while the preference is on, and a deep link opens a collapsed section without storing it.
-//! - About: About & Maintenance shows the versions of Sway Things and the compositor and the
-//!   project's links.
+//! - About: About & Maintenance shows the system details (versions of Sway Things, the
+//!   compositor, GTK, …, and the delegated tools), copies them as text, and the project's links.
 //! - Generated config: the footers and About & Maintenance open the window at their file, it
 //!   follows changes, and a file changed outside has its banner, its content on disk and an
 //!   Overwrite that asks first and only works with the include line.
@@ -801,7 +801,7 @@ fn check_generated_footer() -> Outcome {
     Ok(())
 }
 
-/// About & Maintenance starts with the version of Sway Things and of the compositor, and the
+/// About & Maintenance starts with the system details, a button that copies them, and the
 /// project's links.
 fn check_about() -> Outcome {
     let fixture = fixture(SWAYFX, STORED, USERS, true)?;
@@ -809,15 +809,33 @@ fn check_about() -> Outcome {
     let content = window
         .content()
         .ok_or_else(|| "  About & Maintenance has no content".to_owned())?;
+    let copy = all::<gtk::Button>(&content)
+        .into_iter()
+        .find(|button| button.label().as_deref() == Some("Copy System Details"))
+        .ok_or_else(|| "  no Copy System Details button".to_owned())?;
+    ensure(
+        run_until(Duration::from_secs(5), || copy.is_sensitive()),
+        "  the system details weren't read within 5 s",
+    )?;
     let texts: Vec<String> = all::<gtk::Label>(&content)
         .iter()
         .map(|label| label.label().to_string())
         .collect();
+    let gtk_version = sway_things_gui::app::gtk_version();
     for expected in [
         "Sway Things",
         env!("CARGO_PKG_VERSION"),
         "Compositor",
         &SWAYFX.to_string(),
+        "GTK",
+        &gtk_version,
+        "Distribution",
+        "NetworkManager",
+        // The window in tests talks to no bus.
+        "Not running",
+        "Kernel",
+        "nm-connection-editor",
+        "blueman-manager",
         "Website",
         "Source Code (GitHub)",
         "Report a Bug",
@@ -853,6 +871,39 @@ fn check_about() -> Outcome {
             &format!("  no link to {uri} among {links:?}"),
         )?;
     }
+    // The copied block has the same lines, in the order of the bug form.
+    copy.emit_clicked();
+    let copied = std::rc::Rc::new(std::cell::RefCell::new(None));
+    copy.clipboard()
+        .read_text_async(gtk::gio::Cancellable::NONE, {
+            let copied = copied.clone();
+            move |text| {
+                copied.replace(Some(text.ok().flatten().map(|text| text.to_string())));
+            }
+        });
+    run_until(Duration::from_secs(5), || copied.borrow().is_some());
+    ensure(
+        copy.label().as_deref() == Some("Copied"),
+        &format!("  after a click the button says {:?}", copy.label()),
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            copy.label().as_deref() == Some("Copy System Details")
+        }),
+        "  the button doesn't go back to Copy System Details",
+    )?;
+    let copied = copied.borrow().clone().flatten().unwrap_or_default();
+    let start = format!(
+        "Sway Things: {}\nCompositor: {SWAYFX}\nGTK: {gtk_version}\nDistribution: ",
+        env!("CARGO_PKG_VERSION")
+    );
+    ensure(
+        copied.starts_with(&start)
+            && copied.contains("\nNetworkManager: not running\nKernel: ")
+            && copied.contains("\nnm-connection-editor: ")
+            && copied.ends_with("installed\n"),
+        &format!("  Copy System Details copied {copied:?}"),
+    )?;
     window.destroy();
     Ok(())
 }
