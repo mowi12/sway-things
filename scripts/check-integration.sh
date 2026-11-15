@@ -10,10 +10,11 @@
 # the write path of the generators (crates/core/tests/generate_sway.rs), the config parser, which must find the modes
 # of ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs), and a setting that is changed
 # end to end and must survive a reload (crates/core/tests/apply_sway.rs), and the `sway-things` binary changing settings
-# (crates/cli/tests/cli_sway.rs). The BlueZ backend runs against python-dbusmock on a private bus
-# (crates/core/tests/bluetooth_bluez.rs). The files generated from the sample settings (ci/integration/generated/) must pass
-# `sway --validate` too, and the sample configs include them. Last, the GUI tests (crates/gui/tests/gui.rs: contrast
-# in light and dark, keyboard navigation) open their windows on the headless sway (not on SwayFX, see below).
+# (crates/cli/tests/cli_sway.rs). The BlueZ and NetworkManager backends run against python-dbusmock on a private bus
+# (crates/core/tests/bluetooth_bluez.rs, crates/core/tests/network_nm.rs). The files generated from the sample settings
+# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them. Last, the GUI tests
+# (crates/gui/tests/gui.rs: contrast in light and dark, keyboard navigation) open their windows on the headless sway
+# (not on SwayFX, see below).
 #
 # Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
 # --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
@@ -36,8 +37,9 @@ usage() {
 sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway --test sway_config_sway
   --test apply_sway)
 cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway)
-# The tests that need dbus-daemon and python-dbusmock (a stand-in for BlueZ on a private bus); no sway.
-bluetooth_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez)
+# The tests that need dbus-daemon and python-dbusmock (stand-ins for BlueZ and NetworkManager), but no sway.
+dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
+  --test network_nm)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui)
 
@@ -55,7 +57,7 @@ cd "$(dirname "$0")/.."
 if $build; then
   "${sway_tests[@]}" --no-run
   "${cli_tests[@]}" --no-run
-  "${bluetooth_tests[@]}" --no-run
+  "${dbus_tests[@]}" --no-run
   "${gui_tests[@]}" --no-run
   exit
 fi
@@ -232,7 +234,7 @@ fi
 echo "Running the tests that need sway"
 SWAYSOCK=$socket SWAY_THINGS_SWAY_VERSION=$(sway --version) "${sway_tests[@]}" -- --ignored
 SWAYSOCK=$socket "${cli_tests[@]}" -- --ignored
-"${bluetooth_tests[@]}" -- --ignored
+"${dbus_tests[@]}" -- --ignored
 
 # GTK draws with the CPU (cairo), so no GPU is needed. SwayFX gets no frames drawn in a container: its renderer needs
 # a render node, and Mesa's software rendering can only allocate buffers on a primary node, so no window would ever

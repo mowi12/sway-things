@@ -14,6 +14,8 @@
 
 mod agent;
 mod nm;
+#[cfg(any(test, feature = "test-support"))]
+pub mod stand_in;
 
 use std::fmt;
 

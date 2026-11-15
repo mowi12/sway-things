@@ -40,3 +40,7 @@ tempfile.workspace = true
 [[test]]
 name = "bluetooth_bluez"
 required-features = ["test-support"]
+
+[[test]]
+name = "network_nm"
+required-features = ["test-support"]
