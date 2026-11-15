@@ -796,6 +796,11 @@ impl Window {
         self.imp().network_bus.replace(bus);
     }
 
+    /// Where the Network page finds NetworkManager; the About section asks it there too.
+    pub fn network_bus(&self) -> NetworkBus {
+        self.imp().network_bus.borrow().clone()
+    }
+
     fn build_page(&self, page: Page) -> PageView {
         // Live state from BlueZ, not settings: it needs neither the model nor the registry.
         if page == Page::Bluetooth {
