@@ -78,8 +78,8 @@ _arguments "${_arguments_options[@]}" : \
 '--fix[Write the generated files that are missing or out of date. Never touches your own files]' \
 '--overwrite[With --fix, also replace generated files that were changed outside Sway Things]' \
 '--json[Print JSON for scripts]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
 ;;
 (open)

@@ -20,6 +20,7 @@ use sway_things_cli::{
     Cli, Command, DoctorArgs, Exit, Look, Prompt, Session, Spinner, doctor, doctor_with, run,
 };
 use sway_things_core::apply::{Applier, Countdown};
+use sway_things_core::delegate;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
 use sway_things_core::include::IncludeStatus;
@@ -28,6 +29,7 @@ use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient};
 use sway_things_core::registry::Registry;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::Disk;
+use sway_things_core::system::Details;
 use sway_things_core::version::SwayVersion;
 
 /// Accepts every file, or reports `errors` for each.
@@ -892,7 +894,7 @@ fn doctor_without_sway_skips_validation() {
         validator: applier.validator(),
     };
     let mut out = Vec::new();
-    let exit = block_on(doctor(&checkup, &DoctorArgs::default(), &mut out));
+    let exit = block_on(doctor(&checkup, None, &DoctorArgs::default(), &mut out));
     let out = String::from_utf8(out).unwrap();
     assert_eq!(exit, Exit::Problems, "{out}");
     assert!(
@@ -917,7 +919,10 @@ fn doctor_without_sway_skips_validation() {
         ..DoctorArgs::default()
     };
     // Nothing is out of date that could be told without the compositor.
-    assert_eq!(block_on(doctor(&checkup, &args, &mut out)), Exit::Problems);
+    assert_eq!(
+        block_on(doctor(&checkup, None, &args, &mut out)),
+        Exit::Problems
+    );
     assert!(
         String::from_utf8(out)
             .unwrap()
@@ -940,7 +945,7 @@ fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, Strin
         validator: applier.validator(),
     };
     let mut out = Vec::new();
-    let exit = block_on(doctor_with(&checkup, args, &mut out, look));
+    let exit = block_on(doctor_with(&checkup, None, args, &mut out, look));
     (exit, String::from_utf8(out).unwrap())
 }
 
@@ -1043,4 +1048,74 @@ fn doctor_fails_when_it_cant_fix() {
         "{}",
         ran.out
     );
+}
+
+#[test]
+fn doctor_starts_with_the_system_details() {
+    let setup = Setup::new("version = 1\n", INCLUDE, None);
+    let found = Found::NoSession {
+        reason: "not in a sway session".to_owned(),
+        installed: Installed::Version(setup.session.applier.compositor()),
+    };
+    let applier = &setup.session.applier;
+    let checkup = Checkup {
+        found: &found,
+        state: applier.state(),
+        locations: applier.locations(),
+        status: &setup.session.status,
+        validator: applier.validator(),
+    };
+    let system = Details {
+        compositor: Some(setup.session.applier.compositor()),
+        gtk: Some("4.18.6".to_owned()),
+        distribution: Some("Debian GNU/Linux 13 (trixie)".to_owned()),
+        network_manager: None,
+        kernel: Some("6.12.48+deb13-amd64".to_owned()),
+        tools: vec![
+            (delegate::NM_CONNECTION_EDITOR, false),
+            (delegate::BLUEMAN, true),
+        ],
+    };
+    let mut out = Vec::new();
+    block_on(doctor(
+        &checkup,
+        Some(&system),
+        &DoctorArgs::default(),
+        &mut out,
+    ));
+    let out = String::from_utf8(out).unwrap();
+    let expected = format!(
+        "System\n  Sway Things: {}\n  Compositor: sway 1.10.1\n  GTK: 4.18.6\n  \
+         Distribution: Debian GNU/Linux 13 (trixie)\n  NetworkManager: not running\n  \
+         Kernel: 6.12.48+deb13-amd64\n  nm-connection-editor: not installed\n  \
+         blueman-manager: installed\n\nCompositor\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    assert!(out.starts_with(&expected), "{out}");
+
+    let mut out = Vec::new();
+    let args = DoctorArgs {
+        json: true,
+        ..DoctorArgs::default()
+    };
+    block_on(doctor(&checkup, Some(&system), &args, &mut out));
+    let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(
+        json["system"],
+        serde_json::json!({
+            "sway_things": env!("CARGO_PKG_VERSION"),
+            "compositor": "sway 1.10.1",
+            "gtk": "4.18.6",
+            "distribution": "Debian GNU/Linux 13 (trixie)",
+            "network_manager": null,
+            "kernel": "6.12.48+deb13-amd64",
+            "tools": {"nm-connection-editor": false, "blueman-manager": true},
+        })
+    );
+
+    // Without details, as on a session, the report starts with the checks.
+    let mut out = Vec::new();
+    block_on(doctor(&checkup, None, &args, &mut out));
+    let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(json["system"], serde_json::Value::Null);
 }

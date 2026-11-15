@@ -60,6 +60,10 @@ impl Home {
         Command::new(env!("CARGO_BIN_EXE_sway-things"))
             .args(args)
             .env_clear()
+            // No app to ask for the GTK version and no NetworkManager for the system details,
+            // unless `env` says otherwise.
+            .env("SWAY_THINGS_GUI", root.join("no-app"))
+            .env("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/nonexistent")
             .envs(env.iter().copied())
             .env("HOME", root)
             .env("XDG_CONFIG_HOME", root.join("config"))
@@ -73,6 +77,11 @@ impl Home {
 
 fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// The checks of a doctor report `out`: what follows the system details.
+fn checks(out: &str) -> &str {
+    out.split_once("\n\n").map_or(out, |(_, checks)| checks)
 }
 
 const INCLUDE: &str = "include {dir}/config/sway/sway-things/*.conf\n";
@@ -139,7 +148,19 @@ fn doctor_reports_without_writing() {
     assert_eq!(output.status.code(), Some(5), "{output:?}");
     let out = text(&output.stdout);
     assert!(
-        out.starts_with("Compositor\n  ok       sway 1.10.1 runs in this session.\n"),
+        out.starts_with(&format!(
+            "System\n  Sway Things: {}\n  Compositor: sway 1.10.1\n  GTK: unknown\n",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "{out}"
+    );
+    assert!(out.contains("\n  NetworkManager: not running\n"), "{out}");
+    assert!(
+        out.contains("\n  nm-connection-editor: not installed\n  blueman-manager: not installed\n"),
+        "{out}"
+    );
+    assert!(
+        checks(&out).starts_with("Compositor\n  ok       sway 1.10.1 runs in this session.\n"),
         "{out}"
     );
     assert!(
@@ -151,6 +172,10 @@ fn doctor_reports_without_writing() {
     let output = home.run(&["doctor", "--fix", "--json"]);
     assert_eq!(output.status.code(), Some(5), "{output:?}");
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["system"]["compositor"], "sway 1.10.1");
+    assert_eq!(json["system"]["gtk"], serde_json::Value::Null);
+    assert_eq!(json["system"]["network_manager"], serde_json::Value::Null);
+    assert_eq!(json["system"]["tools"]["blueman-manager"], false);
     assert_eq!(json["status"], "problem");
     assert_eq!(json["fix"]["result"], "read_only");
     assert!(!home.dir.path().join("config/sway/sway-things").exists());
@@ -188,7 +213,7 @@ fn doctor_speaks_the_language_of_the_locale() {
     let output = home.run_with(&["doctor"], &env);
     let out = text(&output.stdout);
     assert!(
-        out.starts_with(&format!("{}\n", pseudo("Compositor"))),
+        checks(&out).starts_with(&format!("{}\n", pseudo("Compositor"))),
         "{out}"
     );
     assert!(
@@ -207,7 +232,7 @@ fn doctor_speaks_the_language_of_the_locale() {
         ("LANGUAGE", "xx"),
     ];
     let output = home.run_with(&["doctor"], &english);
-    assert!(text(&output.stdout).starts_with("Compositor\n"));
+    assert!(checks(&text(&output.stdout)).starts_with("Compositor\n"));
 }
 
 #[test]
@@ -226,7 +251,8 @@ fn doctor_colors_only_when_asked() {
     assert_eq!(colored.status.code(), plain.status.code());
     let out = text(&colored.stdout);
     assert!(
-        out.starts_with("\x1b[1mCompositor\x1b[0m\n  \x1b[32mok\x1b[0m       "),
+        out.starts_with("\x1b[1mSystem\x1b[0m\n  Sway Things: ")
+            && checks(&out).starts_with("\x1b[1mCompositor\x1b[0m\n  \x1b[32mok\x1b[0m       "),
         "{out}"
     );
     assert!(out.contains("  \x1b[31mproblem\x1b[0m  "), "{out}");

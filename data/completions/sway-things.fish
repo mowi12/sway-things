@@ -68,7 +68,7 @@ never\t''"
 complete -c sway-things -n "__fish_sway_things_using_subcommand doctor" -l fix -d 'Write the generated files that are missing or out of date. Never touches your own files'
 complete -c sway-things -n "__fish_sway_things_using_subcommand doctor" -l overwrite -d 'With --fix, also replace generated files that were changed outside Sway Things'
 complete -c sway-things -n "__fish_sway_things_using_subcommand doctor" -l json -d 'Print JSON for scripts'
-complete -c sway-things -n "__fish_sway_things_using_subcommand doctor" -s h -l help -d 'Print help'
+complete -c sway-things -n "__fish_sway_things_using_subcommand doctor" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c sway-things -n "__fish_sway_things_using_subcommand open" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"

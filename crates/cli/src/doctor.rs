@@ -19,6 +19,7 @@ use sway_things_core::doctor::{
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
 use sway_things_core::i18n::tr;
+use sway_things_core::system::{self, Details};
 
 use crate::Exit;
 use crate::spinner::Spinner;
@@ -94,19 +95,21 @@ pub struct Look {
 }
 
 /// Checks the setup of `checkup`, fixes what `args` asks for, and reports to `out` as plain text
-/// or JSON. Exits with [`Exit::Failure`] if the fix failed, [`Exit::Problems`] if a problem is
+/// or JSON, after the system details `system`, if given. Exits with [`Exit::Failure`] if the fix failed, [`Exit::Problems`] if a problem is
 /// left, and [`Exit::Ok`] otherwise: warnings don't count.
 pub async fn doctor<V: Validate>(
     checkup: &Checkup<'_, V>,
+    system: Option<&Details>,
     args: &DoctorArgs,
     out: &mut dyn Write,
 ) -> Exit {
-    doctor_with(checkup, args, out, &Look::default()).await
+    doctor_with(checkup, system, args, out, &Look::default()).await
 }
 
 /// [`doctor`], with the text report as `look` says.
 pub async fn doctor_with<V: Validate>(
     checkup: &Checkup<'_, V>,
+    system: Option<&Details>,
     args: &DoctorArgs,
     out: &mut dyn Write,
     look: &Look,
@@ -122,9 +125,12 @@ pub async fn doctor_with<V: Validate>(
         .await;
     spinner.clear();
     if args.json {
-        let _ = writeln!(out, "{}", json(&diagnosis, fixed.as_ref(), checkup));
+        let _ = writeln!(out, "{}", json(&diagnosis, fixed.as_ref(), checkup, system));
     } else {
         let paint = Paint { color: look.color };
+        if let Some(system) = system {
+            system_text(system, paint, out);
+        }
         text(&diagnosis, fixed.as_ref(), checkup, args, paint, out);
     }
     if matches!(fixed, Some(Fixed::Failed(_))) {
@@ -247,6 +253,33 @@ impl fmt::Display for Painted<'_> {
             self.style.render_reset()
         )
     }
+}
+
+/// The system details, under their heading, then a blank line.
+fn system_text(system: &Details, paint: Paint, out: &mut dyn Write) {
+    let _ = writeln!(out, "{}", paint.paint(HEADING, tr(system::heading())));
+    for (label, value) in system.lines() {
+        let _ = writeln!(out, "  {label}: {}", value.text());
+    }
+    let _ = writeln!(out);
+}
+
+/// The system details for scripts: a value or `null` each, and whether each tool is installed.
+fn system_json(system: &Details) -> Json {
+    let tools: serde_json::Map<String, Json> = system
+        .tools
+        .iter()
+        .map(|(tool, installed)| (tool.program.to_owned(), Json::Bool(*installed)))
+        .collect();
+    json!({
+        "sway_things": system::SWAY_THINGS_VERSION,
+        "compositor": system.compositor.map(|compositor| compositor.to_string()),
+        "gtk": system.gtk,
+        "distribution": system.distribution,
+        "network_manager": system.network_manager,
+        "kernel": system.kernel,
+        "tools": tools,
+    })
 }
 
 fn text<V>(
@@ -395,7 +428,12 @@ fn counted(count: usize, thing: &str) -> String {
     }
 }
 
-fn json<V>(diagnosis: &Diagnosis, fixed: Option<&Fixed>, checkup: &Checkup<'_, V>) -> Json {
+fn json<V>(
+    diagnosis: &Diagnosis,
+    fixed: Option<&Fixed>,
+    checkup: &Checkup<'_, V>,
+    system: Option<&Details>,
+) -> Json {
     let findings: Vec<Json> = diagnosis
         .findings()
         .iter()
@@ -442,6 +480,7 @@ fn json<V>(diagnosis: &Diagnosis, fixed: Option<&Fixed>, checkup: &Checkup<'_, V
         })
     });
     json!({
+        "system": system.map(system_json),
         "status": diagnosis.severity().id(),
         "problems": diagnosis.count(Severity::Problem),
         "warnings": diagnosis.count(Severity::Warning),
