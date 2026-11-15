@@ -85,6 +85,18 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | `/dev/rfkill` speaks 8-byte events (`idx`, `type`, `op`, `soft`, `hard`); `RFKILL_OP_CHANGE_ALL` sets every radio of a type. | `include/uapi/linux/rfkill.h` |
 | systemd's udev rules tag `/dev/rfkill` with `uaccess`, so the user of the active session may write it. | systemd `src/login/70-uaccess.rules.in` |
 
+## NetworkManager
+
+| Fact | Source |
+| --- | --- |
+| NetworkManager's object manager is at `/org/freedesktop`; `GetManagedObjects` there lists the manager, devices, access points, connections and IP configurations. | `src/core/nm-dbus-manager.c` (`OBJECT_MANAGER_SERVER_BASE_PATH`) |
+| `AddAndActivateConnection` uses the access point given to complete the new connection; `nmcli device wifi connect` sends only the password (`psk`) of the security settings, without `permissions` (every user) and with the default `psk-flags` 0 (kept by NetworkManager). | `introspection/org.freedesktop.NetworkManager.xml`, `src/nmcli/devices.c` |
+| `ActivateConnection` with the connection "/" activates the best connection for the device; a VPN needs its connection path. | `introspection/org.freedesktop.NetworkManager.xml` |
+| A secret agent lives at `/org/freedesktop/NetworkManager/SecretAgent`; `GetSecrets` flags: `0x1` may ask the user, `0x2` the old secret failed; it answers errors of `org.freedesktop.NetworkManager.SecretAgent` (`PermissionDenied`, `UserCanceled`, `NoSecrets`). | `introspection/org.freedesktop.NetworkManager.SecretAgent.xml`, `libnm-core-public/nm-dbus-interface.h`, `nm-errors.h` |
+| WPA passwords take 8 to 63 bytes or 64 hexadecimal digits; SAE (WPA3) takes any non-empty password. | `nm_utils_wpa_psk_valid()` in `nm-utils.c`, `nm-setting-wireless-security.c` |
+| Device state reasons: 7 no secrets, 8 supplicant disconnected, 53 SSID not found; active connection state reasons: 9 no secrets, 10 login failed. | `libnm-core-public/nm-dbus-interface.h` |
+| GNOME Settings asks for a Wi-Fi scan every 15 s while its Wi-Fi panel is shown. | `panels/network/net-device-wifi.c` (`PERIODIC_WIFI_SCAN_TIMEOUT`) |
+
 ## Distributions
 
 | Fact | Source |
