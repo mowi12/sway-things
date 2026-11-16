@@ -45,6 +45,8 @@ mod imp {
         /// The bar above the page with the button back to the sidebar, while narrow.
         pub back_bar: gtk::Box,
         pub back: gtk::Button,
+        /// The line below the back bar, once the page below it scrolls.
+        pub back_line: crate::widgets::ScrollLine,
         pub pages: gtk::Stack,
         pub model: OnceCell<Model>,
         pub banner: gtk::Revealer,
@@ -239,6 +241,7 @@ impl Window {
         content.add_css_class("view");
         content.set_hexpand(true);
         content.append(&imp.back_bar);
+        content.append(&imp.back_line);
         content.append(&imp.safety);
         content.append(&imp.status);
         content.append(&imp.reload);
@@ -249,7 +252,11 @@ impl Window {
         panes.connect_narrow_changed(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            move |_, narrow| window.imp().back_bar.set_visible(narrow)
+            move |_, narrow| {
+                let imp = window.imp();
+                imp.back_bar.set_visible(narrow);
+                imp.back_line.set_visible(narrow);
+            }
         ));
         self.set_child(Some(&panes));
         let _ = imp.panes.set(panes);
@@ -319,6 +326,17 @@ impl Window {
         imp.back_bar.add_css_class("st-back-bar");
         imp.back_bar.append(&imp.back);
         imp.back_bar.set_visible(false);
+        imp.back_line.set_visible(false);
+        imp.pages.connect_visible_child_notify(glib::clone!(
+            #[weak(rename_to = line)]
+            imp.back_line,
+            move |pages| {
+                let scroller = pages
+                    .visible_child()
+                    .and_then(|page| crate::widgets::scroller_in(&page));
+                line.follow(scroller.as_ref());
+            }
+        ));
     }
 
     /// While narrow, shows the content pane instead of the sidebar, and moves the keyboard focus
@@ -857,6 +875,11 @@ impl Window {
             .pages
             .visible_child_name()
             .and_then(|id| Page::from_id(&id))
+    }
+
+    /// The line below the back bar.
+    pub fn back_line(&self) -> &crate::widgets::ScrollLine {
+        &self.imp().back_line
     }
 
     /// The sidebar.
