@@ -359,6 +359,19 @@ mod tests {
             }
         }
 
+        /// Takes reports until none comes for a while, asserting each one is `expected`.
+        fn settle(&self, expected: &[PathBuf]) {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                thread::sleep(self.debounce * 4);
+                match self.watcher.try_changed() {
+                    None => return,
+                    Some(report) => assert_eq!(report, expected),
+                }
+                assert!(Instant::now() < deadline, "reports don't settle");
+            }
+        }
+
         /// Asserts that nothing more is reported.
         fn quiet(&self) {
             thread::sleep(self.debounce * 4);
@@ -426,8 +439,8 @@ mod tests {
         // Whether the file was created before or after its directory got watched, the report
         // came after it.
         assert_eq!(fs::read_to_string(fixture.host()).unwrap(), "a = 1\n");
-        while fixture.watcher.try_changed().is_some() {}
-        fixture.quiet();
+        // A busy machine can report the directory and the write separately.
+        fixture.settle(&[fixture.host()]);
 
         // The new directory is watched now.
         fs::write(fixture.host(), "a = 2\n").unwrap();
