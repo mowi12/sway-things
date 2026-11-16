@@ -5,7 +5,15 @@
 
 import raw from '../../../data/icons/hicolor/scalable/apps/io.github.mowi12.SwayThings.svg?raw';
 
+function stripComments(svg) {
+  let previous;
+  let result = svg;
+  do {
+    previous = result;
+    result = result.replace(/<!--[\s\S]*?-->/g, '');
+  } while (result !== previous);
+  return result;
+}
+
 /** The icon's SVG markup, without its XML comments. */
-export const iconSvg = raw
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .trim();
+export const iconSvg = stripComments(raw).trim();
