@@ -235,6 +235,173 @@ fn doctor_speaks_the_language_of_the_locale() {
     assert!(checks(&text(&output.stdout)).starts_with("Compositor\n"));
 }
 
+/// A catalog directory with the pseudo-translation of every message of the template, and the
+/// environment that picks it.
+fn pseudo_locale() -> (tempfile::TempDir, Vec<(&'static str, String)>) {
+    let locales = tempfile::tempdir().unwrap();
+    let messages_dir = locales.path().join("xx/LC_MESSAGES");
+    fs::create_dir_all(&messages_dir).unwrap();
+    let pot = fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../po/sway-things.pot"
+    ))
+    .unwrap();
+    fs::write(
+        messages_dir.join(format!("{DOMAIN}.mo")),
+        i18n::pseudo::catalog(&pot),
+    )
+    .unwrap();
+    let dir = locales.path().to_str().unwrap().to_owned();
+    let env = vec![
+        (i18n::LOCALEDIR_VAR, dir),
+        ("LANG", "xx_XX.UTF-8".to_owned()),
+    ];
+    (locales, env)
+}
+
+/// The lines of `text` that still have an English word once the `data` is taken out: in the
+/// pseudo-locale every translated letter is accented, so a word of two or more ASCII letters
+/// didn't go through a catalog.
+fn untranslated(text: &str, data: &[String]) -> Vec<String> {
+    // Longest first, so a path goes before the file name in it.
+    let mut data: Vec<&str> = data
+        .iter()
+        .flat_map(|item| item.lines().chain(item.split('/')))
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .collect();
+    data.sort_by_key(|item| std::cmp::Reverse(item.len()));
+    text.lines()
+        .map(|line| {
+            data.iter()
+                .fold(line.to_owned(), |line, item| line.replace(item, " "))
+        })
+        .filter(|line| {
+            line.split(|c: char| !c.is_ascii_alphabetic())
+                .any(|word| word.len() > 1)
+        })
+        .collect()
+}
+
+/// Every string in `json` and the names of the tools, as data the output may show untranslated.
+fn strings(json: &serde_json::Value, found: &mut Vec<String>) {
+    match json {
+        serde_json::Value::String(text) => found.push(text.clone()),
+        serde_json::Value::Array(items) => items.iter().for_each(|item| strings(item, found)),
+        serde_json::Value::Object(map) => {
+            for (key, value) in map {
+                // The tools are named by their keys.
+                if key == "tools" {
+                    found.extend(
+                        value
+                            .as_object()
+                            .into_iter()
+                            .flat_map(|tools| tools.keys().cloned()),
+                    );
+                }
+                strings(value, found);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The texts of the system details, which the core doesn't mark yet (#201).
+const SYSTEM: &[&str] = &[
+    "Sway Things",
+    "Compositor",
+    "GTK",
+    "Distribution",
+    "NetworkManager",
+    "Kernel",
+    "not installed",
+    "not running",
+    "installed",
+    "unknown",
+];
+
+/// The errors of the system, which Rust's standard library only has in English.
+const OS_ERRORS: &[&str] = &["No such file or directory (os error 2)"];
+
+/// The commands the output names, which aren't translated.
+const COMMANDS: &[&str] = &[
+    "sway-things doctor --fix --overwrite",
+    "sway-things doctor --fix",
+];
+
+#[test]
+fn the_pseudo_locale_leaves_no_text_untranslated() {
+    let (_locales, env) = pseudo_locale();
+    let env: Vec<(&str, &str)> = env
+        .iter()
+        .map(|(name, value)| (*name, value.as_str()))
+        .collect();
+    let mut cases: Vec<(Home, Vec<&str>)> = Vec::new();
+    // Read-only, with a conflict and a missing file.
+    let shared = "version = 1\n\n[windows.gaps]\ninner = 8\n";
+    cases.push((Home::new(shared, "gaps inner 4\n"), vec!["doctor"]));
+    cases.push((Home::new(shared, "gaps inner 4\n"), vec!["doctor", "--fix"]));
+    // The config includes the generated files, and a line after it wins.
+    let config = format!("{INCLUDE}gaps inner 4\n");
+    cases.push((Home::new(shared, &config), vec!["doctor"]));
+    cases.push((Home::new(shared, &config), vec!["get"]));
+    cases.push((
+        Home::new(shared, &config),
+        vec!["get", "windows.gaps.inner"],
+    ));
+    cases.push((
+        Home::new(shared, &config),
+        vec!["get", "windows.gaps.outer"],
+    ));
+    cases.push((
+        Home::new("version = 1\n", INCLUDE),
+        vec!["set", "input.keyboard.xkb_layout", "de"],
+    ));
+    cases.push((
+        Home::new("version = 1\n", INCLUDE),
+        vec!["reset", "input.keyboard.xkb_layout"],
+    ));
+    cases.push((Home::new("version = 1\n", INCLUDE), vec!["show-generated"]));
+    cases.push((Home::new("version = 1\n", INCLUDE), vec!["open"]));
+    for (home, args) in &cases {
+        // What the user typed and what the JSON output says are data: keys, values, paths, and
+        // the core's findings (#201).
+        let mut data: Vec<String> = SYSTEM
+            .iter()
+            .chain(COMMANDS)
+            .chain(OS_ERRORS)
+            .chain(args)
+            .map(|text| (*text).to_owned())
+            .collect();
+        // The home, and the app `run_with` names in it.
+        data.push(home.dir.path().join("no-app").display().to_string());
+        let json_args: Vec<&str> = match args.first() {
+            Some(&"doctor") => vec!["doctor", "--json"],
+            Some(&"get") => [args.as_slice(), &["--json"]].concat(),
+            _ => Vec::new(),
+        };
+        if !json_args.is_empty() {
+            let output = home.run(&json_args);
+            let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            strings(&json, &mut data);
+        }
+        let output = home.run_with(args, &env);
+        for stream in [&output.stdout, &output.stderr] {
+            let out = text(stream);
+            assert_eq!(
+                untranslated(&out, &data),
+                [] as [&str; 0],
+                "{args:?}: {out}"
+            );
+        }
+        assert!(
+            text(&output.stdout).contains(i18n::pseudo::OPEN)
+                || text(&output.stderr).contains(i18n::pseudo::OPEN),
+            "{args:?}: {output:?}"
+        );
+    }
+}
+
 #[test]
 fn doctor_colors_only_when_asked() {
     let home = Home::new(

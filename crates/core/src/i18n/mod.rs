@@ -25,6 +25,8 @@
 mod fill;
 mod mo;
 mod plural;
+#[cfg(any(test, feature = "test-support"))]
+pub mod pseudo;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;

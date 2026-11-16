@@ -1160,9 +1160,13 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   `format!` needs a literal: `i18n::trf(msg, &[("count", &n)])` looks it up and fills them in, in one pass, so a value
   is never read for placeholders itself; `{{` and `}}` are literal braces, and a placeholder without a value stays as it
   is, so a faulty translation can't fail. Translators can move the placeholders. Search indexes both:
-  `SearchIndex::new(registry, tr)` matches the translated and the English texts. A test with a pseudo-locale
-  (`crates/cli/tests/binary.rs`) writes a catalog and checks that `sway-things doctor` prints its headings translated,
-  while `--json` keeps its English ids.
+  `SearchIndex::new(registry, tr)` matches the translated and the English texts.
+- **Pseudo-locale**: `i18n::pseudo::catalog` (core feature `test-support`) turns the template into a catalog in which
+  every translation is its msgid with each ASCII letter swapped for an accented one, between `⟦` and `⟧`; placeholders,
+  markup tags and entities stay. In it, a plain ASCII word in what is shown didn't go through a catalog, unless it is
+  data. `crates/cli/tests/binary.rs` runs the commands that write nothing in that locale and fails on any English word
+  that isn't data (what the user typed, values, paths, commands, the system's I/O errors, and for now the core's texts,
+  taken from the `--json` output). Another test there checks that `--json` keeps its English ids.
 
 ## Testing
 
