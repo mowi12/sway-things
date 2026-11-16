@@ -138,6 +138,41 @@ fn power_and_discovery_are_switched() -> Result<()> {
 
 #[test]
 #[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn the_adapter_is_renamed_and_made_visible() -> Result<()> {
+    run(async {
+        let (_stand_in, bluez, _) = with_phone().await?;
+        let adapter = "/org/bluez/hci0";
+        let snapshot = bluez.snapshot().await?;
+        let first = snapshot.adapter(adapter).ok_or("no adapter")?;
+        assert!(!first.discoverable);
+        assert_eq!(first.discoverable_timeout, 180);
+
+        bluez.set_adapter_alias(adapter, " Work laptop ").await?;
+        until(&bluez, |s| {
+            s.adapter(adapter).is_some_and(|a| a.name == "Work laptop")
+        })
+        .await?;
+        assert!(matches!(
+            bluez.set_adapter_alias(adapter, "two\nlines").await,
+            Err(BtError::InvalidName(_))
+        ));
+
+        bluez.set_discoverable(adapter, true).await?;
+        until(&bluez, |s| {
+            s.adapter(adapter).is_some_and(|a| a.discoverable)
+        })
+        .await?;
+        bluez.set_discoverable(adapter, false).await?;
+        until(&bluez, |s| {
+            s.adapter(adapter).is_some_and(|a| !a.discoverable)
+        })
+        .await?;
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
 fn a_device_is_paired_connected_renamed_and_forgotten() -> Result<()> {
     run(async {
         let (stand_in, bluez, phone) = with_phone().await?;

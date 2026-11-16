@@ -34,6 +34,11 @@ pub struct Adapter {
     pub powered: bool,
     /// Whether it is looking for devices.
     pub discovering: bool,
+    /// Whether other devices can find it.
+    pub discoverable: bool,
+    /// How long it stays visible after [`discoverable`](Self::discoverable) is switched on, in
+    /// seconds; 0 means until it is switched off.
+    pub discoverable_timeout: u32,
 }
 
 impl Adapter {
@@ -265,6 +270,8 @@ mod tests {
             address: String::new(),
             powered: false,
             discovering: false,
+            discoverable: false,
+            discoverable_timeout: 0,
         };
         assert_eq!(adapter.id(), "hci1");
     }

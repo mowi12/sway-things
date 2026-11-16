@@ -142,6 +142,30 @@ impl Bluez {
         self.set(adapter, ADAPTER, "Powered", Value::from(on)).await
     }
 
+    /// Renames `adapter` (its path): the name other devices see. An empty `name` goes back to the
+    /// adapter's own name.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidName`] for a name BlueZ wouldn't take (see
+    /// [`check_alias`](super::check_alias)), [`Error::Unavailable`] while BlueZ isn't running,
+    /// [`Error::Failed`] with BlueZ's error if it refuses or fails.
+    pub async fn set_adapter_alias(&self, adapter: &str, name: &str) -> Result<(), Error> {
+        self.set_name(adapter, ADAPTER, name).await
+    }
+
+    /// Makes `adapter` (its path) visible to other devices or hides it. BlueZ hides it again
+    /// after its `DiscoverableTimeout`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Unavailable`] while BlueZ isn't running, [`Error::Failed`] with BlueZ's error if
+    /// it refuses or fails (while the radio is off, for one).
+    pub async fn set_discoverable(&self, adapter: &str, on: bool) -> Result<(), Error> {
+        self.set(adapter, ADAPTER, "Discoverable", Value::from(on))
+            .await
+    }
+
     /// Starts looking for devices. BlueZ stops when [`stop_discovery`](Self::stop_discovery) is
     /// called or this connection closes.
     ///
@@ -230,8 +254,13 @@ impl Bluez {
     /// [`check_alias`](super::check_alias)), [`Error::Unavailable`] while BlueZ isn't running,
     /// [`Error::Failed`] with BlueZ's error if it refuses or fails.
     pub async fn set_alias(&self, device: &str, name: &str) -> Result<(), Error> {
+        self.set_name(device, DEVICE, name).await
+    }
+
+    /// Sets the `Alias` of `interface` on `path` to `name`, checked with [`check_alias`].
+    async fn set_name(&self, path: &str, interface: &str, name: &str) -> Result<(), Error> {
         let name = check_alias(name).map_err(Error::InvalidName)?;
-        self.set(device, DEVICE, "Alias", Value::from(name.as_str()))
+        self.set(path, interface, "Alias", Value::from(name.as_str()))
             .await
     }
 
@@ -461,6 +490,11 @@ fn adapter(path: &str, properties: &Properties) -> Adapter {
         address,
         powered: flag(properties, "Powered"),
         discovering: flag(properties, "Discovering"),
+        discoverable: flag(properties, "Discoverable"),
+        discoverable_timeout: properties
+            .get("DiscoverableTimeout")
+            .and_then(|value| u32::try_from(value).ok())
+            .unwrap_or(0),
     }
 }
 
@@ -533,6 +567,8 @@ mod tests {
                 ("Alias".to_owned(), value("laptop")),
                 ("Powered".to_owned(), value(powered)),
                 ("Discovering".to_owned(), value(false)),
+                ("Discoverable".to_owned(), value(powered)),
+                ("DiscoverableTimeout".to_owned(), value(180u32)),
             ]),
         )])
     }
@@ -583,6 +619,9 @@ mod tests {
         let adapters: Vec<&str> = snapshot.adapters.iter().map(Adapter::id).collect();
         assert_eq!(adapters, ["hci0", "hci1"]);
         assert!(snapshot.adapters[0].powered);
+        assert!(snapshot.adapters[0].discoverable);
+        assert!(!snapshot.adapters[1].discoverable);
+        assert_eq!(snapshot.adapters[0].discoverable_timeout, 180);
         assert_eq!(snapshot.devices.len(), 2);
         let headset = snapshot
             .device("/org/bluez/hci1/dev_AA_BB_CC_DD_EE_FF")
