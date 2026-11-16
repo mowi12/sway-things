@@ -236,7 +236,8 @@ mod imp {
         gtk::ListBoxRow::builder().child(&label).build()
     }
 
-    /// The group heading above the row at `index`, if it is the first page of its group.
+    /// The group heading above the row at `index`, if it is the first page of its group, below a
+    /// separator line unless it is the first group.
     fn group_heading(index: i32) -> Option<gtk::Widget> {
         let page = page_at(index)?;
         let previous = index.checked_sub(1).and_then(page_at);
@@ -254,8 +255,18 @@ mod imp {
         heading.update_property(&[gtk::accessible::Property::Label(title)]);
         if previous.is_none() {
             heading.add_css_class("st-first");
+            return Some(heading.upcast());
         }
-        Some(heading.upcast())
+        // Every later group starts below a line, indented to the rows' text. A header is never
+        // focusable, so the arrow keys skip the line like the heading.
+        let header = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        header.append(
+            &gtk::Separator::builder()
+                .css_classes(["st-group-separator"])
+                .build(),
+        );
+        header.append(&heading);
+        Some(header.upcast())
     }
 }
 
