@@ -5,7 +5,8 @@
 //!
 //! A translatable string is a [`Msg`]: its msgid, the American English source string. Mark it
 //! with [`msg!`](crate::msg), which `scripts/update-pot.sh` extracts into `po/sway-things.pot`,
-//! and show it through [`tr`]. Each binary calls [`init`] once at startup; until then (and in
+//! and show it through [`tr`], or through [`trf`] if it has named placeholders (`{count}`) for
+//! values. Each binary calls [`init`] once at startup; until then (and in
 //! every test that doesn't set it up) [`tr`] gives the English source string.
 //!
 //! The catalogs are `<dir>/<language>/LC_MESSAGES/sway-things.mo`. The directory is
@@ -20,11 +21,13 @@
 //! assert_eq!(i18n::tr(title), "Keyboard");
 //! ```
 
+mod fill;
 mod mo;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+pub use fill::{Arg, fill};
 #[cfg(any(test, feature = "test-support"))]
 pub use mo::write as write_mo;
 pub use mo::{Catalog, MoError};
@@ -128,6 +131,18 @@ pub fn tr(msg: Msg) -> &'static str {
         .get()
         .and_then(|translations| translations.get(msg.msgid()))
         .unwrap_or(msg.msgid())
+}
+
+/// The text of `msg` in the user's language with its named placeholders filled in: see [`fill`].
+///
+/// ```
+/// use sway_things_core::{i18n, msg};
+///
+/// let text = i18n::trf(msg!("{count} devices"), &[("count", &3)]);
+/// assert_eq!(text, "3 devices");
+/// ```
+pub fn trf(msg: Msg, args: &[Arg<'_>]) -> String {
+    fill(tr(msg), args)
 }
 
 /// The directory of the catalogs: `$SWAY_THINGS_LOCALEDIR`, else the build's default.

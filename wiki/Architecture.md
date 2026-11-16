@@ -1146,9 +1146,13 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   and a string missing from the first language's catalog is looked up in the next. Only singular forms are read so far;
   plural forms come with the first string that needs them.
 - **Showing**: `i18n::tr(msg)` gives the translation, or the English source string if there is none or `init` wasn't
-  called, so tests stay in English without setup. Search indexes both: `SearchIndex::new(registry, tr)` matches the
-  translated and the English texts. A test with a pseudo-locale (`crates/cli/tests/binary.rs`) writes a catalog and
-  checks that `sway-things doctor` prints its headings translated, while `--json` keeps its English ids.
+  called, so tests stay in English without setup. A message with values in it names them (`{count} problems`), since
+  `format!` needs a literal: `i18n::trf(msg, &[("count", &n)])` looks it up and fills them in, in one pass, so a value
+  is never read for placeholders itself; `{{` and `}}` are literal braces, and a placeholder without a value stays as it
+  is, so a faulty translation can't fail. Translators can move the placeholders. Search indexes both:
+  `SearchIndex::new(registry, tr)` matches the translated and the English texts. A test with a pseudo-locale
+  (`crates/cli/tests/binary.rs`) writes a catalog and checks that `sway-things doctor` prints its headings translated,
+  while `--json` keeps its English ids.
 
 ## Testing
 
