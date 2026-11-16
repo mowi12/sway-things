@@ -131,6 +131,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Rename the adapter: the name other devices see
 - [x] 🟢 Make the computer visible to other devices for a while
 - [x] 🟢 "Advanced…" → blueman-manager
+- [x] 🟢 Search for devices automatically while the page is open, or only with a Search button (app preference)
 
 ### Network
 
@@ -140,6 +141,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Wi-Fi on/off (`WirelessEnabled`); explain a hardware block
 - [x] 🟢 Connect to a hidden network
 - [x] 🟢 Forget a saved network; edit a connection in `nm-connection-editor`
+- [x] 🟢 Search for networks automatically while the page is open, or only with a Search button (app preference)
 - [x] 🟢 Several Wi-Fi adapters: pick the one the page shows
 - [x] 🟢 Network details: addresses, gateway, DNS, signal, speed
 - [x] 🟢 Captive portal note with the login page

@@ -112,13 +112,28 @@ and no generated file.
   says how to turn the radio back on. The devices come back as soon as the radio is on.
 - **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
   level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
-- **Other devices:** the devices around. While the page is on screen and the radio is on, it searches (a spinner says
-  so) and stops when the page goes. _Connect_ pairs, trusts and connects in one step.
+- **Other devices:** the devices around, as BlueZ knows them. _Connect_ pairs, trusts and connects in one step.
+- **Search:** see [Searching for devices and networks](#searching-for-devices-and-networks).
 - **Pairing dialogs:** compare a code (_Pair_ / _Cancel_), type a shown code on a keyboard (the digits typed so far are
   underlined), enter a PIN or a code, or allow a device without a code. A dialog closes when the device cancels.
 - **Advanced…:** in the header, while blueman is installed: starts blueman-manager for what the page doesn't do.
 - **Not available:** without BlueZ or without an adapter, the page shows a placeholder and updates by itself once either
   appears.
+
+### Searching for devices and networks
+
+Bluetooth and Network search the same way. The app preferences _Search for Bluetooth devices_ and _Search for Wi-Fi
+networks_ choose per page between two modes:
+
+- **Automatic** (the default): Bluetooth discovers the whole time the page is on screen and the radio is on; Wi-Fi asks
+  for a scan every 15 s. A spinner with _Searching_ next to _Other devices_ and _Other networks_ says so. There is no
+  _Search_ button.
+- **Manual:** opening the page shows what BlueZ and NetworkManager already know, and nothing searches by itself. A flat
+  _Search_ button with a refresh icon at the right of the heading starts one search: a Bluetooth discovery of 30 s, or
+  one Wi-Fi scan that ends when NetworkManager reports the new list. While it runs, a spinner takes the icon's place and
+  the button reads _Stop_. The button is insensitive while the radio is off.
+- Either way a search stops when the page goes off screen, the radio is turned off or another adapter is chosen.
+  Switching the preference shows or hides the button at once.
 
 ### Network
 
@@ -135,11 +150,11 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 - **Known networks:** every saved network, the connected one first: a signal icon (four bars), the name, the state and
   security as text (_Connected · WPA2_), _Connect_ or _Disconnect_, and a ⋮ menu with _Details…_ (while connected),
   _Edit…_ (nm-connection-editor) and _Forget…_ (which asks first). Saved networks that aren't around say _Not in range_.
-- **Other networks:** the networks around, by signal level and name. While the page is on screen and Wi-Fi is on, it
-  asks for a scan every 15 s (a spinner says so). _Connect_ on a secured network asks for the password: a field with the
-  eye, checked as NetworkManager checks it, and the note _Saved for all users of this computer._ 802.1X and WEP networks
-  offer _Set Up…_, which opens nm-connection-editor. The last row is _Connect to Hidden Network…_: name, security (none,
-  WPA & WPA2 Personal, WPA3 Personal) and password.
+- **Other networks:** the networks around, by signal level and name; for the search see
+  [Searching for devices and networks](#searching-for-devices-and-networks). _Connect_ on a secured network asks for the
+  password: a field with the eye, checked as NetworkManager checks it, and the note _Saved for all users of this
+  computer._ 802.1X and WEP networks offer _Set Up…_, which opens nm-connection-editor. The last row is _Connect to
+  Hidden Network…_: name, security (none, WPA & WPA2 Personal, WPA3 Personal) and password.
 - **Wrong password:** while the page is on screen, and until a connection it started has finished, NetworkManager asks
   the page when a password is missing or wrong: _Wrong password for “Home”_ with a password field. Canceling gives up
   the connection.
@@ -351,9 +366,10 @@ preference:
   hard-coded light or dark values, so a custom GTK theme keeps working.
 - **Accent = sway's focus color** (`client.focused` child border, default `#285577`). Changing it on the Windows page
   recolors the app live, so the accent is personal to each setup. An app preference switches back to the theme's accent.
-- **App preferences** (accent source, safety-net timeout, editor command, show sway directives) are a "Sway Things"
-  section at the bottom of About & Maintenance. There search, the CLI and reset work for them like for any setting,
-  without a separate preferences window in a tiling window manager.
+- **App preferences** (accent source, safety-net timeout, editor command, show sway directives, remember collapsed
+  sections, and whether Bluetooth and Wi-Fi search automatically or only with _Search_) are a "Sway Things" section at
+  the bottom of About & Maintenance. There search, the CLI and reset work for them like for any setting, without a
+  separate preferences window in a tiling window manager.
 - Our own CSS only for structure (sidebar, rows, cards, banners).
 
 ## SwayFX
