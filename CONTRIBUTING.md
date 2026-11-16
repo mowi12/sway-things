@@ -154,7 +154,7 @@ Editors pick up indentation and line endings from `.editorconfig`.
 
 The sway config parser reads files from shared dotfiles, so it is fuzzed: `fuzz/fuzz_targets/sway_config.rs` feeds it a
 config and the files it includes, all in memory. `fuzz/` is a workspace of its own, outside `just check`. It needs
-[cargo-fuzz](https://github.com/rust-lang/cargo-fuzz) (`cargo install cargo-fuzz --locked`, or its release binary) and a
+[cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (`cargo install cargo-fuzz --locked`, or its release binary) and a
 C++ compiler for libFuzzer (`c++`, or `clang++`); the stable toolchain is enough, as it runs without a sanitizer.
 
 ```sh

@@ -1,2 +1,5 @@
 include_fragments = "anchor-only"
 no_progress = true
+
+# build.opensuse.org answers non-browser clients with a JavaScript challenge (403).
+exclude = ['^https://build\.opensuse\.org/package/show/']
