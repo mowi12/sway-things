@@ -4104,11 +4104,16 @@ fn check_bluetooth() -> Outcome {
     )?;
 
     check_bluetooth_pairing(&page, &stand_in)?;
+    check_bluetooth_adapter(&page, &stand_in)?;
 
     page.power_switch().set_active(false);
     ensure(
         run_until(Duration::from_secs(5), || !page.power_switch().state()),
         "  Bluetooth didn't turn off",
+    )?;
+    ensure(
+        !page.visible_switch().is_sensitive() && !page.adapter_rename_button().is_sensitive(),
+        "  visibility and renaming stayed available with the radio off",
     )?;
     ensure(
         run_until(Duration::from_secs(5), || {
@@ -4143,6 +4148,80 @@ fn check_bluetooth_off(page: &BluetoothPage) -> Outcome {
             page.power_switch().state() && page.off_placeholder().is_none()
         }),
         "  turning Bluetooth on didn't remove the placeholder",
+    )?;
+    Ok(())
+}
+
+/// Renaming the selected adapter of [`bluetooth_stand_in`] on `page` through its dialog, and
+/// making it visible; the switch follows BlueZ when the time is up.
+fn check_bluetooth_adapter(page: &BluetoothPage, stand_in: &StandIn) -> Outcome {
+    let bluez = async_io::block_on(stand_in.bluez()).map_err(|error| format!("  {error}"))?;
+    let name = || {
+        async_io::block_on(bluez.snapshot())
+            .ok()
+            .and_then(|snapshot| Some(snapshot.adapter("/org/bluez/hci0")?.name.clone()))
+    };
+    page.adapter_rename_button().emit_clicked();
+    let dialog = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|window| window.downcast::<gtk::Window>().ok())
+            .find(|window| {
+                window.is_visible() && button_labeled(window.upcast_ref(), "Rename").is_some()
+            })
+    };
+    ensure(
+        run_until(Duration::from_secs(5), || dialog().is_some()),
+        "  Rename… didn't ask for a name",
+    )?;
+    let dialog = dialog().ok_or("  no dialog")?;
+    find::<gtk::Entry>(dialog.upcast_ref())
+        .ok_or("  the dialog has no field")?
+        .set_text("Work laptop");
+    button_labeled(dialog.upcast_ref(), "Rename")
+        .ok_or("  the dialog has no Rename button")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            name().as_deref() == Some("Work laptop")
+        }),
+        &format!("  the adapter wasn't renamed: {:?}", name()),
+    )?;
+
+    ensure(
+        page.visible_switch().is_sensitive(),
+        "  the visibility switch isn't usable with the radio on",
+    )?;
+    // The stand-in makes the adapter visible when discovery starts: hide it first.
+    let hide = || {
+        async_io::block_on(stand_in.update(
+            "/org/bluez/hci0",
+            "org.bluez.Adapter1",
+            &[("Discoverable", zbus::zvariant::Value::from(false))],
+        ))
+        .map_err(|error| format!("  {error}"))
+    };
+    hide()?;
+    ensure(
+        run_until(Duration::from_secs(5), || !page.visible_switch().state()),
+        "  the switch didn't follow BlueZ hiding the adapter",
+    )?;
+    page.visible_switch().set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || page.visible_switch().state()),
+        &format!("  the adapter didn't become visible: {}", page.error_text()),
+    )?;
+    ensure(
+        async_io::block_on(bluez.snapshot())
+            .ok()
+            .and_then(|s| Some(s.adapter("/org/bluez/hci0")?.discoverable))
+            == Some(true),
+        "  BlueZ didn't make the adapter visible",
+    )?;
+    hide()?;
+    ensure(
+        run_until(Duration::from_secs(5), || !page.visible_switch().state()),
+        "  the switch didn't follow BlueZ when the time was up",
     )?;
     Ok(())
 }

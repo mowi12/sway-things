@@ -125,6 +125,11 @@ mod imp {
         pub adapter_names: gtk::StringList,
         pub power: gtk::Switch,
         pub power_subtitle: gtk::Label,
+        /// The ⋮ menu of the adapter, with "Rename…".
+        pub adapter_menu: gtk::MenuButton,
+        pub adapter_rename: gtk::Button,
+        pub visible: gtk::Switch,
+        pub visible_subtitle: gtk::Label,
         /// Why the soft block couldn't be lifted, with the command to do it.
         pub unblock_help: gtk::Box,
         /// The error of the last action that failed.
@@ -270,6 +275,16 @@ impl BluetoothPage {
         &self.imp().power
     }
 
+    /// The "Visible to other devices" switch, for tests.
+    pub fn visible_switch(&self) -> &gtk::Switch {
+        &self.imp().visible
+    }
+
+    /// The "Rename…" item of the adapter's ⋮ menu, for tests.
+    pub fn adapter_rename_button(&self) -> &gtk::Button {
+        &self.imp().adapter_rename
+    }
+
     /// The name, status and button label of each row of the paired devices (`mine`) or the
     /// others, in order; for tests.
     pub fn device_rows(&self, mine: bool) -> Vec<(String, String, String)> {
@@ -368,15 +383,18 @@ impl BluetoothPage {
             weak.upgrade()
                 .map_or(glib::Propagation::Proceed, |page| page.power_changed(on))
         });
+        self.build_adapter_menu();
         section.append(&list_row(&row(
             &gtk::Label::new(Some("Bluetooth")),
             &imp.power_subtitle,
-            &[imp.power.upcast_ref()],
+            &[imp.power.upcast_ref(), imp.adapter_menu.upcast_ref()],
         )));
         // Its explanations of a block are longer than a line.
         imp.power_subtitle
             .set_ellipsize(gtk::pango::EllipsizeMode::None);
         imp.power_subtitle.set_wrap(true);
+
+        self.build_visible_row(&section);
         imp.controls.append(&section);
 
         self.build_unblock_help();
@@ -424,6 +442,53 @@ impl BluetoothPage {
         imp.devices.append(&imp.others);
         hint(&imp.others_hint);
         imp.devices.append(&imp.others_hint);
+    }
+
+    /// The "Visible to other devices" row, appended to `section`.
+    fn build_visible_row(&self, section: &gtk::ListBox) {
+        let imp = self.imp();
+        imp.visible_subtitle.add_css_class(style::DIM);
+        imp.visible.set_valign(gtk::Align::Center);
+        imp.visible
+            .update_property(&[gtk::accessible::Property::Label("Visible to other devices")]);
+        let weak = self.downgrade();
+        imp.visible.connect_state_set(move |_, on| {
+            weak.upgrade()
+                .map_or(glib::Propagation::Proceed, |page| page.visible_changed(on))
+        });
+        section.append(&list_row(&row(
+            &gtk::Label::new(Some("Visible to other devices")),
+            &imp.visible_subtitle,
+            &[imp.visible.upcast_ref()],
+        )));
+    }
+
+    /// The adapter's ⋮ menu with "Rename…".
+    fn build_adapter_menu(&self) {
+        let imp = self.imp();
+        let popover = gtk::Popover::new();
+        imp.adapter_rename.set_label("Rename…");
+        imp.adapter_rename.add_css_class("flat");
+        if let Some(child) = imp.adapter_rename.child().and_downcast::<gtk::Label>() {
+            child.set_xalign(0.0);
+        }
+        popover.set_child(Some(&imp.adapter_rename));
+        let weak = self.downgrade();
+        imp.adapter_rename.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            move |_| {
+                popover.popdown();
+                if let Some(page) = weak.upgrade() {
+                    page.rename_adapter();
+                }
+            }
+        ));
+        imp.adapter_menu.set_icon_name("view-more-symbolic");
+        imp.adapter_menu.set_popover(Some(&popover));
+        imp.adapter_menu.set_valign(gtk::Align::Center);
+        imp.adapter_menu.set_tooltip_text(Some("More actions"));
+        imp.adapter_menu.add_css_class("flat");
     }
 
     /// The box that says why the soft block couldn't be lifted, with the command to copy.
@@ -657,6 +722,13 @@ impl BluetoothPage {
         } else {
             "Off".to_owned()
         });
+        imp.adapter_menu.set_sensitive(adapter.powered);
+        imp.adapter_rename.set_sensitive(adapter.powered);
+        imp.visible.set_active(adapter.discoverable);
+        imp.visible.set_state(adapter.discoverable);
+        imp.visible.set_sensitive(adapter.powered);
+        imp.visible_subtitle
+            .set_text(&visible_text(adapter.discoverable_timeout));
         self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
 
         let searching = adapter.powered && adapter.discovering;
@@ -938,6 +1010,80 @@ impl BluetoothPage {
         });
     }
 
+    /// Asks for a new name for the selected adapter and sets it.
+    fn rename_adapter(&self) {
+        let imp = self.imp();
+        let adapter = imp.selected.borrow().clone().and_then(|path| {
+            let snapshot = imp.snapshot.borrow();
+            Some((
+                path.clone(),
+                snapshot.as_ref()?.adapter(&path)?.name.clone(),
+            ))
+        });
+        let (Some(bluez), Some((path, old))) = (imp.bluez.borrow().clone(), adapter) else {
+            return;
+        };
+        let window = self.root().and_downcast::<gtk::Window>();
+        let weak = self.downgrade();
+        Dialog::open(
+            window.as_ref(),
+            &rename_spec(&old, "Leave it empty to use the adapter's own name."),
+            move |name| {
+                let Some(name) = name else {
+                    return;
+                };
+                glib::spawn_future_local(async move {
+                    let result = bluez.set_adapter_alias(&path, &name).await;
+                    if let Some(page) = weak.upgrade() {
+                        page.show_error(&match result {
+                            Ok(()) => String::new(),
+                            Err(error) => format!("{} “{old}”: {error}", Action::Rename.failure()),
+                        });
+                    }
+                    refresh(&weak, &bluez).await;
+                });
+            },
+        );
+    }
+
+    /// The handler of the "Visible to other devices" switch.
+    fn visible_changed(&self, on: bool) -> glib::Propagation {
+        let imp = self.imp();
+        let adapter = imp.selected.borrow().clone().and_then(|path| {
+            let snapshot = imp.snapshot.borrow();
+            let discoverable = snapshot.as_ref()?.adapter(&path)?.discoverable;
+            Some((path, discoverable))
+        });
+        let (Some(bluez), Some((path, discoverable))) = (imp.bluez.borrow().clone(), adapter)
+        else {
+            return glib::Propagation::Proceed;
+        };
+        if discoverable == on {
+            return glib::Propagation::Proceed;
+        }
+        let weak = self.downgrade();
+        glib::spawn_future_local(async move {
+            let result = bluez.set_discoverable(&path, on).await;
+            if let Some(page) = weak.upgrade() {
+                page.show_error(&match result {
+                    Ok(()) => String::new(),
+                    Err(error) => format!(
+                        "Couldn't {}: {error}",
+                        if on {
+                            "make the computer visible"
+                        } else {
+                            "hide the computer"
+                        }
+                    ),
+                });
+            }
+            // A refused change puts the switch back.
+            refresh(&weak, &bluez).await;
+        });
+        // The switch shows the new position; its state follows once BlueZ reports it.
+        glib::Propagation::Stop
+    }
+
     /// Asks for a new name for `device` and sets it.
     fn rename(&self, bluez: &Bluez, device: &Device) {
         let window = self.root().and_downcast::<gtk::Window>();
@@ -947,18 +1093,10 @@ impl BluetoothPage {
         let old = device.name.clone();
         Dialog::open(
             window.as_ref(),
-            &Spec {
-                title: format!("Rename “{}”", device.name),
-                body: String::new(),
-                code: None,
-                field: Some(Field {
-                    label: "Name",
-                    text: device.name.clone(),
-                    valid: |name| check_alias(name).is_ok(),
-                }),
-                note: Some("Leave it empty to use the name the device announces.".to_owned()),
-                accept: Some("Rename"),
-            },
+            &rename_spec(
+                &device.name,
+                "Leave it empty to use the name the device announces.",
+            ),
             move |name| {
                 let Some(name) = name else {
                     return;
@@ -1493,6 +1631,34 @@ fn plain_row(row: &gtk::ListBoxRow) {
     row.set_focusable(false);
 }
 
+/// The dialog that asks for a new name instead of `name`, with `note` under the field.
+fn rename_spec(name: &str, note: &str) -> Spec {
+    Spec {
+        title: format!("Rename “{name}”"),
+        body: String::new(),
+        code: None,
+        field: Some(Field {
+            label: "Name",
+            text: name.to_owned(),
+            valid: |name| check_alias(name).is_ok(),
+        }),
+        note: Some(note.to_owned()),
+        accept: Some("Rename"),
+    }
+}
+
+/// The subtitle of "Visible to other devices": how long it stays visible after `timeout`
+/// seconds (0: until switched off).
+fn visible_text(timeout: u32) -> String {
+    match timeout {
+        0 => "Stays visible until you turn this off".to_owned(),
+        1 => "Stays visible for 1 second".to_owned(),
+        2..60 => format!("Stays visible for {timeout} seconds"),
+        60..120 => "Stays visible for 1 minute".to_owned(),
+        _ => format!("Stays visible for {} minutes", timeout / 60),
+    }
+}
+
 /// A row with `title` above `subtitle` on the left and `controls` on the right.
 fn row(title: &gtk::Label, subtitle: &gtk::Label, controls: &[&gtk::Widget]) -> gtk::Box {
     for label in [title, subtitle] {
@@ -1509,4 +1675,17 @@ fn row(title: &gtk::Label, subtitle: &gtk::Label, controls: &[&gtk::Widget]) -> 
         line.append(*control);
     }
     line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::visible_text;
+
+    #[test]
+    fn the_visible_time_is_said_in_seconds_or_minutes() {
+        assert_eq!(visible_text(0), "Stays visible until you turn this off");
+        assert_eq!(visible_text(30), "Stays visible for 30 seconds");
+        assert_eq!(visible_text(60), "Stays visible for 1 minute");
+        assert_eq!(visible_text(180), "Stays visible for 3 minutes");
+    }
 }
