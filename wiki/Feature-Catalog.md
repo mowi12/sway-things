@@ -128,6 +128,8 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Several adapters: pick the one the page shows
 - [x] 🟢 Battery level of connected devices
 - [x] 🟢 Rename a device
+- [x] 🟢 Rename the adapter: the name other devices see
+- [x] 🟢 Make the computer visible to other devices for a while
 - [x] 🟢 "Advanced…" → blueman-manager
 
 ### Network
