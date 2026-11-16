@@ -4344,7 +4344,64 @@ fn check_network() -> Outcome {
         run_until(Duration::from_secs(5), || !page.is_searching()),
         "  the page kept scanning with Wi-Fi off",
     )?;
+    check_network_wifi_off(&page, &stand_in)?;
     window.destroy();
+    Ok(())
+}
+
+/// The placeholder of `page` while Wi-Fi is off: it replaces the known and other networks, the
+/// wired and VPN sections stay, a hardware block says so, and turning Wi-Fi back on with the
+/// switch brings the networks back.
+fn check_network_wifi_off(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
+    let texts = page
+        .off_placeholder()
+        .ok_or("  no placeholder while Wi-Fi is off")?;
+    ensure(
+        texts.first().map(String::as_str) == Some("Wi-Fi is off"),
+        &format!("  placeholder: {texts:?}"),
+    )?;
+    ensure(
+        !page
+            .row_button("Home")
+            .is_some_and(|button| button.is_drawable()),
+        "  the known networks still show while Wi-Fi is off",
+    )?;
+    ensure(
+        page.rows("wired").len() == 1 && page.rows("vpns").len() == 1,
+        "  the wired and VPN sections went with Wi-Fi",
+    )?;
+
+    let hardware = |enabled: bool| {
+        async_io::block_on(stand_in.update(
+            NM_MANAGER,
+            "org.freedesktop.NetworkManager",
+            &[(
+                "WirelessHardwareEnabled",
+                zbus::zvariant::Value::from(enabled),
+            )],
+        ))
+        .map_err(|error| format!("  {error}"))
+    };
+    hardware(false)?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.off_placeholder()
+                .is_some_and(|texts| texts.iter().any(|text| text.contains("hardware switch")))
+        }),
+        &format!("  hardware block: {:?}", page.off_placeholder()),
+    )?;
+    hardware(true)?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.wifi_switch().is_sensitive()),
+        "  the switch stayed locked once the hardware block went",
+    )?;
+    page.wifi_switch().set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.wifi_switch().state() && page.off_placeholder().is_none()
+        }),
+        "  turning Wi-Fi on didn't remove the placeholder",
+    )?;
     Ok(())
 }
 

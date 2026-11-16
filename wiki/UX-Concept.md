@@ -122,9 +122,12 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 
 - **Captive portal:** while NetworkManager reports one, a note at the top says the network wants a sign-in, with _Open
   Login Page_ (NetworkManager's connectivity check address in the browser) when NetworkManager has that address.
-- **Wi-Fi section:** a switch, its subtitle the network it is connected to. With two or more adapters an _Adapter_
-  drop-down comes first (not remembered). A hardware block locks the switch and says how to turn Wi-Fi back on. Without
-  a Wi-Fi adapter the section is a hint, and the wired and VPN sections stay usable.
+- **Wi-Fi section:** a switch, its subtitle the network it is connected to or _Off_. With two or more adapters an
+  _Adapter_ drop-down comes first (not remembered). A hardware block locks the switch. Without a Wi-Fi adapter the
+  section is a hint, and the wired and VPN sections stay usable.
+- **Wi-Fi off:** a placeholder _Wi-Fi is off_ (icon, title, text) replaces the known and other networks and points to
+  the switch; the wired and VPN sections stay. A hardware block says how to turn Wi-Fi back on. The networks come back
+  as soon as Wi-Fi is on.
 - **Known networks:** every saved network, the connected one first: a signal icon (four bars), the name, the state and
   security as text (_Connected · WPA2_), _Connect_ or _Disconnect_, and a ⋮ menu with _Details…_ (while connected),
   _Edit…_ (nm-connection-editor) and _Forget…_ (which asks first). Saved networks that aren't around say _Not in range_.
