@@ -9,7 +9,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Pending, Until};
-use sway_things_core::registry::{ConfigFile, Link, Page, Registry};
+use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
 
 use crate::i18n::tr;
 use crate::model::Model;
@@ -820,9 +820,18 @@ impl Window {
     }
 
     fn build_page(&self, page: Page) -> PageView {
-        // Live state from BlueZ, not settings: it needs neither the model nor the registry.
+        // Live state from BlueZ, not settings; only the preference for searching comes from the
+        // model.
         if page == Page::Bluetooth {
             let body = BluetoothPage::new(&self.imp().bluetooth_bus.borrow());
+            if let Some(model) = self.imp().model.get() {
+                let weak = body.downgrade();
+                follow_manual_search(model, "app.bluetooth_search", move |manual| {
+                    if let Some(body) = weak.upgrade() {
+                        body.set_manual_search(manual);
+                    }
+                });
+            }
             let view = PageView::new(tr(page.title()), tr(page.description()), &body);
             if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
                 header.set_end(&advanced);
@@ -960,4 +969,21 @@ fn safety_text(model: &Model, pending: &Pending) -> String {
     let left = pending.countdown().remaining();
     let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
     format!("Keep the change to {name}? Reverting in {seconds} s")
+}
+
+/// Calls `apply` with whether the preference `key` asks for searches only on request, now and
+/// whenever the settings change.
+fn follow_manual_search(model: &Model, key: &str, apply: impl Fn(bool) + 'static) {
+    let Some(setting) = Registry::builtin().get(key) else {
+        return;
+    };
+    let update = move |model: &Model| {
+        apply(
+            model
+                .view(setting, None)
+                .is_some_and(|view| view.value == Value::Choice("manual".to_owned())),
+        );
+    };
+    update(model);
+    model.connect_changed(update);
 }

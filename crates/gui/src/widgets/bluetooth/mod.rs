@@ -5,7 +5,10 @@
 //! BlueZ.
 //!
 //! The page reads a new snapshot whenever BlueZ reports a change, at most every [`THROTTLE`], and
-//! updates its rows in place. While it is on screen and the radio is on, it looks for devices.
+//! updates its rows in place. By default it looks for devices the whole time it is on screen and
+//! the radio is on; with the preference set to manual, only for [`SEARCH_FOR`] after _Search_,
+//! which shows only then. A search stops once the page leaves the screen, the radio goes off or
+//! another adapter is chosen.
 //! _Connect_ on a device that isn't paired pairs it first; the pairing agent's questions come up
 //! as dialogs. A soft-blocked radio is unblocked through rfkill when switched on.
 //!
@@ -28,13 +31,15 @@ use sway_things_core::bluetooth::{
 use sway_things_core::delegate;
 
 use self::dialogs::{Dialog, Field, Spec};
-use super::Placeholder;
+use super::{Placeholder, search_button};
 use crate::style;
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
 /// How long to give the kernel after lifting the soft block before powering the adapter.
 const UNBLOCK_SETTLE: Duration = Duration::from_millis(500);
+/// How long a search started with _Search_ looks for devices.
+const SEARCH_FOR: Duration = Duration::from_secs(30);
 /// The command that lifts the soft block, for users without access to `/dev/rfkill`.
 const UNBLOCK_COMMAND: &str = "rfkill unblock bluetooth";
 
@@ -145,6 +150,13 @@ mod imp {
         pub mine_hint: gtk::Label,
         pub others_heading: gtk::Box,
         pub searching: gtk::Box,
+        pub searching_label: gtk::Label,
+        /// _Search_, or _Stop_ while a search started with it runs.
+        pub search: gtk::Button,
+        /// Whether the page only looks for devices after _Search_.
+        pub manual: Cell<bool>,
+        /// The adapter a search started with _Search_ runs on, and when it ends.
+        pub requested: RefCell<Option<(String, glib::SourceId)>>,
         /// Where the spinner is: it is replaced each time searching shows, since a spinner's
         /// animation stops when it leaves the screen and doesn't start again by itself.
         pub spinner_slot: gtk::Box,
@@ -201,6 +213,7 @@ mod imp {
             if let Some((_, dialog)) = self.dialog.take() {
                 dialog.close();
             }
+            self.obj().end_search();
             self.obj().stop_discovery();
             self.content.unparent();
         }
@@ -421,27 +434,47 @@ impl BluetoothPage {
         hint(&imp.mine_hint);
         imp.devices.append(&imp.mine_hint);
 
-        imp.others_heading
-            .set_orientation(gtk::Orientation::Horizontal);
-        imp.others_heading.set_spacing(8);
-        imp.others_heading.set_margin_top(24);
-        imp.others_heading.set_margin_bottom(8);
-        let others = heading("Other devices", false);
-        others.set_margin_top(0);
-        others.set_margin_bottom(0);
-        imp.others_heading.append(&others);
-        imp.searching.set_spacing(6);
-        imp.spinner_slot.set_valign(gtk::Align::Center);
-        imp.searching.append(&imp.spinner_slot);
-        let searching = gtk::Label::new(Some("Searching while this page is open"));
-        searching.add_css_class(style::DIM);
-        imp.searching.append(&searching);
-        imp.others_heading.append(&imp.searching);
-        imp.devices.append(&imp.others_heading);
+        self.build_others_heading();
         device_list(&imp.others, "Other devices");
         imp.devices.append(&imp.others);
         hint(&imp.others_hint);
         imp.devices.append(&imp.others_hint);
+    }
+
+    /// The heading of the other devices, with the spinner and the Search button.
+    fn build_others_heading(&self) {
+        let imp = self.imp();
+        imp.others_heading
+            .set_orientation(gtk::Orientation::Horizontal);
+        // The heading and the spinner, with the margins of every heading line; the Search button
+        // lies over the line (see `search_button::over`).
+        let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        line.set_margin_top(24);
+        line.set_margin_bottom(8);
+        let others = heading("Other devices", false);
+        others.set_margin_top(0);
+        others.set_margin_bottom(0);
+        line.append(&others);
+        imp.searching.set_spacing(6);
+        imp.spinner_slot.set_valign(gtk::Align::Center);
+        imp.searching.append(&imp.spinner_slot);
+        imp.searching_label.set_text("Searching");
+        imp.searching_label.add_css_class(style::DIM);
+        imp.searching.append(&imp.searching_label);
+        line.append(&imp.searching);
+        search_button::setup(&imp.search);
+        let weak = self.downgrade();
+        imp.search.connect_clicked(move |_| {
+            if let Some(page) = weak.upgrade() {
+                page.search_clicked();
+            }
+        });
+        let overlay = search_button::over(&line, &others, &imp.search);
+        overlay.set_hexpand(true);
+        imp.others_heading.append(&overlay);
+        self.update_search_button();
+        self.set_manual_search(false);
+        imp.devices.append(&imp.others_heading);
     }
 
     /// The "Visible to other devices" row, appended to `section`.
@@ -731,7 +764,9 @@ impl BluetoothPage {
             .set_text(&visible_text(adapter.discoverable_timeout));
         self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
 
-        let searching = adapter.powered && adapter.discovering;
+        // In manual mode the spinner is in the Search button instead.
+        let searching = adapter.powered && adapter.discovering && !imp.manual.get();
+        imp.search.set_sensitive(adapter.powered);
         let started = searching && !imp.searching.is_visible();
         imp.searching.set_visible(searching);
         if started {
@@ -1246,7 +1281,7 @@ impl BluetoothPage {
         glib::Propagation::Stop
     }
 
-    /// Puts a new, turning spinner next to "Searching while this page is open".
+    /// Puts a new, turning spinner next to "Searching".
     fn new_spinner(&self) {
         let imp = self.imp();
         if let Some(old) = imp.spinner.take() {
@@ -1258,33 +1293,124 @@ impl BluetoothPage {
         imp.spinner.replace(Some(spinner));
     }
 
-    /// Whether the spinner next to "Searching while this page is open" is shown and turns; for
+    /// Whether a turning spinner shows, next to the heading or in the Search button; for
     /// tests.
     pub fn is_searching(&self) -> bool {
         let imp = self.imp();
-        imp.searching.is_visible()
+        let heading = imp.searching.is_visible()
             && imp
                 .spinner
                 .borrow()
                 .as_ref()
-                .is_some_and(gtk::Spinner::is_spinning)
+                .is_some_and(gtk::Spinner::is_spinning);
+        heading || search_button::is_spinning(&imp.search)
     }
 
-    /// Looks for devices on the selected adapter while the page is on screen and its radio is
-    /// on, and stops otherwise.
+    /// Whether the page looks for devices only after _Search_ (`true`) or also the whole time
+    /// it is on screen and the radio is on (`false`, the default).
+    pub fn set_manual_search(&self, manual: bool) {
+        let imp = self.imp();
+        imp.manual.set(manual);
+        imp.search.set_visible(manual);
+        if !manual {
+            self.end_search();
+        }
+        self.render();
+        self.update_discovery();
+    }
+
+    /// The _Search_ button next to "Other devices"; for tests.
+    pub fn search_button(&self) -> &gtk::Button {
+        &self.imp().search
+    }
+
+    /// What the _Search_ button reads: `Search` or `Stop`; for tests.
+    pub fn search_text(&self) -> String {
+        search_button::text(&self.imp().search)
+    }
+
+    /// _Search_ (manual mode only) starts a discovery for [`SEARCH_FOR`]; _Stop_ ends it.
+    fn search_clicked(&self) {
+        let imp = self.imp();
+        if imp.requested.borrow().is_some() {
+            self.end_search();
+            self.update_discovery();
+            return;
+        }
+        let Some(path) = self.powered_adapter() else {
+            return;
+        };
+        let weak = self.downgrade();
+        let timer = glib::timeout_add_local_once(SEARCH_FOR, move || {
+            if let Some(page) = weak.upgrade() {
+                // The timer is spent, so its id is only dropped, not removed.
+                page.imp().requested.replace(None);
+                page.update_search_button();
+                page.update_discovery();
+            }
+        });
+        imp.requested.replace(Some((path, timer)));
+        self.update_search_button();
+        self.update_discovery();
+    }
+
+    /// Ends the search started with _Search_, if one runs.
+    fn end_search(&self) {
+        if let Some((_, timer)) = self.imp().requested.take() {
+            timer.remove();
+        }
+        self.update_search_button();
+    }
+
+    /// Shows _Stop_ while a search started with _Search_ runs, _Search_ otherwise.
+    fn update_search_button(&self) {
+        let imp = self.imp();
+        let running = imp.requested.borrow().is_some();
+        search_button::set_running(
+            &imp.search,
+            running,
+            if running {
+                "Stop looking for devices"
+            } else {
+                "Look for devices nearby for 30 seconds"
+            },
+        );
+    }
+
+    /// The path of the selected adapter if its radio is on.
+    fn powered_adapter(&self) -> Option<String> {
+        let imp = self.imp();
+        imp.selected.borrow().clone().filter(|path| {
+            imp.snapshot
+                .borrow()
+                .as_ref()
+                .and_then(|snapshot| snapshot.adapter(path))
+                .is_some_and(|adapter| adapter.powered)
+        })
+    }
+
+    /// The adapter the page should look for devices on now: the selected one while the page is
+    /// on screen and its radio is on, after _Search_ or always in automatic mode. Ends a search
+    /// started with _Search_ that no longer applies.
+    fn wanted_discovery(&self) -> Option<String> {
+        let imp = self.imp();
+        let adapter = self.powered_adapter().filter(|_| self.is_mapped());
+        let requested = imp
+            .requested
+            .borrow()
+            .as_ref()
+            .map(|(path, _)| path.clone());
+        if requested.is_some() && requested != adapter {
+            self.end_search();
+        }
+        let requested = imp.requested.borrow().is_some();
+        adapter.filter(|_| requested || !imp.manual.get())
+    }
+
+    /// Starts or stops looking for devices as [`wanted_discovery`](Self::wanted_discovery) says.
     fn update_discovery(&self) {
         let imp = self.imp();
-        let wanted = if self.is_mapped() {
-            imp.selected.borrow().clone().filter(|path| {
-                imp.snapshot
-                    .borrow()
-                    .as_ref()
-                    .and_then(|snapshot| snapshot.adapter(path))
-                    .is_some_and(|adapter| adapter.powered)
-            })
-        } else {
-            None
-        };
+        let wanted = self.wanted_discovery();
         if wanted == *imp.discovery.borrow() {
             return;
         }

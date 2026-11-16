@@ -296,10 +296,7 @@ fn main() -> ExitCode {
         check_accent(),
     ));
     results.extend(check_devices());
-    results.push((
-        "bluetooth: devices, pairing and power".to_owned(),
-        check_bluetooth(),
-    ));
+    results.extend(check_bluetooth_pages());
     results.push((
         "network: networks, passwords, wired, VPN and Wi-Fi".to_owned(),
         check_network(),
@@ -4090,6 +4087,10 @@ fn check_bluetooth() -> Outcome {
         run_until(Duration::from_secs(5), || page.is_searching()),
         "  no turning spinner while looking for devices",
     )?;
+    ensure(
+        !page.search_button().is_visible(),
+        "  a Search button while the page searches by itself",
+    )?;
 
     page.device_button("Headset")
         .ok_or("  no button for the headset")?
@@ -4223,6 +4224,99 @@ fn check_bluetooth_adapter(page: &BluetoothPage, stand_in: &StandIn) -> Outcome 
         run_until(Duration::from_secs(5), || !page.visible_switch().state()),
         "  the switch didn't follow BlueZ when the time was up",
     )?;
+    Ok(())
+}
+
+/// The Bluetooth page as it searches by itself and as it searches only on request.
+fn check_bluetooth_pages() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "bluetooth: devices, pairing and power".to_owned(),
+            check_bluetooth(),
+        ),
+        (
+            "bluetooth: searching only with the Search button".to_owned(),
+            check_bluetooth_manual(),
+        ),
+    ]
+}
+
+/// Saves `window` as `<name>.png` in `$SWAY_THINGS_SCREENSHOTS`, if set, once it is drawn, and
+/// checks its contrast then.
+fn shoot(window: &gtk::Window, name: &str) -> Outcome {
+    if let Some(directory) = std::env::var_os("SWAY_THINGS_SCREENSHOTS") {
+        // A widget shown just now, such as a new spinner, is drawn with the next frames.
+        settle(window)?;
+        check_screen(
+            window,
+            Some(PathBuf::from(directory).join(format!("{name}.png"))),
+        )?;
+    }
+    Ok(())
+}
+
+/// The Bluetooth page with searches only on request: no discovery until _Search_, one after it,
+/// and _Stop_ ends it.
+fn check_bluetooth_manual() -> Outcome {
+    let stand_in = bluetooth_stand_in()?;
+    let page = BluetoothPage::new(&BluetoothBus::Address(stand_in.address().to_owned()));
+    page.set_manual_search(true);
+    let window = gtk::Window::new();
+    window.set_default_size(720, 700);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let calls = |method: &str| {
+        async_io::block_on(stand_in.calls("/org/bluez/hci0", method)).map_or(0, |calls| calls.len())
+    };
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            page.device_rows(false).len() == 1
+        }),
+        "  the devices didn't show",
+    )?;
+    ensure(
+        !run_until(Duration::from_secs(2), || calls("StartDiscovery") > 0),
+        "  the page looked for devices without Search",
+    )?;
+    ensure(!page.is_searching(), "  a spinner without a search")?;
+    ensure(page.search_button().is_visible(), "  no Search button")?;
+    shoot(&window, "bluetooth-manual-idle")?;
+    page.search_button().emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || calls("StartDiscovery") == 1),
+        "  Search didn't look for devices",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.is_searching()),
+        "  no turning spinner while searching",
+    )?;
+    ensure(
+        page.search_text() == "Stop",
+        "  the button doesn't read Stop while searching",
+    )?;
+    shoot(&window, "bluetooth-manual-running")?;
+    page.search_button().emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(5), || calls("StopDiscovery") > 0),
+        "  Stop didn't stop looking for devices",
+    )?;
+    ensure(
+        page.search_text() == "Search",
+        "  the button doesn't read Search again",
+    )?;
+    // Switched to automatic, the button goes and the page looks for devices by itself.
+    let started = calls("StartDiscovery");
+    page.set_manual_search(false);
+    ensure(
+        !page.search_button().is_visible(),
+        "  the Search button stayed in automatic mode",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || calls("StartDiscovery") > started),
+        "  automatic mode didn't look for devices",
+    )?;
+    window.destroy();
     Ok(())
 }
 
