@@ -358,7 +358,7 @@ mod tests {
                 .any(|hit| hit.page() == Page::Displays && hit.setting().is_none())
         );
         // The description counts too, after the titles.
-        let hits = index.search("wi-fi");
+        let hits = index.search("vpn");
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].page(), Page::Network);
         assert_eq!(hits[0].field(), Field::Subtitle);

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-15 11:17+0100\n"
+"POT-Creation-Date: 2026-11-16 19:34+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -43,6 +43,14 @@ msgstr ""
 
 #: crates/core/src/registry/app.rs
 msgid "The GTK theme’s accent"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Automatic"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Manual"
 msgstr ""
 
 #: crates/core/src/registry/app.rs data/io.github.mowi12.SwayThings.desktop.in
@@ -171,6 +179,45 @@ msgstr ""
 
 #: crates/core/src/registry/app.rs
 msgid "sections"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Search for Bluetooth devices"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid ""
+"Automatically while the Bluetooth page is open, or only when you press Search"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "discovery"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "scan"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "bluetooth"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Search for Wi-Fi networks"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid ""
+"Automatically every 15 seconds while the Network page is open, or only when "
+"you press Search"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "wifi"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "wireless"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs

@@ -141,7 +141,7 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   risky. Instead of the safety net, a range keeps other settings usable: the repeat rate is at least 1 per second (sway
   turns repeating off at 0) and the repeat delay at least 100 ms (below that every key repeats almost at once).
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`, `app.accent_source`, `app.editor_command`,
-  `app.show_directives`, `app.remember_collapsed_sections`) are settings without a sway mapping. A text setting can have
+  `app.show_directives`, `app.remember_collapsed_sections`, `app.bluetooth_search`, `app.wifi_search`) are settings without a sway mapping. A text setting can have
   its own check beyond the type (`SettingBuilder::check_text`; the editor command must split into words) and a hint for
   its empty field (`SettingBuilder::placeholder`).
 - **Search:** `SearchIndex::new(registry, translate)` collects the texts of every page and setting once, in English and
