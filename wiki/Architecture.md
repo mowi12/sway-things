@@ -1143,8 +1143,15 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   `$SWAY_THINGS_LOCALEDIR`, else the directory the build set in the same variable, else `/usr/share/locale`. The
   languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
   translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
-  and a string missing from the first language's catalog is looked up in the next. Only singular forms are read so far;
-  plural forms come with the first string that needs them.
+  and a string missing from the first language's catalog is looked up in the next.
+- **Plural forms**: a message about a count is a `MsgPlural`, written as
+  `msg_plural!("{count} problem", "{count} problems")` and extracted with its plural (`msgid_plural`).
+  `i18n::ntr(msg, n)` and `i18n::ntrf(msg, n, args)` pick the form for `n` by the rule of the catalog it comes from: the
+  C expression of the header's `Plural-Forms` line, which the reader parses itself (gettext's operators and precedence,
+  unsigned numbers, at most 1024 bytes and 32 levels deep). A catalog without a readable rule uses English's `n != 1`; a
+  division by zero or an index past the forms gives the first form, as in gettext, and a translation without the form
+  that is picked falls back to the next language, then to English (the singular for 1, else the plural). The count isn't
+  filled in by itself: it is a placeholder like any other.
 - **Showing**: `i18n::tr(msg)` gives the translation, or the English source string if there is none or `init` wasn't
   called, so tests stay in English without setup. A message with values in it names them (`{count} problems`), since
   `format!` needs a literal: `i18n::trf(msg, &[("count", &n)])` looks it up and fills them in, in one pass, so a value
