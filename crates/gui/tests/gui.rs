@@ -297,10 +297,7 @@ fn main() -> ExitCode {
     ));
     results.extend(check_devices());
     results.extend(check_bluetooth_pages());
-    results.push((
-        "network: networks, passwords, wired, VPN and Wi-Fi".to_owned(),
-        check_network(),
-    ));
+    results.extend(check_network_pages());
     results.extend(check_keyboard());
     results.extend(check_indicators());
     results.extend(check_welcomes(&settings));
@@ -4236,7 +4233,11 @@ fn check_bluetooth_pages() -> Vec<(String, Outcome)> {
         ),
         (
             "bluetooth: searching only with the Search button".to_owned(),
-            check_bluetooth_manual(),
+            check_bluetooth_manual(false),
+        ),
+        (
+            "bluetooth: searching only with the Search button (dark)".to_owned(),
+            check_bluetooth_manual(true),
         ),
     ]
 }
@@ -4257,7 +4258,10 @@ fn shoot(window: &gtk::Window, name: &str) -> Outcome {
 
 /// The Bluetooth page with searches only on request: no discovery until _Search_, one after it,
 /// and _Stop_ ends it.
-fn check_bluetooth_manual() -> Outcome {
+fn check_bluetooth_manual(dark: bool) -> Outcome {
+    let style = if dark { "dark" } else { "light" };
+    let settings = gtk::Settings::default().ok_or("  no GTK settings")?;
+    set_dark(&settings, dark);
     let stand_in = bluetooth_stand_in()?;
     let page = BluetoothPage::new(&BluetoothBus::Address(stand_in.address().to_owned()));
     page.set_manual_search(true);
@@ -4281,7 +4285,7 @@ fn check_bluetooth_manual() -> Outcome {
     )?;
     ensure(!page.is_searching(), "  a spinner without a search")?;
     ensure(page.search_button().is_visible(), "  no Search button")?;
-    shoot(&window, "bluetooth-manual-idle")?;
+    shoot(&window, &format!("bluetooth-manual-idle-{style}"))?;
     page.search_button().emit_clicked();
     ensure(
         run_until(Duration::from_secs(5), || calls("StartDiscovery") == 1),
@@ -4295,7 +4299,9 @@ fn check_bluetooth_manual() -> Outcome {
         page.search_text() == "Stop",
         "  the button doesn't read Stop while searching",
     )?;
-    shoot(&window, "bluetooth-manual-running")?;
+    window.set_focus_visible(true);
+    page.search_button().grab_focus();
+    shoot(&window, &format!("bluetooth-manual-running-{style}"))?;
     page.search_button().emit_clicked();
     ensure(
         run_until(Duration::from_secs(5), || calls("StopDiscovery") > 0),
@@ -4317,6 +4323,7 @@ fn check_bluetooth_manual() -> Outcome {
         "  automatic mode didn't look for devices",
     )?;
     window.destroy();
+    set_dark(&settings, false);
     Ok(())
 }
 
@@ -4578,6 +4585,83 @@ fn check_network_wifi_off(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
     Ok(())
 }
 
+/// The Network page as it scans by itself and as it scans only on request.
+fn check_network_pages() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "network: networks, passwords, wired, VPN and Wi-Fi".to_owned(),
+            check_network(),
+        ),
+        (
+            "network: scanning only with the Search button".to_owned(),
+            check_network_manual(false),
+        ),
+        (
+            "network: scanning only with the Search button (dark)".to_owned(),
+            check_network_manual(true),
+        ),
+    ]
+}
+
+/// The Network page with scans only on request: no scan until _Search_, one after it, and the
+/// search ends once NetworkManager has the new list.
+fn check_network_manual(dark: bool) -> Outcome {
+    let style = if dark { "dark" } else { "light" };
+    let settings = gtk::Settings::default().ok_or("  no GTK settings")?;
+    set_dark(&settings, dark);
+    let (stand_in, wlan) = network_stand_in()?;
+    let page = NetworkPage::new(&NetworkBus::Address(stand_in.address().to_owned()));
+    page.set_manual_search(true);
+    let window = gtk::Window::new();
+    window.set_default_size(720, 900);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let scans =
+        || async_io::block_on(stand_in.calls(&wlan, "RequestScan")).map_or(0, |calls| calls.len());
+    ensure(
+        run_until(Duration::from_secs(10), || page.rows("others").len() == 3),
+        "  the networks didn't show",
+    )?;
+    ensure(
+        !run_until(Duration::from_secs(2), || scans() > 0),
+        "  the page asked for a scan without Search",
+    )?;
+    ensure(!page.is_searching(), "  a spinner without a search")?;
+    ensure(page.search_button().is_visible(), "  no Search button")?;
+    shoot(&window, &format!("network-manual-idle-{style}"))?;
+    page.search_button().emit_clicked();
+    ensure(
+        page.search_text() == "Stop" && page.is_searching(),
+        "  no spinner and Stop while searching",
+    )?;
+    shoot(&window, &format!("network-manual-running-{style}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || scans() == 1),
+        "  Search didn't ask for a scan",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.search_text() == "Search" && !page.is_searching()
+        }),
+        "  the search didn't end with the new list",
+    )?;
+    ensure(scans() == 1, "  more than one scan for one Search")?;
+    // Switched to automatic, the button goes and the page scans by itself.
+    page.set_manual_search(false);
+    ensure(
+        !page.search_button().is_visible(),
+        "  the Search button stayed in automatic mode",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || scans() > 1),
+        "  automatic mode didn't scan",
+    )?;
+    window.destroy();
+    set_dark(&settings, false);
+    Ok(())
+}
+
 /// What `page` does while it is shown: it asks the Wi-Fi device `wlan` for scans, with the
 /// spinner, and registers the agent.
 fn check_network_while_shown(page: &NetworkPage, stand_in: &NmStandIn, wlan: &str) -> Outcome {
@@ -4591,6 +4675,10 @@ fn check_network_while_shown(page: &NetworkPage, stand_in: &NmStandIn, wlan: &st
     ensure(
         run_until(Duration::from_secs(5), || page.is_searching()),
         "  no turning spinner while scanning",
+    )?;
+    ensure(
+        !page.search_button().is_visible(),
+        "  a Search button while the page scans by itself",
     )?;
     ensure(
         run_until(Duration::from_secs(5), || {

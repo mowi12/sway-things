@@ -841,6 +841,14 @@ impl Window {
         // Live state from NetworkManager, likewise.
         if page == Page::Network {
             let body = NetworkPage::new(&self.imp().network_bus.borrow());
+            if let Some(model) = self.imp().model.get() {
+                let weak = body.downgrade();
+                follow_manual_search(model, "app.wifi_search", move |manual| {
+                    if let Some(body) = weak.upgrade() {
+                        body.set_manual_search(manual);
+                    }
+                });
+            }
             let view = PageView::new(tr(page.title()), tr(page.description()), &body);
             if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
                 header.set_end(&advanced);
