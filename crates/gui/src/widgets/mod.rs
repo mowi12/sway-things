@@ -16,6 +16,7 @@ mod page_view;
 mod panes;
 mod placeholder;
 mod scroll_line;
+mod search_button;
 mod setting_row;
 mod sidebar;
 mod test_area;

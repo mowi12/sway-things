@@ -12,6 +12,11 @@ const ACCENT_SOURCES: &[Choice] = &[
     Choice::new("theme", msg!("The GTK theme\u{2019}s accent")),
 ];
 
+const SEARCH_MODES: &[Choice] = &[
+    Choice::new("automatic", msg!("Automatic")),
+    Choice::new("manual", msg!("Manual")),
+];
+
 pub(super) fn settings() -> Vec<Setting> {
     vec![
         Setting::integer("app.safety_net_timeout", Page::About, 15, 5, 120)
@@ -70,6 +75,28 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("expand"),
                 msg!("sections"),
             ])
+            .build(),
+        Setting::choice(
+            "app.bluetooth_search",
+            Page::About,
+            "automatic",
+            SEARCH_MODES,
+        )
+        .section(msg!("Sway Things"))
+        .title(msg!("Search for Bluetooth devices"))
+        .subtitle(msg!(
+            "Automatically while the Bluetooth page is open, or only when you press Search"
+        ))
+        .keywords(&[msg!("discovery"), msg!("scan"), msg!("bluetooth")])
+        .build(),
+        Setting::choice("app.wifi_search", Page::About, "automatic", SEARCH_MODES)
+            .section(msg!("Sway Things"))
+            .title(msg!("Search for Wi-Fi networks"))
+            .subtitle(msg!(
+                "Automatically every 15 seconds while the Network page is open, or only when you \
+                 press Search"
+            ))
+            .keywords(&[msg!("scan"), msg!("wifi"), msg!("wireless")])
             .build(),
     ]
 }

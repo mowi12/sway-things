@@ -40,6 +40,8 @@ const DBUS_MOCK: &str = "org.freedesktop.DBus.Mock";
 const TEST: &str = "org.freedesktop.NetworkManager.Test";
 /// The interface of a device.
 const DEVICE: &str = "org.freedesktop.NetworkManager.Device";
+/// The interface of a Wi-Fi device.
+const WIRELESS: &str = "org.freedesktop.NetworkManager.Device.Wireless";
 
 /// `NM_DEVICE_STATE_DISCONNECTED`.
 pub const DISCONNECTED: u32 = 30;
@@ -91,6 +93,13 @@ ret = (dbus.ObjectPath(conn), self.activate_connection(self, conn, args[1], args
 ";
 
 /// A device's `Disconnect`.
+/// A scan that is done at once: `LastScan` moves on.
+const REQUEST_SCAN: &str = "\
+IFACE = 'org.freedesktop.NetworkManager.Device.Wireless'
+last = self.Get(IFACE, 'LastScan')
+self.UpdateProperties(IFACE, {'LastScan': dbus.Int64(max(last, 0) + 1000)})
+";
+
 const DISCONNECT: &str = "\
 NM = 'org.freedesktop.NetworkManager'
 ac = self.Get(NM + '.Device', 'ActiveConnection')
@@ -332,6 +341,10 @@ impl StandIn {
             )
             .await?;
         self.add_method(&path, DEVICE, "Disconnect", "", "", DISCONNECT)
+            .await?;
+        self.add_properties(&path, WIRELESS, &[("LastScan", Value::from(-1i64))])
+            .await?;
+        self.add_method(&path, WIRELESS, "RequestScan", "a{sv}", "", REQUEST_SCAN)
             .await?;
         Ok(path)
     }

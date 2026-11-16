@@ -244,6 +244,22 @@ impl NetworkManager {
         }
     }
 
+    /// When the Wi-Fi `device` last finished a scan, in milliseconds since boot (`CLOCK_BOOTTIME`);
+    /// -1 if it never did. It changes once a scan asked for with
+    /// [`request_scan`](Self::request_scan) has brought a new list.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Unavailable`] while NetworkManager isn't running, [`Error::Failed`] if the device
+    /// is gone.
+    pub async fn last_scan(&self, device: &str) -> Result<i64, Error> {
+        let properties = self.properties(device, WIRELESS).await?;
+        Ok(properties
+            .get("LastScan")
+            .and_then(|value| i64::try_from(value).ok())
+            .unwrap_or(-1))
+    }
+
     /// Connects `device` to `network`: through a saved connection for it, or else a new one
     /// with `password` (for networks that need one), which NetworkManager keeps for every user
     /// of the machine. Returns the path of the active connection, for

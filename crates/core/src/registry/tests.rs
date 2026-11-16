@@ -411,6 +411,19 @@ fn the_directive_line_is_off_by_default() {
 }
 
 #[test]
+fn searches_for_devices_and_networks_are_automatic_by_default() {
+    for key in ["app.bluetooth_search", "app.wifi_search"] {
+        let setting = setting(key);
+        assert!(
+            matches!(setting.kind(), Kind::Choice { default: "automatic", choices }
+                if choices.iter().map(|choice| choice.id).eq(["automatic", "manual"])),
+            "{key}"
+        );
+        assert_eq!(setting.section().msgid(), "Sway Things");
+    }
+}
+
+#[test]
 fn the_editor_command_must_split_into_words() {
     let setting = setting("app.editor_command");
     assert_eq!(setting.kind(), &Kind::Text { default: "" });
