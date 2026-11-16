@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-16 19:34+0100\n"
+"POT-Creation-Date: 2026-11-16 22:53+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,6 +16,314 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: crates/cli/src/doctor.rs
+msgid ""
+"Only generated files that were changed outside Sway Things are left; add --"
+"overwrite to replace them."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Nothing for --fix to do."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid ""
+"Nothing was written: Sway Things is read-only until your config includes its "
+"files."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "The generated files couldn't be written: {error}."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking the compositor…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking your sway config…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking the settings files…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking the generated files…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "Validating {file} with sway…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Comparing your config with the stored settings…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Writing the generated files and validating them with sway…"
+msgstr ""
+
+#. TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+#: crates/cli/src/doctor.rs
+msgid "ok"
+msgstr ""
+
+#. TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+#: crates/cli/src/doctor.rs
+msgid "warning"
+msgstr ""
+
+#. TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+#: crates/cli/src/doctor.rs
+msgid "problem"
+msgstr ""
+
+#. TRANSLATORS: The heading of what `sway-things doctor --fix` did.
+#: crates/cli/src/doctor.rs
+msgid "Fix"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "wrote {file}"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "Run `{command}` to write the generated files again."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Everything is fine."
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "no problems"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "{count} problem"
+msgid_plural "{count} problems"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/cli/src/doctor.rs
+msgid "no warnings"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "{count} warning"
+msgid_plural "{count} warnings"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "{problems}, {warnings}."
+msgstr ""
+
+#. TRANSLATORS: Before a command that fixes a finding of `sway-things doctor`.
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "Fix: {command}"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+#, rust-format
+msgid "Fix: {command} (your changes to the file are lost)"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "Loading the settings files…"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "Asking sway for its version…"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "Reading your sway config…"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "Collecting the system details…"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid ""
+"can't find {program}: install it next to sway-things or in PATH, or name it "
+"in {variable}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "can't start {program}: {error}"
+msgstr ""
+
+#. TRANSLATORS: Why `sway-things doctor` found no sway session.
+#: crates/cli/src/lib.rs
+msgid "not in a sway session"
+msgstr ""
+
+#. TRANSLATORS: A warning on the command line.
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "warning: {message}"
+msgstr ""
+
+#. TRANSLATORS: An error on the command line.
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "error: {message}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{setting} is now {value}. It is reverted unless you keep it."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "Reverted {setting}."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{error}; the old value comes back when sway reloads its config"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid ""
+"{setting} can lock you out, so it is only changed after you keep it in a "
+"terminal; pass --yes to change it without asking"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{setting} isn't stored by Sway Things; nothing to reset."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "Reset {setting}."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "Reset {setting} to its default."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "No settings are stored, so every generated file is empty."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays:"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid ""
+"The settings are saved. Run the command again with --overwrite to replace "
+"the file."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "Set {setting} to {value}."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{setting} is already {value}."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{first} {second}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "sway isn't running; it takes effect when sway starts."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "It takes effect when sway reloads its config (swaymsg reload)."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "It takes effect when the tool behind it reloads its config."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "It takes effect at the next login."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "Nothing was sent: it {requirement}."
+msgstr ""
+
+#. TRANSLATORS: Where `sway-things get` found a value: a settings file, with
+#. the value for every device of the input type.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "{file}, for the input type"
+msgstr ""
+
+#. TRANSLATORS: Where `sway-things get` found a value: a line of the user's config.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "your config: {file}:{line}"
+msgstr ""
+
+#. TRANSLATORS: Where `sway-things get` found a value: nowhere, it is the default.
+#: crates/cli/src/output.rs
+msgid "default"
+msgstr ""
+
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "your config wins: {file}:{line}"
+msgstr ""
+
+#. TRANSLATORS: The heading of a device's settings in `sway-things get`.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "device {device}"
+msgstr ""
+
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "line {number}: "
+msgstr ""
+
+#: crates/cli/src/output.rs
+#, rust-format
+msgid " (from {settings})"
+msgstr ""
+
+#. TRANSLATORS: Asks whether to keep a change that can lock the user out, counting down
+#. the seconds until it is reverted. The answers that mean yes are translated
+#. separately; English "y" and "yes" always work too.
+#: crates/cli/src/prompt.rs
+#, rust-format
+msgid "Keep? [y/N] {seconds} s "
+msgstr ""
+
+#. TRANSLATORS: The answers that mean yes to "Keep? [y/N]", separated by "|", in lowercase.
+#: crates/cli/src/prompt.rs
+msgid "y|yes"
+msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Compositor"

@@ -9,8 +9,10 @@ use std::path::PathBuf;
 use serde_json::{Value as Json, json};
 use sway_things_core::conflict::Report;
 use sway_things_core::generate::InvalidLine;
+use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
+use sway_things_core::msg;
 use sway_things_core::registry::{Setting, Value};
 use sway_things_core::state::{Layer, Paths, State};
 use sway_things_core::view::{Locked, SettingView, Source};
@@ -75,16 +77,26 @@ impl Shown {
             Source::Stored { layer, for_type } => {
                 let file = paths.relative(*layer).display().to_string();
                 if *for_type {
-                    format!("{file}, for the input type")
+                    // TRANSLATORS: Where `sway-things get` found a value: a settings file, with
+                    // the value for every device of the input type.
+                    trf(msg!("{file}, for the input type"), &[("file", &file)])
                 } else {
                     file
                 }
             }
-            Source::Config { file, line } => format!("your config: {}:{line}", file.display()),
-            Source::Default => "default".to_owned(),
+            Source::Config { file, line } => trf(
+                // TRANSLATORS: Where `sway-things get` found a value: a line of the user's config.
+                msg!("your config: {file}:{line}"),
+                &[("file", &file.display()), ("line", line)],
+            ),
+            // TRANSLATORS: Where `sway-things get` found a value: nowhere, it is the default.
+            Source::Default => tr(msg!("default")).to_owned(),
         }];
         if let Some((file, line)) = &self.overriding {
-            notes.push(format!("your config wins: {}:{line}", file.display()));
+            notes.push(trf(
+                msg!("your config wins: {file}:{line}"),
+                &[("file", &file.display()), ("line", line)],
+            ));
         }
         if let Some(Locked::Unsupported(unmet)) = &self.view.locked {
             notes.push(unmet.to_string());
@@ -136,7 +148,9 @@ pub(crate) fn list(all: &[Shown], paths: &Paths, out: &mut dyn Write) {
         if shown.device != device {
             device.clone_from(&shown.device);
             if let Some(device) = &device {
-                let _ = writeln!(out, "\ndevice {device}");
+                // TRANSLATORS: The heading of a device's settings in `sway-things get`.
+                let heading = trf(msg!("device {device}"), &[("device", device)]);
+                let _ = writeln!(out, "\n{heading}");
             }
         }
         if shown.device.is_some() {
@@ -159,14 +173,18 @@ pub(crate) fn name(key: &str, device: Option<&str>) -> String {
 pub(crate) fn invalid_line(line: &InvalidLine) -> String {
     let place = match line.line {
         0 => String::new(),
-        number => format!("line {number}: "),
+        number => trf(msg!("line {number}: "), &[("number", &number)]),
     };
     let source = line
         .source
         .as_ref()
         .map(|source| {
             let keys = source.keys.join(", ");
-            format!(" (from {})", name(&keys, source.device.as_deref()))
+            // TRANSLATORS: After a line of a generated file: the settings it comes from.
+            trf(
+                msg!(" (from {settings})"),
+                &[("settings", &name(&keys, source.device.as_deref()))],
+            )
         })
         .unwrap_or_default();
     format!("{place}{}{source}", line.message)
