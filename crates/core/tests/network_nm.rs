@@ -193,8 +193,11 @@ fn wifi_is_switched_and_scans_are_requested() -> Result<()> {
         until(&nm, |s| !s.wifi_enabled).await?;
         nm.set_wifi_enabled(true).await?;
         until(&nm, |s| s.wifi_enabled).await?;
+        let before = nm.last_scan(&wlan).await?;
+        assert_eq!(before, -1);
         nm.request_scan(&wlan).await?;
         assert_eq!(stand_in.calls(&wlan, "RequestScan").await?.len(), 1);
+        assert!(nm.last_scan(&wlan).await? > before);
         Ok(())
     })
 }
