@@ -5,11 +5,14 @@
 //!
 //! A catalog starts with a magic number that also tells the byte order, then two tables of
 //! (length, offset) pairs: the msgids and their translations, in the same order. Strings end with
-//! a NUL byte, which the lengths don't count. Only the singular form is read: a plural entry
-//! (`msgid\0msgid_plural`) is found by its singular msgid and gives the first translation.
+//! a NUL byte, which the lengths don't count. A plural entry is `msgid\0msgid_plural` with its
+//! forms as `form0\0form1\0…`; it is found by its singular msgid, and the `Plural-Forms` line of
+//! the header (the translation of the empty msgid) says which form a count takes.
 
 use std::collections::HashMap;
 use std::fmt;
+
+use super::plural::Plural;
 
 /// The magic number at the start of a catalog, as read in the byte order it was written in.
 const MAGIC: u32 = 0x9504_12de;
@@ -39,15 +42,17 @@ impl fmt::Display for MoError {
 
 impl std::error::Error for MoError {}
 
-/// The translations of one catalog, by msgid.
+/// The translations of one catalog, by msgid, and its plural rule.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Catalog {
-    messages: HashMap<String, String>,
+    /// The forms of each translation: one, or one per plural form.
+    messages: HashMap<String, Vec<String>>,
+    plural: Plural,
 }
 
 impl Catalog {
-    /// Reads the catalog in `bytes`. Entries that aren't UTF-8, the header entry and empty
-    /// translations are left out.
+    /// Reads the catalog in `bytes`. Entries that aren't UTF-8 and empty translations are left
+    /// out; the header entry gives the plural rule.
     ///
     /// # Errors
     ///
@@ -62,6 +67,7 @@ impl Catalog {
         let originals = reader.word(12)?;
         let translations = reader.word(16)?;
         let mut messages = HashMap::new();
+        let mut plural = Plural::default();
         for index in 0..count {
             let entry = index.checked_mul(8).ok_or(MoError::Truncated)?;
             let original =
@@ -74,24 +80,34 @@ impl Catalog {
             ) else {
                 continue;
             };
-            let msgid = singular(original);
-            let text = singular(translation);
-            if !msgid.is_empty() && !text.is_empty() {
-                messages.insert(msgid.to_owned(), text.to_owned());
+            let msgid = original.split('\0').next().unwrap_or(original);
+            if msgid.is_empty() {
+                plural = Plural::from_header(translation);
+                continue;
+            }
+            let forms: Vec<String> = translation.split('\0').map(str::to_owned).collect();
+            if forms.iter().all(|form| !form.is_empty()) {
+                messages.insert(msgid.to_owned(), forms);
             }
         }
-        Ok(Self { messages })
+        Ok(Self { messages, plural })
     }
 
-    /// The translation of `msgid`, or `None` if the catalog has none.
+    /// The translation of `msgid`, or `None` if the catalog has none. For a plural entry, the
+    /// first form.
     pub fn get(&self, msgid: &str) -> Option<&str> {
-        self.messages.get(msgid).map(String::as_str)
+        self.messages
+            .get(msgid)
+            .and_then(|forms| forms.first())
+            .map(String::as_str)
     }
-}
 
-/// The singular part of a msgid or translation: up to the first NUL byte.
-fn singular(text: &str) -> &str {
-    text.split('\0').next().unwrap_or(text)
+    /// The form of the plural entry `msgid` for the count `n`, or `None` if the catalog has no
+    /// such entry or not the form the plural rule picks.
+    pub fn get_plural(&self, msgid: &str, n: u64) -> Option<&str> {
+        let forms = self.messages.get(msgid)?;
+        forms.get(self.plural.index(n)).map(String::as_str)
+    }
 }
 
 /// Reads the words and strings of a catalog in its byte order.
@@ -213,6 +229,39 @@ mod tests {
         let catalog =
             Catalog::parse(&write(&[("one file\0%d files", "eine Datei\0%d Dateien")])).unwrap();
         assert_eq!(catalog.get("one file"), Some("eine Datei"));
+        assert_eq!(catalog.get_plural("one file", 1), Some("eine Datei"));
+        assert_eq!(catalog.get_plural("one file", 0), Some("%d Dateien"));
+        assert_eq!(catalog.get_plural("%d files", 2), None);
+    }
+
+    #[test]
+    fn picks_plural_forms_by_the_rule_of_the_header() {
+        let header = "Content-Type: text/plain; charset=UTF-8\n\
+            Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n";
+        let catalog = Catalog::parse(&write(&[
+            ("", header),
+            (
+                "{count} file\0{count} files",
+                "{count} plik\0{count} pliki\0{count} plików",
+            ),
+            (
+                "{count} window\0{count} windows",
+                "{count} okno\0{count} okna",
+            ),
+        ]))
+        .unwrap();
+        let file = "{count} file";
+        assert_eq!(catalog.get_plural(file, 1), Some("{count} plik"));
+        assert_eq!(catalog.get_plural(file, 3), Some("{count} pliki"));
+        assert_eq!(catalog.get_plural(file, 5), Some("{count} plików"));
+        // A translation with fewer forms than the rule has none for the missing ones.
+        assert_eq!(catalog.get_plural("{count} window", 5), None);
+    }
+
+    #[test]
+    fn leaves_out_plural_entries_with_an_empty_form() {
+        let catalog = Catalog::parse(&write(&[("one file\0%d files", "eine Datei\0")])).unwrap();
+        assert_eq!(catalog.get("one file"), None);
     }
 
     #[test]

@@ -18,8 +18,9 @@ use sway_things_core::doctor::{
     Checkup, Diagnosis, Finding, Fix, FixError, Section, Severity, Step,
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
-use sway_things_core::i18n::tr;
+use sway_things_core::i18n::{Msg, MsgPlural, fill, ntrf, tr, trf};
 use sway_things_core::system::{self, Details};
+use sway_things_core::{msg, msg_plural};
 
 use crate::Exit;
 use crate::spinner::Spinner;
@@ -62,25 +63,28 @@ impl Fixed {
         }
     }
 
-    /// What happened, in a sentence, unless it is said per file.
-    fn message(&self) -> Option<String> {
-        match self {
-            Self::Nothing { edited: true } => Some(
+    /// What happened, in a sentence, unless it is said per file: translated by `translate`, which
+    /// is [`tr`] for people and [`Msg::msgid`] for scripts.
+    fn message(&self, translate: fn(Msg) -> &'static str) -> Option<String> {
+        let text = match self {
+            Self::Nothing { edited: true } => msg!(
                 "Only generated files that were changed outside Sway Things are left; add \
                  --overwrite to replace them."
-                    .to_owned(),
             ),
-            Self::Nothing { edited: false } => Some("Nothing for --fix to do.".to_owned()),
-            Self::ReadOnly => Some(
+            Self::Nothing { edited: false } => msg!("Nothing for --fix to do."),
+            Self::ReadOnly => msg!(
                 "Nothing was written: Sway Things is read-only until your config includes its \
                  files."
-                    .to_owned(),
             ),
-            Self::Done(_) => None,
+            Self::Done(_) => return None,
             Self::Failed(error) => {
-                Some(format!("The generated files couldn't be written: {error}."))
+                return Some(fill(
+                    translate(msg!("The generated files couldn't be written: {error}.")),
+                    &[("error", error)],
+                ));
             }
-        }
+        };
+        Some(translate(text).to_owned())
     }
 }
 
@@ -145,13 +149,17 @@ pub async fn doctor_with<V: Validate>(
 /// What the spinner says while `step` runs.
 fn step_message(step: Step) -> Cow<'static, str> {
     match step {
-        Step::Section(Section::Compositor) => "Checking the compositor…".into(),
-        Step::Section(Section::Config) => "Checking your sway config…".into(),
-        Step::Section(Section::Settings) => "Checking the settings files…".into(),
-        Step::Section(Section::Generated) => "Checking the generated files…".into(),
-        Step::Validate(file) => format!("Validating {} with sway…", file.file_name()).into(),
+        Step::Section(Section::Compositor) => tr(msg!("Checking the compositor…")).into(),
+        Step::Section(Section::Config) => tr(msg!("Checking your sway config…")).into(),
+        Step::Section(Section::Settings) => tr(msg!("Checking the settings files…")).into(),
+        Step::Section(Section::Generated) => tr(msg!("Checking the generated files…")).into(),
+        Step::Validate(file) => trf(
+            msg!("Validating {file} with sway…"),
+            &[("file", &file.file_name())],
+        )
+        .into(),
         Step::Section(Section::Conflicts) => {
-            "Comparing your config with the stored settings…".into()
+            tr(msg!("Comparing your config with the stored settings…")).into()
         }
     }
 }
@@ -168,15 +176,34 @@ async fn fix<V: Validate>(checkup: &Checkup<'_, V>, overwrite: bool, spinner: &S
     let Ok(access) = checkup.status.write_access() else {
         return Fixed::ReadOnly;
     };
-    spinner.say("Writing the generated files and validating them with sway…");
+    spinner.say(tr(msg!(
+        "Writing the generated files and validating them with sway…"
+    )));
     match checkup.fix(overwrite, &access).await {
         Ok(report) => Fixed::Done(report),
         Err(error) => Fixed::Failed(error),
     }
 }
 
-/// The width of the status column.
-const STATUS: usize = 7;
+/// The status word of `severity`, padded to the width of the longest.
+fn status_word(severity: Severity) -> String {
+    let word = |severity| {
+        tr(match severity {
+            // TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+            Severity::Ok => msg!("ok"),
+            // TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+            Severity::Warning => msg!("warning"),
+            // TRANSLATORS: A status word of `sway-things doctor`, in a column before each finding.
+            Severity::Problem => msg!("problem"),
+        })
+    };
+    let width = [Severity::Ok, Severity::Warning, Severity::Problem]
+        .into_iter()
+        .map(|severity| word(severity).chars().count())
+        .max()
+        .unwrap_or_default();
+    format!("{:width$}", word(severity))
+}
 
 /// Section headings.
 const HEADING: Style = Style::new().bold();
@@ -290,10 +317,12 @@ fn text<V>(
     paint: Paint,
     out: &mut dyn Write,
 ) {
-    let indent = " ".repeat(2 + STATUS + 2);
+    let status_width = status_word(Severity::Ok).chars().count();
+    let indent = " ".repeat(2 + status_width + 2);
     if let Some(fixed) = fixed {
-        let _ = writeln!(out, "{}", paint.paint(HEADING, "Fix"));
-        if let Some(message) = fixed.message() {
+        // TRANSLATORS: The heading of what `sway-things doctor --fix` did.
+        let _ = writeln!(out, "{}", paint.paint(HEADING, tr(msg!("Fix"))));
+        if let Some(message) = fixed.message(tr) {
             let _ = writeln!(out, "  {message}");
         }
         if let Fixed::Done(report) = fixed {
@@ -301,7 +330,8 @@ fn text<V>(
                 let path = checkup.locations.path(*file);
                 let line = match outcome {
                     Outcome::Written => {
-                        format!("wrote {}", paint.paint(DIM, &path.display().to_string()))
+                        let path = path.display().to_string();
+                        trf(msg!("wrote {file}"), &[("file", &paint.paint(DIM, &path))])
                     }
                     Outcome::Unchanged | Outcome::NotCreated => continue,
                     _ => outcome
@@ -341,45 +371,67 @@ fn text<V>(
     }
 
     let _ = writeln!(out);
-    let problems = diagnosis.count(Severity::Problem);
-    let warnings = diagnosis.count(Severity::Warning);
-    let summary = if problems == 0 && warnings == 0 {
-        paint
-            .paint(AnsiColor::Green.on_default().bold(), "Everything is fine.")
-            .to_string()
-    } else {
-        let count = |count: usize, thing: &str, color: AnsiColor| {
-            let style = if count == 0 {
-                Style::new()
-            } else {
-                color.on_default().bold()
-            };
-            paint.paint(style, &counted(count, thing)).to_string()
-        };
-        format!(
-            "{}, {}.",
-            count(problems, "problem", AnsiColor::Red),
-            count(warnings, "warning", AnsiColor::Yellow)
-        )
-    };
-    let _ = writeln!(out, "{summary}");
+    let _ = writeln!(out, "{}", summary(diagnosis, paint));
     if !args.fix && diagnosis.can_fix(true) {
+        let command = paint.paint(COMMAND, "sway-things doctor --fix");
         let _ = writeln!(
             out,
-            "Run `{}` to write the generated files again.",
-            paint.paint(COMMAND, "sway-things doctor --fix")
+            "{}",
+            trf(
+                msg!("Run `{command}` to write the generated files again."),
+                &[("command", &command)]
+            )
         );
     }
 }
 
+/// The last line of the report: how many problems and warnings there are.
+fn summary(diagnosis: &Diagnosis, paint: Paint) -> String {
+    let problems = diagnosis.count(Severity::Problem);
+    let warnings = diagnosis.count(Severity::Warning);
+    if problems == 0 && warnings == 0 {
+        return paint
+            .paint(
+                AnsiColor::Green.on_default().bold(),
+                tr(msg!("Everything is fine.")),
+            )
+            .to_string();
+    }
+    let counted = |count: usize, none: Msg, some: MsgPlural, color: AnsiColor| {
+        if count == 0 {
+            tr(none).to_owned()
+        } else {
+            let text = ntrf(some, count, &[("count", &count)]);
+            paint.paint(color.on_default().bold(), &text).to_string()
+        }
+    };
+    let problems = counted(
+        problems,
+        msg!("no problems"),
+        msg_plural!("{count} problem", "{count} problems"),
+        AnsiColor::Red,
+    );
+    let warnings = counted(
+        warnings,
+        msg!("no warnings"),
+        msg_plural!("{count} warning", "{count} warnings"),
+        AnsiColor::Yellow,
+    );
+    // TRANSLATORS: The summary of `sway-things doctor`: "2 problems, no warnings."
+    trf(
+        msg!("{problems}, {warnings}."),
+        &[("problems", &problems), ("warnings", &warnings)],
+    )
+}
+
 fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Write) {
     let mut lines = finding.message.lines();
-    let status = finding.severity.id();
+    let status = status_word(finding.severity);
+    let (word, padding) = status.split_at(status.trim_end().len());
     let _ = writeln!(
         out,
-        "  {}{}  {}",
-        paint.paint(severity_style(finding.severity), status),
-        " ".repeat(STATUS.saturating_sub(status.len())),
+        "  {}{padding}  {}",
+        paint.paint(severity_style(finding.severity), word),
         paint.dim_path(lines.next().unwrap_or_default(), finding.file.as_deref())
     );
     for line in lines {
@@ -393,21 +445,27 @@ fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Wri
             write_indented(out, indent, line, DIM, paint);
         }
     }
-    let (command, note) = match finding.fix {
-        Some(Fix::Regenerate) => ("sway-things doctor --fix", ""),
+    let (command, text) = match finding.fix {
+        // TRANSLATORS: Before a command that fixes a finding of `sway-things doctor`.
+        Some(Fix::Regenerate) => ("sway-things doctor --fix", msg!("Fix: {command}")),
         Some(Fix::Overwrite) => (
             "sway-things doctor --fix --overwrite",
-            " (your changes to the file are lost)",
+            msg!("Fix: {command} (your changes to the file are lost)"),
         ),
         None => return,
     };
-    let _ = writeln!(
-        out,
-        "{indent}{} {}{}",
-        paint.paint(DIM, "Fix:"),
-        paint.paint(COMMAND, command),
-        paint.paint(DIM, note)
-    );
+    // The command keeps its own style; the text around it is dimmed.
+    let text = tr(text);
+    let line = match text.split_once("{command}") {
+        Some((before, after)) => format!(
+            "{}{}{}",
+            paint.paint(DIM, before),
+            paint.paint(COMMAND, command),
+            paint.paint(DIM, after)
+        ),
+        None => paint.paint(DIM, text).to_string(),
+    };
+    let _ = writeln!(out, "{indent}{line}");
 }
 
 /// `line` after `indent`, in `style`; an empty line stays empty.
@@ -416,15 +474,6 @@ fn write_indented(out: &mut dyn Write, indent: &str, line: &str, style: Style, p
         let _ = writeln!(out);
     } else {
         let _ = writeln!(out, "{indent}{}", paint.paint(style, line));
-    }
-}
-
-/// `1 problem`, `2 warnings`, `no problems`.
-fn counted(count: usize, thing: &str) -> String {
-    match count {
-        0 => format!("no {thing}s"),
-        1 => format!("1 {thing}"),
-        count => format!("{count} {thing}s"),
     }
 }
 
@@ -475,7 +524,7 @@ fn json<V>(
         };
         json!({
             "result": fixed.id(),
-            "message": fixed.message(),
+            "message": fixed.message(Msg::msgid),
             "files": files,
         })
     });

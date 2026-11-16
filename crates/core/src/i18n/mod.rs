@@ -5,7 +5,9 @@
 //!
 //! A translatable string is a [`Msg`]: its msgid, the American English source string. Mark it
 //! with [`msg!`](crate::msg), which `scripts/update-pot.sh` extracts into `po/sway-things.pot`,
-//! and show it through [`tr`]. Each binary calls [`init`] once at startup; until then (and in
+//! and show it through [`tr`], or through [`trf`] if it has named placeholders (`{count}`) for
+//! values. A message about a count is a [`MsgPlural`], marked with
+//! [`msg_plural!`](crate::msg_plural) and shown through [`ntr`] or [`ntrf`]. Each binary calls [`init`] once at startup; until then (and in
 //! every test that doesn't set it up) [`tr`] gives the English source string.
 //!
 //! The catalogs are `<dir>/<language>/LC_MESSAGES/sway-things.mo`. The directory is
@@ -20,11 +22,16 @@
 //! assert_eq!(i18n::tr(title), "Keyboard");
 //! ```
 
+mod fill;
 mod mo;
+mod plural;
+#[cfg(any(test, feature = "test-support"))]
+pub mod pseudo;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+pub use fill::{Arg, fill};
 #[cfg(any(test, feature = "test-support"))]
 pub use mo::write as write_mo;
 pub use mo::{Catalog, MoError};
@@ -77,6 +84,43 @@ macro_rules! msg {
     };
 }
 
+/// A translatable message about a count: its English singular and plural msgids. A translation
+/// has as many forms as its language needs, and the count picks one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MsgPlural {
+    singular: &'static str,
+    plural: &'static str,
+}
+
+impl MsgPlural {
+    /// A message that is translated, but not extracted into the template. For tests; strings the
+    /// app shows are marked with [`msg_plural!`](crate::msg_plural).
+    pub const fn new(singular: &'static str, plural: &'static str) -> Self {
+        Self { singular, plural }
+    }
+
+    /// The English text for the count `n`: the singular for 1, else the plural.
+    pub const fn english(self, n: usize) -> &'static str {
+        if n == 1 { self.singular } else { self.plural }
+    }
+}
+
+/// Marks a message about a count as translatable: a [`MsgPlural`] with the English singular and
+/// plural, which `scripts/update-pot.sh` extracts. Usable in constants.
+///
+/// ```
+/// use sway_things_core::{i18n, msg_plural};
+///
+/// let problems = msg_plural!("{count} problem", "{count} problems");
+/// assert_eq!(i18n::ntrf(problems, 2, &[("count", &2)]), "2 problems");
+/// ```
+#[macro_export]
+macro_rules! msg_plural {
+    ($singular:literal, $plural:literal) => {
+        const { $crate::i18n::MsgPlural::new($singular, $plural) }
+    };
+}
+
 /// The catalogs of the user's languages, in the order they are asked for.
 #[derive(Debug, Clone, Default)]
 pub struct Translations {
@@ -110,6 +154,14 @@ impl Translations {
     pub fn get(&self, msgid: &str) -> Option<&str> {
         self.catalogs.iter().find_map(|catalog| catalog.get(msgid))
     }
+
+    /// The form of the plural entry `msgid` for the count `n`, in the first language that has
+    /// one, by that language's plural rule.
+    pub fn get_plural(&self, msgid: &str, n: u64) -> Option<&str> {
+        self.catalogs
+            .iter()
+            .find_map(|catalog| catalog.get_plural(msgid, n))
+    }
 }
 
 /// The translations [`tr`] uses, set by [`init`].
@@ -128,6 +180,34 @@ pub fn tr(msg: Msg) -> &'static str {
         .get()
         .and_then(|translations| translations.get(msg.msgid()))
         .unwrap_or(msg.msgid())
+}
+
+/// The text of `msg` in the user's language with its named placeholders filled in: see [`fill`].
+///
+/// ```
+/// use sway_things_core::{i18n, msg};
+///
+/// let text = i18n::trf(msg!("{count} devices"), &[("count", &3)]);
+/// assert_eq!(text, "3 devices");
+/// ```
+pub fn trf(msg: Msg, args: &[Arg<'_>]) -> String {
+    fill(tr(msg), args)
+}
+
+/// The text of `msg` for the count `n` in the user's language, or the English singular (for 1)
+/// or plural if it has no translation or [`init`] wasn't called.
+pub fn ntr(msg: MsgPlural, n: usize) -> &'static str {
+    let count = u64::try_from(n).unwrap_or(u64::MAX);
+    TRANSLATIONS
+        .get()
+        .and_then(|translations| translations.get_plural(msg.singular, count))
+        .unwrap_or(msg.english(n))
+}
+
+/// The text of `msg` for the count `n` in the user's language with its named placeholders filled
+/// in. The count is not filled in by itself: pass it as an argument like any other value.
+pub fn ntrf(msg: MsgPlural, n: usize, args: &[Arg<'_>]) -> String {
+    fill(ntr(msg, n), args)
 }
 
 /// The directory of the catalogs: `$SWAY_THINGS_LOCALEDIR`, else the build's default.
@@ -217,7 +297,7 @@ mod tests {
     use std::collections::HashMap;
     use std::path::Path;
 
-    use super::{DOMAIN, Msg, Translations, languages, tr, variants, write_mo};
+    use super::{DOMAIN, Msg, MsgPlural, Translations, languages, ntr, tr, variants, write_mo};
 
     fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> + use<> {
         let map: HashMap<String, String> = pairs
@@ -320,8 +400,55 @@ mod tests {
     }
 
     #[test]
+    fn plural_forms_fall_back_through_the_languages() {
+        let dir = tempfile::tempdir().unwrap();
+        install(
+            dir.path(),
+            "pl",
+            &[
+                (
+                    "",
+                    "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n",
+                ),
+                (
+                    "{count} file\0{count} files",
+                    "{count} plik\0{count} pliki\0{count} plików",
+                ),
+            ],
+        );
+        install(
+            dir.path(),
+            "de",
+            &[(
+                "{count} window\0{count} windows",
+                "{count} Fenster\0{count} Fenster",
+            )],
+        );
+        let languages = ["pl".to_owned(), "de".to_owned()];
+        let translations = Translations::load(dir.path(), DOMAIN, &languages);
+        assert_eq!(
+            translations.get_plural("{count} file", 22),
+            Some("{count} pliki")
+        );
+        assert_eq!(
+            translations.get_plural("{count} file", 25),
+            Some("{count} plików")
+        );
+        // German's own rule picks the form, not Polish's.
+        assert_eq!(
+            translations.get_plural("{count} window", 5),
+            Some("{count} Fenster")
+        );
+        assert_eq!(translations.get_plural("{count} device", 5), None);
+    }
+
+    #[test]
     fn untranslated_messages_are_english() {
         // The tests never call `init`.
         assert_eq!(tr(Msg::new("Keyboard")), "Keyboard");
+        let files = MsgPlural::new("{count} file", "{count} files");
+        assert_eq!(ntr(files, 1), "{count} file");
+        assert_eq!(ntr(files, 0), "{count} files");
+        assert_eq!(ntr(files, 2), "{count} files");
     }
 }

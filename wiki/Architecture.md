@@ -1124,10 +1124,13 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 - **Marking**: a translatable string is a `Msg` (`crates/core/src/i18n/`), written as `msg!("…")`, which works in
   constants too. The registry's builder methods (`title`, `subtitle`, `section`, `group`, `keywords`, `placeholder`) and
   `Choice::new` take `Msg`, so an unmarked literal doesn't compile. Registry titles, subtitles, sections, group titles,
-  keywords, placeholders and choice labels, page and sidebar group titles and descriptions, and the headings of the
-  doctor's report are marked so far; the other messages of the core and both binaries are still English literals. A
-  `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the section
-  ids in `ui.toml`, use the English msgid, never the translation.
+  keywords, placeholders and choice labels, page and sidebar group titles and descriptions, the headings of the doctor's
+  report and the messages of the command line (`error:` and `warning:` too) are marked; the GUI's texts and the rest of
+  the core's (doctor findings, errors, system details) are still English literals. The command line's `--help` texts
+  stay English: the man pages and completions are generated from them, and clap's own words (`Usage:`, `Options:`, its
+  errors) can't be translated, so a translated help would mix two languages. `--json` output and its ids stay English
+  too. A `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the
+  section ids in `ui.toml`, use the English msgid, never the translation.
 - **Template**: `scripts/update-pot.sh` extracts the marked strings with `xgettext` (0.24 or newer, the first version
   that reads Rust) into `po/sway-things.pot`, with file names but no line numbers, so the template only changes when the
   strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test
@@ -1143,12 +1146,27 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   `$SWAY_THINGS_LOCALEDIR`, else the directory the build set in the same variable, else `/usr/share/locale`. The
   languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
   translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
-  and a string missing from the first language's catalog is looked up in the next. Only singular forms are read so far;
-  plural forms come with the first string that needs them.
+  and a string missing from the first language's catalog is looked up in the next.
+- **Plural forms**: a message about a count is a `MsgPlural`, written as
+  `msg_plural!("{count} problem", "{count} problems")` and extracted with its plural (`msgid_plural`).
+  `i18n::ntr(msg, n)` and `i18n::ntrf(msg, n, args)` pick the form for `n` by the rule of the catalog it comes from: the
+  C expression of the header's `Plural-Forms` line, which the reader parses itself (gettext's operators and precedence,
+  unsigned numbers, at most 1024 bytes and 32 levels deep). A catalog without a readable rule uses English's `n != 1`; a
+  division by zero or an index past the forms gives the first form, as in gettext, and a translation without the form
+  that is picked falls back to the next language, then to English (the singular for 1, else the plural). The count isn't
+  filled in by itself: it is a placeholder like any other.
 - **Showing**: `i18n::tr(msg)` gives the translation, or the English source string if there is none or `init` wasn't
-  called, so tests stay in English without setup. Search indexes both: `SearchIndex::new(registry, tr)` matches the
-  translated and the English texts. A test with a pseudo-locale (`crates/cli/tests/binary.rs`) writes a catalog and
-  checks that `sway-things doctor` prints its headings translated, while `--json` keeps its English ids.
+  called, so tests stay in English without setup. A message with values in it names them (`{count} problems`), since
+  `format!` needs a literal: `i18n::trf(msg, &[("count", &n)])` looks it up and fills them in, in one pass, so a value
+  is never read for placeholders itself; `{{` and `}}` are literal braces, and a placeholder without a value stays as it
+  is, so a faulty translation can't fail. Translators can move the placeholders. Search indexes both:
+  `SearchIndex::new(registry, tr)` matches the translated and the English texts.
+- **Pseudo-locale**: `i18n::pseudo::catalog` (core feature `test-support`) turns the template into a catalog in which
+  every translation is its msgid with each ASCII letter swapped for an accented one, between `⟦` and `⟧`; placeholders,
+  markup tags and entities stay. In it, a plain ASCII word in what is shown didn't go through a catalog, unless it is
+  data. `crates/cli/tests/binary.rs` runs the commands that write nothing in that locale and fails on any English word
+  that isn't data (what the user typed, values, paths, commands, the system's I/O errors, and for now the core's texts,
+  taken from the `--json` output). Another test there checks that `--json` keeps its English ids.
 
 ## Testing
 

@@ -45,8 +45,8 @@ trap 'rm -rf "$work"' EXIT
 common=(--from-code=UTF-8 --add-comments=TRANSLATORS: --add-location=file --package-name=sway-things
   --copyright-holder='Sway Things contributors' --msgid-bugs-address=https://github.com/mowi12/sway-things/issues
   --output="$work/new.pot")
-# Only msg!("…") marks a string; --keyword= drops the default keywords (gettext, …).
-xgettext --language=Rust --keyword= --keyword='msg!' "${common[@]}" "${sources[@]}"
+# Only msg!("…") and msg_plural!("…", "…") mark strings; --keyword= drops the default keywords (gettext, …).
+xgettext --language=Rust --keyword= --keyword='msg!' --keyword='msg_plural!:1,2' "${common[@]}" "${sources[@]}"
 # A second run, since --language=Rust would apply to these files too. gettext 1.0 warns that it falls back to its own
 # ITS rules for the metainfo; the appstream package's rules, where installed, take precedence.
 if [[ ${#metadata[@]} -gt 0 ]]; then

@@ -9,6 +9,8 @@ use std::thread;
 use std::time::Duration;
 
 use sway_things_core::apply::Countdown;
+use sway_things_core::i18n::{tr, trf};
+use sway_things_core::msg;
 
 /// Asks the user whether to keep a risky change.
 pub trait Prompt {
@@ -49,7 +51,12 @@ impl Prompt for Terminal {
                 return false;
             }
             let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
-            let _ = write!(stderr, "\rKeep? [y/N] {seconds:>2} s ");
+            let seconds = format!("{seconds:>2}");
+            // TRANSLATORS: Asks whether to keep a change that can lock the user out, counting down
+            // the seconds until it is reverted. The answers that mean yes are translated
+            // separately; English "y" and "yes" always work too.
+            let question = trf(msg!("Keep? [y/N] {seconds} s "), &[("seconds", &seconds)]);
+            let _ = write!(stderr, "\r{question}");
             let _ = stderr.flush();
             // Wake up when the next whole second is reached, to show it.
             let fraction = Duration::from_nanos(left.subsec_nanos().into());
@@ -73,8 +80,15 @@ impl Prompt for Terminal {
     }
 }
 
+/// Whether `line` answers yes: in English, or in the user's language.
 fn is_yes(line: &str) -> bool {
-    matches!(line.trim().to_lowercase().as_str(), "y" | "yes")
+    // TRANSLATORS: The answers that mean yes to "Keep? [y/N]", separated by "|", in lowercase.
+    let answers = tr(msg!("y|yes"));
+    let answer = line.trim().to_lowercase();
+    ["y", "yes"]
+        .into_iter()
+        .chain(answers.split('|').map(str::trim))
+        .any(|yes| !yes.is_empty() && answer == yes.to_lowercase())
 }
 
 #[cfg(test)]

@@ -985,7 +985,7 @@ fn doctor_colors_only_the_words_that_matter() {
         "  \x1b[33mwarning\x1b[0m  The include line isn't last".to_owned(),
         format!("             \x1b[2m{config}:2: gaps inner 4\x1b[0m\n"),
         "  \x1b[31mproblem\x1b[0m  30-appearance.conf is missing".to_owned(),
-        "           \x1b[2mFix:\x1b[0m \x1b[36msway-things doctor --fix\x1b[0m\n".to_owned(),
+        "           \x1b[2mFix: \x1b[0m\x1b[36msway-things doctor --fix\x1b[0m\n".to_owned(),
         format!("your config wins: \x1b[2m{config}:2\x1b[0m comes after"),
         "\n\x1b[1m\x1b[31m1 problem\x1b[0m, \x1b[1m\x1b[33m2 warnings\x1b[0m.\n".to_owned(),
         "Run `\x1b[36msway-things doctor --fix\x1b[0m` to write".to_owned(),

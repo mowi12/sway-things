@@ -27,8 +27,10 @@ use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial};
 use sway_things_core::command::input::InputSelector;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
+use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
 use sway_things_core::ipc::Compositor;
+use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::registry::{Apply, ConfigFile, Link, Registry, Scope, Setting, Value};
 use sway_things_core::state::{Layer, Paths, State, StateError};
@@ -40,6 +42,8 @@ pub use prompt::{Prompt, Terminal};
 pub use spinner::Spinner;
 
 /// Read and change the settings of Sway Things.
+// The help texts stay English: the man pages and completions are generated from them, and clap's
+// own words ("Usage:", "Options:", its errors) can't be translated.
 #[derive(Debug, Parser)]
 #[command(name = "sway-things", version, long_about = None)]
 pub struct Cli {
@@ -203,7 +207,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
     let (applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
-            let _ = writeln!(err, "error: {error}");
+            let _ = writeln!(err, "{}", error_line(&error));
             return Exit::Failure;
         }
     };
@@ -239,18 +243,18 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         Ok(found) => found,
         Err(error) => {
             look.spinner.clear();
-            let _ = writeln!(err, "error: {error}");
+            let _ = writeln!(err, "{}", error_line(&error));
             return Exit::Failure;
         }
     };
-    look.spinner.say("Loading the settings files…");
+    look.spinner.say(tr(msg!("Loading the settings files…")));
     let state = State::load(Registry::builtin(), paths);
     let validator = SwayValidator::new();
-    look.spinner.say("Asking sway for its version…");
+    look.spinner.say(tr(msg!("Asking sway for its version…")));
     let (found, main) = Found::detect(&validator).await;
-    look.spinner.say("Reading your sway config…");
+    look.spinner.say(tr(msg!("Reading your sway config…")));
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
-    look.spinner.say("Collecting the system details…");
+    look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
     let checkup = Checkup {
         found: &found,
@@ -354,16 +358,19 @@ pub async fn run<V: Validate>(
 pub fn open(link: Option<&str>, err: &mut dyn Write) -> Exit {
     if let Some(text) = link {
         if let Err(error) = Link::parse(text, Registry::builtin()) {
-            let _ = writeln!(err, "error: {error}");
+            let _ = writeln!(err, "{}", error_line(&error));
             return Exit::Usage;
         }
     }
     let Some(gui) = find_gui() else {
-        let _ = writeln!(
-            err,
-            "error: can't find {GUI}: install it next to sway-things or in PATH, or name it in \
-             {GUI_ENV}"
+        let text = trf(
+            msg!(
+                "can't find {program}: install it next to sway-things or in PATH, or name it in \
+                 {variable}"
+            ),
+            &[("program", &GUI), ("variable", &GUI_ENV)],
         );
+        let _ = writeln!(err, "{}", error_line(&text));
         return Exit::Failure;
     };
     let mut command = std::process::Command::new(&gui);
@@ -375,7 +382,11 @@ pub fn open(link: Option<&str>, err: &mut dyn Write) -> Exit {
     match command.spawn() {
         Ok(_) => Exit::Ok,
         Err(error) => {
-            let _ = writeln!(err, "error: can't start {}: {error}", gui.display());
+            let text = trf(
+                msg!("can't start {program}: {error}"),
+                &[("program", &gui.display()), ("error", &error)],
+            );
+            let _ = writeln!(err, "{}", error_line(&text));
             Exit::Failure
         }
     }
@@ -410,7 +421,8 @@ async fn doctor_in<V: Validate>(
         Found::Session(compositor)
     } else {
         Found::NoSession {
-            reason: "not in a sway session".to_owned(),
+            // TRANSLATORS: Why `sway-things doctor` found no sway session.
+            reason: tr(msg!("not in a sway session")).to_owned(),
             installed: Installed::Version(compositor),
         }
     };
@@ -442,13 +454,21 @@ impl Io<'_> {
     }
 
     fn warn(&mut self, text: impl fmt::Display) {
-        let _ = writeln!(self.err, "warning: {text}");
+        // TRANSLATORS: A warning on the command line.
+        let line = trf(msg!("warning: {message}"), &[("message", &text)]);
+        let _ = writeln!(self.err, "{line}");
     }
 
     fn error(&mut self, text: impl fmt::Display) -> &mut Self {
-        let _ = writeln!(self.err, "error: {text}");
+        let _ = writeln!(self.err, "{}", error_line(&text));
         self
     }
+}
+
+/// An error message on the command line: `error: ` and `text`.
+fn error_line(text: &dyn fmt::Display) -> String {
+    // TRANSLATORS: An error on the command line.
+    trf(msg!("error: {message}"), &[("message", text)])
 }
 
 fn get<V: Validate>(
@@ -631,20 +651,26 @@ async fn keep_or_revert<V: Validate>(
     io: &mut Io<'_>,
 ) -> Result<Result<Applied, ApplyError>, Exit> {
     if let Some(pending) = session.applier.pending() {
-        io.note(format_args!(
-            "{} is now {}. It is reverted unless you keep it.",
-            output::name(setting.key(), device),
-            pending.value()
+        io.note(trf(
+            msg!("{setting} is now {value}. It is reverted unless you keep it."),
+            &[
+                ("setting", &output::name(setting.key(), device)),
+                ("value", &pending.value()),
+            ],
         ));
     }
     if prompt.keep(trial.countdown).await {
         return Ok(session.applier.keep(access));
     }
     match session.applier.revert().await {
-        Ok(_) => io.note(format_args!("Reverted {}.", setting.key())),
+        Ok(_) => io.note(trf(
+            msg!("Reverted {setting}."),
+            &[("setting", &setting.key())],
+        )),
         Err(error) => {
-            io.error(format_args!(
-                "{error}; the old value comes back when sway reloads its config"
+            io.error(trf(
+                msg!("{error}; the old value comes back when sway reloads its config"),
+                &[("error", &error)],
             ));
             return Err(Exit::Failure);
         }
@@ -654,10 +680,12 @@ async fn keep_or_revert<V: Validate>(
 
 /// Refuses a risky change without someone to ask or `--yes`.
 fn refuse_risky(setting: &Setting, io: &mut Io<'_>) -> Exit {
-    io.error(format_args!(
-        "{} can lock you out, so it is only changed after you keep it in a terminal; pass \
-         --yes to change it without asking",
-        setting.key()
+    io.error(trf(
+        msg!(
+            "{setting} can lock you out, so it is only changed after you keep it in a terminal; \
+             pass --yes to change it without asking"
+        ),
+        &[("setting", &setting.key())],
     ));
     Exit::Refused
 }
@@ -725,18 +753,20 @@ async fn reset<V: Validate>(
     };
     let name = output::name(key, device);
     if applied.effect == Effect::NotStored {
-        io.out(format_args!(
-            "{name} isn't stored by Sway Things; nothing to reset."
+        io.out(trf(
+            msg!("{setting} isn't stored by Sway Things; nothing to reset."),
+            &[("setting", &name)],
         ));
         return Exit::Ok;
     }
     let done = if setting.apply() == Apply::Risky {
-        format!("Reset {name}.")
+        msg!("Reset {setting}.")
     } else {
-        format!("Reset {name} to its default.")
+        msg!("Reset {setting} to its default.")
     };
+    let done = trf(done, &[("setting", &name)]);
     match effect_note(&applied.effect) {
-        Some(note) => io.out(format_args!("{done} {note}")),
+        Some(note) => io.out(sentences(&done, &note)),
         None => io.out(done),
     }
     persist(session, overwrite, &access, io).await
@@ -761,7 +791,9 @@ fn show_generated<V: Validate>(session: &Session<V>, file: Option<&str>, io: &mu
         let _ = io.out.write_all(file.text().as_bytes());
     }
     if first {
-        io.note("No settings are stored, so every generated file is empty.");
+        io.note(tr(msg!(
+            "No settings are stored, so every generated file is empty."
+        )));
     }
     Exit::Ok
 }
@@ -793,9 +825,9 @@ async fn persist<V: Validate>(
     for (file, outcome) in persisted.problems() {
         match outcome {
             Outcome::Invalid(lines) => {
-                io.error(format_args!(
-                    "sway rejected the new {}, so the old one stays:",
-                    file.file_name()
+                io.error(trf(
+                    msg!("sway rejected the new {file}, so the old one stays:"),
+                    &[("file", &file.file_name())],
                 ));
                 for line in lines {
                     io.note(format_args!("  {}", output::invalid_line(line)));
@@ -806,7 +838,10 @@ async fn persist<V: Validate>(
                 if let Some(problem) = outcome.problem(file) {
                     io.error(problem);
                 }
-                io.note("The settings are saved. Run the command again with --overwrite to replace the file.");
+                io.note(tr(msg!(
+                    "The settings are saved. Run the command again with --overwrite to replace \
+                     the file."
+                )));
                 if exit == Exit::Ok {
                     exit = Exit::Refused;
                 }
@@ -825,31 +860,56 @@ async fn persist<V: Validate>(
 /// What `set` did, in a sentence.
 fn changed(setting: &Setting, device: Option<&str>, value: &Value, applied: &Applied) -> String {
     let name = output::name(setting.key(), device);
-    let mut text = if applied.changed {
-        format!("Set {name} to {value}.")
+    let text = if applied.changed {
+        msg!("Set {setting} to {value}.")
     } else {
-        format!("{name} is already {value}.")
+        msg!("{setting} is already {value}.")
     };
-    if let Some(note) = effect_note(&applied.effect) {
-        text.push(' ');
-        text.push_str(&note);
+    let text = trf(text, &[("setting", &name), ("value", value)]);
+    match effect_note(&applied.effect) {
+        Some(note) => sentences(&text, &note),
+        None => text,
     }
-    text
+}
+
+/// Two sentences, one after the other.
+fn sentences(first: &str, second: &str) -> String {
+    // TRANSLATORS: Two sentences, one after the other, such as "Set gaps.inner to 4." and "It
+    // takes effect at the next login."
+    trf(
+        msg!("{first} {second}"),
+        &[("first", &first), ("second", &second)],
+    )
 }
 
 /// When a change that isn't live takes effect.
 fn effect_note(effect: &Effect) -> Option<String> {
     match effect {
         Effect::Live { .. } | Effect::Preference | Effect::NotStored => None,
-        Effect::NoSession => Some("sway isn't running; it takes effect when sway starts.".into()),
-        Effect::AfterReload => {
-            Some("It takes effect when sway reloads its config (swaymsg reload).".into())
-        }
-        Effect::AfterToolReload => {
-            Some("It takes effect when the tool behind it reloads its config.".into())
-        }
-        Effect::AfterRelogin => Some("It takes effect at the next login.".into()),
-        Effect::Unsupported(unmet) => Some(format!("Nothing was sent: it {unmet}.")),
+        Effect::NoSession => Some(
+            tr(msg!(
+                "sway isn't running; it takes effect when sway starts."
+            ))
+            .to_owned(),
+        ),
+        Effect::AfterReload => Some(
+            tr(msg!(
+                "It takes effect when sway reloads its config (swaymsg reload)."
+            ))
+            .to_owned(),
+        ),
+        Effect::AfterToolReload => Some(
+            tr(msg!(
+                "It takes effect when the tool behind it reloads its config."
+            ))
+            .to_owned(),
+        ),
+        Effect::AfterRelogin => Some(tr(msg!("It takes effect at the next login.")).to_owned()),
+        // TRANSLATORS: {requirement} is what the setting needs, such as "needs sway 1.11".
+        Effect::Unsupported(unmet) => Some(trf(
+            msg!("Nothing was sent: it {requirement}."),
+            &[("requirement", unmet)],
+        )),
     }
 }
 
