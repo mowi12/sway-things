@@ -30,6 +30,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 ```
 
 - **Sidebar** with grouped pages and the search field at the top. The **content pane** on the right.
+- **Lines that grow with scrolling:** below the search field, a horizontal line like the separator between the panes
+  marks the edge once the page list or the results scroll. At the top it is hidden; over the first 50 px of scrolling it
+  grows from the center to the full width, in proportion to the offset, and shrinks again on the way back. It follows
+  the scroll position directly, without an animation, and always takes its 1 px, so nothing below it moves.
 - A **page** has a header (title + one-line description), sections with setting rows, and a footer showing the files
   that page writes to, each with a _Show_ button that opens it in _Generated config_.
 - **Collapsible sections:** every section header has a chevron; a click, `Enter` or `Space` collapses or expands the
@@ -177,6 +181,8 @@ them.
     collapsed), Window Behavior 589 px. Slider rows set them: their controls need 427 px.
   - Opening a page (`Enter`, a click, a search result, a deep link) shows it and moves the focus to its first control.
     `Esc` or the back button shows the sidebar again, with the focus on the open page or the opened result.
+  - Below the back button, the same line as below the search field grows as the page scrolls. It exists only in narrow
+    mode, together with the back button.
   - Typing or `Ctrl+F` on the page shows the sidebar with the search field.
   - The window switches live while it is resized. The open page stays, and so does the pane with the keyboard focus (the
     page if neither has it); the other pane can't be reached with `Tab` while hidden.

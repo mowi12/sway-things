@@ -70,8 +70,8 @@ use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
-    BluetoothBus, BluetoothPage, DeviceSelector, GroupRow, LayoutList, NetworkBus, NetworkPage,
-    OptionBrowser, PageView, SettingRow, TestArea,
+    BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GroupRow, LayoutList, NetworkBus,
+    NetworkPage, OptionBrowser, PageView, SettingRow, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -1768,6 +1768,10 @@ fn check_narrow() -> Vec<(String, Outcome)> {
         (
             "narrow: search and deep links".to_owned(),
             check_narrow_search(),
+        ),
+        (
+            "narrow: the lines below the search field and the back bar".to_owned(),
+            check_scroll_lines(),
         ),
     ]
 }
@@ -4510,4 +4514,94 @@ fn check_welcomes(settings: &gtk::Settings) -> Vec<(String, Outcome)> {
             check_not_last(),
         ),
     ]
+}
+
+/// The lines below the search field and the back bar grow from the center as the list or page
+/// below them scrolls, keep their height, and the one below the back bar shows only while
+/// narrow.
+fn check_scroll_lines() -> Outcome {
+    let shoot = |window: &Window, name: &str| -> Outcome {
+        if let Some(directory) = std::env::var_os("SWAY_THINGS_SCREENSHOTS") {
+            check_screen(
+                window,
+                Some(PathBuf::from(directory).join(format!("{name}.png"))),
+            )?;
+        }
+        Ok(())
+    };
+    let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.set_default_size(700, 300);
+    window.present();
+    settle(&window)?;
+    let line = window.sidebar().line();
+    let height = line.height();
+    ensure(
+        line.fraction() == 0.0 && line.line_width() == 0 && height >= 1,
+        "  the line below the search field shows at the top, or takes no height",
+    )?;
+    let scroller = find::<gtk::ScrolledWindow>(window.sidebar().upcast_ref())
+        .ok_or("  the sidebar has no scrolled window")?;
+    let adjustment = scroller.vadjustment();
+    ensure(
+        adjustment.upper() - adjustment.page_size() > FULL_OFFSET,
+        "  the page list doesn't scroll far enough to test",
+    )?;
+    shoot(&window, "line-sidebar-top")?;
+    adjustment.set_value(FULL_OFFSET / 2.0);
+    settle(&window)?;
+    shoot(&window, "line-sidebar-half")?;
+    let half = line.line_width();
+    ensure(
+        (line.fraction() - 0.5).abs() < 0.01 && (half - line.width() / 2).abs() <= 1,
+        &format!("  half way, the line is {half} of {} px wide", line.width()),
+    )?;
+    adjustment.set_value(FULL_OFFSET * 2.0);
+    settle(&window)?;
+    shoot(&window, "line-sidebar-full")?;
+    ensure(
+        line.line_width() == line.width() && line.height() == height,
+        "  scrolled past the offset, the line doesn't span the width at the same height",
+    )?;
+    adjustment.set_value(0.0);
+    settle(&window)?;
+    ensure(
+        line.line_width() == 0,
+        &format!(
+            "  back at the top, the line stays: {} px, fraction {}, offset {}",
+            line.line_width(),
+            line.fraction(),
+            adjustment.value()
+        ),
+    )?;
+
+    let back = window.back_line();
+    ensure(
+        !back.is_visible(),
+        "  the line below the back bar shows while wide",
+    )?;
+    window.show_page(Page::Keyboard);
+    set_narrow(&window, true)?;
+    window.show_page(Page::Keyboard);
+    settle(&window)?;
+    let view = page_view(&window).ok_or("  no page view")?;
+    let page = find::<gtk::ScrolledWindow>(view.upcast_ref()).ok_or("  no page scroller")?;
+    ensure(
+        back.is_visible() && back.line_width() == 0 && back.height() >= 1,
+        "  narrow at the top, the line below the back bar shows or takes no height",
+    )?;
+    shoot(&window, "line-back-top")?;
+    page.vadjustment().set_value(FULL_OFFSET * 2.0);
+    settle(&window)?;
+    shoot(&window, "line-back-full")?;
+    ensure(
+        back.line_width() == back.width(),
+        "  the line below the back bar doesn't follow the page",
+    )?;
+    set_narrow(&window, false)?;
+    ensure(
+        !back.is_visible(),
+        "  the line below the back bar stays while wide",
+    )?;
+    Ok(())
 }

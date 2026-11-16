@@ -34,6 +34,8 @@ mod imp {
     pub struct Sidebar {
         pub layout: gtk::Box,
         pub entry: gtk::SearchEntry,
+        /// The line below the search field, once the list below it scrolls.
+        pub line: crate::widgets::ScrollLine,
         pub stack: gtk::Stack,
         pub scroller: gtk::ScrolledWindow,
         pub list: gtk::ListBox,
@@ -100,8 +102,18 @@ mod imp {
             // The rows ellipsize, and neither list asks for the width of its texts: the sidebar is
             // as wide with any results, or none, as with the pages.
             self.stack.set_vexpand(true);
+            self.line.follow(Some(&self.scroller));
+            self.stack.connect_visible_child_notify(glib::clone!(
+                #[weak(rename_to = line)]
+                self.line,
+                move |stack| {
+                    let scroller = stack.visible_child().and_downcast::<gtk::ScrolledWindow>();
+                    line.follow(scroller.as_ref());
+                }
+            ));
             self.layout.set_orientation(gtk::Orientation::Vertical);
             self.layout.append(&self.entry);
+            self.layout.append(&self.line);
             self.layout.append(&self.stack);
             self.layout.set_parent(&*sidebar);
         }
@@ -366,6 +378,11 @@ impl Sidebar {
     pub fn search(&self, query: &str) {
         self.imp().entry.set_text(query);
         self.show_results(query);
+    }
+
+    /// The line below the search field.
+    pub fn line(&self) -> &crate::widgets::ScrollLine {
+        &self.imp().line
     }
 
     /// Ends the search: clears the field, shows the pages again and gives the field the focus.
