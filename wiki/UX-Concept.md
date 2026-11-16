@@ -149,6 +149,10 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance |
 
+A thin line, inset to the rows' text, separates the groups: above every group heading but the first, none between the
+pages of a group and none in the search results. Like the headings, the lines take no focus, so the arrow keys skip
+them.
+
 ## Navigation and search
 
 - **Search finds individual settings, not just pages.** Each registry entry has a title, keywords and synonyms ("dpi",

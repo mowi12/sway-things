@@ -38,6 +38,11 @@ st-sidebar .st-group-heading.st-first {
   margin-top: 4px;
 }
 
+/* The line above every group but the first, inset to the rows' text */
+st-sidebar .st-group-separator {
+  margin: 10px 14px 0;
+}
+
 /* The bar with the button back to the sidebar, above the page while the window is narrow */
 .st-back-bar {
   padding: 6px;

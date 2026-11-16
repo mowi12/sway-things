@@ -1320,6 +1320,40 @@ fn check_sidebar_keyboard() -> Outcome {
         "the opened page isn't marked in the sidebar",
     )?;
 
+    // Down from the last page of a group lands on the first page of the next, past the line and
+    // the heading; only the groups after the first start below a line.
+    let boundary = Page::ALL
+        .windows(2)
+        .position(|pair| pair[0].group() != pair[1].group())
+        .and_then(|index| i32::try_from(index).ok())
+        .ok_or_else(|| "the sidebar has only one group".to_owned())?;
+    ensure(
+        list.row_at_index(boundary)
+            .is_some_and(|row| row.grab_focus()),
+        "the last page of the first group can't take the focus",
+    )?;
+    list.emit_move_cursor(gtk::MovementStep::DisplayLines, 1, false, false);
+    let focused = list.focus_child().and_downcast::<gtk::ListBoxRow>();
+    ensure(
+        focused.as_ref().map(gtk::ListBoxRow::index) == Some(boundary + 1),
+        "Down doesn't skip the group separator and heading",
+    )?;
+    let has_separator = |index: i32| {
+        list.row_at_index(index)
+            .and_then(|row| row.header())
+            .and_then(|header| header.first_child())
+            .is_some_and(|child| child.is::<gtk::Separator>())
+    };
+    ensure(!has_separator(0), "the first group starts below a line")?;
+    ensure(
+        has_separator(boundary + 1),
+        "the second group doesn't start below a line",
+    )?;
+    ensure(
+        !has_separator(1),
+        "a line separates two pages of the same group",
+    )?;
+
     let mut unnamed = Vec::new();
     let mut index = 0;
     while let Some(row) = list.row_at_index(index) {
