@@ -99,11 +99,13 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 The Bluetooth page shows BlueZ's live state; nothing of it is stored by Sway Things, so it has no reset, no indicators
 and no generated file.
 
-- **Bluetooth section:** a switch for the radio, its subtitle the name other devices see and the address. With two or
-  more adapters an _Adapter_ drop-down comes first (not remembered; the first adapter after a restart). A soft-blocked
-  radio (airplane mode, `rfkill`) says so and switching it on lifts the block; a hard block (a switch or key) locks the
-  switch and says how to turn it back on. Without access to `/dev/rfkill`, the page shows `rfkill unblock bluetooth`
+- **Bluetooth section:** a switch for the radio, its subtitle the name other devices see and the address, or _Off_. With
+  two or more adapters an _Adapter_ drop-down comes first (not remembered; the first adapter after a restart). A hard
+  block (a switch or key) locks the switch. Without access to `/dev/rfkill`, the page shows `rfkill unblock bluetooth`
   with _Copy_.
+- **Off:** while the radio is off, a placeholder _Bluetooth is off_ (icon, title, text) replaces everything below the
+  switch and points to the switch. A soft block (airplane mode, `rfkill`) says so and that the switch lifts it; a hard
+  block says how to turn the radio back on. The devices come back as soon as the radio is on.
 - **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
   level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
 - **Other devices:** the devices around. While the page is on screen and the radio is on, it searches (a spinner says
@@ -120,9 +122,12 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 
 - **Captive portal:** while NetworkManager reports one, a note at the top says the network wants a sign-in, with _Open
   Login Page_ (NetworkManager's connectivity check address in the browser) when NetworkManager has that address.
-- **Wi-Fi section:** a switch, its subtitle the network it is connected to. With two or more adapters an _Adapter_
-  drop-down comes first (not remembered). A hardware block locks the switch and says how to turn Wi-Fi back on. Without
-  a Wi-Fi adapter the section is a hint, and the wired and VPN sections stay usable.
+- **Wi-Fi section:** a switch, its subtitle the network it is connected to or _Off_. With two or more adapters an
+  _Adapter_ drop-down comes first (not remembered). A hardware block locks the switch. Without a Wi-Fi adapter the
+  section is a hint, and the wired and VPN sections stay usable.
+- **Wi-Fi off:** a placeholder _Wi-Fi is off_ (icon, title, text) replaces the known and other networks and points to
+  the switch; the wired and VPN sections stay. A hardware block says how to turn Wi-Fi back on. The networks come back
+  as soon as Wi-Fi is on.
 - **Known networks:** every saved network, the connected one first: a signal icon (four bars), the name, the state and
   security as text (_Connected · WPA2_), _Connect_ or _Disconnect_, and a ⋮ menu with _Details…_ (while connected),
   _Edit…_ (nm-connection-editor) and _Forget…_ (which asks first). Saved networks that aren't around say _Not in range_.

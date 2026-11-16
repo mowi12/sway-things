@@ -129,6 +129,13 @@ mod imp {
         pub unblock_help: gtk::Box,
         /// The error of the last action that failed.
         pub error: gtk::Label,
+        /// Shown instead of the devices while the radio is off.
+        pub off: gtk::Box,
+        /// What `off` shows: whether a hard block keeps the radio off and whether it is soft
+        /// blocked; `None` while it is empty.
+        pub off_shown: Cell<Option<(bool, bool)>>,
+        /// The sections with the devices.
+        pub devices: gtk::Box,
         pub mine: gtk::ListBox,
         pub mine_hint: gtk::Label,
         pub others_heading: gtk::Box,
@@ -383,11 +390,18 @@ impl BluetoothPage {
         imp.error.set_visible(false);
         imp.controls.append(&imp.error);
 
-        imp.controls.append(&heading("My devices", false));
+        imp.off.set_orientation(gtk::Orientation::Vertical);
+        imp.off.set_margin_top(24);
+        imp.off.set_visible(false);
+        imp.controls.append(&imp.off);
+
+        imp.devices.set_orientation(gtk::Orientation::Vertical);
+        imp.controls.append(&imp.devices);
+        imp.devices.append(&heading("My devices", false));
         device_list(&imp.mine, "My devices");
-        imp.controls.append(&imp.mine);
+        imp.devices.append(&imp.mine);
         hint(&imp.mine_hint);
-        imp.controls.append(&imp.mine_hint);
+        imp.devices.append(&imp.mine_hint);
 
         imp.others_heading
             .set_orientation(gtk::Orientation::Horizontal);
@@ -405,11 +419,11 @@ impl BluetoothPage {
         searching.add_css_class(style::DIM);
         imp.searching.append(&searching);
         imp.others_heading.append(&imp.searching);
-        imp.controls.append(&imp.others_heading);
+        imp.devices.append(&imp.others_heading);
         device_list(&imp.others, "Other devices");
-        imp.controls.append(&imp.others);
+        imp.devices.append(&imp.others);
         hint(&imp.others_hint);
-        imp.controls.append(&imp.others_hint);
+        imp.devices.append(&imp.others_hint);
     }
 
     /// The box that says why the soft block couldn't be lifted, with the command to copy.
@@ -638,13 +652,12 @@ impl BluetoothPage {
         imp.power.set_active(adapter.powered);
         imp.power.set_state(adapter.powered);
         imp.power.set_sensitive(!block.hard);
-        imp.power_subtitle.set_text(&if block.hard {
-            "Turned off by a hardware switch or key. Use it to turn Bluetooth back on.".to_owned()
-        } else if block.soft && !adapter.powered {
-            "Blocked by software, e.g. airplane mode. Turning it on lifts the block.".to_owned()
-        } else {
+        imp.power_subtitle.set_text(&if adapter.powered {
             format!("Visible as “{}” \u{b7} {}", adapter.name, adapter.address)
+        } else {
+            "Off".to_owned()
         });
+        self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
 
         let searching = adapter.powered && adapter.discovering;
         let started = searching && !imp.searching.is_visible();
@@ -709,6 +722,40 @@ impl BluetoothPage {
                 None
             },
         );
+    }
+
+    /// Shows the placeholder for a radio that is off (with whether it is hard and soft blocked)
+    /// instead of the devices, or the devices for `None`.
+    fn show_off(&self, off: Option<(bool, bool)>) {
+        let imp = self.imp();
+        imp.devices.set_visible(off.is_none());
+        imp.off.set_visible(off.is_some());
+        if imp.off_shown.replace(off) == off {
+            return;
+        }
+        while let Some(child) = imp.off.first_child() {
+            imp.off.remove(&child);
+        }
+        let Some((hard, soft)) = off else {
+            return;
+        };
+        let text = if hard {
+            "It's turned off by a hardware switch or key. Use it to turn Bluetooth back on."
+        } else if soft {
+            "It's blocked by software, e.g. airplane mode. Turning it on with the switch above lifts \
+             the block."
+        } else {
+            "Turn it on with the switch above to connect your devices and find new ones."
+        };
+        let placeholder = Placeholder::new("bluetooth-disabled-symbolic", "Bluetooth is off", text);
+        placeholder.set_hexpand(true);
+        imp.off.append(&placeholder);
+    }
+
+    /// The texts of the placeholder shown while the radio is off; `None` while the devices show.
+    pub fn off_placeholder(&self) -> Option<Vec<String>> {
+        let off = &self.imp().off;
+        off.is_visible().then(|| labels_in(off.upcast_ref()))
     }
 
     /// Shows a placeholder for `error` (or for no adapter) instead of the controls.
@@ -1375,6 +1422,20 @@ fn icon_name(icon: Option<&str>) -> String {
 }
 
 /// A section heading as on the pages built from the registry; `first` has no space above it.
+/// The texts of the labels in `widget`, in order.
+fn labels_in(widget: &gtk::Widget) -> Vec<String> {
+    let mut texts = Vec::new();
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Some(label) = current.downcast_ref::<gtk::Label>() {
+            texts.push(label.text().to_string());
+        }
+        texts.extend(labels_in(&current));
+        child = current.next_sibling();
+    }
+    texts
+}
+
 fn heading(title: &str, first: bool) -> gtk::Label {
     let label = gtk::Label::builder()
         .label(title.to_uppercase())

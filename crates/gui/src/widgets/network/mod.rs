@@ -119,6 +119,10 @@ mod imp {
         pub adapter_names: gtk::StringList,
         pub power: gtk::Switch,
         pub power_subtitle: gtk::Label,
+        /// Shown instead of the known and other networks while Wi-Fi is off.
+        pub off: gtk::Box,
+        /// Whether `off` shows a hardware block; `None` while it is empty.
+        pub off_shown: Cell<Option<bool>>,
         pub known_heading: gtk::Label,
         pub known: gtk::ListBox,
         pub known_hint: gtk::Label,
@@ -409,6 +413,11 @@ impl NetworkPage {
         imp.wifi_hint
             .set_text("No Wi-Fi adapter. Plug one in; this page updates by itself.");
         imp.controls.append(&imp.wifi_hint);
+
+        imp.off.set_orientation(gtk::Orientation::Vertical);
+        imp.off.set_margin_top(24);
+        imp.off.set_visible(false);
+        imp.controls.append(&imp.off);
 
         imp.known_heading
             .set_label(&"Known networks".to_uppercase());
@@ -789,7 +798,7 @@ impl NetworkPage {
         let imp = self.imp();
         imp.wifi.set_visible(device.is_some());
         imp.wifi_hint.set_visible(device.is_none());
-        let on = snapshot.wifi_enabled && device.is_some();
+        let on = snapshot.wifi_enabled && snapshot.wifi_hardware_enabled && device.is_some();
         let networks = device
             .map(|d| snapshot.networks(&d.path))
             .unwrap_or_default();
@@ -798,10 +807,8 @@ impl NetworkPage {
         imp.power.set_state(snapshot.wifi_enabled);
         imp.power.set_sensitive(snapshot.wifi_hardware_enabled);
         let current = networks.iter().find(|n| n.active.is_some());
-        imp.power_subtitle
-            .set_text(&if !snapshot.wifi_hardware_enabled {
-                "Turned off by a hardware switch or key. Use it to turn Wi-Fi back on.".to_owned()
-            } else if !snapshot.wifi_enabled {
+        imp.power_subtitle.set_text(
+            &if !snapshot.wifi_enabled || !snapshot.wifi_hardware_enabled {
                 "Off".to_owned()
             } else {
                 match current {
@@ -815,7 +822,8 @@ impl NetworkPage {
                     Some(n) => format!("Connecting to “{}”…", n.name),
                     None => "Not connected".to_owned(),
                 }
-            });
+            },
+        );
 
         let searching = on && imp.scan.borrow().is_some();
         let started = searching && !imp.searching.is_visible();
@@ -846,14 +854,13 @@ impl NetworkPage {
             }
         }
         let wifi = device.is_some();
-        imp.known_heading.set_visible(wifi);
+        self.show_off((wifi && !on).then_some(!snapshot.wifi_hardware_enabled));
+        imp.known_heading.set_visible(on);
         imp.known.set_visible(on && !known.is_empty());
         set_hint(
             &imp.known_hint,
-            if !wifi {
+            if !on {
                 None
-            } else if !on {
-                Some("Wi-Fi is off.")
             } else if known.is_empty() {
                 Some("No saved networks yet. Pick one under Other networks to connect to it.")
             } else {
@@ -1754,6 +1761,37 @@ impl NetworkPage {
 
     /// Shows a placeholder instead of the controls, with a "Turn On" button for networking if
     /// `turn_on`.
+    /// Shows the placeholder for Wi-Fi that is off (with whether a hardware switch keeps it off)
+    /// instead of the known and other networks, or nothing for `None`.
+    fn show_off(&self, off: Option<bool>) {
+        let imp = self.imp();
+        imp.off.set_visible(off.is_some());
+        if imp.off_shown.replace(off) == off {
+            return;
+        }
+        while let Some(child) = imp.off.first_child() {
+            imp.off.remove(&child);
+        }
+        let Some(hard) = off else {
+            return;
+        };
+        let text = if hard {
+            "It's turned off by a hardware switch or key. Use it to turn Wi-Fi back on."
+        } else {
+            "Turn it on with the switch above to see and connect to networks."
+        };
+        let placeholder =
+            Placeholder::new("network-wireless-disabled-symbolic", "Wi-Fi is off", text);
+        placeholder.set_hexpand(true);
+        imp.off.append(&placeholder);
+    }
+
+    /// The texts of the placeholder shown while Wi-Fi is off; `None` while the networks show.
+    pub fn off_placeholder(&self) -> Option<Vec<String>> {
+        let off = &self.imp().off;
+        off.is_visible().then(|| labels_in(off.upcast_ref()))
+    }
+
     fn show_missing(&self, icon: &str, title: &str, text: &str, turn_on: bool) {
         let imp = self.imp();
         while let Some(child) = imp.missing.first_child() {
@@ -1961,6 +1999,20 @@ fn vpn_kind(kind: &ConnectionKind) -> &'static str {
 }
 
 /// A section heading as on the pages built from the registry; `first` has no space above it.
+/// The texts of the labels in `widget`, in order.
+fn labels_in(widget: &gtk::Widget) -> Vec<String> {
+    let mut texts = Vec::new();
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Some(label) = current.downcast_ref::<gtk::Label>() {
+            texts.push(label.text().to_string());
+        }
+        texts.extend(labels_in(&current));
+        child = current.next_sibling();
+    }
+    texts
+}
+
 fn heading(title: &str, first: bool) -> gtk::Label {
     let label = gtk::Label::new(Some(&title.to_uppercase()));
     style_heading(&label, first);
