@@ -169,7 +169,8 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [ ] 🟢 Color presets (e.g. Catppuccin, Nord, Gruvbox) applied in one click
 - [ ] 🟡 Match the accent color to the wallpaper (palette extraction)
 - [ ] 🟢 Per-app window opacity (`for_window [...] opacity` for new windows, `[...] opacity` for open ones)
-- [ ] 🟡 Live preview of focused and unfocused windows (colors, borders, gaps, title bars)
+- ~~🟡 Live preview of focused and unfocused windows (colors, borders, gaps, title bars)~~: sway applies these changes
+  live, so the real windows already show them
 
 **Effects (SwayFX only)**, generated into `90-effects.conf`
 
@@ -178,7 +179,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Shadows on/off, color, blur radius, offset; inactive shadow color
 - [x] 🟢 Dim inactive windows (amount, colors)
 - [x] 🟢 Animations (`animation_duration_ms`, SwayFX ≥ 0.6)
-- [ ] 🟡 Effects in the live preview
+- ~~🟡 Effects in the live preview~~: no live preview (see above); SwayFX applies the effects live
 - Directive names are taken from the man page of the oldest supported SwayFX release (0.5) and gated by version
 
 ### Wallpaper
