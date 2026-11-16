@@ -4116,7 +4116,34 @@ fn check_bluetooth() -> Outcome {
         }),
         "  the page didn't stop looking for devices when the radio went off",
     )?;
+    check_bluetooth_off(&page)?;
     window.destroy();
+    Ok(())
+}
+
+/// The placeholder of `page` while its radio is off: it replaces the devices, and turning the
+/// radio back on with the switch brings the devices back.
+fn check_bluetooth_off(page: &BluetoothPage) -> Outcome {
+    let texts = page
+        .off_placeholder()
+        .ok_or("  no placeholder while Bluetooth is off")?;
+    ensure(
+        texts.first().map(String::as_str) == Some("Bluetooth is off"),
+        &format!("  placeholder: {texts:?}"),
+    )?;
+    ensure(
+        !page
+            .device_button("Headset")
+            .is_some_and(|button| button.is_drawable()),
+        "  the devices still show while Bluetooth is off",
+    )?;
+    page.power_switch().set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.power_switch().state() && page.off_placeholder().is_none()
+        }),
+        "  turning Bluetooth on didn't remove the placeholder",
+    )?;
     Ok(())
 }
 
