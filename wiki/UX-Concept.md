@@ -375,8 +375,8 @@ preference:
 ## SwayFX
 
 With SwayFX detected, the Windows page gets the effect sections **Corners**, **Blur**, **Shadows**, **Dim inactive** and
-**Animations** (SwayFX ≥ 0.6), and the live window preview renders those effects. The Bar and Notifications pages get
-layer-effect toggles (blur behind waybar or notifications). On vanilla sway these controls show "Requires SwayFX".
+**Animations** (SwayFX ≥ 0.6). The Bar and Notifications pages get layer-effect toggles (blur behind waybar or
+notifications). On vanilla sway these controls show "Requires SwayFX".
 
 ## Accessibility
 

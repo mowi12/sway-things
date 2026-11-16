@@ -178,8 +178,8 @@ may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-eff
 settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
 and in one section.
 
-Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor, the bar
-layout editor and the window preview. They still read and write settings through the registry.
+Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor and the bar
+layout editor. They still read and write settings through the registry.
 
 ## State
 
