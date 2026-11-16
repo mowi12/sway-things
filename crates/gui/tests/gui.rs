@@ -4531,7 +4531,7 @@ fn check_scroll_lines() -> Outcome {
     };
     let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
     let window = Window::with_model(&fixture.model);
-    window.set_default_size(700, 300);
+    window.set_default_size(1100, 300);
     window.present();
     settle(&window)?;
     let line = window.sidebar().line();
@@ -4549,7 +4549,7 @@ fn check_scroll_lines() -> Outcome {
     )?;
     shoot(&window, "line-sidebar-top")?;
     adjustment.set_value(FULL_OFFSET / 2.0);
-    settle(&window)?;
+    wait_for_paint(&window)?;
     shoot(&window, "line-sidebar-half")?;
     let half = line.line_width();
     ensure(
@@ -4557,14 +4557,14 @@ fn check_scroll_lines() -> Outcome {
         &format!("  half way, the line is {half} of {} px wide", line.width()),
     )?;
     adjustment.set_value(FULL_OFFSET * 2.0);
-    settle(&window)?;
+    wait_for_paint(&window)?;
     shoot(&window, "line-sidebar-full")?;
     ensure(
         line.line_width() == line.width() && line.height() == height,
         "  scrolled past the offset, the line doesn't span the width at the same height",
     )?;
     adjustment.set_value(0.0);
-    settle(&window)?;
+    wait_for_paint(&window)?;
     ensure(
         line.line_width() == 0,
         &format!(
@@ -4583,16 +4583,23 @@ fn check_scroll_lines() -> Outcome {
     window.show_page(Page::Keyboard);
     set_narrow(&window, true)?;
     window.show_page(Page::Keyboard);
-    settle(&window)?;
+    wait_for_paint(&window)?;
     let view = page_view(&window).ok_or("  no page view")?;
     let page = find::<gtk::ScrolledWindow>(view.upcast_ref()).ok_or("  no page scroller")?;
     ensure(
         back.is_visible() && back.line_width() == 0 && back.height() >= 1,
-        "  narrow at the top, the line below the back bar shows or takes no height",
+        &format!(
+            "  narrow at the top, the line below the back bar shows or takes no height: \
+             visible {}, {} px wide, {} px high, offset {}",
+            back.is_visible(),
+            back.line_width(),
+            back.height(),
+            page.vadjustment().value()
+        ),
     )?;
     shoot(&window, "line-back-top")?;
     page.vadjustment().set_value(FULL_OFFSET * 2.0);
-    settle(&window)?;
+    wait_for_paint(&window)?;
     shoot(&window, "line-back-full")?;
     ensure(
         back.line_width() == back.width(),
