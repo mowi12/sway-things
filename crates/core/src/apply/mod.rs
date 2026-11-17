@@ -767,6 +767,48 @@ impl<V: Validate> Applier<V> {
         }
     }
 
+    /// Has the display `target` (by its name in the settings) show another one instead of its
+    /// own content (`mirror`), or with `None` its own again, for the combination connected now.
+    /// Saved at once, written for kanshi, and the mirrors are started or ended now.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NoSession`] without a session or profiles, and the IPC errors.
+    pub async fn set_mirror(
+        &mut self,
+        target: &str,
+        mirror: Option<crate::outputs::mirror::Mirror>,
+    ) -> Result<(), ApplyError> {
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return Err(ApplyError::NoSession {
+                key: "displays.mirror",
+            });
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        let Some(captured) = Profile::capture(&outputs) else {
+            return Ok(());
+        };
+        let combination: Vec<String> = captured
+            .combination()
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        let names: Vec<&str> = combination.iter().map(String::as_str).collect();
+        if profiles.of(&names).is_none() {
+            profiles.remember(captured);
+        }
+        if let Some(profile) = profiles.of_mut(&names) {
+            profile.set_mirror(target, mirror);
+        }
+        let path = profiles.path().to_owned();
+        profiles
+            .save()
+            .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
+        Self::write_kanshi(profiles).await;
+        crate::outputs::mirror::apply(profiles, &outputs);
+        Ok(())
+    }
+
     /// Where the workspaces are now, by workspace name and display name.
     ///
     /// # Errors

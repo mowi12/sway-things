@@ -166,6 +166,10 @@ new mode, a rotation and switching an output off go through the safety net.
   _Left to Right_ (1 4 7 · 2 5 8 · 3 6 9 …), _A Block per Display_ and _As They Are Now_ fill all cards. Each change is
   applied at once and remembered for the combination; kanshi has the workspaces placed again whenever the combination
   comes back, and so does every start and reload of sway. Without kanshi the section says that it needs kanshi.
+- **Mirroring (with kanshi and wl-mirror):** the _Mirroring_ section has a row per display that is on: what it shows,
+  _Its own content_ or _Mirror of …_ another display, and for a mirror how it fits (_Fit_, _Cover_, _Exact Multiples_).
+  The mirror starts at once as a fullscreen `wl-mirror` window on that display and comes back with the combination; a
+  display that mirrors takes no workspaces. Without kanshi or wl-mirror the section says what it needs.
 
 ### Bluetooth
 

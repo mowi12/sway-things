@@ -90,7 +90,7 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 Never without a display: while Sway Things stores anything for a display, a hook at every start and reload of
       sway switches one on if none is
 - [x] 🟢 Identify displays (numbers flashed on each screen)
-- [ ] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode
+- [x] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode, remembered per combination
 
 #### Profiles (kanshi backend)
 

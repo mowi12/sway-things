@@ -35,6 +35,7 @@
 
 pub mod kanshi;
 pub mod layout;
+pub mod mirror;
 pub mod profiles;
 #[cfg(test)]
 mod tests;

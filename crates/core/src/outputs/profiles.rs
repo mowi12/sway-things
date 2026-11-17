@@ -36,6 +36,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 use toml_edit::{DocumentMut, Item, Table, value};
 
+use super::mirror::{Mirror, Scaling};
 use super::{Output, Outputs};
 use crate::atomic;
 use crate::command::output::{Mode, Transform};
@@ -55,6 +56,8 @@ pub struct Setup {
     pub scale: Option<f64>,
     /// Its rotation, if it is on.
     pub transform: Option<Transform>,
+    /// The display it shows instead of its own content ([`super::mirror`]).
+    pub mirror: Option<Mirror>,
 }
 
 impl Setup {
@@ -67,6 +70,7 @@ impl Setup {
                 position: None,
                 scale: None,
                 transform: None,
+                mirror: None,
             };
         }
         Self {
@@ -75,6 +79,7 @@ impl Setup {
             position: output.rect().map(|rect| (rect.x, rect.y)),
             scale: output.scale(),
             transform: output.transform(),
+            mirror: None,
         }
     }
 }
@@ -121,6 +126,19 @@ impl Profile {
     /// The placement of the workspaces of this combination.
     pub fn set_workspaces(&mut self, workspaces: BTreeMap<String, String>) {
         self.workspaces = workspaces;
+    }
+
+    /// Has the display `target` show `mirror` instead of its own content, or with `None` its
+    /// own again. Nothing happens for a display that isn't in the combination.
+    pub fn set_mirror(&mut self, target: &str, mirror: Option<Mirror>) {
+        if let Some(setup) = self.outputs.get_mut(target) {
+            setup.mirror = mirror;
+        }
+    }
+
+    /// Whether a display of the combination mirrors another.
+    pub fn mirrors(&self) -> bool {
+        self.outputs.values().any(|setup| setup.mirror.is_some())
     }
 
     /// The name kanshi knows the profile by: `sway-things-` and the start of a hash of the
@@ -258,35 +276,43 @@ impl Profiles {
             .into_iter()
             .map(str::to_owned)
             .collect();
-        match self.list.iter_mut().find(|known| {
+        let known = self.list.iter_mut().find(|known| {
             known
                 .combination()
                 .iter()
                 .copied()
                 .eq(combination.iter().map(String::as_str))
-        }) {
-            Some(known)
-                if profile.workspaces.is_empty()
-                    && *known
-                        == Profile {
-                            workspaces: known.workspaces.clone(),
-                            ..profile.clone()
-                        } =>
-            {
-                false
-            }
-            Some(known) => {
-                if profile.workspaces.is_empty() {
-                    profile.workspaces = std::mem::take(&mut known.workspaces);
-                }
-                *known = profile;
-                true
-            }
-            None => {
-                self.list.push(profile);
-                true
+        });
+        let Some(known) = known else {
+            self.list.push(profile);
+            return true;
+        };
+        // What a capture doesn't see stays: the placement and the mirrors.
+        if profile.workspaces.is_empty() {
+            profile.workspaces.clone_from(&known.workspaces);
+        }
+        for (name, setup) in &mut profile.outputs {
+            if setup.mirror.is_none() {
+                setup.mirror = known
+                    .outputs
+                    .get(name)
+                    .and_then(|known| known.mirror.clone());
             }
         }
+        if *known == profile {
+            return false;
+        }
+        *known = profile;
+        true
+    }
+
+    /// The profile of the combination of `names`, to change, if one is remembered.
+    pub fn of_mut(&mut self, names: &[&str]) -> Option<&mut Profile> {
+        let mut wanted: Vec<&str> = names.to_vec();
+        wanted.sort_unstable();
+        self.list
+            .iter_mut()
+            .find(|profile| profile.combination() == wanted)
     }
 
     /// Saves the profiles to the file they were loaded from, atomically.
@@ -361,12 +387,21 @@ fn read_setup(table: &Table) -> Option<Setup> {
         Some(name) => Some(Transform::from_name(name)?),
         None => None,
     };
+    let mirror = table.get("mirror").and_then(Item::as_str).map(|of| Mirror {
+        of: of.to_owned(),
+        scaling: table
+            .get("mirror_scaling")
+            .and_then(Item::as_str)
+            .and_then(Scaling::from_name)
+            .unwrap_or_default(),
+    });
     Some(Setup {
         enabled,
         mode,
         position,
         scale,
         transform,
+        mirror,
     })
 }
 
@@ -385,6 +420,10 @@ fn write_setup(setup: &Setup) -> Table {
     if let Some(transform) = setup.transform {
         table.insert("transform", value(transform.name()));
     }
+    if let Some(mirror) = &setup.mirror {
+        table.insert("mirror", value(mirror.of.as_str()));
+        table.insert("mirror_scaling", value(mirror.scaling.name()));
+    }
     table
 }
 
@@ -398,8 +437,10 @@ pub fn kanshi_config(profiles: &Profiles) -> String {
         "# Generated by Sway Things from ~/.config/sway-things/displays.toml. DO NOT EDIT.\n\
          # Set up the displays on the Displays page; each combination of displays is remembered.\n",
     );
+    // Once any combination mirrors, every profile has the mirrors ended or started.
+    let mirrors = profiles.iter().any(Profile::mirrors);
     for profile in profiles.iter() {
-        if let Some(block) = kanshi_profile(profile, profiles.place_workspaces) {
+        if let Some(block) = kanshi_profile(profile, profiles.place_workspaces, mirrors) {
             text.push('\n');
             text.push_str(&block);
         }
@@ -411,7 +452,7 @@ pub fn kanshi_config(profiles: &Profiles) -> String {
     text
 }
 
-fn kanshi_profile(profile: &Profile, place_workspaces: bool) -> Option<String> {
+fn kanshi_profile(profile: &Profile, place_workspaces: bool, mirrors: bool) -> Option<String> {
     let mut block = format!("profile {} {{\n", profile.name());
     for (name, setup) in profile.outputs() {
         let quoted = kanshi_quote(name)?;
@@ -437,6 +478,10 @@ fn kanshi_profile(profile: &Profile, place_workspaces: bool) -> Option<String> {
     if place_workspaces && !profile.workspaces.is_empty() {
         // kanshi runs it through a shell; it is our own command, without anything of the user's.
         block.push_str("    exec sway-things hook workspaces\n");
+    }
+    if mirrors {
+        // Ends the mirrors of another combination, and starts this one's.
+        block.push_str("    exec sway-things hook mirror\n");
     }
     block.push_str("}\n");
     Some(block)

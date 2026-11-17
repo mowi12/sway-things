@@ -575,7 +575,19 @@ fn follow_displays(
 ) -> (displays::OutputPicker, Arrangement) {
     let picker = displays::follow(model, &arrangement, rows);
     sections.push(workspaces_section(model, body, &picker));
+    sections.push(mirroring_section(model, body, &picker));
     (picker, arrangement)
+}
+
+/// The "Mirroring" section of Displays: a display that shows another one.
+fn mirroring_section(model: &Model, body: &gtk::Box, picker: &displays::OutputPicker) -> Section {
+    let section = Section::new(model, Page::Displays, "Mirroring", "Mirroring", false);
+    let mirroring = displays::Mirroring::new();
+    section.body.append(mirroring.widget());
+    displays::follow_mirroring(model, &mirroring, picker);
+    body.append(&section.header);
+    body.append(&section.body);
+    section
 }
 
 /// The "Workspaces" section of Displays: which workspace goes on which display.

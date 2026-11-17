@@ -120,6 +120,11 @@ enum Op {
     Revert,
     /// Saves the settings files and writes the generated files.
     Persist,
+    /// Has a display show another one, or its own content again.
+    SetMirror {
+        target: String,
+        mirror: Option<sway_things_core::outputs::mirror::Mirror>,
+    },
     /// Places the workspaces on the displays, or not; with a placement for the displays
     /// connected now, or with the one they have now.
     PlaceWorkspaces { place: bool, placement: Placement },
@@ -770,6 +775,44 @@ impl Model {
         Some((profiles.places_workspaces(), placement))
     }
 
+    /// The display each display of the connected combination mirrors, by name. `None` without
+    /// remembered displays.
+    pub fn mirrors(
+        &self,
+    ) -> Option<std::collections::BTreeMap<String, sway_things_core::outputs::mirror::Mirror>> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let profiles = core.profiles.as_ref()?;
+        let names: Vec<&str> = core
+            .outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(sway_things_core::outputs::Output::identifier)
+            .collect();
+        Some(
+            profiles
+                .of(&names)
+                .map_or_else(Default::default, |profile| {
+                    profile
+                        .outputs()
+                        .filter_map(|(name, setup)| Some((name.to_owned(), setup.mirror.clone()?)))
+                        .collect()
+                }),
+        )
+    }
+
+    /// Has the display `target` show `mirror`, or with `None` its own content again.
+    pub fn set_mirror(
+        &self,
+        target: &str,
+        mirror: Option<sway_things_core::outputs::mirror::Mirror>,
+    ) {
+        self.queue(Op::SetMirror {
+            target: target.to_owned(),
+            mirror,
+        });
+    }
+
     /// Places the workspaces on the displays (`place`) as `placement` says, or not.
     pub fn place_workspaces(&self, place: bool, placement: Placement) {
         self.queue(Op::PlaceWorkspaces { place, placement });
@@ -807,7 +850,8 @@ impl Model {
             | Op::ReloadSway
             | Op::SwayReloaded
             | Op::Overwrite(_)
-            | Op::PlaceWorkspaces { .. } => false,
+            | Op::PlaceWorkspaces { .. }
+            | Op::SetMirror { .. } => false,
         })
     }
 
@@ -969,9 +1013,8 @@ impl Model {
                 )),
             },
             (Op::SwayReloaded, _) => applier.reloaded(),
-            (Op::PlaceWorkspaces { place, placement }, _) => {
-                self.place_workspaces_now(&mut applier, place, placement)
-                    .await;
+            (op @ (Op::SetMirror { .. } | Op::PlaceWorkspaces { .. }), _) => {
+                self.displays_now(&mut applier, op).await;
             }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
@@ -1232,6 +1275,21 @@ impl Model {
         applier.set_displays(displays);
         if self.imp().displays.replace(displays) != displays && !persisting {
             self.queue(Op::Persist);
+        }
+    }
+
+    /// Runs an operation of the displays that aren't settings: a mirror, the workspaces.
+    async fn displays_now(&self, applier: &mut Applier, op: Op) {
+        match op {
+            Op::SetMirror { target, mirror } => {
+                if let Err(error) = applier.set_mirror(&target, mirror).await {
+                    self.emit_problem(&format!("The display wasn\u{2019}t mirrored: {error}."));
+                }
+            }
+            Op::PlaceWorkspaces { place, placement } => {
+                self.place_workspaces_now(applier, place, placement).await;
+            }
+            _ => {}
         }
     }
 

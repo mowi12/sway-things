@@ -16,6 +16,7 @@
 
 mod canvas;
 mod identify;
+mod mirroring;
 mod workspaces;
 
 use std::cell::RefCell;
@@ -32,6 +33,7 @@ use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
 use sway_things_core::registry::{Scope, Value};
 
 pub use canvas::Canvas;
+pub use mirroring::Mirroring;
 pub use workspaces::WorkspaceMap;
 
 use super::SettingRow;
@@ -950,13 +952,45 @@ impl RefreshRates {
     }
 }
 
+/// Keeps `mirroring` showing what each display of `model` shows, numbered as `picker` numbers
+/// them, until it is gone.
+pub fn follow_mirroring(model: &Model, mirroring: &Mirroring, picker: &OutputPicker) {
+    let shown = mirroring.clone();
+    follow_section(
+        model,
+        mirroring.widget(),
+        picker,
+        move |model, outputs, number| {
+            shown.update(model, outputs, number);
+        },
+    );
+}
+
 /// Keeps `map` showing the placement of the workspaces for the outputs of `model`, numbered as
 /// `picker` numbers them, until the map is gone.
 pub fn follow_workspaces(model: &Model, map: &WorkspaceMap, picker: &OutputPicker) {
-    let weak_root = map.widget().downgrade();
-    let map_for_update = map.clone();
+    let shown = map.clone();
+    follow_section(
+        model,
+        map.widget(),
+        picker,
+        move |model, outputs, number| {
+            shown.update(model, outputs, number);
+        },
+    );
+}
+
+/// Calls `update` with the outputs of `model` and their numbers in `picker` now and whenever
+/// the model changes, until `widget` is gone.
+fn follow_section(
+    model: &Model,
+    widget: &gtk::Box,
+    picker: &OutputPicker,
+    update: impl Fn(&Model, &Outputs, &dyn Fn(&str) -> Option<usize>) + 'static,
+) {
+    let weak_root = widget.downgrade();
     let weak_picker = picker.downgrade();
-    let update = move |model: &Model| {
+    let refresh = move |model: &Model| {
         if weak_root.upgrade().is_none() {
             return;
         }
@@ -966,11 +1000,11 @@ pub fn follow_workspaces(model: &Model, map: &WorkspaceMap, picker: &OutputPicke
         let picker = weak_picker.upgrade();
         let number =
             |identifier: &str| picker.as_ref().and_then(|picker| picker.number(identifier));
-        map_for_update.update(model, &outputs, &number);
+        update(model, &outputs, &number);
     };
-    update(model);
-    let handler = RefCell::new(Some(model.connect_changed(update)));
-    map.widget().connect_destroy(glib::clone!(
+    refresh(model);
+    let handler = RefCell::new(Some(model.connect_changed(refresh)));
+    widget.connect_destroy(glib::clone!(
         #[weak]
         model,
         move |_| {

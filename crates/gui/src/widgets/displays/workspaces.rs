@@ -107,10 +107,12 @@ impl WorkspaceMap {
                 #[weak]
                 model,
                 move |_| {
+                    let mirrors: Vec<String> =
+                        model.mirrors().unwrap_or_default().into_keys().collect();
                     let placement = match preset {
-                        Some(preset) => {
-                            Placement::Of(preset.place(&model.outputs().unwrap_or_default()))
-                        }
+                        Some(preset) => Placement::Of(
+                            preset.place(&model.outputs().unwrap_or_default(), &mirrors),
+                        ),
                         None => Placement::AsNow,
                     };
                     model.place_workspaces(true, placement);
@@ -150,8 +152,11 @@ impl WorkspaceMap {
         if !open {
             return;
         }
+        // A display that mirrors another takes no workspaces.
+        let mirrors: Vec<String> = model.mirrors().unwrap_or_default().into_keys().collect();
         let displays: Vec<(String, String)> = left_to_right(outputs)
             .into_iter()
+            .filter(|output| !mirrors.iter().any(|name| name == output.identifier()))
             .map(|output| {
                 let shown = number(output.identifier())
                     .map_or_else(|| output.label(), |n| format!("{n}  {}", output.model()));
@@ -159,7 +164,7 @@ impl WorkspaceMap {
             })
             .collect();
         // Workspaces not placed on a connected display go round the displays from left to right.
-        let fallback = Preset::LeftToRight.place(outputs);
+        let fallback = Preset::LeftToRight.place(outputs, &mirrors);
         for name in NAMES {
             let on_display = placed
                 .get(name)

@@ -31,9 +31,13 @@ impl Preset {
     /// Every preset, in the order a page offers them.
     pub const ALL: [Self; 2] = [Self::LeftToRight, Self::Blocks];
 
-    /// The placement of [`NAMES`] on the connected displays of `outputs` that are on.
-    pub fn place(self, outputs: &Outputs) -> BTreeMap<String, String> {
-        let displays = left_to_right(outputs);
+    /// The placement of [`NAMES`] on the connected displays of `outputs` that are on, except
+    /// those in `mirrors` (by name), which show another display and take no workspaces.
+    pub fn place(self, outputs: &Outputs, mirrors: &[String]) -> BTreeMap<String, String> {
+        let displays: Vec<&Output> = left_to_right(outputs)
+            .into_iter()
+            .filter(|output| !mirrors.iter().any(|name| name == output.identifier()))
+            .collect();
         let mut placement = BTreeMap::new();
         if displays.is_empty() {
             return placement;
@@ -193,11 +197,14 @@ mod tests {
 
     #[test]
     fn presets_round_the_displays_or_fill_them_in_blocks() {
-        let round = Preset::LeftToRight.place(&outputs());
+        let round = Preset::LeftToRight.place(&outputs(), &[]);
         assert_eq!(round["1"], "A B C");
         assert_eq!(round["2"], "D E F");
         assert_eq!(round["3"], "A B C");
-        let blocks = Preset::Blocks.place(&outputs());
+        let blocks = Preset::Blocks.place(&outputs(), &[]);
+        // A display that mirrors another takes none.
+        let one = Preset::LeftToRight.place(&outputs(), &["D E F".to_owned()]);
+        assert!(one.values().all(|display| display == "A B C"));
         assert_eq!(blocks["5"], "A B C");
         assert_eq!(blocks["6"], "D E F");
         assert_eq!(blocks["10"], "D E F");

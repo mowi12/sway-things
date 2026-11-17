@@ -156,6 +156,9 @@ pub enum Hook {
     /// Put the workspaces on the displays as remembered for the displays connected now: run by
     /// kanshi when it applied a profile, while the workspaces are placed (Displays page)
     Workspaces,
+    /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
+    /// the mirrors of other combinations: run by kanshi when it applied a profile
+    Mirror,
 }
 
 /// The binary of the app.
@@ -234,6 +237,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Open { link } => return open(link.as_deref(), &mut err),
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
+        Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -382,8 +386,9 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             }
         }
     }
-    // sway forgot where the workspaces go: they are placed again.
+    // sway forgot where the workspaces go: they are placed again, and the mirrors started.
     let _ = place_workspaces(&mut client).await;
+    let _ = start_mirrors(&mut client).await;
     match ensured {
         Ok(Some(name)) => {
             let _ = writeln!(
@@ -423,6 +428,40 @@ async fn hook_workspaces(err: &mut dyn Write) -> Exit {
             Exit::Failure
         }
     }
+}
+
+/// `hook mirror`: shows displays on others as remembered for the displays connected now.
+async fn hook_mirror(err: &mut dyn Write) -> Exit {
+    let mut client = match Client::connect().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            return Exit::Failure;
+        }
+    };
+    match start_mirrors(&mut client).await {
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            Exit::Failure
+        }
+    }
+}
+
+/// Ends the mirrors Sway Things started and starts those of the displays connected now, as
+/// [`outputs::mirror::apply`]. Without remembered profiles, nothing happens.
+async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return Ok(0);
+    };
+    let Ok(profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
+        return Ok(0);
+    };
+    if !profiles.iter().any(outputs::profiles::Profile::mirrors) {
+        return Ok(0);
+    }
+    let found = Outputs::new(&client.outputs().await?);
+    Ok(outputs::mirror::apply(&profiles, &found))
 }
 
 /// Puts the workspaces where the remembered profiles say, as [`outputs::workspaces::apply`].
@@ -525,7 +564,7 @@ pub async fn run<V: Validate>(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces)
+            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -608,6 +647,22 @@ pub async fn run<V: Validate>(
 async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
     match hook {
         Hook::Gsettings => hook_gsettings(session, io),
+        Hook::Mirror => match (
+            session.applier.profiles().cloned(),
+            session.applier.client(),
+        ) {
+            (Some(profiles), Some(client)) => match client.outputs().await {
+                Ok(found) => {
+                    outputs::mirror::apply(&profiles, &Outputs::new(&found));
+                    Exit::Ok
+                }
+                Err(error) => {
+                    io.error(error_line(&error));
+                    Exit::Failure
+                }
+            },
+            _ => Exit::Ok,
+        },
         Hook::Workspaces => match (
             session.applier.profiles().cloned(),
             session.applier.client(),
