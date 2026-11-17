@@ -689,6 +689,12 @@ map to.
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching every output (or one by its identifier or
   name) off would leave none on.
+- **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
+  size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While an
+  output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
+  it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least
+  a quarter of an edge with one, since sway only moves the pointer between outputs that share an edge. `normalize`
+  moves the layout to start at 0,0.
 
 ### XKB rules
 

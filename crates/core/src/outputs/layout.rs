@@ -1,0 +1,429 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The geometry of arranging outputs, for the canvas of the Displays page: no GTK, so it is tested
+//! here.
+//!
+//! The layout is in logical pixels, as sway places outputs: an output's size is its mode, turned
+//! by its transform and divided by its scale ([`logical_size`]). While an output is dragged,
+//! [`snap`] pulls its edges and centers to those of the others when they come close, and lets go
+//! again once the pointer moves on. When it is dropped, [`settle`] moves it to the nearest place
+//! where it overlaps no other output and touches one, so the pointer can reach it: sway only moves
+//! the pointer between outputs that share an edge. [`normalize`] moves the whole layout so that it
+//! starts at 0,0.
+//!
+//! ```
+//! use sway_things_core::outputs::Rect;
+//! use sway_things_core::outputs::layout::{settle, snap};
+//!
+//! let left = Rect { x: 0, y: 0, width: 2560, height: 1440 };
+//! // Dragged to a few pixels off the right edge, the output snaps to it.
+//! let dragged = Rect { x: 2570, y: 6, width: 1920, height: 1080 };
+//! let snapped = snap(dragged, &[left], 16);
+//! assert_eq!((snapped.rect.x, snapped.rect.y), (2560, 0));
+//! // Dropped mostly on top of the other output, it moves next to its nearest edge.
+//! let dropped = Rect { x: 2000, y: 100, width: 1920, height: 1080 };
+//! assert_eq!(settle(dropped, &[left]), Rect { x: 2560, ..dropped });
+//! ```
+
+use super::Rect;
+use crate::command::output::{Mode, Transform};
+
+/// A line the canvas draws while a dragged output is snapped to it: where its edge or center
+/// lines up with another output's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Guide {
+    /// A vertical line at this x.
+    Vertical(i32),
+    /// A horizontal line at this y.
+    Horizontal(i32),
+}
+
+/// Where [`snap`] put a dragged output, and the lines it lines up with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Snapped {
+    /// The output's place.
+    pub rect: Rect,
+    /// The lines it lines up with: at most one per direction.
+    pub guides: Vec<Guide>,
+}
+
+/// The size of an output in the layout: its mode, turned by its transform, divided by its scale
+/// and rounded down, as wlroots computes it (`wlr_output_effective_resolution`), but at least one
+/// pixel.
+pub fn logical_size(mode: Mode, scale: f64, transform: Transform) -> (i32, i32) {
+    let (width, height) = if transform.is_sideways() {
+        (mode.height(), mode.width())
+    } else {
+        (mode.width(), mode.height())
+    };
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "wlroots truncates the same way; a mode is far below i32::MAX"
+    )]
+    // At least one pixel, so every output has an area.
+    let divide = |pixels: u32| ((f64::from(pixels) / scale) as i32).max(1);
+    (divide(width), divide(height))
+}
+
+/// Pulls `moving` to the edges and centers of `others` that are within `threshold` logical pixels,
+/// on each axis on its own: left and right edges to the others' left and right edges (side by side
+/// or aligned), centers to centers, and the same for top and bottom. The nearest candidate wins;
+/// beyond the threshold the output stays where the pointer put it, so dragging on lets go of the
+/// edge again.
+pub fn snap(moving: Rect, others: &[Rect], threshold: i32) -> Snapped {
+    // The places on one axis: start at start, at end, end at start, end at end, center at center.
+    let candidates = |start: i32, size: i32, own: i32| {
+        let end = start.saturating_add(size);
+        let center = start.saturating_add(size / 2);
+        [
+            (start, start),
+            (end, end),
+            (start.saturating_sub(own), start),
+            (end.saturating_sub(own), end),
+            (center.saturating_sub(own / 2), center),
+        ]
+    };
+    let x = nearest(
+        moving.x,
+        others
+            .iter()
+            .flat_map(|other| candidates(other.x, other.width, moving.width)),
+        threshold,
+    );
+    let y = nearest(
+        moving.y,
+        others
+            .iter()
+            .flat_map(|other| candidates(other.y, other.height, moving.height)),
+        threshold,
+    );
+    let mut guides = Vec::new();
+    let mut rect = moving;
+    if let Some((position, line)) = x {
+        rect.x = position;
+        guides.push(Guide::Vertical(line));
+    }
+    if let Some((position, line)) = y {
+        rect.y = position;
+        guides.push(Guide::Horizontal(line));
+    }
+    Snapped { rect, guides }
+}
+
+/// The candidate `(position, line)` nearest to `position`, if one is within `threshold`.
+fn nearest(
+    position: i32,
+    candidates: impl Iterator<Item = (i32, i32)>,
+    threshold: i32,
+) -> Option<(i32, i32)> {
+    candidates
+        .map(|(candidate, line)| {
+            let distance = (i64::from(candidate) - i64::from(position)).abs();
+            (distance, candidate, line)
+        })
+        .filter(|(distance, _, _)| *distance <= i64::from(threshold))
+        .min_by_key(|(distance, _, _)| *distance)
+        .map(|(_, candidate, line)| (candidate, line))
+}
+
+/// Whether a rectangle covers an area at all. An output always does; a rectangle without one
+/// overlaps and touches nothing.
+fn has_area(rect: Rect) -> bool {
+    rect.width > 0 && rect.height > 0
+}
+
+/// Whether two rectangles cover a common area. Rectangles that only share an edge don't.
+pub fn overlaps(a: Rect, b: Rect) -> bool {
+    has_area(a)
+        && has_area(b)
+        && a.x < b.right()
+        && b.x < a.right()
+        && a.y < b.bottom()
+        && b.y < a.bottom()
+}
+
+/// Whether two rectangles share a piece of an edge, so the pointer can move from one to the other.
+/// Touching only at a corner doesn't count.
+pub fn touches(a: Rect, b: Rect) -> bool {
+    if !has_area(a) || !has_area(b) {
+        return false;
+    }
+    let side_by_side =
+        (a.right() == b.x || b.right() == a.x) && a.y < b.bottom() && b.y < a.bottom();
+    let stacked = (a.bottom() == b.y || b.bottom() == a.y) && a.x < b.right() && b.x < a.right();
+    side_by_side || stacked
+}
+
+/// The place for `moving`, dropped where it is, that overlaps none of `others` and touches at
+/// least one of them: where it is if that is such a place, else the nearest place next to an
+/// edge of another output. Without others, or for a rectangle without an area, where it is.
+pub fn settle(moving: Rect, others: &[Rect]) -> Rect {
+    let fits = |rect: Rect| {
+        others.iter().all(|other| !overlaps(rect, *other))
+            && others.iter().any(|other| touches(rect, *other))
+    };
+    if others.is_empty() || !has_area(moving) || fits(moving) {
+        return moving;
+    }
+    let along = |position: i32, low: i32, high: i32| position.clamp(low, high.max(low));
+    others
+        .iter()
+        .flat_map(|other| {
+            // Next to each side of `other`, as close to where it was dropped as that side allows
+            // while the two share at least a quarter of the shorter edge, so the pointer has
+            // somewhere to cross.
+            let shared = |a: i32, b: i32| (a.min(b) / 4).max(1);
+            let y_shared = shared(moving.height, other.height);
+            let x_shared = shared(moving.width, other.width);
+            let y = along(
+                moving.y,
+                other
+                    .y
+                    .saturating_sub(moving.height)
+                    .saturating_add(y_shared),
+                other.bottom().saturating_sub(y_shared),
+            );
+            let x = along(
+                moving.x,
+                other
+                    .x
+                    .saturating_sub(moving.width)
+                    .saturating_add(x_shared),
+                other.right().saturating_sub(x_shared),
+            );
+            [
+                Rect {
+                    x: other.x.saturating_sub(moving.width),
+                    y,
+                    ..moving
+                },
+                Rect {
+                    x: other.right(),
+                    y,
+                    ..moving
+                },
+                Rect {
+                    x,
+                    y: other.y.saturating_sub(moving.height),
+                    ..moving
+                },
+                Rect {
+                    x,
+                    y: other.bottom(),
+                    ..moving
+                },
+            ]
+        })
+        .filter(|rect| fits(*rect))
+        .min_by_key(|rect| {
+            let dx = i128::from(rect.x) - i128::from(moving.x);
+            let dy = i128::from(rect.y) - i128::from(moving.y);
+            dx * dx + dy * dy
+        })
+        // The side right of the output that reaches furthest right is always free, unless the
+        // layout touches the end of sway's coordinates.
+        .unwrap_or(moving)
+}
+
+/// Moves every rectangle by the same amount so that the leftmost starts at x 0 and the topmost
+/// at y 0, as sway's own layout does.
+pub fn normalize(rects: &mut [Rect]) {
+    let Some(left) = rects.iter().map(|rect| rect.x).min() else {
+        return;
+    };
+    let top = rects.iter().map(|rect| rect.y).min().unwrap_or(0);
+    for rect in rects {
+        rect.x = rect.x.saturating_sub(left);
+        rect.y = rect.y.saturating_sub(top);
+    }
+}
+
+/// Whether every rectangle can be reached from every other one through shared edges.
+pub fn is_connected(rects: &[Rect]) -> bool {
+    let Some(start) = rects.first() else {
+        return true;
+    };
+    let mut reached = vec![false; rects.len()];
+    if let Some(start_reached) = reached.first_mut() {
+        *start_reached = true;
+    }
+    let mut stack = vec![*start];
+    while let Some(current) = stack.pop() {
+        for (index, rect) in rects.iter().enumerate() {
+            if let Some(reached) = reached.get_mut(index) {
+                if !*reached && touches(current, *rect) {
+                    *reached = true;
+                    stack.push(*rect);
+                }
+            }
+        }
+    }
+    reached.into_iter().all(|reached| reached)
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::{Guide, is_connected, logical_size, normalize, overlaps, settle, snap, touches};
+    use crate::command::output::{Mode, Transform};
+    use crate::outputs::Rect;
+
+    fn rect(x: i32, y: i32, width: i32, height: i32) -> Rect {
+        Rect {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn logical_sizes_are_turned_and_scaled_as_wlroots_does() {
+        let mode = Mode::new(1920, 1080, Some(60_010)).unwrap();
+        assert_eq!(logical_size(mode, 1.0, Transform::Normal), (1920, 1080));
+        // The laptop panel at 1.3: 1476 x 830, as sway reports it.
+        assert_eq!(
+            logical_size(mode, 1.299_999_952_316_284_2, Transform::Normal),
+            (1476, 830)
+        );
+        assert_eq!(logical_size(mode, 2.0, Transform::R90), (540, 960));
+        assert_eq!(logical_size(mode, 1.0, Transform::Flipped270), (1080, 1920));
+        assert_eq!(logical_size(mode, 1.0, Transform::R180), (1920, 1080));
+        assert_eq!(logical_size(mode, 0.0, Transform::Normal), (1920, 1080));
+    }
+
+    #[test]
+    fn a_dragged_output_snaps_to_edges_and_centers() {
+        let left = rect(0, 0, 2560, 1440);
+        // Right of the other, tops aligned.
+        let snapped = snap(rect(2575, -10, 1920, 1080), &[left], 16);
+        assert_eq!(snapped.rect, rect(2560, 0, 1920, 1080));
+        assert_eq!(
+            snapped.guides,
+            [Guide::Vertical(2560), Guide::Horizontal(0)]
+        );
+        // Bottoms aligned.
+        let snapped = snap(rect(2560, 355, 1920, 1080), &[left], 16);
+        assert_eq!(snapped.rect.y, 360);
+        assert_eq!(snapped.guides[1], Guide::Horizontal(1440));
+        // Centers aligned.
+        let snapped = snap(rect(2560, 175, 1920, 1080), &[left], 16);
+        assert_eq!(snapped.rect.y, 180);
+        assert_eq!(snapped.guides[1], Guide::Horizontal(720));
+        // Below, left edges aligned.
+        let snapped = snap(rect(-12, 1450, 1920, 1080), &[left], 16);
+        assert_eq!((snapped.rect.x, snapped.rect.y), (0, 1440));
+        // Too far away on one axis: that axis stays free.
+        let snapped = snap(rect(2600, 500, 1920, 1080), &[left], 16);
+        assert_eq!(snapped.rect, rect(2600, 500, 1920, 1080));
+        assert_eq!(snapped.guides, [] as [super::Guide; 0]);
+        // The nearest of two candidates wins.
+        let other = rect(4480, 0, 1000, 1000);
+        let snapped = snap(rect(2562, 600, 1920, 1080), &[left, other], 16);
+        assert_eq!(snapped.rect.x, 2560);
+    }
+
+    #[test]
+    fn overlapping_and_touching_are_told_apart() {
+        let a = rect(0, 0, 100, 100);
+        assert!(overlaps(a, rect(50, 50, 100, 100)));
+        assert!(!overlaps(a, rect(100, 0, 100, 100)));
+        assert!(touches(a, rect(100, 50, 100, 100)));
+        assert!(touches(a, rect(-20, 100, 50, 10)));
+        // Only a corner: the pointer can't cross.
+        assert!(!touches(a, rect(100, 100, 100, 100)));
+        assert!(!touches(a, rect(101, 0, 100, 100)));
+    }
+
+    #[test]
+    fn a_dropped_output_moves_to_the_nearest_free_place() {
+        let left = rect(0, 0, 2560, 1440);
+        // Where it is is fine.
+        let fine = rect(2560, 100, 1920, 1080);
+        assert_eq!(settle(fine, &[left]), fine);
+        // On top of the other: next to its nearest edge.
+        assert_eq!(
+            settle(rect(2000, 100, 1920, 1080), &[left]),
+            rect(2560, 100, 1920, 1080)
+        );
+        assert_eq!(
+            settle(rect(200, 1300, 1920, 1080), &[left]),
+            rect(200, 1440, 1920, 1080)
+        );
+        // Away from every other one: back to the nearest edge, sharing a quarter of it.
+        assert_eq!(
+            settle(rect(3000, 2000, 1000, 500), &[left]),
+            rect(2560, 1315, 1000, 500)
+        );
+        // Without others, anywhere.
+        let alone = rect(-50, 70, 10, 10);
+        assert_eq!(settle(alone, &[]), alone);
+        // Between two outputs, a free side is found.
+        let right = rect(2560, 0, 1920, 1080);
+        let settled = settle(rect(1000, 0, 1920, 1080), &[left, right]);
+        assert!(!overlaps(settled, left) && !overlaps(settled, right));
+        assert!(touches(settled, left) || touches(settled, right));
+    }
+
+    #[test]
+    fn extreme_rectangles_neither_overflow_nor_count() {
+        let empty = rect(50, 50, 0, 0);
+        let screen = rect(0, 0, 100, 100);
+        assert!(!overlaps(empty, screen) && !touches(empty, screen));
+        assert!(!touches(rect(0, 0, 0, 100), screen));
+        assert_eq!(settle(empty, &[screen]), empty);
+        // Coordinates at the end of i32: nothing overflows.
+        let far = rect(i32::MAX - 10, i32::MIN + 10, 1920, 1080);
+        let near = rect(i32::MIN, i32::MAX - 5, 2560, 1440);
+        let _ = snap(far, &[near], i32::MAX);
+        let _ = settle(far, &[near]);
+        let mut both = [far, near];
+        normalize(&mut both);
+    }
+
+    #[test]
+    fn a_layout_is_normalized_and_checked_for_gaps() {
+        let mut rects = [rect(-1440, 300, 1440, 2560), rect(0, 304, 1920, 1080)];
+        normalize(&mut rects);
+        assert_eq!(rects, [rect(0, 0, 1440, 2560), rect(1440, 4, 1920, 1080)]);
+        assert!(is_connected(&rects));
+        assert!(!is_connected(&[rect(0, 0, 10, 10), rect(20, 0, 10, 10)]));
+        assert!(is_connected(&[]));
+        normalize(&mut []);
+    }
+
+    proptest! {
+        /// Wherever an output is dropped, it ends up next to the others without overlapping any.
+        #[test]
+        fn a_settled_output_overlaps_nothing_and_touches_something(
+            others in proptest::collection::vec(
+                (-3000_i32..3000, -3000_i32..3000, 100_i32..3000, 100_i32..3000),
+                1..4,
+            ),
+            dropped in (-6000_i32..6000, -6000_i32..6000, 100_i32..3000, 100_i32..3000),
+        ) {
+            // A layout without overlaps to start from: the others in a row.
+            let mut x = 0;
+            let others: Vec<Rect> = others
+                .into_iter()
+                .map(|(_, y, width, height)| {
+                    let placed = rect(x, y.clamp(-50, 50), width, height);
+                    x += width;
+                    placed
+                })
+                .collect();
+            let moving = rect(dropped.0, dropped.1, dropped.2, dropped.3);
+            let settled = settle(moving, &others);
+            prop_assert_eq!((settled.width, settled.height), (moving.width, moving.height));
+            prop_assert!(others.iter().all(|other| !overlaps(settled, *other)));
+            prop_assert!(others.iter().any(|other| touches(settled, *other)));
+        }
+    }
+}
