@@ -36,5 +36,6 @@ pub mod theme;
 pub mod ui_state;
 pub mod version;
 pub mod view;
+pub mod wallpaper;
 pub mod watch;
 pub mod xkb;
