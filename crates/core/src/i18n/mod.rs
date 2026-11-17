@@ -27,6 +27,7 @@ mod mo;
 mod plural;
 #[cfg(any(test, feature = "test-support"))]
 pub mod pseudo;
+mod text;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -35,6 +36,7 @@ pub use fill::{Arg, fill};
 #[cfg(any(test, feature = "test-support"))]
 pub use mo::write as write_mo;
 pub use mo::{Catalog, MoError};
+pub use text::Text;
 
 /// The gettext text domain of both binaries: the catalogs are named `sway-things.mo`.
 pub const DOMAIN: &str = "sway-things";
@@ -97,6 +99,11 @@ impl MsgPlural {
     /// app shows are marked with [`msg_plural!`](crate::msg_plural).
     pub const fn new(singular: &'static str, plural: &'static str) -> Self {
         Self { singular, plural }
+    }
+
+    /// The English singular: the msgid catalogs know the message by.
+    pub const fn singular(self) -> &'static str {
+        self.singular
     }
 
     /// The English text for the count `n`: the singular for 1, else the plural.
@@ -200,7 +207,7 @@ pub fn ntr(msg: MsgPlural, n: usize) -> &'static str {
     let count = u64::try_from(n).unwrap_or(u64::MAX);
     TRANSLATIONS
         .get()
-        .and_then(|translations| translations.get_plural(msg.singular, count))
+        .and_then(|translations| translations.get_plural(msg.singular(), count))
         .unwrap_or(msg.english(n))
 }
 

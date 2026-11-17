@@ -1147,6 +1147,12 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
   translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
   and a string missing from the first language's catalog is looked up in the next.
+- **Messages of the core**: a message the core makes for people and scripts alike (a finding of the doctor, why a row is
+  locked, an error) is an `i18n::Text`: the marked `Msg` (or `MsgPlural` and its count) with its values, each data shown
+  as it is (a file name, a number) or a `Text` or `Msg` of its own, translated with it (a setting's title, the error
+  that caused this one). `text.english()` gives the English text for logs and `--json`, `text.translated()` the text in
+  the user's language for display, and `Text::data` holds text that is never translated (a line of the user's config,
+  what another program said). An error has `fn text(&self) -> Text`, and its `Display` is the English text.
 - **Plural forms**: a message about a count is a `MsgPlural`, written as
   `msg_plural!("{count} problem", "{count} problems")` and extracted with its plural (`msgid_plural`).
   `i18n::ntr(msg, n)` and `i18n::ntrf(msg, n, args)` pick the form for `n` by the rule of the catalog it comes from: the
