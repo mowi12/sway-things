@@ -799,14 +799,19 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 65);
+    assert_eq!(generated.len(), 66);
     assert_eq!(
         find(&["seat", "*"], "xcursor_theme").as_deref(),
         Some("Adwaita 32")
     );
+    let hooks: Vec<String> = generated
+        .iter()
+        .filter(|directive| directive.is(&[], "exec_always"))
+        .map(|directive| directive.args.join(" "))
+        .collect();
     assert_eq!(
-        find(&[], "exec_always").as_deref(),
-        Some("sway-things hook gsettings")
+        hooks,
+        ["sway-things hook displays", "sway-things hook gsettings"]
     );
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),

@@ -114,6 +114,8 @@ off go through the safety net.
 - **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of
   that display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A
   display plugged in or out meanwhile takes the numbers away, since they may be wrong then.
+- **While a risky change waits** (a new mode, a display switched off), the canvas can't be changed until it is kept
+  or reverted, so Revert puts everything back.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
@@ -126,8 +128,9 @@ off go through the safety net.
   then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.951 Hz_), _Scale_, _Rotation_ and
   _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
   _Chosen by sway_. _All displays_ offers only the scale and the rotation: a mode, a position or switching off is for
-  one display at a time. _Use this display_ says that a display that is off stays off when sway starts, also when it is
-  the only one connected then.
+  one display at a time. _Use this display_ says what happens to a display that is off when sway starts: if no other is
+  on then, Sway Things switches it on again (also at a reload, so `$mod+Shift+c` brings a display back after
+  undocking).
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
 
 ### Bluetooth

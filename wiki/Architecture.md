@@ -684,8 +684,10 @@ map to.
   port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop
   panels) is stored by its name instead: two monitors of one model would share the identifier, and which one is plugged
   in would decide what it stands for. So is an output whose identifier another connected output reports too (a
-  broken serial) or that is longer than the 127 bytes sway keeps; values stored by such an identifier stay listed as an
-  output that isn't connected, where they can be removed.
+  broken serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes
+  sway keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be
+  removed. Values stored by a name stay with the port: a monitor without a serial moved to another port starts
+  without them.
 - **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
   `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
   changes are reported (added, removed, changed).
@@ -693,8 +695,15 @@ map to.
   identifier.
 - **What sway chose:** `Output::session_value(key)` is what the output runs with for a Displays setting, as the setting
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
-- **Last output:** `Outputs::lockout(output, enabled)` says whether switching every output (or one by its identifier or
-  name) off would leave none on.
+- **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name)
+  off would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
+  connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
+  of its own. So while an output is stored as off, `20-output.conf` ends with `exec_always sway-things hook displays`,
+  and at every start and reload `outputs::ensure_one_on` switches the first connected output on if none is on (for the
+  session only; it waits up to three seconds for sway to report outputs). Without a session the outputs aren't known,
+  so switching one off is allowed there; the hook catches what that leaves. Undocking in a running session isn't
+  covered: sway has no config hook for an output that goes; display profiles (kanshi) are the place for that.
 - **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
   size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While an
   output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
@@ -1074,6 +1083,9 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 Sway Things keeps nothing running. Behavior that has to happen without the window goes to existing tools, and where glue
 is needed, generated config calls the CLI briefly:
 
+- **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf`
+  runs it with `exec_always` while an output is stored as off.
+
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
 profile office {
@@ -1192,7 +1204,11 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   one drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press
   that moves becomes a drag instead of a click. Snapping, settling and moving the layout to 0,0 come from
   `outputs::layout`; a drop stores the position of every output that is on (`Model::set`), shows the dropped layout
-  until sway reports it, and keeps the arrangement before it for Ctrl+Z. An `OutputPicker` before the rows of the
+  until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While
+  a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When one output's
+  size changes with what is stored for it, the outputs right of and below it move along; the layout to compare with is
+  held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up
+  with sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the
   outputs picks the output they are for (`SettingRow::set_device`), and the mode row is a drop-down whose modes follow
   the output (`SettingRow::set_choices`). The model keeps an `OutputWatch` like the `DeviceWatch`, and gives the rows
   the outputs as `Known`, so a value nothing sets shows what sway chose. _Identify_ shows each output's number on

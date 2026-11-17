@@ -180,6 +180,12 @@ impl Arrangement {
         } else {
             None
         };
+        // While a risky change waits, the layout stays as it is: Revert puts back only that change.
+        let waits = model.pending_change().is_some();
+        self.canvas.set_sensitive(!waits);
+        if let Some(fix) = self.gaps.last_child() {
+            fix.set_sensitive(!waits);
+        }
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());
@@ -577,13 +583,7 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                 row.set_device(identifier);
                 offer_modes(&row, output);
-                // A position is only for one display: every display at one spot overlaps.
-                let one_at_a_time = row
-                    .setting()
-                    .is_some_and(sway_things_core::registry::Setting::is_one_at_a_time);
-                if let Some(item) = row.parent() {
-                    item.set_visible(identifier.is_some() || !one_at_a_time);
-                }
+                show_for(&row, identifier);
             }
         }
     });
@@ -639,6 +639,7 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             let output = chosen.as_deref().and_then(|id| outputs.get(id));
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                 offer_modes(&row, output);
+                show_for(&row, chosen.as_deref());
             }
         } else {
             point_rows(model, chosen.as_deref());
@@ -683,6 +684,18 @@ fn insert_picker(picker: &OutputPicker, rows: &[SettingRow]) -> Vec<glib::WeakRe
         list.prepend(&item);
     }
     rows.into_iter().map(ObjectExt::downgrade).collect()
+}
+
+/// Shows `row` unless its setting is only for one display at a time and the rows are for every
+/// display (`identifier` is `None`): a mode, a position or switching off for all of them at once
+/// isn't offered.
+fn show_for(row: &SettingRow, identifier: Option<&str>) {
+    let one_at_a_time = row
+        .setting()
+        .is_some_and(sway_things_core::registry::Setting::is_one_at_a_time);
+    if let Some(item) = row.parent() {
+        item.set_visible(identifier.is_some() || !one_at_a_time);
+    }
 }
 
 /// Offers the modes of `output` in `row`, if it is the mode row.

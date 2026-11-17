@@ -15,6 +15,7 @@ SourceLicense:  %{shrink:
     (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND
     (Apache-2.0 WITH LLVM-exception) AND
     (BSD-2-Clause OR Apache-2.0 OR MIT) AND
+    Apache-2.0 AND
     CC-BY-4.0 AND
     CC0-1.0 AND
     GPL-3.0-or-later AND
@@ -30,6 +31,7 @@ SourceLicense:  %{shrink:
 License:        %{shrink:
     (Apache-2.0 OR MIT) AND
     (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND
+    Apache-2.0 AND
     CC0-1.0 AND
     GPL-3.0-or-later AND
     ISC AND

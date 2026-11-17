@@ -300,3 +300,38 @@ fn the_watch_reads_the_outputs_again_after_each_event() {
         );
     });
 }
+
+#[test]
+fn an_output_is_switched_on_when_none_is() {
+    const ALL_OFF: &str = r#"[
+      {"name": "eDP-1", "active": false, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "modes": []},
+      {"name": "HDMI-A-1", "active": false, "primary": false, "make": "D", "model": "E",
+       "serial": "F", "modes": []}
+    ]"#;
+    let sway = with_outputs(&[ALL_OFF]);
+    let switched = block_on(super::ensure_one_on(&mut sway.connect())).unwrap();
+    assert_eq!(switched.as_deref(), Some("eDP-1"));
+    assert_eq!(sway.commands(), [r#"output "eDP-1" enable"#]);
+
+    // One is on: nothing to do.
+    let sway = with_outputs(&[DESK]);
+    let switched = block_on(super::ensure_one_on(&mut sway.connect())).unwrap();
+    assert_eq!(switched, None);
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+
+    // Nothing connected (after the wait): nothing to do.
+    let sway = with_outputs(&["[]"]);
+    let switched = block_on(super::ensure_one_on(&mut sway.connect())).unwrap();
+    assert_eq!(switched, None);
+}
+
+#[test]
+fn the_guard_runs_the_hook_at_every_start() {
+    assert_eq!(
+        super::guard_command()
+            .render(crate::command::Target::Config)
+            .unwrap(),
+        "exec_always sway-things hook displays"
+    );
+}

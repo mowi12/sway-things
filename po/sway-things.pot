@@ -140,6 +140,13 @@ msgstr ""
 msgid "Fix: {command} (your changes to the file are lost)"
 msgstr ""
 
+#. TRANSLATORS: `sway-things hook displays` switched on a display because no
+#. other one was on.
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "No display was on, so {display} was switched on."
+msgstr ""
+
 #: crates/cli/src/lib.rs
 msgid "Loading the settings files…"
 msgstr ""
@@ -3104,8 +3111,9 @@ msgstr ""
 
 #: crates/core/src/registry/output.rs
 msgid ""
-"A display that is off gives its workspaces and windows to the others. It "
-"stays off when sway starts, also when no other display is connected"
+"A display that is off gives its workspaces and windows to the others. If no "
+"other display is on when sway starts or reloads, Sway Things switches it on "
+"again"
 msgstr ""
 
 #: crates/core/src/registry/output.rs

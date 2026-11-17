@@ -682,3 +682,26 @@ fn files_on_disk_are_read_without_writing_anything() {
     // Recorded, so changed outside even without the header.
     assert_eq!(files[3].ownership, Ok(super::Ownership::Edited));
 }
+
+#[test]
+fn a_display_stored_as_off_brings_the_guard() {
+    let (_dir, off) = state(
+        "",
+        "[display.\"A B C\".output]\nenabled = false\n\n[display.\"D E F\".output]\nenabled = false\n",
+    );
+    let files = generate(Registry::builtin(), &off, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Output),
+        format!(
+            "{HEADER}\
+output \"A B C\" disable
+output \"D E F\" disable
+exec_always sway-things hook displays
+"
+        )
+    );
+    // Switched on again: no guard.
+    let (_dir, on) = state("", "[display.\"A B C\".output]\nenabled = true\n");
+    let files = generate(Registry::builtin(), &on, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Output).contains("hook"));
+}

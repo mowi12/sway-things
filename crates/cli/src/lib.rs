@@ -31,10 +31,11 @@ use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
+use sway_things_core::ipc::Client;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
-use sway_things_core::outputs::Outputs;
+use sway_things_core::outputs::{self, Outputs};
 use sway_things_core::registry::{Apply, ConfigFile, DeviceError, Link, Registry, Setting, Value};
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
@@ -135,7 +136,7 @@ pub enum Command {
         /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
         link: Option<String>,
     },
-    /// Run a hook; the generated sway config runs these, in 80-hooks.conf
+    /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
 }
@@ -146,6 +147,9 @@ pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
     Gsettings,
+    /// Switch a display on if none is on: run at every start and reload of sway while a display
+    /// is stored as off, so it never leaves you without one
+    Displays,
 }
 
 /// The binary of the app.
@@ -222,6 +226,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
     match command {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
+        Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         _ => {}
     }
     let (applier, main) = match Applier::open().await {
@@ -241,6 +246,38 @@ pub async fn run_for_user(command: &Command) -> Exit {
         &mut err,
     )
     .await
+}
+
+/// `hook displays`: switches a display on if none is on. Quiet when there is nothing to do; it
+/// says on stderr which display it switched on, for sway's log.
+async fn hook_displays(err: &mut dyn Write) -> Exit {
+    let mut client = match Client::connect().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            return Exit::Failure;
+        }
+    };
+    match outputs::ensure_one_on(&mut client).await {
+        Ok(Some(name)) => {
+            let _ = writeln!(
+                err,
+                "{}",
+                trf(
+                    // TRANSLATORS: `sway-things hook displays` switched on a display because no
+                    // other one was on.
+                    msg!("No display was on, so {display} was switched on."),
+                    &[("display", &name)]
+                )
+            );
+            Exit::Ok
+        }
+        Ok(None) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            Exit::Failure
+        }
+    }
 }
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
@@ -317,7 +354,10 @@ pub async fn run<V: Validate>(
 ) -> Exit {
     let mut io = Io { out, err };
     // The doctor reports the problems of the settings files itself; `open` doesn't read them.
-    if !matches!(command, Command::Doctor(_) | Command::Open { .. }) {
+    if !matches!(
+        command,
+        Command::Doctor(_) | Command::Open { .. } | Command::Hook(Hook::Displays)
+    ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
         }
@@ -386,6 +426,16 @@ pub async fn run<V: Validate>(
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
         Command::Hook(Hook::Gsettings) => hook_gsettings(session, &mut io),
+        Command::Hook(Hook::Displays) => match session.applier.client() {
+            Some(client) => match outputs::ensure_one_on(client).await {
+                Ok(_) => Exit::Ok,
+                Err(error) => {
+                    io.error(error_line(&error));
+                    Exit::Failure
+                }
+            },
+            None => Exit::Ok,
+        },
     }
 }
 

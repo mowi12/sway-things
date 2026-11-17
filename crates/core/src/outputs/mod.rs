@@ -57,6 +57,50 @@ pub const TRANSFORM: &str = "output.transform";
 /// The key of the setting that switches an output on or off.
 pub const ENABLED: &str = "output.enabled";
 
+/// How long [`ensure_one_on`] waits for sway to report outputs at all, as at its start.
+const WAIT_FOR_OUTPUTS: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// The command the generated config runs at every start and reload of sway while an output is
+/// stored as off: `exec_always sway-things hook displays` ([`ensure_one_on`]).
+pub fn guard_command() -> crate::command::SwayCmd {
+    crate::command::hook("displays")
+}
+
+/// Switches an output on if none is on but one is connected, so an output stored as off never
+/// leaves the user without a display: a laptop's panel, switched off at the dock, when sway
+/// starts without the dock. The first connected output in sway's order is switched on, for this
+/// session only; nothing is stored. Returns the name of the output switched on, or `None` if one
+/// was on already or none is connected. At sway's start, outputs may come a moment after the
+/// config runs this, so it waits up to three seconds for any.
+///
+/// # Errors
+///
+/// The errors of [`Client::outputs`] and [`Client::run`].
+pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcError> {
+    let started = std::time::Instant::now();
+    let outputs = loop {
+        let outputs = Outputs::new(&client.outputs().await?);
+        if outputs.connected.is_empty() && started.elapsed() < WAIT_FOR_OUTPUTS {
+            async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+            continue;
+        }
+        break outputs;
+    };
+    if outputs.enabled().next().is_some() {
+        return Ok(None);
+    }
+    let Some((output, selector)) = outputs.connected.iter().find_map(|output| {
+        let selector = crate::command::output::OutputSelector::output(&output.name).ok()?;
+        Some((output, selector))
+    }) else {
+        return Ok(None);
+    };
+    client
+        .run(&crate::command::output::Output::new(selector).enable(true))
+        .await?;
+    Ok(Some(output.name.clone()))
+}
+
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and
 /// can't be matched reliably.
 const MAX_IDENTIFIER: usize = 127;
@@ -340,30 +384,7 @@ impl Outputs {
             .filter(|output| !output.non_desktop)
             .map(Output::connected)
             .collect();
-        // Without a serial, two monitors of one model have the same identifier, and which one is
-        // plugged in decides what it stands for: such an output is stored by its name, which
-        // stays the same whatever else is connected.
-        let identifiers: Vec<Option<String>> = connected
-            .iter()
-            .map(|output| {
-                let serial = output.serial.trim();
-                let known = !serial.is_empty() && serial != "Unknown";
-                output.sway_identifier().filter(|_| known)
-            })
-            .collect();
-        for (index, output) in connected.iter_mut().enumerate() {
-            let own = identifiers.get(index).cloned().flatten();
-            let shared = own.as_ref().is_some_and(|own| {
-                identifiers
-                    .iter()
-                    .enumerate()
-                    .any(|(other, identifier)| other != index && identifier.as_ref() == Some(own))
-            });
-            output.identifier = match own {
-                Some(identifier) if !shared => identifier,
-                _ => output.name.clone(),
-            };
-        }
+        assign_identifiers(&mut connected);
         let mut changes: Vec<Change> = self
             .connected
             .iter()
@@ -476,6 +497,38 @@ impl Outputs {
     /// leaves none, switching off one leaves the others.
     pub fn lockout_unknown(output: Option<&str>, enabled: bool) -> Option<Lockout> {
         (output.is_none() && !enabled).then_some(Lockout::Display)
+    }
+}
+
+/// Gives each output of `connected` the identifier settings are stored by: make, model and serial
+/// as sway joins them, or its name
+///
+/// - without a serial: two monitors of one model would share the identifier, and which one is
+///   plugged in would decide what it stands for;
+/// - while another connected output has the same identifier (a broken serial; once one of them
+///   is gone, the other goes back to the identifier);
+/// - if the identifier is longer than sway keeps.
+fn assign_identifiers(connected: &mut [Output]) {
+    let identifiers: Vec<Option<String>> = connected
+        .iter()
+        .map(|output| {
+            let serial = output.serial.trim();
+            let known = !serial.is_empty() && serial != "Unknown";
+            output.sway_identifier().filter(|_| known)
+        })
+        .collect();
+    for (index, output) in connected.iter_mut().enumerate() {
+        let own = identifiers.get(index).cloned().flatten();
+        let shared = own.as_ref().is_some_and(|own| {
+            identifiers
+                .iter()
+                .enumerate()
+                .any(|(other, identifier)| other != index && identifier.as_ref() == Some(own))
+        });
+        output.identifier = match own {
+            Some(identifier) if !shared => identifier,
+            _ => output.name.clone(),
+        };
     }
 }
 

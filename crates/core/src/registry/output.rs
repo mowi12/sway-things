@@ -40,8 +40,8 @@ pub(super) fn settings() -> Vec<Setting> {
             .section(section)
             .title(msg!("Use this display"))
             .subtitle(msg!(
-                "A display that is off gives its workspaces and windows to the others. It stays \
-                 off when sway starts, also when no other display is connected"
+                "A display that is off gives its workspaces and windows to the others. If no other \
+                 display is on when sway starts or reloads, Sway Things switches it on again"
             ))
             .keywords(&[
                 msg!("monitor"),

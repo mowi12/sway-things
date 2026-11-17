@@ -725,6 +725,8 @@ impl Model {
                     model.run(op).await;
                 }
                 model.imp().busy.set(false);
+                // Who waited for the queue to be done (`is_busy`) looks again.
+                model.emit_by_name::<()>("changed", &[]);
                 model.plan_save();
             }
         ));

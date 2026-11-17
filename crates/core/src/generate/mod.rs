@@ -12,7 +12,8 @@
 //! Every file starts with the [`HEADER`]. Below it, each line is one command as the
 //! [command builders](crate::command) render it for a config file, in the order of the registry,
 //! first for the whole session and the input types, then per input device. `80-hooks.conf` holds
-//! the lines that run hooks of the command line. The same state gives the same bytes.
+//! the lines that run hooks of the command line; `20-output.conf` ends with the one that keeps a
+//! display on, next to the outputs it guards. The same state gives the same bytes.
 //!
 //! ```
 //! use sway_things_core::generate::generate;
@@ -46,7 +47,8 @@ use std::collections::BTreeSet;
 
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
-use crate::registry::{ConfigFile, Registry, Setting};
+use crate::outputs;
+use crate::registry::{ConfigFile, Registry, Setting, Value};
 use crate::state::State;
 
 pub use manifest::{Manifest, Ownership};
@@ -171,6 +173,12 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
     }
+    if let Some(file) = files
+        .iter_mut()
+        .find(|file| file.file == ConfigFile::Output)
+    {
+        file.lines.extend(display_guard(state));
+    }
     files.into()
 }
 
@@ -200,6 +208,30 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
             skipped: Some(error.to_string()),
         }],
     }
+}
+
+/// While an output is stored as off, the line that runs `sway-things hook displays` whenever
+/// sway starts or reloads: it switches an output on if none is on, so an output that stays off
+/// never leaves the user without a display (a laptop's panel, switched off at the dock, when
+/// sway starts without the dock).
+fn display_guard(state: &State) -> Option<Line> {
+    let off: Vec<&str> = state
+        .entries()
+        .into_iter()
+        .filter(|entry| entry.setting.key() == outputs::ENABLED)
+        .filter(|entry| *entry.value == Value::Bool(false))
+        .filter_map(|entry| entry.device)
+        .collect();
+    let first = off.first()?;
+    let text = outputs::guard_command().render(Target::Config).ok()?;
+    Some(Line {
+        text,
+        source: Source {
+            keys: vec![outputs::ENABLED],
+            device: Some((*first).to_owned()),
+        },
+        skipped: None,
+    })
 }
 
 /// The lines for the directive of `setting`: its commands, or one comment if they are left out.

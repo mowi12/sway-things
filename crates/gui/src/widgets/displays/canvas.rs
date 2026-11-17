@@ -38,6 +38,8 @@ const DRAG_START: f64 = 4.0;
 const PADDING: f64 = 24.0;
 /// How long a dropped layout is shown while sway doesn't report it yet.
 const SETTLING: Duration = Duration::from_secs(3);
+/// How long a changed size waits for what is stored for it to catch up.
+const HOLD: Duration = Duration::from_secs(3);
 /// How far an arrow key moves a tile, in logical pixels; with Shift ten times as far.
 const NUDGE: i32 = 10;
 
@@ -312,6 +314,8 @@ mod imp {
         /// mode) as of the last change that didn't wait to be kept: a size that changed with
         /// what is stored changed through the app.
         pub(super) baseline: RefCell<Option<(super::Layout, super::Sizes)>>,
+        /// Since when the baseline is held for what is stored to catch up.
+        pub(super) held_since: Cell<Option<Instant>>,
     }
 
     #[glib::object_subclass]
@@ -535,20 +539,44 @@ impl Canvas {
     /// reverted moves nothing and one that is kept moves the others then.
     fn follow_size_changes(&self) {
         let imp = self.imp();
+        // While a change is sent or waits to be kept, the layout before it stays the one to
+        // compare with: sway's report and what the app stores arrive in either order.
         let waits = imp
             .model
             .get()
-            .is_some_and(|model| model.pending_change().is_some());
+            .is_some_and(|model| model.pending_change().is_some() || model.is_busy());
         if waits {
             return;
         }
-        let sizes = self.stored_sizes();
+        let layout = self.layout();
         let baseline = imp.baseline.take();
-        if let Some((layout, sizes_before)) = baseline {
-            if layout != self.layout() {
-                self.follow_resize(&layout, &sizes_before, &sizes);
-            }
+        let Some((before, sizes_before)) = baseline else {
+            imp.baseline.replace(Some((layout, self.stored_sizes())));
+            return;
+        };
+        if before == layout {
+            // Nothing moved or resized yet: what was stored before still counts.
+            imp.baseline.replace(Some((before, sizes_before)));
+            return;
         }
+        let sizes = self.stored_sizes();
+        let resized = keep_together(&before, &layout).map(|(resized, _)| resized);
+        let stored_yet = resized
+            .as_ref()
+            .is_some_and(|resized| sizes_before.get(resized) != sizes.get(resized));
+        // One output changed its size, but what is stored for it hasn't caught up yet (sway
+        // reported a change of the command line before the settings file was read again): the
+        // layout before stays the one to compare with, for a moment.
+        let held = imp.held_since.get();
+        if resized.is_some() && !stored_yet && held.is_none_or(|since| since.elapsed() < HOLD) {
+            if held.is_none() {
+                imp.held_since.set(Some(Instant::now()));
+            }
+            imp.baseline.replace(Some((before, sizes_before)));
+            return;
+        }
+        imp.held_since.set(None);
+        self.follow_resize(&before, &sizes_before, &sizes);
         imp.baseline.replace(Some((self.layout(), sizes)));
     }
 
@@ -1202,6 +1230,9 @@ impl Canvas {
     /// Goes back to the arrangement before the last one the user made. Returns whether there
     /// was one.
     pub fn undo(&self) -> bool {
+        if !self.is_sensitive() {
+            return false;
+        }
         let previous = self.imp().history.borrow_mut().pop();
         let Some(previous) = previous else {
             return false;
