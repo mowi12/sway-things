@@ -1025,7 +1025,10 @@ impl Model {
     /// Takes `applier` back after an operation: copies what the rows read, plans the revert of a
     /// risky change that started waiting (none waited with the countdown `was_pending`), and
     /// tells the rows.
-    fn give_back(&self, applier: Applier, was_pending: Option<Countdown>) {
+    fn give_back(&self, mut applier: Applier, was_pending: Option<Countdown>) {
+        if let Some(problem) = applier.take_displays_problem() {
+            self.emit_problem(&problem);
+        }
         let pending = applier.pending().cloned();
         if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
             if was_pending != Some(countdown) {

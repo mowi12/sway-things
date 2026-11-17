@@ -71,6 +71,20 @@ impl KanshiFiles {
         )
     }
 
+    /// The profiles of the user's kanshi config `text` that come before the include of ours,
+    /// so kanshi tries them first ([`user_profiles`]).
+    pub fn profiles_before_ours(&self, text: &str) -> Vec<(String, Vec<String>)> {
+        let mut before = String::new();
+        for line in text.lines() {
+            if self.includes_ours(line) {
+                break;
+            }
+            before.push_str(line);
+            before.push('\n');
+        }
+        user_profiles(&before)
+    }
+
     /// Whether the user's kanshi config includes ours: [`Inclusion::NoConfig`] if there is
     /// none (it is created then).
     pub fn inclusion(&self) -> Inclusion {
@@ -130,8 +144,23 @@ impl KanshiFiles {
                 "{HEADER}, as there was no kanshi config. Add your own profiles below.\n{}\n",
                 self.include_line()
             );
-            atomic::write(&self.config, &config).map_err(KanshiError::Io)?;
-            written = true;
+            // Created only if it still isn't there: a file the user made meanwhile stays.
+            if let Some(dir) = self.config.parent() {
+                std::fs::create_dir_all(dir).map_err(KanshiError::Io)?;
+            }
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&self.config)
+            {
+                Ok(mut file) => {
+                    use std::io::Write as _;
+                    file.write_all(config.as_bytes()).map_err(KanshiError::Io)?;
+                    written = true;
+                }
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(KanshiError::Io(error)),
+            }
         }
         Ok(written)
     }
@@ -173,8 +202,8 @@ impl std::fmt::Display for KanshiError {
 impl std::error::Error for KanshiError {}
 
 /// The profiles of a kanshi config of the user's (`text`): each one's name (or its position,
-/// `#1`, for one without) and the displays it names, as written; a profile with `*` is left out,
-/// since it matches any display. Profiles in included files aren't followed.
+/// `#1`, for one without) and the displays it names, as written, with `*` for a wildcard.
+/// Profiles in included files aren't followed.
 pub fn user_profiles(text: &str) -> Vec<(String, Vec<String>)> {
     let mut profiles = Vec::new();
     let mut current: Option<(String, Vec<String>, bool)> = None;
@@ -196,16 +225,20 @@ pub fn user_profiles(text: &str) -> Vec<(String, Vec<String>)> {
             }
         }
         if line.starts_with('}') {
-            if let Some((name, outputs, wildcard)) = current.take() {
-                if !wildcard && !outputs.is_empty() {
+            if let Some((name, mut outputs, wildcard)) = current.take() {
+                if wildcard {
+                    outputs.push("*".to_owned());
+                }
+                if !outputs.is_empty() {
                     profiles.push((name, outputs));
                 }
             }
             continue;
         }
-        if let (Some((_, outputs, wildcard)), Some(rest)) =
-            (&mut current, line.strip_prefix("output"))
-        {
+        let output = line
+            .strip_prefix("...output")
+            .or_else(|| line.strip_prefix("output"));
+        if let (Some((_, outputs, wildcard)), Some(rest)) = (&mut current, output) {
             let rest = rest.trim();
             let criteria = if let Some(quoted) = rest.strip_prefix('"') {
                 quoted.split('"').next().unwrap_or_default().to_owned()
@@ -368,10 +401,13 @@ mod tests {
                     output eDP-1 disable\n}\nprofile {\n    output * enable\n}\n";
         assert_eq!(
             super::user_profiles(text),
-            [(
-                "Home Office".to_owned(),
-                vec!["Dell U27 ABC".to_owned(), "eDP-1".to_owned()]
-            )]
+            [
+                (
+                    "Home Office".to_owned(),
+                    vec!["Dell U27 ABC".to_owned(), "eDP-1".to_owned()]
+                ),
+                ("#2".to_owned(), vec!["*".to_owned()]),
+            ]
         );
     }
 

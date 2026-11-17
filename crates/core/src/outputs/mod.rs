@@ -185,38 +185,46 @@ pub const QUIET: std::time::Duration = std::time::Duration::from_secs(3);
 /// any kanshi of the user when this process has no Wayland display (the command line on a
 /// TTY). Reads `/proc`; nothing is run and nothing is written.
 pub fn kanshi_runs() -> bool {
+    !session_processes("kanshi").is_empty()
+}
+
+/// The processes named `name` of this user in this session (the same `XDG_RUNTIME_DIR` and
+/// `WAYLAND_DISPLAY` in their environment, as far as this process has them): their `/proc`
+/// directories. Reads `/proc`; nothing is run.
+pub(crate) fn session_processes(name: &str) -> Vec<std::path::PathBuf> {
     use std::os::unix::fs::MetadataExt;
     let Ok(me) = std::fs::metadata("/proc/self").map(|meta| meta.uid()) else {
-        return false;
+        return Vec::new();
     };
-    let ours = ["XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"].map(|name| {
-        std::env::var_os(name).map(|value| {
-            let mut entry = std::ffi::OsString::from(format!("{name}="));
+    let ours = ["XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"].map(|variable| {
+        std::env::var_os(variable).map(|value| {
+            let mut entry = std::ffi::OsString::from(format!("{variable}="));
             entry.push(value);
             entry.into_encoded_bytes()
         })
     });
     let Ok(processes) = std::fs::read_dir("/proc") else {
-        return false;
+        return Vec::new();
     };
-    processes.filter_map(Result::ok).any(|process| {
-        let path = process.path();
-        let mine = process.metadata().is_ok_and(|meta| meta.uid() == me);
-        let kanshi = mine
-            && std::fs::read_to_string(path.join("comm"))
-                .is_ok_and(|name| name.trim_end() == "kanshi");
-        if !kanshi {
-            return false;
-        }
-        let Ok(environ) = std::fs::read(path.join("environ")) else {
-            return false;
-        };
-        ours.iter().flatten().all(|entry| {
-            environ
-                .split(|byte| *byte == 0)
-                .any(|variable| variable == entry.as_slice())
+    processes
+        .filter_map(Result::ok)
+        .filter(|process| {
+            let path = process.path();
+            let mine = process.metadata().is_ok_and(|meta| meta.uid() == me);
+            let named = mine
+                && std::fs::read_to_string(path.join("comm"))
+                    .is_ok_and(|comm| comm.trim_end() == name);
+            named
+                && std::fs::read(path.join("environ")).is_ok_and(|environ| {
+                    ours.iter().flatten().all(|entry| {
+                        environ
+                            .split(|byte| *byte == 0)
+                            .any(|variable| variable == entry.as_slice())
+                    })
+                })
         })
-    })
+        .map(|process| process.path())
+        .collect()
 }
 
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and

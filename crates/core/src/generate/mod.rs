@@ -166,8 +166,11 @@ impl Displays {
         if !kanshi::installed() || files.inclusion() == kanshi::Inclusion::Missing {
             return Self::Sway;
         }
+        // Started by the user's sway config, or running already (a systemd unit, say): one
+        // kanshi is enough.
         Self::Kanshi {
-            start: !kanshi::started_by(status.config(), locations.directory()),
+            start: !kanshi::started_by(status.config(), locations.directory())
+                && !crate::outputs::kanshi_runs(),
         }
     }
 
@@ -259,7 +262,24 @@ pub fn generate_for(
                 });
             }
         }
-        file.lines.extend(display_guard(state));
+        // With kanshi, the hook also has kanshi apply its profile again and places the
+        // workspaces after every reload, whatever is stored.
+        let guard = display_guard(state).or_else(|| {
+            displays.is_kanshi().then(|| {
+                outputs::guard_command()
+                    .render(Target::Config)
+                    .ok()
+                    .map(|text| Line {
+                        text,
+                        source: Source {
+                            keys: Vec::new(),
+                            device: None,
+                        },
+                        skipped: None,
+                    })
+            })?
+        });
+        file.lines.extend(guard);
     }
     files.into()
 }

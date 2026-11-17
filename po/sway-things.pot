@@ -379,6 +379,12 @@ msgid "keep or revert the change of {key} first"
 msgstr ""
 
 #: crates/core/src/apply/mod.rs
+msgid ""
+"a display can't show one that shows another display itself, or be shown "
+"elsewhere while it shows another"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
 msgid "no change waits to be kept or reverted"
 msgstr ""
 
@@ -783,13 +789,13 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid ""
-"The profile {name} in {file} covers displays Sway Things remembers; kanshi "
-"applies the first profile that matches."
+"The profile {name} in {file} comes before the include and covers displays "
+"Sway Things remembers; kanshi applies the first profile that matches."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid ""
-"Remove it, or put the include line before it, so the arrangement made on the "
+"Remove it, or move the include line above it, so the arrangement made on the "
 "Displays page comes back."
 msgstr ""
 

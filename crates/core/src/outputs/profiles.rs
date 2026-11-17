@@ -100,7 +100,10 @@ impl Profile {
             .filter(|output| output.is_connected())
             .map(|output| (output.identifier().to_owned(), Setup::of(output)))
             .collect();
-        (!connected.is_empty()).then_some(Self {
+        // A combination with every display off is never remembered: kanshi would leave all
+        // screens dark with it.
+        let any_on = connected.values().any(|setup| setup.enabled);
+        (any_on).then_some(Self {
             outputs: connected,
             workspaces: BTreeMap::new(),
         })
@@ -129,10 +132,31 @@ impl Profile {
     }
 
     /// Has the display `target` show `mirror` instead of its own content, or with `None` its
-    /// own again. Nothing happens for a display that isn't in the combination.
-    pub fn set_mirror(&mut self, target: &str, mirror: Option<Mirror>) {
-        if let Some(setup) = self.outputs.get_mut(target) {
-            setup.mirror = mirror;
+    /// own again. Says whether it does: not for a display that isn't in the combination, nor
+    /// for a chain or a cycle (a source that shows another display itself, or a target that is
+    /// shown elsewhere), which would leave screens without content.
+    pub fn set_mirror(&mut self, target: &str, mirror: Option<Mirror>) -> bool {
+        if let Some(mirror) = &mirror {
+            let source_mirrors = self
+                .outputs
+                .get(&mirror.of)
+                .is_none_or(|setup| setup.mirror.is_some());
+            let target_shown = self.outputs.values().any(|setup| {
+                setup
+                    .mirror
+                    .as_ref()
+                    .is_some_and(|other| other.of == target)
+            });
+            if mirror.of == target || source_mirrors || target_shown {
+                return false;
+            }
+        }
+        match self.outputs.get_mut(target) {
+            Some(setup) => {
+                setup.mirror = mirror;
+                true
+            }
+            None => false,
         }
     }
 
@@ -428,8 +452,8 @@ fn write_setup(setup: &Setup) -> Table {
 }
 
 /// The text of `~/.config/kanshi/sway-things.conf` for `profiles`: a profile per remembered
-/// combination, then a safety profile that switches on any one display alone, so a display
-/// stored as off never leaves the screen dark where no profile matches. A display whose name
+/// combination, then a safety profile that switches on all displays of any combination no
+/// profile matches, so a display stored as off never leaves the screens dark. A display whose name
 /// can't be quoted for kanshi (with a `"` or a line break in it) leaves out its whole
 /// combination, since kanshi would match it otherwise.
 pub fn kanshi_config(profiles: &Profiles) -> String {
@@ -446,13 +470,22 @@ pub fn kanshi_config(profiles: &Profiles) -> String {
         }
     }
     text.push_str(
-        "\n# Any one display alone, where nothing else matches: on.\n\
-         profile sway-things-any {\n    output * enable\n}\n",
+        "\n# Any displays where nothing else matches: all on.\n\
+         profile sway-things-any {\n    ...output * enable\n",
     );
+    if mirrors {
+        // The mirrors of another combination end here too.
+        text.push_str("    exec sway-things hook mirror\n");
+    }
+    text.push_str("}\n");
     text
 }
 
 fn kanshi_profile(profile: &Profile, place_workspaces: bool, mirrors: bool) -> Option<String> {
+    // Never a profile that leaves every display off.
+    if !profile.outputs.values().any(|setup| setup.enabled) {
+        return None;
+    }
     let mut block = format!("profile {} {{\n", profile.name());
     for (name, setup) in profile.outputs() {
         let quoted = kanshi_quote(name)?;
@@ -548,7 +581,24 @@ mod tests {
             )),
             "{text}"
         );
-        assert!(text.ends_with("profile sway-things-any {\n    output * enable\n}\n"));
+        assert!(text.ends_with("profile sway-things-any {\n    ...output * enable\n}\n"));
+        // A remembered combination comes before the profile for any displays.
+        assert!(text.find(&name) < text.find("sway-things-any"));
+        // No cycles: a display shown elsewhere can't show another one.
+        let mut profile = profiles.iter().next().unwrap().clone();
+        let mirror = |of: &str| {
+            Some(crate::outputs::mirror::Mirror {
+                of: of.to_owned(),
+                scaling: crate::outputs::mirror::Scaling::Fit,
+            })
+        };
+        assert!(profile.set_mirror("eDP-1", mirror("Dell U27 ABC")));
+        assert!(!profile.set_mirror("Dell U27 ABC", mirror("eDP-1")));
+        assert!(profile.set_mirror("eDP-1", None));
+        // Every display off: never remembered.
+        let dark = r#"[{"name": "eDP-1", "active": false, "primary": false, "make": "A",
+            "model": "B", "serial": "C", "modes": []}]"#;
+        assert_eq!(Profile::capture(&outputs(dark)), None);
     }
 
     #[test]

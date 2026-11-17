@@ -69,78 +69,128 @@ pub fn installed() -> bool {
     })
 }
 
-/// Ends the mirrors Sway Things started, and starts those the profile of the combination of
-/// `outputs` asks for. Returns how many it started. Without `wl-mirror`, or for a display or a
-/// mirrored one that isn't on, nothing is started.
+/// Has the mirrors run that the profile of the combination of `outputs` asks for: ends the
+/// mirrors Sway Things started in this session that it doesn't ask for, and starts those that
+/// don't run yet, so running it twice changes nothing. Returns how many it started. A mirror
+/// whose display or source isn't on, or that is part of a chain or a cycle (a display that is
+/// shown elsewhere and shows another one itself), isn't started; without `wl-mirror`, none is.
 pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
-    stop();
-    let names: Vec<&str> = outputs
+    let wanted = wanted(profiles, outputs);
+    let running = running();
+    let unwanted: Vec<String> = running
         .iter()
-        .filter(|output| output.is_connected())
-        .map(super::Output::identifier)
+        .filter(|(_, arguments)| !wanted.contains(arguments))
+        .map(|(pid, _)| pid.clone())
         .collect();
-    let Some(profile) = profiles.of(&names) else {
-        return 0;
-    };
-    if !installed() {
-        return 0;
-    }
+    kill(&unwanted);
     let mut started = 0;
-    for (target, setup) in profile.outputs() {
-        let Some(mirror) = &setup.mirror else {
-            continue;
-        };
-        let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
-        let (Some(target), Some(source)) = (on(target), on(&mirror.of)) else {
-            continue;
-        };
-        let spawned = Command::new("wl-mirror")
-            .args(["--fullscreen-output", target.name()])
-            .args(["--scaling", mirror.scaling.name()])
-            .args(["--title", TITLE])
-            .arg(source.name())
+    for arguments in wanted
+        .iter()
+        .filter(|arguments| !running.iter().any(|(_, have)| have == *arguments))
+    {
+        // `setsid -f` starts it in a session of its own and returns at once, so it neither
+        // ends with the caller nor stays behind as a child that is never waited for.
+        let spawned = Command::new("setsid")
+            .arg("-f")
+            .arg("wl-mirror")
+            .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .spawn();
-        if spawned.is_ok() {
+            .status();
+        if spawned.is_ok_and(|status| status.success()) {
             started += 1;
         }
     }
     started
 }
 
-/// Ends the mirrors Sway Things started: the `wl-mirror` processes of this user with our title.
-/// Reads `/proc` and runs `kill` with their numbers.
-pub fn stop() {
-    use std::os::unix::fs::MetadataExt;
-    let Ok(me) = std::fs::metadata("/proc/self").map(|meta| meta.uid()) else {
-        return;
-    };
-    let Ok(processes) = std::fs::read_dir("/proc") else {
-        return;
-    };
-    let ours: Vec<String> = processes
-        .filter_map(Result::ok)
-        .filter(|process| process.metadata().is_ok_and(|meta| meta.uid() == me))
-        .filter(|process| {
-            let path = process.path();
-            let named = std::fs::read_to_string(path.join("comm"))
-                .is_ok_and(|name| name.trim_end() == "wl-mirror");
-            named
-                && std::fs::read(path.join("cmdline")).is_ok_and(|line| {
-                    line.split(|byte| *byte == 0)
-                        .any(|argument| argument == TITLE.as_bytes())
-                })
-        })
-        .filter_map(|process| process.file_name().into_string().ok())
-        .filter(|pid| pid.bytes().all(|byte| byte.is_ascii_digit()))
+/// The arguments of `wl-mirror` for each mirror the profile of the combination of `outputs`
+/// asks for.
+fn wanted(profiles: &Profiles, outputs: &Outputs) -> Vec<Vec<String>> {
+    let names: Vec<&str> = outputs
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(super::Output::identifier)
         .collect();
-    if ours.is_empty() {
+    let Some(profile) = profiles.of(&names) else {
+        return Vec::new();
+    };
+    if !installed() {
+        return Vec::new();
+    }
+    let mirrored: Vec<&str> = profile
+        .outputs()
+        .filter_map(|(_, setup)| Some(setup.mirror.as_ref()?.of.as_str()))
+        .collect();
+    let mirroring: Vec<&str> = profile
+        .outputs()
+        .filter(|(_, setup)| setup.mirror.is_some())
+        .map(|(name, _)| name)
+        .collect();
+    profile
+        .outputs()
+        .filter_map(|(target, setup)| {
+            let mirror = setup.mirror.as_ref()?;
+            // No chains, no cycles: a display shown elsewhere shows its own content.
+            if mirrored.contains(&target) || mirroring.contains(&mirror.of.as_str()) {
+                return None;
+            }
+            let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
+            let (target, source) = (on(target)?, on(&mirror.of)?);
+            Some(vec![
+                "--fullscreen-output".to_owned(),
+                target.name().to_owned(),
+                "--scaling".to_owned(),
+                mirror.scaling.name().to_owned(),
+                "--title".to_owned(),
+                TITLE.to_owned(),
+                source.name().to_owned(),
+            ])
+        })
+        .collect()
+}
+
+/// The mirrors Sway Things started in this session: the process number and the arguments of
+/// each `wl-mirror` with our title.
+fn running() -> Vec<(String, Vec<String>)> {
+    super::session_processes("wl-mirror")
+        .into_iter()
+        .filter_map(|path| {
+            let line = std::fs::read(path.join("cmdline")).ok()?;
+            let mut arguments: Vec<String> = line
+                .split(|byte| *byte == 0)
+                .filter(|argument| !argument.is_empty())
+                .map(|argument| String::from_utf8_lossy(argument).into_owned())
+                .collect();
+            if !arguments.iter().any(|argument| argument == TITLE) {
+                return None;
+            }
+            // Without the program itself.
+            if !arguments.is_empty() {
+                arguments.remove(0);
+            }
+            let pid = path.file_name()?.to_str()?.to_owned();
+            pid.bytes()
+                .all(|byte| byte.is_ascii_digit())
+                .then_some((pid, arguments))
+        })
+        .collect()
+}
+
+/// Ends the mirrors Sway Things started in this session.
+pub fn stop() {
+    let pids: Vec<String> = running().into_iter().map(|(pid, _)| pid).collect();
+    kill(&pids);
+}
+
+/// Ends the processes `pids` with `kill`.
+fn kill(pids: &[String]) {
+    if pids.is_empty() {
         return;
     }
     let _ = Command::new("kill")
-        .args(&ours)
+        .args(pids)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

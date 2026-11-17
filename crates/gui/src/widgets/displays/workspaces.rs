@@ -89,7 +89,20 @@ impl WorkspaceMap {
                 if updating.get() {
                     return;
                 }
-                model.place_workspaces(switch.is_active(), Placement::Kept);
+                // On without a placement for these displays: the one the cards show.
+                let empty = model
+                    .placement()
+                    .is_none_or(|(_, placement)| placement.is_empty());
+                let placement = if switch.is_active() && empty {
+                    let mirrors: Vec<String> =
+                        model.mirrors().unwrap_or_default().into_keys().collect();
+                    Placement::Of(
+                        Preset::LeftToRight.place(&model.outputs().unwrap_or_default(), &mirrors),
+                    )
+                } else {
+                    Placement::Kept
+                };
+                model.place_workspaces(switch.is_active(), placement);
             }
         ));
         map

@@ -329,7 +329,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf
 ├── 60-idle.conf           # swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf
-├── 80-hooks.conf          # bindswitch lid → sway-things hook lid …
+├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 
@@ -341,10 +341,10 @@ input type:touchpad pointer_accel 0.3
 input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 ```
 
-`crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `30-appearance.conf`,
+`crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `20-output.conf`, `30-appearance.conf`,
 `40-behavior.conf`, `80-hooks.conf` and `90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to
-`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line, see
-[No daemon](#no-daemon-the-cli-as-a-hook).
+`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line (`20-output.conf` ends with the one
+that keeps a display on), see [No daemon](#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
   "Show generated config" and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
@@ -711,15 +711,18 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
 - **kanshi (profiles per combination):** `generate::Displays::detect` makes kanshi the display backend when it is
   installed (`kanshi` in `$PATH`) and its config includes ours, or there is none (it is then created with the include
   line). Nothing is run. With kanshi, changes of per-output settings are live only (`Applier::is_live_only`): sent,
-  never stored in the settings, and nothing waits for a reload. Instead, whenever the settings are saved and no risky
-  change waits, `Applier::remember_displays` captures how the connected outputs run (`outputs::profiles::Profile`) and
-  remembers it for their combination in `displays.toml` next to the settings files (`Profiles`), writes
-  `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per combination named
-  `sway-things-<hash>`, then `sway-things-any` that switches on any one display alone, so no combination stays dark) and
-  has kanshi read it again (`kanshictl reload`, five seconds). `outputs::kanshi::KanshiFiles` writes only a file that
-  starts with our header, and never the user's config except to create it. `20-output.conf` then has no per-output
-  lines, a comment, the startup guard, and `exec kanshi` when the user's sway config doesn't start kanshi itself
-  (`kanshi::started_by`, not counting our files). `hook displays` makes sure a display is on and then has kanshi apply
+  never stored in the settings, and nothing waits for a reload. Instead, when the settings are saved after a per-output
+  setting changed (`Applier::touch`) and no risky change waits, `Applier::remember_displays` captures how the connected
+  outputs run (`outputs::profiles::Profile`) and remembers it for their combination in `displays.toml` next to the
+  settings files (`Profiles`), writes `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile
+  per combination named `sway-things-<hash>`, then `sway-things-any` with `...output * enable`, which switches on every
+  display of a combination no profile matches, so none stays dark; a combination with every display off is never
+  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds).
+  `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the user's config except to
+  create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always with kanshi), and
+  `exec kanshi` when neither the user's sway config starts kanshi (`kanshi::started_by`, not counting our files) nor one
+  runs for the session already. A `displays.toml` that can't be read is never written over: the displays are set up from
+  our sway lines meanwhile, and the app says why. `hook displays` makes sure a display is on and then has kanshi apply
   its profile again. The app looks again before each change and when displays come and go (at most every two seconds)
   and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts of per-output
   settings meanwhile. With kanshi installed, `doctor` reports a kanshi config without our include (with the command that
@@ -733,14 +736,20 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   `move workspace to output X`), since sway's declaration only appends to a list that is never cleared, then gives the
   focus back. Each kanshi profile with a placement runs `exec sway-things hook workspaces`, and `hook displays` places
   them again after a start or reload of sway (which forgets the declarations). The page's _Workspaces_ section changes
-  the placement through `Applier::place_workspaces`.
+  the placement through `Applier::place_workspaces`; switching placement on stores what the page shows. Limit: sway
+  keeps a session's declarations in order and uses the first connected display, so after a placement changed while its
+  old display stays connected, a workspace closed and opened again goes to the old display until sway reloads; open
+  workspaces are moved at once.
 - **Mirroring:** `outputs::mirror` keeps, per display of a combination, which display it shows instead of its own
-  content and how it fits (`mirror`, `mirror_scaling` in `displays.toml`). `apply` ends the `wl-mirror` processes Sway
-  Things started (found in `/proc` by the window title _Sway Things mirror_, ended with `kill` and their numbers) and
-  starts `wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>` for each mirror of the
-  combination connected now, with argument lists and no shell; `wl-mirror` keeps running like a window until it is ended
-  or its display goes. Once any combination mirrors, every kanshi profile runs `exec sway-things hook mirror`, and
-  `hook displays` starts the mirrors again after a start or reload of sway. A display that mirrors takes no workspaces.
+  content and how it fits (`mirror`, `mirror_scaling` in `displays.toml`); `Profile::set_mirror` refuses chains and
+  cycles (a source that shows another display, a target shown elsewhere), and so does the page. `apply` is idempotent:
+  it reads the `wl-mirror` processes Sway Things started in this session (found in `/proc` by the window title _Sway
+  Things mirror_ and the session's `XDG_RUNTIME_DIR`/`WAYLAND_DISPLAY`), ends those the combination connected now
+  doesn't ask for (`kill` with their numbers) and starts only the missing ones
+  (`setsid -f wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>`), with argument
+  lists and no shell. Once any combination mirrors, every kanshi profile, `sway-things-any` too, runs
+  `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. A display that mirrors
+  takes no workspaces.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
@@ -1144,22 +1153,24 @@ is needed, generated config calls the CLI briefly:
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
-profile office {
-    output eDP-1 disable
-    output "Dell Inc. DELL U2723QE <serial>" mode 3840x2160@60Hz scale 1.5
-    exec sway-things hook workspaces --profile office
+profile sway-things-1a2b3c4d {
+    output "Dell Inc. DELL U2723QE <serial>" enable mode 3840x2160@60Hz position 0,0 scale 1.5 transform normal
+    output "eDP-1" disable
+    exec sway-things hook workspaces
+}
+
+profile sway-things-any {
+    ...output * enable
 }
 
 # ~/.config/sway/sway-things/80-hooks.conf (generated)
 exec_always sway-things hook gsettings
-bindswitch --reload --locked lid:on  exec sway-things hook lid closed
-bindswitch --reload --locked lid:off exec sway-things hook lid open
 ```
 
-`hook gsettings` exists so far (see [GSettings](#gsettings)); the lid and workspace hooks come with the Displays page.
+`hook gsettings` (see [GSettings](#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there.
 
-Our generated files can also contain the `exec kanshi` / `exec_always kanshictl reload` lines. They're our files, so
-that needs no edit of the user's config.
+Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
+They're our files, so that needs no edit of the user's config.
 
 **SwayFX switching edge case:** `90-effects.conf` is only regenerated when the app or CLI runs. On most distros the
 `swayfx` and `sway` packages conflict, so switching means reinstalling. After switching to vanilla sway, sway reports

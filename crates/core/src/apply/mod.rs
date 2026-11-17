@@ -179,6 +179,11 @@ pub struct Applier<V = SwayValidator> {
     profiles: Option<Profiles>,
     /// kanshi's files, if kanshi is installed; `None` for an applier made for tests.
     kanshi_files: Option<KanshiFiles>,
+    /// Whether a setting of the displays changed since they were last remembered: only then
+    /// is what they run with remembered for their combination.
+    displays_touched: bool,
+    /// What went wrong with the remembered displays or kanshi's files, to tell the user once.
+    displays_problem: Option<String>,
 }
 
 impl Applier<SwayValidator> {
@@ -197,7 +202,15 @@ impl Applier<SwayValidator> {
         let locations = Locations::from_env().map_err(ApplyError::Paths)?;
         let state = State::load(Registry::builtin(), paths);
         let mut applier = Self::connect(state, locations).await?;
-        applier.profiles = Profiles::load(applier.state.paths().displays()).ok();
+        match Profiles::load(applier.state.paths().displays()) {
+            Ok(profiles) => applier.profiles = Some(profiles),
+            Err(error) => {
+                applier.displays_problem = Some(format!(
+                    "{error} ({}); the displays are set up from the sway config meanwhile",
+                    applier.state.paths().displays().display()
+                ));
+            }
+        }
         applier.kanshi_files = KanshiFiles::from_env().filter(|_| kanshi::installed());
         let main = match applier.client() {
             Some(client) => match client.version().await {
@@ -255,6 +268,8 @@ impl<V: Validate> Applier<V> {
             displays: generate::Displays::Sway,
             profiles: None,
             kanshi_files: None,
+            displays_touched: false,
+            displays_problem: None,
         }
     }
 
@@ -280,6 +295,8 @@ impl<V: Validate> Applier<V> {
             displays: generate::Displays::Sway,
             profiles: None,
             kanshi_files: None,
+            displays_touched: false,
+            displays_problem: None,
         }
     }
 
@@ -359,7 +376,27 @@ impl<V: Validate> Applier<V> {
     /// Generates for displays set up by `displays` from now on ([`generate::Displays::detect`]
     /// says who runs). Sway by default.
     pub fn set_displays(&mut self, displays: generate::Displays) {
-        self.displays = displays;
+        // Without the remembered displays (a file that can't be read), kanshi would get nothing
+        // of what is set here: sway keeps setting them up from our lines.
+        let unreadable = self.profiles.is_none() && self.kanshi_files.is_some();
+        self.displays = if displays.is_kanshi() && unreadable {
+            generate::Displays::Sway
+        } else {
+            displays
+        };
+    }
+
+    /// Notes that `setting` changed, so the displays are remembered at the next save if it is
+    /// one of theirs.
+    pub(crate) fn touch(&mut self, setting: &Setting) {
+        if setting.scope() == Scope::PerOutput {
+            self.displays_touched = true;
+        }
+    }
+
+    /// What went wrong with the remembered displays or kanshi's files since last asked.
+    pub fn take_displays_problem(&mut self) -> Option<String> {
+        self.displays_problem.take()
     }
 
     /// Who sets up the displays, as [`Applier::set_displays`] said.
@@ -396,6 +433,7 @@ impl<V: Validate> Applier<V> {
         _access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
         let setting = self.setting(key)?;
+        self.touch(setting);
         let requirements = setting.requirements();
         self.compositor
             .check(requirements.min_sway, requirements.min_swayfx)
@@ -446,6 +484,7 @@ impl<V: Validate> Applier<V> {
         _access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
         let setting = self.setting(key)?;
+        self.touch(setting);
         let before = self.state.clone();
         let was = before.get(key, device).cloned();
         if !self.state.reset(key, device)? {
@@ -745,7 +784,7 @@ impl<V: Validate> Applier<V> {
     /// risky change waits (that isn't kept yet), nor without a session. Best effort: what can't
     /// be written is tried again at the next save.
     async fn remember_displays(&mut self) {
-        if !self.displays.is_kanshi() || self.pending.is_some() {
+        if !self.displays.is_kanshi() || self.pending.is_some() || !self.displays_touched {
             return;
         }
         let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
@@ -755,20 +794,31 @@ impl<V: Validate> Applier<V> {
             return;
         };
         if let Some(profile) = Profile::capture(&Outputs::new(&found)) {
-            if profiles.remember(profile) && profiles.save().is_err() {
-                return;
+            if profiles.remember(profile) {
+                if let Err(error) = profiles.save() {
+                    self.displays_problem = Some(format!(
+                        "the displays can't be remembered in {}: {error}",
+                        profiles.path().display()
+                    ));
+                    return;
+                }
             }
         }
-        Self::write_kanshi(profiles).await;
+        self.displays_touched = false;
+        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
     }
 
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
-    async fn write_kanshi(profiles: &Profiles) {
-        let Some(files) = KanshiFiles::from_env() else {
-            return;
-        };
-        if matches!(files.write(&kanshi_config(profiles)), Ok(true)) {
-            kanshi::reload().await;
+    /// Returns what went wrong.
+    async fn write_kanshi(files: Option<&KanshiFiles>, profiles: &Profiles) -> Option<String> {
+        let files = files?;
+        match files.write(&kanshi_config(profiles)) {
+            Ok(true) => {
+                kanshi::reload().await;
+                None
+            }
+            Ok(false) => None,
+            Err(error) => Some(error.to_string()),
         }
     }
 
@@ -802,14 +852,18 @@ impl<V: Validate> Applier<V> {
         if profiles.of(&names).is_none() {
             profiles.remember(captured);
         }
-        if let Some(profile) = profiles.of_mut(&names) {
-            profile.set_mirror(target, mirror);
+        let set = profiles
+            .of_mut(&names)
+            .is_some_and(|profile| profile.set_mirror(target, mirror));
+        if !set {
+            return Err(ApplyError::Mirror);
         }
         let path = profiles.path().to_owned();
         profiles
             .save()
             .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
-        Self::write_kanshi(profiles).await;
+        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        // Idempotent: kanshi's own `hook mirror` after the reload changes nothing more.
         crate::outputs::mirror::apply(profiles, &outputs);
         Ok(())
     }
@@ -875,7 +929,7 @@ impl<V: Validate> Applier<V> {
         profiles
             .save()
             .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
-        Self::write_kanshi(profiles).await;
+        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
         if place {
             crate::outputs::workspaces::apply(client, profiles)
                 .await
@@ -1089,6 +1143,8 @@ pub enum ApplyError {
         /// The key of the change that waits.
         key: &'static str,
     },
+    /// A display can't show another one that is shown elsewhere or shows another itself.
+    Mirror,
     /// No risky change waits to be kept or reverted.
     NothingPending,
     /// A risky change can only be tried in a running session.
@@ -1160,6 +1216,11 @@ impl ApplyError {
             Self::PendingChange { key } => {
                 Text::new(msg!("keep or revert the change of {key} first")).arg("key", key)
             }
+            Self::Mirror => msg!(
+                "a display can't show one that shows another display itself, or be shown \
+                 elsewhere while it shows another"
+            )
+            .into(),
             Self::NothingPending => msg!("no change waits to be kept or reverted").into(),
             Self::NoSession { key } => Text::new(msg!(
                 "{key} can lock you out, so it is only tried in a running sway session, where it \
@@ -1206,6 +1267,7 @@ impl std::error::Error for ApplyError {
             | Self::NotRisky { .. }
             | Self::PendingChange { .. }
             | Self::NothingPending
+            | Self::Mirror
             | Self::NoSession { .. }
             | Self::Lockout { .. }
             | Self::ReloadWithoutSession

@@ -110,17 +110,27 @@ impl Mirroring {
         title.set_hexpand(true);
         title.set_ellipsize(gtk::pango::EllipsizeMode::End);
         title.add_css_class("st-row-title");
+        // No chains, no cycles: only a display that shows its own content can be shown, and a
+        // display shown elsewhere keeps its own.
+        let shown_elsewhere = mirrors.values().any(|mirror| mirror.of == target);
         let sources: Vec<(Option<String>, String)> =
             std::iter::once((None, "Its own content".to_owned()))
                 .chain(
                     displays
                         .iter()
-                        .filter(|(id, _)| id != target)
+                        .filter(|(id, _)| id != target && !mirrors.contains_key(id))
+                        .filter(|_| !shown_elsewhere)
                         .map(|(id, other)| (Some(id.clone()), format!("Mirror of {other}"))),
                 )
                 .collect();
         let labels: Vec<&str> = sources.iter().map(|(_, label)| label.as_str()).collect();
         let source = gtk::DropDown::from_strings(&labels);
+        if shown_elsewhere {
+            source.set_sensitive(false);
+            source.set_tooltip_text(Some(
+                "Shown on another display, so it shows its own content",
+            ));
+        }
         source.update_property(&[gtk::accessible::Property::Label(&format!(
             "What {shown} shows"
         ))]);

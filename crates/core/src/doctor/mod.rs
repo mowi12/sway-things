@@ -997,7 +997,7 @@ impl<V: Validate> Checkup<'_, V> {
     /// our include, a file of someone else's in the place of ours, a profile of the user's that
     /// covers a remembered combination before ours. Nothing without kanshi.
     fn kanshi(&self, findings: &mut Vec<Finding>) {
-        use crate::outputs::kanshi::{self, Inclusion};
+        use crate::outputs::kanshi::Inclusion;
         let Some(files) = &self.kanshi else {
             return;
         };
@@ -1039,27 +1039,44 @@ impl<V: Validate> Checkup<'_, V> {
         let Ok(config) = std::fs::read_to_string(&files.config) else {
             return;
         };
-        for (name, outputs) in kanshi::user_profiles(&config) {
-            let mut sorted: Vec<&str> = outputs.iter().map(String::as_str).collect();
+        // Only a profile before our include can win; a display named by its connector is
+        // matched with the displays connected now.
+        let named = |criteria: &str| {
+            self.outputs
+                .and_then(|outputs| outputs.find(criteria))
+                .map_or_else(
+                    || criteria.to_owned(),
+                    |output| output.identifier().to_owned(),
+                )
+        };
+        for (name, outputs) in files.profiles_before_ours(&config) {
+            let wildcard = outputs.iter().any(|criteria| criteria == "*");
+            let mut sorted: Vec<String> = outputs.iter().map(|criteria| named(criteria)).collect();
             sorted.sort_unstable();
-            if profiles
-                .iter()
-                .any(|profile| profile.combination() == sorted)
-            {
+            let covers = wildcard
+                || profiles.iter().any(|profile| {
+                    profile
+                        .combination()
+                        .iter()
+                        .copied()
+                        .eq(sorted.iter().map(String::as_str))
+                });
+            if covers {
                 findings.push(
                     Finding::new(
                         Code::KanshiProfileOverlap,
                         Severity::Warning,
                         Text::new(msg!(
-                            "The profile {name} in {file} covers displays Sway Things remembers; \
-                             kanshi applies the first profile that matches."
+                            "The profile {name} in {file} comes before the include and covers \
+                             displays Sway Things remembers; kanshi applies the first profile that \
+                             matches."
                         ))
                         .arg("name", name)
                         .arg("file", files.config.display()),
                     )
                     .with_hint(msg!(
-                        "Remove it, or put the include line before it, so the arrangement made \
-                         on the Displays page comes back."
+                        "Remove it, or move the include line above it, so the arrangement made on \
+                         the Displays page comes back."
                     )),
                 );
             }

@@ -164,8 +164,10 @@ new mode, a rotation and switching an output off go through the safety net.
   default). On, a card per display that is on, from left to right and numbered as on the canvas, holds the numbers of
   its workspaces 1 to 10: a click sends a number to the next display, dragging puts it on another card, and the presets
   _Left to Right_ (1 4 7 · 2 5 8 · 3 6 9 …), _A Block per Display_ and _As They Are Now_ fill all cards. Each change is
-  applied at once and remembered for the combination; kanshi has the workspaces placed again whenever the combination
-  comes back, and so does every start and reload of sway. Without kanshi the section says that it needs kanshi.
+  applied at once and remembered for the combination (switching it on keeps what the cards show), and a workspace closed
+  and opened again after a change goes where it was first placed in this session until sway reloads; kanshi has the
+  workspaces placed again whenever the combination comes back, and so does every start and reload of sway. Without
+  kanshi the section says that it needs kanshi.
 - **Mirroring (with kanshi and wl-mirror):** the _Mirroring_ section has a row per display that is on: what it shows,
   _Its own content_ or _Mirror of …_ another display, and for a mirror how it fits (_Fit_, _Cover_, _Exact Multiples_).
   The mirror starts at once as a fullscreen `wl-mirror` window on that display and comes back with the combination; a

@@ -364,7 +364,6 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             return Exit::Failure;
         }
     };
-    let ensured = outputs::ensure_one_on(&mut client).await;
     // Then, sway having just read its config: kanshi applies its profile again over whatever
     // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
     if outputs::kanshi_runs() {
@@ -386,7 +385,10 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             }
         }
     }
-    // sway forgot where the workspaces go: they are placed again, and the mirrors started.
+    // A display is on in the end, whatever kanshi did.
+    let ensured = outputs::ensure_one_on(&mut client).await;
+    // sway forgot where the workspaces go, and the mirrors may be gone: placed and started
+    // again (both change nothing where kanshi's profile did it already).
     let _ = place_workspaces(&mut client).await;
     let _ = start_mirrors(&mut client).await;
     match ensured {

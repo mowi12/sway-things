@@ -288,6 +288,9 @@ impl<V: Validate> Applier<V> {
         replacing: bool,
     ) -> Result<Tried, ApplyError> {
         let (tried, settings_changed) = self.as_tried(device, changes)?;
+        for (setting, _) in &settings_changed {
+            self.touch(setting);
+        }
         if settings_changed.is_empty() {
             return Ok(Tried::Unchanged);
         }
@@ -550,6 +553,7 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
+        self.touch(setting);
         let mut changed = self.state.clone();
         changed.set(key, device, value.clone(), None)?;
         self.check_supported(setting)?;
@@ -588,6 +592,7 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
+        self.touch(setting);
         let mut changed = self.state.clone();
         if !changed.reset(key, device)? {
             return Ok(Applied {
