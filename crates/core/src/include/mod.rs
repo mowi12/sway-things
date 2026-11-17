@@ -60,11 +60,11 @@ pub use watch::{IncludeWatch, MainConfig};
 
 use crate::generate::Locations;
 use crate::i18n::Text;
-use crate::msg;
 use crate::registry::ConfigFile;
 use crate::sway_config::{
     Diagnostic, DiagnosticKind, Directive, Files, Include, SwayConfig, parse,
 };
+use crate::{msg, msg_plural};
 
 /// Whether the user's sway config includes the generated files.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,18 +263,24 @@ impl IncludeStatus {
 
     /// The status in words, for the welcome screen, the banner and the CLI. While Sway Things is
     /// read-only, it ends with the line to add.
-    pub fn message(&self) -> String {
+    pub fn message(&self) -> Text {
         let explanation = self.explanation();
         if self.is_active() {
             explanation
         } else {
-            format!("{explanation}\n\n    {}", self.instructions.line())
+            Text::join(
+                [
+                    explanation,
+                    Text::data(format!("    {}", self.instructions.line())),
+                ],
+                "\n\n",
+            )
         }
     }
 
     /// [`IncludeStatus::message`] without the line to add, for the app, which shows the line on
     /// its own with a copy button. While Sway Things is read-only, it ends with a colon.
-    pub fn explanation(&self) -> String {
+    pub fn explanation(&self) -> Text {
         let places = self
             .lines
             .iter()
@@ -283,32 +289,52 @@ impl IncludeStatus {
             .join(", ");
         match &self.inclusion {
             Inclusion::Active if self.is_last() => {
-                format!("Sway Things is enabled: {places} includes its files.")
+                Text::new(msg!("Sway Things is enabled: {places} includes its files."))
+                    .arg("places", places)
             }
-            Inclusion::Active => format!(
-                "Sway Things is enabled: {places} includes its files. {} of your config lines \
-                 come after them and win where they set the same thing as Sway Things.",
-                self.after().len()
-            ),
-            Inclusion::Partial { missing } => format!(
+            Inclusion::Active => {
+                let after = self.after().len();
+                Text::count(
+                    msg_plural!(
+                        "Sway Things is enabled: {places} includes its files. {count} of your \
+                         config lines comes after them and wins where it sets the same thing as \
+                         Sway Things.",
+                        "Sway Things is enabled: {places} includes its files. {count} of your \
+                         config lines come after them and win where they set the same thing as \
+                         Sway Things."
+                    ),
+                    after,
+                )
+                .arg("places", places)
+                .arg("count", after)
+            }
+            Inclusion::Partial { missing } => Text::new(msg!(
                 "Not enabled yet: your config includes only some of the Sway Things files \
-                 ({places}). Not included: {}. Use this line instead:",
+                 ({places}). Not included: {missing}. Use this line instead:"
+            ))
+            .arg("places", places)
+            .arg(
+                "missing",
                 missing
                     .iter()
                     .map(|file| file.file_name())
                     .collect::<Vec<_>>()
-                    .join(", ")
+                    .join(", "),
             ),
-            Inclusion::Unknown { unfollowed } => format!(
-                "Not enabled yet: Sway Things can't follow part of your config:\n\n{}\n\nIf the \
-                 Sway Things line is in there, add it to {} instead:",
-                unfollowed
-                    .iter()
-                    .map(|diagnostic| format!("    {}", self.unfollowed(diagnostic)))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                self.instructions.config_display()
-            ),
+            Inclusion::Unknown { unfollowed } => {
+                let lines = Text::join(
+                    unfollowed.iter().map(|diagnostic| {
+                        Text::join([Text::data("    "), self.unfollowed(diagnostic)], "")
+                    }),
+                    "\n",
+                );
+                Text::new(msg!(
+                    "Not enabled yet: Sway Things can't follow part of your config:\n\n{lines}\n\n\
+                     If the Sway Things line is in there, add it to {config} instead:"
+                ))
+                .text("lines", lines)
+                .arg("config", self.instructions.config_display())
+            }
             Inclusion::Missing => self.instructions.explanation(),
         }
     }
@@ -323,17 +349,25 @@ impl IncludeStatus {
         }
     }
 
-    fn unfollowed(&self, diagnostic: &Diagnostic) -> String {
+    fn unfollowed(&self, diagnostic: &Diagnostic) -> Text {
         let place = self.place(&diagnostic.file, diagnostic.line);
-        match &diagnostic.kind {
+        let text = match &diagnostic.kind {
             DiagnosticKind::UnresolvedInclude { pattern, reason } => {
-                format!("{place}: include {pattern} ({reason})")
+                return Text::new(msg!("{place}: include {pattern} ({reason})"))
+                    .arg("place", place)
+                    .arg("pattern", pattern)
+                    .text("reason", reason.text());
             }
-            DiagnosticKind::Unreadable { message } => format!("{place} ({message})"),
-            DiagnosticKind::TooDeep => format!("{place} (includes are nested too deeply)"),
-            DiagnosticKind::NotAFile => format!("{place} (not a regular file)"),
-            _ => format!("{place} (too big to read)"),
-        }
+            DiagnosticKind::Unreadable { message } => {
+                return Text::new(msg!("{place} ({error})"))
+                    .arg("place", place)
+                    .arg("error", message);
+            }
+            DiagnosticKind::TooDeep => msg!("{place} (includes are nested too deeply)"),
+            DiagnosticKind::NotAFile => msg!("{place} (not a regular file)"),
+            _ => msg!("{place} (too big to read)"),
+        };
+        Text::new(text).arg("place", place)
     }
 
     /// The permission to save settings and to write generated files.
@@ -383,7 +417,7 @@ pub struct ReadOnly(Box<Reason>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Reason {
     inclusion: Inclusion,
-    explanation: String,
+    explanation: Text,
     instructions: Instructions,
 }
 
@@ -394,7 +428,7 @@ impl ReadOnly {
     }
 
     /// The whole explanation, as in [`IncludeStatus::message`].
-    pub fn explanation(&self) -> &str {
+    pub fn explanation(&self) -> &Text {
         &self.0.explanation
     }
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:24+0100\n"
+"POT-Creation-Date: 2026-11-17 08:31+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -505,7 +505,8 @@ msgid ""
 "this would turn off the last mouse, trackpoint or touchpad you can point with"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#. TRANSLATORS: A label of the system details: the running or installed sway.
+#: crates/core/src/doctor/mod.rs crates/core/src/system.rs
 msgid "Compositor"
 msgstr ""
 
@@ -526,9 +527,378 @@ msgid "Conflicts"
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
+msgid "SWAYSOCK isn't set"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "nothing answers on {socket}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
 msgid ""
 "it isn't known which compositor to generate for: no sway session runs, and "
 "`sway --version` names none"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Sway Things needs sway {sway} or SwayFX {swayfx} or newer."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{compositor} runs in this session."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The running sway can't be used: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"No sway session runs ({reason}). The installed compositor is {compositor}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"No sway session runs ({reason}), and `sway --version` names no version of "
+"sway or SwayFX."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Without the version, the generated files can't be checked against the "
+"compositor. Check which program `sway` is on your PATH."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "No sway session runs ({reason}), and sway can't be run: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install sway or SwayFX, or check your PATH. Without it, the generated files "
+"can't be validated."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The installed {compositor} is not supported: Sway Things {requirement}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Main config: {file} (loaded by the running sway)"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Main config: {file}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "sway finds no config file, so it starts with its defaults."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The settings files load without problems ({count} stored value)."
+msgid_plural ""
+"The settings files load without problems ({count} stored values)."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Nothing in this file is in effect, and Sway Things doesn't write it until it "
+"is fixed."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "The entry is ignored and stays in the file. Fix or remove it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{setting} has no effect: {reason}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The value stays stored and is a comment in the generated file. It takes "
+"effect on a compositor that supports it; reset the setting to remove it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{file} can't be read: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The generated files weren't checked with sway --validate: sway can't be run "
+"({reason})."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Install sway or SwayFX, or check your PATH."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} isn't needed: no stored setting goes into it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} is missing, so the settings that go into it have no effect."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{name} was written by Sway Things; without knowing the compositor, it can't "
+"be told whether it is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings for {compositor}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"This happens after switching between sway and SwayFX, or after editing the "
+"settings files while Sway Things didn't run."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} was changed outside Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Move what you changed into your own config: fixing the file replaces it with "
+"what Sway Things generates."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} wasn't made by Sway Things, so it is never written."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"Move it out of {directory}: the include line reads every *.conf file there, "
+"and Sway Things needs the name."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} (device {device})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{setting}: your config wins: {place} comes after the generated file ({line})."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Remove or change that line, or reset the setting to let your config decide "
+"it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{setting}: {place} ({line}) has no effect while Sway Things stores the "
+"setting."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Remove the line, or reset the setting to let the line take effect again."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "No line of your config sets a stored setting."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "… and {count} more"
+msgid_plural "… and {count} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"Move `include {pattern}` to the end of {file}, unless those lines are meant "
+"to win. The conflicts below name the settings they change."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Move the include line to the end of your config."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The include line isn't last: {count} of your config lines comes after it and "
+"wins where it sets the same thing as Sway Things."
+msgid_plural ""
+"The include line isn't last: {count} of your config lines come after it and "
+"win where they set the same thing as Sway Things."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Sway Things is read-only: your config includes only some of its files."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things is read-only: it can't follow part of your config to find the "
+"include line."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things is read-only: your config doesn't include its files, so nothing "
+"it generates is in effect."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "sway --validate accepts {name}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The file holds what Sway Things generates for the stored settings: reset the "
+"settings named above, and please report this as a bug."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Fixing the file replaces it with what Sway Things generates, if sway accepts "
+"that."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"sway --validate rejects {name}; sway reports errors for it at every start."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{message} (from {settings})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "line {number}: {message}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "line {number}: {message} (from {settings})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: can't be read: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things never runs commands to read your config, so it doesn't know what "
+"that include sets."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include {pattern} can't be followed: {reason}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include: {path} doesn't exist, so sway skips it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{place}: include: {path} was read already, so sway doesn't read it again."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things reads only regular files, as a device, FIFO or socket might "
+"never end, so it doesn't know what sway would read from it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: isn't a regular file, so it wasn't read."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include needs exactly one path, so sway rejects it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: includes are nested too deeply to follow."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: a }} closes no block."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: a block is still open at the end of the file."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{place}: blocks are nested too deeply; this one was skipped with everything "
+"in it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: the config is too big; the rest wasn't read."
 msgstr ""
 
 #: crates/core/src/editor.rs
@@ -547,6 +917,79 @@ msgstr ""
 #: crates/core/src/generate/write.rs
 #, rust-format
 msgid "can't run sway to validate: {error}"
+msgstr ""
+
+#: crates/core/src/include/instructions.rs
+#, rust-format
+msgid ""
+"Sway Things never edits your sway config. It writes its own files and needs "
+"one line in it. You have no sway config of your own yet: copy {system} to "
+"{config} first, then add this line at its end:"
+msgstr ""
+
+#: crates/core/src/include/instructions.rs
+#, rust-format
+msgid ""
+"Sway Things never edits your sway config. It writes its own files and needs "
+"one line at the end of {config}:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "Sway Things is enabled: {places} includes its files."
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Sway Things is enabled: {places} includes its files. {count} of your config "
+"lines comes after them and wins where it sets the same thing as Sway Things."
+msgid_plural ""
+"Sway Things is enabled: {places} includes its files. {count} of your config "
+"lines come after them and win where they set the same thing as Sway Things."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Not enabled yet: your config includes only some of the Sway Things files "
+"({places}). Not included: {missing}. Use this line instead:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Not enabled yet: Sway Things can't follow part of your config:\n"
+"\n"
+"{lines}\n"
+"\n"
+"If the Sway Things line is in there, add it to {config} instead:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place}: include {pattern} ({reason})"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} ({error})"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (includes are nested too deeply)"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (not a regular file)"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (too big to read)"
 msgstr ""
 
 #: crates/core/src/include/mod.rs
@@ -3019,11 +3462,6 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{key} (device {device})"
-msgstr ""
-
-#: crates/core/src/state/mod.rs
-#, rust-format
 msgid "can't be read: {error}"
 msgstr ""
 
@@ -3110,6 +3548,36 @@ msgstr ""
 
 #: crates/core/src/sway_config/expand.rs
 msgid "the pattern matches too many files"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a version that couldn't be found.
+#: crates/core/src/system.rs
+msgid "unknown"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a service that isn't running.
+#: crates/core/src/system.rs
+msgid "not running"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a tool that is installed.
+#: crates/core/src/system.rs
+msgid "installed"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a tool that isn't installed.
+#: crates/core/src/system.rs
+msgid "not installed"
+msgstr ""
+
+#. TRANSLATORS: A label of the system details: the Linux distribution.
+#: crates/core/src/system.rs
+msgid "Distribution"
+msgstr ""
+
+#. TRANSLATORS: A label of the system details: the version of the Linux kernel.
+#: crates/core/src/system.rs
+msgid "Kernel"
 msgstr ""
 
 #: crates/core/src/version.rs

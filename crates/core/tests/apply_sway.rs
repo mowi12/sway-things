@@ -84,7 +84,7 @@ fn a_changed_setting_survives_a_reload() -> Result<()> {
             let status = IncludeStatus::detect(Some(&main), &Disk, &locations);
             let access = status
                 .write_access()
-                .map_err(|error| format!("{error}: {}", status.message()))?;
+                .map_err(|error| format!("{error}: {}", status.message().english()))?;
 
             let paths = Paths::new(&dir.path().join("config"), &dir.path().join("state"), "ci")?;
             let state = State::load(Registry::builtin(), paths);

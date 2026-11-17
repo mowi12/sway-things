@@ -283,13 +283,17 @@ fn untranslated(text: &str, data: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// Every string in `json` and the names of the tools, as data the output may show untranslated.
+/// Every string in `json` and the names of the tools, as data the output may show untranslated:
+/// values, paths, versions. Not the texts of the doctor's findings, which have to be translated.
 fn strings(json: &serde_json::Value, found: &mut Vec<String>) {
     match json {
         serde_json::Value::String(text) => found.push(text.clone()),
         serde_json::Value::Array(items) => items.iter().for_each(|item| strings(item, found)),
         serde_json::Value::Object(map) => {
             for (key, value) in map {
+                if ["message", "details", "hint"].contains(&key.as_str()) {
+                    continue;
+                }
                 // The tools are named by their keys.
                 if key == "tools" {
                     found.extend(
@@ -306,19 +310,11 @@ fn strings(json: &serde_json::Value, found: &mut Vec<String>) {
     }
 }
 
-/// The texts of the system details, which the core doesn't mark yet (#201).
-const SYSTEM: &[&str] = &[
-    "Sway Things",
-    "Compositor",
-    "GTK",
-    "Distribution",
-    "NetworkManager",
-    "Kernel",
-    "not installed",
-    "not running",
-    "installed",
-    "unknown",
-];
+/// The names of programs in the system details, which stay as they are.
+const PRODUCTS: &[&str] = &["Sway Things", "GTK", "NetworkManager"];
+
+/// The line to add to the config of a home, as the instructions show it.
+const INCLUDE_LINE: &str = "include ~/config/sway/sway-things/*.conf";
 
 /// The errors of the system, which Rust's standard library only has in English.
 const OS_ERRORS: &[&str] = &["No such file or directory (os error 2)"];
@@ -364,10 +360,11 @@ fn the_pseudo_locale_leaves_no_text_untranslated() {
     cases.push((Home::new("version = 1\n", INCLUDE), vec!["show-generated"]));
     cases.push((Home::new("version = 1\n", INCLUDE), vec!["open"]));
     for (home, args) in &cases {
-        // What the user typed and what the JSON output says are data: keys, values, paths, and
-        // the core's findings (#201).
-        let mut data: Vec<String> = SYSTEM
+        // What the user typed, the lines of their config and what the JSON output says are data:
+        // keys, values, paths, versions.
+        let mut data: Vec<String> = PRODUCTS
             .iter()
+            .chain(&[INCLUDE_LINE])
             .chain(COMMANDS)
             .chain(OS_ERRORS)
             .chain(args)
@@ -375,6 +372,8 @@ fn the_pseudo_locale_leaves_no_text_untranslated() {
             .collect();
         // The home, and the app `run_with` names in it.
         data.push(home.dir.path().join("no-app").display().to_string());
+        let config = fs::read_to_string(home.dir.path().join("config/sway/config")).unwrap();
+        data.extend(config.lines().map(str::to_owned));
         let json_args: Vec<&str> = match args.first() {
             Some(&"doctor") => vec!["doctor", "--json"],
             Some(&"get") => [args.as_slice(), &["--json"]].concat(),

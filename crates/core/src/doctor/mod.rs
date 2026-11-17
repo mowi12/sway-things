@@ -36,11 +36,11 @@ use crate::generate::{
 use crate::i18n::{Msg, Text};
 use crate::include::{IncludeStatus, Inclusion, MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError};
-use crate::msg;
 use crate::registry::{ConfigFile, SwayMapping};
 use crate::state::{ProblemKind, State};
 use crate::sway_config::{Diagnostic, DiagnosticKind};
 use crate::version::{SwayFxVersion, SwayVersion};
+use crate::{msg, msg_plural};
 
 /// How bad a finding is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -288,13 +288,13 @@ pub struct Finding {
     /// How bad it is.
     pub severity: Severity,
     /// What was found, in a sentence.
-    pub message: String,
+    pub message: Text,
     /// More lines that belong to it: the lines sway rejects, the user's lines after the
     /// include.
-    pub details: Vec<String>,
+    pub details: Vec<Text>,
     /// How to fix it, if there is something to do that [`Finding::fix`] doesn't cover. Can be
     /// several lines.
-    pub hint: Option<String>,
+    pub hint: Option<Text>,
     /// The file it is about.
     pub file: Option<PathBuf>,
     /// The line in [`Finding::file`], counted from 1.
@@ -308,7 +308,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    fn new(code: Code, severity: Severity, message: impl Into<String>) -> Self {
+    fn new(code: Code, severity: Severity, message: impl Into<Text>) -> Self {
         Self {
             code,
             severity,
@@ -328,12 +328,12 @@ impl Finding {
         self.code.section()
     }
 
-    fn with_hint(mut self, hint: impl Into<String>) -> Self {
+    fn with_hint(mut self, hint: impl Into<Text>) -> Self {
         self.hint = Some(hint.into());
         self
     }
 
-    fn with_details(mut self, details: Vec<String>) -> Self {
+    fn with_details(mut self, details: Vec<Text>) -> Self {
         self.details = details;
         self
     }
@@ -418,7 +418,7 @@ pub enum Installed {
     /// `sway` runs, but doesn't print a version of sway or SwayFX that Sway Things can read.
     Unknown,
     /// `sway` can't be run, with the error.
-    Missing(String),
+    Missing(Text),
 }
 
 impl Installed {
@@ -427,7 +427,7 @@ impl Installed {
         match validator.compositor().await {
             Ok(Some(compositor)) => Self::Version(compositor),
             Ok(None) => Self::Unknown,
-            Err(error) => Self::Missing(error.to_string()),
+            Err(error) => Self::Missing(Text::data(error.to_string())),
         }
     }
 }
@@ -440,7 +440,7 @@ pub enum Found {
     /// No session runs.
     NoSession {
         /// Why, e.g. `SWAYSOCK isn't set`.
-        reason: String,
+        reason: Text,
         /// The installed compositor.
         installed: Installed,
     },
@@ -448,7 +448,7 @@ pub enum Found {
     /// answer like sway does.
     Unusable {
         /// What went wrong.
-        error: String,
+        error: Text,
         /// The installed compositor.
         installed: Installed,
     },
@@ -474,15 +474,16 @@ impl Found {
         let installed = Installed::of(validator).await;
         let found = match error {
             IpcError::NoSession => Self::NoSession {
-                reason: "SWAYSOCK isn't set".to_owned(),
+                reason: msg!("SWAYSOCK isn't set").into(),
                 installed,
             },
             IpcError::NotRunning { socket, .. } => Self::NoSession {
-                reason: format!("nothing answers on {}", socket.display()),
+                reason: Text::new(msg!("nothing answers on {socket}"))
+                    .arg("socket", socket.display()),
                 installed,
             },
             error => Self::Unusable {
-                error: error.to_string(),
+                error: error.text(),
                 installed,
             },
         };
@@ -503,7 +504,7 @@ impl Found {
     }
 
     /// Why `sway` can't be run, when no session runs. In a session, it is tried anyway.
-    fn sway_missing(&self) -> Option<&str> {
+    fn sway_missing(&self) -> Option<&Text> {
         match self {
             Self::NoSession {
                 installed: Installed::Missing(error),
@@ -614,17 +615,18 @@ impl<V: Validate> Checkup<'_, V> {
     }
 
     fn compositor(&self, findings: &mut Vec<Finding>) {
-        let supported = format!(
-            "Sway Things needs sway {} or SwayFX {} or newer.",
-            SwayVersion::OLDEST_SUPPORTED,
-            SwayFxVersion::OLDEST_SUPPORTED
-        );
+        let supported = Text::new(msg!(
+            "Sway Things needs sway {sway} or SwayFX {swayfx} or newer."
+        ))
+        .arg("sway", SwayVersion::OLDEST_SUPPORTED)
+        .arg("swayfx", SwayFxVersion::OLDEST_SUPPORTED);
         let installed = match self.found {
             Found::Session(compositor) => {
                 findings.push(Finding::new(
                     Code::Session,
                     Severity::Ok,
-                    format!("{compositor} runs in this session."),
+                    Text::new(msg!("{compositor} runs in this session."))
+                        .arg("compositor", compositor),
                 ));
                 return;
             }
@@ -633,7 +635,8 @@ impl<V: Validate> Checkup<'_, V> {
                     Finding::new(
                         Code::SessionUnusable,
                         Severity::Problem,
-                        format!("The running sway can't be used: {error}."),
+                        Text::new(msg!("The running sway can't be used: {error}."))
+                            .text("error", error.clone()),
                     )
                     .with_hint(supported.clone()),
                 );
@@ -644,32 +647,39 @@ impl<V: Validate> Checkup<'_, V> {
                     Installed::Version(compositor) => Finding::new(
                         Code::NoSession,
                         Severity::Ok,
-                        format!(
+                        Text::new(msg!(
                             "No sway session runs ({reason}). The installed compositor is \
                              {compositor}."
-                        ),
+                        ))
+                        .text("reason", reason.clone())
+                        .arg("compositor", compositor),
                     ),
                     Installed::Unknown => Finding::new(
                         Code::VersionUnknown,
                         Severity::Warning,
-                        format!(
+                        Text::new(msg!(
                             "No sway session runs ({reason}), and `sway --version` names no \
                              version of sway or SwayFX."
-                        ),
+                        ))
+                        .text("reason", reason.clone()),
                     )
-                    .with_hint(
+                    .with_hint(msg!(
                         "Without the version, the generated files can't be checked against the \
-                         compositor. Check which program `sway` is on your PATH.",
-                    ),
+                         compositor. Check which program `sway` is on your PATH."
+                    )),
                     Installed::Missing(error) => Finding::new(
                         Code::SwayMissing,
                         Severity::Problem,
-                        format!("No sway session runs ({reason}), and sway can't be run: {error}."),
+                        Text::new(msg!(
+                            "No sway session runs ({reason}), and sway can't be run: {error}."
+                        ))
+                        .text("reason", reason.clone())
+                        .text("error", error.clone()),
                     )
-                    .with_hint(
+                    .with_hint(msg!(
                         "Install sway or SwayFX, or check your PATH. Without it, the generated \
-                         files can't be validated.",
-                    ),
+                         files can't be validated."
+                    )),
                 };
                 findings.push(finding);
                 installed
@@ -681,9 +691,12 @@ impl<V: Validate> Checkup<'_, V> {
                     Finding::new(
                         Code::InstalledUnsupported,
                         Severity::Problem,
-                        format!(
-                            "The installed {compositor} is not supported: Sway Things {unmet}."
-                        ),
+                        Text::new(msg!(
+                            "The installed {compositor} is not supported: Sway Things \
+                             {requirement}."
+                        ))
+                        .arg("compositor", compositor)
+                        .text("requirement", unmet.text()),
                     )
                     .with_hint(supported),
                 );
@@ -695,16 +708,16 @@ impl<V: Validate> Checkup<'_, V> {
         let status = self.status;
         match status.main() {
             Some(main) => {
-                let loaded = if matches!(self.found, Found::Session(_)) {
-                    " (loaded by the running sway)"
+                let message = if matches!(self.found, Found::Session(_)) {
+                    msg!("Main config: {file} (loaded by the running sway)")
                 } else {
-                    ""
+                    msg!("Main config: {file}")
                 };
                 findings.push(
                     Finding::new(
                         Code::MainConfig,
                         Severity::Ok,
-                        format!("Main config: {}{loaded}", main.display()),
+                        Text::new(message).arg("file", main.display()),
                     )
                     .in_file(main),
                 );
@@ -712,73 +725,11 @@ impl<V: Validate> Checkup<'_, V> {
             None => findings.push(Finding::new(
                 Code::NoConfig,
                 Severity::Problem,
-                "sway finds no config file, so it starts with its defaults.",
+                msg!("sway finds no config file, so it starts with its defaults."),
             )),
         }
         let first = status.lines().first();
-        let include = match status.inclusion() {
-            Inclusion::Active if status.is_last() => {
-                Finding::new(Code::IncludeActive, Severity::Ok, status.explanation())
-            }
-            Inclusion::Active => {
-                const SHOWN: usize = 10;
-                let after = status.after();
-                let mut details: Vec<String> = after
-                    .iter()
-                    .take(SHOWN)
-                    .map(|directive| {
-                        format!(
-                            "{}: {}",
-                            place(&directive.file, directive.line),
-                            directive.text
-                        )
-                    })
-                    .collect();
-                if after.len() > SHOWN {
-                    details.push(format!("… and {} more", after.len() - SHOWN));
-                }
-                let hint = match first {
-                    Some(include) => format!(
-                        "Move `include {}` to the end of {}, unless those lines are meant to \
-                         win. The conflicts below name the settings they change.",
-                        include.pattern,
-                        include.file.display()
-                    ),
-                    None => "Move the include line to the end of your config.".to_owned(),
-                };
-                Finding::new(
-                    Code::IncludeNotLast,
-                    Severity::Warning,
-                    format!(
-                        "The include line isn't last: {} of your config lines come after it and \
-                         win where they set the same thing as Sway Things.",
-                        after.len()
-                    ),
-                )
-                .with_details(details)
-                .with_hint(hint)
-            }
-            Inclusion::Partial { .. } => Finding::new(
-                Code::IncludePartial,
-                Severity::Problem,
-                "Sway Things is read-only: your config includes only some of its files.",
-            )
-            .with_hint(status.message()),
-            Inclusion::Unknown { .. } => Finding::new(
-                Code::IncludeUnknown,
-                Severity::Problem,
-                "Sway Things is read-only: it can't follow part of your config to find the \
-                 include line.",
-            )
-            .with_hint(status.message()),
-            Inclusion::Missing => Finding::new(
-                Code::IncludeMissing,
-                Severity::Problem,
-                "Sway Things is read-only: your config doesn't include its files, so nothing it \
-                 generates is in effect.",
-            )
-            .with_hint(status.message()),
-        };
+        let include = include_finding(status);
         let include = match first {
             Some(line) => include.at(&line.file, line.line),
             None => include.in_file(status.instructions().config()),
@@ -792,16 +743,17 @@ impl<V: Validate> Checkup<'_, V> {
     fn settings(&self, generated: Option<&[GeneratedFile]>, findings: &mut Vec<Finding>) {
         let problems = self.state.problems();
         if problems.is_empty() {
-            findings.push(Finding::new(
-                Code::SettingsLoaded,
-                Severity::Ok,
-                match self.state.entries().len() {
-                    1 => "The settings files load without problems (1 stored value).".to_owned(),
-                    count => {
-                        format!("The settings files load without problems ({count} stored values).")
-                    }
-                },
-            ));
+            findings.push(Finding::new(Code::SettingsLoaded, Severity::Ok, {
+                let count = self.state.entries().len();
+                Text::count(
+                    msg_plural!(
+                        "The settings files load without problems ({count} stored value).",
+                        "The settings files load without problems ({count} stored values)."
+                    ),
+                    count,
+                )
+                .arg("count", count)
+            }));
         }
         for problem in problems {
             let finding = match problem.kind {
@@ -810,14 +762,16 @@ impl<V: Validate> Checkup<'_, V> {
                 | ProblemKind::UnsupportedVersion { .. } => Finding::new(
                     Code::SettingsUnusable,
                     Severity::Problem,
-                    problem.to_string(),
+                    problem.text(),
                 )
-                .with_hint(
+                .with_hint(msg!(
                     "Nothing in this file is in effect, and Sway Things doesn't write it until it \
-                     is fixed.",
-                ),
-                _ => Finding::new(Code::SettingsEntry, Severity::Warning, problem.to_string())
-                    .with_hint("The entry is ignored and stays in the file. Fix or remove it."),
+                     is fixed."
+                )),
+                _ => Finding::new(Code::SettingsEntry, Severity::Warning, problem.text())
+                    .with_hint(msg!(
+                        "The entry is ignored and stays in the file. Fix or remove it."
+                    )),
             };
             findings.push(finding.in_file(&problem.path));
         }
@@ -834,12 +788,14 @@ impl<V: Validate> Checkup<'_, V> {
                 Finding::new(
                     Code::SettingSkipped,
                     Severity::Warning,
-                    format!("{} has no effect: {reason}.", setting_name(source)),
+                    Text::new(msg!("{setting} has no effect: {reason}."))
+                        .text("setting", setting_name(source))
+                        .arg("reason", reason),
                 )
-                .with_hint(
+                .with_hint(msg!(
                     "The value stays stored and is a comment in the generated file. It takes \
-                     effect on a compositor that supports it; reset the setting to remove it.",
-                )
+                     effect on a compositor that supports it; reset the setting to remove it."
+                ))
                 .for_setting(key, source.device.as_deref()),
             );
         }
@@ -876,7 +832,9 @@ impl<V: Validate> Checkup<'_, V> {
                         Finding::new(
                             Code::FileUnreadable,
                             Severity::Problem,
-                            format!("{} can't be read: {error}.", file.file_name()),
+                            Text::new(msg!("{file} can't be read: {error}."))
+                                .arg("file", file.file_name())
+                                .arg("error", error),
                         )
                         .in_file(&path),
                     );
@@ -901,22 +859,23 @@ impl<V: Validate> Checkup<'_, V> {
                     findings.push(validated(file, errors, current, fix).in_file(&path));
                 }
                 Err(error) => {
-                    unvalidated.get_or_insert_with(|| error.to_string());
+                    unvalidated.get_or_insert_with(|| Text::data(error.to_string()));
                 }
             }
         }
-        let reason = missing_sway.map(str::to_owned).or(unvalidated);
+        let reason = missing_sway.cloned().or(unvalidated);
         if let (Some(reason), true) = (reason, checked > 0) {
             findings.push(
                 Finding::new(
                     Code::ValidationSkipped,
                     Severity::Warning,
-                    format!(
+                    Text::new(msg!(
                         "The generated files weren't checked with sway --validate: sway can't be \
                          run ({reason})."
-                    ),
+                    ))
+                    .text("reason", reason),
                 )
-                .with_hint("Install sway or SwayFX, or check your PATH."),
+                .with_hint(msg!("Install sway or SwayFX, or check your PATH.")),
             );
         }
     }
@@ -937,63 +896,79 @@ impl<V: Validate> Checkup<'_, V> {
             Ownership::Absent if !needed.contains(&file) => Finding::new(
                 Code::FileNotNeeded,
                 Severity::Ok,
-                format!("{name} isn't needed: no stored setting goes into it."),
+                Text::new(msg!("{name} isn't needed: no stored setting goes into it."))
+                    .arg("name", name),
             ),
             Ownership::Absent => Finding::new(
                 Code::FileMissing,
                 Severity::Problem,
-                format!("{name} is missing, so the settings that go into it have no effect."),
+                Text::new(msg!(
+                    "{name} is missing, so the settings that go into it have no effect."
+                ))
+                .arg("name", name),
             )
             .fixed_by(regenerate),
             Ownership::Current | Ownership::Ours if !known => Finding::new(
                 Code::FileUnchecked,
                 Severity::Warning,
-                format!(
+                Text::new(msg!(
                     "{name} was written by Sway Things; without knowing the compositor, it can't \
                      be told whether it is up to date."
-                ),
+                ))
+                .arg("name", name),
             ),
             Ownership::Current => Finding::new(
                 Code::FileCurrent,
                 Severity::Ok,
-                format!("{name} is up to date."),
+                Text::new(msg!("{name} is up to date.")).arg("name", name),
             ),
             Ownership::Ours => Finding::new(
                 Code::FileOutOfDate,
                 Severity::Problem,
-                format!(
-                    "{name} is out of date: it doesn't hold what Sway Things generates from the \
-                     stored settings{}.",
-                    compositor
-                        .map(|compositor| format!(" for {compositor}"))
-                        .unwrap_or_default()
-                ),
+                match compositor {
+                    Some(compositor) => Text::new(msg!(
+                        "{file} is out of date: it doesn't hold what Sway Things generates from \
+                         the stored settings for {compositor}."
+                    ))
+                    .arg("file", name)
+                    .arg("compositor", compositor),
+                    None => Text::new(msg!(
+                        "{file} is out of date: it doesn't hold what Sway Things generates from \
+                         the stored settings."
+                    ))
+                    .arg("file", name),
+                },
             )
-            .with_hint(
+            .with_hint(msg!(
                 "This happens after switching between sway and SwayFX, or after editing the \
-                 settings files while Sway Things didn't run.",
-            )
+                 settings files while Sway Things didn't run."
+            ))
             .fixed_by(regenerate),
             Ownership::Edited => Finding::new(
                 Code::FileEdited,
                 Severity::Problem,
-                format!("{name} was changed outside Sway Things."),
+                Text::new(msg!("{name} was changed outside Sway Things.")).arg("name", name),
             )
-            .with_hint(
+            .with_hint(msg!(
                 "Move what you changed into your own config: fixing the file replaces it with \
-                 what Sway Things generates.",
-            )
+                 what Sway Things generates."
+            ))
             .fixed_by(compositor.map(|_| Fix::Overwrite)),
             Ownership::Foreign => Finding::new(
                 Code::FileForeign,
                 Severity::Problem,
-                format!("{name} wasn't made by Sway Things, so it is never written."),
+                Text::new(msg!(
+                    "{name} wasn't made by Sway Things, so it is never written."
+                ))
+                .arg("name", name),
             )
-            .with_hint(format!(
-                "Move it out of {}: the include line reads every *.conf file there, and Sway \
-                 Things needs the name.",
-                self.locations.directory().display()
-            )),
+            .with_hint(
+                Text::new(msg!(
+                    "Move it out of {directory}: the include line reads every *.conf file there, \
+                     and Sway Things needs the name."
+                ))
+                .arg("directory", self.locations.directory().display()),
+            ),
         }
     }
 
@@ -1010,24 +985,28 @@ impl<V: Validate> Checkup<'_, V> {
                 continue;
             };
             let name = match entry.device {
-                Some(device) => format!("{} (device {device})", entry.setting.key()),
-                None => entry.setting.key().to_owned(),
+                Some(device) => Text::new(msg!("{key} (device {device})"))
+                    .arg("key", entry.setting.key())
+                    .arg("device", device),
+                None => Text::data(entry.setting.key()),
             };
             if let Some(line) = report.overriding() {
                 findings.push(
                     Finding::new(
                         Code::ConfigWins,
                         Severity::Warning,
-                        format!(
-                            "{name}: your config wins: {} comes after the generated file ({}).",
-                            place(line.file(), line.line()),
-                            line.text()
-                        ),
+                        Text::new(msg!(
+                            "{setting}: your config wins: {place} comes after the generated file \
+                             ({line})."
+                        ))
+                        .text("setting", name.clone())
+                        .arg("place", place(line.file(), line.line()))
+                        .arg("line", line.text()),
                     )
-                    .with_hint(
+                    .with_hint(msg!(
                         "Remove or change that line, or reset the setting to let your config \
-                         decide it.",
-                    )
+                         decide it."
+                    ))
                     .at(line.file(), line.line())
                     .for_setting(entry.setting.key(), entry.device),
                 );
@@ -1037,15 +1016,17 @@ impl<V: Validate> Checkup<'_, V> {
                     Finding::new(
                         Code::ConfigLineDead,
                         Severity::Ok,
-                        format!(
-                            "{name}: {} ({}) has no effect while Sway Things stores the setting.",
-                            place(line.file(), line.line()),
-                            line.text()
-                        ),
+                        Text::new(msg!(
+                            "{setting}: {place} ({line}) has no effect while Sway Things stores \
+                             the setting."
+                        ))
+                        .text("setting", name.clone())
+                        .arg("place", place(line.file(), line.line()))
+                        .arg("line", line.text()),
                     )
-                    .with_hint(
-                        "Remove the line, or reset the setting to let the line take effect again.",
-                    )
+                    .with_hint(msg!(
+                        "Remove the line, or reset the setting to let the line take effect again."
+                    ))
                     .at(line.file(), line.line())
                     .for_setting(entry.setting.key(), entry.device),
                 );
@@ -1055,9 +1036,93 @@ impl<V: Validate> Checkup<'_, V> {
             findings.push(Finding::new(
                 Code::NoConflicts,
                 Severity::Ok,
-                "No line of your config sets a stored setting.",
+                msg!("No line of your config sets a stored setting."),
             ));
         }
+    }
+}
+
+/// The finding about the include line of `status`.
+fn include_finding(status: &IncludeStatus) -> Finding {
+    let first = status.lines().first();
+    match status.inclusion() {
+        Inclusion::Active if status.is_last() => {
+            Finding::new(Code::IncludeActive, Severity::Ok, status.explanation())
+        }
+        Inclusion::Active => {
+            const SHOWN: usize = 10;
+            let after = status.after();
+            let mut details: Vec<Text> = after
+                .iter()
+                .take(SHOWN)
+                .map(|directive| {
+                    Text::data(format!(
+                        "{}: {}",
+                        place(&directive.file, directive.line),
+                        directive.text
+                    ))
+                })
+                .collect();
+            if after.len() > SHOWN {
+                let more = after.len() - SHOWN;
+                details.push(
+                    Text::count(
+                        msg_plural!("… and {count} more", "… and {count} more"),
+                        more,
+                    )
+                    .arg("count", more),
+                );
+            }
+            let hint = match first {
+                Some(include) => Text::new(msg!(
+                    "Move `include {pattern}` to the end of {file}, unless those lines are \
+                     meant to win. The conflicts below name the settings they change."
+                ))
+                .arg("pattern", &include.pattern)
+                .arg("file", include.file.display()),
+                None => msg!("Move the include line to the end of your config.").into(),
+            };
+            Finding::new(
+                Code::IncludeNotLast,
+                Severity::Warning,
+                Text::count(
+                    msg_plural!(
+                        "The include line isn't last: {count} of your config lines comes \
+                         after it and wins where it sets the same thing as Sway Things.",
+                        "The include line isn't last: {count} of your config lines come after \
+                         it and win where they set the same thing as Sway Things."
+                    ),
+                    after.len(),
+                )
+                .arg("count", after.len()),
+            )
+            .with_details(details)
+            .with_hint(hint)
+        }
+        Inclusion::Partial { .. } => Finding::new(
+            Code::IncludePartial,
+            Severity::Problem,
+            msg!("Sway Things is read-only: your config includes only some of its files."),
+        )
+        .with_hint(status.message()),
+        Inclusion::Unknown { .. } => Finding::new(
+            Code::IncludeUnknown,
+            Severity::Problem,
+            msg!(
+                "Sway Things is read-only: it can't follow part of your config to find the \
+             include line."
+            ),
+        )
+        .with_hint(status.message()),
+        Inclusion::Missing => Finding::new(
+            Code::IncludeMissing,
+            Severity::Problem,
+            msg!(
+                "Sway Things is read-only: your config doesn't include its files, so nothing it \
+             generates is in effect."
+            ),
+        )
+        .with_hint(status.message()),
     }
 }
 
@@ -1074,7 +1139,7 @@ fn validated(
         return Finding::new(
             Code::FileValid,
             Severity::Ok,
-            format!("sway --validate accepts {name}."),
+            Text::new(msg!("sway --validate accepts {name}.")).arg("name", name),
         );
     }
     let details = errors
@@ -1090,15 +1155,20 @@ fn validated(
         })
         .collect();
     let hint = if current.is_some() {
-        "The file holds what Sway Things generates for the stored settings: reset the settings \
-         named above, and please report this as a bug."
+        msg!(
+            "The file holds what Sway Things generates for the stored settings: reset the \
+             settings named above, and please report this as a bug."
+        )
     } else {
-        "Fixing the file replaces it with what Sway Things generates, if sway accepts that."
+        msg!("Fixing the file replaces it with what Sway Things generates, if sway accepts that.")
     };
     Finding::new(
         Code::FileInvalid,
         Severity::Problem,
-        format!("sway --validate rejects {name}; sway reports errors for it at every start."),
+        Text::new(msg!(
+            "sway --validate rejects {name}; sway reports errors for it at every start."
+        ))
+        .arg("name", name),
     )
     .with_details(details)
     .with_hint(hint)
@@ -1115,77 +1185,91 @@ fn place(file: &Path, line: usize) -> String {
 }
 
 /// The settings behind a generated line: `windows.gaps.inner`, with the device if it is for one.
-fn setting_name(source: &Source) -> String {
+fn setting_name(source: &Source) -> Text {
     let keys = source.keys.join(", ");
     match &source.device {
-        Some(device) => format!("{keys} (device {device})"),
-        None => keys,
+        Some(device) => Text::new(msg!("{key} (device {device})"))
+            .arg("key", keys)
+            .arg("device", device),
+        None => Text::data(keys),
     }
 }
 
 /// A line sway rejected: `line 3: message (from windows.gaps.inner)`.
-fn invalid_line(line: &InvalidLine) -> String {
-    let place = match line.line {
-        0 => String::new(),
-        number => format!("line {number}: "),
+fn invalid_line(line: &InvalidLine) -> Text {
+    // sway's message stays as it is.
+    let text = match (line.line, &line.source) {
+        (0, None) => return Text::data(&line.message),
+        (0, Some(_)) => Text::new(msg!("{message} (from {settings})")),
+        (_, None) => Text::new(msg!("line {number}: {message}")),
+        (_, Some(_)) => Text::new(msg!("line {number}: {message} (from {settings})")),
     };
-    let source = line
-        .source
-        .as_ref()
-        .map(|source| format!(" (from {})", setting_name(source)))
-        .unwrap_or_default();
-    format!("{place}{}{source}", line.message)
+    let text = text.arg("number", line.line).arg("message", &line.message);
+    match &line.source {
+        Some(source) => text.text("settings", setting_name(source)),
+        None => text,
+    }
 }
 
 /// What the parser couldn't follow in the user's config.
 fn diagnostic_finding(diagnostic: &Diagnostic) -> Finding {
     let mut severity = Severity::Warning;
     let mut hint = None;
-    let what = match &diagnostic.kind {
+    let place = place(&diagnostic.file, diagnostic.line);
+    let message = match &diagnostic.kind {
         DiagnosticKind::Unreadable { message } => {
             severity = Severity::Problem;
-            format!("can't be read: {message}")
+            Text::new(msg!("{place}: can't be read: {error}.")).arg("error", message)
         }
         DiagnosticKind::UnresolvedInclude { pattern, reason } => {
-            hint = Some(
+            hint = Some(msg!(
                 "Sway Things never runs commands to read your config, so it doesn't know what \
-                 that include sets.",
-            );
-            format!("include {pattern} can't be followed: {reason}")
+                 that include sets."
+            ));
+            Text::new(msg!(
+                "{place}: include {pattern} can't be followed: {reason}."
+            ))
+            .arg("pattern", pattern)
+            .text("reason", reason.text())
         }
-        DiagnosticKind::IncludeNotFound { path } => {
-            format!(
-                "include: {} doesn't exist, so sway skips it",
-                path.display()
-            )
-        }
-        DiagnosticKind::AlreadyIncluded { path } => format!(
-            "include: {} was read already, so sway doesn't read it again",
-            path.display()
-        ),
+        DiagnosticKind::IncludeNotFound { path } => Text::new(msg!(
+            "{place}: include: {path} doesn't exist, so sway skips it."
+        ))
+        .arg("path", path.display()),
+        DiagnosticKind::AlreadyIncluded { path } => Text::new(msg!(
+            "{place}: include: {path} was read already, so sway doesn't read it again."
+        ))
+        .arg("path", path.display()),
         DiagnosticKind::NotAFile => {
             severity = Severity::Problem;
-            hint = Some(
+            hint = Some(msg!(
                 "Sway Things reads only regular files, as a device, FIFO or socket might never \
-                 end, so it doesn't know what sway would read from it.",
-            );
-            "isn't a regular file, so it wasn't read".to_owned()
+                 end, so it doesn't know what sway would read from it."
+            ));
+            msg!("{place}: isn't a regular file, so it wasn't read.").into()
         }
         DiagnosticKind::InvalidInclude => {
-            "include needs exactly one path, so sway rejects it".into()
+            msg!("{place}: include needs exactly one path, so sway rejects it.").into()
         }
-        DiagnosticKind::TooDeep => "includes are nested too deeply to follow".to_owned(),
-        DiagnosticKind::UnmatchedBrace => "a } closes no block".to_owned(),
-        DiagnosticKind::UnclosedBlock => "a block is still open at the end of the file".to_owned(),
-        DiagnosticKind::BlockTooDeep => {
-            "blocks are nested too deeply; this one was skipped with everything in it".to_owned()
+        DiagnosticKind::TooDeep => {
+            msg!("{place}: includes are nested too deeply to follow.").into()
         }
-        DiagnosticKind::TooBig => "the config is too big; the rest wasn't read".to_owned(),
+        DiagnosticKind::UnmatchedBrace => msg!("{place}: a }} closes no block.").into(),
+        DiagnosticKind::UnclosedBlock => {
+            msg!("{place}: a block is still open at the end of the file.").into()
+        }
+        DiagnosticKind::BlockTooDeep => msg!(
+            "{place}: blocks are nested too deeply; this one was skipped with everything in it."
+        )
+        .into(),
+        DiagnosticKind::TooBig => {
+            msg!("{place}: the config is too big; the rest wasn't read.").into()
+        }
     };
     let finding = Finding::new(
         Code::ConfigDiagnostic,
         severity,
-        format!("{}: {what}.", place(&diagnostic.file, diagnostic.line)),
+        message.arg("place", place),
     )
     .at(&diagnostic.file, diagnostic.line);
     match hint {

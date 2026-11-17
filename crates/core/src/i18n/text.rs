@@ -30,6 +30,8 @@ enum Message {
     Count(MsgPlural, usize),
     /// Data, never translated: a line of a config file, a message from another program.
     Data(String),
+    /// Texts one after the other, with a separator that isn't translated (a line break).
+    Join(Vec<Text>, &'static str),
 }
 
 /// A value of a placeholder.
@@ -64,6 +66,15 @@ impl Text {
     pub fn data(text: impl Into<String>) -> Self {
         Self {
             message: Message::Data(text.into()),
+            args: Vec::new(),
+        }
+    }
+
+    /// `texts` one after the other with `separator` between them, which isn't translated: a
+    /// line break, or the blank line between a paragraph and a line of config.
+    pub fn join(texts: impl IntoIterator<Item = Self>, separator: &'static str) -> Self {
+        Self {
+            message: Message::Join(texts.into_iter().collect(), separator),
             args: Vec::new(),
         }
     }
@@ -109,6 +120,13 @@ impl Text {
                 })
                 .unwrap_or(msg.english(*n)),
             Message::Data(text) => return text.clone(),
+            Message::Join(texts, separator) => {
+                return texts
+                    .iter()
+                    .map(|text| text.render(translations))
+                    .collect::<Vec<_>>()
+                    .join(separator);
+            }
         };
         let values: Vec<(&str, String)> = self
             .args
@@ -198,6 +216,21 @@ mod tests {
         let lines = Text::count(MsgPlural::new("{count} line", "{count} lines"), 2).arg("count", 2);
         assert_eq!(lines.translated_with(&translations), "2 Zeilen");
         assert_eq!(lines.english(), "2 lines");
+    }
+
+    #[test]
+    fn joined_texts_keep_their_separator() {
+        let text = Text::join(
+            [
+                Text::new(Msg::new("Add this line:")),
+                Text::data("    include ~/.config/sway/sway-things/*.conf"),
+            ],
+            "\n\n",
+        );
+        assert_eq!(
+            text.english(),
+            "Add this line:\n\n    include ~/.config/sway/sway-things/*.conf"
+        );
     }
 
     #[test]

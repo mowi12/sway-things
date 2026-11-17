@@ -422,7 +422,7 @@ async fn doctor_in<V: Validate>(
     } else {
         Found::NoSession {
             // TRANSLATORS: Why `sway-things doctor` found no sway session.
-            reason: tr(msg!("not in a sway session")).to_owned(),
+            reason: msg!("not in a sway session").into(),
             installed: Installed::Version(compositor),
         }
     };
@@ -803,7 +803,8 @@ fn write_access<V>(session: &Session<V>, io: &mut Io<'_>) -> Option<WriteAccess>
     match session.status.write_access() {
         Ok(access) => Some(access),
         Err(read_only) => {
-            io.error(&read_only).note(read_only.explanation());
+            io.error(&read_only)
+                .note(read_only.explanation().translated());
             None
         }
     }

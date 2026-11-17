@@ -185,7 +185,7 @@ impl SettingView {
             Ok(()) => status
                 .write_access()
                 .err()
-                .map(|read_only| Locked::ReadOnly(read_only.explanation().to_owned()))
+                .map(|read_only| Locked::ReadOnly(read_only.explanation().english()))
                 .or_else(|| unmet_dependency(setting, device, state, status, compositor)),
         };
 

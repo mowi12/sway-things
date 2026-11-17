@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 
 use super::find;
 use super::overlay::Overlay;
+use crate::i18n::Text;
+use crate::msg;
 use crate::registry::ConfigFile;
 use crate::sway_config::Files;
 
@@ -66,23 +68,31 @@ impl Instructions {
     }
 
     /// The instructions as text, with the line on a line of its own at the end.
-    pub fn text(&self) -> String {
-        format!("{}\n\n    {}", self.explanation(), self.line)
+    pub fn text(&self) -> Text {
+        Text::join(
+            [self.explanation(), Text::data(format!("    {}", self.line))],
+            "\n\n",
+        )
     }
 
     /// The instructions as text without the line, which the app shows on its own with a copy
     /// button. It ends with a colon.
-    pub fn explanation(&self) -> String {
+    pub fn explanation(&self) -> Text {
         let config = self.config_display();
-        let place = match &self.copy_from {
-            Some(system) => format!(
-                "needs one line in it. You have no sway config of your own yet: copy {} to \
-                 {config} first, then add this line at its end",
-                system.display()
-            ),
-            None => format!("needs one line at the end of {config}"),
-        };
-        format!("Sway Things never edits your sway config. It writes its own files and {place}:")
+        match &self.copy_from {
+            Some(system) => Text::new(msg!(
+                "Sway Things never edits your sway config. It writes its own files and needs one \
+                 line in it. You have no sway config of your own yet: copy {system} to {config} \
+                 first, then add this line at its end:"
+            ))
+            .arg("system", system.display())
+            .arg("config", config),
+            None => Text::new(msg!(
+                "Sway Things never edits your sway config. It writes its own files and needs one \
+                 line at the end of {config}:"
+            ))
+            .arg("config", config),
+        }
     }
 }
 

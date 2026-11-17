@@ -18,7 +18,7 @@ use sway_things_core::doctor::{
     Checkup, Diagnosis, Finding, Fix, FixError, Section, Severity, Step,
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
-use sway_things_core::i18n::{Msg, MsgPlural, fill, ntrf, tr, trf};
+use sway_things_core::i18n::{Msg, MsgPlural, Text, fill, ntrf, tr, trf};
 use sway_things_core::system::{self, Details};
 use sway_things_core::{msg, msg_plural};
 
@@ -286,7 +286,12 @@ impl fmt::Display for Painted<'_> {
 fn system_text(system: &Details, paint: Paint, out: &mut dyn Write) {
     let _ = writeln!(out, "{}", paint.paint(HEADING, tr(system::heading())));
     for (label, value) in system.lines() {
-        let _ = writeln!(out, "  {label}: {}", value.text());
+        let _ = writeln!(
+            out,
+            "  {}: {}",
+            label.translated(),
+            value.text().translated()
+        );
     }
     let _ = writeln!(out);
 }
@@ -425,7 +430,8 @@ fn summary(diagnosis: &Diagnosis, paint: Paint) -> String {
 }
 
 fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Write) {
-    let mut lines = finding.message.lines();
+    let message = finding.message.translated();
+    let mut lines = message.lines();
     let status = status_word(finding.severity);
     let (word, padding) = status.split_at(status.trim_end().len());
     let _ = writeln!(
@@ -438,10 +444,16 @@ fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Wri
         write_indented(out, indent, line, Style::new(), paint);
     }
     for detail in &finding.details {
-        write_indented(out, &format!("{indent}  "), detail, DIM, paint);
+        write_indented(
+            out,
+            &format!("{indent}  "),
+            &detail.translated(),
+            DIM,
+            paint,
+        );
     }
     if let Some(hint) = &finding.hint {
-        for line in hint.lines() {
+        for line in hint.translated().lines() {
             write_indented(out, indent, line, DIM, paint);
         }
     }
@@ -491,9 +503,9 @@ fn json<V>(
                 "section": finding.section().id(),
                 "code": finding.code.id(),
                 "status": finding.severity.id(),
-                "message": finding.message,
-                "details": finding.details,
-                "hint": finding.hint,
+                "message": finding.message.english(),
+                "details": finding.details.iter().map(Text::english).collect::<Vec<_>>(),
+                "hint": finding.hint.as_ref().map(Text::english),
                 "file": finding.file.as_ref().map(|file| file.display().to_string()),
                 "line": finding.line,
                 "key": finding.key,

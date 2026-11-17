@@ -199,7 +199,7 @@ impl Welcome {
         if let Some(label) = imp.title.get() {
             label.set_text(title);
         }
-        imp.text.set_text(&status.explanation());
+        imp.text.set_text(&status.explanation().translated());
         imp.line.set_text(status.instructions().line());
         let config = status.instructions().config().to_owned();
         // A config that doesn't exist yet has to be created first, as the text says.

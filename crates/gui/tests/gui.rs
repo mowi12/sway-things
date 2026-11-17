@@ -2891,7 +2891,7 @@ fn check_not_last() -> Outcome {
         .status_banner()
         .ok_or_else(|| "  no banner for the lines after the include".to_owned())?;
     ensure(
-        text.contains("1 of your config lines come after them"),
+        text.contains("1 of your config lines comes after them"),
         &format!("the banner says {text:?}"),
     )?;
     window.status_button().emit_clicked();

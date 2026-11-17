@@ -657,7 +657,7 @@ impl Model {
                 | Op::MoveTo { key, device, .. },
                 Err(read_only),
             ) => {
-                self.emit_failed(key, device.as_deref(), read_only.explanation());
+                self.emit_failed(key, device.as_deref(), &explained(&read_only));
             }
             (Op::TryRiskyAll { device, changes }, access) => {
                 self.try_risky_all_now(&mut applier, device.as_deref(), &changes, &status, access)
@@ -669,14 +669,14 @@ impl Model {
                     .await;
             }
             (Op::LetConfigWin(report), Err(read_only)) => {
-                self.emit_failed(report.key(), report.device(), read_only.explanation());
+                self.emit_failed(report.key(), report.device(), &explained(&read_only));
             }
             (Op::Overwrite(file), Ok(access)) => match applier.persist(&[file], &access).await {
                 Ok(persisted) => self.emit_persisted(&persisted),
                 Err(error) => self.emit_problem(&error.to_string()),
             },
             (Op::ResetPage(_) | Op::ReloadSway | Op::Overwrite(_), Err(read_only)) => {
-                self.emit_problem(read_only.explanation());
+                self.emit_problem(&explained(&read_only));
             }
             (Op::Reset { key, device }, Ok(access)) => {
                 self.reset_now(&mut applier, key, device.as_deref(), &status, &access)
@@ -889,7 +889,7 @@ impl Model {
                 .await
                 .map(drop)
                 .map_err(|error| error.to_string()),
-            Err(read_only) => Err(read_only.explanation().to_owned()),
+            Err(read_only) => Err(explained(&read_only)),
         };
         if let Err(message) = result {
             self.emit_failed(key, device, &message);
@@ -1085,4 +1085,9 @@ impl<V: Values> Values for Tried<'_, V> {
             .map(|(_, value)| *value)
             .or_else(|| self.under.get(key))
     }
+}
+
+/// Why settings can't be changed, in the user's language.
+fn explained(read_only: &ReadOnly) -> String {
+    read_only.explanation().translated()
 }
