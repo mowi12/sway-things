@@ -7,6 +7,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
+use crate::i18n::{msg, tr};
 use crate::style;
 
 mod imp {
@@ -107,8 +108,10 @@ impl Placeholder {
     pub fn unbuilt() -> Self {
         Self::new(
             "emblem-system-symbolic",
-            "Not built yet",
-            "This page is planned for a later version of Sway Things.",
+            tr(msg!("Not built yet")),
+            tr(msg!(
+                "This page is planned for a later version of Sway Things."
+            )),
         )
     }
 }

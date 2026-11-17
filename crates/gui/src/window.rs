@@ -11,7 +11,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Pending, Until};
 use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
 
-use crate::i18n::tr;
+use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
 use crate::widgets::{
     BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
@@ -164,7 +164,7 @@ impl Window {
         imp.banner_text.set_wrap(true);
         imp.banner_text
             .set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        let dismiss = gtk::Button::with_label("Dismiss");
+        let dismiss = gtk::Button::with_label(tr(msg!("Dismiss")));
         dismiss.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
             self,
@@ -313,9 +313,12 @@ impl Window {
         let imp = self.imp();
         imp.back.set_icon_name("go-previous-symbolic");
         imp.back.add_css_class("flat");
-        imp.back.set_tooltip_text(Some("Back to the pages"));
         imp.back
-            .update_property(&[gtk::accessible::Property::Label("Back to the pages")]);
+            .set_tooltip_text(Some(tr(msg!("Back to the pages"))));
+        imp.back
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                "Back to the pages"
+            )))]);
         imp.back.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
             self,
@@ -507,16 +510,17 @@ impl Window {
             let note = !status.is_last() && !imp.note_dismissed.get();
             if note {
                 imp.status_text.set_text(&status.explanation().translated());
-                imp.status_button.set_label("Dismiss");
+                imp.status_button.set_label(tr(msg!("Dismiss")));
             }
             imp.status.set_reveal_child(note);
             return;
         }
         imp.welcome.update(&status);
         if imp.welcome_dismissed.get() {
-            imp.status_text
-                .set_text("Not enabled yet: add one line to your sway config to change settings.");
-            imp.status_button.set_label("Show instructions");
+            imp.status_text.set_text(tr(msg!(
+                "Not enabled yet: add one line to your sway config to change settings."
+            )));
+            imp.status_button.set_label(tr(msg!("Show instructions")));
             imp.status.set_reveal_child(true);
         } else {
             imp.status.set_reveal_child(false);
@@ -538,8 +542,8 @@ impl Window {
         imp.safety_text.set_wrap(true);
         imp.safety_text
             .set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        imp.revert.set_label("Revert");
-        imp.keep.set_label("Keep");
+        imp.revert.set_label(tr(msg!("Revert")));
+        imp.keep.set_label(tr(msg!("Keep")));
         for button in [&imp.revert, &imp.keep] {
             button.set_valign(gtk::Align::Center);
         }
@@ -643,7 +647,7 @@ impl Window {
         imp.reload_text.set_wrap(true);
         imp.reload_text
             .set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        imp.reload_button.set_label("Reload sway\u{2026}");
+        imp.reload_button.set_label(tr(msg!("Reload sway…")));
         imp.reload_button.set_valign(gtk::Align::Center);
         imp.reload_button.connect_clicked(glib::clone!(
             #[weak(rename_to = window)]
@@ -698,25 +702,28 @@ impl Window {
                     .collect()
             })
             .unwrap_or_default();
-        let mut detail = "Sway reads its config again. Open windows stay; the bars start again \
-                          and exec_always lines run again."
-            .to_owned();
+        let mut detail = tr(msg!(
+            "Sway reads its config again. Open windows stay; the bars start again and \
+             exec_always lines run again."
+        ))
+        .to_owned();
         if !relogin.is_empty() {
-            let lines = if relogin.len() == 1 {
-                "its line"
-            } else {
-                "their lines"
-            };
-            detail = format!(
-                "{detail}\n\n{} changed, which sway only reads at login: until you log in \
-                 again, sway reports {lines} as an error after the reload.",
-                relogin.join(", ")
+            let relogin_text = ntrf(
+                msg_plural!(
+                    "{settings} changed, which sway only reads at login: until you log in again, \
+                     sway reports its line as an error after the reload.",
+                    "{settings} changed, which sway only reads at login: until you log in again, \
+                     sway reports their lines as an error after the reload."
+                ),
+                relogin.len(),
+                &[("settings", &relogin.join(", "))],
             );
+            detail = format!("{detail}\n\n{relogin_text}");
         }
         let dialog = gtk::AlertDialog::builder()
-            .message("Reload sway?")
+            .message(tr(msg!("Reload sway?")))
             .detail(detail)
-            .buttons(["Cancel", "Reload"])
+            .buttons([tr(msg!("Cancel")), tr(msg!("Reload"))])
             .cancel_button(0)
             .default_button(0)
             .modal(true)
@@ -859,8 +866,11 @@ impl Window {
             return PageView::unbuilt(page);
         };
         if let Some(error) = model.error() {
-            let placeholder =
-                Placeholder::new("dialog-error-symbolic", "Settings can't be loaded", &error);
+            let placeholder = Placeholder::new(
+                "dialog-error-symbolic",
+                tr(msg!("Settings can't be loaded")),
+                &error,
+            );
             return PageView::new(tr(page.title()), tr(page.description()), &placeholder);
         }
         PageView::for_settings(model, page).unwrap_or_else(|| PageView::unbuilt(page))
@@ -941,11 +951,14 @@ impl Window {
 
 /// "1 change applies after sway reloads its config", or "N changes apply …".
 fn reload_text(count: usize) -> String {
-    if count == 1 {
-        "1 change applies after sway reloads its config".to_owned()
-    } else {
-        format!("{count} changes apply after sway reloads its config")
-    }
+    ntrf(
+        msg_plural!(
+            "{count} change applies after sway reloads its config",
+            "{count} changes apply after sway reloads its config"
+        ),
+        count,
+        &[("count", &count)],
+    )
 }
 
 /// "Keep the change to Section › Title? Reverting in N s", with the seconds rounded up. The
@@ -976,7 +989,10 @@ fn safety_text(model: &Model, pending: &Pending) -> String {
     );
     let left = pending.countdown().remaining();
     let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
-    format!("Keep the change to {name}? Reverting in {seconds} s")
+    trf(
+        msg!("Keep the change to {setting}? Reverting in {seconds} s"),
+        &[("setting", &name), ("seconds", &seconds)],
+    )
 }
 
 /// Calls `apply` with whether the preference `key` asks for searches only on request, now and

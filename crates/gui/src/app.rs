@@ -19,6 +19,7 @@ use gtk::{gio, glib};
 use sway_things_core::registry::{Link, Registry};
 
 use crate::args;
+use crate::i18n::{msg, tr, trf};
 use crate::icons;
 use crate::model::Model;
 use crate::style;
@@ -54,7 +55,8 @@ pub fn build() -> gtk::Application {
         glib::Char::from(b'\0'),
         glib::OptionFlags::NONE,
         glib::OptionArg::None,
-        "Print the versions of Sway Things and GTK",
+        // GLib translates the words of its help around it; the man page keeps the English text.
+        tr(msg!("Print the versions of Sway Things and GTK")),
         None,
     );
     // Before the application registers on the bus: no running instance, no display needed.
@@ -117,7 +119,11 @@ pub fn build() -> gtk::Application {
                 glib::ExitCode::SUCCESS
             }
             Err(error) => {
-                command_line.printerr_literal(&format!("error: {error}\n"));
+                let message = trf(
+                    msg!("error: {message}"),
+                    &[("message", &error.text().translated())],
+                );
+                command_line.printerr_literal(&format!("{message}\n"));
                 glib::ExitCode::new(USAGE)
             }
         }

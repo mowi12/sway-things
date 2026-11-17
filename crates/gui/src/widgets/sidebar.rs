@@ -10,7 +10,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::registry::{Hit, Link, Page, Registry, Setting};
 
-use crate::i18n::tr;
+use crate::i18n::{msg, msg_plural, ntrf, tr};
 
 /// The name of the list of pages in the sidebar's stack.
 const PAGES: &str = "pages";
@@ -28,7 +28,7 @@ mod imp {
     use gtk::subclass::prelude::*;
     use sway_things_core::registry::{Link, Page, SearchIndex};
 
-    use crate::i18n::tr;
+    use crate::i18n::{msg, tr};
 
     #[derive(Debug, Default)]
     pub struct Sidebar {
@@ -146,9 +146,12 @@ mod imp {
         /// The search field and the list of results that replaces the pages while searching.
         fn build_search(&self) {
             let sidebar = self.obj();
-            self.entry.set_placeholder_text(Some("Search settings…"));
             self.entry
-                .update_property(&[gtk::accessible::Property::Label("Search settings")]);
+                .set_placeholder_text(Some(tr(msg!("Search settings…"))));
+            self.entry
+                .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                    "Search settings"
+                )))]);
             self.entry.connect_search_changed(glib::clone!(
                 #[weak]
                 sidebar,
@@ -186,9 +189,9 @@ mod imp {
             self.results.set_selection_mode(gtk::SelectionMode::Single);
             self.results.set_activate_on_single_click(true);
             self.results
-                .update_property(&[gtk::accessible::Property::Label("Search results")]);
+                .update_property(&[gtk::accessible::Property::Label(tr(msg!("Search results")))]);
             let nothing = gtk::Label::builder()
-                .label("No settings found")
+                .label(tr(msg!("No settings found")))
                 .wrap(true)
                 .justify(gtk::Justification::Center)
                 .css_classes(["st-no-results", crate::style::DIM])
@@ -420,9 +423,12 @@ impl Sidebar {
         imp.stack.set_visible_child_name(RESULTS);
         imp.results_scroller.vadjustment().set_value(0.0);
         let announcement = match count {
-            0 => "No settings found".to_owned(),
-            1 => "1 result".to_owned(),
-            n => format!("{n} results"),
+            0 => tr(msg!("No settings found")).to_owned(),
+            n => ntrf(
+                msg_plural!("{count} result", "{count} results"),
+                n,
+                &[("count", &n)],
+            ),
         };
         imp.results
             .announce(&announcement, gtk::AccessibleAnnouncementPriority::Medium);

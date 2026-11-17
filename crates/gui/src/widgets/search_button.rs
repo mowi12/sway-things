@@ -5,10 +5,12 @@
 //! at the right of the heading of the other devices or networks. While a search runs, a spinner takes the
 //! icon's place and the label reads _Stop_, at the same width.
 
+use crate::i18n::{msg, tr};
 use gtk::prelude::*;
 
-const SEARCH: &str = "Search";
-const STOP: &str = "Stop";
+/// The names of the labels in their stack.
+const SEARCH: &str = "search";
+const STOP: &str = "stop";
 const ICON: &str = "icon";
 const SPINNER: &str = "spinner";
 
@@ -20,8 +22,8 @@ pub fn setup(button: &gtk::Button) {
         Some(ICON),
     );
     let labels = gtk::Stack::builder().hhomogeneous(true).build();
-    for text in [SEARCH, STOP] {
-        labels.add_named(&gtk::Label::new(Some(text)), Some(text));
+    for (name, text) in [(SEARCH, msg!("Search")), (STOP, msg!("Stop"))] {
+        labels.add_named(&gtk::Label::new(Some(tr(text))), Some(name));
     }
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     content.append(&icons);

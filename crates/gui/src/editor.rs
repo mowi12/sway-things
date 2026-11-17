@@ -11,6 +11,7 @@ use gtk::{gio, glib};
 use sway_things_core::editor::{self, Launch};
 use sway_things_core::registry::{Registry, Value};
 
+use crate::i18n::{msg, trf};
 use crate::model::Model;
 
 /// Opens `file` at `line` (counted from 1), if known, with the editor of `model`'s preference:
@@ -30,7 +31,12 @@ pub fn open(
     let launch = match editor::resolve(&command, file, line, &|name| std::env::var_os(name)) {
         Ok(launch) => launch,
         Err(error) => {
-            on_result(Some(&format!("The editor command {error}")));
+            // TRANSLATORS: {error} says what is wrong with the command, such as "has a quote that
+            // isn't closed".
+            on_result(Some(&trf(
+                msg!("The editor command {error}"),
+                &[("error", &error.text().translated())],
+            )));
             return;
         }
     };
@@ -44,7 +50,10 @@ pub fn open(
                 gio::Cancellable::NONE,
                 move |result| match result {
                     Ok(()) => on_result(None),
-                    Err(error) => on_result(Some(&format!("The config can't be opened: {error}"))),
+                    Err(error) => on_result(Some(&trf(
+                        msg!("The config can't be opened: {error}"),
+                        &[("error", &error)],
+                    ))),
                 },
             );
             return;
@@ -54,7 +63,10 @@ pub fn open(
     let mut child = match run.spawn() {
         Ok(child) => child,
         Err(error) => {
-            on_result(Some(&format!("{program} can't be started: {error}")));
+            on_result(Some(&trf(
+                msg!("{program} can't be started: {error}"),
+                &[("program", &program), ("error", &error)],
+            )));
             return;
         }
     };
@@ -62,8 +74,14 @@ pub fn open(
     glib::spawn_future_local(async move {
         match child.status().await {
             Ok(status) if status.success() => on_result(None),
-            Ok(status) => on_result(Some(&format!("{program} ended with {status}"))),
-            Err(error) => on_result(Some(&format!("{program} failed: {error}"))),
+            Ok(status) => on_result(Some(&trf(
+                msg!("{program} ended with {status}"),
+                &[("program", &program), ("status", &status)],
+            ))),
+            Err(error) => on_result(Some(&trf(
+                msg!("{program} failed: {error}"),
+                &[("program", &program), ("error", &error)],
+            ))),
         }
     });
 }

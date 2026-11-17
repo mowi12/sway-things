@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:38+0100\n"
+"POT-Creation-Date: 2026-11-17 08:52+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -180,7 +180,7 @@ msgid "warning: {message}"
 msgstr ""
 
 #. TRANSLATORS: An error on the command line.
-#: crates/cli/src/lib.rs
+#: crates/cli/src/lib.rs crates/gui/src/app.rs
 #, rust-format
 msgid "error: {message}"
 msgstr ""
@@ -3646,9 +3646,222 @@ msgstr ""
 msgid "can't watch files: {error}"
 msgstr ""
 
+#: crates/gui/src/app.rs
+msgid "Print the versions of Sway Things and GTK"
+msgstr ""
+
+#: crates/gui/src/args.rs
+#, rust-format
+msgid "one link at most: {usage}"
+msgstr ""
+
+#: crates/gui/src/editor.rs
+#, rust-format
+msgid "The editor command {error}"
+msgstr ""
+
+#: crates/gui/src/editor.rs
+#, rust-format
+msgid "The config can't be opened: {error}"
+msgstr ""
+
+#: crates/gui/src/editor.rs
+#, rust-format
+msgid "{program} can't be started: {error}"
+msgstr ""
+
+#: crates/gui/src/editor.rs
+#, rust-format
+msgid "{program} ended with {status}"
+msgstr ""
+
+#: crates/gui/src/editor.rs
+#, rust-format
+msgid "{program} failed: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "Changes to the settings files from outside won't show: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "Collapsed sections can’t be remembered: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "{error}. The old value comes back when sway reloads its config."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "Sway wasn’t reloaded: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The layout can't be switched: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+msgid "The layout can only be switched in a running sway session."
+msgstr ""
+
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/mod.rs
 msgid "no bus"
+msgstr ""
+
+#: crates/gui/src/widgets/placeholder.rs
+msgid "Not built yet"
+msgstr ""
+
+#: crates/gui/src/widgets/placeholder.rs
+msgid "This page is planned for a later version of Sway Things."
+msgstr ""
+
+#: crates/gui/src/widgets/search_button.rs
+msgid "Search"
+msgstr ""
+
+#: crates/gui/src/widgets/search_button.rs
+msgid "Stop"
+msgstr ""
+
+#: crates/gui/src/widgets/sidebar.rs
+msgid "Search settings…"
+msgstr ""
+
+#: crates/gui/src/widgets/sidebar.rs
+msgid "Search settings"
+msgstr ""
+
+#: crates/gui/src/widgets/sidebar.rs
+msgid "Search results"
+msgstr ""
+
+#: crates/gui/src/widgets/sidebar.rs
+msgid "No settings found"
+msgstr ""
+
+#: crates/gui/src/widgets/sidebar.rs
+#, rust-format
+msgid "{count} result"
+msgid_plural "{count} results"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Copy"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Copy the line"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Open config in editor"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Waiting for the line…"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid ""
+"This screen closes by itself once the line is in your config. Until then you "
+"can look around: every page shows your current values, read-only."
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Look around first"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Welcome to Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Sway Things isn't enabled yet"
+msgstr ""
+
+#: crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Dismiss"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Back to the pages"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Not enabled yet: add one line to your sway config to change settings."
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Show instructions"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Revert"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Keep"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Reload sway…"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid ""
+"Sway reads its config again. Open windows stay; the bars start again and "
+"exec_always lines run again."
+msgstr ""
+
+#: crates/gui/src/window.rs
+#, rust-format
+msgid ""
+"{settings} changed, which sway only reads at login: until you log in again, "
+"sway reports its line as an error after the reload."
+msgid_plural ""
+"{settings} changed, which sway only reads at login: until you log in again, "
+"sway reports their lines as an error after the reload."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/window.rs
+msgid "Reload sway?"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Cancel"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Reload"
+msgstr ""
+
+#: crates/gui/src/window.rs
+msgid "Settings can't be loaded"
+msgstr ""
+
+#: crates/gui/src/window.rs
+#, rust-format
+msgid "{count} change applies after sway reloads its config"
+msgid_plural "{count} changes apply after sway reloads its config"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/window.rs
+#, rust-format
+msgid "Keep the change to {setting}? Reverting in {seconds} s"
 msgstr ""
 
 #: data/io.github.mowi12.SwayThings.desktop.in
