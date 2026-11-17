@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:31+0100\n"
+"POT-Creation-Date: 2026-11-17 08:35+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -992,7 +992,7 @@ msgstr ""
 msgid "{place} (too big to read)"
 msgstr ""
 
-#: crates/core/src/include/mod.rs
+#: crates/core/src/include/mod.rs crates/core/src/view.rs
 msgid "Add the include line to change settings"
 msgstr ""
 
@@ -3582,6 +3582,37 @@ msgstr ""
 
 #: crates/core/src/version.rs
 msgid "not a version like 1.10 or 1.10.1"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Requires sway {version}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Requires SwayFX {version}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Turn on {title} first"
+msgstr ""
+
+#. TRANSLATORS: Two choices of a setting, or a list of them and one more.
+#: crates/core/src/view.rs
+#, rust-format
+msgid "{first} or {second}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Only with {title}: {choices}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Only with {title} above {limit}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs

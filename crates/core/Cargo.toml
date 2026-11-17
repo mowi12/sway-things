@@ -42,5 +42,9 @@ name = "bluetooth_bluez"
 required-features = ["test-support"]
 
 [[test]]
+name = "translated"
+required-features = ["test-support"]
+
+[[test]]
 name = "network_nm"
 required-features = ["test-support"]
