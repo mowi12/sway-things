@@ -83,6 +83,8 @@ impl Setup {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Profile {
     outputs: BTreeMap<String, Setup>,
+    /// Which workspace goes on which display, by name ([`super::workspaces`]); empty for none.
+    workspaces: BTreeMap<String, String>,
 }
 
 impl Profile {
@@ -93,7 +95,10 @@ impl Profile {
             .filter(|output| output.is_connected())
             .map(|output| (output.identifier().to_owned(), Setup::of(output)))
             .collect();
-        (!connected.is_empty()).then_some(Self { outputs: connected })
+        (!connected.is_empty()).then_some(Self {
+            outputs: connected,
+            workspaces: BTreeMap::new(),
+        })
     }
 
     /// The names of its displays, sorted: what makes the combination.
@@ -106,6 +111,16 @@ impl Profile {
         self.outputs
             .iter()
             .map(|(name, setup)| (name.as_str(), setup))
+    }
+
+    /// Which workspace goes on which display.
+    pub fn workspaces(&self) -> &BTreeMap<String, String> {
+        &self.workspaces
+    }
+
+    /// The placement of the workspaces of this combination.
+    pub fn set_workspaces(&mut self, workspaces: BTreeMap<String, String>) {
+        self.workspaces = workspaces;
     }
 
     /// The name kanshi knows the profile by: `sway-things-` and the start of a hash of the
@@ -129,7 +144,9 @@ impl Profile {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Profiles {
     path: PathBuf,
-    profiles: Vec<Profile>,
+    list: Vec<Profile>,
+    /// Whether the workspaces are placed on the displays as each profile says (opt-in).
+    place_workspaces: bool,
 }
 
 impl Profiles {
@@ -137,7 +154,8 @@ impl Profiles {
     pub fn empty(path: &Path) -> Self {
         Self {
             path: path.to_owned(),
-            profiles: Vec::new(),
+            list: Vec::new(),
+            place_workspaces: false,
         }
     }
 
@@ -176,52 +194,96 @@ impl Profiles {
                 };
                 outputs.insert(name.to_owned(), setup);
             }
+            let workspaces = table
+                .get("workspaces")
+                .and_then(Item::as_table)
+                .into_iter()
+                .flat_map(Table::iter)
+                .filter_map(|(name, item)| Some((name.to_owned(), item.as_str()?.to_owned())))
+                .collect();
             if !outputs.is_empty() {
-                profiles.push(Profile { outputs });
+                profiles.push(Profile {
+                    outputs,
+                    workspaces,
+                });
             }
         }
+        let place_workspaces = document
+            .get("workspaces")
+            .and_then(|item| item.get("place"))
+            .and_then(Item::as_bool)
+            .unwrap_or(false);
         Ok(Self {
             path: path.to_owned(),
-            profiles,
+            list: profiles,
+            place_workspaces,
         })
+    }
+
+    /// The file they are saved in.
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     /// The remembered combinations.
     pub fn iter(&self) -> impl Iterator<Item = &Profile> {
-        self.profiles.iter()
+        self.list.iter()
     }
 
     /// The profile of the combination of `names`, if one is remembered.
     pub fn of(&self, names: &[&str]) -> Option<&Profile> {
         let mut wanted: Vec<&str> = names.to_vec();
         wanted.sort_unstable();
-        self.profiles
+        self.list
             .iter()
             .find(|profile| profile.combination() == wanted)
     }
 
-    /// Remembers `profile` for its combination, in place of what was remembered for it. Says
-    /// whether anything changed.
-    pub fn remember(&mut self, profile: Profile) -> bool {
+    /// Whether the workspaces are placed on the displays as each profile says.
+    pub fn places_workspaces(&self) -> bool {
+        self.place_workspaces
+    }
+
+    /// Places the workspaces as each profile says, or not.
+    pub fn set_places_workspaces(&mut self, place: bool) {
+        self.place_workspaces = place;
+    }
+
+    /// Remembers `profile` for its combination, in place of what was remembered for it; a
+    /// profile without a placement of the workspaces keeps the one remembered. Says whether
+    /// anything changed.
+    pub fn remember(&mut self, mut profile: Profile) -> bool {
         let combination: Vec<String> = profile
             .combination()
             .into_iter()
             .map(str::to_owned)
             .collect();
-        match self.profiles.iter_mut().find(|known| {
+        match self.list.iter_mut().find(|known| {
             known
                 .combination()
                 .iter()
                 .copied()
                 .eq(combination.iter().map(String::as_str))
         }) {
-            Some(known) if *known == profile => false,
+            Some(known)
+                if profile.workspaces.is_empty()
+                    && *known
+                        == Profile {
+                            workspaces: known.workspaces.clone(),
+                            ..profile.clone()
+                        } =>
+            {
+                false
+            }
             Some(known) => {
+                if profile.workspaces.is_empty() {
+                    profile.workspaces = std::mem::take(&mut known.workspaces);
+                }
                 *known = profile;
                 true
             }
             None => {
-                self.profiles.push(profile);
+                self.list.push(profile);
                 true
             }
         }
@@ -235,14 +297,26 @@ impl Profiles {
     pub fn save(&self) -> io::Result<()> {
         let mut document = DocumentMut::new();
         document.insert("version", value(VERSION));
+        if self.place_workspaces {
+            let mut workspaces = Table::new();
+            workspaces.insert("place", value(true));
+            document.insert("workspaces", Item::Table(workspaces));
+        }
         let mut tables = toml_edit::ArrayOfTables::new();
-        for profile in &self.profiles {
+        for profile in &self.list {
             let mut outputs = Table::new();
             for (name, setup) in &profile.outputs {
                 outputs.insert(name, Item::Table(write_setup(setup)));
             }
             let mut table = Table::new();
             table.insert("output", Item::Table(outputs));
+            if !profile.workspaces.is_empty() {
+                let mut workspaces = Table::new();
+                for (workspace, display) in &profile.workspaces {
+                    workspaces.insert(workspace, value(display.as_str()));
+                }
+                table.insert("workspaces", Item::Table(workspaces));
+            }
             tables.push(table);
         }
         document.insert("profile", Item::ArrayOfTables(tables));
@@ -325,7 +399,7 @@ pub fn kanshi_config(profiles: &Profiles) -> String {
          # Set up the displays on the Displays page; each combination of displays is remembered.\n",
     );
     for profile in profiles.iter() {
-        if let Some(block) = kanshi_profile(profile) {
+        if let Some(block) = kanshi_profile(profile, profiles.place_workspaces) {
             text.push('\n');
             text.push_str(&block);
         }
@@ -337,7 +411,7 @@ pub fn kanshi_config(profiles: &Profiles) -> String {
     text
 }
 
-fn kanshi_profile(profile: &Profile) -> Option<String> {
+fn kanshi_profile(profile: &Profile, place_workspaces: bool) -> Option<String> {
     let mut block = format!("profile {} {{\n", profile.name());
     for (name, setup) in profile.outputs() {
         let quoted = kanshi_quote(name)?;
@@ -359,6 +433,10 @@ fn kanshi_profile(profile: &Profile) -> Option<String> {
             let _ = write!(block, " transform {}", transform.name());
         }
         block.push('\n');
+    }
+    if place_workspaces && !profile.workspaces.is_empty() {
+        // kanshi runs it through a shell; it is our own command, without anything of the user's.
+        block.push_str("    exec sway-things hook workspaces\n");
     }
     block.push_str("}\n");
     Some(block)

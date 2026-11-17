@@ -203,6 +203,16 @@ impl Client {
         self.query(wire::GET_OUTPUTS, b"", "GET_OUTPUTS").await
     }
 
+    /// `GET_WORKSPACES`: the workspaces, each with its output and whether it has the focus.
+    ///
+    /// # Errors
+    ///
+    /// See [`Client::version`].
+    pub async fn workspaces(&mut self) -> Result<Vec<types::Workspace>, IpcError> {
+        self.query(wire::GET_WORKSPACES, b"", "GET_WORKSPACES")
+            .await
+    }
+
     /// `GET_SEATS`: the seats with their devices.
     ///
     /// # Errors

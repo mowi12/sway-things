@@ -25,6 +25,7 @@ const CONNECT_PAUSE: Duration = Duration::from_millis(10);
 
 /// The message types, which a reply repeats.
 pub(super) const RUN_COMMAND: u32 = 0;
+pub(crate) const GET_WORKSPACES: u32 = 1;
 pub(super) const SUBSCRIBE: u32 = 2;
 pub(crate) const GET_OUTPUTS: u32 = 3;
 pub(super) const GET_TREE: u32 = 4;

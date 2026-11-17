@@ -60,6 +60,17 @@ impl KanshiFiles {
         format!("include {shown}")
     }
 
+    /// A command for the user to paste into a terminal that appends [`Self::include_line`] to
+    /// their kanshi config (after a blank line, in case the file doesn't end with one). Sway
+    /// Things never runs it: the user sees what it does.
+    pub fn append_command(&self) -> String {
+        format!(
+            "printf '\\n%s\\n' {} >> {}",
+            shell_quote(&self.include_line()),
+            shell_path(&self.config)
+        )
+    }
+
     /// Whether the user's kanshi config includes ours: [`Inclusion::NoConfig`] if there is
     /// none (it is created then).
     pub fn inclusion(&self) -> Inclusion {
@@ -205,6 +216,24 @@ pub async fn reload() {
     }
 }
 
+/// `text` in single quotes for a POSIX shell, a `'` in it closed, escaped and opened again.
+fn shell_quote(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
+/// `path` for a POSIX shell: `~/` and the rest quoted where it is in the home directory, so it
+/// reads as people write it, else quoted whole.
+fn shell_path(path: &Path) -> String {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    match home
+        .as_deref()
+        .and_then(|home| path.strip_prefix(home).ok())
+    {
+        Some(relative) => format!("~/{}", shell_quote(&relative.display().to_string())),
+        None => shell_quote(&path.display().to_string()),
+    }
+}
+
 /// `path` with a leading `~` and `$HOME`, `$XDG_CONFIG_HOME` replaced.
 fn expand(path: &str) -> String {
     let home = std::env::var("HOME").unwrap_or_default();
@@ -262,6 +291,14 @@ mod tests {
         std::fs::write(&files.config, pattern).unwrap();
         assert_eq!(files.inclusion(), Inclusion::Included);
         assert!(matches("/a/*.conf", "/a/sway-things.conf"));
+        // The command to paste quotes what it appends and where.
+        let command = files.append_command();
+        assert!(
+            command.starts_with("printf '\\n%s\\n' 'include "),
+            "{command}"
+        );
+        assert!(command.contains(" >> "), "{command}");
+        assert_eq!(super::shell_quote("it's"), "'it'\\''s'");
         assert!(!matches("/a/*.conf", "/a/b/c.conf"));
     }
 

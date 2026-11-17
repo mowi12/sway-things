@@ -723,6 +723,14 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   its profile again. The app looks again before each change and when displays come and go (at most every two seconds)
   and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts of per-output
   settings meanwhile. Rows show what the displays run with. A model made for tests never looks.
+- **Workspace placement:** `outputs::workspaces` maps workspaces `1` to `10` to displays by their name in the settings,
+  per combination in `displays.toml` (`[[profile]] workspaces`), opt-in with `[workspaces] place = true`. Presets round
+  the displays left to right or fill them in blocks; `current` reads `GET_WORKSPACES`. `commands` declares
+  `workspace N output X` and moves an open workspace that stands elsewhere (`workspace --no-auto-back-and-forth N`,
+  `move workspace to output X`), since sway's declaration only appends to a list that is never cleared, then gives the
+  focus back. Each kanshi profile with a placement runs `exec sway-things hook workspaces`, and `hook displays` places
+  them again after a start or reload of sway (which forgets the declarations). The page's _Workspaces_ section changes
+  the placement through `Applier::place_workspaces`.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),

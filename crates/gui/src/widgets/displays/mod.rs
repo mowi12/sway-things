@@ -16,6 +16,7 @@
 
 mod canvas;
 mod identify;
+mod workspaces;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -31,6 +32,7 @@ use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
 use sway_things_core::registry::{Scope, Value};
 
 pub use canvas::Canvas;
+pub use workspaces::WorkspaceMap;
 
 use super::SettingRow;
 use crate::model::Model;
@@ -122,7 +124,7 @@ impl Arrangement {
         note.set_xalign(0.0);
         note.set_hexpand(true);
         note.set_selectable(true);
-        let copy = gtk::Button::with_label("Copy Line");
+        let copy = gtk::Button::with_label("Copy Command");
         copy.set_valign(gtk::Align::Center);
         copy.set_visible(false);
         copy.connect_clicked(|button| {
@@ -217,13 +219,13 @@ impl Arrangement {
             (generate::Displays::Sway, Some(files))
                 if kanshi::installed() && files.inclusion() == kanshi::Inclusion::Missing =>
             {
-                let line = files.include_line();
-                copy.set_tooltip_text(Some(&line));
+                let command = files.append_command();
+                copy.set_tooltip_text(Some(&command));
                 copy.set_visible(true);
                 Some(format!(
-                    "So that each combination of displays is remembered, add this line to {}: \
-                     {line}",
-                    files.config.display()
+                    "So that each combination of displays is remembered, your kanshi config needs \
+                     the line \u{201c}{}\u{201d} at its end. This command adds it: {command}",
+                    files.include_line()
                 ))
             }
             (generate::Displays::Sway, _) if !kanshi::installed() => {
@@ -946,6 +948,37 @@ impl RefreshRates {
         }
         self.updating.set(false);
     }
+}
+
+/// Keeps `map` showing the placement of the workspaces for the outputs of `model`, numbered as
+/// `picker` numbers them, until the map is gone.
+pub fn follow_workspaces(model: &Model, map: &WorkspaceMap, picker: &OutputPicker) {
+    let weak_root = map.widget().downgrade();
+    let map_for_update = map.clone();
+    let weak_picker = picker.downgrade();
+    let update = move |model: &Model| {
+        if weak_root.upgrade().is_none() {
+            return;
+        }
+        let Some(outputs) = model.outputs() else {
+            return;
+        };
+        let picker = weak_picker.upgrade();
+        let number =
+            |identifier: &str| picker.as_ref().and_then(|picker| picker.number(identifier));
+        map_for_update.update(model, &outputs, &number);
+    };
+    update(model);
+    let handler = RefCell::new(Some(model.connect_changed(update)));
+    map.widget().connect_destroy(glib::clone!(
+        #[weak]
+        model,
+        move |_| {
+            if let Some(handler) = handler.take() {
+                model.disconnect(handler);
+            }
+        }
+    ));
 }
 
 /// The output with the focus, else the first that is on.

@@ -38,6 +38,7 @@ pub mod layout;
 pub mod profiles;
 #[cfg(test)]
 mod tests;
+pub mod workspaces;
 
 use std::collections::{BTreeSet, VecDeque};
 

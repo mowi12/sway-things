@@ -102,9 +102,10 @@ kanshi, static `output` lines in our include (no profiles).
 
 #### Workspace placement (opt-in)
 
-- [ ] 🟡 Visual map of the screens with workspace numbers: drag a number to another screen
-- [ ] 🟢 Presets: left-to-right, one block per screen, current placement, custom
-- [ ] 🟡 Apply at profile switch via the CLI hook `sway-things hook workspaces --profile <name>`
+- [x] 🟡 Map of the displays with workspace numbers: click a number to send it to the next display, drag it to another
+- [x] 🟢 Presets: left-to-right, one block per display, as they are now
+- [x] 🟡 Applied at every activation of a profile via the CLI hook `sway-things hook workspaces`, and at every start and
+      reload of sway
 
 #### Laptop lid (opt-in)
 

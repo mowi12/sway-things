@@ -70,6 +70,9 @@ _sway__things() {
             sway__things__subcmd__help__subcmd__hook,gsettings)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__gsettings"
                 ;;
+            sway__things__subcmd__help__subcmd__hook,workspaces)
+                cmd="sway__things__subcmd__help__subcmd__hook__subcmd__workspaces"
+                ;;
             sway__things__subcmd__hook,displays)
                 cmd="sway__things__subcmd__hook__subcmd__displays"
                 ;;
@@ -79,6 +82,9 @@ _sway__things() {
             sway__things__subcmd__hook,help)
                 cmd="sway__things__subcmd__hook__subcmd__help"
                 ;;
+            sway__things__subcmd__hook,workspaces)
+                cmd="sway__things__subcmd__hook__subcmd__workspaces"
+                ;;
             sway__things__subcmd__hook__subcmd__help,displays)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__displays"
                 ;;
@@ -87,6 +93,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__hook__subcmd__help,help)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__help"
+                ;;
+            sway__things__subcmd__hook__subcmd__help,workspaces)
+                cmd="sway__things__subcmd__hook__subcmd__help__subcmd__workspaces"
                 ;;
             *)
                 ;;
@@ -209,7 +218,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook)
-            opts="gsettings displays"
+            opts="gsettings displays workspaces"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -237,6 +246,20 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__gsettings)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__workspaces)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -307,7 +330,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook)
-            opts="-h --color --help gsettings displays help"
+            opts="-h --color --help gsettings displays workspaces help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -361,7 +384,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__help)
-            opts="gsettings displays help"
+            opts="gsettings displays workspaces help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -409,6 +432,38 @@ _sway__things() {
                 return 0
             fi
             case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__workspaces)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__workspaces)
+            opts="-h --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;

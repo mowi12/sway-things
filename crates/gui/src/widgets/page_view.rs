@@ -275,7 +275,8 @@ impl PageView {
         if page == Page::MouseTouchpad {
             sections.push(test_area_section(model, &body));
         }
-        let displays = arrangement.map(|shown| (displays::follow(model, &shown, &rows), shown));
+        let displays =
+            arrangement.map(|shown| follow_displays(model, &body, shown, &rows, &mut sections));
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
         }
@@ -561,6 +562,31 @@ fn arrangement_section(
     body.append(&section.body);
     sections.push(section);
     arrangement
+}
+
+/// Lets the Displays page follow its outputs: the picker before the rows, and the
+/// "Workspaces" section after them.
+fn follow_displays(
+    model: &Model,
+    body: &gtk::Box,
+    arrangement: Arrangement,
+    rows: &[SettingRow],
+    sections: &mut Vec<Section>,
+) -> (displays::OutputPicker, Arrangement) {
+    let picker = displays::follow(model, &arrangement, rows);
+    sections.push(workspaces_section(model, body, &picker));
+    (picker, arrangement)
+}
+
+/// The "Workspaces" section of Displays: which workspace goes on which display.
+fn workspaces_section(model: &Model, body: &gtk::Box, picker: &displays::OutputPicker) -> Section {
+    let section = Section::new(model, Page::Displays, "Workspaces", "Workspaces", false);
+    let map = displays::WorkspaceMap::new(model);
+    section.body.append(map.widget());
+    displays::follow_workspaces(model, &map, picker);
+    body.append(&section.header);
+    body.append(&section.body);
+    section
 }
 
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.

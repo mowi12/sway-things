@@ -160,6 +160,12 @@ new mode, a rotation and switching an output off go through the safety net.
   canvas says so (and that kanshi starts with the next login, if nothing starts it yet). Without the include line in an
   existing kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes
   this happen. Any one display alone always comes on, so no combination stays dark.
+- **Workspaces (opt-in, with kanshi):** the _Workspaces_ section has _Place workspaces on the displays_ (off by
+  default). On, a card per display that is on, from left to right and numbered as on the canvas, holds the numbers of
+  its workspaces 1 to 10: a click sends a number to the next display, dragging puts it on another card, and the presets
+  _Left to Right_ (1 4 7 · 2 5 8 · 3 6 9 …), _A Block per Display_ and _As They Are Now_ fill all cards. Each change is
+  applied at once and remembered for the combination; kanshi has the workspaces placed again whenever the combination
+  comes back, and so does every start and reload of sway. Without kanshi the section says that it needs kanshi.
 
 ### Bluetooth
 

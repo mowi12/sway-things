@@ -53,6 +53,7 @@ use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor, Reloads};
+use sway_things_core::outputs::profiles::Profiles;
 use sway_things_core::outputs::{OutputWatch, Outputs};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
@@ -119,6 +120,9 @@ enum Op {
     Revert,
     /// Saves the settings files and writes the generated files.
     Persist,
+    /// Places the workspaces on the displays, or not; with a placement for the displays
+    /// connected now, or with the one they have now.
+    PlaceWorkspaces { place: bool, placement: Placement },
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -129,11 +133,24 @@ enum Op {
     Overwrite(ConfigFile),
 }
 
+/// Where the workspaces go, for [`Model::place_workspaces`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Placement {
+    /// As remembered for the displays connected now.
+    Kept,
+    /// This placement, by workspace name and display name.
+    Of(std::collections::BTreeMap<String, String>),
+    /// Where the workspaces are now.
+    AsNow,
+}
+
 /// What the model works with once it is loaded.
 #[derive(Debug)]
 struct Core {
     /// `None` while a task uses it.
     applier: Option<Applier>,
+    /// The displays remembered per combination, as of the last change.
+    profiles: Option<Profiles>,
     /// The state as of the last change, for the rows to read.
     state: State,
     /// The risky change that waits to be kept or reverted, as of the last change.
@@ -312,6 +329,7 @@ impl Model {
         };
         let core = Core {
             ui,
+            profiles: applier.profiles().cloned(),
             state: applier.state().clone(),
             pending: applier.pending().cloned(),
             waiting: applier.waiting().clone(),
@@ -733,6 +751,30 @@ impl Model {
             .map(|core| core.locations.clone())
     }
 
+    /// Whether the workspaces are placed on the displays, and where they go for the displays
+    /// connected now. `None` without remembered displays.
+    pub fn placement(&self) -> Option<(bool, std::collections::BTreeMap<String, String>)> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let profiles = core.profiles.as_ref()?;
+        let names: Vec<&str> = core
+            .outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(sway_things_core::outputs::Output::identifier)
+            .collect();
+        let placement = profiles
+            .of(&names)
+            .map(|profile| profile.workspaces().clone())
+            .unwrap_or_default();
+        Some((profiles.places_workspaces(), placement))
+    }
+
+    /// Places the workspaces on the displays (`place`) as `placement` says, or not.
+    pub fn place_workspaces(&self, place: bool, placement: Placement) {
+        self.queue(Op::PlaceWorkspaces { place, placement });
+    }
+
     /// Whether a change is queued or in progress.
     pub fn is_busy(&self) -> bool {
         self.imp().busy.get()
@@ -764,7 +806,8 @@ impl Model {
             | Op::Reload
             | Op::ReloadSway
             | Op::SwayReloaded
-            | Op::Overwrite(_) => false,
+            | Op::Overwrite(_)
+            | Op::PlaceWorkspaces { .. } => false,
         })
     }
 
@@ -840,13 +883,7 @@ impl Model {
             (applier, core.status.clone())
         };
         let mut applier = applier;
-        // kanshi may have started or stopped since the app opened.
-        let displays = self.displays();
-        applier.set_displays(displays);
-        if self.imp().displays.replace(displays) != displays && !matches!(op, Op::Persist) {
-            // kanshi started or stopped: the lines for the displays go or come back.
-            self.queue(Op::Persist);
-        }
+        self.follow_displays(&mut applier, matches!(op, Op::Persist));
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
             (
@@ -932,6 +969,10 @@ impl Model {
                 )),
             },
             (Op::SwayReloaded, _) => applier.reloaded(),
+            (Op::PlaceWorkspaces { place, placement }, _) => {
+                self.place_workspaces_now(&mut applier, place, placement)
+                    .await;
+            }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
@@ -954,6 +995,7 @@ impl Model {
             core.outputs.set_stored(&core.state);
             core.pending = pending;
             core.waiting = applier.waiting().clone();
+            core.profiles = applier.profiles().cloned();
             core.applier = Some(applier);
         }
         self.emit_by_name::<()>("changed", &[]);
@@ -1179,6 +1221,33 @@ impl Model {
                 msg!("The layout can't be switched: {error}"),
                 &[("error", &error.text().translated())],
             ));
+        }
+    }
+
+    /// Tells `applier` who sets up the displays now: kanshi may have been set up or gone since
+    /// the app opened. When that changed, the files are written again (unless `persisting`
+    /// already), so the lines for the displays go or come back.
+    fn follow_displays(&self, applier: &mut Applier, persisting: bool) {
+        let displays = self.displays();
+        applier.set_displays(displays);
+        if self.imp().displays.replace(displays) != displays && !persisting {
+            self.queue(Op::Persist);
+        }
+    }
+
+    /// Places the workspaces (`place`) as `placement` says, or not.
+    async fn place_workspaces_now(&self, applier: &mut Applier, place: bool, placement: Placement) {
+        let placement = match placement {
+            Placement::Kept => Ok(None),
+            Placement::Of(placement) => Ok(Some(placement)),
+            Placement::AsNow => applier.current_placement().await.map(Some),
+        };
+        let placed = match placement {
+            Ok(placement) => applier.place_workspaces(place, placement).await,
+            Err(error) => Err(error),
+        };
+        if let Err(error) = placed {
+            self.emit_problem(&format!("The workspaces weren\u{2019}t placed: {error}."));
         }
     }
 

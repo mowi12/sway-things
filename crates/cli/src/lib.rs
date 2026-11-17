@@ -153,6 +153,9 @@ pub enum Hook {
     /// run at every start and reload of sway while Sway Things stores anything for a display, so
     /// it never leaves you without one
     Displays,
+    /// Put the workspaces on the displays as remembered for the displays connected now: run by
+    /// kanshi when it applied a profile, while the workspaces are placed (Displays page)
+    Workspaces,
 }
 
 /// The binary of the app.
@@ -230,6 +233,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
+        Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -378,6 +382,8 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             }
         }
     }
+    // sway forgot where the workspaces go: they are placed again.
+    let _ = place_workspaces(&mut client).await;
     match ensured {
         Ok(Some(name)) => {
             let _ = writeln!(
@@ -398,6 +404,37 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             Exit::Failure
         }
     }
+}
+
+/// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
+/// connected now, if they are placed.
+async fn hook_workspaces(err: &mut dyn Write) -> Exit {
+    let mut client = match Client::connect().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            return Exit::Failure;
+        }
+    };
+    match place_workspaces(&mut client).await {
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            Exit::Failure
+        }
+    }
+}
+
+/// Puts the workspaces where the remembered profiles say, as [`outputs::workspaces::apply`].
+/// Without remembered profiles (none, or none that can be read), nothing happens.
+async fn place_workspaces(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return Ok(0);
+    };
+    let Ok(profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
+        return Ok(0);
+    };
+    outputs::workspaces::apply(client, &profiles).await
 }
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
@@ -486,7 +523,9 @@ pub async fn run<V: Validate>(
     // The doctor reports the problems of the settings files itself; `open` doesn't read them.
     if !matches!(
         command,
-        Command::Doctor(_) | Command::Open { .. } | Command::Hook(Hook::Displays)
+        Command::Doctor(_)
+            | Command::Open { .. }
+            | Command::Hook(Hook::Displays | Hook::Workspaces)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -560,8 +599,31 @@ pub async fn run<V: Validate>(
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
-        Command::Hook(Hook::Gsettings) => hook_gsettings(session, &mut io),
-        Command::Hook(Hook::Displays) => match session.applier.client() {
+        Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+    }
+}
+
+/// A hook in a session that runs already (as the tests do; for the user, `run_for_user` runs
+/// them without loading the settings).
+async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
+    match hook {
+        Hook::Gsettings => hook_gsettings(session, io),
+        Hook::Workspaces => match (
+            session.applier.profiles().cloned(),
+            session.applier.client(),
+        ) {
+            (Some(profiles), Some(client)) => {
+                match outputs::workspaces::apply(client, &profiles).await {
+                    Ok(_) => Exit::Ok,
+                    Err(error) => {
+                        io.error(error_line(&error));
+                        Exit::Failure
+                    }
+                }
+            }
+            _ => Exit::Ok,
+        },
+        Hook::Displays => match session.applier.client() {
             Some(client) => match outputs::ensure_one_on(client).await {
                 Ok(_) => Exit::Ok,
                 Err(error) => {

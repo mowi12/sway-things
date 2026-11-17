@@ -754,12 +754,82 @@ impl<V: Validate> Applier<V> {
                 return;
             }
         }
+        Self::write_kanshi(profiles).await;
+    }
+
+    /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
+    async fn write_kanshi(profiles: &Profiles) {
         let Some(files) = KanshiFiles::from_env() else {
             return;
         };
         if matches!(files.write(&kanshi_config(profiles)), Ok(true)) {
             kanshi::reload().await;
         }
+    }
+
+    /// Where the workspaces are now, by workspace name and display name.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NoSession`] without a session, and the IPC errors.
+    pub async fn current_placement(
+        &mut self,
+    ) -> Result<std::collections::BTreeMap<String, String>, ApplyError> {
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession {
+                key: "workspaces.placement",
+            });
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        let open = client.workspaces().await.map_err(ApplyError::Ipc)?;
+        Ok(crate::outputs::workspaces::current(&outputs, &open))
+    }
+
+    /// The setups of the displays remembered per combination, if they could be loaded.
+    pub fn profiles(&self) -> Option<&Profiles> {
+        self.profiles.as_ref()
+    }
+
+    /// Places the workspaces on the displays as the profile of each combination says (`place`),
+    /// or not; with `placement`, that is the placement for the combination connected now. Saved
+    /// at once, written for kanshi, and with `place` the workspaces are moved now.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NoSession`]-like errors without a session or profiles, and the IPC errors.
+    pub async fn place_workspaces(
+        &mut self,
+        place: bool,
+        placement: Option<std::collections::BTreeMap<String, String>>,
+    ) -> Result<(), ApplyError> {
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return Err(ApplyError::NoSession {
+                key: "workspaces.placement",
+            });
+        };
+        profiles.set_places_workspaces(place);
+        if let Some(placement) = placement {
+            let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+            if let Some(mut profile) = Profile::capture(&outputs) {
+                let names: Vec<&str> = profile.combination();
+                if let Some(known) = profiles.of(&names) {
+                    profile = known.clone();
+                }
+                profile.set_workspaces(placement);
+                profiles.remember(profile);
+            }
+        }
+        let path = profiles.path().to_owned();
+        profiles
+            .save()
+            .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
+        Self::write_kanshi(profiles).await;
+        if place {
+            crate::outputs::workspaces::apply(client, profiles)
+                .await
+                .map_err(ApplyError::Ipc)?;
+        }
+        Ok(())
     }
 
     /// The stored changes that wait for a reload of sway or the next login.
