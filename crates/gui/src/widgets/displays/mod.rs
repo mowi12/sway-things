@@ -518,10 +518,57 @@ pub fn mode_choices(output: Option<&Output>) -> Vec<(String, String)> {
     mode_choices_with(output, None)
 }
 
-/// The modes of `output` for the mode row, and `current`, the value the row shows, if it is a
-/// mode the output doesn't list (one set in the user's config, or the mode of an output sway
-/// reports without its modes).
+/// The resolutions to choose from for `output`: _Automatic_, then each size it offers, largest
+/// first, each standing for its mode with the highest refresh rate. The size of `current` stands
+/// for `current` itself, so choosing a resolution keeps the refresh rate where it can.
 fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
+    let modes = known_modes(output, current);
+    let current = current.and_then(|text| Mode::parse(text).ok());
+    let mut sizes: Vec<(u32, u32)> = Vec::new();
+    for mode in &modes {
+        if !sizes.contains(&(mode.width(), mode.height())) {
+            sizes.push((mode.width(), mode.height()));
+        }
+    }
+    std::iter::once((String::new(), "Automatic".to_owned()))
+        .chain(sizes.into_iter().filter_map(|(width, height)| {
+            let mode = current
+                .filter(|mode| (mode.width(), mode.height()) == (width, height))
+                .or_else(|| {
+                    modes
+                        .iter()
+                        .copied()
+                        .filter(|mode| (mode.width(), mode.height()) == (width, height))
+                        .max_by_key(|mode| mode.refresh().unwrap_or(0))
+                })?;
+            Some((mode.to_string(), format!("{width} \u{d7} {height}")))
+        }))
+        .collect()
+}
+
+/// The refresh rates to choose from for the resolution of `current` on `output`, highest first:
+/// each the whole mode, labeled with its rate. Empty for _Automatic_.
+fn refresh_choices(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
+    let Some(mode) = current.and_then(|text| Mode::parse(text).ok()) else {
+        return Vec::new();
+    };
+    let mut rates: Vec<Mode> = Vec::new();
+    for known in known_modes(output, Some(&mode.to_string())) {
+        let same_size = (known.width(), known.height()) == (mode.width(), mode.height());
+        if same_size && !rates.iter().any(|rate| rate.refresh() == known.refresh()) {
+            rates.push(known);
+        }
+    }
+    rates.sort_by_key(|rate| std::cmp::Reverse(rate.refresh().unwrap_or(0)));
+    rates
+        .into_iter()
+        .map(|rate| (rate.to_string(), refresh_label(rate)))
+        .collect()
+}
+
+/// The modes of `output`, and `current` and the mode in use if it doesn't list them, largest
+/// and fastest first.
+fn known_modes(output: Option<&Output>, current: Option<&str>) -> Vec<Mode> {
     let mut modes: Vec<Mode> = output
         .map(|output| output.modes().to_vec())
         .unwrap_or_default();
@@ -544,26 +591,19 @@ fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(Str
             mode.refresh().unwrap_or(0),
         ))
     });
-    std::iter::once((String::new(), "Automatic".to_owned()))
-        .chain(
-            modes
-                .into_iter()
-                .map(|mode| (mode.to_string(), mode_label(mode))),
-        )
-        .collect()
+    modes
 }
 
-/// A mode as people read it: `2560 × 1440 · 59.95 Hz`.
-pub fn mode_label(mode: Mode) -> String {
-    let size = format!("{} \u{d7} {}", mode.width(), mode.height());
+/// A refresh rate as people read it: `59.951 Hz`, or `Any rate` for a mode without one.
+fn refresh_label(mode: Mode) -> String {
     match mode.refresh() {
         Some(millihertz) => {
             // Three decimals, as sway counts them: 59.95 and 59.951 Hz are two modes.
             let hertz = format!("{:.3}", f64::from(millihertz) / 1000.0);
             let hertz = hertz.trim_end_matches('0').trim_end_matches('.');
-            format!("{size} \u{b7} {hertz} Hz")
+            format!("{hertz} Hz")
         }
-        None => size,
+        None => "Any rate".to_owned(),
     }
 }
 
@@ -708,6 +748,94 @@ fn offer_modes(row: &SettingRow, output: Option<&Output>) {
         _ => None,
     };
     row.set_choices(&mode_choices_with(output, current.as_deref()));
+    let rates = RefreshRates::of(row);
+    rates.offer(
+        &refresh_choices(output, current.as_deref()),
+        current.as_deref(),
+    );
+}
+
+/// The second control of the mode's row: the refresh rate, apart from the resolution. Each entry
+/// is a whole mode of the resolution chosen; choosing one sends it as the row's value.
+#[derive(Clone)]
+struct RefreshRates {
+    dropdown: gtk::DropDown,
+    labels: gtk::StringList,
+    values: Rc<RefCell<Vec<String>>>,
+    updating: Rc<std::cell::Cell<bool>>,
+}
+
+impl RefreshRates {
+    /// The refresh rates of the mode's `row`, added to it the first time.
+    fn of(row: &SettingRow) -> Self {
+        thread_local! {
+            static ROWS: RefCell<Vec<(glib::WeakRef<SettingRow>, RefreshRates)>> =
+                const { RefCell::new(Vec::new()) };
+        }
+        ROWS.with_borrow_mut(|rows| {
+            rows.retain(|(weak, _)| weak.upgrade().is_some());
+            if let Some((_, rates)) = rows
+                .iter()
+                .find(|(weak, _)| weak.upgrade().as_ref() == Some(row))
+            {
+                return rates.clone();
+            }
+            let rates = Self::new(row);
+            rows.push((row.downgrade(), rates.clone()));
+            rates
+        })
+    }
+
+    fn new(row: &SettingRow) -> Self {
+        let labels = gtk::StringList::new(&[]);
+        let dropdown = gtk::DropDown::new(Some(labels.clone()), gtk::Expression::NONE);
+        dropdown.set_valign(gtk::Align::Center);
+        dropdown.update_property(&[gtk::accessible::Property::Label("Refresh rate")]);
+        dropdown.set_tooltip_text(Some("Refresh rate"));
+        let rates = Self {
+            dropdown,
+            labels,
+            values: Rc::new(RefCell::new(Vec::new())),
+            updating: Rc::new(std::cell::Cell::new(false)),
+        };
+        let weak_row = row.downgrade();
+        let values = Rc::clone(&rates.values);
+        let updating = Rc::clone(&rates.updating);
+        rates.dropdown.connect_selected_notify(move |dropdown| {
+            if updating.get() {
+                return;
+            }
+            let value = usize::try_from(dropdown.selected())
+                .ok()
+                .and_then(|index| values.borrow().get(index).cloned());
+            if let (Some(row), Some(value)) = (weak_row.upgrade(), value) {
+                if row.value() != Some(Value::Text(value.clone())) {
+                    row.change(Value::Text(value));
+                }
+            }
+        });
+        row.add_control(&rates.dropdown);
+        rates
+    }
+
+    /// Offers `choices` and shows `current` among them; hidden while sway chooses the mode.
+    fn offer(&self, choices: &[(String, String)], current: Option<&str>) {
+        self.updating.set(true);
+        let shown: Vec<&str> = choices.iter().map(|(_, label)| label.as_str()).collect();
+        self.labels.splice(0, self.labels.n_items(), &shown);
+        self.values
+            .replace(choices.iter().map(|(value, _)| value.clone()).collect());
+        let index = choices
+            .iter()
+            .position(|(value, _)| Some(value.as_str()) == current)
+            .and_then(|index| u32::try_from(index).ok())
+            .unwrap_or(gtk::INVALID_LIST_POSITION);
+        self.dropdown.set_selected(index);
+        self.dropdown.set_visible(!choices.is_empty());
+        // One rate is nothing to choose, but still says what it is.
+        self.dropdown.set_sensitive(choices.len() > 1);
+        self.updating.set(false);
+    }
 }
 
 /// The output with the focus, else the first that is on.
@@ -721,25 +849,38 @@ fn focused(outputs: &Outputs) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::mode_label;
+    use super::{mode_choices_with, refresh_choices, refresh_label};
     use sway_things_core::command::output::Mode;
 
     #[test]
-    fn modes_read_as_people_read_them() {
-        let label = |text: &str| mode_label(Mode::parse(text).unwrap());
+    fn rates_read_as_people_read_them() {
+        let label = |text: &str| refresh_label(Mode::parse(text).unwrap());
+        assert_eq!(label("2560x1440@59.951Hz"), "59.951 Hz");
+        assert_eq!(label("2560x1440@59.95Hz"), "59.95 Hz");
+        assert_eq!(label("1920x1080@60Hz"), "60 Hz");
+        assert_eq!(label("1920x1080@143.912Hz"), "143.912 Hz");
+        assert_eq!(label("1280x720"), "Any rate");
+    }
+
+    #[test]
+    fn resolutions_and_rates_are_chosen_apart() {
+        // Without the output's modes, only the current one is known.
+        let current = Some("1920x1080@59.94Hz");
+        let resolutions = mode_choices_with(None, current);
         assert_eq!(
-            label("2560x1440@59.951Hz"),
-            "2560 \u{d7} 1440 \u{b7} 59.951 Hz"
+            resolutions,
+            [
+                (String::new(), "Automatic".to_owned()),
+                (
+                    "1920x1080@59.94Hz".to_owned(),
+                    "1920 \u{d7} 1080".to_owned()
+                ),
+            ]
         );
         assert_eq!(
-            label("2560x1440@59.95Hz"),
-            "2560 \u{d7} 1440 \u{b7} 59.95 Hz"
+            refresh_choices(None, current),
+            [("1920x1080@59.94Hz".to_owned(), "59.94 Hz".to_owned())]
         );
-        assert_eq!(label("1920x1080@60Hz"), "1920 \u{d7} 1080 \u{b7} 60 Hz");
-        assert_eq!(
-            label("1920x1080@143.912Hz"),
-            "1920 \u{d7} 1080 \u{b7} 143.912 Hz"
-        );
-        assert_eq!(label("1280x720"), "1280 \u{d7} 720");
+        assert_eq!(refresh_choices(None, Some("")), [] as [(String, String); 0]);
     }
 }

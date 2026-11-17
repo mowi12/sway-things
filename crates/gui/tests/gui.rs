@@ -5266,23 +5266,32 @@ fn check_display_pick() -> Outcome {
         mode.device().as_deref() == Some(RIGHT),
         "the mode row isn't for the picked output",
     )?;
-    let dropdown = mode
+    let dropdowns: Vec<gtk::DropDown> = mode
         .controls()
         .into_iter()
-        .find_map(|control| control.downcast::<gtk::DropDown>().ok())
-        .ok_or_else(|| "  the mode row has no drop-down".to_owned())?;
-    let offered: Vec<String> = dropdown
-        .model()
-        .map(|model| {
-            (0..model.n_items())
-                .filter_map(|index| model.item(index).and_downcast::<gtk::StringObject>())
-                .map(|item| item.string().to_string())
-                .collect()
-        })
-        .unwrap_or_default();
+        .filter_map(|control| control.downcast::<gtk::DropDown>().ok())
+        .collect();
+    let offered = |dropdown: &gtk::DropDown| -> Vec<String> {
+        dropdown
+            .model()
+            .map(|model| {
+                (0..model.n_items())
+                    .filter_map(|index| model.item(index).and_downcast::<gtk::StringObject>())
+                    .map(|item| item.string().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let [resolution, rate] = dropdowns.as_slice() else {
+        return Err(format!("  the mode row has {} drop-downs", dropdowns.len()));
+    };
     ensure(
-        offered == ["Automatic", "2560 \u{d7} 1440 \u{b7} 59.951 Hz"],
-        &format!("  the mode row offers {offered:?}"),
+        offered(resolution) == ["Automatic", "2560 \u{d7} 1440"],
+        &format!("  the mode row offers {:?}", offered(resolution)),
+    )?;
+    ensure(
+        offered(rate) == ["59.951 Hz"],
+        &format!("  the refresh rates are {:?}", offered(rate)),
     )?;
     // The picker back to every output: no tile is pressed.
     picker.dropdown().set_selected(0);

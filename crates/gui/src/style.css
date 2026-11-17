@@ -274,6 +274,19 @@ st-display-canvas .st-display-details {
   font-size: 0.85em;
 }
 
+/* The grip in the corner of a tile that scales its display: two short lines, like a corner */
+st-display-canvas > .st-display-grip {
+  min-width: 0;
+  min-height: 0;
+  border-right: 2px solid alpha(currentColor, 0.55);
+  border-bottom: 2px solid alpha(currentColor, 0.55);
+  border-bottom-right-radius: 4px;
+}
+
+st-display-canvas > .st-display-grip:hover {
+  border-color: @theme_selected_bg_color;
+}
+
 /* The warning about displays that overlap or don't touch */
 .st-display-warning {
   padding: 10px 12px;

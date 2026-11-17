@@ -57,6 +57,12 @@ type Deferred = (Outputs, Vec<(String, usize)>);
 const GUIDE_BEYOND: f64 = 12.0;
 /// How thick a guide line is, in pixels.
 const GUIDE_WIDTH: f64 = 2.0;
+/// How wide the marker of the place between two tiles a dragged one goes into is, in pixels.
+const SLOT_WIDTH: f64 = 4.0;
+/// How big the grip in the corner of a tile is, in pixels.
+const GRIP: i32 = 14;
+/// How long the tiles slide to their new places after a drop.
+const SLIDE: Duration = Duration::from_millis(200);
 
 /// An output on the canvas.
 #[derive(Debug, Clone)]
@@ -67,6 +73,10 @@ struct Tile {
     /// Whether it is off: shown greyed out beside the others, and not dragged.
     off: bool,
     button: gtk::ToggleButton,
+    /// The grip at its bottom right corner that scales the output.
+    grip: gtk::Box,
+    /// The scale the output runs with.
+    scale: f64,
     /// The name sway gives the output (its connector), its number and its make and model.
     name: String,
     number: Option<usize>,
@@ -81,7 +91,11 @@ struct Shown {
     /// Its place, while it is on.
     rect: Option<Rect>,
     label: String,
+    /// The name on the tile.
+    short: String,
     details: String,
+    /// The scale it runs with.
+    scale: f64,
     /// The size it is parked with while it is off.
     size: (i32, i32),
     parked: Option<Rect>,
@@ -191,6 +205,12 @@ fn keep_together(
     Some((resized, arranged))
 }
 
+/// Where a tile is on the canvas: x, y, width and height in pixels.
+type Placed = (f64, f64, f64, f64);
+
+/// Where the tiles slide from, and since when.
+type Slide = (std::collections::HashMap<String, Placed>, Instant);
+
 /// How the layout maps onto the canvas: canvas = offset + logical × scale.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct View {
@@ -247,6 +267,10 @@ struct Drag {
     /// How often the pointer pulled the tile out of a snap on each axis. After two, that axis
     /// no longer snaps in this drag: the magnet backs off.
     escapes: (u8, u8),
+    /// The place between two tiles it goes into if dropped now: the others make room then.
+    slot: Option<layout::Slot>,
+    /// For a drag of the grip: the scale the output ran with, and the one it gets.
+    scaling: Option<(f64, f64)>,
 }
 
 /// How often the pointer has to pull a tile out of a snap before that axis stops snapping.
@@ -293,6 +317,10 @@ mod imp {
         pub(super) held_since: Cell<Option<Instant>>,
         /// Since when a stored size waits for sway to report the new size.
         pub(super) stored_at: Cell<Option<Instant>>,
+        /// Where each tile was last placed on the canvas.
+        pub(super) placed: RefCell<std::collections::HashMap<String, super::Placed>>,
+        /// The places the tiles slide from after a change of the layout, and since when.
+        pub(super) slide: RefCell<Option<super::Slide>>,
     }
 
     #[glib::object_subclass]
@@ -331,7 +359,7 @@ mod imp {
         fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
             match orientation {
                 gtk::Orientation::Horizontal => (120, 600, -1, -1),
-                _ => (180, 260, -1, -1),
+                _ => (200, 300, -1, -1),
             }
         }
 
@@ -341,7 +369,8 @@ mod imp {
 
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             let widget = self.obj();
-            // The tiles, the dragged one last so it is on top, then the guide lines.
+            // The tiles with their grips, the dragged one last so it is on top, then the guide
+            // lines.
             let dragged = self
                 .drag
                 .borrow()
@@ -351,13 +380,15 @@ mod imp {
             let mut last = None;
             for tile in tiles.iter() {
                 if dragged.as_deref() == Some(tile.identifier.as_str()) {
-                    last = Some(tile.button.clone());
+                    last = Some(tile);
                 } else {
                     widget.snapshot_child(&tile.button, snapshot);
+                    widget.snapshot_child(&tile.grip, snapshot);
                 }
             }
-            if let Some(button) = last {
-                widget.snapshot_child(&button, snapshot);
+            if let Some(tile) = last {
+                widget.snapshot_child(&tile.button, snapshot);
+                widget.snapshot_child(&tile.grip, snapshot);
             }
             if let Some((vertical, horizontal)) = self.guides.get() {
                 widget.snapshot_child(vertical, snapshot);
@@ -451,7 +482,9 @@ impl Canvas {
                 name: output.name().to_owned(),
                 rect: output.rect().filter(|_| output.is_enabled()),
                 label: output.label(),
+                short: short_label(output),
                 details: details(output),
+                scale: output.scale().unwrap_or(1.0),
                 size: parked_size(output),
                 parked: None,
             })
@@ -473,6 +506,7 @@ impl Canvas {
         if !same {
             for tile in imp.tiles.take() {
                 tile.button.unparent();
+                tile.grip.unparent();
             }
             let tiles = shown
                 .iter()
@@ -481,6 +515,8 @@ impl Canvas {
                     rect: Rect::default(),
                     off: false,
                     button: self.tile_button(&shown.identifier),
+                    grip: self.grip(),
+                    scale: 1.0,
                     name: String::new(),
                     number: None,
                     label: String::new(),
@@ -490,6 +526,7 @@ impl Canvas {
         }
         for (tile, shown) in imp.tiles.borrow_mut().iter_mut().zip(&shown) {
             tile.off = shown.rect.is_none();
+            tile.scale = shown.scale;
             tile.name.clone_from(&shown.name);
             tile.label.clone_from(&shown.label);
             tile.number = number(&tile.identifier);
@@ -499,6 +536,7 @@ impl Canvas {
                 &tile.button,
                 &number,
                 &shown.label,
+                &shown.short,
                 &shown.details,
                 tile.rect,
                 tile.off,
@@ -673,7 +711,7 @@ impl Canvas {
             return;
         };
         let moved = Rect { x, y, ..*rect };
-        self.drop_at(identifier, moved, &layout);
+        self.drop_at(identifier, moved, None, &layout);
     }
 
     /// Puts the outputs side by side, in their order from left to right, with their tops in
@@ -705,9 +743,6 @@ impl Canvas {
         name.add_css_class("st-display-name");
         let details = gtk::Label::new(None);
         details.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        details.set_wrap(true);
-        details.set_lines(2);
-        details.set_justify(gtk::Justification::Center);
         details.set_max_width_chars(1);
         details.add_css_class("st-display-details");
         let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -717,6 +752,8 @@ impl Canvas {
         content.append(&details);
         let button = gtk::ToggleButton::new();
         button.set_child(Some(&content));
+        // What doesn't fit the tile stays inside it: `fit_labels` leaves out what doesn't fit.
+        button.set_overflow(gtk::Overflow::Hidden);
         button.add_css_class("st-display-tile");
         button.set_parent(self);
         let identifier = identifier.to_owned();
@@ -768,6 +805,8 @@ impl Canvas {
                 .set_active(selected.as_deref() == Some(tile.identifier.as_str()));
         }
         imp.updating.set(false);
+        // The grip goes with the pick.
+        self.queue_allocate();
     }
 
     /// Moves the output `identifier` with an arrow key.
@@ -796,7 +835,7 @@ impl Canvas {
                 y: rect.y.saturating_add(dy),
                 ..*rect
             };
-            self.drop_at(identifier, moved, &layout);
+            self.drop_at(identifier, moved, None, &layout);
         }
         glib::Propagation::Stop
     }
@@ -853,11 +892,20 @@ impl Canvas {
         let top = rects.iter().map(|rect| rect.y).min()?;
         let right = rects.iter().map(|rect| rect.right()).max()?;
         let bottom = rects.iter().map(|rect| rect.bottom()).max()?;
+        // Room around the layout for half of the smallest output on every side, so an output
+        // can be dragged next to any edge without leaving the canvas (the view stays as it is
+        // while dragging), and the tiles stay big enough to read.
+        let room_x = rects.iter().map(|rect| rect.width).min()? / 2;
+        let room_y = rects.iter().map(|rect| rect.height).min()? / 2;
         let bounds = Rect {
-            x: left,
-            y: top,
-            width: right.saturating_sub(left),
-            height: bottom.saturating_sub(top),
+            x: left.saturating_sub(room_x),
+            y: top.saturating_sub(room_y),
+            width: right
+                .saturating_sub(left)
+                .saturating_add(room_x.saturating_mul(2)),
+            height: bottom
+                .saturating_sub(top)
+                .saturating_add(room_y.saturating_mul(2)),
         };
         Some(View::fit(bounds, f64::from(width), f64::from(height)))
     }
@@ -870,22 +918,47 @@ impl Canvas {
         let Some(view) = self.view(width, height) else {
             return;
         };
-        for tile in self.imp().tiles.borrow().iter() {
+        let imp = self.imp();
+        for tile in imp.tiles.borrow().iter() {
             let rect = self.shown_rect(tile);
             // A small gap, so tiles that touch stay apart on the screen.
             let x = view.x(rect.x) + 1.0;
             let y = view.y(rect.y) + 1.0;
             let w = (f64::from(rect.width) * view.scale - 2.0).max(1.0);
             let h = (f64::from(rect.height) * view.scale - 2.0).max(1.0);
-            let (min_w, _, _, _) = tile.button.measure(gtk::Orientation::Horizontal, -1);
-            let (min_h, _, _, _) = tile.button.measure(gtk::Orientation::Vertical, -1);
+            let dragged = imp
+                .drag
+                .borrow()
+                .as_ref()
+                .is_some_and(|drag| drag.moving && drag.identifier == tile.identifier);
+            let (x, y, w, h) = if dragged {
+                (x, y, w, h)
+            } else {
+                self.sliding(&tile.identifier, (x, y, w, h))
+            };
+            imp.placed
+                .borrow_mut()
+                .insert(tile.identifier.clone(), (x, y, w, h));
+            let (w, h) = (w.round() as i32, h.round() as i32);
+            // The grip sits in the bottom right corner of the picked tile, if it is on and big
+            // enough: one grip at a time keeps the others' names clear.
+            let picked = imp.selected.borrow().as_deref() == Some(tile.identifier.as_str());
+            let grip_shown = picked && !tile.off && w > GRIP * 3 && h > GRIP * 3;
+            tile.grip.set_visible(grip_shown);
+            if grip_shown {
+                tile.grip.size_allocate(
+                    &gtk::Allocation::new(
+                        x.round() as i32 + w - GRIP - 2,
+                        y.round() as i32 + h - GRIP - 2,
+                        GRIP,
+                        GRIP,
+                    ),
+                    -1,
+                );
+            }
+            fit_labels(&tile.button, w, h);
             tile.button.size_allocate(
-                &gtk::Allocation::new(
-                    x.round() as i32,
-                    y.round() as i32,
-                    (w.round() as i32).max(min_w),
-                    (h.round() as i32).max(min_h),
-                ),
+                &gtk::Allocation::new(x.round() as i32, y.round() as i32, w, h),
                 -1,
             );
         }
@@ -905,6 +978,10 @@ impl Canvas {
         };
         let drag = imp.drag.borrow();
         let drag = drag.as_ref().filter(|drag| drag.moving);
+        if let Some((drag, slot)) = drag.and_then(|drag| Some((drag, drag.slot?))) {
+            self.place_slot(view, &drag.identifier, slot, vertical, horizontal);
+            return;
+        }
         let rects: Vec<Rect> = self.layout().into_iter().map(|(_, rect)| rect).collect();
         let mut shown = (false, false);
         for guide in drag.map(|drag| drag.guides.as_slice()).unwrap_or_default() {
@@ -970,6 +1047,71 @@ impl Canvas {
         horizontal.set_visible(shown.1);
     }
 
+    /// Shows the marker of `slot`, the place between two tiles the dragged one goes into: a
+    /// bar along the edge the two share, in the accent color.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "positions on the canvas are within its few hundred pixels"
+    )]
+    fn place_slot(
+        &self,
+        view: View,
+        dragged: &str,
+        slot: layout::Slot,
+        vertical: &gtk::Box,
+        horizontal: &gtk::Box,
+    ) {
+        let others: Vec<Rect> = self
+            .layout()
+            .into_iter()
+            .filter(|(identifier, _)| identifier != dragged)
+            .map(|(_, rect)| rect)
+            .collect();
+        let (Some(a), Some(b)) = (others.get(slot.before), others.get(slot.after)) else {
+            vertical.set_visible(false);
+            horizontal.set_visible(false);
+            return;
+        };
+        let (line, other, (x, y, width, height)) = if slot.stacked {
+            let left = view.x(a.x.min(b.x));
+            let right = view.x(a.right().max(b.right()));
+            (
+                horizontal,
+                vertical,
+                (
+                    left,
+                    view.y(b.y) - SLOT_WIDTH / 2.0,
+                    right - left,
+                    SLOT_WIDTH,
+                ),
+            )
+        } else {
+            let top = view.y(a.y.min(b.y));
+            let bottom = view.y(a.bottom().max(b.bottom()));
+            (
+                vertical,
+                horizontal,
+                (
+                    view.x(b.x) - SLOT_WIDTH / 2.0,
+                    top,
+                    SLOT_WIDTH,
+                    bottom - top,
+                ),
+            )
+        };
+        other.set_visible(false);
+        line.set_visible(true);
+        line.size_allocate(
+            &gtk::Allocation::new(
+                x.round() as i32,
+                y.round() as i32,
+                (width.round() as i32).max(1),
+                (height.round() as i32).max(1),
+            ),
+            -1,
+        );
+    }
+
     /// Moves tiles with the pointer: a press on a tile that moves far enough becomes a drag.
     fn add_drag(&self) {
         let gesture = gtk::GestureDrag::new();
@@ -1000,7 +1142,12 @@ impl Canvas {
 
     fn begin_drag(&self, x: f64, y: f64) {
         let imp = self.imp();
-        let Some(tile) = self.tile_at(x, y).filter(|tile| !tile.off) else {
+        let grabbed_tile = self.grip_at(x, y);
+        let grabbed = grabbed_tile.is_some();
+        let Some(tile) = grabbed_tile
+            .or_else(|| self.tile_at(x, y))
+            .filter(|tile| !tile.off)
+        else {
             return;
         };
         let rect = self.shown_rect(&tile);
@@ -1013,7 +1160,48 @@ impl Canvas {
             moving: false,
             snapped: (false, false),
             escapes: (0, 0),
+            slot: None,
+            scaling: grabbed.then_some((tile.scale, tile.scale)),
         }));
+    }
+
+    /// The tile whose grip is under the point `x`, `y` of the canvas.
+    fn grip_at(&self, x: f64, y: f64) -> Option<Tile> {
+        let picked = WidgetExt::pick(self, x, y, gtk::PickFlags::DEFAULT)?;
+        self.imp()
+            .tiles
+            .borrow()
+            .iter()
+            .find(|tile| picked == *tile.grip.upcast_ref::<gtk::Widget>())
+            .cloned()
+    }
+
+    /// Shows `scale` on the tile of `identifier` while its grip is dragged.
+    fn show_scale(&self, identifier: &str, scale: f64) {
+        let tiles = self.imp().tiles.borrow();
+        let Some(tile) = tiles.iter().find(|tile| tile.identifier == identifier) else {
+            return;
+        };
+        let Some(content) = tile.button.child().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let details = std::iter::successors(content.first_child(), WidgetExt::next_sibling)
+            .filter_map(|child| child.downcast::<gtk::Label>().ok())
+            .nth(2);
+        if let Some(details) = details {
+            details.set_text(&format!("{:.0}\u{a0}%", scale * 100.0));
+        }
+    }
+
+    /// A grip for a tile: dragging it scales the output, as the tile keeps its proportions.
+    fn grip(&self) -> gtk::Box {
+        let grip = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        grip.add_css_class("st-display-grip");
+        grip.set_cursor_from_name(Some("nwse-resize"));
+        grip.set_tooltip_text(Some("Drag to scale"));
+        grip.set_visible(false);
+        grip.set_parent(self);
+        grip
     }
 
     /// The tile under the point `x`, `y` of the canvas.
@@ -1057,11 +1245,38 @@ impl Canvas {
             drag.moving = true;
             gesture.set_state(gtk::EventSequenceState::Claimed);
         }
+        if let Some((from, _)) = drag.scaling {
+            let scale = scale_for_grip(drag.start, from, view.logical(dx), view.logical(dy));
+            drag.scaling = Some((from, scale));
+            drag.rect = Rect {
+                width: resized(drag.start.width, from, scale),
+                height: resized(drag.start.height, from, scale),
+                ..drag.start
+            };
+            let identifier = drag.identifier.clone();
+            drop(guard);
+            self.show_scale(&identifier, scale);
+            self.queue_allocate();
+            self.queue_draw();
+            return;
+        }
         let moved = Rect {
             x: drag.start.x.saturating_add(view.logical(dx)),
             y: drag.start.y.saturating_add(view.logical(dy)),
             ..drag.start
         };
+        // Near the edge between two tiles: a marker says it goes in between, and the tile
+        // follows the pointer freely. Nothing else moves until it is dropped.
+        drag.slot = layout::slot_at(moved, &others, drag.slot);
+        if drag.slot.is_some() {
+            drag.rect = moved;
+            drag.guides.clear();
+            drag.snapped = (false, false);
+            drop(guard);
+            self.queue_allocate();
+            self.queue_draw();
+            return;
+        }
         let snapped = layout::snap(moved, &others, view.logical(SNAP_DISTANCE));
         let on_x = snapped
             .guides
@@ -1133,8 +1348,30 @@ impl Canvas {
             self.queue_allocate();
             return;
         };
+        if let Some((from, scale)) = drag.scaling {
+            if (scale - from).abs() > f64::EPSILON {
+                if let Some(model) = imp.model.get() {
+                    model.set(SCALE, Some(&drag.identifier), Value::Decimal(scale));
+                }
+                // The tile keeps its new size until sway reports it.
+                let layout: Layout = self
+                    .layout()
+                    .into_iter()
+                    .map(|(id, rect)| {
+                        if id == drag.identifier {
+                            (id, drag.rect)
+                        } else {
+                            (id, rect)
+                        }
+                    })
+                    .collect();
+                self.show_dropped(&layout);
+            }
+            self.queue_allocate();
+            return;
+        }
         let layout = self.layout();
-        self.drop_at(&drag.identifier, drag.rect, &layout);
+        self.drop_at(&drag.identifier, drag.rect, drag.slot, &layout);
         self.pick(&drag.identifier);
     }
 
@@ -1149,17 +1386,33 @@ impl Canvas {
 
     /// Settles the output `identifier` at `rect` among the others of `layout`, moves the layout
     /// to start at 0,0, shows it and applies it: every output gets its position stored.
-    fn drop_at(&self, identifier: &str, rect: Rect, layout: &[(String, Rect)]) {
+    fn drop_at(
+        &self,
+        identifier: &str,
+        rect: Rect,
+        slot: Option<layout::Slot>,
+        layout: &[(String, Rect)],
+    ) {
         let others: Vec<Rect> = layout
             .iter()
             .filter(|(id, _)| id != identifier)
             .map(|(_, rect)| *rect)
             .collect();
-        let settled = layout::settle(rect, &others);
+        // Into the place between two tiles, the others moving along; else where it fits best.
+        let (settled, others) = slot
+            .and_then(|slot| layout::insert(rect, &others, slot))
+            .unwrap_or_else(|| (layout::settle(rect, &others), others));
         let identifiers: Vec<String> = layout.iter().map(|(id, _)| id.clone()).collect();
+        let mut others = others.into_iter();
         let mut rects: Vec<Rect> = layout
             .iter()
-            .map(|(id, other)| if id == identifier { settled } else { *other })
+            .map(|(id, other)| {
+                if id == identifier {
+                    settled
+                } else {
+                    others.next().unwrap_or(*other)
+                }
+            })
             .collect();
         layout::normalize(&mut rects);
         let arranged: Vec<(String, Rect)> = identifiers.into_iter().zip(rects).collect();
@@ -1182,8 +1435,61 @@ impl Canvas {
                 history.remove(0);
             }
         }
+        self.start_slide();
         self.show_dropped(arranged);
         self.apply(arranged);
+    }
+
+    /// Lets the tiles slide from where they are to their new places, unless the user turned
+    /// animations off.
+    fn start_slide(&self) {
+        let imp = self.imp();
+        let animated =
+            gtk::Settings::default().is_none_or(|settings| settings.is_gtk_enable_animations());
+        if !animated {
+            return;
+        }
+        let from = imp.placed.borrow().clone();
+        let running = imp.slide.replace(Some((from, Instant::now()))).is_some();
+        if running {
+            return;
+        }
+        self.add_tick_callback(|canvas, _| {
+            let imp = canvas.imp();
+            canvas.queue_allocate();
+            let done = imp
+                .slide
+                .borrow()
+                .as_ref()
+                .is_none_or(|(_, since)| since.elapsed() >= SLIDE);
+            if done {
+                imp.slide.replace(None);
+                glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
+            }
+        });
+    }
+
+    /// Where `identifier`, placed at `target` now, is shown while the tiles slide.
+    fn sliding(&self, identifier: &str, target: Placed) -> Placed {
+        let slide = self.imp().slide.borrow();
+        let Some((from, since)) = slide.as_ref() else {
+            return target;
+        };
+        let Some(start) = from.get(identifier) else {
+            return target;
+        };
+        let t = (since.elapsed().as_secs_f64() / SLIDE.as_secs_f64()).min(1.0);
+        // Ease out: fast at first, gently at the end.
+        let eased = 1.0 - (1.0 - t).powi(3);
+        let lerp = |a: f64, b: f64| a + (b - a) * eased;
+        (
+            lerp(start.0, target.0),
+            lerp(start.1, target.1),
+            lerp(start.2, target.2),
+            lerp(start.3, target.3),
+        )
     }
 
     /// Shows `arranged` until sway reports it, or for [`SETTLING`] if it doesn't.
@@ -1278,11 +1584,81 @@ impl Canvas {
     }
 }
 
-/// Shows `number`, `label` and `details` on a tile, and says it all to screen readers.
+/// Shows on `button`, `width` × `height` pixels, as many of its lines as fit: the number always,
+/// then the name, then the details. A tile too small for one of them leaves it out, rather than
+/// growing past the size of its display or cutting a line in half.
+fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32) {
+    let Some(content) = button.child().and_downcast::<gtk::Box>() else {
+        return;
+    };
+    let labels: Vec<gtk::Label> =
+        std::iter::successors(content.first_child(), WidgetExt::next_sibling)
+            .filter_map(|child| child.downcast::<gtk::Label>().ok())
+            .collect();
+    let [_, name, details] = labels.as_slice() else {
+        return;
+    };
+    let fits = || {
+        let (needed_width, _, _, _) = button.measure(gtk::Orientation::Horizontal, -1);
+        let (needed, _, _, _) = button.measure(gtk::Orientation::Vertical, width);
+        needed <= height && needed_width <= width
+    };
+    name.set_visible(true);
+    details.set_visible(true);
+    if !fits() {
+        details.set_visible(false);
+        if !fits() {
+            name.set_visible(false);
+        }
+    }
+}
+
+/// The scale for the grip of a tile `start` (logical pixels) at `from` moved by `dx`, `dy`
+/// logical pixels: the movement along the tile's diagonal resizes it, keeping its proportions as
+/// a scale does; across the diagonal it does nothing. Common scales (100 % to 200 % in quarters)
+/// catch it within 4 %; else it goes in steps of 5 %, from 50 % to 300 % as the row allows.
+fn scale_for_grip(start: Rect, from: f64, dx: i32, dy: i32) -> f64 {
+    let (width, height) = (
+        f64::from(start.width.max(1)),
+        f64::from(start.height.max(1)),
+    );
+    let along =
+        (f64::from(dx) * width + f64::from(dy) * height) / (width * width + height * height);
+    let grown = (1.0 + along).max(0.05);
+    let scale = (from / grown).clamp(0.5, 3.0);
+    let common = [1.0, 1.25, 1.5, 1.75, 2.0]
+        .into_iter()
+        .find(|common| (scale - common).abs() <= 0.04);
+    common.unwrap_or_else(|| (scale * 20.0).round() / 20.0)
+}
+
+/// A logical length of `length` at `from` at the scale `to`.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "a length of a few thousand pixels times a ratio of scales between 0.5 and 3 fits"
+)]
+fn resized(length: i32, from: f64, to: f64) -> i32 {
+    ((f64::from(length) * from / to).round() as i32).max(1)
+}
+
+/// The name a tile shows: the model, which tells two monitors of one make apart, unless it isn't
+/// known; the whole label is in the tooltip.
+fn short_label(output: &Output) -> String {
+    let model = output.model();
+    if output.is_connected() && !model.is_empty() && model != "Unknown" {
+        model.to_owned()
+    } else {
+        output.label()
+    }
+}
+
+/// Shows `number`, `label` (`short` on the tile) and `details` on a tile, and says it all to
+/// screen readers.
 fn set_tile_labels(
     button: &gtk::ToggleButton,
     number: &str,
     label: &str,
+    short: &str,
     details: &str,
     rect: Rect,
     off: bool,
@@ -1296,7 +1672,7 @@ fn set_tile_labels(
             .collect();
     if let [shown_number, name, shown_details] = labels.as_slice() {
         shown_number.set_text(number);
-        name.set_text(label);
+        name.set_text(short);
         shown_details.set_text(details);
     }
     if off {

@@ -492,6 +492,9 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   output asks sway for the outputs and is refused if none would stay on ([Outputs](#outputs)). A session that has none
   to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off a
   whole type of keyboards or pointing devices, or every output, is refused; one device or output is allowed.
+- **Another value while one waits:** `try_risky_all` for the same settings of the same device while a change waits tries
+  the new value in its place and keeps the first one's undo, so a revert goes back to what was before the first; the
+  same value again returns the waiting trial and sends nothing. Any other risky change still gets `PendingChange`.
 - **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
   `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of a
   setting without a stored value.
@@ -718,7 +721,9 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   an output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
   it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least a
   quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
-  where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `normalize`
+  where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `slot_at`
+  finds the edge two touching outputs share that a dragged one points at (with some hysteresis, so the marker doesn't
+  flicker), and `insert` puts it there, moving what stands behind by its size and closing the gap it left. `normalize`
   moves the layout to start at 0,0.
 
 ### XKB rules
@@ -1214,20 +1219,25 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
-  moves becomes a drag instead of a click. Snapping, settling and moving the layout to 0,0 come from `outputs::layout`;
-  a drop stores the position of every output that is on (`Model::set`), shows the dropped layout until sway reports it
-  or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While a risky change waits,
-  the canvas can't be changed, so Revert puts back everything that changed. When outputs' sizes change with what is
-  stored for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or
-  several, like a scale for all of them); the layout to compare with is held while the model is busy or a risky change
-  waits, and for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere
-  (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
-  (`SettingRow::set_device`), and the mode row is a drop-down whose modes follow the output (`SettingRow::set_choices`).
-  The model keeps an `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing
-  sets shows what sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the
-  overlay layer of `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking
-  no keyboard and no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway)
-  the button can't be pressed and says why.
+  moves becomes a drag instead of a click. Snapping, settling, the slot between two outputs (`slot_at`, `insert`) and
+  moving the layout to 0,0 come from `outputs::layout`; after a drop the tiles slide to their places in a tick callback
+  (200 ms, eased; not with `gtk-enable-animations` off). The picked tile has a grip in its corner: dragging it projects
+  the movement onto the tile's diagonal, so the tile keeps its proportions, and stores the scale on release; a drop
+  stores the position of every output that is on (`Model::set`), shows the dropped layout until sway reports it or for
+  three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While a risky change waits, the
+  canvas can't be changed, so Revert puts back everything that changed. When outputs' sizes change with what is stored
+  for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or several,
+  like a scale for all of them); the layout to compare with is held while the model is busy or a risky change waits, and
+  for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere (`swaymsg`)
+  moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
+  (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the output: the resolutions
+  (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that resolution
+  (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps an
+  `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
+  sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the overlay layer of
+  `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
+  no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't
+  be pressed and says why.
 - **XKB options** (`crates/gui/src/widgets/xkb_options.rs`): below the options row, drop-downs for what Caps Lock does
   (`ctrl:nocaps`, `caps:escape`, `caps:swapescape`, `caps:none`), the Compose key (`compose:`) and the layout switching
   shortcut (`grp:`), a switch for `ctrl:swap_lalt_lctl`, and the `OptionBrowser`: every option of the rules by group,

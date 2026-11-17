@@ -103,20 +103,29 @@ The Displays page arranges the outputs and sets each one up. Every change is liv
 chooses (a mode, a position or a scale no longer stored) waits for a reload of sway, since sway has no command for it; a
 new mode, a rotation and switching an output off go through the safety net.
 
-- **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit, each with its number,
-  make and model and its mode (with the scale and turn when they aren't the plain ones). Outputs that are off stand
-  outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your desk. Pick one
-  to change its settings below._ Without a session the canvas gives way to a hint.
+- **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit with room around them
+  for half of the smallest output on every side, each with its number, model and its mode (with the scale and turn when
+  they aren't the plain ones); a tile shows only the lines that fit it, and the whole name in its tooltip. Outputs that
+  are off stand outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your
+  desk. Pick one to change its settings below._ Without a session the canvas gives way to a hint.
 - **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
-  rest of the drag. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
-  sharing at least a quarter of it, so the pointer can always cross. The whole layout then starts at 0,0 and every
-  output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the arrangement before.
+  rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead: dropped
+  there, it goes in between, and the outputs behind it make room. Nothing but the dragged tile moves during the drag,
+  and the bar holds a little beyond its zone, so it doesn't flicker. Dropped on another output or apart from all of
+  them, it moves to the nearest place next to an edge, sharing at least a quarter of it, so the pointer can always
+  cross; a gap it leaves in its row closes. After a drop the tiles slide to their places (unless animations are off).
+  The whole layout then starts at 0,0 and every output that is on gets its position stored, so it comes back as
+  arranged. Ctrl+Z goes back to the arrangement before.
 - **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of that
   display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A display
   plugged in or out meanwhile takes the numbers away, since they may be wrong then.
-- **While a risky change waits** (a new mode, a display switched off), the canvas can't be changed until it is kept or
-  reverted, so Revert puts everything back.
+- **Scaling:** the picked tile has a grip in its bottom right corner. Dragging it along the tile's diagonal scales the
+  output, the tile keeping its proportions and showing the scale; it catches at 100, 125, 150, 175 and 200 % and else
+  moves in steps of 5 %, from 50 to 300 %. Released, the scale is stored and the layout flows along.
+- **While a risky change waits** (a new mode, a rotation, a display switched off), another value of the same setting for
+  the same display takes its place, and Revert still goes back to what was before the first. The canvas and the other
+  risky settings wait until it is kept or reverted, so Revert puts everything back.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
@@ -129,9 +138,10 @@ new mode, a rotation and switching an output off go through the safety net.
   come with display profiles.
 - **The output's settings:** the _Display_ section starts with _Settings for_: _All displays_ and each output, numbered
   as on the canvas, with "(off)" or "(not connected)". A click on a tile picks it there, and the other way round; at
-  first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (_Automatic_,
-  then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.951 Hz_), _Scale_, _Rotation_ and
-  _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
+  first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (two choices:
+  the resolution, _Automatic_ and then the output's sizes from the largest down, and beside it the refresh rates of that
+  size, like _59.951 Hz_, exactly as sway reports them; a new resolution takes its highest rate), _Scale_, _Rotation_
+  and _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
   _Chosen by sway_. _All displays_ offers only the scale: a mode, a rotation, a position or switching off is for one
   display at a time. A new mode, a rotation and switching a display off are tried with the safety net. _Use this
   display_ says what happens to a display that is off when sway starts: if no other is on then, Sway Things switches it

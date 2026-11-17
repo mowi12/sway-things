@@ -256,6 +256,178 @@ fn candidates(moving: Rect, others: &[Rect]) -> Vec<Rect> {
         .collect()
 }
 
+/// A place between two outputs that touch, where a dragged output can go: `before` is left of
+/// (or above) `after`, as indexes into the outputs the drag sees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Slot {
+    /// The output left of (or above) the place.
+    pub before: usize,
+    /// The output right of (or below) the place.
+    pub after: usize,
+    /// Whether the two stand one above the other rather than side by side.
+    pub stacked: bool,
+}
+
+/// The slot between two of `others` that `moving` points at: its center near the edge the two
+/// share, within their common span. `current`, the slot shown so far, stays while the center is
+/// within half as far again, so the marker doesn't flicker on the edge of its zone.
+pub fn slot_at(moving: Rect, others: &[Rect], current: Option<Slot>) -> Option<Slot> {
+    if !has_area(moving) {
+        return None;
+    }
+    let reach = |slot: Slot, stretch: i64| -> Option<i64> {
+        let (a, b) = (others.get(slot.before)?, others.get(slot.after)?);
+        let (a, b, moving) = if slot.stacked {
+            (transposed(*a), transposed(*b), transposed(moving))
+        } else {
+            (*a, *b, moving)
+        };
+        if a.right() != b.x {
+            return None;
+        }
+        let span = (a.y.max(b.y), a.bottom().min(b.bottom()));
+        let center_x = i64::from(moving.x) * 2 + i64::from(moving.width);
+        let center_y = i64::from(moving.y) * 2 + i64::from(moving.height);
+        // Within the height the two share, and near their edge: a quarter of the narrowest of
+        // the three, on either side (in half pixels, as the centers are).
+        if center_y < i64::from(span.0) * 2 || center_y > i64::from(span.1) * 2 {
+            return None;
+        }
+        let zone = i64::from(a.width.min(b.width).min(moving.width)) / 2 * stretch / 2;
+        let distance = (center_x - i64::from(b.x) * 2).abs();
+        (distance <= zone).then_some(distance)
+    };
+    if let Some(slot) = current.filter(|slot| reach(*slot, 3).is_some()) {
+        return Some(slot);
+    }
+    let mut best: Option<(i64, Slot)> = None;
+    for (before, a) in others.iter().enumerate() {
+        for (after, b) in others.iter().enumerate() {
+            for stacked in [false, true] {
+                let touch = if stacked {
+                    a.bottom() == b.y
+                } else {
+                    a.right() == b.x
+                };
+                if !touch {
+                    continue;
+                }
+                let slot = Slot {
+                    before,
+                    after,
+                    stacked,
+                };
+                if let Some(distance) = reach(slot, 2) {
+                    if best.is_none_or(|(nearest, _)| distance < nearest) {
+                        best = Some((distance, slot));
+                    }
+                }
+            }
+        }
+    }
+    best.map(|(_, slot)| slot)
+}
+
+/// `moving` put into `slot` between two of `others`: right after the first, its top lined up
+/// with the nearer top of the two (its left with the nearer left, one above the other), and
+/// everything from the second one on moved along by its size to make room. Then the gap where
+/// `moving` came from is closed. The new place of `moving` and of each of `others`, in their
+/// order; `None` if the layout wouldn't hang together without overlaps that way.
+pub fn insert(moving: Rect, others: &[Rect], slot: Slot) -> Option<(Rect, Vec<Rect>)> {
+    if slot.stacked {
+        let turned: Vec<Rect> = others.iter().copied().map(transposed).collect();
+        let (placed, moved) = insert_side_by_side(
+            transposed(moving),
+            &turned,
+            Slot {
+                stacked: false,
+                ..slot
+            },
+        )?;
+        Some((
+            transposed(placed),
+            moved.into_iter().map(transposed).collect(),
+        ))
+    } else {
+        insert_side_by_side(moving, others, slot)
+    }
+}
+
+/// [`insert`] for a slot between outputs side by side.
+fn insert_side_by_side(moving: Rect, others: &[Rect], slot: Slot) -> Option<(Rect, Vec<Rect>)> {
+    let (a, b) = (*others.get(slot.before)?, *others.get(slot.after)?);
+    let y = if (moving.y - a.y).abs() <= (moving.y - b.y).abs() {
+        a.y
+    } else {
+        b.y
+    };
+    let placed = Rect {
+        x: a.right(),
+        y,
+        ..moving
+    };
+    let moved: Vec<Rect> = others
+        .iter()
+        .map(|rect| {
+            if rect.x >= b.x {
+                Rect {
+                    x: rect.x.saturating_add(moving.width),
+                    ..*rect
+                }
+            } else {
+                *rect
+            }
+        })
+        .collect();
+    let (placed, moved) = close_gaps(placed, &moved);
+    let mut all = moved.clone();
+    all.push(placed);
+    let fine = is_connected(&all)
+        && all
+            .iter()
+            .enumerate()
+            .all(|(index, a)| all.iter().skip(index + 1).all(|b| !overlaps(*a, *b)));
+    fine.then_some((placed, moved))
+}
+
+/// `placed` and `others` with each gap between outputs side by side closed: from left to right,
+/// an output whose left neighbors all end before it moves left to the nearest right edge.
+fn close_gaps(placed: Rect, others: &[Rect]) -> (Rect, Vec<Rect>) {
+    let mut all: Vec<Rect> = others.to_vec();
+    all.push(placed);
+    let mut order: Vec<usize> = (0..all.len()).collect();
+    order.sort_by_key(|&index| all.get(index).map(|rect| (rect.x, rect.y)));
+    for &index in &order {
+        let Some(current) = all.get(index).copied() else {
+            continue;
+        };
+        let edge = all
+            .iter()
+            .filter(|other| {
+                other.right() <= current.x
+                    && other.y < current.bottom()
+                    && current.y < other.bottom()
+            })
+            .map(|other| other.right())
+            .max();
+        if let (Some(edge), Some(rect)) = (edge, all.get_mut(index)) {
+            rect.x = edge;
+        }
+    }
+    let placed = all.pop().unwrap_or(placed);
+    (placed, all)
+}
+
+/// `rect` with x and y swapped, and width and height.
+fn transposed(rect: Rect) -> Rect {
+    Rect {
+        x: rect.y,
+        y: rect.x,
+        width: rect.height,
+        height: rect.width,
+    }
+}
+
 /// The layout `before`, after some of its rectangles changed their size to those in `after`
 /// (same order, same places): each rectangle moves by as much as the ones it stood against on
 /// its left and above it grew or shrank, so what touched still touches, and the layout starts at
@@ -498,6 +670,62 @@ mod tests {
         assert_eq!(super::reflow(&before, &before), None);
         let moved = [rect(10, 0, 1280, 720), after[1], after[2]];
         assert_eq!(super::reflow(&before, &moved), None);
+    }
+
+    #[test]
+    fn an_output_dropped_between_two_makes_room_for_itself() {
+        use super::{Slot, insert, slot_at};
+        let a = rect(0, 0, 1000, 500);
+        let b = rect(1000, 0, 1000, 500);
+        // Its center near the edge of A and B: that slot.
+        let slot = Slot {
+            before: 0,
+            after: 1,
+            stacked: false,
+        };
+        assert_eq!(slot_at(rect(650, 50, 800, 400), &[a, b], None), Some(slot));
+        // Far from the edge: none; a little beyond the zone, the shown one stays.
+        assert_eq!(slot_at(rect(100, 50, 800, 400), &[a, b], None), None);
+        assert_eq!(slot_at(rect(380, 50, 800, 400), &[a, b], None), None);
+        assert_eq!(
+            slot_at(rect(380, 50, 800, 400), &[a, b], Some(slot)),
+            Some(slot)
+        );
+        // Put between them, lined up with their tops; B moves along.
+        let (placed, moved) = insert(rect(650, 50, 800, 400), &[a, b], slot).unwrap();
+        assert_eq!(placed, rect(1000, 0, 800, 400));
+        assert_eq!(moved, [a, rect(1800, 0, 1000, 500)]);
+
+        // A | B | C | D, B dropped between C and D: the gap where B was closes.
+        let c = rect(2000, 0, 1000, 500);
+        let d = rect(3000, 0, 1000, 500);
+        let between = Slot {
+            before: 1,
+            after: 2,
+            stacked: false,
+        };
+        let (placed, moved) = insert(b, &[a, c, d], between).unwrap();
+        assert_eq!(
+            moved,
+            [a, rect(1000, 0, 1000, 500), rect(3000, 0, 1000, 500)]
+        );
+        assert_eq!(placed, rect(2000, 0, 1000, 500));
+
+        // One above the other works the same.
+        let top = rect(0, 0, 1000, 500);
+        let bottom = rect(0, 500, 1000, 500);
+        let stacked = Slot {
+            before: 0,
+            after: 1,
+            stacked: true,
+        };
+        assert_eq!(
+            slot_at(rect(0, 300, 1000, 400), &[top, bottom], None),
+            Some(stacked)
+        );
+        let (placed, moved) = insert(rect(0, 300, 1000, 400), &[top, bottom], stacked).unwrap();
+        assert_eq!(placed, rect(0, 500, 1000, 400));
+        assert_eq!(moved, [top, rect(0, 900, 1000, 500)]);
     }
 
     #[test]

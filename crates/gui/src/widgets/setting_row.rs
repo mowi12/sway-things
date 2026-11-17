@@ -134,6 +134,8 @@ mod imp {
         pub(super) error: gtk::Label,
         pub(super) badges: gtk::Box,
         pub(super) controls: gtk::Box,
+        /// Controls a page added after the first ([`super::SettingRow::add_control`]).
+        pub(super) added: RefCell<Vec<gtk::Widget>>,
         pub(super) reset: gtk::Button,
         pub(super) machine: gtk::ToggleButton,
         pub(super) conflict: gtk::MenuButton,
@@ -660,11 +662,17 @@ impl SettingRow {
 
     /// The widgets that change the value.
     pub fn controls(&self) -> Vec<gtk::Widget> {
-        self.imp()
+        let mut widgets: Vec<gtk::Widget> = self
+            .imp()
             .control
             .get()
             .map(Control::widgets)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // And those a page added ([`SettingRow::add_control`]), after the first.
+        let added = self.imp().added.borrow().clone();
+        let at = 1.min(widgets.len());
+        widgets.splice(at..at, added);
+        widgets
     }
 
     /// The text under the title: the error of the last change, if it failed.
@@ -684,6 +692,15 @@ impl SettingRow {
         self.show_error(None);
         self.refresh();
         self.emit_by_name::<()>("device-changed", &[]);
+    }
+
+    /// Adds `widget` after the row's own control, for a page that splits one value over two
+    /// controls (a mode's resolution and refresh rate).
+    pub fn add_control(&self, widget: &impl IsA<gtk::Widget>) {
+        let imp = self.imp();
+        imp.controls
+            .insert_child_after(widget, imp.controls.first_child().as_ref());
+        imp.added.borrow_mut().push(widget.clone().upcast());
     }
 
     /// Calls `callback` when the row is pointed at another device ([`SettingRow::set_device`]).
