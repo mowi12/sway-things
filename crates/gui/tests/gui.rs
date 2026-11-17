@@ -9,7 +9,9 @@
 //! - Keyboard: the sidebar of the window is navigated and opened as the keyboard does it.
 //! - Deep links: a link opens its page, and with a setting, focuses and tints its row (expanding
 //!   its group first).
-//! - Narrow mode: the four real pages fit next to the sidebar at the threshold; below it the
+//! - Narrow mode: the four real pages fit next to the sidebar at the threshold with every row's
+//!   controls beside its text, every page fits a third of a laptop screen and scrolls sideways
+//!   when narrower, a narrow row puts its controls below its text; below the threshold the
 //!   window shows one pane at a time, keeps the page and the pane with the focus when it switches,
 //!   and Esc, the back button, search and deep links move between the panes.
 //! - Search: results replace the pages, a result opens its page and points to its row, pages
@@ -1752,6 +1754,14 @@ fn check_narrow() -> Vec<(String, Outcome)> {
             check_narrow_threshold(),
         ),
         (
+            "narrow: every page fits a third of a laptop screen".to_owned(),
+            check_tile_width(),
+        ),
+        (
+            "narrow: a narrow row puts its controls below its text".to_owned(),
+            check_row_wrap(),
+        ),
+        (
             "narrow: one pane at a time, Esc and the back button".to_owned(),
             check_narrow_panes(),
         ),
@@ -1811,8 +1821,17 @@ fn focus(window: &Window) -> Option<gtk::Widget> {
     gtk::prelude::GtkWindowExt::focus(window)
 }
 
+/// A third of a laptop screen 1646 px wide (2880 px at 175 %), less the borders of a tiled window:
+/// every page fits in it without scrolling sideways.
+const TILE_WIDTH: i32 = 544;
+
 /// Every real page, with its groups expanded, fits next to the sidebar in a window as wide as
-/// the threshold, and the window can get narrower than that.
+/// the threshold with the controls of every row beside their text, and the window can get
+/// narrower than that.
+///
+/// The width a page needs is measured, not tried: in a tiled window the compositor sets the size.
+/// A row needs [`SettingRow::beside_width`], plus what the page puts around it (its padding, the
+/// indent of a group's member), plus the page's margins.
 fn check_narrow_threshold() -> Outcome {
     let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
     let window = Window::with_model(&fixture.model);
@@ -1827,14 +1846,34 @@ fn check_narrow_threshold() -> Outcome {
         }
         settle(&window)?;
         let view = page_view(&window).ok_or("  no page view")?;
-        let (minimum, _, _, _) = view.measure(gtk::Orientation::Horizontal, -1);
+        // The rows of a page shown just now get their widths with the next layout.
+        run_until(Duration::from_secs(5), || {
+            rows(view.upcast_ref())
+                .iter()
+                .any(|row| row.is_mapped() && row.width() > 0)
+        });
+        let content = view.content();
+        let Some((needed, row)) = rows(view.upcast_ref())
+            .into_iter()
+            .filter(|row| row.is_mapped() && row.width() > 0)
+            .map(|row| {
+                let around = content.width() - row.width();
+                (row.beside_width() + around, row)
+            })
+            .max_by_key(|(needed, _)| *needed)
+        else {
+            let _ = writeln!(problems, "    {} shows no rows", page.id());
+            continue;
+        };
+        let width = view.width_for(needed);
         // The separator between the panes is 1 px wide.
-        if sidebar + 1 + minimum > NARROW_WIDTH {
+        if sidebar + 1 + width > NARROW_WIDTH {
             let _ = writeln!(
                 problems,
-                "    {} needs {minimum} px next to the {sidebar} px sidebar, more than the \
-                 {NARROW_WIDTH} px of the threshold",
-                page.id()
+                "    {} needs {width} px next to the {sidebar} px sidebar for the controls of {} \
+                 beside its text, more than the {NARROW_WIDTH} px of the threshold",
+                page.id(),
+                row.setting().map_or("a row", |setting| setting.key())
             );
         }
     }
@@ -1844,6 +1883,102 @@ fn check_narrow_threshold() -> Outcome {
         let _ = writeln!(
             problems,
             "    the window can't get narrower than {minimum} px, not below the threshold"
+        );
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// Every page, with its groups expanded, fits in a window a third of a laptop screen wide
+/// without scrolling sideways; narrower still, it scrolls sideways instead of being cut off.
+fn check_tile_width() -> Outcome {
+    let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    settle(&window)?;
+    let mut problems = String::new();
+    for page in Page::ALL {
+        window.show_page(page);
+        let view = page_view(&window).ok_or("  no page view")?;
+        for group in view.groups() {
+            group.set_expanded(true);
+        }
+        settle(&window)?;
+        if !view.fits(TILE_WIDTH) {
+            let (content, _, _, _) = view.content().measure(gtk::Orientation::Horizontal, -1);
+            let _ = writeln!(
+                problems,
+                "    {} needs {} px, more than {TILE_WIDTH} px",
+                page.id(),
+                view.width_for(content)
+            );
+        }
+        let scroller = find::<gtk::ScrolledWindow>(view.upcast_ref()).ok_or("  no scroller")?;
+        if scroller.hscrollbar_policy() != gtk::PolicyType::Automatic {
+            let _ = writeln!(problems, "    {} can't scroll sideways", page.id());
+        }
+    }
+    let (minimum, _, _, _) = window
+        .panes()
+        .ok_or("  the window has no panes")?
+        .measure(gtk::Orientation::Horizontal, -1);
+    if minimum > TILE_WIDTH / 2 {
+        let _ = writeln!(
+            problems,
+            "    the window can't get narrower than {minimum} px, so a narrower tile cuts it off"
+        );
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// A slider row has its controls beside its text down to its [`SettingRow::beside_width`], with
+/// the slider shrinking first; narrower, the controls are below the text, so the row gets
+/// higher, and it can get narrower than that.
+fn check_row_wrap() -> Outcome {
+    let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
+    let window = Window::with_model(&fixture.model);
+    window.present();
+    window.show_page(Page::MouseTouchpad);
+    settle(&window)?;
+    let view = page_view(&window).ok_or("  no page view")?;
+    let row = rows(view.upcast_ref())
+        .into_iter()
+        .find(|row| row.controls().iter().any(ObjectExt::is::<gtk::Scale>))
+        .ok_or("  no slider row")?;
+    let beside = row.beside_width();
+    let (minimum, natural, _, _) = row.measure(gtk::Orientation::Horizontal, -1);
+    let height = |width: i32| row.measure(gtk::Orientation::Vertical, width).0;
+    let mut problems = String::new();
+    if natural <= beside {
+        let _ = writeln!(
+            problems,
+            "    the slider doesn't shrink before the controls move: natural {natural} px, beside \
+             down to {beside} px"
+        );
+    }
+    if height(beside - 1) <= height(beside) {
+        let _ = writeln!(
+            problems,
+            "    at {} px the row is {} px high, not higher than {} px at {beside} px: the \
+             controls didn't move below the text",
+            beside - 1,
+            height(beside - 1),
+            height(beside)
+        );
+    }
+    if minimum >= beside {
+        let _ = writeln!(
+            problems,
+            "    the row can't get narrower than {minimum} px, the width it needs beside"
         );
     }
     window.destroy();

@@ -43,8 +43,11 @@ use crate::icons;
 use crate::model::Model;
 use crate::style;
 
-/// The widest a page's content gets, in pixels.
+/// The widest a page's content gets, in pixels, with its margins.
 pub const MAXIMUM_WIDTH: i32 = 760;
+
+/// The smallest and the largest margin on each side of a page, in pixels.
+pub(super) const MARGINS: (i32, i32) = (12, 32);
 
 /// How long a row a deep link points to stays tinted before it fades back.
 const HIGHLIGHT: Duration = Duration::from_millis(1500);
@@ -60,6 +63,8 @@ mod imp {
     pub struct PageView {
         pub scroller: gtk::ScrolledWindow,
         pub content: gtk::Box,
+        /// Around the content: its width and margins.
+        pub clamp: OnceCell<super::super::Clamp>,
         pub header: OnceCell<super::PageHeader>,
         pub reset: OnceCell<gtk::Button>,
         /// The setting rows of a page built from the registry.
@@ -91,10 +96,17 @@ mod imp {
             self.parent_constructed();
             self.content.set_orientation(gtk::Orientation::Vertical);
             self.content.add_css_class("st-page-content");
-            let clamp = super::Clamp::new(&self.content, super::MAXIMUM_WIDTH);
+            let clamp = super::Clamp::with_margins(
+                &self.content,
+                super::MAXIMUM_WIDTH - 2 * super::MARGINS.1,
+                super::MARGINS,
+            );
+            // Narrower than its content can get, the page scrolls sideways instead of being cut
+            // off.
             self.scroller
-                .set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+                .set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
             self.scroller.set_child(Some(&clamp));
+            let _ = self.clamp.set(clamp);
             self.scroller.set_parent(&*self.obj());
         }
 
@@ -115,6 +127,35 @@ glib::wrapper! {
 }
 
 impl PageView {
+    /// The width the content of the page needs, with the smallest margins: narrower, the page
+    /// scrolls sideways.
+    pub fn content_minimum(&self) -> i32 {
+        self.imp()
+            .clamp
+            .get()
+            .map_or(0, |clamp| clamp.measure(gtk::Orientation::Horizontal, -1).0)
+    }
+
+    /// Whether the content of the page fits in `width`, with the margins it gets there, without
+    /// scrolling sideways.
+    pub fn fits(&self, width: i32) -> bool {
+        self.imp().clamp.get().is_none_or(|clamp| clamp.fits(width))
+    }
+
+    /// The narrowest the page can be to give its content `content_width` pixels, with the margins
+    /// it gets there.
+    pub fn width_for(&self, content_width: i32) -> i32 {
+        self.imp()
+            .clamp
+            .get()
+            .map_or(content_width, |clamp| clamp.width_for(content_width))
+    }
+
+    /// The content of the page: its header and its body, without the margins.
+    pub fn content(&self) -> gtk::Box {
+        self.imp().content.clone()
+    }
+
     /// A page with a header from `title` and `description`, and `body` below it.
     pub fn new(title: &str, description: &str, body: &impl IsA<gtk::Widget>) -> Self {
         let view: Self = glib::Object::new();

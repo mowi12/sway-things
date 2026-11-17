@@ -46,10 +46,17 @@ use sway_things_core::registry::{Apply, Kind, Registry, Scope, Setting, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
+use super::RowLayout;
 use super::device_selector::all_of_type;
 use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
+
+/// The width of a slider when there is room, in pixels.
+const SLIDER_WIDTH: i32 = 200;
+
+/// The width a slider shrinks to on a narrow row before the controls move below the text.
+const SLIDER_MINIMUM_WIDTH: i32 = 120;
 
 /// The preference that shows the line of the sway config in every row.
 const DIRECTIVES_KEY: &str = "app.show_directives";
@@ -146,7 +153,7 @@ mod imp {
 
         fn class_init(klass: &mut Self::Class) {
             klass.set_css_name("st-setting-row");
-            klass.set_layout_manager_type::<gtk::BoxLayout>();
+            klass.set_layout_manager_type::<super::super::RowLayout>();
         }
     }
 
@@ -271,8 +278,8 @@ impl SettingRow {
         self.build_indicators(title);
         texts.set_parent(self);
         imp.controls.set_parent(self);
-        if let Some(layout) = self.layout_manager().and_downcast::<gtk::BoxLayout>() {
-            layout.set_spacing(24);
+        if let (Control::Number { .. }, Some(layout)) = (&control, self.row_layout()) {
+            layout.set_growth(SLIDER_WIDTH - SLIDER_MINIMUM_WIDTH);
         }
 
         self.connect_control(&control);
@@ -296,6 +303,18 @@ impl SettingRow {
             ));
         }
         self.refresh();
+    }
+
+    /// The layout of the row: the controls beside the text, or below it on a narrow row.
+    fn row_layout(&self) -> Option<RowLayout> {
+        self.layout_manager().and_downcast::<RowLayout>()
+    }
+
+    /// The narrowest the row can be with its controls beside its text, in pixels; narrower, they
+    /// are below it.
+    pub fn beside_width(&self) -> i32 {
+        self.row_layout()
+            .map_or(0, |layout| layout.beside_width(self))
     }
 
     /// The reset button, the "This machine only" toggle and the ⋮ menu of a conflict, after the
@@ -958,9 +977,10 @@ fn control(setting: &'static Setting) -> Option<Control> {
             if let Some(placeholder) = setting.placeholder() {
                 let placeholder = tr(placeholder);
                 entry.set_placeholder_text(Some(placeholder));
-                // The hint fits in full.
+                // The hint fits in full where there is room; on a narrow row the entry shrinks to
+                // 20 characters and cuts it off.
                 let width = i32::try_from(placeholder.chars().count()).unwrap_or(i32::MAX);
-                entry.set_width_chars(width.max(20));
+                entry.set_max_width_chars(width.max(20));
             }
             entry.set_valign(gtk::Align::Center);
             Control::Text(entry)
@@ -1019,7 +1039,9 @@ fn number_control(setting: &Setting, (min, max): (f64, f64), whole: bool) -> Opt
         });
     }
     scale.set_draw_value(false);
-    scale.set_size_request(200, -1);
+    // At its minimum on a narrow row; the row lets it grow to `SLIDER_WIDTH` when there is room.
+    scale.set_size_request(SLIDER_MINIMUM_WIDTH, -1);
+    scale.set_hexpand(true);
     scale.set_valign(gtk::Align::Center);
     let spin = gtk::SpinButton::with_range(min, max, slider.step);
     spin.set_digits(digits(slider.step, whole));

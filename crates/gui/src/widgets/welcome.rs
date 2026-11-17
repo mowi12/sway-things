@@ -15,10 +15,11 @@ use gtk::subclass::prelude::*;
 use sway_things_core::include::{IncludeStatus, Inclusion};
 
 use super::Clamp;
+use super::page_view::MARGINS;
 use crate::i18n::{msg, tr};
 use crate::style;
 
-/// The widest the welcome screen gets, in pixels.
+/// The widest the welcome screen gets, in pixels, with its margins.
 const WIDTH: i32 = 560;
 
 mod imp {
@@ -182,9 +183,10 @@ impl Welcome {
         ));
         content.append(&imp.look_around);
 
-        let clamp = Clamp::new(&content, WIDTH);
+        let clamp = Clamp::with_margins(&content, WIDTH - 2 * MARGINS.1, MARGINS);
+        // Like a page, it scrolls sideways where it is narrower than its content.
         imp.scroller
-            .set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+            .set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
         imp.scroller.set_child(Some(&clamp));
         imp.scroller.set_parent(self);
         self.update_property(&[gtk::accessible::Property::Label(tr(msg!(
