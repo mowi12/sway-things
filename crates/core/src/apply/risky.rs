@@ -241,16 +241,9 @@ impl<V: Validate> Applier<V> {
             self.compositor,
             known,
         );
-        let snapshot = snapshot(
-            &settings,
-            device,
-            &self.state,
-            status,
-            self.compositor,
-            known,
-        );
         let (session, runs_as_tried) =
             as_running(&self.state, &settings_changed, device, outputs.as_ref())?;
+        let snapshot = snapshot(&settings, device, &session, status, self.compositor, known);
         let now = (&session, &snapshot);
         let then = (&tried, &over);
         let commands = sequence(now, then, &settings, device)?;
@@ -671,7 +664,7 @@ fn as_running(
     let mut runs_as_tried = true;
     for (setting, change) in changed {
         let live = device
-            .and_then(|device| outputs?.get(device))
+            .and_then(|device| outputs?.find(device))
             .and_then(|output| output.session_value(setting.key()));
         if let (Some(live), Some(stored)) = (&live, session.get(setting.key(), device)) {
             if live != stored {

@@ -1872,3 +1872,62 @@ fn a_display_the_guard_switched_on_is_never_switched_off_by_a_revert() {
         Some(&Value::Bool(true))
     );
 }
+
+#[test]
+fn a_revert_brings_back_the_mode_the_display_ran_with() {
+    // Stored 1280x720, but the panel runs with 1920x1080 (set from elsewhere).
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nmode = \"1280x720@60Hz\"\n",
+    );
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"output "A B C" mode 1920x1080@60Hz"#]));
+}
+
+#[test]
+fn a_revert_switches_back_on_a_display_the_guard_switched_on() {
+    // Both on; the panel is stored as off, but `hook displays` switched it on.
+    let outputs = r#"[
+      {"name": "eDP-1", "active": true, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "modes": [], "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}},
+      {"name": "HDMI-A-1", "active": true, "primary": false, "make": "D", "model": "E",
+       "serial": "F", "modes": [], "rect": {"x": 1920, "y": 0, "width": 1920, "height": 1080}}
+    ]"#;
+    let sway = FakeSway::with_version(SWAY, move |kind, _| match kind {
+        crate::ipc::wire::GET_OUTPUTS => message(kind, outputs),
+        crate::ipc::wire::GET_INPUTS => message(kind, "[]"),
+        _ => message(kind, r#"[{"success": true}]"#),
+    });
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nenabled = false\n",
+    );
+    setup
+        .try_risky(ENABLED, Some(PANEL), Value::Bool(false), "")
+        .unwrap();
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"output "A B C" enable"#]));
+}
+
+#[test]
+fn resetting_a_display_the_guard_switched_on_never_switches_it_off_on_a_revert() {
+    // The panel is stored as off, `hook displays` switched it on, and it is the only one on.
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nenabled = false\n",
+    );
+    setup.try_risky_reset(ENABLED, Some(PANEL), "").unwrap();
+    block_on(setup.applier.revert()).unwrap();
+    assert!(
+        sway.commands()
+            .iter()
+            .all(|command| !command.contains("disable")),
+        "{:?}",
+        sway.commands()
+    );
+}

@@ -500,7 +500,10 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   sway chose. A change that sends nothing (an empty mode, or removing a mode sway is to choose again; what the output
   runs with doesn't count for that, sway chooses anew) needs no safety net: it is stored at once (`Tried::Stored`) and
   waits for a reload of sway. So does a change that nothing could revert, such as the mode of an output that is off,
-  which sway doesn't report. Keeping a change drops what waited for a reload for the same setting.
+  which sway doesn't report. Keeping a change drops what waited for a reload for the same setting. Where an output runs
+  with something else than what is stored (an output stored as off that `hook displays` switched on, a mode set with
+  `swaymsg`), a revert brings back what it runs with (`as_running`), and a value it already runs with is stored at once
+  without a trial.
 - **If the app or the command line ends** while a change waits, nothing was stored: the session keeps the tried value
   until the next reload of sway (or login), which brings back the old one.
 

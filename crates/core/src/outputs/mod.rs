@@ -108,7 +108,8 @@ pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcErr
             }
             continue;
         };
-        if quiet {
+        // sway reports changes all the time: it has had enough time to settle.
+        if quiet || started.elapsed() >= WAIT_FOR_OUTPUTS {
             client
                 .run(&crate::command::output::Output::new(selector).enable(true))
                 .await?;
