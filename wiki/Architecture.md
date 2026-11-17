@@ -495,7 +495,9 @@ Display mode, disabling an output or input device, changes of the keyboard layou
 - **Another value while one waits:** `try_risky_all` for the same settings of the same device while a change waits tries
   the new value in its place and keeps the first one's undo, so a revert goes back to what was before the first; the
   same value again returns the waiting trial and sends nothing; a value the output runs with already (the one from
-  before) is still tried rather than stored at once. Any other risky change still gets `PendingChange`.
+  before) is still tried rather than stored at once. A change that sends nothing (a mode back to what sway chooses)
+  reverts the waiting one and is stored for the next reload, as without one. The refresh rates of the mode row lock with
+  the row. Any other risky change still gets `PendingChange`.
 - **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
   `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of a
   setting without a stored value.

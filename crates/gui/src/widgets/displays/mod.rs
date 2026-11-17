@@ -849,6 +849,10 @@ impl RefreshRates {
         self.dropdown.set_visible(!choices.is_empty());
         // One rate is nothing to choose, but still says what it is.
         self.dropdown.set_sensitive(open && choices.len() > 1);
+        // The row says why it is locked; open, the drop-down says what it is.
+        if open {
+            self.dropdown.set_tooltip_text(Some("Refresh rate"));
+        }
         self.updating.set(false);
     }
 }

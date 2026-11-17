@@ -207,6 +207,9 @@ fn keep_together(
     Some((resized, arranged))
 }
 
+/// A tile scaled with its grip: its identifier, the size it had, its new place and since when.
+type Scaled = (String, (i32, i32), Rect, Instant);
+
 /// Where a tile is on the canvas: x, y, width and height in pixels.
 type Placed = (f64, f64, f64, f64);
 
@@ -323,6 +326,9 @@ mod imp {
         pub(super) placed: RefCell<std::collections::HashMap<String, super::Placed>>,
         /// The places the tiles slide from after a change of the layout, and since when.
         pub(super) slide: RefCell<Option<super::Slide>>,
+        /// A tile scaled with its grip: its identifier, the size it had, the size it gets, and
+        /// since when. It is drawn at the new size until sway reports a size for it.
+        pub(super) scaled: RefCell<Option<super::Scaled>>,
     }
 
     #[glib::object_subclass]
@@ -860,6 +866,28 @@ impl Canvas {
         tile.rect
     }
 
+    /// Where a tile is drawn: where it is shown, or for a tile just scaled with its grip, at its
+    /// new size until sway reports a size for it (or for [`SETTLING`]), so it doesn't snap back
+    /// in between. Only the drawing: the layout is what sway reports.
+    fn drawn_rect(&self, tile: &Tile) -> Rect {
+        let shown = self.shown_rect(tile);
+        let scaled = self.imp().scaled.borrow();
+        match scaled.as_ref() {
+            Some((identifier, size, rect, since))
+                if *identifier == tile.identifier
+                    && (shown.width, shown.height) == *size
+                    && since.elapsed() < SETTLING =>
+            {
+                Rect {
+                    x: shown.x,
+                    y: shown.y,
+                    ..*rect
+                }
+            }
+            _ => shown,
+        }
+    }
+
     /// Forgets the dropped layout once sway reports it, or after a while.
     fn forget_dropped_if_reported(&self, enabled: &[(String, Rect, String)]) {
         let imp = self.imp();
@@ -924,7 +952,7 @@ impl Canvas {
         };
         let imp = self.imp();
         for tile in imp.tiles.borrow().iter() {
-            let rect = self.shown_rect(tile);
+            let rect = self.drawn_rect(tile);
             // A small gap, so tiles that touch stay apart on the screen.
             let x = view.x(rect.x) + 1.0;
             let y = view.y(rect.y) + 1.0;
@@ -1375,6 +1403,13 @@ impl Canvas {
                 if let Some(model) = imp.model.get() {
                     model.set(SCALE, Some(&drag.identifier), Value::Decimal(scale));
                 }
+                let size = (drag.start.width, drag.start.height);
+                imp.scaled.replace(Some((
+                    drag.identifier.clone(),
+                    size,
+                    drag.rect,
+                    Instant::now(),
+                )));
             }
             self.queue_allocate();
             return;
@@ -1607,9 +1642,9 @@ fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32) {
     // The lines' heights from their texts and fonts, so nothing is shown and hidden again just
     // to measure it (which would lay the canvas out again on every frame).
     let size = |label: &gtk::Label| label.create_pango_layout(Some(&label.text())).pixel_size();
-    // The tile's padding and border, and the space between the lines.
-    let (frame, gap) = (8, 2);
-    let room = width - frame;
+    // The tile's padding and border across and down (style.css), and the space between lines.
+    let (frame_across, frame, gap) = (10, 6, 2);
+    let room = width - frame_across;
     let (_, number_height) = size(&number);
     let (name_width, name_height) = size(&name);
     let name_lines = if name_width <= room { 1 } else { 2 };

@@ -112,12 +112,14 @@ new mode, a rotation and switching an output off go through the safety net.
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where
   the tile fits in): dropped there, it goes in between, and the outputs behind it in that row, with whatever stands on
-  them, make room. Nothing but the dragged tile moves during the drag, and the bar holds a little beyond its zone, so it
-  doesn't flicker. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
-  sharing at least a quarter of it, so the pointer can always cross. Moved away from where it stood (not just nudged),
-  the gap it leaves closes: what stood behind it in its row (or column) moves up, and other gaps stay as they are. After
-  a drop the tiles slide to their places (unless animations are off). The whole layout then starts at 0,0 and every
-  output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the arrangement before.
+  them, make room; taken from that same row, it is a reorder, and what stands below doesn't move. Nothing but the
+  dragged tile moves during the drag, and the bar holds a little beyond its zone, so it doesn't flicker. Dropped on
+  another output or apart from all of them, it moves to the nearest place next to an edge, sharing at least a quarter of
+  it, so the pointer can always cross. Moved away from where it stood (not just nudged), the gap it leaves closes: what
+  stood behind it in its row (or column) moves up, it stays next to the output it was dropped at, and other gaps stay as
+  they are. After a drop the tiles slide to their places (unless animations are off). The whole layout then starts at
+  0,0 and every output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the
+  arrangement before.
 - **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of that
   display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A display
   plugged in or out meanwhile takes the numbers away, since they may be wrong then.
@@ -127,8 +129,9 @@ new mode, a rotation and switching an output off go through the safety net.
   flows along as for a scale set in the row.
 - **While a risky change waits** (a new mode, a rotation, a display switched off), another value of the same setting for
   the same display takes its place (still with the safety net, even if it is the value from before), and Revert still
-  goes back to what was before the first. The canvas and the other risky settings wait until it is kept or reverted, so
-  Revert puts everything back.
+  goes back to what was before the first. _Automatic_ meanwhile puts back what was before and is stored for the next
+  reload of sway, as it is when nothing waits, since sway can't try it live. The canvas and the other risky settings
+  wait until it is kept or reverted, so Revert puts everything back.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a

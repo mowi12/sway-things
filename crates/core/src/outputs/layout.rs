@@ -338,10 +338,26 @@ pub fn place(moving: Rect, origin: Rect, others: &[Rect], slot: Option<Slot>) ->
         return (placed, moved);
     }
     // Moved away from where it stood (not nudged): the gap it left closes first, so it doesn't
-    // settle back into it.
-    let away = !overlaps(moving, origin) && !is_tidy(others);
+    // settle back into it. It stays where it was dropped next to the output it lands at, even
+    // if that one moves up.
+    let away = !overlaps(moving, origin);
     if let Some(closed) = close_gap(others, origin).filter(|_| away) {
-        let settled = settle(moving, &closed);
+        let next_to = settle(moving, others);
+        let anchor = others.iter().position(|other| touches(next_to, *other));
+        let (dx, dy) = anchor
+            .and_then(|index| Some((others.get(index)?, closed.get(index)?)))
+            .map_or((0, 0), |(before, after)| {
+                (
+                    after.x.saturating_sub(before.x),
+                    after.y.saturating_sub(before.y),
+                )
+            });
+        let carried = Rect {
+            x: moving.x.saturating_add(dx),
+            y: moving.y.saturating_add(dy),
+            ..moving
+        };
+        let settled = settle(carried, &closed);
         if is_tidy(&with(settled, &closed)) {
             return (settled, closed);
         }
@@ -388,94 +404,141 @@ fn insert_side_by_side(
     slot: Slot,
 ) -> Option<(Rect, Vec<Rect>)> {
     let (a, b) = (*others.get(slot.before)?, *others.get(slot.after)?);
-    let distance = |top: i32| (i64::from(moving.y) - i64::from(top)).abs();
-    let y = if distance(a.y) <= distance(b.y) {
-        a.y
-    } else {
-        b.y
-    };
-    let placed = Rect {
-        x: a.right(),
-        y,
-        ..moving
-    };
-    // From the second one on, what stands in their row moves along, and with it whatever is
-    // stacked on it, so a column stays together; other rows stay.
-    let in_band = |rect: &Rect| {
+    let in_row = |rect: &Rect| {
         [a, b]
             .iter()
             .any(|side| rect.y < side.bottom() && side.y < rect.bottom())
     };
-    let shifted = with_stacked(
-        others,
-        |rect| rect.x >= b.x && in_band(rect),
-        |rect| rect.x >= b.x,
-    );
-    let shift = |rect: Rect| Rect {
-        x: rect.x.saturating_add(moving.width),
-        ..rect
-    };
-    let moved: Vec<Rect> = others
-        .iter()
-        .zip(&shifted)
-        .map(|(rect, &shifted)| if shifted { shift(*rect) } else { *rect })
-        .collect();
-    let origin_moved = others.iter().zip(&shifted).any(|(rect, &shifted)| {
-        shifted && origin.y < rect.bottom() && rect.y < origin.bottom() && origin.x >= rect.x
-    });
-    if is_tidy(&with(placed, &moved)) {
-        return Some((placed, moved));
+    // Columns first (what stands on a moved output moves with it), then the rows alone.
+    for columns in [true, false] {
+        // Taken out of this row, it is a reorder: its gap closes first, then room is made;
+        // what ends up where it was doesn't move at all.
+        let closing = if in_row(&origin) {
+            behind_offsets(others, origin, columns)
+        } else {
+            vec![0; others.len()]
+        };
+        let closed = apply(others, &closing);
+        let (a, b) = (*closed.get(slot.before)?, *closed.get(slot.after)?);
+        let distance = |top: i32| (i64::from(moving.y) - i64::from(top)).abs();
+        let y = if distance(a.y) <= distance(b.y) {
+            a.y
+        } else {
+            b.y
+        };
+        let placed = Rect {
+            x: a.right(),
+            y,
+            ..moving
+        };
+        let room: Vec<i32> = room_offsets(&closed, a, b, moving.width, columns);
+        let total: Vec<i32> = closing
+            .iter()
+            .zip(&room)
+            .map(|(close, make)| close.saturating_add(*make))
+            .collect();
+        let moved = apply(others, &total);
+        if is_tidy(&with(placed, &moved)) {
+            return Some((placed, moved));
+        }
+        // From another row: its own gap closes after room is made.
+        if !in_row(&origin) {
+            if let Some(closed) = close_gap(&with(placed, &moved), origin) {
+                let (placed, moved) = closed.split_last()?;
+                return Some((*placed, moved.to_vec()));
+            }
+        }
     }
-    // The gap where it came from, which moved along with the rest if it was behind the slot.
-    let mut all = moved;
-    all.push(placed);
-    let vacated = if origin_moved || (origin.x >= b.x && in_band(&origin)) {
-        shift(origin)
-    } else {
-        origin
+    None
+}
+
+/// How far each of `rects` moves right so that `width` fits between `a` and `b`: those in
+/// their row from `b` on, and with `columns` whatever stands on them.
+fn room_offsets(rects: &[Rect], a: Rect, b: Rect, width: i32, columns: bool) -> Vec<i32> {
+    let in_row = |rect: &Rect| {
+        [a, b]
+            .iter()
+            .any(|side| rect.y < side.bottom() && side.y < rect.bottom())
     };
-    let closed = close_gap(&all, vacated)?;
-    let (placed, moved) = closed.split_last()?;
-    Some((*placed, moved.to_vec()))
+    let behind = |rect: &Rect| rect.x >= b.x;
+    let moves = if columns {
+        with_stacked(rects, |rect| behind(rect) && in_row(rect), behind)
+    } else {
+        rects
+            .iter()
+            .map(|rect| behind(rect) && in_row(rect))
+            .collect()
+    };
+    moves
+        .into_iter()
+        .map(|moves| if moves { width } else { 0 })
+        .collect()
+}
+
+/// How far each of `rects` moves left to close the gap `vacated` left in its row: those behind
+/// it in the row, and with `columns` whatever stands on them.
+fn behind_offsets(rects: &[Rect], vacated: Rect, columns: bool) -> Vec<i32> {
+    let behind = |rect: &Rect| rect.x >= vacated.right();
+    let in_row = |rect: &Rect| rect.y < vacated.bottom() && vacated.y < rect.bottom();
+    let moves = if columns {
+        with_stacked(rects, |rect| behind(rect) && in_row(rect), behind)
+    } else {
+        rects
+            .iter()
+            .map(|rect| behind(rect) && in_row(rect))
+            .collect()
+    };
+    moves
+        .into_iter()
+        .map(|moves| {
+            if moves {
+                vacated.width.saturating_neg()
+            } else {
+                0
+            }
+        })
+        .collect()
+}
+
+/// `rects`, each moved right by its offset.
+fn apply(rects: &[Rect], offsets: &[i32]) -> Vec<Rect> {
+    rects
+        .iter()
+        .zip(offsets.iter().chain(std::iter::repeat(&0)))
+        .map(|(rect, dx)| Rect {
+            x: rect.x.saturating_add(*dx),
+            ..*rect
+        })
+        .collect()
 }
 
 /// `rects` with the gap that `vacated` left closed: the rects behind it in its row move left by
-/// its width, or else those below it in its column move up by its height, whichever leaves the
-/// layout hanging together without overlaps. `None` if neither does.
+/// its width (with what stands on them, or else alone), or else those below it in its column
+/// move up by its height, whichever first leaves the layout hanging together without overlaps.
+/// `None` if none does.
 pub fn close_gap(rects: &[Rect], vacated: Rect) -> Option<Vec<Rect>> {
-    // What stood behind it in its row moves up, with whatever is stacked on it.
-    let row = |rects: &[Rect], vacated: Rect| -> Vec<Rect> {
-        let behind = |rect: &Rect| rect.x >= vacated.right();
-        let shifted = with_stacked(
-            rects,
-            |rect| behind(rect) && rect.y < vacated.bottom() && vacated.y < rect.bottom(),
-            behind,
-        );
-        rects
-            .iter()
-            .zip(shifted)
-            .map(|(rect, shifted)| {
-                if shifted {
-                    Rect {
-                        x: rect.x.saturating_sub(vacated.width),
-                        ..*rect
-                    }
-                } else {
-                    *rect
-                }
-            })
-            .collect()
-    };
-    let side_by_side = row(rects, vacated);
-    if is_tidy(&side_by_side) {
-        return Some(side_by_side);
+    // In its row with what stands on the moved outputs, then the row alone; the same for its
+    // column.
+    for columns in [true, false] {
+        let side_by_side = apply(rects, &behind_offsets(rects, vacated, columns));
+        if is_tidy(&side_by_side) {
+            return Some(side_by_side);
+        }
     }
     let turned: Vec<Rect> = rects.iter().copied().map(transposed).collect();
-    let stacked: Vec<Rect> = row(&turned, transposed(vacated))
+    for columns in [true, false] {
+        let stacked: Vec<Rect> = apply(
+            &turned,
+            &behind_offsets(&turned, transposed(vacated), columns),
+        )
         .into_iter()
         .map(transposed)
         .collect();
-    is_tidy(&stacked).then_some(stacked)
+        if is_tidy(&stacked) {
+            return Some(stacked);
+        }
+    }
+    None
 }
 
 /// Which of `rects` move: those that are `seed`, and then each `eligible` one that stands right
@@ -863,6 +926,10 @@ mod tests {
         let (placed, moved) = place(rect(1000, 10, 1000, 500), b, &[a, c], None);
         assert_eq!(moved, [a, c]);
         assert_eq!(placed, rect(1000, 10, 1000, 500));
+        // Its row closes up even where something below holds the rest together.
+        let wide = rect(0, 500, 3000, 400);
+        let (_, moved) = place(rect(1000, 900, 1000, 500), b, &[a, c, wide], None);
+        assert_eq!(moved, [a, rect(1000, 0, 1000, 500), wide]);
         // A gap the user left elsewhere stays: D stands below A, apart from C on purpose.
         let d = rect(200, 500, 600, 400);
         let (_, moved) = place(rect(3100, 0, 1000, 500), b, &[a, c, d], None);
@@ -922,6 +989,56 @@ mod tests {
                 rect(1000, 500, 1000, 500)
             ]
         );
+    }
+
+    #[test]
+    fn reordering_keeps_what_stands_below() {
+        use super::{Slot, insert, place};
+        // A | B | C over D (under A and B) and E (under C): A into the slot between B and C.
+        let a = rect(0, 0, 1000, 500);
+        let b = rect(1000, 0, 1000, 500);
+        let c = rect(2000, 0, 1000, 500);
+        let d = rect(0, 500, 2000, 500);
+        let e = rect(2000, 500, 1000, 500);
+        let slot = Slot {
+            before: 0,
+            after: 1,
+            stacked: false,
+        };
+        let (placed, moved) = insert(rect(1600, 0, 1000, 500), a, &[b, c, d, e], slot).unwrap();
+        assert_eq!(placed, rect(1000, 0, 1000, 500));
+        assert_eq!(moved, [rect(0, 0, 1000, 500), c, d, e]);
+
+        // A | B | C, A dropped right below C: it stays below C as C closes up.
+        let (placed, moved) = place(rect(2000, 500, 1000, 500), a, &[b, c], None);
+        assert_eq!(moved, [rect(0, 0, 1000, 500), rect(1000, 0, 1000, 500)]);
+        assert_eq!(placed, rect(1000, 500, 1000, 500));
+
+        // Two monitors over a laptop in the middle, the left one dropped right of the other: they
+        // swap, and the laptop stays.
+        let right = rect(1920, 0, 1920, 1080);
+        let laptop = rect(960, 1080, 1920, 1080);
+        let (placed, moved) = place(
+            rect(3840, 0, 1920, 1080),
+            rect(0, 0, 1920, 1080),
+            &[right, laptop],
+            None,
+        );
+        assert_eq!(moved, [rect(0, 0, 1920, 1080), laptop]);
+        assert_eq!(placed, rect(1920, 0, 1920, 1080));
+
+        // A 2×2 grid, TL dropped right of TR: TR closes up alone, TL lands right of it.
+        let tr = rect(1000, 0, 1000, 500);
+        let bl = rect(0, 500, 1000, 500);
+        let br = rect(1000, 500, 1000, 500);
+        let (placed, moved) = place(
+            rect(2000, 0, 1000, 500),
+            rect(0, 0, 1000, 500),
+            &[tr, bl, br],
+            None,
+        );
+        assert_eq!(moved, [rect(0, 0, 1000, 500), bl, br]);
+        assert_eq!(placed, rect(1000, 0, 1000, 500));
     }
 
     #[test]
