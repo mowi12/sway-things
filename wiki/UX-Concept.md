@@ -154,11 +154,12 @@ new mode, a rotation and switching an output off go through the safety net.
   on again (also at a reload, so `$mod+Shift+c` brings a display back after undocking). A display that is on although it
   is stored as off says _On for now: no other display was on_.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
-- **kanshi:** while kanshi runs for the session, a note above the canvas says that kanshi sets up the displays: changes
-  on the page take effect at once and last until kanshi applies a profile; nothing of them is stored, and Sway Things
-  writes no `output` lines to the sway config. The rows show what the displays run with; values stored before kanshi ran
-  stay stored and come back when it stops (the command line can reset them). The command line says the same for a
-  setting of a display. Arrangements saved as kanshi profiles per combination of displays come with #211.
+- **Remembered per combination:** with kanshi installed, every combination of displays is remembered on its own: what
+  the displays run with when the page saves is kanshi's profile for that combination, and kanshi brings it back whenever
+  those displays are connected together, also without the app. Nothing is named or picked by hand. A note above the
+  canvas says so (and that kanshi starts with the next login, if nothing starts it yet). Without the include line in an
+  existing kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes
+  this happen. Any one display alone always comes on, so no combination stays dark.
 
 ### Bluetooth
 

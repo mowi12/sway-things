@@ -985,9 +985,7 @@ impl<V: Validate> Checkup<'_, V> {
         let before = findings.len();
         for entry in self.state.entries() {
             // kanshi sets up the displays: no line of ours competes with the user's.
-            if self.displays == generate::Displays::Kanshi
-                && entry.setting.scope() == Scope::PerOutput
-            {
+            if self.displays.is_kanshi() && entry.setting.scope() == Scope::PerOutput {
                 continue;
             }
             let Some(report) = conflict::Report::check(

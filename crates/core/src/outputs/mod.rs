@@ -33,7 +33,9 @@
 //! # }
 //! ```
 
+pub mod kanshi;
 pub mod layout;
+pub mod profiles;
 #[cfg(test)]
 mod tests;
 

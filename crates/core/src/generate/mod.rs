@@ -139,24 +139,41 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
 }
 
 /// Who sets up the displays: what decides whether the generated sway config has `output` lines.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Displays {
     /// sway, from the `output` lines Sway Things generates.
+    #[default]
     Sway,
-    /// kanshi, which applies its own profiles whenever displays come and go: `output` lines of
-    /// Sway Things would contradict them at every reload, so there are none. Changes on the
-    /// Displays page are live only, until kanshi applies a profile.
-    Kanshi,
+    /// kanshi, from the profiles Sway Things remembers per combination of displays
+    /// ([`crate::outputs::profiles`]): kanshi applies them whenever displays come and go, so
+    /// the sway config has no `output` lines that would contradict them at a reload. With
+    /// `start`, the user's config doesn't start kanshi, so ours does.
+    Kanshi {
+        /// Whether the generated config starts kanshi.
+        start: bool,
+    },
 }
 
 impl Displays {
-    /// kanshi if it runs for this user, else sway. Reads `/proc`; nothing is run.
-    pub fn detect() -> Self {
-        if crate::outputs::kanshi_runs() {
-            Self::Kanshi
-        } else {
-            Self::Sway
+    /// kanshi if it is installed and its config includes ours (or there is none, so it is
+    /// created with the include), else sway. `status` is the user's sway config, which may start
+    /// kanshi itself; `locations` are our files in it. Reads files; nothing is run.
+    pub fn detect(status: &crate::include::IncludeStatus, locations: &Locations) -> Self {
+        use crate::outputs::kanshi;
+        let Some(files) = kanshi::KanshiFiles::from_env() else {
+            return Self::Sway;
+        };
+        if !kanshi::installed() || files.inclusion() == kanshi::Inclusion::Missing {
+            return Self::Sway;
         }
+        Self::Kanshi {
+            start: !kanshi::started_by(status.config(), locations.directory()),
+        }
+    }
+
+    /// Whether kanshi sets up the displays.
+    pub fn is_kanshi(self) -> bool {
+        matches!(self, Self::Kanshi { .. })
     }
 }
 
@@ -179,7 +196,7 @@ pub fn generate_for(
             let Some(mapping) = setting.sway() else {
                 continue;
             };
-            if displays == Displays::Kanshi && setting.scope() == Scope::PerOutput {
+            if displays.is_kanshi() && setting.scope() == Scope::PerOutput {
                 continue;
             }
             // The settings of one directive make one command, at the place of the first one.
@@ -216,10 +233,9 @@ pub fn generate_for(
             .entries()
             .iter()
             .any(|entry| entry.setting.scope() == Scope::PerOutput);
-        if displays == Displays::Kanshi && for_displays {
+        if displays.is_kanshi() && for_displays {
             file.lines.push(Line {
-                text: "# kanshi sets up the displays: Sway Things writes no output lines while it \
-                       runs."
+                text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
                     .to_owned(),
                 source: Source {
                     keys: Vec::new(),
@@ -227,6 +243,21 @@ pub fn generate_for(
                 },
                 skipped: None,
             });
+        }
+        if displays == (Displays::Kanshi { start: true }) {
+            if let Ok(text) = crate::command::SwayCmd::new("exec")
+                .keyword("kanshi")
+                .render(Target::Config)
+            {
+                file.lines.push(Line {
+                    text,
+                    source: Source {
+                        keys: Vec::new(),
+                        device: None,
+                    },
+                    skipped: None,
+                });
+            }
         }
         file.lines.extend(display_guard(state));
     }

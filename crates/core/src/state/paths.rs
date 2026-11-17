@@ -18,6 +18,7 @@ pub struct Paths {
     host: PathBuf,
     history: PathBuf,
     ui: PathBuf,
+    displays: PathBuf,
 }
 
 impl Paths {
@@ -44,6 +45,7 @@ impl Paths {
                 .join(format!("{hostname}.toml")),
             history: state_dir.join("history"),
             ui: state_dir.join("ui.toml"),
+            displays: config_dir.join("displays.toml"),
         })
     }
 
@@ -101,6 +103,12 @@ impl Paths {
     /// which sections are collapsed. See [`UiState`](crate::ui_state::UiState).
     pub fn ui(&self) -> &Path {
         &self.ui
+    }
+
+    /// The setups of the displays remembered per combination (`displays.toml` next to the
+    /// settings). See [`Profiles`](crate::outputs::profiles::Profiles).
+    pub fn displays(&self) -> &Path {
+        &self.displays
     }
 }
 

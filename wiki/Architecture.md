@@ -708,21 +708,21 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
   would leave none on. Switching every output at once isn't offered: it is one at a time.
-- **kanshi:** `generate::Displays::detect` looks in `/proc` for a process `kanshi` of the same user on the same Wayland
-  display (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY` in its environment; any of the user's without a Wayland display);
-  nothing is run. While one runs, changes of per-output settings are live only (`Applier::is_live_only`): sent, never
-  stored, also when a risky one is kept, and nothing is noted to wait for a reload. `generate_for(.., Displays::Kanshi)`
-  leaves out every per-output line, so nothing contradicts kanshi's profiles at a reload; with something stored for a
-  display, `20-output.conf` says so in a comment and keeps the startup guard, and `hook displays` has kanshi apply its
-  profile again (`kanshictl reload`, after it made sure a display is on). The app detects it when it opens (and then
-  rewrites a `20-output.conf` it wrote that no longer fits, so lines from before go or come back), before each change
-  and when displays come and go (at most every two seconds), and rewrites the files when the answer changes; kanshi
-  stopping while nothing changes is seen at the next change or opening (`doctor --fix` writes the files too). A model
-  made for tests never looks. The command line looks when it opens and says after a change of a display that it is live
-  only (after a reset, that the stored value is removed). A value for every display sends no display's own value again
-  meanwhile. A kanshi started without `WAYLAND_DISPLAY` in its environment (a systemd unit that doesn't import it) isn't
-  seen from a Wayland session; `doctor` compares against the same and checks no conflicts of per-output settings
-  meanwhile. Rows show what the displays run with. Profiles of our own in kanshi come with #211.
+- **kanshi (profiles per combination):** `generate::Displays::detect` makes kanshi the display backend when it is
+  installed (`kanshi` in `$PATH`) and its config includes ours, or there is none (it is then created with the include
+  line). Nothing is run. With kanshi, changes of per-output settings are live only (`Applier::is_live_only`): sent,
+  never stored in the settings, and nothing waits for a reload. Instead, whenever the settings are saved and no risky
+  change waits, `Applier::remember_displays` captures how the connected outputs run (`outputs::profiles::Profile`) and
+  remembers it for their combination in `displays.toml` next to the settings files (`Profiles`), writes
+  `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per combination named
+  `sway-things-<hash>`, then `sway-things-any` that switches on any one display alone, so no combination stays dark) and
+  has kanshi read it again (`kanshictl reload`, five seconds). `outputs::kanshi::KanshiFiles` writes only a file that
+  starts with our header, and never the user's config except to create it. `20-output.conf` then has no per-output
+  lines, a comment, the startup guard, and `exec kanshi` when the user's sway config doesn't start kanshi itself
+  (`kanshi::started_by`, not counting our files). `hook displays` makes sure a display is on and then has kanshi apply
+  its profile again. The app looks again before each change and when displays come and go (at most every two seconds)
+  and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts of per-output
+  settings meanwhile. Rows show what the displays run with. A model made for tests never looks.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
@@ -937,7 +937,7 @@ trait Backend {
 
 | Area | Backends (reference first) |
 | --- | --- |
-| Display profiles | kanshi (#211); without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
+| Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
 | Notifications | swaync, mako, dunst (Do Not Disturb first) |

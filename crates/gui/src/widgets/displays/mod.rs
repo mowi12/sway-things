@@ -23,6 +23,8 @@ use std::rc::Rc;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
+use sway_things_core::generate;
+use sway_things_core::outputs::kanshi;
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
@@ -115,17 +117,24 @@ impl Arrangement {
             move |_| canvas.arrange_side_by_side()
         ));
 
-        let note = gtk::Label::new(Some(
-            "kanshi sets up your displays. Changes here take effect now and last until kanshi \
-             applies a profile; Sway Things doesn\u{2019}t store them in your sway config.",
-        ));
+        let note = gtk::Label::new(None);
         note.set_wrap(true);
         note.set_xalign(0.0);
         note.set_hexpand(true);
+        note.set_selectable(true);
+        let copy = gtk::Button::with_label("Copy Line");
+        copy.set_valign(gtk::Align::Center);
+        copy.set_visible(false);
+        copy.connect_clicked(|button| {
+            if let Some(line) = button.tooltip_text() {
+                button.clipboard().set_text(&line);
+            }
+        });
         let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         kanshi.add_css_class("st-display-warning");
         kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
         kanshi.append(&note);
+        kanshi.append(&copy);
         kanshi.set_visible(false);
 
         let root = gtk::Box::new(gtk::Orientation::Vertical, 12);
@@ -179,6 +188,58 @@ impl Arrangement {
         &self.canvas
     }
 
+    /// Says how the arrangement is remembered: by kanshi per combination of displays, or what
+    /// it takes for that (the include line for kanshi's config, or kanshi itself).
+    fn show_kanshi(&self, known: bool, displays: generate::Displays) {
+        let mut parts = std::iter::successors(self.kanshi.first_child(), WidgetExt::next_sibling);
+        let (Some(_), Some(note), Some(copy)) = (parts.next(), parts.next(), parts.next()) else {
+            return;
+        };
+        let (Ok(note), Ok(copy)) = (
+            note.downcast::<gtk::Label>(),
+            copy.downcast::<gtk::Button>(),
+        ) else {
+            return;
+        };
+        let files = kanshi::KanshiFiles::from_env();
+        let text = match (displays, &files) {
+            (generate::Displays::Kanshi { start }, _) => {
+                copy.set_visible(false);
+                let mut text = String::from(
+                    "Each combination of displays is remembered: kanshi brings this arrangement \
+                     back whenever these displays are connected together.",
+                );
+                if start && !sway_things_core::outputs::kanshi_runs() {
+                    text.push_str(" kanshi starts with your next login.");
+                }
+                Some(text)
+            }
+            (generate::Displays::Sway, Some(files))
+                if kanshi::installed() && files.inclusion() == kanshi::Inclusion::Missing =>
+            {
+                let line = files.include_line();
+                copy.set_tooltip_text(Some(&line));
+                copy.set_visible(true);
+                Some(format!(
+                    "So that each combination of displays is remembered, add this line to {}: \
+                     {line}",
+                    files.config.display()
+                ))
+            }
+            (generate::Displays::Sway, _) if !kanshi::installed() => {
+                copy.set_visible(false);
+                Some(
+                    "With kanshi installed, each combination of displays is remembered and comes \
+                     back on its own."
+                        .to_owned(),
+                )
+            }
+            (generate::Displays::Sway, _) => None,
+        };
+        note.set_text(text.as_deref().unwrap_or_default());
+        self.kanshi.set_visible(known && text.is_some());
+    }
+
     /// Whether the note that kanshi sets up the displays is shown.
     pub fn says_kanshi_runs(&self) -> bool {
         self.kanshi.is_visible()
@@ -211,7 +272,8 @@ impl Arrangement {
         }
         // Displays come and go with kanshi starting at a login, so look again.
         model.look_for_kanshi();
-        self.kanshi.set_visible(known && model.kanshi_runs());
+        // A model made for tests doesn't look at the machine.
+        self.show_kanshi(known && model.looks_for_kanshi(), model.displays_backend());
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());

@@ -729,7 +729,7 @@ fn with_kanshi_the_displays_get_no_output_lines() {
         Registry::builtin(),
         &stored,
         SWAY_1_10,
-        super::Displays::Kanshi,
+        super::Displays::Kanshi { start: false },
     );
     let output = text(&files, ConfigFile::Output);
     assert!(!output.contains("output \""), "{output}");

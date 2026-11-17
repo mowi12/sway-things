@@ -239,9 +239,9 @@ pub async fn run_for_user(command: &Command) -> Exit {
             return Exit::Failure;
         }
     };
-    // While kanshi sets up the displays, no output lines of ours contradict it.
-    applier.set_displays(generate::Displays::detect());
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
+    // While kanshi sets up the displays, no output lines of ours contradict it.
+    applier.set_displays(generate::Displays::detect(&status, applier.locations()));
     let mut session = Session { applier, status };
     run(
         command,
@@ -322,10 +322,7 @@ fn note_kanshi<V: Validate>(
     reset: bool,
     io: &mut Io<'_>,
 ) {
-    if exit != Exit::Ok
-        || session.applier.displays() != generate::Displays::Kanshi
-        || !is_for_displays(Some(key))
-    {
+    if exit != Exit::Ok || !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
         return;
     }
     if reset {
@@ -451,7 +448,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         status: &status,
         validator: &validator,
         outputs: outputs.as_ref(),
-        displays: generate::Displays::detect(),
+        displays: generate::Displays::detect(&status, &locations),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -685,7 +682,7 @@ async fn doctor_in<V: Validate>(
         status: &session.status,
         validator: applier.validator(),
         outputs: outputs.as_ref(),
-        displays: generate::Displays::detect(),
+        displays: applier.displays(),
     };
     doctor(&checkup, None, args, out).await
 }
@@ -870,8 +867,7 @@ async fn set<V: Validate>(
         Err(error) => return fail(io, &error),
     };
     // A change that is live only (a display's, while kanshi sets them up) has nothing to move.
-    let live_only = session.applier.displays() == generate::Displays::Kanshi
-        && setting.scope() == Scope::PerOutput;
+    let live_only = session.applier.displays().is_kanshi() && setting.scope() == Scope::PerOutput;
     if let Some(layer) = change.layer.filter(|_| !live_only) {
         if let Err(error) = session.applier.move_to(key, device, layer, &access) {
             return fail(io, &error);

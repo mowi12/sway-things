@@ -184,8 +184,8 @@ mod imp {
         pub(super) error: RefCell<Option<String>>,
         pub(super) queue: RefCell<VecDeque<super::Op>>,
         pub(super) busy: Cell<bool>,
-        /// Whether kanshi set up the displays when last looked.
-        pub(super) kanshi: Cell<bool>,
+        /// Who set up the displays when last looked.
+        pub(super) displays: Cell<sway_things_core::generate::Displays>,
         /// When the displays page last looked for kanshi.
         pub(super) kanshi_looked: Cell<Option<std::time::Instant>>,
         /// Whether to look for kanshi at all: not for a model made for tests, so they don't
@@ -246,10 +246,7 @@ impl Model {
         match Self::connect().await {
             Ok((applier, watch)) => {
                 let state_watch = applier.state().watch();
-                model
-                    .imp()
-                    .kanshi
-                    .set(applier.displays() == generate::Displays::Kanshi);
+                model.imp().displays.set(applier.displays());
                 model.start(applier, watch.status().clone(), true);
                 // kanshi started or stopped since the files were written: the lines for the
                 // displays go or come back. Only a file as Sway Things wrote it is replaced.
@@ -283,10 +280,13 @@ impl Model {
         let (mut applier, main) = Applier::open()
             .await
             .map_err(|error| error.text().translated())?;
-        // While kanshi sets up the displays, no output lines of ours contradict it.
-        applier.set_displays(generate::Displays::detect());
         let watch = IncludeWatch::new(main, applier.locations().clone())
             .map_err(|error| error.text().translated())?;
+        // While kanshi sets up the displays, no output lines of ours contradict it.
+        applier.set_displays(generate::Displays::detect(
+            watch.status(),
+            applier.locations(),
+        ));
         Ok((applier, watch))
     }
 
@@ -376,7 +376,7 @@ impl Model {
                     .ok();
             }
         }
-        if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
+        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
             // kanshi sets up the displays: what they run with counts, not what was stored
             // before kanshi ran.
             let live = device
@@ -392,18 +392,30 @@ impl Model {
         Some(view)
     }
 
-    /// Who sets up the displays: kanshi if it runs (for a model that looks for it).
+    /// Who sets up the displays: kanshi if it is set up for it (for a model that looks).
     fn displays(&self) -> generate::Displays {
-        if self.imp().looks_for_kanshi.get() {
-            generate::Displays::detect()
-        } else {
-            generate::Displays::Sway
+        if !self.imp().looks_for_kanshi.get() {
+            return generate::Displays::Sway;
         }
+        let core = self.imp().core.borrow();
+        core.as_ref().map_or(generate::Displays::Sway, |core| {
+            generate::Displays::detect(&core.status, &core.locations)
+        })
+    }
+
+    /// Whether the model looks at the machine for kanshi at all (not one made for tests).
+    pub fn looks_for_kanshi(&self) -> bool {
+        self.imp().looks_for_kanshi.get()
+    }
+
+    /// Who set up the displays when the model last looked.
+    pub fn displays_backend(&self) -> generate::Displays {
+        self.imp().displays.get()
     }
 
     /// Whether kanshi set up the displays when the model last looked.
     pub fn kanshi_runs(&self) -> bool {
-        self.imp().kanshi.get()
+        self.imp().displays.get().is_kanshi()
     }
 
     /// Looks again whether kanshi sets up the displays, as when displays come and go; says
@@ -420,8 +432,8 @@ impl Model {
             return false;
         }
         self.imp().kanshi_looked.set(Some(now));
-        let runs = self.displays() == generate::Displays::Kanshi;
-        let changed = self.imp().kanshi.replace(runs) != runs;
+        let displays = self.displays();
+        let changed = self.imp().displays.replace(displays) != displays;
         if changed {
             // The rows show what the displays run with, or what is stored, and the lines for
             // the displays go from the generated files or come back.
@@ -533,11 +545,7 @@ impl Model {
             core.state.registry(),
             &core.state,
             core.compositor,
-            if self.imp().kanshi.get() {
-                generate::Displays::Kanshi
-            } else {
-                generate::Displays::Sway
-            },
+            self.imp().displays.get(),
         );
         let on_disk = generate::on_disk(&files, &core.locations);
         Some(files.into_iter().zip(on_disk).collect())
@@ -596,7 +604,7 @@ impl Model {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
         // kanshi sets up the displays: no line of ours competes with the user's.
-        if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
+        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
             return None;
         }
         Report::check(&core.status, setting, device, core.known())
@@ -835,8 +843,7 @@ impl Model {
         // kanshi may have started or stopped since the app opened.
         let displays = self.displays();
         applier.set_displays(displays);
-        let kanshi = displays == generate::Displays::Kanshi;
-        if self.imp().kanshi.replace(kanshi) != kanshi && !matches!(op, Op::Persist) {
+        if self.imp().displays.replace(displays) != displays && !matches!(op, Op::Persist) {
             // kanshi started or stopped: the lines for the displays go or come back.
             self.queue(Op::Persist);
         }

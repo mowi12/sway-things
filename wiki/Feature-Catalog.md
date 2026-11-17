@@ -94,12 +94,11 @@ kanshi, static `output` lines in our include (no profiles).
 
 #### Profiles (kanshi backend)
 
-- [ ] 🟡 Create, rename, delete profiles; generated into our kanshi include
-
-- [ ] 🟢 One-click profile switching
-- [ ] 🟡 First run: detect the current layout and suggest a profile name
-- [ ] 🟢 Flicker-free reload (`kanshictl reload` → `SIGHUP` → restart kanshi only as a last resort)
-- [ ] 🟢 Generate `exec kanshi` / `exec_always kanshictl reload` into **our** sway include when kanshi isn't started yet
+- [x] 🟡 Each combination of displays remembered on its own as a kanshi profile, without naming or picking profiles;
+      generated into our kanshi include (`~/.config/kanshi/sway-things.conf`)
+- [x] 🟢 A profile that switches on any one display alone, so no combination stays dark
+- [x] 🟢 `kanshictl reload` after saving
+- [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
 
 #### Workspace placement (opt-in)
 

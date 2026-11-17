@@ -1998,7 +1998,7 @@ fn while_kanshi_sets_up_the_displays_their_changes_are_live_only() {
     let mut setup = Setup::live(&sway, "version = 1\n");
     setup
         .applier
-        .set_displays(crate::generate::Displays::Kanshi);
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
     let applied = block_on(setup.applier.set(
         SCALE,
         Some(PANEL),

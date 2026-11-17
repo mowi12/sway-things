@@ -61,6 +61,9 @@ use crate::i18n::Text;
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::msg;
+use crate::outputs::Outputs;
+use crate::outputs::kanshi::{self, KanshiFiles};
+use crate::outputs::profiles::{Profile, Profiles, kanshi_config};
 use crate::registry::{
     Apply, ConfigFile, Registry, RenderError, Scope, Setting, SwayMapping, Value, Values,
 };
@@ -171,6 +174,9 @@ pub struct Applier<V = SwayValidator> {
     gsettings: Box<dyn GSettingsStore>,
     /// Who sets up the displays: kanshi means no `output` lines are generated.
     displays: generate::Displays,
+    /// The setups of the displays per combination, for kanshi. `None` until loaded, or if
+    /// they can't be: then nothing is remembered and nothing is written for kanshi.
+    profiles: Option<Profiles>,
 }
 
 impl Applier<SwayValidator> {
@@ -189,6 +195,7 @@ impl Applier<SwayValidator> {
         let locations = Locations::from_env().map_err(ApplyError::Paths)?;
         let state = State::load(Registry::builtin(), paths);
         let mut applier = Self::connect(state, locations).await?;
+        applier.profiles = Profiles::load(applier.state.paths().displays()).ok();
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -243,6 +250,7 @@ impl<V: Validate> Applier<V> {
             waiting: Waiting::default(),
             gsettings: Box::new(NoGSettings),
             displays: generate::Displays::Sway,
+            profiles: None,
         }
     }
 
@@ -266,6 +274,7 @@ impl<V: Validate> Applier<V> {
             waiting: Waiting::default(),
             gsettings: Box::new(NoGSettings),
             displays: generate::Displays::Sway,
+            profiles: None,
         }
     }
 
@@ -414,7 +423,7 @@ impl<V: Validate> Applier<V> {
     /// Whether a change of `setting` is live only and never stored: a setting of the displays
     /// while kanshi sets them up.
     pub(crate) fn is_live_only(&self, setting: &Setting) -> bool {
-        self.displays == generate::Displays::Kanshi && setting.scope() == Scope::PerOutput
+        self.displays.is_kanshi() && setting.scope() == Scope::PerOutput
     }
 
     /// Removes the stored value of `key`, so Sway Things no longer manages the setting, and sends
@@ -716,6 +725,7 @@ impl<V: Validate> Applier<V> {
         self.unsaved_since = None;
         let saved = self.state.is_dirty();
         self.state.save(access)?;
+        self.remember_displays().await;
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
@@ -723,6 +733,33 @@ impl<V: Validate> Applier<V> {
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)
+    }
+
+    /// While kanshi sets up the displays: remembers how the connected ones run for their
+    /// combination, writes the profiles for kanshi and has kanshi read them again. Not while a
+    /// risky change waits (that isn't kept yet), nor without a session. Best effort: what can't
+    /// be written is tried again at the next save.
+    async fn remember_displays(&mut self) {
+        if !self.displays.is_kanshi() || self.pending.is_some() {
+            return;
+        }
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return;
+        };
+        let Ok(found) = client.outputs().await else {
+            return;
+        };
+        if let Some(profile) = Profile::capture(&Outputs::new(&found)) {
+            if profiles.remember(profile) && profiles.save().is_err() {
+                return;
+            }
+        }
+        let Some(files) = KanshiFiles::from_env() else {
+            return;
+        };
+        if matches!(files.write(&kanshi_config(profiles)), Ok(true)) {
+            kanshi::reload().await;
+        }
     }
 
     /// The stored changes that wait for a reload of sway or the next login.
