@@ -793,7 +793,22 @@ impl SettingRow {
         imp.line
             .set_visible(view.line.is_some() && !imp.grouped.get() && shows_directives(model));
         self.refresh_indicators(setting, device.as_deref(), &view);
-        let note = note(&view, setting, device.as_deref());
+        let mut note = note(&view, setting, device.as_deref());
+        // A display stored as off that the start of sway switched on: no other one was on.
+        let on_anyway = setting.key() == outputs::ENABLED
+            && view.value == Value::Bool(false)
+            && device.as_deref().is_some_and(|device| {
+                model
+                    .outputs()
+                    .and_then(|outputs| outputs.get(device).map(outputs::Output::is_enabled))
+                    .unwrap_or(false)
+            });
+        if on_anyway {
+            if !note.is_empty() {
+                note.push_str(" \u{b7} ");
+            }
+            note.push_str("On for now: no other display was on");
+        }
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
         let reason = view

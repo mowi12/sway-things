@@ -121,8 +121,8 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   (`input type:touchpad tap enabled`), with one for that device's identifier.
 - **One at a time:** a setting built with `.one_at_a_time()` is only stored for one device or output, never for all
   of them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's
-  position for every output would stack them all on one spot, and a mode or switching off for every output couldn't be
-  tried and reverted safely. The Displays page offers only the scale and the rotation for _All displays_.
+  position for every output would stack them all on one spot, and a mode, a rotation or switching off for every output
+  couldn't be tried and reverted safely. The Displays page offers only the scale for _All displays_.
 - **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
   output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
   [Outputs](#outputs)). `Setting::check_device` says whether a string can select a device or an output for a setting.
@@ -687,7 +687,11 @@ map to.
   broken serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes
   sway keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be
   removed. Values stored by a name stay with the port: a monitor without a serial moved to another port starts
-  without them.
+  without them. The command line takes a display by its name too: in a session, `--device DP-4` stands for that
+  display's identifier.
+- **Positions are absolute:** a drop stores the position of every output that is on, so an output plugged in later
+  with other outputs (another dock) comes back where it stood and may not touch them; the page then offers _Arrange
+  Side by Side_. Arrangements per combination of outputs are for display profiles (kanshi).
 - **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
   `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
   changes are reported (added, removed, changed).
@@ -701,15 +705,17 @@ map to.
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while an output is stored as off, `20-output.conf` ends with `exec_always sway-things hook displays`,
   and at every start and reload `outputs::ensure_one_on` switches the first connected output on if none is on (for the
-  session only; while sway reports no output at all, it waits for sway's `output` events until one comes or sway is
-  gone). Without a session the outputs aren't known,
+  session only). While none is on, it waits until sway has reported no change of its outputs for three seconds (at a
+  login at the dock, the panel comes before the dock's monitors), and while sway reports no output at all, for up to a
+  minute. The row of a display stored as off that the hook switched on says _On for now: no other display was on_. Without a session the outputs aren't known,
   so switching one off is allowed there; the hook catches what that leaves. Undocking in a running session isn't
   covered: sway has no config hook for an output that goes; display profiles (kanshi) are the place for that.
 - **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
   size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While an
   output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
   it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least
-  a quarter of an edge with one, since sway only moves the pointer between outputs that share an edge. `normalize`
+  a quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
+  where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `normalize`
   moves the layout to start at 0,0.
 
 ### XKB rules
@@ -848,8 +854,10 @@ the config or the settings files changed on disk.
 - **`output` settings** merge per output the same way: for one output, the last line wins among those for `*`, for
   its name and for its identifier (`Known::outputs` matches a line by name with the output stored by its identifier;
   without the outputs only lines for `*` and the identifier count). sway's own merging depends on whether the output is
-  connected while it reads the line (`store_output_config` in `sway/config/output.c`), which a reload of a running
-  session always is.
+  connected while it reads the line (`store_output_config` in `sway/config/output.c`): at a reload it is, and the last
+  line wins as reported; at a login it usually isn't yet, and a line by the identifier (as Sway Things writes it) wins
+  over one by the name wherever it stands. The report follows the reload, which is when a change made in the app meets
+  the user's lines.
 - **One line, several settings:** a `client.*` line sets all five colors, so every setting of the group reports it, and
   storing one color makes the user's line dead for all of them.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
@@ -1206,8 +1214,9 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   that moves becomes a drag instead of a click. Snapping, settling and moving the layout to 0,0 come from
   `outputs::layout`; a drop stores the position of every output that is on (`Model::set`), shows the dropped layout
   until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While
-  a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When one output's
-  size changes with what is stored for it, the outputs right of and below it move along; the layout to compare with is
+  a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When outputs'
+  sizes change with what is stored for them, the layout flows so that what touched still touches
+  (`outputs::layout::reflow`, for one output or several, like a scale for all of them); the layout to compare with is
   held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up
   with sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the
   outputs picks the output they are for (`SettingRow::set_device`), and the mode row is a drop-down whose modes follow

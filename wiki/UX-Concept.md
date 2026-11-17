@@ -99,8 +99,8 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 
 ### Displays
 
-The Displays page arranges the outputs and sets each one up. Every change is live; a new mode and switching an output
-off go through the safety net.
+The Displays page arranges the outputs and sets each one up. Every change is live; a new mode, a rotation and
+switching an output off go through the safety net.
 
 - **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit, each with its number,
   make and model and its mode (with the scale and turn when they aren't the plain ones). Outputs that are off stand
@@ -120,17 +120,21 @@ off go through the safety net.
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
   warning says the pointer can't reach every display and offers _Arrange Side by Side_.
-- **Sizes:** when the scale, rotation or mode of an output changes in the app, the outputs right of it and below it move
-  along, so the layout stays without overlaps and gaps. A change from elsewhere (`swaymsg`) is left as it is.
+- **Sizes:** when the scale, rotation or mode of outputs changes through Sway Things (one output, or the scale of all of
+  them), the layout flows so that what touched still touches, without overlaps and gaps. A change from elsewhere
+  (`swaymsg`) is left as it is.
+- **Positions are absolute:** a display plugged in later with other displays (another dock) comes back where it stood;
+  if it doesn't touch the others then, the warning and _Arrange Side by Side_ help. Arrangements per set of displays
+  come with display profiles.
 - **The output's settings:** the _Display_ section starts with _Settings for_: _All displays_ and each output, numbered
   as on the canvas, with "(off)" or "(not connected)". A click on a tile picks it there, and the other way round; at
   first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (_Automatic_,
   then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.951 Hz_), _Scale_, _Rotation_ and
   _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
-  _Chosen by sway_. _All displays_ offers only the scale and the rotation: a mode, a position or switching off is for
-  one display at a time. _Use this display_ says what happens to a display that is off when sway starts: if no other is
+  _Chosen by sway_. _All displays_ offers only the scale: a mode, a rotation, a position or switching off is for one
+  display at a time. A new mode, a rotation and switching a display off are tried with the safety net. _Use this display_ says what happens to a display that is off when sway starts: if no other is
   on then, Sway Things switches it on again (also at a reload, so `$mod+Shift+c` brings a display back after
-  undocking).
+  undocking). A display that is on although it is stored as off says _On for now: no other display was on_.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
 
 ### Bluetooth

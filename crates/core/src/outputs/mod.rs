@@ -67,9 +67,13 @@ pub fn guard_command() -> crate::command::SwayCmd {
 /// leaves the user without a display: a laptop's panel, switched off at the dock, when sway
 /// starts without the dock. The first connected output in sway's order is switched on, for this
 /// session only; nothing is stored. Returns the name of the output switched on, or `None` if one
-/// is on already. While sway reports no output at all (at its start, outputs can come after the
-/// config ran this), it waits for sway's `output` events, until one is connected or sway is
-/// gone.
+/// is on, comes on, or none comes.
+///
+/// While none is on, it waits until sway has reported no change of its outputs for
+/// [`QUIET`]: at a login at the dock, sway reports the panel (off) before the dock's monitors,
+/// which come a few seconds later, and switching the panel on meanwhile would undo what the user
+/// stored. While sway reports no output at all, it waits for at most [`WAIT_FOR_OUTPUTS`]; it
+/// ends with sway.
 ///
 /// # Errors
 ///
@@ -77,6 +81,8 @@ pub fn guard_command() -> crate::command::SwayCmd {
 pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcError> {
     // First the subscription, so an output that comes meanwhile isn't missed.
     let mut events = client.subscribe(&[EventType::Output]).await?;
+    let started = std::time::Instant::now();
+    let mut quiet = false;
     loop {
         let outputs = Outputs::new(&client.outputs().await?);
         if outputs.enabled().next().is_some() {
@@ -86,23 +92,59 @@ pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcErr
             let selector = crate::command::output::OutputSelector::output(&output.name).ok()?;
             Some((output.name.clone(), selector))
         });
-        if let Some((name, selector)) = usable {
+        if let (Some((name, selector)), true) = (&usable, quiet) {
             client
-                .run(&crate::command::output::Output::new(selector).enable(true))
+                .run(&crate::command::output::Output::new(selector.clone()).enable(true))
                 .await?;
-            return Ok(Some(name));
+            return Ok(Some(name.clone()));
         }
-        // Nothing connected yet: the next output event, or the end of sway.
-        loop {
-            match events.next().await {
-                None => return Ok(None),
-                Some(Ok(Event::Output(_))) => break,
-                Some(Ok(_) | Err(IpcError::InvalidReply { .. })) => {}
-                Some(Err(error)) => return Err(error),
+        // Wait for sway to settle: for a quiet moment once outputs are there, else for the
+        // first output, but not forever.
+        let wait = if usable.is_some() {
+            QUIET
+        } else {
+            let Some(left) = WAIT_FOR_OUTPUTS.checked_sub(started.elapsed()) else {
+                return Ok(None);
+            };
+            left
+        };
+        let next = async {
+            loop {
+                match events.next().await {
+                    None => return Ok(Waited::Gone),
+                    Some(Ok(Event::Output(_))) => return Ok(Waited::Changed),
+                    Some(Ok(_) | Err(IpcError::InvalidReply { .. })) => {}
+                    Some(Err(error)) => return Err(error),
+                }
             }
+        };
+        let timeout = async {
+            async_io::Timer::after(wait).await;
+            Ok(Waited::Quiet)
+        };
+        match futures_lite::future::or(next, timeout).await? {
+            Waited::Changed => quiet = false,
+            Waited::Quiet if usable.is_some() => quiet = true,
+            // sway is gone, or no output came at all.
+            Waited::Gone | Waited::Quiet => return Ok(None),
         }
     }
 }
+
+/// How waiting for sway's outputs to settle ended.
+enum Waited {
+    /// sway reported a change of its outputs.
+    Changed,
+    /// Nothing changed for the time waited.
+    Quiet,
+    /// sway is gone.
+    Gone,
+}
+
+/// How long [`ensure_one_on`] waits for sway to report an output at all.
+pub const WAIT_FOR_OUTPUTS: std::time::Duration = std::time::Duration::from_secs(60);
+/// How long sway's outputs must stay unchanged before [`ensure_one_on`] switches one on.
+pub const QUIET: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and
 /// can't be matched reliably.

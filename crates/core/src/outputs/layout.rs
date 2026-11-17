@@ -161,23 +161,56 @@ pub fn touches(a: Rect, b: Rect) -> bool {
 }
 
 /// The place for `moving`, dropped where it is, that overlaps none of `others` and touches at
-/// least one of them: where it is if that is such a place, else the nearest place next to an
-/// edge of another output. Without others, or for a rectangle without an area, where it is.
+/// least one of them, and where the whole layout hangs together if any such place does (moving
+/// the output that joined two others away from them would cut them apart): where it is if that
+/// is such a place, else the nearest place next to an edge of another output. Without others,
+/// or for a rectangle without an area, where it is.
 pub fn settle(moving: Rect, others: &[Rect]) -> Rect {
     let fits = |rect: Rect| {
         others.iter().all(|other| !overlaps(rect, *other))
             && others.iter().any(|other| touches(rect, *other))
     };
-    if others.is_empty() || !has_area(moving) || fits(moving) {
+    let together = |rect: Rect| {
+        let mut all: Vec<Rect> = others.to_vec();
+        all.push(rect);
+        is_connected(&all)
+    };
+    if others.is_empty() || !has_area(moving) || (fits(moving) && together(moving)) {
         return moving;
     }
+    let distance = |rect: &Rect| {
+        let dx = i128::from(rect.x) - i128::from(moving.x);
+        let dy = i128::from(rect.y) - i128::from(moving.y);
+        dx * dx + dy * dy
+    };
+    let candidates = candidates(moving, others);
+    if let Some(best) = candidates
+        .iter()
+        .filter(|rect| fits(**rect) && together(**rect))
+        .min_by_key(|rect| distance(rect))
+    {
+        return *best;
+    }
+    if fits(moving) {
+        return moving;
+    }
+    candidates
+        .into_iter()
+        .filter(|rect| fits(*rect))
+        .min_by_key(distance)
+        // The side right of the output that reaches furthest right is always free, unless the
+        // layout touches the end of sway's coordinates.
+        .unwrap_or(moving)
+}
+
+/// The places next to each side of each of `others` for `moving`, as close to where it was
+/// dropped as that side allows while the two share at least a quarter of the shorter edge, so
+/// the pointer has somewhere to cross.
+fn candidates(moving: Rect, others: &[Rect]) -> Vec<Rect> {
     let along = |position: i32, low: i32, high: i32| position.clamp(low, high.max(low));
     others
         .iter()
         .flat_map(|other| {
-            // Next to each side of `other`, as close to where it was dropped as that side allows
-            // while the two share at least a quarter of the shorter edge, so the pointer has
-            // somewhere to cross.
             let shared = |a: i32, b: i32| (a.min(b) / 4).max(1);
             let y_shared = shared(moving.height, other.height);
             let x_shared = shared(moving.width, other.width);
@@ -220,15 +253,72 @@ pub fn settle(moving: Rect, others: &[Rect]) -> Rect {
                 },
             ]
         })
-        .filter(|rect| fits(*rect))
-        .min_by_key(|rect| {
-            let dx = i128::from(rect.x) - i128::from(moving.x);
-            let dy = i128::from(rect.y) - i128::from(moving.y);
-            dx * dx + dy * dy
-        })
-        // The side right of the output that reaches furthest right is always free, unless the
-        // layout touches the end of sway's coordinates.
-        .unwrap_or(moving)
+        .collect()
+}
+
+/// The layout `before`, after some of its rectangles changed their size to those in `after`
+/// (same order, same places): each rectangle moves by as much as the ones it stood against on
+/// its left and above it grew or shrank, so what touched still touches, and the layout starts at
+/// 0,0. `None` unless only sizes changed, `before` hung together without overlaps, `after`
+/// doesn't, and the moved layout does.
+pub fn reflow(before: &[Rect], after: &[Rect]) -> Option<Vec<Rect>> {
+    let fine = |rects: &[Rect]| {
+        is_connected(rects)
+            && rects
+                .iter()
+                .enumerate()
+                .all(|(index, a)| rects.iter().skip(index + 1).all(|b| !overlaps(*a, *b)))
+    };
+    let same_places = before.len() == after.len()
+        && before
+            .iter()
+            .zip(after)
+            .all(|(old, new)| (old.x, old.y) == (new.x, new.y));
+    if !same_places || !fine(before) || fine(after) {
+        return None;
+    }
+    let mut moved: Vec<Rect> = after.to_vec();
+    // Left to right: each starts where the new right edges of those on its left end.
+    let mut order: Vec<usize> = (0..before.len()).collect();
+    order.sort_by_key(|&index| before.get(index).map(|rect| (rect.x, rect.y)));
+    for &index in &order {
+        let (Some(old), Some(current)) = (before.get(index).copied(), moved.get(index).copied())
+        else {
+            continue;
+        };
+        let x = before
+            .iter()
+            .enumerate()
+            .filter(|(_, left)| {
+                left.right() == old.x && left.y < old.bottom() && old.y < left.bottom()
+            })
+            .filter_map(|(other, _)| moved.get(other).map(|rect| rect.right()))
+            .max();
+        if let (Some(x), Some(rect)) = (x, moved.get_mut(index)) {
+            *rect = Rect { x, ..current };
+        }
+    }
+    // Top to bottom, the same.
+    order.sort_by_key(|&index| before.get(index).map(|rect| (rect.y, rect.x)));
+    for &index in &order {
+        let (Some(old), Some(current)) = (before.get(index).copied(), moved.get(index).copied())
+        else {
+            continue;
+        };
+        let y = before
+            .iter()
+            .enumerate()
+            .filter(|(_, above)| {
+                above.bottom() == old.y && above.x < old.right() && old.x < above.right()
+            })
+            .filter_map(|(other, _)| moved.get(other).map(|rect| rect.bottom()))
+            .max();
+        if let (Some(y), Some(rect)) = (y, moved.get_mut(index)) {
+            *rect = Rect { y, ..current };
+        }
+    }
+    normalize(&mut moved);
+    fine(&moved).then_some(moved)
 }
 
 /// Moves every rectangle by the same amount so that the leftmost starts at x 0 and the topmost
@@ -370,6 +460,44 @@ mod tests {
         let settled = settle(rect(1000, 0, 1920, 1080), &[left, right]);
         assert!(!overlaps(settled, left) && !overlaps(settled, right));
         assert!(touches(settled, left) || touches(settled, right));
+    }
+
+    #[test]
+    fn a_dropped_output_keeps_the_layout_together_where_it_can() {
+        // A | B | C: B dropped below A would cut C off; next to C or between them it doesn't.
+        let a = rect(0, 0, 1000, 500);
+        let c = rect(2000, 0, 1000, 500);
+        let settled = settle(rect(100, 500, 1000, 500), &[a, c]);
+        assert!(is_connected(&[a, c, settled]), "{settled:?}");
+        assert!(!overlaps(settled, a) && !overlaps(settled, c));
+    }
+
+    #[test]
+    fn a_resized_layout_flows_so_what_touched_still_touches() {
+        // Two side by side, a third below the first; the first and the second get a scale of 2.
+        let before = [
+            rect(0, 0, 2560, 1440),
+            rect(2560, 0, 1920, 1080),
+            rect(0, 1440, 1920, 1080),
+        ];
+        let after = [
+            rect(0, 0, 1280, 720),
+            rect(2560, 0, 960, 540),
+            rect(0, 1440, 1920, 1080),
+        ];
+        let flowed = super::reflow(&before, &after).unwrap();
+        assert_eq!(
+            flowed,
+            [
+                rect(0, 0, 1280, 720),
+                rect(1280, 0, 960, 540),
+                rect(0, 720, 1920, 1080)
+            ]
+        );
+        // Nothing to do while the layout still hangs together, or when places changed too.
+        assert_eq!(super::reflow(&before, &before), None);
+        let moved = [rect(10, 0, 1280, 720), after[1], after[2]];
+        assert_eq!(super::reflow(&before, &moved), None);
     }
 
     #[test]

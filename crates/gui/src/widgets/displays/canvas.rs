@@ -27,6 +27,7 @@ use sway_things_core::command::output::Transform;
 use sway_things_core::outputs::layout::{self, Guide};
 use sway_things_core::outputs::{MODE, Output, Outputs, POSITION, Rect, SCALE, TRANSFORM};
 use sway_things_core::registry::Value;
+use sway_things_core::view::Source;
 
 use crate::model::Model;
 
@@ -159,61 +160,35 @@ fn parked_size(output: &Output) -> (i32, i32) {
         })
 }
 
-/// The layout `after` with the outputs right of and below the one output that changed its size
-/// since `before` moved by as much as it grew or shrank, moved to start at 0,0. `None` if not
-/// exactly one output changed its size and nothing else, if `before` had gaps or overlaps, or
-/// if `after` has none: then there is nothing to keep together.
+/// The outputs of `after` that changed their size since `before`, and the layout `after` flowed
+/// so that what touched still touches ([`layout::reflow`]). `None` unless the same outputs are
+/// on, only sizes changed, and the layout had neither gaps nor overlaps before but has now.
 fn keep_together(
     before: &[(String, Rect)],
     after: &[(String, Rect)],
-) -> Option<(String, Vec<(String, Rect)>)> {
-    let fine = |layout: &[(String, Rect)]| {
-        let rects: Vec<Rect> = layout.iter().map(|(_, rect)| *rect).collect();
-        layout::is_connected(&rects)
-            && rects.iter().enumerate().all(|(index, a)| {
-                rects
-                    .iter()
-                    .skip(index + 1)
-                    .all(|b| !layout::overlaps(*a, *b))
-            })
-    };
-    if !fine(before) || fine(after) {
+) -> Option<(Vec<String>, Layout)> {
+    let same = before.len() == after.len()
+        && before
+            .iter()
+            .zip(after)
+            .all(|((old, _), (new, _))| old == new);
+    if !same {
         return None;
     }
-    let mut changed = None;
-    for ((id, old), (new_id, new)) in before.iter().zip(after) {
-        if id != new_id || (old.x, old.y) != (new.x, new.y) {
-            return None;
-        }
-        if (old.width, old.height) != (new.width, new.height) {
-            if changed.is_some() {
-                return None;
-            }
-            changed = Some((id.clone(), *old, *new));
-        }
-    }
-    let (resized, old, new) = changed?;
-    let dx = new.width.saturating_sub(old.width);
-    let dy = new.height.saturating_sub(old.height);
-    let mut rects: Vec<Rect> = after
+    let resized: Vec<String> = before
         .iter()
-        .map(|(id, rect)| {
-            if *id == resized {
-                return *rect;
-            }
-            let mut moved = *rect;
-            if rect.x >= old.right() {
-                moved.x = moved.x.saturating_add(dx);
-            }
-            if rect.y >= old.bottom() {
-                moved.y = moved.y.saturating_add(dy);
-            }
-            moved
-        })
+        .zip(after)
+        .filter(|((_, old), (_, new))| (old.width, old.height) != (new.width, new.height))
+        .map(|((id, _), _)| id.clone())
         .collect();
-    layout::normalize(&mut rects);
-    let arranged: Vec<(String, Rect)> = after.iter().map(|(id, _)| id.clone()).zip(rects).collect();
-    fine(&arranged).then_some((resized, arranged))
+    if resized.is_empty() {
+        return None;
+    }
+    let old: Vec<Rect> = before.iter().map(|(_, rect)| *rect).collect();
+    let new: Vec<Rect> = after.iter().map(|(_, rect)| *rect).collect();
+    let flowed = layout::reflow(&old, &new)?;
+    let arranged = after.iter().map(|(id, _)| id.clone()).zip(flowed).collect();
+    Some((resized, arranged))
 }
 
 /// How the layout maps onto the canvas: canvas = offset + logical × scale.
@@ -575,9 +550,11 @@ impl Canvas {
             return;
         }
         let resized = keep_together(&before, &layout).map(|(resized, _)| resized);
-        let stored_yet = resized
-            .as_ref()
-            .is_some_and(|resized| sizes_before.get(resized) != sizes.get(resized));
+        let stored_yet = resized.as_ref().is_some_and(|resized| {
+            resized
+                .iter()
+                .any(|id| sizes_before.get(id) != sizes.get(id))
+        });
         // One output changed its size, but what is stored for it hasn't caught up yet (sway
         // reported a change of the command line before the settings file was read again): the
         // layout before stays the one to compare with, for a moment.
@@ -609,8 +586,8 @@ impl Canvas {
         );
     }
 
-    /// What the app stores for the size of each output that is on: its scale, rotation and
-    /// mode.
+    /// What the app stores for the size of each output that is on, its own or for every output:
+    /// its scale, rotation and mode.
     fn stored_sizes(&self) -> Sizes {
         let Some(model) = self.imp().model.get() else {
             return Sizes::new();
@@ -622,11 +599,10 @@ impl Canvas {
                 let values = [SCALE, TRANSFORM, MODE]
                     .iter()
                     .map(|key| {
+                        // Its own value or the one for every output, as long as it is stored.
                         let setting = registry.get(key)?;
-                        model.stored_in(setting, Some(&identifier))?;
-                        model
-                            .view(setting, Some(&identifier))
-                            .map(|view| view.value)
+                        let view = model.view(setting, Some(&identifier))?;
+                        matches!(view.source, Source::Stored { .. }).then_some(view.value)
                     })
                     .collect();
                 (identifier, values)
@@ -646,7 +622,11 @@ impl Canvas {
         let Some((resized, arranged)) = keep_together(before, &after) else {
             return;
         };
-        if sizes_before.get(&resized) == sizes.get(&resized) {
+        // Only what the app changed: what it stores for one of them changed too.
+        if resized
+            .iter()
+            .all(|id| sizes_before.get(id) == sizes.get(id))
+        {
             return;
         }
         self.show_dropped(&arranged);

@@ -606,10 +606,35 @@ impl<V: Validate> Applier<V> {
             }
             None => Vec::new(),
         };
+        // A value for every output (`output * scale 2`) takes the place of each output's own one
+        // in sway, unlike in the generated file, where the outputs' own lines come after: they
+        // are sent again, so the session is as sway will read the file.
+        let own: Vec<SwayCmd> = if setting.scope() == Scope::PerOutput && device.is_none() {
+            let outputs: Vec<String> = self
+                .state
+                .entries()
+                .into_iter()
+                .filter(|entry| entry.setting.key() == setting.key())
+                .filter_map(|entry| entry.device.map(ToOwned::to_owned))
+                .collect();
+            let mut own = Vec::new();
+            for output in &outputs {
+                own.extend(render(
+                    &self.state,
+                    over,
+                    setting,
+                    Some(output),
+                    Target::Ipc,
+                )?);
+            }
+            own
+        } else {
+            Vec::new()
+        };
         let Some(client) = &mut self.client else {
             return Ok(Effect::NoSession);
         };
-        let mut sent = Vec::with_capacity(commands.len());
+        let mut sent = Vec::with_capacity(commands.len() + own.len());
         for command in &commands {
             if let Err(error) = client.run(command).await {
                 if !sent.is_empty() {
@@ -619,6 +644,12 @@ impl<V: Validate> Applier<V> {
                 return Err(ApplyError::Ipc(error));
             }
             sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+        }
+        for command in &own {
+            // Best effort: the value for every output is in effect either way.
+            if client.run(command).await.is_ok() {
+                sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+            }
         }
         Ok(Effect::Live { commands: sent })
     }

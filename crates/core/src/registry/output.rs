@@ -103,6 +103,9 @@ pub(super) fn settings() -> Vec<Setting> {
             .title(msg!("Rotation"))
             .keywords(&[msg!("transform"), msg!("orientation"), msg!("portrait")])
             .scope(Scope::PerOutput)
+            // A turned screen is hard to point at: tried with the safety net, for one display.
+            .apply(Apply::Risky)
+            .one_at_a_time()
             .sway(
                 Directive::output("transform"),
                 ConfigFile::Output,

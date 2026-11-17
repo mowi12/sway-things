@@ -36,7 +36,9 @@ use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs::{self, Outputs};
-use sway_things_core::registry::{Apply, ConfigFile, DeviceError, Link, Registry, Setting, Value};
+use sway_things_core::registry::{
+    Apply, ConfigFile, DeviceError, Link, Registry, Scope, Setting, Value,
+};
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
@@ -67,8 +69,8 @@ pub enum Command {
         /// The setting, e.g. windows.gaps.inner
         key: Option<String>,
         /// The input device or display: an input device by its identifier as `swaymsg -t
-        /// get_inputs` shows it, a display by its make, model and serial or its name as
-        /// `swaymsg -t get_outputs` shows them
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Print JSON for scripts
@@ -84,8 +86,8 @@ pub enum Command {
         #[arg(allow_hyphen_values = true)]
         value: String,
         /// The input device or display: an input device by its identifier as `swaymsg -t
-        /// get_inputs` shows it, a display by its make, model and serial or its name as
-        /// `swaymsg -t get_outputs` shows them
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Store the value for this machine only, in settings.d/<hostname>.toml
@@ -106,8 +108,8 @@ pub enum Command {
         /// The setting, e.g. windows.gaps.inner
         key: String,
         /// The input device or display: an input device by its identifier as `swaymsg -t
-        /// get_inputs` shows it, a display by its make, model and serial or its name as
-        /// `swaymsg -t get_outputs` shows them
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Reset a setting that can lock you out without asking to keep it
@@ -248,6 +250,27 @@ pub async fn run_for_user(command: &Command) -> Exit {
     .await
 }
 
+/// `device` as settings are stored for it: for a setting of displays (or without a key), a
+/// connected display named by its name (`DP-4`) is its identifier (make, model and serial).
+/// Anything else stays as given.
+fn resolve_display(
+    key: Option<&str>,
+    device: Option<&str>,
+    outputs: Option<&Outputs>,
+) -> Option<String> {
+    let device = device?;
+    let for_displays = key.is_none_or(|key| {
+        Registry::builtin()
+            .get(key)
+            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+    });
+    let identifier = outputs
+        .filter(|_| for_displays)
+        .and_then(|outputs| outputs.find(device))
+        .map(|output| output.identifier().to_owned());
+    Some(identifier.unwrap_or_else(|| device.to_owned()))
+}
+
 /// `hook displays`: switches a display on if none is on. Quiet when there is nothing to do; it
 /// says on stderr which display it switched on, for sway's log.
 async fn hook_displays(err: &mut dyn Write) -> Exit {
@@ -362,17 +385,21 @@ pub async fn run<V: Validate>(
             io.warn(problem);
         }
     }
+    // The outputs of the session: what they run with, for the values that nothing sets, and
+    // the identifier of a display named by its name.
+    let outputs = match (command, session.applier.client()) {
+        (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => client
+            .outputs()
+            .await
+            .ok()
+            .map(|found| Outputs::new(&found)),
+        _ => None,
+    };
+    let resolved =
+        |key: Option<&str>, device: Option<&str>| resolve_display(key, device, outputs.as_ref());
     match command {
         Command::Get { key, device, json } => {
-            // What the outputs run with, for the values that nothing sets.
-            let outputs = match session.applier.client() {
-                Some(client) => client
-                    .outputs()
-                    .await
-                    .ok()
-                    .map(|found| Outputs::new(&found)),
-                None => None,
-            };
+            let device = resolved(key.as_deref(), device.as_deref());
             let known = Known {
                 devices: None,
                 outputs: outputs.as_ref(),
@@ -400,6 +427,7 @@ pub async fn run<V: Validate>(
                 (_, true) => Some(Layer::Shared),
                 _ => None,
             };
+            let device = resolved(Some(key), device.as_deref());
             let change = Change {
                 key,
                 device: device.as_deref(),
@@ -415,6 +443,7 @@ pub async fn run<V: Validate>(
             yes,
             overwrite,
         } => {
+            let device = resolved(Some(key), device.as_deref());
             let reset_of = Reset {
                 key,
                 device: device.as_deref(),
@@ -1078,5 +1107,41 @@ mod tests {
     fn all_lists_every_exit_code_once_in_order() {
         let codes: Vec<u8> = Exit::ALL.iter().map(|exit| exit.code()).collect();
         assert_eq!(codes, [0, 1, 2, 3, 4, 5]);
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::resolve_display;
+    use sway_things_core::outputs::Outputs;
+
+    #[test]
+    fn a_display_named_by_its_name_is_stored_by_its_identifier() {
+        let json = r#"[{"name": "DP-4", "active": true, "primary": false, "make": "Dell",
+            "model": "U2723QE", "serial": "ABC", "modes": []}]"#;
+        let outputs = Outputs::new(&serde_json::from_str::<Vec<_>>(json).unwrap());
+        let resolve = |key, device| resolve_display(key, device, Some(&outputs));
+        assert_eq!(
+            resolve(Some("output.scale"), Some("DP-4")).as_deref(),
+            Some("Dell U2723QE ABC")
+        );
+        assert_eq!(
+            resolve(None, Some("DP-4")).as_deref(),
+            Some("Dell U2723QE ABC")
+        );
+        // Not connected, or not a setting of displays: as given.
+        assert_eq!(
+            resolve(Some("output.scale"), Some("DP-9")).as_deref(),
+            Some("DP-9")
+        );
+        assert_eq!(
+            resolve(Some("input.touchpad.tap"), Some("DP-4")).as_deref(),
+            Some("DP-4")
+        );
+        assert_eq!(
+            resolve_display(Some("output.scale"), Some("DP-4"), None).as_deref(),
+            Some("DP-4")
+        );
+        assert_eq!(resolve(Some("output.scale"), None), None);
     }
 }

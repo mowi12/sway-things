@@ -5300,7 +5300,12 @@ fn check_display_pick() -> Outcome {
         "the rows aren't for all displays",
     )?;
     // What is only set for one display at a time isn't offered for all of them.
-    for key in ["output.position", "output.mode", "output.enabled"] {
+    for key in [
+        "output.position",
+        "output.mode",
+        "output.enabled",
+        "output.transform",
+    ] {
         let hidden = row(&window, key)?
             .parent()
             .is_some_and(|item| !item.is_visible());

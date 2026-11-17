@@ -1819,3 +1819,17 @@ fn a_kept_mode_no_longer_waits_for_a_reload() {
         [] as [&str; 0]
     );
 }
+
+#[test]
+fn a_scale_for_every_display_keeps_each_displays_own_one() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nscale = 1.5\n",
+    );
+    let applied = setup.set(SCALE, Value::Decimal(2.0)).unwrap();
+    assert_eq!(
+        applied.effect,
+        live(&["output * scale 2", r#"output "A B C" scale 1.5"#])
+    );
+}

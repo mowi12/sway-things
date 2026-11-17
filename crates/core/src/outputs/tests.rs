@@ -327,6 +327,21 @@ fn an_output_is_switched_on_when_none_is() {
 }
 
 #[test]
+fn the_panel_stays_off_when_the_docks_monitor_comes_a_moment_later() {
+    // At a login at the dock: first only the panel (off), then the dock's monitor (on).
+    const PANEL: &str = r#"[{"name": "eDP-1", "active": false, "primary": false, "make": "A",
+        "model": "B", "serial": "C", "modes": []}]"#;
+    const DOCKED: &str = r#"[{"name": "eDP-1", "active": false, "primary": false, "make": "A",
+        "model": "B", "serial": "C", "modes": []},
+        {"name": "DP-4", "active": true, "primary": false, "make": "D", "model": "E",
+        "serial": "F", "modes": []}]"#;
+    let sway = with_outputs(&[PANEL, DOCKED]);
+    let switched = block_on(super::ensure_one_on(&mut sway.connect())).unwrap();
+    assert_eq!(switched, None);
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+}
+
+#[test]
 fn the_guard_runs_the_hook_at_every_start() {
     assert_eq!(
         super::guard_command()
