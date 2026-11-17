@@ -49,8 +49,9 @@ st-sidebar .st-group-separator {
 }
 
 /* Page */
+/* The side margins come from the clamp around the content, which shrinks them on a narrow window */
 st-page .st-page-content {
-  margin: 28px 32px 32px;
+  margin: 28px 0 32px;
 }
 
 st-page-header {
@@ -211,8 +212,9 @@ st-page .st-page-footer > box > label {
 }
 
 /* Welcome screen while the include line is missing */
+/* The side margins come from the clamp, as on a page */
 st-welcome .st-welcome-content {
-  margin: 56px 32px 32px;
+  margin: 56px 0 32px;
 }
 
 st-welcome .st-include-line {

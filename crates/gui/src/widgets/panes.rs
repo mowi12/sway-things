@@ -5,7 +5,8 @@
 //! while the window is narrow.
 //!
 //! The window is narrow below a threshold, or below the width both panes need side by side if
-//! that is more (larger fonts). The pane with the keyboard focus stays when the window gets
+//! that is more (larger fonts). A content pane that scrolls sideways can say how wide its content
+//! is ([`Panes::set_content_minimum`]), so it is shown beside the sidebar only where it fits. The pane with the keyboard focus stays when the window gets
 //! narrow; without the focus in either pane, the content pane does. The other pane is hidden
 //! (unmapped), so `Tab` never reaches it.
 
@@ -34,6 +35,8 @@ mod imp {
         pub narrow: Cell<bool>,
         /// Which pane is shown while narrow: the content pane, or the sidebar.
         pub content_shown: Cell<bool>,
+        /// The width the content needs, if it is more than the content pane's minimum.
+        pub content_minimum: RefCell<Option<super::Width>>,
     }
 
     impl Default for Panes {
@@ -45,6 +48,7 @@ mod imp {
                 threshold: Cell::new(0),
                 narrow: Cell::new(false),
                 content_shown: Cell::new(true),
+                content_minimum: RefCell::default(),
             }
         }
     }
@@ -175,6 +179,11 @@ mod imp {
             let orientation = gtk::Orientation::Horizontal;
             let (sidebar_minimum, sidebar_natural, _, _) = sidebar.measure(orientation, -1);
             let (content_minimum, _, _, _) = content.measure(orientation, -1);
+            let content_minimum = self
+                .content_minimum
+                .borrow()
+                .as_ref()
+                .map_or(content_minimum, |width| content_minimum.max((width.0)()));
             let (_, separator, _, _) = self.separator.measure(orientation, -1);
             let needed = sidebar_minimum + separator + content_minimum;
             if width < self.threshold.get().max(needed) {
@@ -195,6 +204,15 @@ mod imp {
     )]
     fn at(x: i32) -> gtk::gsk::Transform {
         gtk::gsk::Transform::new().translate(&gtk::graphene::Point::new(x as f32, 0.0))
+    }
+}
+
+/// A width asked for when it is needed.
+pub struct Width(Box<dyn Fn() -> i32>);
+
+impl std::fmt::Debug for Width {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Width")
     }
 }
 
@@ -227,6 +245,15 @@ impl Panes {
     /// The width below which the panes are shown one at a time, in pixels.
     pub fn threshold(&self) -> i32 {
         self.imp().threshold.get()
+    }
+
+    /// Asks `minimum` for the width the content needs beside the sidebar, for a content pane
+    /// that scrolls sideways and so can get narrower than its content.
+    pub fn set_content_minimum(&self, minimum: impl Fn() -> i32 + 'static) {
+        self.imp()
+            .content_minimum
+            .replace(Some(Width(Box::new(minimum))));
+        self.queue_resize();
     }
 
     /// Changes the width below which the panes are shown one at a time.

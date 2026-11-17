@@ -22,7 +22,9 @@ use crate::widgets::{
 const SIDEBAR_WIDTH: i32 = 240;
 
 /// The width below which the window shows one pane at a time, in pixels: the sidebar and the
-/// widest of the pages side by side, with the default font.
+/// widest of the pages side by side, wide enough that every row of the page has its controls
+/// beside its text with the default fonts of Debian and of Arch Linux, which are
+/// wider than most.
 pub const NARROW_WIDTH: i32 = 960;
 
 /// The name of the welcome screen in the content pane.
@@ -249,6 +251,16 @@ impl Window {
         content.append(&imp.pages);
 
         let panes = Panes::new(&imp.sidebar, &content, NARROW_WIDTH);
+        // A page scrolls sideways where it is narrower than its content, but beside the sidebar
+        // it is only shown where its content fits, e.g. with a larger font.
+        let stack = imp.pages.downgrade();
+        panes.set_content_minimum(move || {
+            stack
+                .upgrade()
+                .and_then(|stack| stack.visible_child())
+                .and_downcast::<PageView>()
+                .map_or(0, |view| view.content_minimum())
+        });
         panes.connect_narrow_changed(glib::clone!(
             #[weak(rename_to = window)]
             self,

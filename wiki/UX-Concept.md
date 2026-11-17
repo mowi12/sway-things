@@ -59,6 +59,9 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
   quieter page. Switching it changes every row at once.
+- **Narrow rows:** a row keeps its controls beside the text while the text keeps 160 px next to them; a slider shrinks
+  from 200 to 120 px first. On a narrower row the controls move below the text, aligned to the end, so the text never
+  gets squeezed. Each row decides for itself: a switch stays beside its text where a slider has already moved below.
 - **Sliders** mark the setting's default on their track and snap to it while dragged with the pointer (within 2 % of the
   range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact.
 - **Grouped rows:** settings that are values of one directive (the five colors of `client.focused`) share one row with
@@ -200,9 +203,14 @@ them.
 - **Narrow mode:** sway often gives the window half a screen or less. Below **960 px** the app shows one pane at a time:
   the sidebar, then the page with a back button (an arrow) above it. With a larger font the threshold grows to what the
   sidebar and the page need side by side.
-  - The threshold is the sidebar (240 px plus a 1 px separator) next to the widest page. The minimum widths of the
-    pages, with GTK's default font: Mouse & Touchpad 563 px, Keyboard 565 px, Windows 714 px (690 px with its groups
-    collapsed), Window Behavior 589 px. Slider rows set them: their controls need 427 px.
+  - The threshold is the sidebar (240 px plus a 1 px separator) next to the widest page with every row's controls beside
+    its text, with the default fonts of Debian (DejaVu Sans) and Arch Linux, which are wider than most: Window Behavior
+    needs 705 px with DejaVu Sans (712 px on Arch), for the drop-down of the floating modifier's buttons; Windows 682
+    px, Mouse & Touchpad and Keyboard 634 px.
+  - Every page fits a tile a third of a laptop screen wide (544 px: 1646 px at 175 %, less the borders) without
+    scrolling sideways; the rows move their controls below the text there. With DejaVu Sans the pages need 436 px (Mouse
+    & Touchpad, Keyboard) to 517 px (Window Behavior). The page's margins shrink from 32 px to 12 px below 544 px. A
+    window narrower than the open page scrolls it sideways instead of cutting it off.
   - Opening a page (`Enter`, a click, a search result, a deep link) shows it and moves the focus to its first control.
     `Esc` or the back button shows the sidebar again, with the focus on the open page or the opened result.
   - Below the back button, the same line as below the search field grows as the page scrolls. It exists only in narrow
@@ -210,7 +218,6 @@ them.
   - Typing or `Ctrl+F` on the page shows the sidebar with the search field.
   - The window switches live while it is resized. The open page stays, and so does the pane with the keyboard focus (the
     page if neither has it); the other pane can't be reached with `Tab` while hidden.
-  - Below the width of the open page (about 714 px for Windows) the page is clipped, until the rows can get narrower.
 - **Deep links:** `sway-things open displays`, `sway-things open input.keyboard.repeat_rate`: a page id or the key of a
   setting. Waybar modules, bindings and launchers can jump straight to a page or setting; a setting's row is scrolled
   into view (its group expanded), focused and highlighted briefly. A setting of an input type without devices opens just
