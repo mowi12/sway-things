@@ -510,8 +510,8 @@ impl Canvas {
         self.follow_size_changes();
     }
 
-    /// Compares the layout with the one before the last change the app stored: when one output
-    /// changed its size with what the app stores for it, the others move along. While a risky
+    /// Compares the layout with the one before the last change the app stored: when outputs
+    /// changed their size with what the app stores for them, the layout flows along. While a risky
     /// change waits, the layout before it stays the one to compare with, so a change that is
     /// reverted moves nothing and one that is kept moves the others then.
     fn follow_size_changes(&self) {
@@ -610,9 +610,9 @@ impl Canvas {
             .collect()
     }
 
-    /// Moves the outputs right of and below the one output that changed its size since
+    /// Flows the layout ([`layout::reflow`]) after one or more outputs changed their size since
     /// `before`, if the layout had neither gaps nor overlaps and now has, and the change came
-    /// through the app: what it stores or tries for the output's size changed too. A change from
+    /// through the app: what it stores or tries for one of their sizes changed too. A change from
     /// elsewhere (`swaymsg`) is left as it is.
     fn follow_resize(&self, before: &[(String, Rect)], sizes_before: &Sizes, sizes: &Sizes) {
         let after = self.layout();

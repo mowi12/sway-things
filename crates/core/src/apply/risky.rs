@@ -216,23 +216,7 @@ impl<V: Validate> Applier<V> {
         _access: &WriteAccess,
     ) -> Result<Tried, ApplyError> {
         self.nothing_pending()?;
-        // The state as it would be, which also checks the keys, the device and the values.
-        let mut tried = self.state.clone();
-        let mut settings_changed: Vec<(&'static Setting, Option<Value>)> = Vec::new();
-        for (key, change) in changes {
-            let setting = self.risky_setting(key)?;
-            match change {
-                Some(value) => {
-                    tried.set(key, device, value.clone(), None)?;
-                    settings_changed.push((setting, Some(value.clone())));
-                }
-                None => {
-                    if tried.reset(key, device)? {
-                        settings_changed.push((setting, None));
-                    }
-                }
-            }
-        }
+        let (tried, settings_changed) = self.as_tried(device, changes)?;
         if settings_changed.is_empty() {
             return Ok(Tried::Unchanged);
         }
@@ -265,14 +249,23 @@ impl<V: Validate> Applier<V> {
             self.compositor,
             known,
         );
-        let now = (&self.state, &snapshot);
+        let (session, runs_as_tried) =
+            as_running(&self.state, &settings_changed, device, outputs.as_ref())?;
+        let now = (&session, &snapshot);
         let then = (&tried, &over);
         let commands = sequence(now, then, &settings, device)?;
         let undo = sequence(then, now, &settings, device)?;
-        if commands.is_empty() {
-            // Nothing changes in the session, e.g. a mode sway chose is no longer stored: there
-            // is nothing to try. The change is stored and takes effect after a reload of sway.
-            let effect = Effect::AfterReload;
+        if runs_as_tried || commands.is_empty() {
+            // Nothing to try: the output runs with the new values already, or nothing changes
+            // in the session (a mode sway chose is no longer stored), which then takes effect
+            // after a reload of sway. The change is stored.
+            let effect = if runs_as_tried {
+                Effect::Live {
+                    commands: Vec::new(),
+                }
+            } else {
+                Effect::AfterReload
+            };
             self.store_untried(tried, &settings_changed, device, &effect);
             return Ok(Tried::Stored(Applied {
                 changed: true,
@@ -320,6 +313,36 @@ impl<V: Validate> Applier<V> {
             commands: sent,
             countdown,
         }))
+    }
+
+    /// The state as it would be with `changes`, which also checks the keys, the device and the
+    /// values, and the settings that change.
+    #[allow(
+        clippy::type_complexity,
+        reason = "a state and the changes that make it, used once"
+    )]
+    fn as_tried(
+        &self,
+        device: Option<&str>,
+        changes: &[(&str, Option<Value>)],
+    ) -> Result<(State, Vec<(&'static Setting, Option<Value>)>), ApplyError> {
+        let mut tried = self.state.clone();
+        let mut settings_changed = Vec::new();
+        for (key, change) in changes {
+            let setting = self.risky_setting(key)?;
+            match change {
+                Some(value) => {
+                    tried.set(key, device, value.clone(), None)?;
+                    settings_changed.push((setting, Some(value.clone())));
+                }
+                None => {
+                    if tried.reset(key, device)? {
+                        settings_changed.push((setting, None));
+                    }
+                }
+            }
+        }
+        Ok((tried, settings_changed))
     }
 
     /// The outputs of the session, if one of `settings` is a setting of outputs: a value of an
@@ -632,6 +655,32 @@ fn snapshot(
             )
         })
         .collect()
+}
+
+/// `state` as the session runs: where an output runs with something else than what is stored
+/// (an output stored as off that `hook displays` switched on), what it runs with, so a revert
+/// brings that back and never the stored value. And whether the output runs with every value of
+/// `changed` already.
+fn as_running(
+    state: &State,
+    changed: &[(&'static Setting, Option<Value>)],
+    device: Option<&str>,
+    outputs: Option<&Outputs>,
+) -> Result<(State, bool), ApplyError> {
+    let mut session = state.clone();
+    let mut runs_as_tried = true;
+    for (setting, change) in changed {
+        let live = device
+            .and_then(|device| outputs?.get(device))
+            .and_then(|output| output.session_value(setting.key()));
+        if let (Some(live), Some(stored)) = (&live, session.get(setting.key(), device)) {
+            if live != stored {
+                session.set(setting.key(), device, live.clone(), None)?;
+            }
+        }
+        runs_as_tried &= live.is_some() && live.as_ref() == change.as_ref();
+    }
+    Ok((session, runs_as_tried))
 }
 
 /// The value each setting of a risky change is tried with, and the values in effect of the

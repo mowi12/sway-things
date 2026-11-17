@@ -80,7 +80,10 @@ pub fn guard_command() -> crate::command::SwayCmd {
 /// The errors of [`Client::subscribe`], [`Client::outputs`] and [`Client::run`].
 pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcError> {
     // First the subscription, so an output that comes meanwhile isn't missed.
-    let mut events = client.subscribe(&[EventType::Output]).await?;
+    let events = client.subscribe(&[EventType::Output]).await?;
+    // One wait for the next event across the loop: a wait given up halfway through reading an
+    // event would leave the rest of it in the stream.
+    let mut next = Box::pin(next_output_event(events));
     let started = std::time::Instant::now();
     let mut quiet = false;
     loop {
@@ -92,53 +95,79 @@ pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcErr
             let selector = crate::command::output::OutputSelector::output(&output.name).ok()?;
             Some((output.name.clone(), selector))
         });
-        if let (Some((name, selector)), true) = (&usable, quiet) {
-            client
-                .run(&crate::command::output::Output::new(selector.clone()).enable(true))
-                .await?;
-            return Ok(Some(name.clone()));
-        }
-        // Wait for sway to settle: for a quiet moment once outputs are there, else for the
-        // first output, but not forever.
-        let wait = if usable.is_some() {
-            QUIET
-        } else {
+        let Some((name, selector)) = usable else {
+            // Nothing connected (any more): the outputs that come must settle again.
+            quiet = false;
             let Some(left) = WAIT_FOR_OUTPUTS.checked_sub(started.elapsed()) else {
                 return Ok(None);
             };
-            left
-        };
-        let next = async {
-            loop {
-                match events.next().await {
-                    None => return Ok(Waited::Gone),
-                    Some(Ok(Event::Output(_))) => return Ok(Waited::Changed),
-                    Some(Ok(_) | Err(IpcError::InvalidReply { .. })) => {}
-                    Some(Err(error)) => return Err(error),
-                }
+            match wait_for(&mut next, left).await? {
+                Some(events) => next = Box::pin(next_output_event(events)),
+                // sway is gone, or no output came at all.
+                None => return Ok(None),
             }
+            continue;
         };
-        let timeout = async {
-            async_io::Timer::after(wait).await;
-            Ok(Waited::Quiet)
-        };
-        match futures_lite::future::or(next, timeout).await? {
-            Waited::Changed => quiet = false,
-            Waited::Quiet if usable.is_some() => quiet = true,
-            // sway is gone, or no output came at all.
-            Waited::Gone | Waited::Quiet => return Ok(None),
+        if quiet {
+            client
+                .run(&crate::command::output::Output::new(selector).enable(true))
+                .await?;
+            return Ok(Some(name));
         }
+        // Wait for sway to settle: a quiet moment without changes of its outputs.
+        let timer = async {
+            async_io::Timer::after(QUIET).await;
+            Waited::Quiet
+        };
+        let event = async { Waited::Changed((&mut next).await) };
+        match futures_lite::future::or(event, timer).await {
+            Waited::Quiet => quiet = true,
+            Waited::Changed((_, Ok(false))) => return Ok(None),
+            Waited::Changed((_, Err(error))) => return Err(error),
+            Waited::Changed((events, Ok(true))) => next = Box::pin(next_output_event(events)),
+        }
+    }
+}
+
+/// The next `output` event of `events`, then `events` again: `Ok(false)` when sway is gone.
+async fn next_output_event(mut events: Events) -> (Events, Result<bool, IpcError>) {
+    loop {
+        let result = match events.next().await {
+            None => Ok(false),
+            Some(Ok(Event::Output(_))) => Ok(true),
+            Some(Ok(_) | Err(IpcError::InvalidReply { .. })) => continue,
+            Some(Err(error)) => Err(error),
+        };
+        return (events, result);
+    }
+}
+
+/// Waits for `next` for at most `wait`: the events back after an `output` event, `None` when
+/// sway is gone or the time is up.
+async fn wait_for(
+    next: &mut std::pin::Pin<
+        Box<impl std::future::Future<Output = (Events, Result<bool, IpcError>)>>,
+    >,
+    wait: std::time::Duration,
+) -> Result<Option<Events>, IpcError> {
+    let timer = async {
+        async_io::Timer::after(wait).await;
+        Waited::Quiet
+    };
+    let event = async { Waited::Changed(next.await) };
+    match futures_lite::future::or(event, timer).await {
+        Waited::Quiet | Waited::Changed((_, Ok(false))) => Ok(None),
+        Waited::Changed((_, Err(error))) => Err(error),
+        Waited::Changed((events, Ok(true))) => Ok(Some(events)),
     }
 }
 
 /// How waiting for sway's outputs to settle ended.
 enum Waited {
-    /// sway reported a change of its outputs.
-    Changed,
+    /// sway reported something: the events back and whether it was a change of its outputs.
+    Changed((Events, Result<bool, IpcError>)),
     /// Nothing changed for the time waited.
     Quiet,
-    /// sway is gone.
-    Gone,
 }
 
 /// How long [`ensure_one_on`] waits for sway to report an output at all.

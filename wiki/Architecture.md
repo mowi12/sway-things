@@ -119,17 +119,17 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   title the app shows the group's row with. A setting alone in its group names none.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
-- **One at a time:** a setting built with `.one_at_a_time()` is only stored for one device or output, never for all
-  of them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's
-  position for every output would stack them all on one spot, and a mode, a rotation or switching off for every output
-  couldn't be tried and reverted safely. The Displays page offers only the scale for _All displays_.
+- **One at a time:** a setting built with `.one_at_a_time()` is only stored for one device or output, never for all of
+  them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's position
+  for every output would stack them all on one spot, and a mode, a rotation or switching off for every output couldn't
+  be tried and reverted safely. The Displays page offers only the scale for _All displays_.
 - **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
-  output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
-  [Outputs](#outputs)). `Setting::check_device` says whether a string can select a device or an output for a setting.
-  Where sway decides by itself while nothing is set (the preferred mode, the position next to the other outputs, a
-  scale for the pixel density), the default means "nothing set": an empty mode or position (`""`) and a scale that
-  isn't stored render no command. sway has no command that hands such a value back to its own choice, so a reset of one
-  takes effect after a reload of sway, live and through the safety net alike.
+  output (`output * scale 2`), with one for that output's identifier (make, model and serial; see [Outputs](#outputs)).
+  `Setting::check_device` says whether a string can select a device or an output for a setting. Where sway decides by
+  itself while nothing is set (the preferred mode, the position next to the other outputs, a scale for the pixel
+  density), the default means "nothing set": an empty mode or position (`""`) and a scale that isn't stored render no
+  command. sway has no command that hands such a value back to its own choice, so a reset of one takes effect after a
+  reload of sway, live and through the safety net alike.
 - **`output` lines with several settings:** sway reads `output DP-4 mode 2560x1440 pos 0 0 scale 1` subcommand by
   subcommand, each taking the words it needs (`registry/output_line.rs`, after `cmd_output` and its handlers in sway's
   `commands/output/`). `Setting::read` splits such a line and reads its own subcommand; aliases count as the registry's
@@ -264,9 +264,8 @@ position = "1920,0"
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
   range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
-  device or display table that can't be set per
-  device. The lines stay in the file. A save only changes the lines of the settings that changed; comments, order,
-  formatting and unknown keys survive.
+  device or display table that can't be set per device. The lines stay in the file. A save only changes the lines of the
+  settings that changed; comments, order, formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
@@ -463,8 +462,8 @@ Display mode, disabling an output or input device, changes of the keyboard layou
 1. Snapshot the current value and apply live.
 2. Show the _Keep / Revert_ banner with a 15 s countdown.
 3. **Nothing is persisted until the user presses _Keep_.** Revert or timeout re-applies the snapshot over IPC.
-4. Lockout protection: the last enabled keyboard, the last enabled pointing device and the last output that is on
-   can't be switched off.
+4. Lockout protection: the last enabled keyboard, the last enabled pointing device and the last output that is on can't
+   be switched off.
 
 `crates/core/src/apply/risky.rs` is this flow in the core; the GUI banner and the CLI prompt build on it.
 
@@ -494,8 +493,8 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off a
   whole type of keyboards or pointing devices, or every output, is refused; one device or output is allowed.
 - **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
-  `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of
-  a setting without a stored value.
+  `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of a
+  setting without a stored value.
 - **Outputs:** where nothing sets an output's value, the snapshot is what the output runs with (`GET_OUTPUTS`, which
   also matches the user's lines that name the output by its connector), so a revert of a new mode goes back to the mode
   sway chose. A change that sends nothing (an empty mode, or removing a mode sway is to choose again; what the output
@@ -577,9 +576,9 @@ on numbers taken from sway's and SwayFX's own checks:
   can't contain one; `xkb_layout` needs at least one layout, the variants, options and model can be empty.
 - `command::output` builds `output <name> …` for every output (`*`) or one by its name or identifier (text, never `*`,
   `-` or `--`, which sway reads as every output or the focused one): `mode` (`2560x1440@59.951Hz`, the refresh rate in
-  hertz with up to three decimals since sway counts millihertz and takes the mode nearest to it), `pos`, `scale`
-  (0.25 to 10; sway takes any scale above 0), `transform` and `enable`/`disable`. A mode is a word the builder makes
-  from numbers, so it isn't quoted.
+  hertz with up to three decimals since sway counts millihertz and takes the mode nearest to it), `pos`, `scale` (0.25
+  to 10; sway takes any scale above 0), `transform` and `enable`/`disable`. A mode is a word the builder makes from
+  numbers, so it isn't quoted.
 - `command::window` builds colors (`client.*`; sway ignores `client.background` and `client.placeholder`, so they have
   no builder), borders, gaps, the title bar and `opacity`. `gaps <which> <px>` only changes the default for new
   workspaces, and `gaps <which> all|current set <px>` (runtime-only) only open workspaces, including those with gaps of
@@ -672,26 +671,24 @@ the lockout protection.
 
 ### Outputs
 
-`crates/core/src/outputs/` is the list of outputs for the Displays page, per-output settings and the lockout
-protection. The Cursor & Tablet page offers its connected outputs as the screens a drawing tablet or a touchscreen can
-map to.
+`crates/core/src/outputs/` is the list of outputs for the Displays page, per-output settings and the lockout protection.
+The Cursor & Tablet page offers its connected outputs as the screens a drawing tablet or a touchscreen can map to.
 
 - **From sway:** each output has its name (the connector, `DP-4`), make, model and serial, whether it is on, the modes
-  it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the transform.
-  Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
+  it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the
+  transform. Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
 - **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
   (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
   port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop
   panels) is stored by its name instead: two monitors of one model would share the identifier, and which one is plugged
-  in would decide what it stands for. So is an output whose identifier another connected output reports too (a
-  broken serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes
-  sway keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be
-  removed. Values stored by a name stay with the port: a monitor without a serial moved to another port starts
-  without them. The command line takes a display by its name too: in a session, `--device DP-4` stands for that
-  display's identifier.
-- **Positions are absolute:** a drop stores the position of every output that is on, so an output plugged in later
-  with other outputs (another dock) comes back where it stood and may not touch them; the page then offers _Arrange
-  Side by Side_. Arrangements per combination of outputs are for display profiles (kanshi).
+  in would decide what it stands for. So is an output whose identifier another connected output reports too (a broken
+  serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes sway
+  keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be removed.
+  Values stored by a name stay with the port: a monitor without a serial moved to another port starts without them. The
+  command line takes a display by its name too: in a session, `--device DP-4` stands for that display's identifier.
+- **Positions are absolute:** a drop stores the position of every output that is on, so an output plugged in later with
+  other outputs (another dock) comes back where it stood and may not touch them; the page then offers _Arrange Side by
+  Side_. Arrangements per combination of outputs are for display profiles (kanshi).
 - **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
   `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
   changes are reported (added, removed, changed).
@@ -699,22 +696,23 @@ map to.
   identifier.
 - **What sway chose:** `Output::session_value(key)` is what the output runs with for a Displays setting, as the setting
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
-- **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name)
-  off would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
+  would leave none on. Switching every output at once isn't offered: it is one at a time.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while an output is stored as off, `20-output.conf` ends with `exec_always sway-things hook displays`,
   and at every start and reload `outputs::ensure_one_on` switches the first connected output on if none is on (for the
   session only). While none is on, it waits until sway has reported no change of its outputs for three seconds (at a
   login at the dock, the panel comes before the dock's monitors), and while sway reports no output at all, for up to a
-  minute. The row of a display stored as off that the hook switched on says _On for now: no other display was on_. Without a session the outputs aren't known,
-  so switching one off is allowed there; the hook catches what that leaves. Undocking in a running session isn't
-  covered: sway has no config hook for an output that goes; display profiles (kanshi) are the place for that.
+  minute. The row of a display stored as off that the hook switched on says _On for now: no other display was on_.
+  Without a session the outputs aren't known, so switching one off is allowed there; the hook catches what that leaves.
+  Undocking in a running session isn't covered: sway has no config hook for an output that goes; display profiles
+  (kanshi) are the place for that.
 - **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
-  size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While an
-  output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
-  it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least
-  a quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
+  size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While
+  an output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
+  it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least a
+  quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
   where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `normalize`
   moves the layout to start at 0,0.
 
@@ -851,9 +849,9 @@ the config or the settings files changed on disk.
   out.
 - **`seat` options** count for `seat *` and the default seat, `seat0`: Sway Things sets every seat with `seat *`, and
   sway takes the cursor of the default seat for `XCURSOR_THEME`. Lines for other seats are left out.
-- **`output` settings** merge per output the same way: for one output, the last line wins among those for `*`, for
-  its name and for its identifier (`Known::outputs` matches a line by name with the output stored by its identifier;
-  without the outputs only lines for `*` and the identifier count). sway's own merging depends on whether the output is
+- **`output` settings** merge per output the same way: for one output, the last line wins among those for `*`, for its
+  name and for its identifier (`Known::outputs` matches a line by name with the output stored by its identifier; without
+  the outputs only lines for `*` and the identifier count). sway's own merging depends on whether the output is
   connected while it reads the line (`store_output_config` in `sway/config/output.c`): at a reload it is, and the last
   line wins as reported; at a login it usually isn't yet, and a line by the identifier (as Sway Things writes it) wins
   over one by the name wherever it stands. The report follows the reload, which is when a change made in the app meets
@@ -1092,8 +1090,8 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 Sway Things keeps nothing running. Behavior that has to happen without the window goes to existing tools, and where glue
 is needed, generated config calls the CLI briefly:
 
-- **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf`
-  runs it with `exec_always` while an output is stored as off.
+- **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
+  with `exec_always` while an output is stored as off.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
@@ -1209,22 +1207,22 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   all keyboards, the first usable one) and switches them (`Model::switch_layout`, only in a session). The keyboard model
   is a drop-down of the rules' models, and _Try it_ is a field to type in at the end of the section.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
-  `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged
-  one drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press
-  that moves becomes a drag instead of a click. Snapping, settling and moving the layout to 0,0 come from
-  `outputs::layout`; a drop stores the position of every output that is on (`Model::set`), shows the dropped layout
-  until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While
-  a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When outputs'
-  sizes change with what is stored for them, the layout flows so that what touched still touches
-  (`outputs::layout::reflow`, for one output or several, like a scale for all of them); the layout to compare with is
-  held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up
-  with sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the
-  outputs picks the output they are for (`SettingRow::set_device`), and the mode row is a drop-down whose modes follow
-  the output (`SettingRow::set_choices`). The model keeps an `OutputWatch` like the `DeviceWatch`, and gives the rows
-  the outputs as `Known`, so a value nothing sets shows what sway chose. _Identify_ shows each output's number on
-  it for three seconds: a window per output on the overlay layer of `wlr-layer-shell` (gtk4-layer-shell), on the GDK
-  monitor whose connector is the output's name, taking no keyboard and no input region; the tiles are outlined in the
-  accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't be pressed and says why.
+  `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
+  drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
+  moves becomes a drag instead of a click. Snapping, settling and moving the layout to 0,0 come from `outputs::layout`;
+  a drop stores the position of every output that is on (`Model::set`), shows the dropped layout until sway reports it
+  or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While a risky change waits,
+  the canvas can't be changed, so Revert puts back everything that changed. When outputs' sizes change with what is
+  stored for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or
+  several, like a scale for all of them); the layout to compare with is held while the model is busy or a risky change
+  waits, and for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere
+  (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
+  (`SettingRow::set_device`), and the mode row is a drop-down whose modes follow the output (`SettingRow::set_choices`).
+  The model keeps an `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing
+  sets shows what sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the
+  overlay layer of `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking
+  no keyboard and no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway)
+  the button can't be pressed and says why.
 - **XKB options** (`crates/gui/src/widgets/xkb_options.rs`): below the options row, drop-downs for what Caps Lock does
   (`ctrl:nocaps`, `caps:escape`, `caps:swapescape`, `caps:none`), the Compose key (`compose:`) and the layout switching
   shortcut (`grp:`), a switch for `ctrl:swap_lalt_lctl`, and the `OptionBrowser`: every option of the rules by group,

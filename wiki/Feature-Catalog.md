@@ -113,7 +113,8 @@ kanshi, static `output` lines in our include (no profiles).
       `bindswitch` lines in our include call `sway-things hook lid closed|open`
 
 **Maybe:** 🟡 adaptive sync / VRR per output · 🟡 sway-only output options (allow tearing, 10-bit, subpixel, scale
-filter, ICC profile) · 🟡 custom modes / modelines · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡 shikane backend
+filter, ICC profile) · 🟡 custom modes / modelines · 🟡 show which profile is active and why · 🟡 per-profile custom
+`exec` commands · 🟡 shikane backend
 
 ### Sound
 

@@ -1656,11 +1656,16 @@ fn switching_off_the_last_output_that_is_on_is_refused() {
         setup.try_risky(ENABLED, None, Value::Bool(false), ""),
         Err(ApplyError::State(StateError::OneAtATime { .. }))
     ));
-    // The output that is off already can be switched off.
-    setup
-        .try_risky(ENABLED, Some("D E F"), Value::Bool(false), "")
-        .unwrap();
-    block_on(setup.applier.revert()).unwrap();
+    // The output that is off already can be switched off: stored, nothing to try.
+    let tried = block_on(setup.applier.try_risky(
+        ENABLED,
+        Some("D E F"),
+        Value::Bool(false),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert!(matches!(tried, super::Tried::Stored(_)), "{tried:?}");
     assert!(
         sway.commands()
             .iter()
@@ -1805,15 +1810,16 @@ fn a_kept_mode_no_longer_waits_for_a_reload() {
     );
     setup.try_risky_reset(MODE, Some(PANEL), "").unwrap();
     assert_eq!(waiting(&setup.applier, super::Until::Reload), [MODE]);
-    setup
-        .try_risky(
-            MODE,
-            Some(PANEL),
-            Value::Text("1920x1080@60Hz".to_owned()),
-            "",
-        )
-        .unwrap();
-    setup.applier.keep(&setup.access).unwrap();
+    // The output runs with that mode already: stored at once, nothing to try.
+    let tried = block_on(setup.applier.try_risky(
+        MODE,
+        Some(PANEL),
+        Value::Text("1920x1080@60Hz".to_owned()),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert!(matches!(tried, super::Tried::Stored(_)), "{tried:?}");
     assert_eq!(
         waiting(&setup.applier, super::Until::Reload),
         [] as [&str; 0]
@@ -1831,5 +1837,38 @@ fn a_scale_for_every_display_keeps_each_displays_own_one() {
     assert_eq!(
         applied.effect,
         live(&["output * scale 2", r#"output "A B C" scale 1.5"#])
+    );
+}
+
+#[test]
+fn a_display_the_guard_switched_on_is_never_switched_off_by_a_revert() {
+    // The panel is stored as off, but `hook displays` switched it on: it is the only one on.
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nenabled = false\n",
+    );
+    let tried = block_on(setup.applier.try_risky(
+        ENABLED,
+        Some(PANEL),
+        Value::Bool(true),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    // It is on already: nothing to try, nothing a revert could switch off.
+    assert!(matches!(tried, super::Tried::Stored(_)), "{tried:?}");
+    assert!(matches!(
+        block_on(setup.applier.revert()),
+        Err(ApplyError::NothingPending)
+    ));
+    assert!(
+        sway.commands()
+            .iter()
+            .all(|command| !command.contains("disable"))
+    );
+    assert_eq!(
+        setup.applier.state().get(ENABLED, Some(PANEL)),
+        Some(&Value::Bool(true))
     );
 }

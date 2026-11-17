@@ -99,23 +99,24 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 
 ### Displays
 
-The Displays page arranges the outputs and sets each one up. Every change is live; a new mode, a rotation and
-switching an output off go through the safety net.
+The Displays page arranges the outputs and sets each one up. Every change is live, except that going back to what sway
+chooses (a mode, a position or a scale no longer stored) waits for a reload of sway, since sway has no command for it; a
+new mode, a rotation and switching an output off go through the safety net.
 
 - **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit, each with its number,
   make and model and its mode (with the scale and turn when they aren't the plain ones). Outputs that are off stand
-  outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your desk. Pick one to
-  change its settings below._ Without a session the canvas gives way to a hint.
+  outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your desk. Pick one
+  to change its settings below._ Without a session the canvas gives way to a hint.
 - **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
   sharing at least a quarter of it, so the pointer can always cross. The whole layout then starts at 0,0 and every
   output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the arrangement before.
-- **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of
-  that display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A
-  display plugged in or out meanwhile takes the numbers away, since they may be wrong then.
-- **While a risky change waits** (a new mode, a display switched off), the canvas can't be changed until it is kept
-  or reverted, so Revert puts everything back.
+- **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of that
+  display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A display
+  plugged in or out meanwhile takes the numbers away, since they may be wrong then.
+- **While a risky change waits** (a new mode, a display switched off), the canvas can't be changed until it is kept or
+  reverted, so Revert puts everything back.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
@@ -132,9 +133,10 @@ switching an output off go through the safety net.
   then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.951 Hz_), _Scale_, _Rotation_ and
   _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
   _Chosen by sway_. _All displays_ offers only the scale: a mode, a rotation, a position or switching off is for one
-  display at a time. A new mode, a rotation and switching a display off are tried with the safety net. _Use this display_ says what happens to a display that is off when sway starts: if no other is
-  on then, Sway Things switches it on again (also at a reload, so `$mod+Shift+c` brings a display back after
-  undocking). A display that is on although it is stored as off says _On for now: no other display was on_.
+  display at a time. A new mode, a rotation and switching a display off are tried with the safety net. _Use this
+  display_ says what happens to a display that is off when sway starts: if no other is on then, Sway Things switches it
+  on again (also at a reload, so `$mod+Shift+c` brings a display back after undocking). A display that is on although it
+  is stored as off says _On for now: no other display was on_.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
 
 ### Bluetooth

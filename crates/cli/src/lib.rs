@@ -250,6 +250,62 @@ pub async fn run_for_user(command: &Command) -> Exit {
     .await
 }
 
+/// What the command line needs to know of the displays to find the device a command names.
+struct Displays {
+    /// The outputs of the session, if there is one and the command reads or writes settings.
+    outputs: Option<Outputs>,
+    /// Every device something is stored for.
+    stored: Vec<String>,
+}
+
+impl Displays {
+    /// The displays for `command`. A display named by its name can't be told apart from one
+    /// stored by that name if sway can't list its displays: a command that writes for one then
+    /// fails, with the error on `io`.
+    async fn of<V: Validate>(
+        command: &Command,
+        session: &mut Session<V>,
+        io: &mut Io<'_>,
+    ) -> Result<Self, Exit> {
+        let listed = match (command, session.applier.client()) {
+            (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => {
+                Some(client.outputs().await.map(|found| Outputs::new(&found)))
+            }
+            _ => None,
+        };
+        if let (
+            Some(Err(error)),
+            Command::Set { key, device, .. } | Command::Reset { key, device, .. },
+        ) = (&listed, command)
+        {
+            if device.is_some() && is_for_displays(Some(key)) {
+                io.error(error_line(error));
+                return Err(Exit::Failure);
+            }
+        }
+        let stored = session
+            .applier
+            .state()
+            .entries()
+            .into_iter()
+            .filter_map(|entry| entry.device.map(ToOwned::to_owned))
+            .collect();
+        Ok(Self {
+            outputs: listed.and_then(Result::ok),
+            stored,
+        })
+    }
+
+    /// `device` as settings are stored for it: as given if something is stored by exactly that,
+    /// else as [`resolve_display`] finds it.
+    fn resolve(&self, key: Option<&str>, device: Option<&str>) -> Option<String> {
+        if device.is_some_and(|device| self.stored.iter().any(|stored| stored == device)) {
+            return device.map(ToOwned::to_owned);
+        }
+        resolve_display(key, device, self.outputs.as_ref())
+    }
+}
+
 /// `device` as settings are stored for it: for a setting of displays (or without a key), a
 /// connected display named by its name (`DP-4`) is its identifier (make, model and serial).
 /// Anything else stays as given.
@@ -259,16 +315,20 @@ fn resolve_display(
     outputs: Option<&Outputs>,
 ) -> Option<String> {
     let device = device?;
-    let for_displays = key.is_none_or(|key| {
-        Registry::builtin()
-            .get(key)
-            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
-    });
     let identifier = outputs
-        .filter(|_| for_displays)
+        .filter(|_| is_for_displays(key))
         .and_then(|outputs| outputs.find(device))
         .map(|output| output.identifier().to_owned());
     Some(identifier.unwrap_or_else(|| device.to_owned()))
+}
+
+/// Whether `key` is a setting of displays, or no key is given (every setting of a device).
+fn is_for_displays(key: Option<&str>) -> bool {
+    key.is_none_or(|key| {
+        Registry::builtin()
+            .get(key)
+            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+    })
 }
 
 /// `hook displays`: switches a display on if none is on. Quiet when there is nothing to do; it
@@ -387,22 +447,17 @@ pub async fn run<V: Validate>(
     }
     // The outputs of the session: what they run with, for the values that nothing sets, and
     // the identifier of a display named by its name.
-    let outputs = match (command, session.applier.client()) {
-        (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => client
-            .outputs()
-            .await
-            .ok()
-            .map(|found| Outputs::new(&found)),
-        _ => None,
+    let displays = match Displays::of(command, session, &mut io).await {
+        Ok(displays) => displays,
+        Err(exit) => return exit,
     };
-    let resolved =
-        |key: Option<&str>, device: Option<&str>| resolve_display(key, device, outputs.as_ref());
+    let resolved = |key: Option<&str>, device: Option<&str>| displays.resolve(key, device);
     match command {
         Command::Get { key, device, json } => {
             let device = resolved(key.as_deref(), device.as_deref());
             let known = Known {
                 devices: None,
-                outputs: outputs.as_ref(),
+                outputs: displays.outputs.as_ref(),
             };
             get(
                 session,
