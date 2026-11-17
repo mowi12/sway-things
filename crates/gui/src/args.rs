@@ -8,6 +8,7 @@
 
 use std::fmt;
 
+use crate::i18n::{Text, msg};
 use sway_things_core::registry::{Link, LinkError, Registry};
 
 /// Why the arguments of `sway-things-gui` can't be used.
@@ -19,14 +20,20 @@ pub enum ArgumentError {
     TooMany,
 }
 
+impl ArgumentError {
+    /// What is wrong with the arguments, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Link(error) => error.text(),
+            Self::TooMany => Text::new(msg!("one link at most: {usage}"))
+                .arg("usage", "sway-things-gui [<page id or setting key>]"),
+        }
+    }
+}
+
 impl fmt::Display for ArgumentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Link(error) => error.fmt(f),
-            Self::TooMany => {
-                f.write_str("one link at most: sway-things-gui [<page id or setting key>]")
-            }
-        }
+        f.write_str(&self.text().english())
     }
 }
 

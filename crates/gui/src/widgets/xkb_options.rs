@@ -19,16 +19,18 @@ use sway_things_core::registry::Value;
 
 use super::SettingRow;
 use super::keyboard::{follow, plain_row};
+use crate::i18n::{Msg, msg, tr};
 use crate::model::Model;
 use crate::xkb;
 
 /// What the Caps Lock key can do, and the option for it.
-const CAPS_LOCK: &[(&str, Option<&str>)] = &[
-    ("Caps Lock", None),
-    ("Ctrl", Some("ctrl:nocaps")),
-    ("Escape", Some("caps:escape")),
-    ("Swap with Escape", Some("caps:swapescape")),
-    ("Off", Some("caps:none")),
+const CAPS_LOCK: &[(Msg, Option<&str>)] = &[
+    // TRANSLATORS: What the Caps Lock key does: what it says on it.
+    (msg!("Caps Lock"), None),
+    (msg!("Ctrl"), Some("ctrl:nocaps")),
+    (msg!("Escape"), Some("caps:escape")),
+    (msg!("Swap with Escape"), Some("caps:swapescape")),
+    (msg!("Off"), Some("caps:none")),
 ];
 
 /// The option that swaps the left Ctrl and Alt keys.
@@ -54,7 +56,7 @@ fn set_options(row: &SettingRow, new: Vec<String>) {
 pub fn common(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let caps: Vec<(String, Option<String>)> = CAPS_LOCK
         .iter()
-        .map(|(label, option)| ((*label).to_owned(), option.map(str::to_owned)))
+        .map(|(label, option)| (tr(*label).to_owned(), option.map(str::to_owned)))
         .collect();
     let known_caps: Vec<String> = caps
         .iter()
@@ -64,8 +66,8 @@ pub fn common(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
         choice_row(
             model,
             row,
-            "Caps Lock key",
-            "What the Caps Lock key does",
+            tr(msg!("Caps Lock key")),
+            tr(msg!("What the Caps Lock key does")),
             caps,
             move |option| known_caps.iter().any(|known| known == option),
         ),
@@ -73,17 +75,20 @@ pub fn common(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
         choice_row(
             model,
             row,
-            "Compose key",
-            "Starts a sequence that types a special character, e.g. Compose, ', e for é",
-            group_choices("compose", "Off"),
+            tr(msg!("Compose key")),
+            tr(msg!(
+                "Starts a sequence that types a special character, e.g. Compose, ', e for é"
+            )),
+            group_choices("compose", tr(msg!("Off"))),
             |option| option.starts_with("compose:"),
         ),
         choice_row(
             model,
             row,
-            "Switch layouts with",
-            "The keys that switch to the next layout",
-            group_choices("grp", "None"),
+            tr(msg!("Switch layouts with")),
+            tr(msg!("The keys that switch to the next layout")),
+            // TRANSLATORS: No keys switch the layout.
+            group_choices("grp", tr(msg!("None"))),
             |option| option.starts_with("grp:"),
         ),
     ]
@@ -97,7 +102,7 @@ fn group_choices(group: &str, none: &str) -> Vec<(String, Option<String>)> {
                 .options_of(group)
                 .iter()
                 .filter(|option| !option.extra)
-                .map(|option| (option.label().to_owned(), Some(option.name.clone()))),
+                .map(|option| (option.shown().to_owned(), Some(option.name.clone()))),
         )
         .collect()
 }
@@ -193,7 +198,7 @@ fn choice_row(
 
 /// The row with the switch that swaps the left Ctrl and Alt keys.
 fn swap_row(model: &Model, row: &SettingRow) -> gtk::Widget {
-    let title = "Swap left Ctrl and Alt";
+    let title = tr(msg!("Swap left Ctrl and Alt"));
     let switch = gtk::Switch::new();
     switch.set_valign(gtk::Align::Center);
     switch.update_property(&[gtk::accessible::Property::Label(title)]);
@@ -236,7 +241,7 @@ fn swap_row(model: &Model, row: &SettingRow) -> gtk::Widget {
     follow(model, row, refresh);
     plain_row(
         title,
-        Some("For keyboards with Ctrl where others have Alt"),
+        Some(tr(msg!("For keyboards with Ctrl where others have Alt"))),
         &switch,
     )
     .upcast()
@@ -331,7 +336,8 @@ impl OptionBrowser {
         let _ = imp.row.set(row.clone());
         let _ = imp.model.set(model.clone());
 
-        imp.search.set_placeholder_text(Some("Search options"));
+        imp.search
+            .set_placeholder_text(Some(tr(msg!("Search options"))));
         imp.search
             .update_property(&[gtk::accessible::Property::Label("Search options")]);
         imp.search.connect_search_changed(glib::clone!(
@@ -346,7 +352,7 @@ impl OptionBrowser {
         content.append(&imp.search);
         content.append(&imp.groups_box);
 
-        let title = gtk::Label::new(Some("All XKB options"));
+        let title = gtk::Label::new(Some(tr(msg!("All XKB options"))));
         title.add_css_class("st-row-title");
         imp.expander.set_label_widget(Some(&title));
         imp.expander.set_child(Some(&content));
@@ -401,7 +407,7 @@ impl OptionBrowser {
             list.set_margin_start(18);
             list.set_margin_bottom(6);
             let none = (!group.multiple).then(|| {
-                let none = gtk::CheckButton::with_label("None");
+                let none = gtk::CheckButton::with_label(tr(msg!("None")));
                 none.connect_toggled(glib::clone!(
                     #[weak(rename_to = browser)]
                     self,
@@ -415,7 +421,7 @@ impl OptionBrowser {
                 none
             });
             for option in &group.options {
-                let check = gtk::CheckButton::with_label(option.label());
+                let check = gtk::CheckButton::with_label(option.shown());
                 check.set_tooltip_text(Some(&option.name));
                 if let Some(none) = &none {
                     check.set_group(Some(none));
@@ -430,17 +436,18 @@ impl OptionBrowser {
                 checks.push(OptionCheck {
                     check,
                     name: option.name.clone(),
-                    description: option.label().to_lowercase(),
+                    // Search matches the English description and the one shown.
+                    description: format!("{}\n{}", option.label(), option.shown()).to_lowercase(),
                     extra: option.extra,
                     group: index,
                 });
             }
-            let expander = gtk::Expander::new(Some(group.item.label()));
+            let expander = gtk::Expander::new(Some(group.item.shown()));
             expander.set_child(Some(&list));
             imp.groups_box.append(&expander);
             groups.push(Group {
                 expander,
-                label: group.item.label().to_lowercase(),
+                label: format!("{}\n{}", group.item.label(), group.item.shown()).to_lowercase(),
                 none,
             });
         }

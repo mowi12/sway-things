@@ -14,13 +14,15 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::network::{Security, check_password, check_ssid};
 
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::style;
 
 /// The securities the hidden network dialog offers, with their labels.
-const HIDDEN_SECURITY: [(Security, &str); 3] = [
-    (Security::Open, "None"),
-    (Security::Personal, "WPA & WPA2 Personal"),
-    (Security::Wpa3Personal, "WPA3 Personal"),
+const HIDDEN_SECURITY: [(Security, Msg); 3] = [
+    // TRANSLATORS: The security of a Wi-Fi network: none.
+    (Security::Open, msg!("None")),
+    (Security::Personal, msg!("WPA & WPA2 Personal")),
+    (Security::Wpa3Personal, msg!("WPA3 Personal")),
 ];
 
 /// What a dialog calls once with its answer.
@@ -102,7 +104,11 @@ impl<T: 'static> Dialog<T> {
         let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         buttons.set_homogeneous(true);
         buttons.set_margin_top(8);
-        let cancel = gtk::Button::with_label(if accept.is_some() { "Cancel" } else { "Close" });
+        let cancel = gtk::Button::with_label(tr(if accept.is_some() {
+            msg!("Cancel")
+        } else {
+            msg!("Close")
+        }));
         let dialog = self.clone();
         cancel.connect_clicked(move |_| dialog.finish(None));
         buttons.append(&cancel);
@@ -165,13 +171,13 @@ pub fn password(
     content.append(&body);
     let (entry, hint) = password_field(&content, spec.security);
     if spec.saved_note {
-        let note = gtk::Label::new(Some("Saved for all users of this computer."));
+        let note = gtk::Label::new(Some(tr(msg!("Saved for all users of this computer."))));
         note.set_xalign(0.0);
         note.add_css_class(style::DIM);
         content.append(&note);
     }
     let security = spec.security;
-    if let Some(accept) = dialog.buttons(&content, Some("Connect")) {
+    if let Some(accept) = dialog.buttons(&content, Some(tr(msg!("Connect")))) {
         let check = glib::clone!(
             #[weak]
             accept,
@@ -207,13 +213,16 @@ pub fn hidden(
     parent: Option<&gtk::Window>,
     done: impl FnOnce(Option<Hidden>) + 'static,
 ) -> Dialog<Hidden> {
-    let (dialog, content) = Dialog::new(parent, "Connect to Hidden Network", done);
+    let (dialog, content) = Dialog::new(parent, tr(msg!("Connect to Hidden Network")), done);
     let ssid = gtk::Entry::builder().activates_default(true).build();
-    labeled(&content, "Network name", &ssid);
-    let labels: Vec<&str> = HIDDEN_SECURITY.iter().map(|(_, label)| *label).collect();
+    labeled(&content, tr(msg!("Network name")), &ssid);
+    let labels: Vec<&str> = HIDDEN_SECURITY
+        .iter()
+        .map(|(_, label)| tr(*label))
+        .collect();
     let security = gtk::DropDown::from_strings(&labels);
     security.set_selected(1);
-    labeled(&content, "Security", &security);
+    labeled(&content, tr(msg!("Security")), &security);
     let password_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
     content.append(&password_box);
     let (entry, hint) = password_field(&password_box, Security::Personal);
@@ -223,7 +232,7 @@ pub fn hidden(
             .and_then(|i| HIDDEN_SECURITY.get(i))
             .map_or(Security::Personal, |(security, _)| *security)
     };
-    if let Some(accept) = dialog.buttons(&content, Some("Connect")) {
+    if let Some(accept) = dialog.buttons(&content, Some(tr(msg!("Connect")))) {
         let check = glib::clone!(
             #[weak]
             accept,
@@ -307,11 +316,11 @@ pub fn details(parent: Option<&gtk::Window>, title: &str, rows: &[(&str, String)
 pub async fn confirm_forget(name: &str, window: Option<&gtk::Window>) -> bool {
     let dialog = gtk::AlertDialog::builder()
         // Plain text: the dialog doesn't read markup.
-        .message(format!("Forget “{name}”?"))
-        .detail(
-            "Its password is removed from this computer, and it won't connect by itself any more.",
-        )
-        .buttons(["Cancel", "Forget"])
+        .message(trf(msg!("Forget “{network}”?"), &[("network", &name)]))
+        .detail(tr(msg!(
+            "Its password is removed from this computer, and it won't connect by itself any more."
+        )))
+        .buttons([tr(msg!("Cancel")), tr(msg!("Forget"))])
         .cancel_button(0)
         .default_button(0)
         .modal(true)
@@ -325,7 +334,7 @@ fn password_field(content: &gtk::Box, security: Security) -> (gtk::PasswordEntry
         .show_peek_icon(true)
         .activates_default(true)
         .build();
-    labeled(content, "Password", &entry);
+    labeled(content, tr(msg!("Password")), &entry);
     let hint = gtk::Label::new(Some(password_hint(security)));
     hint.set_xalign(0.0);
     hint.add_css_class(style::DIM);
@@ -336,8 +345,8 @@ fn password_field(content: &gtk::Box, security: Security) -> (gtk::PasswordEntry
 /// What a password for `security` must be.
 fn password_hint(security: Security) -> &'static str {
     match security {
-        Security::Personal => "8 to 63 characters",
-        _ => "Not empty",
+        Security::Personal => tr(msg!("8 to 63 characters")),
+        _ => tr(msg!("Not empty")),
     }
 }
 

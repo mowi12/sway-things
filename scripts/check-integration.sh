@@ -41,7 +41,7 @@ cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway)
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
   --test network_nm)
 # The tests that need a display.
-gui_tests=(cargo test --locked --package sway-things-gui --test gui)
+gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 
 container=""
 build=false
@@ -88,8 +88,8 @@ if [[ -n $container ]]; then
     echo "==> $name"
     # Only the files the image needs go into the build context.
     context=$(mktemp -d)
-    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh Cargo.toml Cargo.lock crates |
-      tar -x -C "$context"
+    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh Cargo.toml Cargo.lock crates \
+      po/sway-things.pot | tar -x -C "$context"
     "$engine" build --quiet --tag "sway-things-ci:$name" --file "$context/ci/containers/$name/Dockerfile" "$context" \
       >/dev/null
     rm -rf "$context"

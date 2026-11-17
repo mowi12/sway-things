@@ -45,6 +45,13 @@ pub const DOMAIN: &str = "sway-things";
 /// time for the default.
 pub const LOCALEDIR_VAR: &str = "SWAY_THINGS_LOCALEDIR";
 
+/// The text domain of xkeyboard-config, whose catalogs translate the names of the XKB rules:
+/// models, layouts, variants and options.
+pub const XKB_DOMAIN: &str = "xkeyboard-config";
+
+/// Where the system keeps the catalogs of other packages, such as xkeyboard-config's.
+const SYSTEM_LOCALEDIR: &str = "/usr/share/locale";
+
 /// Where the catalogs are if neither the environment nor the build says otherwise.
 const DEFAULT_LOCALEDIR: &str = match option_env!("SWAY_THINGS_LOCALEDIR") {
     Some(dir) => dir,
@@ -174,10 +181,26 @@ impl Translations {
 /// The translations [`tr`] uses, set by [`init`].
 static TRANSLATIONS: OnceLock<Translations> = OnceLock::new();
 
-/// Loads the catalogs of the user's languages for [`tr`]. Each binary calls it once at startup;
-/// later calls change nothing.
+/// The translations of xkeyboard-config that [`tr_xkb`] uses, set by [`init`].
+static XKB_TRANSLATIONS: OnceLock<Translations> = OnceLock::new();
+
+/// Loads the catalogs of the user's languages for [`tr`] and [`tr_xkb`]. Each binary calls it
+/// once at startup; later calls change nothing.
 pub fn init() {
-    TRANSLATIONS.get_or_init(|| Translations::from_env(|name| std::env::var(name).ok()));
+    let var = |name: &str| std::env::var(name).ok();
+    TRANSLATIONS.get_or_init(|| Translations::from_env(var));
+    XKB_TRANSLATIONS.get_or_init(|| {
+        Translations::load(Path::new(SYSTEM_LOCALEDIR), XKB_DOMAIN, &languages(var))
+    });
+}
+
+/// `name`, a name from the XKB rules (`German (no dead keys)`), in the user's language as
+/// xkeyboard-config's own catalogs have it, or as it is where they have none.
+pub fn tr_xkb(name: &str) -> &str {
+    XKB_TRANSLATIONS
+        .get()
+        .and_then(|translations| translations.get(name))
+        .unwrap_or(name)
 }
 
 /// The text of `msg` in the user's language, or the English source string if it has no

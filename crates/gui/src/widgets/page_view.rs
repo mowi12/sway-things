@@ -38,7 +38,7 @@ use super::setting_row::tilde;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
 };
-use crate::i18n::tr;
+use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
 use crate::style;
@@ -244,7 +244,7 @@ impl PageView {
     /// Adds "Reset page…" to the header: after asking, it removes every stored value of `page`
     /// that can't lock the user out. It can only be pressed while there is such a value.
     fn add_page_reset(&self, model: &Model, page: Page) {
-        let button = gtk::Button::with_label("Reset page…");
+        let button = gtk::Button::with_label(tr(msg!("Reset page…")));
         button.connect_clicked(glib::clone!(
             #[weak]
             model,
@@ -439,19 +439,20 @@ fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
         label.set_focusable(false);
         label.add_css_class("monospace");
         label.add_css_class(style::DIM);
-        label.update_property(&[gtk::accessible::Property::Label(&format!(
-            "Written to {path}"
+        label.update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("Written to {path}"),
+            &[("path", &path)],
         ))]);
-        let show = gtk::Button::with_label("Show");
+        let show = gtk::Button::with_label(tr(msg!("Show")));
         show.add_css_class("flat");
         show.set_valign(gtk::Align::Center);
-        show.set_tooltip_text(Some(&format!(
-            "Show what Sway Things writes to {}",
-            file.file_name()
+        show.set_tooltip_text(Some(&trf(
+            msg!("Show what Sway Things writes to {file}"),
+            &[("file", &file.file_name())],
         )));
-        show.update_property(&[gtk::accessible::Property::Label(&format!(
-            "Show {}",
-            file.file_name()
+        show.update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("Show {file}"),
+            &[("file", &file.file_name())],
         ))]);
         show.connect_clicked(move |button| {
             if let Some(window) = button.root().and_downcast::<crate::window::Window>() {
@@ -468,7 +469,8 @@ fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
 
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.
 fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
-    let section = Section::new(model, Page::MouseTouchpad, "Test area", "Test area", false);
+    let title = msg!("Test area");
+    let section = Section::new(model, Page::MouseTouchpad, title.msgid(), tr(title), false);
     section.body.append(&TestArea::new());
     body.append(&section.header);
     body.append(&section.body);
@@ -477,24 +479,24 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
 
 /// The project's links below the "About" section: what they are called, their icon and where
 /// they lead.
-const PROJECT_LINKS: [(&str, &str, &str); 3] = [
-    ("Website", icons::WEBSITE, env!("CARGO_PKG_HOMEPAGE")),
+const PROJECT_LINKS: [(Msg, &str, &str); 3] = [
+    (msg!("Website"), icons::WEBSITE, env!("CARGO_PKG_HOMEPAGE")),
     (
-        "Source Code (GitHub)",
+        msg!("Source Code (GitHub)"),
         icons::SOURCE_CODE,
         env!("CARGO_PKG_REPOSITORY"),
     ),
     (
-        "Report a Bug",
+        msg!("Report a Bug"),
         icons::BUG,
         concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"),
     ),
 ];
 
 /// The label of the button that copies the system details.
-const COPY_DETAILS: &str = "Copy System Details";
+const COPY_DETAILS: Msg = msg!("Copy System Details");
 /// Its label right after a click.
-const COPIED: &str = "Copied";
+const COPIED: Msg = msg!("Copied");
 /// How long it says so.
 const COPIED_FOR: Duration = Duration::from_secs(2);
 
@@ -503,13 +505,14 @@ const COPIED_FOR: Duration = Duration::from_secs(2);
 /// pages delegate to), a button that copies them for a bug report, then the project's links,
 /// which open in the default browser. The details are read again each time the section shows.
 fn about_section(model: &Model, body: &gtk::Box) -> Section {
-    let section = Section::new(model, Page::About, "About", "About", true);
+    let title = msg!("About");
+    let section = Section::new(model, Page::About, title.msgid(), tr(title), true);
     body.append(&section.header);
     body.append(&section.body);
     let list = gtk::ListBox::new();
     list.set_selection_mode(gtk::SelectionMode::None);
     list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label("About")]);
+    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
     let details = Rc::new(RefCell::new(None::<Details>));
     // The labels; the values follow once the details are read.
     let labels = Details {
@@ -570,7 +573,7 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
     links.set_halign(gtk::Align::Center);
     links.add_css_class("st-about-links");
     for (label, icon, uri) in PROJECT_LINKS {
-        links.append(&link_button(label, icon, uri));
+        links.append(&link_button(tr(label), icon, uri));
     }
     section.body.append(&links);
     section
@@ -578,7 +581,7 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
 
 /// The button that copies `details` once they are read, and says so for a moment.
 fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
-    let copy = gtk::Button::with_label(COPY_DETAILS);
+    let copy = gtk::Button::with_label(tr(COPY_DETAILS));
     copy.set_halign(gtk::Align::Center);
     copy.add_css_class("st-about-copy");
     copy.set_sensitive(false);
@@ -592,7 +595,7 @@ fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
                 return;
             };
             button.clipboard().set_text(&text);
-            button.set_label(COPIED);
+            button.set_label(tr(COPIED));
             let click = clicks.get().wrapping_add(1);
             clicks.set(click);
             glib::timeout_add_local_once(
@@ -604,7 +607,7 @@ fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
                     clicks,
                     move || {
                         if clicks.get() == click {
-                            button.set_label(COPY_DETAILS);
+                            button.set_label(tr(COPY_DETAILS));
                         }
                     }
                 ),
@@ -618,10 +621,15 @@ fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
 fn shown(value: &Value) -> String {
     match value {
         Value::Text(text) => text.clone(),
-        Value::Unknown => "Unknown".to_owned(),
-        Value::NotRunning => "Not running".to_owned(),
-        Value::Installed => "Installed".to_owned(),
-        Value::NotInstalled => "Not installed".to_owned(),
+        Value::Translated(text) => text.translated(),
+        // TRANSLATORS: A value in the About section: a version that couldn't be found.
+        Value::Unknown => tr(msg!("Unknown")).to_owned(),
+        // TRANSLATORS: A value in the About section: a service that isn't running.
+        Value::NotRunning => tr(msg!("Not running")).to_owned(),
+        // TRANSLATORS: A value in the About section: a tool that is installed.
+        Value::Installed => tr(msg!("Installed")).to_owned(),
+        // TRANSLATORS: A value in the About section: a tool that isn't installed.
+        Value::NotInstalled => tr(msg!("Not installed")).to_owned(),
     }
 }
 
@@ -671,25 +679,20 @@ fn link_button(label: &str, icon: &str, uri: &'static str) -> gtk::Button {
 /// The "Generated config" section of About & Maintenance: a row that opens the window with the
 /// files Sway Things writes.
 fn generated_section(model: &Model, body: &gtk::Box) -> Section {
-    let section = Section::new(
-        model,
-        Page::About,
-        "Generated config",
-        "Generated config",
-        false,
-    );
+    let title = msg!("Generated config");
+    let section = Section::new(model, Page::About, title.msgid(), tr(title), false);
     body.append(&section.header);
     body.append(&section.body);
     let list = gtk::ListBox::new();
     list.set_selection_mode(gtk::SelectionMode::None);
     list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label("Generated config")]);
-    let title = gtk::Label::new(Some("Generated config"));
+    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
+    let title = gtk::Label::new(Some(tr(title)));
     title.set_xalign(0.0);
-    let subtitle = gtk::Label::new(Some(
+    let subtitle = gtk::Label::new(Some(tr(msg!(
         "What Sway Things writes for your sway config to include, and which files were changed \
-         outside it",
-    ));
+         outside it"
+    ))));
     subtitle.set_xalign(0.0);
     subtitle.set_wrap(true);
     subtitle.add_css_class(style::DIM);
@@ -697,9 +700,11 @@ fn generated_section(model: &Model, body: &gtk::Box) -> Section {
     text.set_hexpand(true);
     text.append(&title);
     text.append(&subtitle);
-    let show = gtk::Button::with_label("Show\u{2026}");
+    let show = gtk::Button::with_label(tr(msg!("Show…")));
     show.set_valign(gtk::Align::Center);
-    show.update_property(&[gtk::accessible::Property::Label("Show generated config")]);
+    show.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+        "Show generated config"
+    )))]);
     show.connect_clicked(|button| {
         if let Some(window) = button.root().and_downcast::<crate::window::Window>() {
             window.show_generated(None);
@@ -775,27 +780,39 @@ fn confirm_page_reset(button: &gtk::Button, model: &Model, page: Page) {
     if removed == 0 {
         return;
     }
-    let values = if removed == 1 { "value" } else { "values" };
     let names: Vec<String> = kept.iter().map(|setting| setting_name(setting)).collect();
     let names = names.join(", ");
-    let kept_note = match kept.len() {
-        0 => String::new(),
-        1 => format!("\n\n{names} can lock you out, so it keeps its value; reset it from its row."),
-        _ => format!(
-            "\n\n{names} can lock you out, so they keep their values; reset them from their rows."
+    let mut detail = ntr(
+        msg_plural!(
+            "Sway Things no longer sets it: your config or sway’s defaults decide again.",
+            "Sway Things no longer sets them: your config or sway’s defaults decide again."
         ),
-    };
-    let detail = format!(
-        "Sway Things no longer sets them: your config or sway\u{2019}s defaults decide \
-         again.{kept_note}"
-    );
+        removed,
+    )
+    .to_owned();
+    if !kept.is_empty() {
+        let kept_note = ntrf(
+            msg_plural!(
+                "{settings} can lock you out, so it keeps its value; reset it from its row.",
+                "{settings} can lock you out, so they keep their values; reset them from their \
+                 rows."
+            ),
+            kept.len(),
+            &[("settings", &names)],
+        );
+        detail = format!("{detail}\n\n{kept_note}");
+    }
     let dialog = gtk::AlertDialog::builder()
-        .message(format!(
-            "Reset {removed} stored {values} of {}?",
-            tr(page.title())
+        .message(ntrf(
+            msg_plural!(
+                "Reset {count} stored value of {page}?",
+                "Reset {count} stored values of {page}?"
+            ),
+            removed,
+            &[("count", &removed), ("page", &tr(page.title()))],
         ))
         .detail(detail)
-        .buttons(["Cancel", "Reset"])
+        .buttons([tr(msg!("Cancel")), tr(msg!("Reset"))])
         .cancel_button(0)
         .default_button(0)
         .modal(true)
@@ -936,7 +953,7 @@ impl DeviceGroup {
     fn new(kind: InputType, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
         let selector = DeviceSelector::new(kind);
         list.append(&list_row(&selector));
-        let hint = gtk::Label::new(Some(&none_connected(kind)));
+        let hint = gtk::Label::new(Some(none_connected(kind)));
         hint.set_xalign(0.0);
         hint.set_wrap(true);
         hint.add_css_class("st-section-hint");

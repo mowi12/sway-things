@@ -401,7 +401,7 @@ impl IpcError {
             Self::Unsupported { compositor, unmet } => Text::new(msg!(
                 "{compositor} is not supported: Sway Things {requirement}"
             ))
-            .arg("compositor", compositor)
+            .text("compositor", compositor.text())
             .text("requirement", unmet.text()),
             Self::Io(error) => {
                 Text::new(msg!("the connection to sway failed: {error}")).arg("error", error)

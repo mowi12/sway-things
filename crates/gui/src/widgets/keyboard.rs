@@ -22,9 +22,17 @@ use sway_things_core::registry::Setting;
 use super::SettingRow;
 use super::layout_list::{LAYOUTS, LayoutList};
 use super::xkb_options::{self, OptionBrowser};
+use crate::i18n::{Msg, msg, tr};
 use crate::model::Model;
 use crate::style;
 use crate::xkb;
+
+// Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
+// out here.
+/// Why the active layout can't be switched without a session.
+const NO_SESSION: Msg = msg!("Only in a running sway session");
+/// Why the active layout of a keyboard that isn't there can't be switched.
+const NOT_CONNECTED: Msg = msg!("The keyboard isn’t connected");
 
 /// The key of the keyboard model.
 const MODEL: &str = "input.keyboard.xkb_model";
@@ -35,7 +43,7 @@ const OPTIONS: &str = "input.keyboard.xkb_options";
 /// default first. `None` for other settings.
 pub fn choices(setting: &Setting) -> Option<Vec<(String, String)>> {
     (setting.key() == MODEL).then(|| {
-        std::iter::once((String::new(), "Default (pc105)".to_owned()))
+        std::iter::once((String::new(), tr(msg!("Default (pc105)")).to_owned()))
             .chain(
                 xkb::rules()
                     .models
@@ -44,9 +52,9 @@ pub fn choices(setting: &Setting) -> Option<Vec<(String, String)>> {
                     .map(|model| {
                         let label = match &model.vendor {
                             Some(vendor) if !model.label().starts_with(vendor.as_str()) => {
-                                format!("{vendor} {}", model.label())
+                                format!("{vendor} {}", model.shown())
                             }
-                            _ => model.label().to_owned(),
+                            _ => model.shown().to_owned(),
                         };
                         (model.name.clone(), label)
                     }),
@@ -134,7 +142,7 @@ fn keyboard_for(model: &Model, device: Option<&str>) -> Option<Device> {
 /// _Active layout_: the layouts sway reports for the keyboard, with the one in use picked.
 /// Picking another switches to it now, on that keyboard or on all of them.
 fn active_layout(model: &Model, row: &SettingRow) -> gtk::Widget {
-    let title = "Active layout";
+    let title = tr(msg!("Active layout"));
     let labels = gtk::StringList::new(&[]);
     let dropdown = gtk::DropDown::new(Some(labels.clone()), gtk::Expression::NONE);
     dropdown.update_property(&[gtk::accessible::Property::Label(title)]);
@@ -186,9 +194,9 @@ fn active_layout(model: &Model, row: &SettingRow) -> gtk::Widget {
             }
             updating.set(false);
             let reason = if !model.devices_known() {
-                Some("Only in a running sway session")
+                Some(tr(NO_SESSION))
             } else if layouts.is_none() {
-                Some("The keyboard isn\u{2019}t connected")
+                Some(tr(NOT_CONNECTED))
             } else {
                 None
             };
@@ -199,7 +207,9 @@ fn active_layout(model: &Model, row: &SettingRow) -> gtk::Widget {
     follow(model, row, refresh);
     plain_row(
         title,
-        Some("The layout in use now. sway starts with the first one again"),
+        Some(tr(msg!(
+            "The layout in use now. sway starts with the first one again"
+        ))),
         &dropdown,
     )
     .upcast()
@@ -208,12 +218,12 @@ fn active_layout(model: &Model, row: &SettingRow) -> gtk::Widget {
 /// _Try it_: a field to type in with the layouts and options in effect.
 fn try_it() -> gtk::Widget {
     let entry = gtk::Entry::new();
-    entry.set_placeholder_text(Some("Type here to try the keyboard"));
+    entry.set_placeholder_text(Some(tr(msg!("Type here to try the keyboard"))));
     entry.set_hexpand(true);
     entry.update_property(&[gtk::accessible::Property::Label("Try it")]);
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 24);
     content.add_css_class("st-plain-row");
-    let title = gtk::Label::new(Some("Try it"));
+    let title = gtk::Label::new(Some(tr(msg!("Try it"))));
     title.add_css_class("st-row-title");
     title.set_xalign(0.0);
     content.append(&title);

@@ -30,10 +30,10 @@ use sway_things_core::bluetooth::{
 };
 use sway_things_core::delegate;
 use sway_things_core::i18n::Text;
-use sway_things_core::msg;
 
 use self::dialogs::{Dialog, Field, Spec};
 use super::{Placeholder, search_button};
+use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::style;
 
 /// How long to collect a burst of changes before reading the snapshot again.
@@ -69,25 +69,29 @@ enum Action {
 
 impl Action {
     /// What the device's status and button show while it runs.
-    const fn running(self) -> &'static str {
-        match self {
-            Self::Pair => "Pairing…",
-            Self::Connect => "Connecting…",
-            Self::Disconnect => "Disconnecting…",
-            Self::Forget => "Forgetting…",
-            Self::Rename => "Renaming…",
-        }
+    fn running(self) -> &'static str {
+        tr(match self {
+            Self::Pair => msg!("Pairing…"),
+            Self::Connect => msg!("Connecting…"),
+            Self::Disconnect => msg!("Disconnecting…"),
+            Self::Forget => msg!("Forgetting…"),
+            Self::Rename => msg!("Renaming…"),
+        })
     }
 
-    /// The start of the message when it fails.
-    const fn failure(self) -> &'static str {
-        match self {
-            Self::Pair => "Couldn't pair with",
-            Self::Connect => "Couldn't connect to",
-            Self::Disconnect => "Couldn't disconnect from",
-            Self::Forget => "Couldn't forget",
-            Self::Rename => "Couldn't rename",
-        }
+    /// The message when it fails on the device `name` with `error`.
+    fn failure(self, name: &str, error: &Error) -> String {
+        let text = match self {
+            Self::Pair => msg!("Couldn't pair with “{device}”: {error}"),
+            Self::Connect => msg!("Couldn't connect to “{device}”: {error}"),
+            Self::Disconnect => msg!("Couldn't disconnect from “{device}”: {error}"),
+            Self::Forget => msg!("Couldn't forget “{device}”: {error}"),
+            Self::Rename => msg!("Couldn't rename “{device}”: {error}"),
+        };
+        trf(
+            text,
+            &[("device", &name), ("error", &error.text().translated())],
+        )
     }
 }
 
@@ -258,8 +262,8 @@ impl BluetoothPage {
     pub fn advanced_button(&self) -> Option<gtk::Button> {
         let imp = self.imp();
         if imp.advanced.borrow().is_none() && delegate::BLUEMAN.find().is_some() {
-            let button = gtk::Button::with_label("Advanced…");
-            button.set_tooltip_text(Some("Open Blueman for adapter settings and more"));
+            let button = gtk::Button::with_label(tr(msg!("Advanced…")));
+            button.set_tooltip_text(Some(tr(msg!("Open Blueman for adapter settings and more"))));
             let weak = self.downgrade();
             button.connect_clicked(move |_| {
                 if let Some(page) = weak.upgrade() {
@@ -366,22 +370,22 @@ impl BluetoothPage {
         imp.controls.set_visible(false);
         imp.controls.set_orientation(gtk::Orientation::Vertical);
 
-        imp.controls.append(&heading("Bluetooth", true));
-        let section = section_list("Bluetooth");
+        imp.controls.append(&heading(tr(msg!("Bluetooth")), true));
+        let section = section_list(tr(msg!("Bluetooth")));
         imp.adapters.set_model(Some(&imp.adapter_names));
         imp.adapters.set_valign(gtk::Align::Center);
         imp.adapters
-            .update_property(&[gtk::accessible::Property::Label("Adapter")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!("Adapter")))]);
         let weak = self.downgrade();
         imp.adapters.connect_selected_notify(move |_| {
             if let Some(page) = weak.upgrade() {
                 page.adapter_chosen();
             }
         });
-        let adapter_hint = gtk::Label::new(Some("The Bluetooth radio this page shows"));
+        let adapter_hint = gtk::Label::new(Some(tr(msg!("The Bluetooth radio this page shows"))));
         adapter_hint.add_css_class(style::DIM);
         imp.adapter_row.set_child(Some(&row(
-            &gtk::Label::new(Some("Adapter")),
+            &gtk::Label::new(Some(tr(msg!("Adapter")))),
             &adapter_hint,
             &[imp.adapters.upcast_ref()],
         )));
@@ -392,7 +396,7 @@ impl BluetoothPage {
         imp.power_subtitle.add_css_class(style::DIM);
         imp.power.set_valign(gtk::Align::Center);
         imp.power
-            .update_property(&[gtk::accessible::Property::Label("Bluetooth")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!("Bluetooth")))]);
         let weak = self.downgrade();
         imp.power.connect_state_set(move |_, on| {
             weak.upgrade()
@@ -400,7 +404,7 @@ impl BluetoothPage {
         });
         self.build_adapter_menu();
         section.append(&list_row(&row(
-            &gtk::Label::new(Some("Bluetooth")),
+            &gtk::Label::new(Some(tr(msg!("Bluetooth")))),
             &imp.power_subtitle,
             &[imp.power.upcast_ref(), imp.adapter_menu.upcast_ref()],
         )));
@@ -430,14 +434,14 @@ impl BluetoothPage {
 
         imp.devices.set_orientation(gtk::Orientation::Vertical);
         imp.controls.append(&imp.devices);
-        imp.devices.append(&heading("My devices", false));
-        device_list(&imp.mine, "My devices");
+        imp.devices.append(&heading(tr(msg!("My devices")), false));
+        device_list(&imp.mine, tr(msg!("My devices")));
         imp.devices.append(&imp.mine);
         hint(&imp.mine_hint);
         imp.devices.append(&imp.mine_hint);
 
         self.build_others_heading();
-        device_list(&imp.others, "Other devices");
+        device_list(&imp.others, tr(msg!("Other devices")));
         imp.devices.append(&imp.others);
         hint(&imp.others_hint);
         imp.devices.append(&imp.others_hint);
@@ -453,14 +457,14 @@ impl BluetoothPage {
         let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         line.set_margin_top(24);
         line.set_margin_bottom(8);
-        let others = heading("Other devices", false);
+        let others = heading(tr(msg!("Other devices")), false);
         others.set_margin_top(0);
         others.set_margin_bottom(0);
         line.append(&others);
         imp.searching.set_spacing(6);
         imp.spinner_slot.set_valign(gtk::Align::Center);
         imp.searching.append(&imp.spinner_slot);
-        imp.searching_label.set_text("Searching");
+        imp.searching_label.set_text(tr(msg!("Searching")));
         imp.searching_label.add_css_class(style::DIM);
         imp.searching.append(&imp.searching_label);
         line.append(&imp.searching);
@@ -485,14 +489,16 @@ impl BluetoothPage {
         imp.visible_subtitle.add_css_class(style::DIM);
         imp.visible.set_valign(gtk::Align::Center);
         imp.visible
-            .update_property(&[gtk::accessible::Property::Label("Visible to other devices")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                "Visible to other devices"
+            )))]);
         let weak = self.downgrade();
         imp.visible.connect_state_set(move |_, on| {
             weak.upgrade()
                 .map_or(glib::Propagation::Proceed, |page| page.visible_changed(on))
         });
         section.append(&list_row(&row(
-            &gtk::Label::new(Some("Visible to other devices")),
+            &gtk::Label::new(Some(tr(msg!("Visible to other devices")))),
             &imp.visible_subtitle,
             &[imp.visible.upcast_ref()],
         )));
@@ -502,7 +508,7 @@ impl BluetoothPage {
     fn build_adapter_menu(&self) {
         let imp = self.imp();
         let popover = gtk::Popover::new();
-        imp.adapter_rename.set_label("Rename…");
+        imp.adapter_rename.set_label(tr(msg!("Rename…")));
         imp.adapter_rename.add_css_class("flat");
         if let Some(child) = imp.adapter_rename.child().and_downcast::<gtk::Label>() {
             child.set_xalign(0.0);
@@ -522,7 +528,8 @@ impl BluetoothPage {
         imp.adapter_menu.set_icon_name("view-more-symbolic");
         imp.adapter_menu.set_popover(Some(&popover));
         imp.adapter_menu.set_valign(gtk::Align::Center);
-        imp.adapter_menu.set_tooltip_text(Some("More actions"));
+        imp.adapter_menu
+            .set_tooltip_text(Some(tr(msg!("More actions"))));
         imp.adapter_menu.add_css_class("flat");
     }
 
@@ -547,8 +554,10 @@ impl BluetoothPage {
         command.set_hexpand(true);
         command.set_selectable(true);
         command.add_css_class("monospace");
-        let copy = gtk::Button::with_label("Copy");
-        copy.update_property(&[gtk::accessible::Property::Label("Copy the command")]);
+        let copy = gtk::Button::with_label(tr(msg!("Copy")));
+        copy.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+            "Copy the command"
+        )))]);
         copy.connect_clicked(|button| {
             button.clipboard().set_text(UNBLOCK_COMMAND);
         });
@@ -591,7 +600,10 @@ impl BluetoothPage {
                 Ok(changes) => changes,
                 Err(error) => {
                     if let Some(page) = weak.upgrade() {
-                        page.show_error(&format!("The page doesn't update on its own: {error}"));
+                        page.show_error(&trf(
+                            msg!("The page doesn't update on its own: {error}"),
+                            &[("error", &error.text().translated())],
+                        ));
                     }
                     return;
                 }
@@ -753,9 +765,12 @@ impl BluetoothPage {
         imp.power.set_state(adapter.powered);
         imp.power.set_sensitive(!block.hard);
         imp.power_subtitle.set_text(&if adapter.powered {
-            format!("Visible as “{}” \u{b7} {}", adapter.name, adapter.address)
+            trf(
+                msg!("Visible as “{name}” · {address}"),
+                &[("name", &adapter.name), ("address", &adapter.address)],
+            )
         } else {
-            "Off".to_owned()
+            tr(msg!("Off")).to_owned()
         });
         imp.adapter_menu.set_sensitive(adapter.powered);
         imp.adapter_rename.set_sensitive(adapter.powered);
@@ -814,8 +829,9 @@ impl BluetoothPage {
         imp.mine.set_visible(mine > 0);
         set_hint(
             &imp.mine_hint,
-            (mine == 0)
-                .then_some("No paired devices yet. Pick one under Other devices to connect it."),
+            (mine == 0).then_some(tr(msg!(
+                "No paired devices yet. Pick one under Other devices to connect it."
+            ))),
         );
         imp.others_heading.set_visible(adapter.powered);
         imp.others.set_visible(adapter.powered && others > 0);
@@ -824,9 +840,10 @@ impl BluetoothPage {
             if !adapter.powered {
                 None
             } else if others == 0 {
-                Some(
-                    "No other devices found yet. Put the device you want to connect into pairing mode.",
-                )
+                Some(tr(msg!(
+                    "No other devices found yet. Put the device you want to connect into pairing \
+                     mode."
+                )))
             } else {
                 None
             },
@@ -848,15 +865,21 @@ impl BluetoothPage {
         let Some((hard, soft)) = off else {
             return;
         };
-        let text = if hard {
-            "It's turned off by a hardware switch or key. Use it to turn Bluetooth back on."
+        let text = tr(if hard {
+            msg!("It's turned off by a hardware switch or key. Use it to turn Bluetooth back on.")
         } else if soft {
-            "It's blocked by software, e.g. airplane mode. Turning it on with the switch above lifts \
-             the block."
+            msg!(
+                "It's blocked by software, e.g. airplane mode. Turning it on with the switch above \
+                 lifts the block."
+            )
         } else {
-            "Turn it on with the switch above to connect your devices and find new ones."
-        };
-        let placeholder = Placeholder::new("bluetooth-disabled-symbolic", "Bluetooth is off", text);
+            msg!("Turn it on with the switch above to connect your devices and find new ones.")
+        });
+        let placeholder = Placeholder::new(
+            "bluetooth-disabled-symbolic",
+            tr(msg!("Bluetooth is off")),
+            text,
+        );
         placeholder.set_hexpand(true);
         imp.off.append(&placeholder);
     }
@@ -873,20 +896,24 @@ impl BluetoothPage {
         let placeholder = match error {
             Error::Unavailable(reason) if reason.english().is_empty() => Placeholder::new(
                 "bluetooth-disabled-symbolic",
-                "No Bluetooth adapter",
-                "Plug in a Bluetooth adapter or turn it on in the firmware settings; this page \
-                 updates by itself.",
+                tr(msg!("No Bluetooth adapter")),
+                tr(msg!(
+                    "Plug in a Bluetooth adapter or turn it on in the firmware settings; this page \
+                     updates by itself."
+                )),
             ),
             Error::Unavailable(_) => Placeholder::new(
                 "bluetooth-disabled-symbolic",
-                "Bluetooth isn't available",
-                "The Bluetooth service isn't running. Start it with `systemctl start bluetooth`; \
-                 this page updates by itself.",
+                tr(msg!("Bluetooth isn't available")),
+                tr(msg!(
+                    "The Bluetooth service isn't running. Start it with `systemctl start \
+                     bluetooth`; this page updates by itself."
+                )),
             ),
             other => Placeholder::new(
                 "dialog-error-symbolic",
-                "Bluetooth can't be read",
-                &other.to_string(),
+                tr(msg!("Bluetooth can't be read")),
+                &other.text().translated(),
             ),
         };
         while let Some(child) = imp.missing.first_child() {
@@ -928,8 +955,11 @@ impl BluetoothPage {
         let menu_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let popover = gtk::Popover::new();
         popover.set_child(Some(&menu_box));
-        for (label, action) in [("Rename…", Action::Rename), ("Forget…", Action::Forget)] {
-            let item = gtk::Button::with_label(label);
+        for (label, action) in [
+            (msg!("Rename…"), Action::Rename),
+            (msg!("Forget…"), Action::Forget),
+        ] {
+            let item = gtk::Button::with_label(tr(label));
             item.add_css_class("flat");
             if let Some(child) = item.child().and_downcast::<gtk::Label>() {
                 child.set_xalign(0.0);
@@ -952,7 +982,7 @@ impl BluetoothPage {
             .icon_name("view-more-symbolic")
             .popover(&popover)
             .valign(gtk::Align::Center)
-            .tooltip_text("More actions")
+            .tooltip_text(tr(msg!("More actions")))
             .build();
         menu.add_css_class("flat");
 
@@ -1040,7 +1070,7 @@ impl BluetoothPage {
             if let Some(page) = weak.upgrade() {
                 page.show_error(&match result {
                     Ok(()) => String::new(),
-                    Err(error) => format!("{} “{}”: {error}", action.failure(), device.name),
+                    Err(error) => action.failure(&device.name, &error),
                 });
             }
             refresh(&weak, &bluez).await;
@@ -1064,7 +1094,10 @@ impl BluetoothPage {
         let weak = self.downgrade();
         Dialog::open(
             window.as_ref(),
-            &rename_spec(&old, "Leave it empty to use the adapter's own name."),
+            &rename_spec(
+                &old,
+                tr(msg!("Leave it empty to use the adapter's own name.")),
+            ),
             move |name| {
                 let Some(name) = name else {
                     return;
@@ -1074,7 +1107,7 @@ impl BluetoothPage {
                     if let Some(page) = weak.upgrade() {
                         page.show_error(&match result {
                             Ok(()) => String::new(),
-                            Err(error) => format!("{} “{old}”: {error}", Action::Rename.failure()),
+                            Err(error) => Action::Rename.failure(&old, &error),
                         });
                     }
                     refresh(&weak, &bluez).await;
@@ -1104,13 +1137,13 @@ impl BluetoothPage {
             if let Some(page) = weak.upgrade() {
                 page.show_error(&match result {
                     Ok(()) => String::new(),
-                    Err(error) => format!(
-                        "Couldn't {}: {error}",
+                    Err(error) => trf(
                         if on {
-                            "make the computer visible"
+                            msg!("Couldn't make the computer visible: {error}")
                         } else {
-                            "hide the computer"
-                        }
+                            msg!("Couldn't hide the computer: {error}")
+                        },
+                        &[("error", &error.text().translated())],
                     ),
                 });
             }
@@ -1132,7 +1165,7 @@ impl BluetoothPage {
             window.as_ref(),
             &rename_spec(
                 &device.name,
-                "Leave it empty to use the name the device announces.",
+                tr(msg!("Leave it empty to use the name the device announces.")),
             ),
             move |name| {
                 let Some(name) = name else {
@@ -1145,7 +1178,7 @@ impl BluetoothPage {
                     if let Some(page) = weak.upgrade() {
                         page.show_error(&match result {
                             Ok(()) => String::new(),
-                            Err(error) => format!("{} “{old}”: {error}", Action::Rename.failure()),
+                            Err(error) => Action::Rename.failure(&old, &error),
                         });
                     }
                     refresh(&weak, &bluez).await;
@@ -1271,9 +1304,13 @@ impl BluetoothPage {
                 page.imp().unblock_help.set_visible(blocked);
                 page.show_error(&match result {
                     Ok(()) | Err(Error::Blocked) => String::new(),
-                    Err(error) => format!(
-                        "Couldn't turn Bluetooth {}: {error}",
-                        if on { "on" } else { "off" }
+                    Err(error) => trf(
+                        if on {
+                            msg!("Couldn't turn Bluetooth on: {error}")
+                        } else {
+                            msg!("Couldn't turn Bluetooth off: {error}")
+                        },
+                        &[("error", &error.text().translated())],
                     ),
                 });
             }
@@ -1371,11 +1408,11 @@ impl BluetoothPage {
         search_button::set_running(
             &imp.search,
             running,
-            if running {
-                "Stop looking for devices"
+            tr(if running {
+                msg!("Stop looking for devices")
             } else {
-                "Look for devices nearby for 30 seconds"
-            },
+                msg!("Look for devices nearby for 30 seconds")
+            }),
         );
     }
 
@@ -1425,7 +1462,10 @@ impl BluetoothPage {
         glib::spawn_future_local(async move {
             if let Err(error) = bluez.start_discovery(&path).await {
                 if let Some(page) = weak.upgrade() {
-                    page.show_error(&format!("Couldn't look for devices: {error}"));
+                    page.show_error(&trf(
+                        msg!("Couldn't look for devices: {error}"),
+                        &[("error", &error.text().translated())],
+                    ));
                 }
             }
         });
@@ -1455,90 +1495,109 @@ impl BluetoothPage {
                     let _ = child.status().await;
                 });
             }
-            Err(error) => self.show_error(&format!("Blueman can't be started: {error}")),
+            Err(error) => self.show_error(&trf(
+                msg!("Blueman can't be started: {error}"),
+                &[("error", &error)],
+            )),
         }
     }
 }
 
-/// What the dialog for `request` about the device `name` shows, and the passkey with the digits
-/// typed so far for a passkey to type.
-fn prompt_spec(request: &Request, name: &str) -> (Spec, Option<(u32, u16)>) {
-    let pair = format!("Pair with “{name}”");
-    let spec = |title: String, body: String, code, field, accept| Spec {
+/// A dialog without a note under its field.
+fn spec(
+    title: String,
+    body: String,
+    code: Option<String>,
+    field: Option<Field>,
+    accept: Option<&'static str>,
+) -> Spec {
+    Spec {
         title,
         body,
         code,
         field,
         note: None,
         accept,
-    };
+    }
+}
+
+/// What the dialog for `request` about the device `name` shows, and the passkey with the digits
+/// typed so far for a passkey to type.
+fn prompt_spec(request: &Request, name: &str) -> (Spec, Option<(u32, u16)>) {
+    let named = |text| trf(text, &[("device", &name)]);
+    let pair = named(msg!("Pair with “{device}”"));
+    let pair_asked = named(msg!("Pair with “{device}”?"));
     match request {
         Request::Confirmation(passkey) => (
             spec(
-                format!("{pair}?"),
-                format!("Check that “{name}” shows this code too."),
+                pair_asked,
+                named(msg!("Check that “{device}” shows this code too.")),
                 Some(dialogs::grouped(*passkey)),
                 None,
-                Some("Pair"),
+                Some(tr(msg!("Pair"))),
             ),
             None,
         ),
         Request::Authorization => (
             spec(
-                format!("{pair}?"),
-                format!(
-                    "“{name}” shows no code to compare. Pair only if you just started pairing on it."
-                ),
+                pair_asked,
+                named(msg!(
+                    "“{device}” shows no code to compare. Pair only if you just started pairing on \
+                     it."
+                )),
                 None,
                 None,
-                Some("Pair"),
+                Some(tr(msg!("Pair"))),
             ),
             None,
         ),
         Request::Service(uuid) => (
             spec(
-                format!("Allow “{name}” to connect?"),
-                format!("It asks to use the service {uuid}."),
+                named(msg!("Allow “{device}” to connect?")),
+                trf(
+                    msg!("It asks to use the service {uuid}."),
+                    &[("uuid", uuid)],
+                ),
                 None,
                 None,
-                Some("Allow"),
+                Some(tr(msg!("Allow"))),
             ),
             None,
         ),
         Request::PinCode => (
             spec(
                 pair,
-                format!(
-                    "Enter the PIN that “{name}” expects. Its manual has it; often 0000 or 1234."
-                ),
+                named(msg!(
+                    "Enter the PIN that “{device}” expects. Its manual has it; often 0000 or 1234."
+                )),
                 None,
                 Some(Field {
-                    label: "PIN",
+                    label: tr(msg!("PIN")),
                     text: String::new(),
                     valid: |pin| valid_pin(pin.trim()),
                 }),
-                Some("Pair"),
+                Some(tr(msg!("Pair"))),
             ),
             None,
         ),
         Request::Passkey => (
             spec(
                 pair,
-                format!("Enter the six-digit code that “{name}” shows."),
+                named(msg!("Enter the six-digit code that “{device}” shows.")),
                 None,
                 Some(Field {
-                    label: "Code",
+                    label: tr(msg!("Code")),
                     text: String::new(),
                     valid: |code| parse_passkey(code).is_some(),
                 }),
-                Some("Pair"),
+                Some(tr(msg!("Pair"))),
             ),
             None,
         ),
         Request::DisplayPinCode(pin) => (
             spec(
                 pair,
-                format!("Type this PIN on “{name}”, then press Enter on it."),
+                named(msg!("Type this PIN on “{device}”, then press Enter on it.")),
                 Some(pin.clone()),
                 None,
                 None,
@@ -1548,7 +1607,9 @@ fn prompt_spec(request: &Request, name: &str) -> (Spec, Option<(u32, u16)>) {
         Request::DisplayPasskey { passkey, entered } => (
             spec(
                 pair,
-                format!("Type this code on “{name}”, then press Enter on it."),
+                named(msg!(
+                    "Type this code on “{device}”, then press Enter on it."
+                )),
                 Some(dialogs::grouped(*passkey)),
                 None,
                 None,
@@ -1573,36 +1634,40 @@ fn update_row(row: &mut DeviceRow, device: &Device, running: Option<Action>, pow
     let state = if let Some(action) = running {
         action.running().to_owned()
     } else if device.connected {
-        "Connected".to_owned()
+        tr(msg!("Connected")).to_owned()
     } else if device.paired {
-        "Not connected".to_owned()
+        tr(msg!("Not connected")).to_owned()
     } else if device.named {
-        "Not paired".to_owned()
+        tr(msg!("Not paired")).to_owned()
     } else {
-        "Not paired \u{b7} no name".to_owned()
+        tr(msg!("Not paired · no name")).to_owned()
     };
     row.status.set_text(&match device.battery {
-        Some(percent) if device.paired => format!("{state} \u{b7} Battery {percent} %"),
+        Some(percent) if device.paired => trf(
+            msg!("{state} · Battery {percent} %"),
+            &[("state", &state), ("percent", &percent)],
+        ),
         _ => state,
     });
     let label = match running {
         Some(action) => action.running(),
-        None if device.connected => "Disconnect",
-        None => "Connect",
+        None if device.connected => tr(msg!("Disconnect")),
+        None => tr(msg!("Connect")),
     };
     row.button.set_label(label);
     row.button.set_sensitive(powered && running.is_none());
     row.button
-        .update_property(&[gtk::accessible::Property::Label(&format!(
-            "{label} {}",
-            device.name
+        .update_property(&[gtk::accessible::Property::Label(&trf(
+            // TRANSLATORS: The button of a device for screen readers: "Connect Headphones".
+            msg!("{action} {device}"),
+            &[("action", &label), ("device", &device.name)],
         ))]);
     row.menu.set_visible(device.paired);
     row.menu.set_sensitive(running.is_none());
     row.menu
-        .update_property(&[gtk::accessible::Property::Label(&format!(
-            "More actions for {}",
-            device.name
+        .update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("More actions for {device}"),
+            &[("device", &device.name)],
         ))]);
 }
 
@@ -1762,28 +1827,42 @@ fn plain_row(row: &gtk::ListBoxRow) {
 /// The dialog that asks for a new name instead of `name`, with `note` under the field.
 fn rename_spec(name: &str, note: &str) -> Spec {
     Spec {
-        title: format!("Rename “{name}”"),
+        title: trf(msg!("Rename “{device}”"), &[("device", &name)]),
         body: String::new(),
         code: None,
         field: Some(Field {
-            label: "Name",
+            label: tr(msg!("Name")),
             text: name.to_owned(),
             valid: |name| check_alias(name).is_ok(),
         }),
         note: Some(note.to_owned()),
-        accept: Some("Rename"),
+        accept: Some(tr(msg!("Rename"))),
     }
 }
 
 /// The subtitle of "Visible to other devices": how long it stays visible after `timeout`
 /// seconds (0: until switched off).
 fn visible_text(timeout: u32) -> String {
+    let count = |text, n: u32| {
+        let n = usize::try_from(n).unwrap_or(usize::MAX);
+        ntrf(text, n, &[("count", &n)])
+    };
     match timeout {
-        0 => "Stays visible until you turn this off".to_owned(),
-        1 => "Stays visible for 1 second".to_owned(),
-        2..60 => format!("Stays visible for {timeout} seconds"),
-        60..120 => "Stays visible for 1 minute".to_owned(),
-        _ => format!("Stays visible for {} minutes", timeout / 60),
+        0 => tr(msg!("Stays visible until you turn this off")).to_owned(),
+        1..60 => count(
+            msg_plural!(
+                "Stays visible for {count} second",
+                "Stays visible for {count} seconds"
+            ),
+            timeout,
+        ),
+        _ => count(
+            msg_plural!(
+                "Stays visible for {count} minute",
+                "Stays visible for {count} minutes"
+            ),
+            timeout / 60,
+        ),
     }
 }
 

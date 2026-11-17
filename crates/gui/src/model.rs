@@ -35,6 +35,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
+use crate::i18n::{Msg, msg, tr, trf};
 use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
@@ -52,6 +53,13 @@ use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
+
+// Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
+// out here.
+/// The problem when the connected devices can't be followed.
+const NO_DEVICES: Msg = msg!("Connected devices can't be listed: {error}");
+/// The problem when the reloads of sway can't be followed.
+const NO_RELOADS: Msg = msg!("Reloads of sway from elsewhere won’t show: {error}");
 
 /// The preference whether collapsed sections are remembered across restarts.
 const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
@@ -215,8 +223,9 @@ impl Model {
                 model.watch_config(watch);
                 match state_watch {
                     Ok(watcher) => model.watch_state(watcher),
-                    Err(error) => model.emit_problem(&format!(
-                        "Changes to the settings files from outside won't show: {error}"
+                    Err(error) => model.emit_problem(&trf(
+                        msg!("Changes to the settings files from outside won't show: {error}"),
+                        &[("error", &error.text().translated())],
                     )),
                 }
             }
@@ -399,8 +408,9 @@ impl Model {
             core.ui.save()
         };
         if let Err(error) = saved {
-            self.emit_problem(&format!(
-                "Collapsed sections can\u{2019}t be remembered: {error}"
+            self.emit_problem(&trf(
+                msg!("Collapsed sections can’t be remembered: {error}"),
+                &[("error", &error)],
             ));
         }
     }
@@ -716,8 +726,9 @@ impl Model {
             // Without the include line nothing can be kept: back to the old value.
             (Op::Keep | Op::Revert, _) => match applier.revert().await {
                 Ok(_) | Err(ApplyError::NothingPending) => {}
-                Err(error) => self.emit_problem(&format!(
-                    "{error}. The old value comes back when sway reloads its config."
+                Err(error) => self.emit_problem(&trf(
+                    msg!("{error}. The old value comes back when sway reloads its config."),
+                    &[("error", &error.text().translated())],
                 )),
             },
             (Op::Persist, Ok(access)) => match applier.persist(&[], &access).await {
@@ -729,7 +740,10 @@ impl Model {
             }
             (Op::ReloadSway, Ok(access)) => match applier.reload_sway(&access).await {
                 Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&format!("Sway wasn\u{2019}t reloaded: {error}.")),
+                Err(error) => self.emit_problem(&trf(
+                    msg!("Sway wasn’t reloaded: {error}."),
+                    &[("error", &error.text().translated())],
+                )),
             },
             (Op::SwayReloaded, _) => applier.reloaded(),
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
@@ -772,7 +786,10 @@ impl Model {
                 let mut watch = match started {
                     Ok(watch) => watch,
                     Err(error) => {
-                        model.emit_problem(&format!("Connected devices can't be listed: {error}"));
+                        model.emit_problem(&trf(
+                            NO_DEVICES,
+                            &[("error", &error.text().translated())],
+                        ));
                         return;
                     }
                 };
@@ -799,8 +816,9 @@ impl Model {
                 let mut reloads = match started {
                     Ok(reloads) => reloads,
                     Err(error) => {
-                        model.emit_problem(&format!(
-                            "Reloads of sway from elsewhere won\u{2019}t show: {error}"
+                        model.emit_problem(&trf(
+                            NO_RELOADS,
+                            &[("error", &error.text().translated())],
                         ));
                         return;
                     }
@@ -904,17 +922,25 @@ impl Model {
         let selector = match device.map(InputSelector::device).transpose() {
             Ok(selector) => selector,
             Err(error) => {
-                self.emit_problem(&format!("The layout can't be switched: {error}"));
+                self.emit_problem(&trf(
+                    msg!("The layout can't be switched: {error}"),
+                    &[("error", &error.text().translated())],
+                ));
                 return;
             }
         };
         let Some(client) = applier.client() else {
-            self.emit_problem("The layout can only be switched in a running sway session.");
+            self.emit_problem(tr(msg!(
+                "The layout can only be switched in a running sway session."
+            )));
             return;
         };
         if let Err(error) = switch_layout(client, selector.as_ref(), XkbSwitch::Index(index)).await
         {
-            self.emit_problem(&format!("The layout can't be switched: {error}"));
+            self.emit_problem(&trf(
+                msg!("The layout can't be switched: {error}"),
+                &[("error", &error.text().translated())],
+            ));
         }
     }
 

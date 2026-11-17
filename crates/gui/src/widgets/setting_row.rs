@@ -47,7 +47,7 @@ use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
 use super::device_selector::all_of_type;
-use crate::i18n::tr;
+use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
@@ -317,10 +317,12 @@ impl SettingRow {
             move |_| row.reset()
         ));
         imp.machine.set_icon_name("computer-symbolic");
-        imp.machine.set_tooltip_text(Some("This machine only"));
         imp.machine
-            .update_property(&[gtk::accessible::Property::Label(&format!(
-                "{title}: this machine only"
+            .set_tooltip_text(Some(tr(msg!("This machine only"))));
+        imp.machine
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                msg!("{title}: this machine only"),
+                &[("title", &title)],
             ))]);
         imp.machine.connect_toggled(glib::clone!(
             #[weak(rename_to = row)]
@@ -329,10 +331,11 @@ impl SettingRow {
         ));
         imp.conflict.set_icon_name("view-more-symbolic");
         imp.conflict
-            .set_tooltip_text(Some("Your config sets this too"));
+            .set_tooltip_text(Some(tr(msg!("Your config sets this too"))));
         imp.conflict
-            .update_property(&[gtk::accessible::Property::Label(&format!(
-                "{title}: your config sets this too"
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                msg!("{title}: your config sets this too"),
+                &[("title", &title)],
             ))]);
         imp.conflict.set_popover(Some(&self.conflict_popover()));
         for button in [
@@ -372,9 +375,9 @@ impl SettingRow {
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.append(&details);
         content.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-        imp.let_config_win.set_label("Let my config win");
-        let open = gtk::Button::with_label("Open config in editor");
-        let copy = gtk::Button::with_label("Copy line");
+        imp.let_config_win.set_label(tr(msg!("Let my config win")));
+        let open = gtk::Button::with_label(tr(msg!("Open config in editor")));
+        let copy = gtk::Button::with_label(tr(msg!("Copy line")));
         for button in [&imp.let_config_win, &open, &copy] {
             button.add_css_class("flat");
             if let Some(label) = button.child().and_downcast::<gtk::Label>() {
@@ -536,10 +539,11 @@ impl SettingRow {
         imp.reset.set_sensitive(!read_only);
         imp.reset
             .set_tooltip_text(Some(&match (setting.scope(), device) {
-                (Scope::PerDevice(kind), Some(_)) => {
-                    format!("Use the value of {}", all_of_type(kind))
-                }
-                _ => "Reset to default".to_owned(),
+                (Scope::PerDevice(kind), Some(_)) => trf(
+                    msg!("Use the value of {devices}"),
+                    &[("devices", &all_of_type(kind))],
+                ),
+                _ => tr(msg!("Reset to default")).to_owned(),
             }));
         imp.machine.set_child_visible(layer.is_some());
         imp.machine.set_sensitive(!read_only);
@@ -558,21 +562,28 @@ impl SettingRow {
         let found = report.as_ref().and_then(conflict_line);
         match &found {
             Some((Conflict::Wins, line)) => {
-                imp.badges
-                    .append(&badge("dialog-warning-symbolic", "Your config wins", true));
-                imp.conflict_title.set_text("Your config wins");
-                imp.conflict_text.set_text(
-                    "This line comes after the include line, so it decides after a reload.",
-                );
+                imp.badges.append(&badge(
+                    "dialog-warning-symbolic",
+                    tr(msg!("Your config wins")),
+                    true,
+                ));
+                imp.conflict_title.set_text(tr(msg!("Your config wins")));
+                imp.conflict_text.set_text(tr(msg!(
+                    "This line comes after the include line, so it decides after a reload."
+                )));
                 self.show_conflict(line);
             }
             Some((Conflict::Overridden, line)) => {
-                imp.badges
-                    .append(&badge("action-unavailable-symbolic", "Overridden", false));
-                imp.conflict_title.set_text("Overridden in your config");
-                imp.conflict_text.set_text(
-                    "Sway Things\u{2019} value comes later and wins; this line is no longer in effect.",
-                );
+                imp.badges.append(&badge(
+                    "action-unavailable-symbolic",
+                    tr(msg!("Overridden")),
+                    false,
+                ));
+                imp.conflict_title
+                    .set_text(tr(msg!("Overridden in your config")));
+                imp.conflict_text.set_text(tr(msg!(
+                    "Sway Things’ value comes later and wins; this line is no longer in effect."
+                )));
                 self.show_conflict(line);
             }
             None => {}
@@ -587,12 +598,12 @@ impl SettingRow {
         match setting.apply() {
             Apply::Reload => imp.badges.append(&badge(
                 "view-refresh-symbolic",
-                "Applies after reload",
+                tr(msg!("Applies after reload")),
                 false,
             )),
             Apply::Relogin => imp.badges.append(&badge(
                 "system-log-out-symbolic",
-                "Applies after re-login",
+                tr(msg!("Applies after re-login")),
                 false,
             )),
             Apply::Live | Apply::ToolReload | Apply::Risky => {}
@@ -763,7 +774,10 @@ impl SettingRow {
         let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
-        let reason = view.locked.as_ref().map(ToString::to_string);
+        let reason = view
+            .locked
+            .as_ref()
+            .map(|locked| locked.text().translated());
         for widget in control.widgets() {
             widget.set_sensitive(reason.is_none());
             widget.set_tooltip_text(reason.as_deref());
@@ -1143,14 +1157,20 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
     let mut parts = Vec::new();
     match (&view.source, setting.scope(), device) {
         (Source::Config { file, line }, _, _) => {
-            parts.push(format!("From {}:{line}", tilde(file)));
+            parts.push(trf(
+                msg!("From {file}:{line}"),
+                &[("file", &tilde(file)), ("line", line)],
+            ));
         }
         (
             Source::Stored { for_type: true, .. } | Source::Default,
             Scope::PerDevice(kind),
             Some(_),
         ) => {
-            parts.push(format!("Same as {}", all_of_type(kind)));
+            parts.push(trf(
+                msg!("Same as {devices}"),
+                &[("devices", &all_of_type(kind))],
+            ));
         }
         _ => {}
     }

@@ -16,6 +16,7 @@ use gtk::{gdk, glib};
 use sway_things_core::registry::{Registry, Value};
 
 use super::SettingRow;
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 use crate::xkb;
@@ -29,8 +30,8 @@ pub const VARIANTS: &str = "input.keyboard.xkb_variant";
 type Shown = (Vec<String>, Vec<String>, Option<String>);
 
 /// What the drag handle and the keyboard offer, for its tooltip and screen readers.
-const HOW_TO_MOVE: &str =
-    "Drag to reorder, or press Alt+Up or Alt+Down. Delete removes the layout.";
+const HOW_TO_MOVE: Msg =
+    msg!("Drag to reorder, or press Alt+Up or Alt+Down. Delete removes the layout.");
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -292,7 +293,7 @@ impl LayoutList {
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
 
         let handle = gtk::Image::from_icon_name("list-drag-handle-symbolic");
-        handle.set_tooltip_text(Some(HOW_TO_MOVE));
+        handle.set_tooltip_text(Some(tr(HOW_TO_MOVE)));
         handle.set_cursor_from_name(Some("grab"));
         handle.set_accessible_role(gtk::AccessibleRole::Presentation);
         content.append(&handle);
@@ -308,8 +309,9 @@ impl LayoutList {
         let labels: Vec<&str> = variants.iter().map(|(_, label)| label.as_str()).collect();
         let dropdown = gtk::DropDown::from_strings(&labels);
         dropdown.set_valign(gtk::Align::Center);
-        dropdown.update_property(&[gtk::accessible::Property::Label(&format!(
-            "Variant of {label}"
+        dropdown.update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("Variant of {layout}"),
+            &[("layout", &label)],
         ))]);
         if let Some(selected) = variants
             .iter()
@@ -337,12 +339,15 @@ impl LayoutList {
         let remove = gtk::Button::from_icon_name("window-close-symbolic");
         remove.add_css_class("flat");
         remove.set_valign(gtk::Align::Center);
-        remove.update_property(&[gtk::accessible::Property::Label(&format!("Remove {label}"))]);
+        remove.update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("Remove {layout}"),
+            &[("layout", &label)],
+        ))]);
         if count < 2 {
             remove.set_sensitive(false);
-            remove.set_tooltip_text(Some("A keyboard needs at least one layout"));
+            remove.set_tooltip_text(Some(tr(msg!("A keyboard needs at least one layout"))));
         } else {
-            remove.set_tooltip_text(Some("Remove the layout"));
+            remove.set_tooltip_text(Some(tr(msg!("Remove the layout"))));
         }
         remove.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
@@ -355,8 +360,15 @@ impl LayoutList {
         item.set_activatable(false);
         item.set_child(Some(&content));
         item.update_property(&[
-            gtk::accessible::Property::Label(&format!("{label}, layout {} of {count}", index + 1)),
-            gtk::accessible::Property::Description(HOW_TO_MOVE),
+            gtk::accessible::Property::Label(&trf(
+                msg!("{layout}, layout {position} of {count}"),
+                &[
+                    ("layout", &label),
+                    ("position", &(index + 1)),
+                    ("count", &count),
+                ],
+            )),
+            gtk::accessible::Property::Description(tr(HOW_TO_MOVE)),
         ]);
         self.add_moves(&item, &handle, index);
         item
@@ -435,11 +447,12 @@ impl LayoutList {
     /// and while searching the layouts and variants that match.
     fn build_add(&self) {
         let imp = self.imp();
-        imp.add.set_label("Add layout…");
+        imp.add.set_label(tr(msg!("Add layout…")));
         imp.add.set_halign(gtk::Align::Start);
         imp.add.set_always_show_arrow(false);
 
-        imp.search.set_placeholder_text(Some("Search layouts"));
+        imp.search
+            .set_placeholder_text(Some(tr(msg!("Search layouts"))));
         imp.search
             .update_property(&[gtk::accessible::Property::Label("Search layouts")]);
         imp.results.set_selection_mode(gtk::SelectionMode::Browse);
@@ -512,11 +525,11 @@ impl LayoutList {
         let mut choices = Vec::new();
         for layout in &xkb::rules().layouts {
             imp.results
-                .append(&result_row(layout.item.label(), &layout.item.name));
+                .append(&result_row(layout.item.shown(), &layout.item.name));
             choices.push((layout.item.name.clone(), String::new()));
             for variant in &layout.variants {
                 imp.results.append(&result_row(
-                    variant.label(),
+                    variant.shown(),
                     &format!("{}({})", layout.item.name, variant.name),
                 ));
                 choices.push((layout.item.name.clone(), variant.name.clone()));
@@ -605,13 +618,14 @@ fn result_row(label: &str, name: &str) -> gtk::ListBoxRow {
 /// The variants to pick for `layout`: none first, then those of the XKB rules. `current` is
 /// added if the rules don't know it.
 fn variant_choices(layout: &str, current: &str) -> Vec<(String, String)> {
-    let mut choices = vec![(String::new(), "Standard".to_owned())];
+    // TRANSLATORS: The variant of a keyboard layout that is no variant.
+    let mut choices = vec![(String::new(), tr(msg!("Standard")).to_owned())];
     if let Some(known) = xkb::rules().layout(layout) {
         choices.extend(
             known
                 .variants
                 .iter()
-                .map(|variant| (variant.name.clone(), variant.label().to_owned())),
+                .map(|variant| (variant.name.clone(), variant.shown().to_owned())),
         );
     }
     if !choices.iter().any(|(name, _)| name == current) {

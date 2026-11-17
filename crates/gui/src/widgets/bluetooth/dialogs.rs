@@ -14,6 +14,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::bluetooth::passkey_text;
 
+use crate::i18n::{msg, tr, trf};
 use crate::style;
 
 /// The style class of the digits of a passkey already typed on the device.
@@ -124,7 +125,7 @@ impl Dialog {
         let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         buttons.set_homogeneous(true);
         buttons.set_margin_top(8);
-        let cancel = gtk::Button::with_label("Cancel");
+        let cancel = gtk::Button::with_label(tr(msg!("Cancel")));
         buttons.append(&cancel);
         content.append(&buttons);
         window.set_child(Some(&content));
@@ -208,8 +209,10 @@ impl Dialog {
         let (typed, untyped) = split_typed(passkey, entered);
         self.typed.set_text(&typed);
         self.untyped.set_text(&untyped);
-        self.note
-            .set_text(&format!("{} of 6 digits typed", entered.min(6)));
+        self.note.set_text(&trf(
+            msg!("{count} of 6 digits typed"),
+            &[("count", &entered.min(6))],
+        ));
         self.note.set_visible(true);
     }
 
@@ -270,9 +273,11 @@ fn split_typed(passkey: u32, entered: u16) -> (String, String) {
 pub async fn confirm_forget(name: &str, window: Option<&gtk::Window>) -> bool {
     let dialog = gtk::AlertDialog::builder()
         // Plain text: the dialog doesn't read markup.
-        .message(format!("Forget “{name}”?"))
-        .detail("The pairing is removed. To use the device again, pair it again.")
-        .buttons(["Cancel", "Forget"])
+        .message(trf(msg!("Forget “{device}”?"), &[("device", &name)]))
+        .detail(tr(msg!(
+            "The pairing is removed. To use the device again, pair it again."
+        )))
+        .buttons([tr(msg!("Cancel")), tr(msg!("Forget"))])
         .cancel_button(0)
         .default_button(0)
         .modal(true)

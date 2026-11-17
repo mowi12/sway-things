@@ -15,6 +15,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::include::{IncludeStatus, Inclusion};
 
 use super::Clamp;
+use crate::i18n::{msg, tr};
 use crate::style;
 
 /// The widest the welcome screen gets, in pixels.
@@ -127,10 +128,10 @@ impl Welcome {
         imp.line.set_hexpand(true);
         imp.line.set_wrap(true);
         imp.line.set_wrap_mode(gtk::pango::WrapMode::Char);
-        imp.copy.set_label("Copy");
+        imp.copy.set_label(tr(msg!("Copy")));
         imp.copy.set_valign(gtk::Align::Center);
         imp.copy
-            .update_property(&[gtk::accessible::Property::Label("Copy the line")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!("Copy the line")))]);
         imp.copy.connect_clicked(glib::clone!(
             #[weak(rename_to = welcome)]
             self,
@@ -141,7 +142,7 @@ impl Welcome {
         line.append(&imp.copy);
         content.append(&line);
 
-        imp.open.set_label("Open config in editor");
+        imp.open.set_label(tr(msg!("Open config in editor")));
         imp.open.add_css_class("suggested-action");
         imp.open.connect_clicked(glib::clone!(
             #[weak(rename_to = welcome)]
@@ -151,7 +152,7 @@ impl Welcome {
         // A spinner's animation stops when the screen leaves the content pane, and setting it
         // spinning again doesn't restart it: each time the screen is shown, it gets a new one.
         self.connect_map(Self::new_spinner);
-        let waiting = gtk::Label::new(Some("Waiting for the line…"));
+        let waiting = gtk::Label::new(Some(tr(msg!("Waiting for the line…"))));
         waiting.add_css_class(style::DIM);
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         actions.append(&imp.open);
@@ -163,16 +164,16 @@ impl Welcome {
         imp.error.set_visible(false);
         content.append(&imp.error);
 
-        let note = gtk::Label::new(Some(
+        let note = gtk::Label::new(Some(tr(msg!(
             "This screen closes by itself once the line is in your config. Until then you can \
-             look around: every page shows your current values, read-only.",
-        ));
+             look around: every page shows your current values, read-only."
+        ))));
         note.set_xalign(0.0);
         note.set_wrap(true);
         note.add_css_class(style::DIM);
         content.append(&note);
 
-        imp.look_around.set_label("Look around first");
+        imp.look_around.set_label(tr(msg!("Look around first")));
         imp.look_around.set_halign(gtk::Align::Start);
         imp.look_around.connect_clicked(glib::clone!(
             #[weak(rename_to = welcome)]
@@ -186,15 +187,17 @@ impl Welcome {
             .set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
         imp.scroller.set_child(Some(&clamp));
         imp.scroller.set_parent(self);
-        self.update_property(&[gtk::accessible::Property::Label("Welcome to Sway Things")]);
+        self.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+            "Welcome to Sway Things"
+        )))]);
     }
 
     /// Shows what `status` says: why Sway Things is read-only, and the line to add.
     pub fn update(&self, status: &IncludeStatus) {
         let imp = self.imp();
         let title = match status.inclusion() {
-            Inclusion::Missing => "Welcome to Sway Things",
-            _ => "Sway Things isn't enabled yet",
+            Inclusion::Missing => tr(msg!("Welcome to Sway Things")),
+            _ => tr(msg!("Sway Things isn't enabled yet")),
         };
         if let Some(label) = imp.title.get() {
             label.set_text(title);
@@ -278,13 +281,13 @@ impl Welcome {
     fn copy_line(&self) {
         let imp = self.imp();
         self.clipboard().set_text(&imp.line.text());
-        imp.copy.set_label("Copied");
+        imp.copy.set_label(tr(msg!("Copied")));
         glib::timeout_add_seconds_local_once(
             2,
             glib::clone!(
                 #[weak(rename_to = welcome)]
                 self,
-                move || welcome.imp().copy.set_label("Copy")
+                move || welcome.imp().copy.set_label(tr(msg!("Copy")))
             ),
         );
     }

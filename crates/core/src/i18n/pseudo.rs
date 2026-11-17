@@ -31,7 +31,7 @@ pub fn pseudo(msgid: &str) -> String {
     text.push(OPEN);
     // The character that ends the part kept as it is, if in one.
     let mut kept: Option<char> = None;
-    for c in msgid.chars() {
+    for (index, c) in msgid.char_indices() {
         if let Some(end) = kept {
             text.push(c);
             if c == end {
@@ -42,13 +42,22 @@ pub fn pseudo(msgid: &str) -> String {
         kept = match c {
             '{' => Some('}'),
             '<' => Some('>'),
-            '&' => Some(';'),
+            '&' if is_entity(&msgid[index..]) => Some(';'),
             _ => None,
         };
         text.push(accented(c));
     }
     text.push(CLOSE);
     text
+}
+
+/// Whether `text` starts with a markup entity such as `&amp;` or `&#8230;`, not a plain `&`.
+fn is_entity(text: &str) -> bool {
+    text.strip_prefix('&')
+        .and_then(|rest| rest.split_once(';'))
+        .is_some_and(|(name, _)| {
+            !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '#')
+        })
 }
 
 /// The accented letter that stands for an ASCII letter; any other character as it is.
@@ -230,5 +239,6 @@ msgstr[1] ""
             pseudo("Run `{command}` in <b>Mouse &amp; Touchpad</b>, {{not}} {"),
             "⟦Ŕúñ `{command}` íñ <b>Ṁóúšé &amp; Ťóúçĥƥàđ</b>, {{not}} {⟧"
         );
+        assert_eq!(pseudo("Mouse & Touchpad"), "⟦Ṁóúšé & Ťóúçĥƥàđ⟧");
     }
 }
