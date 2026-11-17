@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:56+0100\n"
+"POT-Creation-Date: 2026-11-17 09:03+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1442,7 +1442,8 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
-#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/xkb_options.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/group_row.rs
+#: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
 msgstr ""
 
@@ -2856,7 +2857,7 @@ msgstr ""
 msgid "Sound"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/bluetooth/mod.rs
 msgid "Bluetooth"
 msgstr ""
 
@@ -3712,10 +3713,382 @@ msgstr ""
 msgid "The layout can only be switched in a running sway session."
 msgstr ""
 
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/window.rs
+msgid "Cancel"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+#, rust-format
+msgid "{count} of 6 digits typed"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+#, rust-format
+msgid "Forget “{device}”?"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+msgid "The pairing is removed. To use the device again, pair it again."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+msgid "Forget"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Pairing…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Connecting…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Disconnecting…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Forgetting…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Renaming…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't pair with “{device}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't connect to “{device}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't disconnect from “{device}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't forget “{device}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't rename “{device}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Advanced…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Open Blueman for adapter settings and more"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "The Bluetooth radio this page shows"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "My devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Other devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Searching"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Visible to other devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Rename…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "More actions"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/welcome.rs
+msgid "Copy"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Copy the command"
+msgstr ""
+
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/mod.rs
 msgid "no bus"
 msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "The page doesn't update on its own: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Visible as “{name}” · {address}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "No paired devices yet. Pick one under Other devices to connect it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"No other devices found yet. Put the device you want to connect into pairing "
+"mode."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"It's turned off by a hardware switch or key. Use it to turn Bluetooth back "
+"on."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"It's blocked by software, e.g. airplane mode. Turning it on with the switch "
+"above lifts the block."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"Turn it on with the switch above to connect your devices and find new ones."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Bluetooth is off"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "No Bluetooth adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"Plug in a Bluetooth adapter or turn it on in the firmware settings; this "
+"page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Bluetooth isn't available"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"The Bluetooth service isn't running. Start it with `systemctl start "
+"bluetooth`; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Bluetooth can't be read"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Forget…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Leave it empty to use the adapter's own name."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't make the computer visible: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't hide the computer: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Leave it empty to use the name the device announces."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't turn Bluetooth on: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't turn Bluetooth off: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Stop looking for devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Look for devices nearby for 30 seconds"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Couldn't look for devices: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Blueman can't be started: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Pair with “{device}”"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Pair with “{device}”?"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Check that “{device}” shows this code too."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Pair"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid ""
+"“{device}” shows no code to compare. Pair only if you just started pairing "
+"on it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Allow “{device}” to connect?"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "It asks to use the service {uuid}."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Allow"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid ""
+"Enter the PIN that “{device}” expects. Its manual has it; often 0000 or 1234."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "PIN"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Enter the six-digit code that “{device}” shows."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Code"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Type this PIN on “{device}”, then press Enter on it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Type this code on “{device}”, then press Enter on it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Connected"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Not connected"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Not paired"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Not paired · no name"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "{state} · Battery {percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Disconnect"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Connect"
+msgstr ""
+
+#. TRANSLATORS: The button of a device for screen readers: "Connect Headphones".
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "{action} {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "More actions for {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Rename “{device}”"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Name"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Rename"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Stays visible until you turn this off"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Stays visible for {count} second"
+msgid_plural "Stays visible for {count} seconds"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#, rust-format
+msgid "Stays visible for {count} minute"
+msgid_plural "Stays visible for {count} minutes"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/gui/src/widgets/device_selector.rs
 msgid "Settings for"
@@ -3833,11 +4206,6 @@ msgstr ""
 msgid ""
 "The changes made to it outside Sway Things are lost: it gets what Sway "
 "Things generates from your settings."
-msgstr ""
-
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
-#: crates/gui/src/window.rs
-msgid "Cancel"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
@@ -4239,10 +4607,6 @@ msgstr ""
 #: crates/gui/src/widgets/test_area.rs
 #, rust-format
 msgid "Button {number} triple-click"
-msgstr ""
-
-#: crates/gui/src/widgets/welcome.rs
-msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
