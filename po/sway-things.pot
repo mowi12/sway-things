@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:55+0100\n"
+"POT-Creation-Date: 2026-11-17 08:56+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1442,7 +1442,7 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
-#: crates/gui/src/widgets/group_row.rs
+#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
 msgstr ""
 
@@ -1454,7 +1454,7 @@ msgstr ""
 msgid "Alt"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/gui/src/widgets/xkb_options.rs
 msgid "Ctrl"
 msgstr ""
 
@@ -2206,7 +2206,9 @@ msgstr ""
 msgid "Flat"
 msgstr ""
 
+#. TRANSLATORS: No keys switch the layout.
 #: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/xkb_options.rs
 msgid "None"
 msgstr ""
 
@@ -3874,6 +3876,67 @@ msgstr ""
 msgid "{setting} {value}"
 msgstr ""
 
+#: crates/gui/src/widgets/keyboard.rs
+msgid "Default (pc105)"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "Active layout"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "The layout in use now. sway starts with the first one again"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "Type here to try the keyboard"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "Try it"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+msgid ""
+"Drag to reorder, or press Alt+Up or Alt+Down. Delete removes the layout."
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+#, rust-format
+msgid "Variant of {layout}"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+#, rust-format
+msgid "Remove {layout}"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+msgid "A keyboard needs at least one layout"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+msgid "Remove the layout"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+#, rust-format
+msgid "{layout}, layout {position} of {count}"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+msgid "Add layout…"
+msgstr ""
+
+#: crates/gui/src/widgets/layout_list.rs
+msgid "Search layouts"
+msgstr ""
+
+#. TRANSLATORS: The variant of a keyboard layout that is no variant.
+#: crates/gui/src/widgets/layout_list.rs
+msgid "Standard"
+msgstr ""
+
 #: crates/gui/src/widgets/page_view.rs
 msgid "Reset page…"
 msgstr ""
@@ -4206,6 +4269,60 @@ msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
 msgid "Sway Things isn't enabled yet"
+msgstr ""
+
+#. TRANSLATORS: What the Caps Lock key does: what it says on it.
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Caps Lock"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Escape"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Swap with Escape"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Caps Lock key"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "What the Caps Lock key does"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Compose key"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid ""
+"Starts a sequence that types a special character, e.g. Compose, ', e for é"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Switch layouts with"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "The keys that switch to the next layout"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Swap left Ctrl and Alt"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "For keyboards with Ctrl where others have Alt"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Search options"
+msgstr ""
+
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "All XKB options"
 msgstr ""
 
 #: crates/gui/src/window.rs
