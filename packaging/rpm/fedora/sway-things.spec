@@ -10,6 +10,7 @@ Release:        1%{?dist}
 Summary:        Settings app for the sway Wayland compositor and SwayFX
 # The whole tarball: our files (LICENSES/) and every crate in vendor/. scripts/check-packaging.sh keeps it current.
 SourceLicense:  %{shrink:
+    0BSD AND
     (Apache-2.0 OR MIT) AND
     (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND
     (Apache-2.0 WITH LLVM-exception) AND

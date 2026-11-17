@@ -18,15 +18,24 @@
 # the unit tests, lintian checks the package (errors fail, warnings are printed), the zsh completion must be in
 # Debian's vendor-completions, and the package is installed and runs as above.
 #
-# Usage: scripts/build-packages.sh --container NAME|all [--tarball FILE]
+# arch-git: the AUR package sway-things-git (packaging/aur/sway-things-git/), in an Arch Linux container that holds
+# only base-devel, as an unprivileged user. Compares .SRCINFO with `makepkg --printsrcinfo` (but for pkgver), builds
+# with `makepkg -s` (which installs the declared dependencies, runs check() and fails on a missing build dependency),
+# runs namcap on the PKGBUILD and on the packages (errors fail, warnings are printed), then installs the package and
+# runs `sway-things --version` and `--help`. The PKGBUILD clones GitHub's main and fetches the crates, so this build
+# needs the network and builds main, not the checkout. With --local, it builds the commit HEAD of this checkout instead
+# (committed changes only), from a copy of the PKGBUILD whose source points at a clone of the checkout; .SRCINFO and
+# namcap still check the PKGBUILD as it is.
+#
+# Usage: scripts/build-packages.sh --container NAME|all [--tarball FILE] [--local]
 #
 # Needs docker or podman (CONTAINER_ENGINE overrides the choice), and without --tarball what scripts/make-tarball.sh
-# needs.
+# needs; git for --local.
 
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 --container NAME|all [--tarball FILE]" >&2
+  echo "usage: $0 --container NAME|all [--tarball FILE] [--local]" >&2
   exit 2
 }
 
@@ -128,9 +137,60 @@ build_fedora() {
   build_rpm sway-things.spec no-changelogname-tag
 }
 
+# Inside the container: build the AUR package sway-things-git.
+build_arch_git() {
+  sudo pacman -Sy --noconfirm --needed archlinux-keyring
+  sudo pacman -Su --noconfirm
+
+  local recipe=$PWD/packaging/aur/sway-things-git
+  local build=$HOME/build
+  rm -rf "$build"
+  cp -r "$recipe" "$build"
+  cd "$build"
+
+  echo "Comparing .SRCINFO with makepkg --printsrcinfo"
+  if ! diff -u --label .SRCINFO --label 'makepkg --printsrcinfo' <(grep -v '^[[:space:]]*pkgver = ' .SRCINFO) \
+    <(makepkg --printsrcinfo | grep -v '^[[:space:]]*pkgver = '); then
+    echo "error: .SRCINFO is out of date; run makepkg --printsrcinfo >.SRCINFO in packaging/aur/sway-things-git" >&2
+    exit 1
+  fi
+
+  local repo=/work/local/sway-things.git
+  if [[ -d $repo ]]; then
+    local commit
+    commit=$(cat /work/local/commit)
+    echo "Building $commit of the local checkout instead of GitHub's main"
+    sed -i "s|^source=(\"\$pkgname::git+\$url.git\")\$|source=(\"\$pkgname::git+file://$repo#commit=$commit\")|" PKGBUILD
+    if ! grep -q "^source=(\"\$pkgname::git+file://" PKGBUILD; then
+      echo "error: couldn't point the source of the PKGBUILD at the local checkout" >&2
+      exit 1
+    fi
+  fi
+
+  makepkg --syncdeps --noconfirm
+
+  # namcap after the build, so it isn't there while makepkg looks for missing dependencies.
+  sudo pacman -S --noconfirm --needed namcap
+  # Not the -debug package: its build-id links point into the main package, which namcap reports as errors.
+  local packages=(./sway-things-git-[0-9]*.pkg.tar.zst)
+  local report
+  report=$(namcap "$recipe/PKGBUILD" "${packages[@]}")
+  printf '%s\n' "$report"
+  if grep -q ' E: ' <<<"$report"; then
+    echo "error: namcap found errors" >&2
+    exit 1
+  fi
+
+  sudo pacman -U --noconfirm "${packages[@]}"
+  sway-things --version
+  sway-things --help
+  echo "The package sway-things-git built and installed."
+}
+
 container=""
 build=""
 tarball=""
+from_checkout=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --container)
@@ -145,6 +205,7 @@ while [[ $# -gt 0 ]]; do
       tarball=$(realpath -m -- "${2:-$(usage)}")
       shift
       ;;
+    --local) from_checkout=true ;;
     *) usage ;;
   esac
   shift
@@ -156,6 +217,7 @@ if [[ -n $build ]]; then
     fedora) build_fedora ;;
     debian-13) build_debian_13 ;;
     ubuntu-26.04) build_ubuntu_26_04 ;;
+    arch-git) build_arch_git ;;
     *)
       echo "error: unknown package build: $build" >&2
       exit 1
@@ -226,6 +288,19 @@ for name in "${names[@]}"; do
       files+=(packaging/debian/control)
       mkdir "$context/input"
       cp "$tarball" "$(dirname "$tarball")/debian.tar.gz" "$context/input/"
+      ;;
+    # The -git package clones its source from GitHub and fetches the crates in prepare(), as it does for users.
+    arch-git)
+      files+=(packaging/aur/sway-things-git)
+      network=()
+      mkdir "$context/local"
+      if $from_checkout; then
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "warning: uncommitted changes aren't built, only HEAD" >&2
+        fi
+        git clone --quiet --bare --no-local . "$context/local/sway-things.git"
+        git rev-parse HEAD >"$context/local/commit"
+      fi
       ;;
   esac
   tar -c "${files[@]}" | tar -x -C "$context"
