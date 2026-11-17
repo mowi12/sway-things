@@ -688,7 +688,8 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes sway
   keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be removed.
   Values stored by a name stay with the port: a monitor without a serial moved to another port starts without them. The
-  command line takes a display by its name too: in a session, `--device DP-4` stands for that display's identifier.
+  command line takes a display by its name too: in a session, `--device DP-4` stands for that display's identifier; a
+  value stored by a name is reachable by it while nothing is connected on that port.
 - **Positions are absolute:** a drop stores the position of every output that is on, so an output plugged in later with
   other outputs (another dock) comes back where it stood and may not touch them; the page then offers _Arrange Side by
   Side_. Arrangements per combination of outputs are for display profiles (kanshi).

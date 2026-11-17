@@ -149,8 +149,8 @@ pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
     Gsettings,
-    /// Switch a display on if none is on: run at every start and reload of sway while a display
-    /// is stored as off, so it never leaves you without one
+    /// Switch a display on if none is on: run at every start and reload of sway while Sway
+    /// Things stores whether a display is on, so it never leaves you without one
     Displays,
 }
 

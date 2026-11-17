@@ -57,8 +57,8 @@ pub const TRANSFORM: &str = "output.transform";
 /// The key of the setting that switches an output on or off.
 pub const ENABLED: &str = "output.enabled";
 
-/// The command the generated config runs at every start and reload of sway while an output is
-/// stored as off: `exec_always sway-things hook displays` ([`ensure_one_on`]).
+/// The command the generated config runs at every start and reload of sway while Sway Things
+/// stores whether an output is on: `exec_always sway-things hook displays` ([`ensure_one_on`]).
 pub fn guard_command() -> crate::command::SwayCmd {
     crate::command::hook("displays")
 }
