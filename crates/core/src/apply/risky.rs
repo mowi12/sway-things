@@ -557,9 +557,10 @@ impl<V: Validate> Applier<V> {
         let effect = self
             .send_unchecked(setting, device, &value, &commands)
             .await?;
-        let stored = self.state.get(key, device) != Some(&value);
-        self.state = changed;
+        // kanshi sets up the displays: sent, not stored.
+        let stored = self.state.get(key, device) != Some(&value) && !self.is_live_only(setting);
         if stored {
+            self.state = changed;
             self.unsaved_since = Some(Instant::now());
         }
         Ok(Applied {

@@ -712,11 +712,14 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   display (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY` in its environment; any of the user's without a Wayland display);
   nothing is run. While one runs, changes of per-output settings are live only (`Applier::is_live_only`): sent, never
   stored, also when a risky one is kept, and nothing is noted to wait for a reload. `generate_for(.., Displays::Kanshi)`
-  leaves out every per-output line, so nothing contradicts kanshi's profiles at a reload; `20-output.conf` says so in a
-  comment and keeps the startup guard, and `hook displays` has kanshi apply its profile again (`kanshictl reload`). The
-  app detects it when it opens (and then writes the files, so lines from before go) and before each change, the command
-  line when it opens; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. Rows
-  show what the displays run with. Profiles of our own in kanshi come with #211.
+  leaves out every per-output line, so nothing contradicts kanshi's profiles at a reload; with something stored for a
+  display, `20-output.conf` says so in a comment and keeps the startup guard, and `hook displays` has kanshi apply its
+  profile again (`kanshictl reload`, after it made sure a display is on). The app detects it when it opens (and then
+  rewrites a `20-output.conf` it wrote that no longer fits, so lines from before go or come back), before each change
+  and when displays come and go; the command line when it opens and says after a change of a display that it is live
+  only. A kanshi started without `WAYLAND_DISPLAY` in its environment (a systemd unit that doesn't import it) isn't seen
+  from a Wayland session; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile.
+  Rows show what the displays run with. Profiles of our own in kanshi come with #211.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),

@@ -313,6 +313,19 @@ fn resolve_display(
     Some(identifier.unwrap_or_else(|| device.to_owned()))
 }
 
+/// After a change of a display's setting that went through while kanshi sets up the displays:
+/// says that it is live only.
+fn note_kanshi<V: Validate>(session: &Session<V>, key: &str, exit: Exit, io: &mut Io<'_>) {
+    if exit == Exit::Ok
+        && session.applier.displays() == generate::Displays::Kanshi
+        && is_for_displays(Some(key))
+    {
+        io.note(tr(msg!(
+            "kanshi sets up the displays: the change takes effect now and isn't stored."
+        )));
+    }
+}
+
 /// Whether `key` is a setting of displays, or no key is given (every setting of a device).
 fn is_for_displays(key: Option<&str>) -> bool {
     key.is_none_or(|key| {
@@ -332,8 +345,9 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             return Exit::Failure;
         }
     };
-    // sway just read its config: kanshi applies its profile again over whatever it set for the
-    // displays. Best effort; without kanshictl kanshi keeps what it has.
+    let ensured = outputs::ensure_one_on(&mut client).await;
+    // Then, sway having just read its config: kanshi applies its profile again over whatever
+    // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
     if outputs::kanshi_runs() {
         let _ = std::process::Command::new("kanshictl")
             .arg("reload")
@@ -342,7 +356,7 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             .stderr(std::process::Stdio::null())
             .status();
     }
-    match outputs::ensure_one_on(&mut client).await {
+    match ensured {
         Ok(Some(name)) => {
             let _ = writeln!(
                 err,
@@ -494,13 +508,6 @@ pub async fn run<V: Validate>(
                 _ => None,
             };
             let device = resolved(Some(key), device.as_deref());
-            if session.applier.displays() == generate::Displays::Kanshi
-                && is_for_displays(Some(key))
-            {
-                io.note(tr(msg!(
-                    "kanshi sets up the displays: the change takes effect now and isn't stored."
-                )));
-            }
             let change = Change {
                 key,
                 device: device.as_deref(),
@@ -508,7 +515,9 @@ pub async fn run<V: Validate>(
                 layer,
                 yes: *yes,
             };
-            set(session, &change, *overwrite, prompt, &mut io).await
+            let exit = set(session, &change, *overwrite, prompt, &mut io).await;
+            note_kanshi(session, key, exit, &mut io);
+            exit
         }
         Command::Reset {
             key,
@@ -522,7 +531,9 @@ pub async fn run<V: Validate>(
                 device: device.as_deref(),
                 yes: *yes,
             };
-            reset(session, &reset_of, *overwrite, prompt, &mut io).await
+            let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
+            note_kanshi(session, key, exit, &mut io);
+            exit
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,

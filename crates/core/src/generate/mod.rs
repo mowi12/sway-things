@@ -271,7 +271,7 @@ fn display_guard(state: &State) -> Option<Line> {
     let entries = state.entries();
     let first = entries
         .iter()
-        .find(|entry| entry.setting.scope() == Scope::PerOutput && entry.device.is_some())?;
+        .find(|entry| entry.setting.scope() == Scope::PerOutput)?;
     let text = outputs::guard_command().render(Target::Config).ok()?;
     Some(Line {
         text,

@@ -240,11 +240,21 @@ impl Model {
         match Self::connect().await {
             Ok((applier, watch)) => {
                 let state_watch = applier.state().watch();
-                let kanshi = applier.displays() == generate::Displays::Kanshi;
-                model.imp().kanshi.set(kanshi);
+                model
+                    .imp()
+                    .kanshi
+                    .set(applier.displays() == generate::Displays::Kanshi);
                 model.start(applier, watch.status().clone(), true);
-                if kanshi {
-                    // Lines for the displays from before kanshi ran go from the generated files.
+                // kanshi started or stopped since the files were written: the lines for the
+                // displays go or come back. Only a file as Sway Things wrote it is replaced.
+                let outdated = model.generated().is_some_and(|files| {
+                    files.iter().any(|(file, on_disk)| {
+                        on_disk.file == ConfigFile::Output
+                            && on_disk.ownership == Ok(generate::Ownership::Ours)
+                            && on_disk.content.as_deref() != Some(file.text().as_str())
+                    })
+                });
+                if outdated {
                     model.queue(Op::Persist);
                 }
                 model.watch_config(watch);
@@ -369,6 +379,8 @@ impl Model {
                 view.value = live;
                 view.source = Source::Session;
             }
+            // No line of ours is in the sway config meanwhile.
+            view.line = None;
         }
         Some(view)
     }
@@ -376,6 +388,19 @@ impl Model {
     /// Whether kanshi set up the displays when the model last looked.
     pub fn kanshi_runs(&self) -> bool {
         self.imp().kanshi.get()
+    }
+
+    /// Looks again whether kanshi sets up the displays, as when displays come and go; says
+    /// whether that changed.
+    pub fn look_for_kanshi(&self) -> bool {
+        let runs = generate::Displays::detect() == generate::Displays::Kanshi;
+        let changed = self.imp().kanshi.replace(runs) != runs;
+        if changed {
+            // The rows show what the displays run with, or what is stored, and the lines for
+            // the displays go from the generated files or come back.
+            self.queue(Op::Persist);
+        }
+        changed
     }
 
     /// The input devices: in a session the connected ones, then those that only have stored
@@ -481,7 +506,11 @@ impl Model {
             core.state.registry(),
             &core.state,
             core.compositor,
-            generate::Displays::detect(),
+            if self.imp().kanshi.get() {
+                generate::Displays::Kanshi
+            } else {
+                generate::Displays::Sway
+            },
         );
         let on_disk = generate::on_disk(&files, &core.locations);
         Some(files.into_iter().zip(on_disk).collect())
@@ -539,6 +568,10 @@ impl Model {
     pub fn report(&self, setting: &'static Setting, device: Option<&str>) -> Option<Report> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
+        // kanshi sets up the displays: no line of ours competes with the user's.
+        if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
+            return None;
+        }
         Report::check(&core.status, setting, device, core.known())
     }
 

@@ -2007,13 +2007,23 @@ fn while_kanshi_sets_up_the_displays_their_changes_are_live_only() {
     ))
     .unwrap();
     assert_eq!(applied.effect, live(&[r#"output "A B C" scale 1.5"#]));
-    assert!(!applied.changed);
+    // Changed in effect, though not stored.
+    assert!(applied.changed);
     assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
     // A risky change kept: in effect, not stored either.
     setup
         .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
         .unwrap();
     setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
+    // Without the safety net (`set --yes`): not stored either.
+    block_on(setup.applier.set_risky_unchecked(
+        MODE,
+        Some(PANEL),
+        Value::Text("1280x720".to_owned()),
+        &setup.access,
+    ))
+    .unwrap();
     assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
     // Other settings are stored as always.
     setup.set(GAPS, Value::Integer(8)).unwrap();

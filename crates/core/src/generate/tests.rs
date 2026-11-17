@@ -709,6 +709,10 @@ exec_always sway-things hook displays
     let (_dir, scaled) = state("", "[display.\"A B C\".output]\nscale = 2.0\n");
     let files = generate(Registry::builtin(), &scaled, SWAY_1_10);
     assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // A scale for every display: the guard too.
+    let (_dir, every) = state("[output]\nscale = 2.0\n", "");
+    let files = generate(Registry::builtin(), &every, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
     // Nothing stored for a display: no guard.
     let (_dir, none) = state("[windows.gaps]\ninner = 8\n", "");
     let files = generate(Registry::builtin(), &none, SWAY_1_10);

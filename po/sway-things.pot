@@ -140,6 +140,11 @@ msgstr ""
 msgid "Fix: {command} (your changes to the file are lost)"
 msgstr ""
 
+#: crates/cli/src/lib.rs
+msgid ""
+"kanshi sets up the displays: the change takes effect now and isn't stored."
+msgstr ""
+
 #. TRANSLATORS: `sway-things hook displays` switched on a display because no
 #. other one was on.
 #: crates/cli/src/lib.rs
@@ -161,11 +166,6 @@ msgstr ""
 
 #: crates/cli/src/lib.rs
 msgid "Collecting the system details…"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid ""
-"kanshi sets up the displays: the change takes effect now and isn't stored."
 msgstr ""
 
 #: crates/cli/src/lib.rs

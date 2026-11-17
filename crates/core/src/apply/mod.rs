@@ -402,7 +402,7 @@ impl<V: Validate> Applier<V> {
             // kanshi sets up the displays: the change is live only, nothing is stored.
             self.state = saved;
             return Ok(Applied {
-                changed: false,
+                changed,
                 effect: applied.effect,
                 not_copied: Vec::new(),
             });

@@ -209,6 +209,8 @@ impl Arrangement {
         if let Some(fix) = self.gaps.last_child() {
             fix.set_sensitive(!waits);
         }
+        // Displays come and go with kanshi starting at a login, so look again.
+        model.look_for_kanshi();
         self.kanshi.set_visible(known && model.kanshi_runs());
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
