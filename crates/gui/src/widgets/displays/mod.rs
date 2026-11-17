@@ -23,7 +23,7 @@ use std::rc::Rc;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
-use sway_things_core::generate;
+
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
 use sway_things_core::registry::{Scope, Value};
@@ -209,8 +209,7 @@ impl Arrangement {
         if let Some(fix) = self.gaps.last_child() {
             fix.set_sensitive(!waits);
         }
-        self.kanshi
-            .set_visible(known && generate::Displays::detect() == generate::Displays::Kanshi);
+        self.kanshi.set_visible(known && model.kanshi_runs());
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());

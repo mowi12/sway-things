@@ -149,8 +149,9 @@ pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
     Gsettings,
-    /// Switch a display on if none is on: run at every start and reload of sway while Sway
-    /// Things stores whether a display is on, so it never leaves you without one
+    /// Switch a display on if none is on (and have kanshi apply its profile again, if it runs):
+    /// run at every start and reload of sway while Sway Things stores anything for a display, so
+    /// it never leaves you without one
     Displays,
 }
 
@@ -331,6 +332,16 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             return Exit::Failure;
         }
     };
+    // sway just read its config: kanshi applies its profile again over whatever it set for the
+    // displays. Best effort; without kanshictl kanshi keeps what it has.
+    if outputs::kanshi_runs() {
+        let _ = std::process::Command::new("kanshictl")
+            .arg("reload")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
     match outputs::ensure_one_on(&mut client).await {
         Ok(Some(name)) => {
             let _ = writeln!(
@@ -483,6 +494,13 @@ pub async fn run<V: Validate>(
                 _ => None,
             };
             let device = resolved(Some(key), device.as_deref());
+            if session.applier.displays() == generate::Displays::Kanshi
+                && is_for_displays(Some(key))
+            {
+                io.note(tr(msg!(
+                    "kanshi sets up the displays: the change takes effect now and isn't stored."
+                )));
+            }
             let change = Change {
                 key,
                 device: device.as_deref(),

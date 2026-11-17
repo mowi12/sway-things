@@ -58,7 +58,7 @@ pub const TRANSFORM: &str = "output.transform";
 pub const ENABLED: &str = "output.enabled";
 
 /// The command the generated config runs at every start and reload of sway while Sway Things
-/// stores whether an output is on: `exec_always sway-things hook displays` ([`ensure_one_on`]).
+/// stores anything for an output: `exec_always sway-things hook displays` ([`ensure_one_on`]).
 pub fn guard_command() -> crate::command::SwayCmd {
     crate::command::hook("displays")
 }
@@ -176,20 +176,42 @@ pub const WAIT_FOR_OUTPUTS: std::time::Duration = std::time::Duration::from_secs
 /// How long sway's outputs must stay unchanged before [`ensure_one_on`] switches one on.
 pub const QUIET: std::time::Duration = std::time::Duration::from_secs(3);
 
-/// Whether kanshi runs for this user: a process named `kanshi` in `/proc` that belongs to the
-/// same user as this one. Nothing is run and nothing is written.
+/// Whether kanshi runs for this session: a process named `kanshi` of the same user, on the same
+/// Wayland display as this one (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY` in its environment), or
+/// any kanshi of the user when this process has no Wayland display (the command line on a
+/// TTY). Reads `/proc`; nothing is run and nothing is written.
 pub fn kanshi_runs() -> bool {
     use std::os::unix::fs::MetadataExt;
     let Ok(me) = std::fs::metadata("/proc/self").map(|meta| meta.uid()) else {
         return false;
     };
+    let ours = ["XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"].map(|name| {
+        std::env::var_os(name).map(|value| {
+            let mut entry = std::ffi::OsString::from(format!("{name}="));
+            entry.push(value);
+            entry.into_encoded_bytes()
+        })
+    });
     let Ok(processes) = std::fs::read_dir("/proc") else {
         return false;
     };
     processes.filter_map(Result::ok).any(|process| {
+        let path = process.path();
         let mine = process.metadata().is_ok_and(|meta| meta.uid() == me);
-        mine && std::fs::read_to_string(process.path().join("comm"))
-            .is_ok_and(|name| name.trim_end() == "kanshi")
+        let kanshi = mine
+            && std::fs::read_to_string(path.join("comm"))
+                .is_ok_and(|name| name.trim_end() == "kanshi");
+        if !kanshi {
+            return false;
+        }
+        let Ok(environ) = std::fs::read(path.join("environ")) else {
+            return false;
+        };
+        ours.iter().flatten().all(|entry| {
+            environ
+                .split(|byte| *byte == 0)
+                .any(|variable| variable == entry.as_slice())
+        })
     })
 }
 

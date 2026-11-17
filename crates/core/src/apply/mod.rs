@@ -396,9 +396,25 @@ impl<V: Validate> Applier<V> {
         if changed {
             self.state.set(key, device, value, None)?;
         }
+        let saved = before.clone();
         let applied = self.finish(setting, device, changed, before).await?;
+        if self.is_live_only(setting) {
+            // kanshi sets up the displays: the change is live only, nothing is stored.
+            self.state = saved;
+            return Ok(Applied {
+                changed: false,
+                effect: applied.effect,
+                not_copied: Vec::new(),
+            });
+        }
         self.note(setting, device, &applied.effect, was);
         Ok(applied)
+    }
+
+    /// Whether a change of `setting` is live only and never stored: a setting of the displays
+    /// while kanshi sets them up.
+    pub(crate) fn is_live_only(&self, setting: &Setting) -> bool {
+        self.displays == generate::Displays::Kanshi && setting.scope() == Scope::PerOutput
     }
 
     /// Removes the stored value of `key`, so Sway Things no longer manages the setting, and sends
@@ -426,7 +442,10 @@ impl<V: Validate> Applier<V> {
             });
         }
         let applied = self.finish(setting, device, true, before).await?;
-        self.note(setting, device, &applied.effect, was);
+        // kanshi sets up the displays: nothing waits for a reload of sway.
+        if !self.is_live_only(setting) {
+            self.note(setting, device, &applied.effect, was);
+        }
         Ok(applied)
     }
 

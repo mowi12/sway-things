@@ -708,14 +708,18 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
   would leave none on. Switching every output at once isn't offered: it is one at a time.
-- **kanshi:** `generate::Displays::detect` looks in `/proc` for a process `kanshi` of the same user (nothing is run).
-  While one runs, `generate_for(.., Displays::Kanshi)` leaves out every per-output line, so nothing contradicts kanshi's
-  profiles at a reload; `20-output.conf` then says so in a comment and keeps only the startup guard. The app and the
-  command line detect it when they open and the app again before each change; `doctor` compares against the same.
-  Changes on the Displays page stay live only meanwhile. Profiles of our own in kanshi come with #211.
+- **kanshi:** `generate::Displays::detect` looks in `/proc` for a process `kanshi` of the same user on the same Wayland
+  display (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY` in its environment; any of the user's without a Wayland display);
+  nothing is run. While one runs, changes of per-output settings are live only (`Applier::is_live_only`): sent, never
+  stored, also when a risky one is kept, and nothing is noted to wait for a reload. `generate_for(.., Displays::Kanshi)`
+  leaves out every per-output line, so nothing contradicts kanshi's profiles at a reload; `20-output.conf` says so in a
+  comment and keeps the startup guard, and `hook displays` has kanshi apply its profile again (`kanshictl reload`). The
+  app detects it when it opens (and then writes the files, so lines from before go) and before each change, the command
+  line when it opens; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. Rows
+  show what the displays run with. Profiles of our own in kanshi come with #211.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
-  of its own. So while Sway Things stores whether an output is on (a line of the user's may still switch it off),
+  of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
   `20-output.conf` ends with `exec_always sway-things hook displays`, and at every start and reload
   `outputs::ensure_one_on` switches the first connected output on if none is on (for the session only). While none is
   on, it waits until sway has reported no change of its outputs for three seconds (at a login at the dock, the panel
@@ -1110,7 +1114,8 @@ Sway Things keeps nothing running. Behavior that has to happen without the windo
 is needed, generated config calls the CLI briefly:
 
 - **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
-  with `exec_always` while Sway Things stores whether an output is on.
+  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply its
+  profile again (`kanshictl reload`), since sway just read its config.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

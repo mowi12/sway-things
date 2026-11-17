@@ -444,6 +444,11 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         effect: &Effect,
     ) {
+        // kanshi sets up the displays: in effect, but not stored.
+        let live_only = changed
+            .iter()
+            .any(|(setting, value)| value.is_some() && self.is_live_only(setting));
+        let tried = if live_only { self.state.clone() } else { tried };
         let before = std::mem::replace(&mut self.state, tried);
         self.unsaved_since = Some(Instant::now());
         for (setting, _) in changed {
@@ -451,7 +456,9 @@ impl<V: Validate> Applier<V> {
             if effect != &Effect::AfterReload {
                 self.waiting.forget(setting.key(), device);
             }
-            self.note(setting, device, effect, was);
+            if !self.is_live_only(setting) {
+                self.note(setting, device, effect, was);
+            }
         }
     }
 
@@ -468,7 +475,15 @@ impl<V: Validate> Applier<V> {
         let device = pending.device.as_deref();
         let mut state = self.state.clone();
         let stored = pending.values().try_for_each(|tried| {
-            if tried.reset {
+            let live_only = self
+                .state
+                .registry()
+                .get(tried.key)
+                .is_some_and(|setting| self.is_live_only(setting));
+            if live_only && !tried.reset {
+                // kanshi sets up the displays: kept, but not stored.
+                Ok(())
+            } else if tried.reset {
                 state.reset(tried.key, device).map(drop)
             } else {
                 state.set(tried.key, device, tried.value.clone(), None)

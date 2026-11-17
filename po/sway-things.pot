@@ -164,6 +164,11 @@ msgid "Collecting the system details…"
 msgstr ""
 
 #: crates/cli/src/lib.rs
+msgid ""
+"kanshi sets up the displays: the change takes effect now and isn't stored."
+msgstr ""
+
+#: crates/cli/src/lib.rs
 #, rust-format
 msgid ""
 "can't find {program}: install it next to sway-things or in PATH, or name it "

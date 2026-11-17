@@ -1991,3 +1991,34 @@ fn a_value_that_runs_already_still_waits_when_it_replaces_a_trial() {
     let reverted = block_on(setup.applier.revert()).unwrap();
     assert_eq!(reverted, live(&[r#"output "A B C" mode 1920x1080@60Hz"#]));
 }
+
+#[test]
+fn while_kanshi_sets_up_the_displays_their_changes_are_live_only() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi);
+    let applied = block_on(setup.applier.set(
+        SCALE,
+        Some(PANEL),
+        Value::Decimal(1.5),
+        &setup.access,
+    ))
+    .unwrap();
+    assert_eq!(applied.effect, live(&[r#"output "A B C" scale 1.5"#]));
+    assert!(!applied.changed);
+    assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
+    // A risky change kept: in effect, not stored either.
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
+    // Other settings are stored as always.
+    setup.set(GAPS, Value::Integer(8)).unwrap();
+    assert_eq!(
+        setup.applier.state().get(GAPS, None),
+        Some(&Value::Integer(8))
+    );
+}

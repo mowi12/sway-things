@@ -87,7 +87,7 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 Hotplug awareness (output events)
 - [x] 🟡 Outputs stored by make, model and serial instead of connector (stable across docks and ports); those without a
       serial by connector
-- [x] 🟢 Never without a display: while Sway Things stores whether a display is on, a hook at every start and reload of
+- [x] 🟢 Never without a display: while Sway Things stores anything for a display, a hook at every start and reload of
       sway switches one on if none is
 - [x] 🟢 Identify displays (numbers flashed on each screen)
 - [ ] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode

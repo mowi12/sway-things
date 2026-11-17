@@ -212,7 +212,11 @@ pub fn generate_for(
         .iter_mut()
         .find(|file| file.file == ConfigFile::Output)
     {
-        if displays == Displays::Kanshi {
+        let for_displays = state
+            .entries()
+            .iter()
+            .any(|entry| entry.setting.scope() == Scope::PerOutput);
+        if displays == Displays::Kanshi && for_displays {
             file.lines.push(Line {
                 text: "# kanshi sets up the displays: Sway Things writes no output lines while it \
                        runs."
@@ -257,25 +261,23 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
     }
 }
 
-/// While Sway Things stores whether an output is on, the line that runs `sway-things hook
+/// While Sway Things stores anything for an output, the line that runs `sway-things hook
 /// displays` whenever sway starts or reloads: it switches an output on if none is on, so an
 /// output that stays off never leaves the user without a display (a laptop's panel, switched off
 /// at the dock, when sway starts without the dock), even where a line of the user's switches off
-/// what is stored as on.
+/// what is stored as on; and while kanshi runs, it has kanshi apply its profile again over the
+/// lines sway just read.
 fn display_guard(state: &State) -> Option<Line> {
-    let off: Vec<&str> = state
-        .entries()
-        .into_iter()
-        .filter(|entry| entry.setting.key() == outputs::ENABLED)
-        .filter_map(|entry| entry.device)
-        .collect();
-    let first = off.first()?;
+    let entries = state.entries();
+    let first = entries
+        .iter()
+        .find(|entry| entry.setting.scope() == Scope::PerOutput && entry.device.is_some())?;
     let text = outputs::guard_command().render(Target::Config).ok()?;
     Some(Line {
         text,
         source: Source {
-            keys: vec![outputs::ENABLED],
-            device: Some((*first).to_owned()),
+            keys: vec![first.setting.key()],
+            device: first.device.map(ToOwned::to_owned),
         },
         skipped: None,
     })

@@ -54,10 +54,10 @@ use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::outputs::{OutputWatch, Outputs};
-use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
+use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
-use sway_things_core::view::SettingView;
+use sway_things_core::view::{SettingView, Source};
 
 // Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
 // out here.
@@ -184,6 +184,8 @@ mod imp {
         pub(super) error: RefCell<Option<String>>,
         pub(super) queue: RefCell<VecDeque<super::Op>>,
         pub(super) busy: Cell<bool>,
+        /// Whether kanshi set up the displays when last looked.
+        pub(super) kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
     }
 
@@ -238,7 +240,13 @@ impl Model {
         match Self::connect().await {
             Ok((applier, watch)) => {
                 let state_watch = applier.state().watch();
+                let kanshi = applier.displays() == generate::Displays::Kanshi;
+                model.imp().kanshi.set(kanshi);
                 model.start(applier, watch.status().clone(), true);
+                if kanshi {
+                    // Lines for the displays from before kanshi ran go from the generated files.
+                    model.queue(Op::Persist);
+                }
                 model.watch_config(watch);
                 match state_watch {
                     Ok(watcher) => model.watch_state(watcher),
@@ -351,8 +359,23 @@ impl Model {
                     .config_line(setting, &tried, device)
                     .ok();
             }
+        } else if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
+            // kanshi sets up the displays: what they run with counts, not what was stored
+            // before kanshi ran.
+            let live = device
+                .and_then(|device| core.outputs.get(device))
+                .and_then(|output| output.session_value(setting.key()));
+            if let Some(live) = live {
+                view.value = live;
+                view.source = Source::Session;
+            }
         }
         Some(view)
+    }
+
+    /// Whether kanshi set up the displays when the model last looked.
+    pub fn kanshi_runs(&self) -> bool {
+        self.imp().kanshi.get()
     }
 
     /// The input devices: in a session the connected ones, then those that only have stored
@@ -750,7 +773,11 @@ impl Model {
         };
         let mut applier = applier;
         // kanshi may have started or stopped since the app opened.
-        applier.set_displays(generate::Displays::detect());
+        let displays = generate::Displays::detect();
+        applier.set_displays(displays);
+        self.imp()
+            .kanshi
+            .set(displays == generate::Displays::Kanshi);
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
             (

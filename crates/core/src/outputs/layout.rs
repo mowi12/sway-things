@@ -342,8 +342,15 @@ pub fn place(moving: Rect, origin: Rect, others: &[Rect], slot: Option<Slot>) ->
     // if that one moves up.
     let away = !overlaps(moving, origin);
     if let Some(closed) = close_gap(others, origin).filter(|_| away) {
-        let next_to = settle(moving, others);
-        let anchor = others.iter().position(|other| touches(next_to, *other));
+        // Where it would go in the layout as it stood, which hangs together; the output it
+        // shares the longest edge with there is the one it stays next to.
+        let next_to = settle(moving, &with(origin, others));
+        let anchor = others
+            .iter()
+            .enumerate()
+            .filter(|(_, other)| touches(next_to, **other))
+            .max_by_key(|(_, other)| shared_edge(next_to, **other))
+            .map(|(index, _)| index);
         let (dx, dy) = anchor
             .and_then(|index| Some((others.get(index)?, closed.get(index)?)))
             .map_or((0, 0), |(before, after)| {
@@ -571,6 +578,18 @@ fn with_stacked(
         if !more {
             return moves;
         }
+    }
+}
+
+/// How long the edge is that `a` and `b` share, if they touch.
+fn shared_edge(a: Rect, b: Rect) -> i64 {
+    let span = |start: i32, end: i32, other_start: i32, other_end: i32| {
+        (i64::from(end.min(other_end)) - i64::from(start.max(other_start))).max(0)
+    };
+    if a.right() == b.x || b.right() == a.x {
+        span(a.y, a.bottom(), b.y, b.bottom())
+    } else {
+        span(a.x, a.right(), b.x, b.right())
     }
 }
 
@@ -1023,7 +1042,7 @@ mod tests {
         assert_eq!(moved, [rect(0, 0, 1000, 500), rect(1000, 0, 1000, 500)]);
         assert_eq!(placed, rect(1000, 500, 1000, 500));
 
-        // Two monitors over first laptop in the middle, the left one dropped right of the other: they
+        // Two monitors over a laptop in the middle, the left one dropped right of the other: they
         // swap, and the laptop stays.
         let right = rect(1920, 0, 1920, 1080);
         let laptop = rect(960, 1080, 1920, 1080);
@@ -1035,6 +1054,13 @@ mod tests {
         );
         assert_eq!(moved, [rect(0, 0, 1920, 1080), laptop]);
         assert_eq!(placed, rect(1920, 0, 1920, 1080));
+
+        // A | B | C, B dropped below or above C: it lands there as C closes up.
+        let (placed, moved) = place(rect(2000, 500, 1000, 500), second, &[first, third], None);
+        assert_eq!(moved, [first, rect(1000, 0, 1000, 500)]);
+        assert_eq!(placed, rect(1000, 500, 1000, 500));
+        let (placed, _) = place(rect(2000, -500, 1000, 500), second, &[first, third], None);
+        assert_eq!(placed, rect(1000, -500, 1000, 500));
 
         // A 2×2 grid, TL dropped right of TR: TR closes up alone, TL lands right of it.
         let tr = rect(1000, 0, 1000, 500);

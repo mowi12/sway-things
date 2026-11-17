@@ -137,6 +137,7 @@ input \"{TOUCHPAD}\" tap disabled
             "{HEADER}\
 output \"{DELL}\" scale 1.5
 output \"{DELL}\" pos 1920 0
+exec_always sway-things hook displays
 "
         )
     );
@@ -704,9 +705,13 @@ exec_always sway-things hook displays
     let (_dir, on) = state("", "[display.\"A B C\".output]\nenabled = true\n");
     let files = generate(Registry::builtin(), &on, SWAY_1_10);
     assert!(text(&files, ConfigFile::Output).contains("hook displays"));
-    // Nothing stored about it: no guard.
+    // Anything stored for a display: the guard too.
     let (_dir, scaled) = state("", "[display.\"A B C\".output]\nscale = 2.0\n");
     let files = generate(Registry::builtin(), &scaled, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // Nothing stored for a display: no guard.
+    let (_dir, none) = state("[windows.gaps]\ninner = 8\n", "");
+    let files = generate(Registry::builtin(), &none, SWAY_1_10);
     assert!(!text(&files, ConfigFile::Output).contains("hook"));
 }
 
