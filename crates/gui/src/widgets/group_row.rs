@@ -18,7 +18,7 @@ use sway_things_core::registry::{Kind, SettingGroup, Value};
 
 use super::SettingRow;
 use super::setting_row::shows_directives;
-use crate::i18n::tr;
+use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
@@ -331,7 +331,13 @@ impl GroupRow {
         let named: Vec<String> = views
             .iter()
             .zip(&texts)
-            .map(|((setting, _), text)| format!("{} {text}", tr(setting.title())))
+            .map(|((setting, _), text)| {
+                // TRANSLATORS: A setting and its value, such as "Width 2", for screen readers.
+                trf(
+                    msg!("{setting} {value}"),
+                    &[("setting", &tr(setting.title())), ("value", text)],
+                )
+            })
             .collect();
         imp.item
             .update_property(&[gtk::accessible::Property::Description(&named.join(", "))]);
@@ -418,8 +424,8 @@ fn swatch() -> Swatch {
 /// `value` as the summary shows it.
 fn value_text(kind: &Kind, value: &Value) -> String {
     match (kind, value) {
-        (Kind::Bool { .. }, Value::Bool(true)) => "On".to_owned(),
-        (Kind::Bool { .. }, Value::Bool(false)) => "Off".to_owned(),
+        (Kind::Bool { .. }, Value::Bool(true)) => tr(msg!("On")).to_owned(),
+        (Kind::Bool { .. }, Value::Bool(false)) => tr(msg!("Off")).to_owned(),
         (Kind::Choice { choices, .. }, Value::Choice(id)) => choices
             .iter()
             .find(|choice| choice.id == id)

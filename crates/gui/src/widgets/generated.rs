@@ -20,11 +20,12 @@ use sway_things_core::generate::{GeneratedFile, OnDisk, Ownership};
 use sway_things_core::registry::ConfigFile;
 
 use super::setting_row::tilde;
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
 /// The tooltip of the button that copies a file's contents.
-const COPY: &str = "Copy contents";
+const COPY: Msg = msg!("Copy contents");
 
 /// The icon of that button, and the one it shows for a moment once it copied.
 const COPY_ICON: &str = "edit-copy-symbolic";
@@ -90,7 +91,7 @@ impl GeneratedWindow {
     fn build(&self, model: &Model) {
         let imp = self.imp();
         let _ = imp.model.set(model.clone());
-        self.set_title(Some("Generated config"));
+        self.set_title(Some(tr(msg!("Generated config"))));
         self.set_default_size(760, 560);
 
         let switcher = gtk::StackSwitcher::new();
@@ -149,8 +150,8 @@ impl GeneratedWindow {
             note: gtk::Label::new(None),
             banner: gtk::Revealer::new(),
             banner_text: gtk::Label::new(None),
-            on_disk: gtk::ToggleButton::with_label("Show file on disk"),
-            overwrite: gtk::Button::with_label("Overwrite\u{2026}"),
+            on_disk: gtk::ToggleButton::with_label(tr(msg!("Show file on disk"))),
+            overwrite: gtk::Button::with_label(tr(msg!("Overwrite…"))),
             text: gtk::TextView::new(),
         };
         view.path.set_xalign(0.0);
@@ -162,12 +163,12 @@ impl GeneratedWindow {
         view.path.add_css_class("monospace");
         view.copy.set_halign(gtk::Align::End);
         view.copy.set_valign(gtk::Align::Start);
-        view.copy.set_tooltip_text(Some(COPY));
+        view.copy.set_tooltip_text(Some(tr(COPY)));
         view.copy.add_css_class("st-generated-copy");
         view.copy
-            .update_property(&[gtk::accessible::Property::Label(&format!(
-                "Copy the contents of {}",
-                file.file_name()
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                msg!("Copy the contents of {file}"),
+                &[("file", &file.file_name())],
             ))]);
 
         view.note.set_xalign(0.0);
@@ -305,7 +306,7 @@ impl GeneratedWindow {
         };
         self.clipboard().set_text(&text);
         button.set_icon_name(COPIED_ICON);
-        button.set_tooltip_text(Some("Copied"));
+        button.set_tooltip_text(Some(tr(msg!("Copied"))));
         glib::timeout_add_seconds_local_once(
             2,
             glib::clone!(
@@ -313,7 +314,7 @@ impl GeneratedWindow {
                 button,
                 move || {
                     button.set_icon_name(COPY_ICON);
-                    button.set_tooltip_text(Some(COPY));
+                    button.set_tooltip_text(Some(tr(COPY)));
                 }
             ),
         );
@@ -325,12 +326,15 @@ impl GeneratedWindow {
             return;
         };
         let dialog = gtk::AlertDialog::builder()
-            .message(format!("Overwrite {}?", file.file_name()))
-            .detail(
+            .message(trf(
+                msg!("Overwrite {file}?"),
+                &[("file", &file.file_name())],
+            ))
+            .detail(tr(msg!(
                 "The changes made to it outside Sway Things are lost: it gets what Sway Things \
-                 generates from your settings.",
-            )
-            .buttons(["Cancel", "Overwrite"])
+                 generates from your settings."
+            )))
+            .buttons([tr(msg!("Cancel")), tr(msg!("Overwrite"))])
             .cancel_button(0)
             .default_button(0)
             .modal(true)
@@ -359,27 +363,34 @@ impl FileView {
         let (banner, can_overwrite) = match &on_disk.ownership {
             Ok(Ownership::Edited) => (
                 Some(
-                    "Changed outside Sway Things: it isn\u{2019}t updated until you overwrite it."
-                        .to_owned(),
+                    tr(msg!(
+                        "Changed outside Sway Things: it isn’t updated until you overwrite it."
+                    ))
+                    .to_owned(),
                 ),
                 true,
             ),
             Ok(Ownership::Foreign) => (
                 Some(
-                    "Not made by Sway Things, so it is never written. Move it away to let Sway \
-                     Things create it."
-                        .to_owned(),
+                    tr(msg!(
+                        "Not made by Sway Things, so it is never written. Move it away to let \
+                         Sway Things create it."
+                    ))
+                    .to_owned(),
                 ),
                 false,
             ),
             Ok(Ownership::Absent | Ownership::Current | Ownership::Ours) => (None, false),
-            Err(error) => (Some(format!("It can\u{2019}t be read: {error}")), false),
+            Err(error) => (
+                Some(trf(msg!("It can’t be read: {error}"), &[("error", error)])),
+                false,
+            ),
         };
         let note = match &on_disk.ownership {
-            Ok(Ownership::Absent) if generated.is_empty() => {
+            Ok(Ownership::Absent) if generated.is_empty() => tr(msg!(
                 "Not created: no setting of yours goes to this file yet."
-            }
-            Ok(Ownership::Absent) => "Not written yet.",
+            )),
+            Ok(Ownership::Absent) => tr(msg!("Not written yet.")),
             _ => "",
         };
         self.note.set_text(note);
@@ -392,7 +403,7 @@ impl FileView {
         self.overwrite.set_visible(can_overwrite);
         self.overwrite.set_sensitive(writable);
         self.overwrite.set_tooltip_text(
-            (!writable).then_some("Add the include line to your sway config first"),
+            (!writable).then_some(tr(msg!("Add the include line to your sway config first"))),
         );
         self.banner_text
             .set_text(banner.as_deref().unwrap_or_default());

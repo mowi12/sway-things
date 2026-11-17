@@ -5,11 +5,10 @@
 //! the button maps and left-handed mode can be tried), and a strip of lines to scroll (so scroll
 //! speed and natural scrolling can be felt).
 
+use crate::i18n::{msg, tr, trf};
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-
-use super::device_selector::capitalized;
 
 /// The lines in the strip to scroll.
 const LINES: usize = 40;
@@ -68,10 +67,10 @@ impl TestArea {
         let area: Self = glib::Object::new();
         let imp = area.imp();
 
-        let hint = gtk::Label::new(Some("Click, double-click or tap here"));
+        let hint = gtk::Label::new(Some(tr(msg!("Click, double-click or tap here"))));
         hint.set_wrap(true);
         hint.set_justify(gtk::Justification::Center);
-        imp.last.set_text("No click yet");
+        imp.last.set_text(tr(msg!("No click yet")));
         imp.last.set_wrap(true);
         imp.last.add_css_class(crate::style::DIM);
         imp.pad.set_orientation(gtk::Orientation::Vertical);
@@ -86,7 +85,9 @@ impl TestArea {
         centered.append(&imp.last);
         imp.pad.append(&centered);
         imp.pad
-            .update_property(&[gtk::accessible::Property::Label("Click test area")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                "Click test area"
+            )))]);
         let clicks = gtk::GestureClick::new();
         // Every button, not just the first.
         clicks.set_button(0);
@@ -102,7 +103,7 @@ impl TestArea {
         let lines = gtk::Box::new(gtk::Orientation::Vertical, 6);
         lines.add_css_class("st-test-lines");
         for number in 1..=LINES {
-            let line = gtk::Label::new(Some(&format!("Line {number}")));
+            let line = gtk::Label::new(Some(&trf(msg!("Line {number}"), &[("number", &number)])));
             line.set_xalign(0.0);
             lines.append(&line);
         }
@@ -112,7 +113,9 @@ impl TestArea {
         imp.strip.set_size_request(160, 160);
         imp.strip.add_css_class("st-test-strip");
         imp.strip
-            .update_property(&[gtk::accessible::Property::Label("Scroll test area")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                "Scroll test area"
+            )))]);
 
         imp.pad.set_parent(&area);
         imp.strip.set_parent(&area);
@@ -131,7 +134,10 @@ impl TestArea {
 
     /// Shows `presses` presses of `button` as the last click.
     pub fn show_click(&self, button: u32, presses: i32) {
-        let text = format!("Last: {}", click_name(button, presses));
+        let text = trf(
+            msg!("Last: {click}"),
+            &[("click", &click_name(button, presses))],
+        );
         let last = &self.imp().last;
         last.set_text(&text);
         last.announce(&text, gtk::AccessibleAnnouncementPriority::Medium);
@@ -141,19 +147,21 @@ impl TestArea {
 /// "Left click", "Double click", "Right double-click", …: the click of `presses` presses of
 /// `button` (1 left, 2 middle, 3 right) in a row.
 fn click_name(button: u32, presses: i32) -> String {
-    let times = match presses {
-        ..=1 => "click",
-        2 => "double-click",
-        _ => "triple-click",
+    let text = match (button, presses) {
+        (1, ..=1) => msg!("Left click"),
+        (1, 2) => msg!("Double-click"),
+        (1, _) => msg!("Triple-click"),
+        (2, ..=1) => msg!("Middle click"),
+        (2, 2) => msg!("Middle double-click"),
+        (2, _) => msg!("Middle triple-click"),
+        (3, ..=1) => msg!("Right click"),
+        (3, 2) => msg!("Right double-click"),
+        (3, _) => msg!("Right triple-click"),
+        (_, ..=1) => msg!("Button {number} click"),
+        (_, 2) => msg!("Button {number} double-click"),
+        (_, _) => msg!("Button {number} triple-click"),
     };
-    let side = match button {
-        1 if presses >= 2 => return capitalized(times),
-        1 => "Left",
-        2 => "Middle",
-        3 => "Right",
-        other => return format!("Button {other} {times}"),
-    };
-    format!("{side} {times}")
+    trf(text, &[("number", &button)])
 }
 
 #[cfg(test)]

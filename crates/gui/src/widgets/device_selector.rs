@@ -7,6 +7,7 @@
 //!
 //! Device names are external strings: they are only shown as plain text in the drop-down.
 
+use crate::i18n::{msg, tr, trf};
 use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
@@ -87,14 +88,14 @@ impl DeviceSelector {
         if let Some(layout) = selector.layout_manager().and_downcast::<gtk::BoxLayout>() {
             layout.set_spacing(24);
         }
-        imp.title.set_text("Settings for");
+        imp.title.set_text(tr(msg!("Settings for")));
         imp.title.set_xalign(0.0);
         imp.title.set_hexpand(true);
         imp.title.set_wrap(true);
         imp.title.add_css_class("st-row-title");
         imp.title.set_parent(&selector);
 
-        imp.labels.append(&capitalized(&all_of_type(kind)));
+        imp.labels.append(all_of_type_start(kind));
         imp.dropdown.set_model(Some(&imp.labels));
         imp.dropdown.set_valign(gtk::Align::Center);
         imp.dropdown
@@ -166,7 +167,10 @@ impl DeviceSelector {
                 let label = if device.is_connected() {
                     device.name().to_owned()
                 } else {
-                    format!("{} (not connected)", device.name())
+                    trf(
+                        msg!("{device} (not connected)"),
+                        &[("device", &device.name())],
+                    )
                 };
                 (device.identifier().to_owned(), label)
             })
@@ -219,49 +223,55 @@ impl DeviceSelector {
     }
 }
 
-/// "all mice", "all touchpads", …: every device of type `kind`.
-pub(crate) fn all_of_type(kind: InputType) -> String {
-    format!("all {}", plural(kind))
+/// "all mice", "all touchpads", …: every device of type `kind`, inside a sentence.
+pub(crate) fn all_of_type(kind: InputType) -> &'static str {
+    // TRANSLATORS: Inside a sentence such as "Use the value of all mice".
+    tr(match kind {
+        InputType::Pointer => msg!("all mice"),
+        InputType::Touchpad => msg!("all touchpads"),
+        InputType::Keyboard => msg!("all keyboards"),
+        InputType::Touch => msg!("all touchscreens"),
+        InputType::TabletTool => msg!("all tablet pens"),
+        InputType::TabletPad => msg!("all tablet pads"),
+        InputType::Switch => msg!("all switches"),
+    })
+}
+
+/// "All mice", "All touchpads", …: every device of type `kind`, as the first entry of a device
+/// selector.
+fn all_of_type_start(kind: InputType) -> &'static str {
+    tr(match kind {
+        InputType::Pointer => msg!("All mice"),
+        InputType::Touchpad => msg!("All touchpads"),
+        InputType::Keyboard => msg!("All keyboards"),
+        InputType::Touch => msg!("All touchscreens"),
+        InputType::TabletTool => msg!("All tablet pens"),
+        InputType::TabletPad => msg!("All tablet pads"),
+        InputType::Switch => msg!("All switches"),
+    })
 }
 
 /// What a page says in place of the rows of type `kind` while none of its devices is connected
 /// and nothing is stored for them.
-pub(crate) fn none_connected(kind: InputType) -> String {
-    format!(
-        "No {} is connected. Its settings show up once one is.",
-        singular(kind)
-    )
-}
-
-fn singular(kind: InputType) -> &'static str {
-    match kind {
-        InputType::Pointer => "mouse",
-        InputType::Touchpad => "touchpad",
-        InputType::Keyboard => "keyboard",
-        InputType::Touch => "touchscreen",
-        InputType::TabletTool => "tablet pen",
-        InputType::TabletPad => "tablet pad",
-        InputType::Switch => "switch",
-    }
-}
-
-fn plural(kind: InputType) -> &'static str {
-    match kind {
-        InputType::Pointer => "mice",
-        InputType::Touchpad => "touchpads",
-        InputType::Keyboard => "keyboards",
-        InputType::Touch => "touchscreens",
-        InputType::TabletTool => "tablet pens",
-        InputType::TabletPad => "tablet pads",
-        InputType::Switch => "switches",
-    }
-}
-
-/// `text` with its first letter in upper case.
-pub(crate) fn capitalized(text: &str) -> String {
-    let mut chars = text.chars();
-    chars.next().map_or_else(String::new, |first| {
-        first.to_uppercase().chain(chars).collect()
+pub(crate) fn none_connected(kind: InputType) -> &'static str {
+    tr(match kind {
+        InputType::Pointer => msg!("No mouse is connected. Its settings show up once one is."),
+        InputType::Touchpad => {
+            msg!("No touchpad is connected. Its settings show up once one is.")
+        }
+        InputType::Keyboard => {
+            msg!("No keyboard is connected. Its settings show up once one is.")
+        }
+        InputType::Touch => {
+            msg!("No touchscreen is connected. Its settings show up once one is.")
+        }
+        InputType::TabletTool => {
+            msg!("No tablet pen is connected. Its settings show up once one is.")
+        }
+        InputType::TabletPad => {
+            msg!("No tablet pad is connected. Its settings show up once one is.")
+        }
+        InputType::Switch => msg!("No switch is connected. Its settings show up once one is."),
     })
 }
 
@@ -269,11 +279,11 @@ pub(crate) fn capitalized(text: &str) -> String {
 mod tests {
     use sway_things_core::command::input::InputType;
 
-    use super::{all_of_type, capitalized, none_connected};
+    use super::{all_of_type, all_of_type_start, none_connected};
 
     #[test]
     fn types_are_named_for_people() {
-        assert_eq!(capitalized(&all_of_type(InputType::Pointer)), "All mice");
+        assert_eq!(all_of_type_start(InputType::Pointer), "All mice");
         assert_eq!(all_of_type(InputType::Touchpad), "all touchpads");
         assert_eq!(
             none_connected(InputType::Touchpad),

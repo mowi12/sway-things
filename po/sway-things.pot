@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:52+0100\n"
+"POT-Creation-Date: 2026-11-17 08:55+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1442,6 +1442,7 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
+#: crates/gui/src/widgets/group_row.rs
 msgid "Off"
 msgstr ""
 
@@ -2189,7 +2190,7 @@ msgstr ""
 msgid "not whole milliseconds: {value}"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
 msgid "On"
 msgstr ""
 
@@ -2546,7 +2547,7 @@ msgstr ""
 msgid "disable while trackpointing"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/gui/src/widgets/test_area.rs
 msgid "Right click"
 msgstr ""
 
@@ -3714,6 +3715,279 @@ msgstr ""
 msgid "no bus"
 msgstr ""
 
+#: crates/gui/src/widgets/device_selector.rs
+msgid "Settings for"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+#, rust-format
+msgid "{device} (not connected)"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all mice"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all touchpads"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all keyboards"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all touchscreens"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all tablet pens"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all tablet pads"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "all switches"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All mice"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All touchpads"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All keyboards"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All touchscreens"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All tablet pens"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All tablet pads"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "All switches"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No mouse is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No touchpad is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No keyboard is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No touchscreen is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No tablet pen is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No tablet pad is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No switch is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Copy contents"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+#, rust-format
+msgid "Copy the contents of {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+#, rust-format
+msgid "Overwrite {file}?"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid ""
+"The changes made to it outside Sway Things are lost: it gets what Sway "
+"Things generates from your settings."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/window.rs
+msgid "Cancel"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Overwrite"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Changed outside Sway Things: it isn’t updated until you overwrite it."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid ""
+"Not made by Sway Things, so it is never written. Move it away to let Sway "
+"Things create it."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+#, rust-format
+msgid "It can’t be read: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Not created: no setting of yours goes to this file yet."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Not written yet."
+msgstr ""
+
+#: crates/gui/src/widgets/generated.rs
+msgid "Add the include line to your sway config first"
+msgstr ""
+
+#: crates/gui/src/widgets/group_row.rs
+#, rust-format
+msgid "{setting} {value}"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Reset page…"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+#, rust-format
+msgid "Written to {path}"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Show"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+#, rust-format
+msgid "Show what Sway Things writes to {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+#, rust-format
+msgid "Show {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Test area"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Website"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Source Code (GitHub)"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Report a Bug"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Copy System Details"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "About"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a version that couldn't be found.
+#: crates/gui/src/widgets/page_view.rs
+msgid "Unknown"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a service that isn't running.
+#: crates/gui/src/widgets/page_view.rs
+msgid "Not running"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/page_view.rs
+msgid "Installed"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that isn't installed.
+#: crates/gui/src/widgets/page_view.rs
+msgid "Not installed"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Generated config"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid ""
+"What Sway Things writes for your sway config to include, and which files "
+"were changed outside it"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Show…"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Show generated config"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid ""
+"Sway Things no longer sets it: your config or sway’s defaults decide again."
+msgid_plural ""
+"Sway Things no longer sets them: your config or sway’s defaults decide again."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/page_view.rs
+#, rust-format
+msgid ""
+"{settings} can lock you out, so it keeps its value; reset it from its row."
+msgid_plural ""
+"{settings} can lock you out, so they keep their values; reset them from "
+"their rows."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/page_view.rs
+#, rust-format
+msgid "Reset {count} stored value of {page}?"
+msgid_plural "Reset {count} stored values of {page}?"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Reset"
+msgstr ""
+
 #: crates/gui/src/widgets/placeholder.rs
 msgid "Not built yet"
 msgstr ""
@@ -3728,6 +4002,84 @@ msgstr ""
 
 #: crates/gui/src/widgets/search_button.rs
 msgid "Stop"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "This machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid "{title}: this machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid "{title}: your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Let my config win"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs crates/gui/src/widgets/welcome.rs
+msgid "Open config in editor"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Copy line"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid "Use the value of {devices}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Reset to default"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Your config wins"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "This line comes after the include line, so it decides after a reload."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Overridden"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Overridden in your config"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid ""
+"Sway Things’ value comes later and wins; this line is no longer in effect."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Applies after reload"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Applies after re-login"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid "From {file}:{line}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid "Same as {devices}"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
@@ -3753,16 +4105,85 @@ msgid_plural "{count} results"
 msgstr[0] ""
 msgstr[1] ""
 
+#: crates/gui/src/widgets/test_area.rs
+msgid "Click, double-click or tap here"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "No click yet"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Click test area"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+#, rust-format
+msgid "Line {number}"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Scroll test area"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+#, rust-format
+msgid "Last: {click}"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Left click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Double-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Triple-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Middle click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Middle double-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Middle triple-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Right double-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+msgid "Right triple-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+#, rust-format
+msgid "Button {number} click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+#, rust-format
+msgid "Button {number} double-click"
+msgstr ""
+
+#: crates/gui/src/widgets/test_area.rs
+#, rust-format
+msgid "Button {number} triple-click"
+msgstr ""
+
 #: crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
 msgid "Copy the line"
-msgstr ""
-
-#: crates/gui/src/widgets/welcome.rs
-msgid "Open config in editor"
 msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
@@ -3785,10 +4206,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
 msgid "Sway Things isn't enabled yet"
-msgstr ""
-
-#: crates/gui/src/widgets/welcome.rs
-msgid "Copied"
 msgstr ""
 
 #: crates/gui/src/window.rs
@@ -3838,10 +4255,6 @@ msgstr[1] ""
 
 #: crates/gui/src/window.rs
 msgid "Reload sway?"
-msgstr ""
-
-#: crates/gui/src/window.rs
-msgid "Cancel"
 msgstr ""
 
 #: crates/gui/src/window.rs
