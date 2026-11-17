@@ -43,6 +43,10 @@ use crate::command::output::{Mode, Transform};
 
 const VERSION: i64 = 1;
 
+/// The first line of `displays.toml`: a file without it wasn't written by Sway Things and is
+/// never written over.
+const HEADER: &str = "# Written by Sway Things: the displays remembered per combination.";
+
 /// How one display of a combination is set up.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Setup {
@@ -345,6 +349,17 @@ impl Profiles {
     ///
     /// The error of writing the file.
     pub fn save(&self) -> io::Result<()> {
+        match std::fs::read_to_string(&self.path) {
+            Ok(old) if !old.starts_with(HEADER) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "it wasn't written by Sway Things, so it is left alone",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
         let mut document = DocumentMut::new();
         document.insert("version", value(VERSION));
         if self.place_workspaces {
@@ -370,7 +385,7 @@ impl Profiles {
             tables.push(table);
         }
         document.insert("profile", Item::ArrayOfTables(tables));
-        atomic::write(&self.path, &document.to_string())
+        atomic::write(&self.path, &format!("{HEADER}\n{document}"))
     }
 }
 
@@ -560,6 +575,10 @@ mod tests {
         profiles.save().unwrap();
         let loaded = Profiles::load(&path).unwrap();
         assert_eq!(loaded, profiles);
+        // A file of the user's of that name is never written over.
+        let theirs = dir.path().join("theirs.toml");
+        std::fs::write(&theirs, "version = 1\n").unwrap();
+        assert!(Profiles::load(&theirs).unwrap().save().is_err());
         assert_eq!(loaded.of(&["eDP-1", "Dell U27 ABC"]), Some(&profile));
         assert_eq!(loaded.of(&["eDP-1"]), None);
         // The same combination again: replaced, not added.

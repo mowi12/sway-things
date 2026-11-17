@@ -166,11 +166,13 @@ impl Displays {
         if !kanshi::installed() || files.inclusion() == kanshi::Inclusion::Missing {
             return Self::Sway;
         }
-        // Started by the user's sway config, or running already (a systemd unit, say): one
-        // kanshi is enough.
+        // Started by the user's sway config, or running from elsewhere (a systemd unit, say):
+        // one kanshi is enough. A kanshi our own `exec kanshi` started keeps being started.
+        let ours_starts = std::fs::read_to_string(locations.path(ConfigFile::Output))
+            .is_ok_and(|text| text.lines().any(|line| line.trim() == "exec kanshi"));
         Self::Kanshi {
             start: !kanshi::started_by(status.config(), locations.directory())
-                && !crate::outputs::kanshi_runs(),
+                && (ours_starts || !crate::outputs::kanshi_runs()),
         }
     }
 

@@ -1032,9 +1032,24 @@ impl<V: Validate> Checkup<'_, V> {
                 );
             }
         }
-        let Ok(profiles) = crate::outputs::profiles::Profiles::load(self.state.paths().displays())
-        else {
-            return;
+        let displays_path = self.state.paths().displays();
+        let profiles = match crate::outputs::profiles::Profiles::load(displays_path) {
+            Ok(profiles) => profiles,
+            Err(error) => {
+                findings.push(
+                    Finding::new(
+                        Code::KanshiFileForeign,
+                        Severity::Warning,
+                        Text::new(msg!("{file} can't be used: {error}."))
+                            .arg("file", displays_path.display())
+                            .arg("error", error),
+                    )
+                    .with_hint(msg!(
+                        "Fix or move it; meanwhile the displays are set up from the sway config."
+                    )),
+                );
+                return;
+            }
         };
         let Ok(config) = std::fs::read_to_string(&files.config) else {
             return;
@@ -1053,7 +1068,7 @@ impl<V: Validate> Checkup<'_, V> {
             let wildcard = outputs.iter().any(|criteria| criteria == "*");
             let mut sorted: Vec<String> = outputs.iter().map(|criteria| named(criteria)).collect();
             sorted.sort_unstable();
-            let covers = wildcard
+            let covers = (wildcard && profiles.iter().next().is_some())
                 || profiles.iter().any(|profile| {
                     profile
                         .combination()

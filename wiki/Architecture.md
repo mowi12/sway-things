@@ -720,15 +720,16 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds).
   `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the user's config except to
   create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always with kanshi), and
-  `exec kanshi` when neither the user's sway config starts kanshi (`kanshi::started_by`, not counting our files) nor one
-  runs for the session already. A `displays.toml` that can't be read is never written over: the displays are set up from
-  our sway lines meanwhile, and the app says why. `hook displays` makes sure a display is on and then has kanshi apply
-  its profile again. The app looks again before each change and when displays come and go (at most every two seconds)
-  and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts of per-output
-  settings meanwhile. With kanshi installed, `doctor` reports a kanshi config without our include (with the command that
-  appends it), a file of someone else's in the place of ours, and a profile of the user's that covers a remembered
-  combination (`kanshi::user_profiles`), since kanshi applies the first that matches. Rows show what the displays run
-  with. A model made for tests never looks.
+  `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`, not counting our files) and no
+  kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps being started. `displays.toml`
+  starts with our header and a file without it is never written over; one that can't be read isn't either: the displays
+  are set up from our sway lines meanwhile, and the app says why. `hook displays` has kanshi apply its profile again and
+  then makes sure a display is on. The app looks again before each change and when displays come and go (at most every
+  two seconds) and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts
+  of per-output settings meanwhile. With kanshi installed, `doctor` reports a kanshi config without our include (with
+  the command that appends it), a file of someone else's in the place of ours, and a profile of the user's that covers a
+  remembered combination (`kanshi::user_profiles`), since kanshi applies the first that matches. Rows show what the
+  displays run with. A model made for tests never looks.
 - **Workspace placement:** `outputs::workspaces` maps workspaces `1` to `10` to displays by their name in the settings,
   per combination in `displays.toml` (`[[profile]] workspaces`), opt-in with `[workspaces] place = true`. Presets round
   the displays left to right or fill them in blocks; `current` reads `GET_WORKSPACES`. `commands` declares
@@ -1147,9 +1148,9 @@ Sway Things keeps nothing running. Behavior that has to happen without the windo
 is needed, generated config calls the CLI briefly:
 
 - **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
-  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it then (after making sure a
-  display is on) has kanshi apply its profile again (`kanshictl reload`, given five seconds), since sway just read its
-  config.
+  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply its
+  profile again (`kanshictl reload`, given five seconds), since sway just read its config, then makes sure a display is
+  on and places the workspaces and starts the mirrors again.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

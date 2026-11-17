@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-19 08:50+0100\n"
+"POT-Creation-Date: 2026-11-19 08:52+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -784,6 +784,15 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Move it away, so Sway Things can write its profiles there."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{file} can't be used: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Fix or move it; meanwhile the displays are set up from the sway config."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs

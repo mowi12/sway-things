@@ -421,7 +421,7 @@ fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
 /// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
 /// connected now, if they are placed.
 async fn hook_workspaces(err: &mut dyn Write) -> Exit {
-    let mut client = match Client::connect().await {
+    let mut client = match connect_for_hook().await {
         Ok(client) => client,
         Err(error) => {
             let _ = writeln!(err, "{}", error_line(&error));
@@ -437,9 +437,33 @@ async fn hook_workspaces(err: &mut dyn Write) -> Exit {
     }
 }
 
+/// The session for a hook kanshi runs: `$SWAYSOCK`, or where kanshi was started without it
+/// (a systemd unit, say), sway's newest socket in `$XDG_RUNTIME_DIR`.
+async fn connect_for_hook() -> Result<Client, sway_things_core::ipc::IpcError> {
+    if std::env::var_os("SWAYSOCK").is_some() {
+        return Client::connect().await;
+    }
+    let found = std::env::var_os("XDG_RUNTIME_DIR").and_then(|dir| {
+        std::fs::read_dir(dir)
+            .ok()?
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with("sway-ipc.") && name.ends_with(".sock")
+            })
+            .max_by_key(|entry| entry.metadata().and_then(|meta| meta.modified()).ok())
+            .map(|entry| entry.path())
+    });
+    match found {
+        Some(socket) => Client::connect_to(socket).await,
+        None => Client::connect().await,
+    }
+}
+
 /// `hook mirror`: shows displays on others as remembered for the displays connected now.
 async fn hook_mirror(err: &mut dyn Write) -> Exit {
-    let mut client = match Client::connect().await {
+    let mut client = match connect_for_hook().await {
         Ok(client) => client,
         Err(error) => {
             let _ = writeln!(err, "{}", error_line(&error));

@@ -75,11 +75,26 @@ pub fn installed() -> bool {
 /// whose display or source isn't on, or that is part of a chain or a cycle (a display that is
 /// shown elsewhere and shows another one itself), isn't started; without `wl-mirror`, none is.
 pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
+    // One at a time in a session: a kanshi hook and the app can run at once, and a mirror
+    // started by one shows in `/proc` only a moment later. Whoever comes second leaves it to
+    // the first, which has the same profiles.
+    let Some(_lock) = Lock::take() else {
+        return 0;
+    };
     let wanted = wanted(profiles, outputs);
     let running = running();
+    // Not wanted, or a second copy of one that is: ended.
+    let mut kept: Vec<&Vec<String>> = Vec::new();
     let unwanted: Vec<String> = running
         .iter()
-        .filter(|(_, arguments)| !wanted.contains(arguments))
+        .filter(|(_, arguments)| {
+            if wanted.contains(arguments) && !kept.contains(&arguments) {
+                kept.push(arguments);
+                false
+            } else {
+                true
+            }
+        })
         .map(|(pid, _)| pid.clone())
         .collect();
     kill(&unwanted);
@@ -103,6 +118,45 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
         }
     }
     started
+}
+
+/// The lock of [`apply`]: a file in `$XDG_RUNTIME_DIR`, made only if it isn't there, and
+/// removed when dropped. One older than ten seconds was left behind and is taken over.
+struct Lock(std::path::PathBuf);
+
+impl Lock {
+    fn take() -> Option<Self> {
+        let dir = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from)?;
+        let path = dir.join("sway-things-mirror.lock");
+        let created = || {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+                .is_ok()
+        };
+        if created() {
+            return Some(Self(path));
+        }
+        let stale = std::fs::metadata(&path)
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .is_some_and(|age| age > std::time::Duration::from_secs(10));
+        if stale {
+            let _ = std::fs::remove_file(&path);
+            if created() {
+                return Some(Self(path));
+            }
+        }
+        None
+    }
+}
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 /// The arguments of `wl-mirror` for each mirror the profile of the combination of `outputs`

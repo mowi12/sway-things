@@ -433,7 +433,6 @@ impl<V: Validate> Applier<V> {
         _access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
         let setting = self.setting(key)?;
-        self.touch(setting);
         let requirements = setting.requirements();
         self.compositor
             .check(requirements.min_sway, requirements.min_swayfx)
@@ -441,6 +440,7 @@ impl<V: Validate> Applier<V> {
                 key: setting.key(),
                 unmet,
             })?;
+        self.touch(setting);
         let before = self.state.clone();
         let was = before.get(key, device).cloned();
         // A value that is stored already is sent again, but leaves nothing to save.
@@ -804,8 +804,10 @@ impl<V: Validate> Applier<V> {
                 }
             }
         }
-        self.displays_touched = false;
         self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        // Written: nothing more to remember until a setting of the displays changes; else tried
+        // again at the next save.
+        self.displays_touched = self.displays_problem.is_some();
     }
 
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
@@ -852,10 +854,16 @@ impl<V: Validate> Applier<V> {
         if profiles.of(&names).is_none() {
             profiles.remember(captured);
         }
+        let gone = !names.contains(&target);
+        let ending = mirror.is_none();
         let set = profiles
             .of_mut(&names)
             .is_some_and(|profile| profile.set_mirror(target, mirror));
         if !set {
+            // A display that went meanwhile shows nothing to end.
+            if gone && ending {
+                return Ok(());
+            }
             return Err(ApplyError::Mirror);
         }
         let path = profiles.path().to_owned();

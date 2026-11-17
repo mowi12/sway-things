@@ -90,6 +90,10 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | Fact | Source |
 | --- | --- |
 | kanshi supports `include` with wordexp. | `man 5 kanshi` |
+| kanshi applies the first profile whose displays are all connected and that covers every connected display; `output *` matches one display, `...output *` any number. A directive it doesn't know makes it reject the whole config. | `man 5 kanshi` of kanshi 1.9.0 (checked); older versions not checked |
+| `kanshictl reload` has kanshi read its config again; `exec` lines of a profile run (through a shell) when it was applied. | `man 1 kanshictl`, `man 5 kanshi` of kanshi 1.9.0 |
+| sway's `workspace N output X` adds to the list of outputs of workspace N and never clears it; a new workspace goes to the first connected output of the list. A reload of sway clears the lists. | sway `commands/workspace.c`, `tree/workspace.c` (`workspace_get_initial_output`) |
+| `wl-mirror --fullscreen-output O --scaling fit\|cover\|exact --title T <source>` shows `<source>` fullscreen on `O`. | `wl-mirror --help` |
 | waybar's `include`: the first definition of a key wins. | `man 5 waybar` (0.15) |
 | mako supports `include=` with an absolute or `~/` path. | mako `doc/mako.5.scd` |
 | swaync has no include, but takes its config and style with `-c` and `-s`. | `swaync --help` (0.12.6) |
