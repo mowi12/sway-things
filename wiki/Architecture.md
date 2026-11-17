@@ -1151,6 +1151,11 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
   translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
   and a string missing from the first language's catalog is looked up in the next.
+- **Names of the XKB rules**: the models, layouts, variants and options the Keyboard page shows come from
+  xkeyboard-config, which translates them in catalogs of its own (text domain `xkeyboard-config`, in
+  `/usr/share/locale`; xkb-data on Debian and Ubuntu, xkeyboard-config-lang on openSUSE). `init` loads them for the same
+  languages, and `Item::shown` gives a name in the user's language, `Item::label` the English one. Search matches both;
+  without the package's translations the names stay English.
 - **Messages of the core**: a message the core makes for people and scripts alike (a finding of the doctor, why a row is
   locked, an error) is an `i18n::Text`: the marked `Msg` (or `MsgPlural` and its count) with its values, each data shown
   as it is (a file name, a number) or a `Text` or `Msg` of its own, translated with it (a setting's title, the error

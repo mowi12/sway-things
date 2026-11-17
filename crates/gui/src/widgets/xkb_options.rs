@@ -102,7 +102,7 @@ fn group_choices(group: &str, none: &str) -> Vec<(String, Option<String>)> {
                 .options_of(group)
                 .iter()
                 .filter(|option| !option.extra)
-                .map(|option| (option.label().to_owned(), Some(option.name.clone()))),
+                .map(|option| (option.shown().to_owned(), Some(option.name.clone()))),
         )
         .collect()
 }
@@ -421,7 +421,7 @@ impl OptionBrowser {
                 none
             });
             for option in &group.options {
-                let check = gtk::CheckButton::with_label(option.label());
+                let check = gtk::CheckButton::with_label(option.shown());
                 check.set_tooltip_text(Some(&option.name));
                 if let Some(none) = &none {
                     check.set_group(Some(none));
@@ -436,17 +436,18 @@ impl OptionBrowser {
                 checks.push(OptionCheck {
                     check,
                     name: option.name.clone(),
-                    description: option.label().to_lowercase(),
+                    // Search matches the English description and the one shown.
+                    description: format!("{}\n{}", option.label(), option.shown()).to_lowercase(),
                     extra: option.extra,
                     group: index,
                 });
             }
-            let expander = gtk::Expander::new(Some(group.item.label()));
+            let expander = gtk::Expander::new(Some(group.item.shown()));
             expander.set_child(Some(&list));
             imp.groups_box.append(&expander);
             groups.push(Group {
                 expander,
-                label: group.item.label().to_lowercase(),
+                label: format!("{}\n{}", group.item.label(), group.item.shown()).to_lowercase(),
                 none,
             });
         }

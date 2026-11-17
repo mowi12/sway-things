@@ -45,9 +45,9 @@ pub fn choices(setting: &Setting) -> Option<Vec<(String, String)>> {
                     .map(|model| {
                         let label = match &model.vendor {
                             Some(vendor) if !model.label().starts_with(vendor.as_str()) => {
-                                format!("{vendor} {}", model.label())
+                                format!("{vendor} {}", model.shown())
                             }
-                            _ => model.label().to_owned(),
+                            _ => model.shown().to_owned(),
                         };
                         (model.name.clone(), label)
                     }),

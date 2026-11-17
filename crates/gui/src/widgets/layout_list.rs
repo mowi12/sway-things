@@ -525,11 +525,11 @@ impl LayoutList {
         let mut choices = Vec::new();
         for layout in &xkb::rules().layouts {
             imp.results
-                .append(&result_row(layout.item.label(), &layout.item.name));
+                .append(&result_row(layout.item.shown(), &layout.item.name));
             choices.push((layout.item.name.clone(), String::new()));
             for variant in &layout.variants {
                 imp.results.append(&result_row(
-                    variant.label(),
+                    variant.shown(),
                     &format!("{}({})", layout.item.name, variant.name),
                 ));
                 choices.push((layout.item.name.clone(), variant.name.clone()));
@@ -625,7 +625,7 @@ fn variant_choices(layout: &str, current: &str) -> Vec<(String, String)> {
             known
                 .variants
                 .iter()
-                .map(|variant| (variant.name.clone(), variant.label().to_owned())),
+                .map(|variant| (variant.name.clone(), variant.shown().to_owned())),
         );
     }
     if !choices.iter().any(|(name, _)| name == current) {

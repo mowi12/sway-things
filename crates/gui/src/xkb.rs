@@ -27,22 +27,23 @@ pub fn rules() -> &'static XkbRules {
 pub fn layout_label(layout: &str) -> String {
     rules()
         .layout(layout)
-        .map_or_else(|| layout.to_owned(), |known| known.item.label().to_owned())
+        .map_or_else(|| layout.to_owned(), |known| known.item.shown().to_owned())
 }
 
 /// The name of a variant of `layout` to show.
 pub fn variant_label(layout: &str, variant: &str) -> String {
     rules()
         .variant(layout, variant)
-        .map_or_else(|| variant.to_owned(), |known| known.label().to_owned())
+        .map_or_else(|| variant.to_owned(), |known| known.shown().to_owned())
 }
 
-/// Whether `item` matches the lowercase `query`: its name, description, short description, or
-/// one of its languages or countries.
+/// Whether `item` matches the lowercase `query`: its name, description (in English or as shown),
+/// short description, or one of its languages or countries.
 pub fn matches(item: &Item, query: &str) -> bool {
     let contains = |text: &str| text.to_lowercase().contains(query);
     contains(&item.name)
         || item.description.as_deref().is_some_and(contains)
+        || contains(item.shown())
         || item.short_description.as_deref().is_some_and(contains)
         || item.languages.iter().any(|language| contains(language))
         || item.countries.iter().any(|country| contains(country))

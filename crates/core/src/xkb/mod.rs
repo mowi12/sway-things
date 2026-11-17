@@ -98,9 +98,14 @@ pub struct Item {
 }
 
 impl Item {
-    /// The description to show, or the name if there is none.
+    /// The description, or the name if there is none: in English, for search and logs.
     pub fn label(&self) -> &str {
         self.description.as_deref().unwrap_or(&self.name)
+    }
+
+    /// [`Item::label`] in the user's language, as xkeyboard-config translates it.
+    pub fn shown(&self) -> &str {
+        crate::i18n::tr_xkb(self.label())
     }
 }
 
