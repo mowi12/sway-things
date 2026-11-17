@@ -566,6 +566,9 @@ pub struct Checkup<'a, V> {
     pub status: &'a IncludeStatus,
     /// What validates the generated files: `sway --validate`.
     pub validator: &'a V,
+    /// The outputs of the session, if one runs: a line of the user's that names an output by
+    /// its connector competes with a value stored by its make, model and serial.
+    pub outputs: Option<&'a crate::outputs::Outputs>,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -983,7 +986,10 @@ impl<V: Validate> Checkup<'_, V> {
                 self.status,
                 entry.setting,
                 entry.device,
-                conflict::Known::default(),
+                conflict::Known {
+                    devices: None,
+                    outputs: self.outputs,
+                },
             ) else {
                 continue;
             };

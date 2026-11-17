@@ -94,6 +94,7 @@ impl Setup {
             locations: &self.locations,
             status: &self.status,
             validator: &self.validator,
+            outputs: None,
         }
     }
 
@@ -336,6 +337,26 @@ fn per_device_conflicts_name_the_device() {
         "{}",
         wins.message.english()
     );
+}
+
+#[test]
+fn a_line_naming_a_display_by_its_connector_competes_with_its_identifier() {
+    let setup = Setup::new(
+        "version = 1\n\n[display.\"A B C\".output]\nscale = 1.5\n",
+        &format!("{INCLUDE}output DP-4 scale 2\n"),
+    );
+    let json = r#"[{"name": "DP-4", "active": true, "primary": false, "make": "A",
+        "model": "B", "serial": "C", "modes": []}]"#;
+    let outputs = crate::outputs::Outputs::new(&serde_json::from_str::<Vec<_>>(json).unwrap());
+    let checkup = Checkup {
+        outputs: Some(&outputs),
+        ..setup.checkup()
+    };
+    let diagnosis = block_on(checkup.diagnose());
+    let wins = one(&diagnosis, Code::ConfigWins);
+    assert_eq!(wins.device.as_deref(), Some("A B C"));
+    // Without the session's outputs, the line can't be told to be about that display.
+    none(&setup.diagnose(), Code::ConfigWins);
 }
 
 #[test]

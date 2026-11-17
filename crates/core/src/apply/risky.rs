@@ -242,7 +242,7 @@ impl<V: Validate> Applier<V> {
             known,
         );
         let (session, runs_as_tried) =
-            as_running(&self.state, &settings_changed, device, outputs.as_ref())?;
+            as_running(&self.state, &settings_changed, device, outputs.as_ref());
         let snapshot = snapshot(&settings, device, &session, status, self.compositor, known);
         let now = (&session, &snapshot);
         let then = (&tried, &over);
@@ -659,7 +659,7 @@ fn as_running(
     changed: &[(&'static Setting, Option<Value>)],
     device: Option<&str>,
     outputs: Option<&Outputs>,
-) -> Result<(State, bool), ApplyError> {
+) -> (State, bool) {
     let mut session = state.clone();
     let mut runs_as_tried = true;
     for (setting, change) in changed {
@@ -667,13 +667,14 @@ fn as_running(
             .and_then(|device| outputs?.find(device))
             .and_then(|output| output.session_value(setting.key()));
         if let (Some(live), Some(stored)) = (&live, session.get(setting.key(), device)) {
+            // A value sway reports that the state can't hold is left out: the stored one stays.
             if live != stored {
-                session.set(setting.key(), device, live.clone(), None)?;
+                let _ = session.set(setting.key(), device, live.clone(), None);
             }
         }
         runs_as_tried &= live.is_some() && live.as_ref() == change.as_ref();
     }
-    Ok((session, runs_as_tried))
+    (session, runs_as_tried)
 }
 
 /// The value each setting of a risky change is tried with, and the values in effect of the

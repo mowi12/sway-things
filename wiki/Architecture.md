@@ -703,14 +703,15 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   would leave none on. Switching every output at once isn't offered: it is one at a time.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
-  of its own. So while an output is stored as off, `20-output.conf` ends with `exec_always sway-things hook displays`,
-  and at every start and reload `outputs::ensure_one_on` switches the first connected output on if none is on (for the
-  session only). While none is on, it waits until sway has reported no change of its outputs for three seconds (at a
-  login at the dock, the panel comes before the dock's monitors), and while sway reports no output at all, for up to a
-  minute. The row of a display stored as off that the hook switched on says _On for now: no other display was on_.
-  Without a session the outputs aren't known, so switching one off is allowed there; the hook catches what that leaves.
-  Undocking in a running session isn't covered: sway has no config hook for an output that goes; display profiles
-  (kanshi) are the place for that.
+  of its own. So while Sway Things stores whether an output is on (a line of the user's may still switch it off),
+  `20-output.conf` ends with `exec_always sway-things hook displays`, and at every start and reload
+  `outputs::ensure_one_on` switches the first connected output on if none is on (for the session only). While none is
+  on, it waits until sway has reported no change of its outputs for three seconds (at a login at the dock, the panel
+  comes before the dock's monitors), but no longer than a minute: while sway reports no output at all, it then gives up,
+  and while sway keeps reporting changes, it switches one on anyway. The row of a display stored as off that the hook
+  switched on says _On for now: no other display was on_. Without a session the outputs aren't known, so switching one
+  off is allowed there; the hook catches what that leaves. Undocking in a running session isn't covered: sway has no
+  config hook for an output that goes; display profiles (kanshi) are the place for that.
 - **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
   size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While
   an output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
@@ -1094,7 +1095,7 @@ Sway Things keeps nothing running. Behavior that has to happen without the windo
 is needed, generated config calls the CLI briefly:
 
 - **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
-  with `exec_always` while an output is stored as off.
+  with `exec_always` while Sway Things stores whether an output is on.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

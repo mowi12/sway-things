@@ -684,7 +684,7 @@ fn files_on_disk_are_read_without_writing_anything() {
 }
 
 #[test]
-fn a_display_stored_as_off_brings_the_guard() {
+fn a_display_stored_as_off_or_on_brings_the_guard() {
     let (_dir, off) = state(
         "",
         "[display.\"A B C\".output]\nenabled = false\n\n[display.\"D E F\".output]\nenabled = false\n",
@@ -700,8 +700,12 @@ exec_always sway-things hook displays
 "
         )
     );
-    // Switched on again: no guard.
+    // Stored as on: still the guard, since a line of the user's may switch it off.
     let (_dir, on) = state("", "[display.\"A B C\".output]\nenabled = true\n");
     let files = generate(Registry::builtin(), &on, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // Nothing stored about it: no guard.
+    let (_dir, scaled) = state("", "[display.\"A B C\".output]\nscale = 2.0\n");
+    let files = generate(Registry::builtin(), &scaled, SWAY_1_10);
     assert!(!text(&files, ConfigFile::Output).contains("hook"));
 }

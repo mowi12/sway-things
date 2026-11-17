@@ -254,8 +254,6 @@ pub async fn run_for_user(command: &Command) -> Exit {
 struct Displays {
     /// The outputs of the session, if there is one and the command reads or writes settings.
     outputs: Option<Outputs>,
-    /// Every device something is stored for.
-    stored: Vec<String>,
 }
 
 impl Displays {
@@ -283,25 +281,15 @@ impl Displays {
                 return Err(Exit::Failure);
             }
         }
-        let stored = session
-            .applier
-            .state()
-            .entries()
-            .into_iter()
-            .filter_map(|entry| entry.device.map(ToOwned::to_owned))
-            .collect();
         Ok(Self {
             outputs: listed.and_then(Result::ok),
-            stored,
         })
     }
 
-    /// `device` as settings are stored for it: as given if something is stored by exactly that,
-    /// else as [`resolve_display`] finds it.
+    /// `device` as settings are stored for it ([`resolve_display`]): a connected display named
+    /// by its name is that display; anything else, such as a value stored by a name, stays as
+    /// given.
     fn resolve(&self, key: Option<&str>, device: Option<&str>) -> Option<String> {
-        if device.is_some_and(|device| self.stored.iter().any(|stored| stored == device)) {
-            return device.map(ToOwned::to_owned);
-        }
         resolve_display(key, device, self.outputs.as_ref())
     }
 }
@@ -396,12 +384,21 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
     look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
+    let outputs = match Client::connect().await {
+        Ok(mut client) => client
+            .outputs()
+            .await
+            .ok()
+            .map(|found| Outputs::new(&found)),
+        Err(_) => None,
+    };
     let checkup = Checkup {
         found: &found,
         state: &state,
         locations: &locations,
         status: &status,
         validator: &validator,
+        outputs: outputs.as_ref(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -615,6 +612,14 @@ async fn doctor_in<V: Validate>(
             installed: Installed::Version(compositor),
         }
     };
+    let outputs = match session.applier.client() {
+        Some(client) => client
+            .outputs()
+            .await
+            .ok()
+            .map(|found| Outputs::new(&found)),
+        None => None,
+    };
     let applier = &session.applier;
     let checkup = Checkup {
         found: &found,
@@ -622,6 +627,7 @@ async fn doctor_in<V: Validate>(
         locations: applier.locations(),
         status: &session.status,
         validator: applier.validator(),
+        outputs: outputs.as_ref(),
     };
     doctor(&checkup, None, args, out).await
 }

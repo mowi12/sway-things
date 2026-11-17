@@ -48,7 +48,7 @@ use std::collections::BTreeSet;
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
 use crate::outputs;
-use crate::registry::{ConfigFile, Registry, Setting, Value};
+use crate::registry::{ConfigFile, Registry, Setting};
 use crate::state::State;
 
 pub use manifest::{Manifest, Ownership};
@@ -210,16 +210,16 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
     }
 }
 
-/// While an output is stored as off, the line that runs `sway-things hook displays` whenever
-/// sway starts or reloads: it switches an output on if none is on, so an output that stays off
-/// never leaves the user without a display (a laptop's panel, switched off at the dock, when
-/// sway starts without the dock).
+/// While Sway Things stores whether an output is on, the line that runs `sway-things hook
+/// displays` whenever sway starts or reloads: it switches an output on if none is on, so an
+/// output that stays off never leaves the user without a display (a laptop's panel, switched off
+/// at the dock, when sway starts without the dock), even where a line of the user's switches off
+/// what is stored as on.
 fn display_guard(state: &State) -> Option<Line> {
     let off: Vec<&str> = state
         .entries()
         .into_iter()
         .filter(|entry| entry.setting.key() == outputs::ENABLED)
-        .filter(|entry| *entry.value == Value::Bool(false))
         .filter_map(|entry| entry.device)
         .collect();
     let first = off.first()?;

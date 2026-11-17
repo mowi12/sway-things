@@ -72,8 +72,8 @@ pub fn guard_command() -> crate::command::SwayCmd {
 /// While none is on, it waits until sway has reported no change of its outputs for
 /// [`QUIET`]: at a login at the dock, sway reports the panel (off) before the dock's monitors,
 /// which come a few seconds later, and switching the panel on meanwhile would undo what the user
-/// stored. While sway reports no output at all, it waits for at most [`WAIT_FOR_OUTPUTS`]; it
-/// ends with sway.
+/// stored. While sway reports no output at all, it waits for at most [`WAIT_FOR_OUTPUTS`]; while
+/// sway keeps reporting changes, it switches one on after that time anyway. It ends with sway.
 ///
 /// # Errors
 ///
