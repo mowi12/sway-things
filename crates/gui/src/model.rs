@@ -905,8 +905,21 @@ impl Model {
                 while watch.changed().await.is_some() {
                     model.take_outputs(watch.outputs());
                 }
+                // sway is gone: what it reported is no longer so.
+                model.forget_outputs();
             }
         ));
+    }
+
+    /// Forgets the connected outputs once sway is gone; those with stored values stay listed.
+    fn forget_outputs(&self) {
+        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
+            let mut outputs = Outputs::default();
+            outputs.set_stored(&core.state);
+            core.outputs = outputs;
+            core.outputs_known = false;
+        }
+        self.emit_by_name::<()>("changed", &[]);
     }
 
     /// Takes the connected outputs of `outputs`, and lists those with stored values too.

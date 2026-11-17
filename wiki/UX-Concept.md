@@ -123,9 +123,11 @@ off go through the safety net.
 - **The output's settings:** the _Display_ section starts with _Settings for_: _All displays_ and each output, numbered
   as on the canvas, with "(off)" or "(not connected)". A click on a tile picks it there, and the other way round; at
   first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (_Automatic_,
-  then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.95 Hz_), _Scale_, _Rotation_ and
+  then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.951 Hz_), _Scale_, _Rotation_ and
   _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
-  _Chosen by sway_.
+  _Chosen by sway_. _All displays_ offers only the scale and the rotation: a mode, a position or switching off is for
+  one display at a time. _Use this display_ says that a display that is off stays off when sway starts, also when it is
+  the only one connected then.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
 
 ### Bluetooth

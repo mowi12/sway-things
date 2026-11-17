@@ -5281,7 +5281,7 @@ fn check_display_pick() -> Outcome {
         })
         .unwrap_or_default();
     ensure(
-        offered == ["Automatic", "2560 \u{d7} 1440 \u{b7} 59.95 Hz"],
+        offered == ["Automatic", "2560 \u{d7} 1440 \u{b7} 59.951 Hz"],
         &format!("  the mode row offers {offered:?}"),
     )?;
     // The picker back to every output: no tile is pressed.
@@ -5296,9 +5296,16 @@ fn check_display_pick() -> Outcome {
         "a tile stays pressed for all displays",
     )?;
     ensure(
-        row(&window, "output.mode")?.device().is_none(),
+        row(&window, "output.scale")?.device().is_none(),
         "the rows aren't for all displays",
     )?;
+    // What is only set for one display at a time isn't offered for all of them.
+    for key in ["output.position", "output.mode", "output.enabled"] {
+        let hidden = row(&window, key)?
+            .parent()
+            .is_some_and(|item| !item.is_visible());
+        ensure(hidden, &format!("  {key} is offered for all displays"))?;
+    }
     // Every output stays picked when the model changes.
     fixture.model.emit_by_name::<()>("changed", &[]);
     settle(&window)?;

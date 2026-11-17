@@ -11,8 +11,8 @@
 //!
 //! Settings are stored for an output by its [identifier](Output::identifier): make, model and
 //! serial as sway joins them (`Samsung Electric Company LF27T850 H4LR100370`), which stays the
-//! same when a dock or another port gives the output another name (`DP-4`). Two outputs that sway
-//! can't tell apart by make, model and serial (both without a serial) are stored by their names.
+//! same when a dock or another port gives the output another name (`DP-4`). An output without a
+//! serial is stored by its name: two monitors of one model couldn't be told apart otherwise.
 //! Every one of these strings is external: they are shown, and only reach a command through
 //! [`OutputSelector::output`](crate::command::output::OutputSelector::output).
 //!
@@ -188,8 +188,8 @@ impl Output {
     }
 
     /// What settings are stored for and commands select the output by: make, model and serial
-    /// (`Dell Inc. DELL U2723QE ABC123`), or its name if another connected output has the same
-    /// ones or they are too long for sway.
+    /// (`Dell Inc. DELL U2723QE ABC123`), or its name if it reports no serial, another connected
+    /// output has the same identifier, or it is too long for sway.
     pub fn identifier(&self) -> &str {
         &self.identifier
     }
@@ -340,15 +340,15 @@ impl Outputs {
             .filter(|output| !output.non_desktop)
             .map(Output::connected)
             .collect();
-        // An output that names neither make, model nor serial has an identifier that says
-        // nothing about it: it is stored by its name.
+        // Without a serial, two monitors of one model have the same identifier, and which one is
+        // plugged in decides what it stands for: such an output is stored by its name, which
+        // stays the same whatever else is connected.
         let identifiers: Vec<Option<String>> = connected
             .iter()
             .map(|output| {
-                let unknown = [&output.make, &output.model, &output.serial]
-                    .iter()
-                    .all(|part| part.is_empty() || part.as_str() == "Unknown");
-                output.sway_identifier().filter(|_| !unknown)
+                let serial = output.serial.trim();
+                let known = !serial.is_empty() && serial != "Unknown";
+                output.sway_identifier().filter(|_| known)
             })
             .collect();
         for (index, output) in connected.iter_mut().enumerate() {

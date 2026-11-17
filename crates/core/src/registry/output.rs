@@ -40,7 +40,8 @@ pub(super) fn settings() -> Vec<Setting> {
             .section(section)
             .title(msg!("Use this display"))
             .subtitle(msg!(
-                "A display that is off gives its workspaces and windows to the others"
+                "A display that is off gives its workspaces and windows to the others. It stays \
+                 off when sway starts, also when no other display is connected"
             ))
             .keywords(&[
                 msg!("monitor"),
@@ -49,6 +50,7 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("off"),
             ])
             .scope(Scope::PerOutput)
+            .one_at_a_time()
             .apply(Apply::Risky)
             .sway(
                 Directive::output("enable"),
@@ -69,6 +71,7 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("monitor"),
             ])
             .scope(Scope::PerOutput)
+            .one_at_a_time()
             .apply(Apply::Risky)
             .check_text(check_mode)
             .sway(
@@ -116,6 +119,7 @@ pub(super) fn settings() -> Vec<Setting> {
             ))
             .keywords(&[msg!("arrange"), msg!("layout"), msg!("left"), msg!("right")])
             .scope(Scope::PerOutput)
+            .one_at_a_time()
             .check_text(check_position)
             .sway(
                 Directive::output("pos"),

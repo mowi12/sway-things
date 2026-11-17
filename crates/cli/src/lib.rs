@@ -65,7 +65,9 @@ pub enum Command {
     Get {
         /// The setting, e.g. windows.gaps.inner
         key: Option<String>,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial or its name as
+        /// `swaymsg -t get_outputs` shows them
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Print JSON for scripts
@@ -80,7 +82,9 @@ pub enum Command {
         /// as items separated by commas (us,de)
         #[arg(allow_hyphen_values = true)]
         value: String,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial or its name as
+        /// `swaymsg -t get_outputs` shows them
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Store the value for this machine only, in settings.d/<hostname>.toml
@@ -100,7 +104,9 @@ pub enum Command {
     Reset {
         /// The setting, e.g. windows.gaps.inner
         key: String,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial or its name as
+        /// `swaymsg -t get_outputs` shows them
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Reset a setting that can lock you out without asking to keep it
@@ -1003,7 +1009,8 @@ fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
             StateError::UnknownKey { .. }
             | StateError::InvalidValue { .. }
             | StateError::NotPerDevice { .. }
-            | StateError::InvalidDevice { .. },
+            | StateError::InvalidDevice { .. }
+            | StateError::OneAtATime { .. },
         )
         | ApplyError::Render(_) => Exit::Usage,
         ApplyError::Unsupported { .. }

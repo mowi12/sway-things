@@ -1638,21 +1638,24 @@ const PANEL: &str = "A B C";
 fn switching_off_the_last_output_that_is_on_is_refused() {
     let sway = desk();
     let mut setup = Setup::live(&sway, "version = 1\n");
-    for output in [Some(PANEL), None] {
-        let error = setup
-            .try_risky(ENABLED, output, Value::Bool(false), "")
-            .unwrap_err();
-        assert!(
-            matches!(
-                error,
-                ApplyError::Lockout {
-                    lockout: Lockout::Display,
-                    ..
-                }
-            ),
-            "{error}"
-        );
-    }
+    let error = setup
+        .try_risky(ENABLED, Some(PANEL), Value::Bool(false), "")
+        .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ApplyError::Lockout {
+                lockout: Lockout::Display,
+                ..
+            }
+        ),
+        "{error}"
+    );
+    // Every output at once is never switched: one at a time.
+    assert!(matches!(
+        setup.try_risky(ENABLED, None, Value::Bool(false), ""),
+        Err(ApplyError::State(StateError::OneAtATime { .. }))
+    ));
     // The output that is off already can be switched off.
     setup
         .try_risky(ENABLED, Some("D E F"), Value::Bool(false), "")
@@ -1664,17 +1667,8 @@ fn switching_off_the_last_output_that_is_on_is_refused() {
             .all(|command| !command.contains("A B C"))
     );
 
-    // Without a session, only every output at once is refused.
+    // Without a session, one output can be switched off.
     let mut offline = Setup::offline("version = 1\n");
-    assert!(matches!(
-        block_on(offline.applier.set_risky_unchecked(
-            ENABLED,
-            None,
-            Value::Bool(false),
-            &offline.access
-        )),
-        Err(ApplyError::Lockout { .. })
-    ));
     block_on(offline.applier.set_risky_unchecked(
         ENABLED,
         Some(PANEL),

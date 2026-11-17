@@ -44,6 +44,9 @@ const NUDGE: i32 = 10;
 /// Outputs and their places, by identifier.
 type Layout = Vec<(String, Rect)>;
 
+/// What the app stores for the size of each output (scale, rotation, mode), by identifier.
+type Sizes = std::collections::BTreeMap<String, Vec<Option<Value>>>;
+
 /// Outputs reported while a drag ran, with the number of each, by identifier.
 type Deferred = (Outputs, Vec<(String, usize)>);
 
@@ -305,9 +308,10 @@ mod imp {
         pub(super) deferred: RefCell<Option<super::Deferred>>,
         /// The guide lines: a vertical and a horizontal one, in the accent color.
         pub(super) guides: OnceCell<(gtk::Box, gtk::Box)>,
-        /// What the app stored or tries for the size of each output (scale, rotation, mode), as
-        /// of the last update: a size that changes with it changed through the app.
-        pub(super) sizes: RefCell<std::collections::BTreeMap<String, Vec<Option<super::Value>>>>,
+        /// The layout and what the app stored for the sizes of its outputs (scale, rotation,
+        /// mode) as of the last change that didn't wait to be kept: a size that changed with
+        /// what is stored changed through the app.
+        pub(super) baseline: RefCell<Option<(super::Layout, super::Sizes)>>,
     }
 
     #[glib::object_subclass]
@@ -458,7 +462,6 @@ impl Canvas {
             imp.deferred.replace(Some((outputs.clone(), numbers)));
             return;
         }
-        let before: Vec<(String, Rect)> = self.layout();
         let mut shown: Vec<Shown> = outputs
             .iter()
             .filter(|output| output.is_connected())
@@ -523,43 +526,50 @@ impl Canvas {
         self.show_selected();
         self.queue_allocate();
         self.queue_draw();
-        // What the app stored for the sizes counts from one change of the layout to the next:
-        // sway reports a new size after the app stored it.
-        let sizes = self.stored_sizes();
-        if self.layout() != before || imp.sizes.borrow().is_empty() {
-            let before_sizes = imp.sizes.replace(sizes.clone());
-            self.follow_resize(&before, &before_sizes, &sizes);
-        }
+        self.follow_size_changes();
     }
 
-    /// What the app stores or tries for the size of each output that is on: its scale,
-    /// rotation and mode, each as stored, or as a risky change that waits.
-    fn stored_sizes(&self) -> std::collections::BTreeMap<String, Vec<Option<Value>>> {
+    /// Compares the layout with the one before the last change the app stored: when one output
+    /// changed its size with what the app stores for it, the others move along. While a risky
+    /// change waits, the layout before it stays the one to compare with, so a change that is
+    /// reverted moves nothing and one that is kept moves the others then.
+    fn follow_size_changes(&self) {
+        let imp = self.imp();
+        let waits = imp
+            .model
+            .get()
+            .is_some_and(|model| model.pending_change().is_some());
+        if waits {
+            return;
+        }
+        let sizes = self.stored_sizes();
+        let baseline = imp.baseline.take();
+        if let Some((layout, sizes_before)) = baseline {
+            if layout != self.layout() {
+                self.follow_resize(&layout, &sizes_before, &sizes);
+            }
+        }
+        imp.baseline.replace(Some((self.layout(), sizes)));
+    }
+
+    /// What the app stores for the size of each output that is on: its scale, rotation and
+    /// mode.
+    fn stored_sizes(&self) -> Sizes {
         let Some(model) = self.imp().model.get() else {
-            return std::collections::BTreeMap::new();
+            return Sizes::new();
         };
         let registry = sway_things_core::registry::Registry::builtin();
-        let pending = model.pending_change();
         self.layout()
             .into_iter()
             .map(|(identifier, _)| {
                 let values = [SCALE, TRANSFORM, MODE]
                     .iter()
                     .map(|key| {
-                        let tried = pending
-                            .as_ref()
-                            .filter(|pending| pending.device() == Some(identifier.as_str()))
-                            .and_then(|pending| {
-                                pending.values().find(|tried| tried.key == *key).cloned()
-                            })
-                            .map(|tried| tried.value);
-                        tried.or_else(|| {
-                            let setting = registry.get(key)?;
-                            model.stored_in(setting, Some(&identifier))?;
-                            model
-                                .view(setting, Some(&identifier))
-                                .map(|view| view.value)
-                        })
+                        let setting = registry.get(key)?;
+                        model.stored_in(setting, Some(&identifier))?;
+                        model
+                            .view(setting, Some(&identifier))
+                            .map(|view| view.value)
                     })
                     .collect();
                 (identifier, values)
@@ -571,12 +581,7 @@ impl Canvas {
     /// `before`, if the layout had neither gaps nor overlaps and now has, and the change came
     /// through the app: what it stores or tries for the output's size changed too. A change from
     /// elsewhere (`swaymsg`) is left as it is.
-    fn follow_resize(
-        &self,
-        before: &[(String, Rect)],
-        sizes_before: &std::collections::BTreeMap<String, Vec<Option<Value>>>,
-        sizes: &std::collections::BTreeMap<String, Vec<Option<Value>>>,
-    ) {
+    fn follow_resize(&self, before: &[(String, Rect)], sizes_before: &Sizes, sizes: &Sizes) {
         let after = self.layout();
         if self.imp().dropped.borrow().is_some() || before.len() != after.len() {
             return;

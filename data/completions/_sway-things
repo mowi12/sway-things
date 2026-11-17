@@ -31,7 +31,7 @@ _sway-things() {
         case $line[1] in
             (get)
 _arguments "${_arguments_options[@]}" : \
-'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--device=[The input device or display\: an input device by its identifier as \`swaymsg -t get_inputs\` shows it, a display by its make, model and serial or its name as \`swaymsg -t get_outputs\` shows them]:IDENTIFIER:_default' \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
 '--json[Print JSON for scripts]' \
 '-h[Print help]' \
@@ -41,7 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (set)
 _arguments "${_arguments_options[@]}" : \
-'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--device=[The input device or display\: an input device by its identifier as \`swaymsg -t get_inputs\` shows it, a display by its make, model and serial or its name as \`swaymsg -t get_outputs\` shows them]:IDENTIFIER:_default' \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
 '(--shared)--host[Store the value for this machine only, in settings.d/<hostname>.toml]' \
 '--shared[Store the value in the shared settings.toml]' \
@@ -55,7 +55,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (reset)
 _arguments "${_arguments_options[@]}" : \
-'--device=[The input device, by its identifier as \`swaymsg -t get_inputs\` shows it]:IDENTIFIER:_default' \
+'--device=[The input device or display\: an input device by its identifier as \`swaymsg -t get_inputs\` shows it, a display by its make, model and serial or its name as \`swaymsg -t get_outputs\` shows them]:IDENTIFIER:_default' \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
 '--yes[Reset a setting that can lock you out without asking to keep it]' \
 '--overwrite[Replace generated files that were changed outside Sway Things]' \

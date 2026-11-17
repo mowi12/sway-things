@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-19 08:41+0100\n"
+"POT-Creation-Date: 2026-11-19 08:43+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3103,7 +3103,9 @@ msgid "Use this display"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
-msgid "A display that is off gives its workspaces and windows to the others"
+msgid ""
+"A display that is off gives its workspaces and windows to the others. It "
+"stays off when sway starts, also when no other display is connected"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -3973,6 +3975,11 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
+msgid "{key} is only set for one display, below display.\"<name>\""
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
 msgid "display.{output} is not a table for a display"
 msgstr ""
 
@@ -4004,6 +4011,11 @@ msgstr ""
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "there is no snapshot {id}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} is set for one display at a time; name it with --device"
 msgstr ""
 
 #: crates/core/src/state/mod.rs

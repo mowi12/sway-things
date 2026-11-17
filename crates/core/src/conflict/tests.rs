@@ -389,7 +389,7 @@ fn every_known_output_gets_a_report() {
             None,
             Some(LEFT),
             Some("Samsung LF27T850 H4LR100370"),
-            Some("BOE 0x0BCA Unknown")
+            Some("eDP-1")
         ]
     );
 }

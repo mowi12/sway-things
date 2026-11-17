@@ -119,6 +119,10 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   title the app shows the group's row with. A setting alone in its group names none.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
+- **One at a time:** a setting built with `.one_at_a_time()` is only stored for one device or output, never for all
+  of them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's
+  position for every output would stack them all on one spot, and a mode or switching off for every output couldn't be
+  tried and reverted safely. The Displays page offers only the scale and the rotation for _All displays_.
 - **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
   output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
   [Outputs](#outputs)). `Setting::check_device` says whether a string can select a device or an output for a setting.
@@ -677,9 +681,11 @@ map to.
   Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
 - **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
   (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
-  port gives the output another name. An output is stored by its name instead when its identifier says nothing (all
-  three `Unknown`, like a headless output), when another connected output has the same one (two monitors of one model
-  without a serial), or when it is longer than the 127 bytes sway keeps.
+  port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop
+  panels) is stored by its name instead: two monitors of one model would share the identifier, and which one is plugged
+  in would decide what it stands for. So is an output whose identifier another connected output reports too (a
+  broken serial) or that is longer than the 127 bytes sway keeps; values stored by such an identifier stay listed as an
+  output that isn't connected, where they can be removed.
 - **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
   `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
   changes are reported (added, removed, changed).

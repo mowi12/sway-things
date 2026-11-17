@@ -447,6 +447,48 @@ scale = 1.0
 }
 
 #[test]
+fn a_position_mode_or_switch_is_only_for_one_display() {
+    let fixture = Fixture::new(
+        Some("[output]\nposition = \"0,0\"\nscale = 2.0\nenabled = false\n"),
+        None,
+    );
+    let mut state = fixture.load();
+    assert_eq!(
+        problems(&state),
+        [
+            (
+                Layer::Shared,
+                ProblemKind::OneAtATime {
+                    key: "output.position"
+                }
+            ),
+            (
+                Layer::Shared,
+                ProblemKind::OneAtATime {
+                    key: "output.enabled"
+                }
+            ),
+        ]
+    );
+    // The scale for every display still loads.
+    assert_eq!(state.get("output.scale", None), Some(&Value::Decimal(2.0)));
+    for key in ["output.position", "output.mode", "output.enabled"] {
+        let value = match key {
+            "output.enabled" => Value::Bool(false),
+            _ => Value::Text(String::new()),
+        };
+        assert!(
+            matches!(
+                state.set(key, None, value.clone(), None),
+                Err(StateError::OneAtATime { .. })
+            ),
+            "{key}"
+        );
+        state.set(key, Some("DP-4"), value, None).unwrap();
+    }
+}
+
+#[test]
 fn values_render_through_the_registry() {
     let fixture = Fixture::new(
         Some("[input.touchpad]\ntap = true\n[windows.focused]\nchild_border = \"#3b6e4f\"\n"),

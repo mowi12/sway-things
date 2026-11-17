@@ -139,6 +139,10 @@ impl SettingsFile {
         let device_name = || device.map(ToOwned::to_owned);
         if let Some(setting) = registry.get(&key) {
             let key = setting.key();
+            if place.is_none() && setting.is_one_at_a_time() {
+                self.problems.push(ProblemKind::OneAtATime { key });
+                return;
+            }
             if let Some((table, device)) = place {
                 if setting.device_table() != Some(table) {
                     self.problems.push(if table == OUTPUT_TABLE {

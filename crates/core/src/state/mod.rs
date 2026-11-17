@@ -193,6 +193,11 @@ pub enum ProblemKind {
         /// The device.
         device: String,
     },
+    /// A setting that is only stored for one device or output stands outside their tables.
+    OneAtATime {
+        /// The key.
+        key: &'static str,
+    },
     /// An entry of the `display` table isn't a table named after an output.
     InvalidOutput {
         /// The name of the entry.
@@ -243,6 +248,10 @@ impl ProblemKind {
             ))
             .arg("key", key)
             .arg("device", device),
+            Self::OneAtATime { key } => Text::new(msg!(
+                "{key} is only set for one display, below display.\"<name>\""
+            ))
+            .arg("key", key),
             Self::InvalidOutput { output } => {
                 Text::new(msg!("display.{output} is not a table for a display"))
                     .arg("output", format!("{output:?}"))
@@ -546,6 +555,9 @@ impl State {
             .ok_or_else(|| StateError::UnknownKey {
                 key: key.to_owned(),
             })?;
+        if device.is_none() && setting.is_one_at_a_time() {
+            return Err(StateError::OneAtATime { key: setting.key() });
+        }
         if let Some(device) = device {
             match setting.check_device(device) {
                 Ok(()) => {}
@@ -810,6 +822,11 @@ pub enum StateError {
         /// The key.
         key: &'static str,
     },
+    /// The setting is stored for one device or output at a time, but none was named.
+    OneAtATime {
+        /// The key.
+        key: &'static str,
+    },
     /// The string isn't an input device's identifier or an output's name, as the setting needs.
     InvalidDevice {
         /// The string.
@@ -873,6 +890,10 @@ impl StateError {
             Self::UnknownSnapshot { id } => {
                 Text::new(msg!("there is no snapshot {id}")).arg("id", id)
             }
+            Self::OneAtATime { key } => Text::new(msg!(
+                "{key} is set for one display at a time; name it with --device"
+            ))
+            .arg("key", key),
             Self::UnusableSnapshot { id } => {
                 Text::new(msg!("snapshot {id} holds a file that can't be loaded")).arg("id", id)
             }

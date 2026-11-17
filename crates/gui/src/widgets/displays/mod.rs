@@ -401,12 +401,93 @@ impl OutputPicker {
 
     /// Calls `callback` with the output the user picked, or `None` for every output.
     fn connect_picked<F: Fn(Option<&str>) + 'static>(&self, callback: F) {
-        let picker = self.clone();
-        self.dropdown.connect_selected_notify(move |_| {
-            if !picker.updating.get() {
-                callback(picker.selected().as_deref());
+        // Not the picker itself: the drop-down would keep itself alive.
+        let identifiers = Rc::clone(&self.identifiers);
+        let updating = Rc::clone(&self.updating);
+        self.dropdown.connect_selected_notify(move |dropdown| {
+            if updating.get() {
+                return;
             }
+            let picked = usize::try_from(dropdown.selected())
+                .ok()
+                .and_then(|index| index.checked_sub(1))
+                .and_then(|index| identifiers.borrow().get(index).cloned());
+            callback(picked.as_deref());
         });
+    }
+
+    /// The picker without keeping its widgets alive, for handlers of other objects.
+    fn downgrade(&self) -> WeakPicker {
+        WeakPicker {
+            root: self.root.downgrade(),
+            dropdown: self.dropdown.downgrade(),
+            labels: self.labels.clone(),
+            identifiers: Rc::clone(&self.identifiers),
+            updating: Rc::clone(&self.updating),
+        }
+    }
+}
+
+/// An [`OutputPicker`] whose widgets may be gone.
+#[derive(Debug)]
+struct WeakPicker {
+    root: glib::WeakRef<gtk::Box>,
+    dropdown: glib::WeakRef<gtk::DropDown>,
+    labels: gtk::StringList,
+    identifiers: Rc<RefCell<Vec<String>>>,
+    updating: Rc<std::cell::Cell<bool>>,
+}
+
+impl WeakPicker {
+    fn upgrade(&self) -> Option<OutputPicker> {
+        Some(OutputPicker {
+            root: self.root.upgrade()?,
+            dropdown: self.dropdown.upgrade()?,
+            labels: self.labels.clone(),
+            identifiers: Rc::clone(&self.identifiers),
+            updating: Rc::clone(&self.updating),
+        })
+    }
+}
+
+impl Arrangement {
+    /// The arrangement without keeping its widgets alive, for handlers of other objects.
+    fn downgrade(&self) -> WeakArrangement {
+        WeakArrangement {
+            root: self.root.downgrade(),
+            canvas: self.canvas.downgrade(),
+            empty: self.empty.downgrade(),
+            hint: self.hint.downgrade(),
+            gaps: self.gaps.downgrade(),
+            identify: self.identify.downgrade(),
+            identifying: Rc::clone(&self.identifying),
+        }
+    }
+}
+
+/// An [`Arrangement`] whose widgets may be gone.
+#[derive(Debug)]
+struct WeakArrangement {
+    root: glib::WeakRef<gtk::Box>,
+    canvas: glib::WeakRef<Canvas>,
+    empty: glib::WeakRef<gtk::Label>,
+    hint: glib::WeakRef<gtk::Widget>,
+    gaps: glib::WeakRef<gtk::Box>,
+    identify: glib::WeakRef<gtk::Button>,
+    identifying: Rc<RefCell<Option<Identifying>>>,
+}
+
+impl WeakArrangement {
+    fn upgrade(&self) -> Option<Arrangement> {
+        Some(Arrangement {
+            root: self.root.upgrade()?,
+            canvas: self.canvas.upgrade()?,
+            empty: self.empty.upgrade()?,
+            hint: self.hint.upgrade()?,
+            gaps: self.gaps.upgrade()?,
+            identify: self.identify.upgrade()?,
+            identifying: Rc::clone(&self.identifying),
+        })
     }
 }
 
@@ -471,7 +552,8 @@ pub fn mode_label(mode: Mode) -> String {
     let size = format!("{} \u{d7} {}", mode.width(), mode.height());
     match mode.refresh() {
         Some(millihertz) => {
-            let hertz = format!("{:.2}", f64::from(millihertz) / 1000.0);
+            // Three decimals, as sway counts them: 59.95 and 59.951 Hz are two modes.
+            let hertz = format!("{:.3}", f64::from(millihertz) / 1000.0);
             let hertz = hertz.trim_end_matches('0').trim_end_matches('.');
             format!("{size} \u{b7} {hertz} Hz")
         }
@@ -495,6 +577,13 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                 row.set_device(identifier);
                 offer_modes(&row, output);
+                // A position is only for one display: every display at one spot overlaps.
+                let one_at_a_time = row
+                    .setting()
+                    .is_some_and(sway_things_core::registry::Setting::is_one_at_a_time);
+                if let Some(item) = row.parent() {
+                    item.set_visible(identifier.is_some() || !one_at_a_time);
+                }
             }
         }
     });
@@ -510,50 +599,51 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             point_rows(&model, identifier);
         }
     ));
+    let weak_picker = picker.downgrade();
     arrangement.canvas.connect_selected(glib::clone!(
         #[weak]
         model,
         #[strong]
-        picker,
-        #[strong]
         point_rows,
         move |_, identifier| {
-            picker.select(Some(identifier));
+            if let Some(picker) = weak_picker.upgrade() {
+                picker.select(Some(identifier));
+            }
             point_rows(&model, Some(identifier));
         }
     ));
     let started = Rc::new(std::cell::Cell::new(false));
-    let update = glib::clone!(
-        #[strong]
-        picker,
-        #[strong(rename_to = arrangement)]
-        arrangement.clone(),
-        move |model: &Model| {
-            let Some(outputs) = model.outputs() else {
-                return;
-            };
-            let before = picker.selected();
-            picker.update(&outputs);
-            let gone = before.is_some() && picker.selected().is_none();
-            let mut chosen = picker.selected();
-            if (!started.get() || gone) && model.outputs_known() {
-                started.set(true);
-                chosen = focused(&outputs);
-                picker.select(chosen.as_deref());
-            }
-            arrangement.canvas.select(chosen.as_deref());
-            arrangement.update(model, &outputs, &picker);
-            if chosen == before {
-                // The same output, maybe with other modes after a hotplug.
-                let output = chosen.as_deref().and_then(|id| outputs.get(id));
-                for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
-                    offer_modes(&row, output);
-                }
-            } else {
-                point_rows(model, chosen.as_deref());
-            }
+    let weak_picker = picker.downgrade();
+    let weak_arrangement = arrangement.downgrade();
+    let update = glib::clone!(move |model: &Model| {
+        let (Some(picker), Some(arrangement)) = (weak_picker.upgrade(), weak_arrangement.upgrade())
+        else {
+            return;
+        };
+        let Some(outputs) = model.outputs() else {
+            return;
+        };
+        let before = picker.selected();
+        picker.update(&outputs);
+        let gone = before.is_some() && picker.selected().is_none();
+        let mut chosen = picker.selected();
+        if (!started.get() || gone) && model.outputs_known() {
+            started.set(true);
+            chosen = focused(&outputs);
+            picker.select(chosen.as_deref());
         }
-    );
+        arrangement.canvas.select(chosen.as_deref());
+        arrangement.update(model, &outputs, &picker);
+        if chosen == before {
+            // The same output, maybe with other modes after a hotplug.
+            let output = chosen.as_deref().and_then(|id| outputs.get(id));
+            for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
+                offer_modes(&row, output);
+            }
+        } else {
+            point_rows(model, chosen.as_deref());
+        }
+    });
     update(model);
     let handler = model.connect_changed(update);
     // The model outlives the page: it lets go of the page when the canvas goes.
@@ -626,12 +716,16 @@ mod tests {
         let label = |text: &str| mode_label(Mode::parse(text).unwrap());
         assert_eq!(
             label("2560x1440@59.951Hz"),
+            "2560 \u{d7} 1440 \u{b7} 59.951 Hz"
+        );
+        assert_eq!(
+            label("2560x1440@59.95Hz"),
             "2560 \u{d7} 1440 \u{b7} 59.95 Hz"
         );
         assert_eq!(label("1920x1080@60Hz"), "1920 \u{d7} 1080 \u{b7} 60 Hz");
         assert_eq!(
             label("1920x1080@143.912Hz"),
-            "1920 \u{d7} 1080 \u{b7} 143.91 Hz"
+            "1920 \u{d7} 1080 \u{b7} 143.912 Hz"
         );
         assert_eq!(label("1280x720"), "1280 \u{d7} 720");
     }

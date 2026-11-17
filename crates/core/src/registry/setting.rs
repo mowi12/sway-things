@@ -210,6 +210,7 @@ pub struct Setting {
     host_by_default: bool,
     gsettings: Option<GSettingsKey>,
     unit: Option<Unit>,
+    one_at_a_time: bool,
 }
 
 impl Setting {
@@ -239,6 +240,7 @@ impl Setting {
             host_by_default: false,
             gsettings: None,
             unit: None,
+            one_at_a_time: false,
         })
     }
 
@@ -408,6 +410,12 @@ impl Setting {
         } else {
             Err(DeviceError::Invalid)
         }
+    }
+
+    /// Whether a value is only stored for one device or output at a time, never for all of them:
+    /// a position in the layout would put every output on the same spot.
+    pub fn is_one_at_a_time(&self) -> bool {
+        self.one_at_a_time
     }
 
     /// The table of a settings file that holds values for one device or output: `device` or
@@ -611,6 +619,13 @@ impl SettingBuilder {
     /// Sets the hint an empty text field shows (translatable).
     pub fn placeholder(mut self, placeholder: Msg) -> Self {
         self.0.placeholder = Some(placeholder);
+        self
+    }
+
+    /// Stores a value only for one device or output at a time (see
+    /// [`Setting::is_one_at_a_time`]).
+    pub fn one_at_a_time(mut self) -> Self {
+        self.0.one_at_a_time = true;
         self
     }
 
