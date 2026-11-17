@@ -313,13 +313,27 @@ fn resolve_display(
     Some(identifier.unwrap_or_else(|| device.to_owned()))
 }
 
-/// After a change of a display's setting that went through while kanshi sets up the displays:
-/// says that it is live only.
-fn note_kanshi<V: Validate>(session: &Session<V>, key: &str, exit: Exit, io: &mut Io<'_>) {
-    if exit == Exit::Ok
-        && session.applier.displays() == generate::Displays::Kanshi
-        && is_for_displays(Some(key))
+/// After a change (or a `reset`) of a display's setting that went through while kanshi sets up
+/// the displays: says what that means.
+fn note_kanshi<V: Validate>(
+    session: &Session<V>,
+    key: &str,
+    exit: Exit,
+    reset: bool,
+    io: &mut Io<'_>,
+) {
+    if exit != Exit::Ok
+        || session.applier.displays() != generate::Displays::Kanshi
+        || !is_for_displays(Some(key))
     {
+        return;
+    }
+    if reset {
+        io.note(tr(msg!(
+            "kanshi sets up the displays: the stored value is removed, and kanshi's profile \
+             applies again when it next sets up the displays."
+        )));
+    } else {
         io.note(tr(msg!(
             "kanshi sets up the displays: the change takes effect now and isn't stored."
         )));
@@ -349,12 +363,23 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
     // Then, sway having just read its config: kanshi applies its profile again over whatever
     // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
     if outputs::kanshi_runs() {
-        let _ = std::process::Command::new("kanshictl")
+        let child = std::process::Command::new("kanshictl")
             .arg("reload")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
-            .status();
+            .spawn();
+        // A kanshictl that hangs doesn't keep the hook: it gets five seconds.
+        if let Ok(mut child) = child {
+            let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while matches!(child.try_wait(), Ok(None)) && std::time::Instant::now() < until {
+                async_io::Timer::after(std::time::Duration::from_millis(50)).await;
+            }
+            if matches!(child.try_wait(), Ok(None)) {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
     }
     match ensured {
         Ok(Some(name)) => {
@@ -516,7 +541,7 @@ pub async fn run<V: Validate>(
                 yes: *yes,
             };
             let exit = set(session, &change, *overwrite, prompt, &mut io).await;
-            note_kanshi(session, key, exit, &mut io);
+            note_kanshi(session, key, exit, false, &mut io);
             exit
         }
         Command::Reset {
@@ -532,7 +557,7 @@ pub async fn run<V: Validate>(
                 yes: *yes,
             };
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
-            note_kanshi(session, key, exit, &mut io);
+            note_kanshi(session, key, exit, true, &mut io);
             exit
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
@@ -844,7 +869,10 @@ async fn set<V: Validate>(
         Ok(applied) => applied,
         Err(error) => return fail(io, &error),
     };
-    if let Some(layer) = change.layer {
+    // A change that is live only (a display's, while kanshi sets them up) has nothing to move.
+    let live_only = session.applier.displays() == generate::Displays::Kanshi
+        && setting.scope() == Scope::PerOutput;
+    if let Some(layer) = change.layer.filter(|_| !live_only) {
         if let Err(error) = session.applier.move_to(key, device, layer, &access) {
             return fail(io, &error);
         }

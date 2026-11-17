@@ -186,6 +186,11 @@ mod imp {
         pub(super) busy: Cell<bool>,
         /// Whether kanshi set up the displays when last looked.
         pub(super) kanshi: Cell<bool>,
+        /// When the displays page last looked for kanshi.
+        pub(super) kanshi_looked: Cell<Option<std::time::Instant>>,
+        /// Whether to look for kanshi at all: not for a model made for tests, so they don't
+        /// depend on the machine they run on.
+        pub(super) looks_for_kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
     }
 
@@ -237,6 +242,7 @@ impl Model {
     /// an [error](Model::error) and no settings.
     pub async fn load() -> Self {
         let model = Self::default();
+        model.imp().looks_for_kanshi.set(true);
         match Self::connect().await {
             Ok((applier, watch)) => {
                 let state_watch = applier.state().watch();
@@ -369,7 +375,8 @@ impl Model {
                     .config_line(setting, &tried, device)
                     .ok();
             }
-        } else if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
+        }
+        if self.imp().kanshi.get() && setting.scope() == Scope::PerOutput {
             // kanshi sets up the displays: what they run with counts, not what was stored
             // before kanshi ran.
             let live = device
@@ -385,6 +392,15 @@ impl Model {
         Some(view)
     }
 
+    /// Who sets up the displays: kanshi if it runs (for a model that looks for it).
+    fn displays(&self) -> generate::Displays {
+        if self.imp().looks_for_kanshi.get() {
+            generate::Displays::detect()
+        } else {
+            generate::Displays::Sway
+        }
+    }
+
     /// Whether kanshi set up the displays when the model last looked.
     pub fn kanshi_runs(&self) -> bool {
         self.imp().kanshi.get()
@@ -393,7 +409,18 @@ impl Model {
     /// Looks again whether kanshi sets up the displays, as when displays come and go; says
     /// whether that changed.
     pub fn look_for_kanshi(&self) -> bool {
-        let runs = generate::Displays::detect() == generate::Displays::Kanshi;
+        // At most every few seconds: the model changes often while a display is dragged.
+        let now = std::time::Instant::now();
+        let recently = self
+            .imp()
+            .kanshi_looked
+            .get()
+            .is_some_and(|then| now.duration_since(then) < std::time::Duration::from_secs(2));
+        if recently {
+            return false;
+        }
+        self.imp().kanshi_looked.set(Some(now));
+        let runs = self.displays() == generate::Displays::Kanshi;
         let changed = self.imp().kanshi.replace(runs) != runs;
         if changed {
             // The rows show what the displays run with, or what is stored, and the lines for
@@ -806,11 +833,13 @@ impl Model {
         };
         let mut applier = applier;
         // kanshi may have started or stopped since the app opened.
-        let displays = generate::Displays::detect();
+        let displays = self.displays();
         applier.set_displays(displays);
-        self.imp()
-            .kanshi
-            .set(displays == generate::Displays::Kanshi);
+        let kanshi = displays == generate::Displays::Kanshi;
+        if self.imp().kanshi.replace(kanshi) != kanshi && !matches!(op, Op::Persist) {
+            // kanshi started or stopped: the lines for the displays go or come back.
+            self.queue(Op::Persist);
+        }
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
             (

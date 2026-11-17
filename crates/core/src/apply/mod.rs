@@ -648,7 +648,11 @@ impl<V: Validate> Applier<V> {
         // A value for every output (`output * scale 2`) takes the place of each output's own one
         // in sway, unlike in the generated file, where the outputs' own lines come after: they
         // are sent again, so the session is as sway will read the file.
-        let own: Vec<SwayCmd> = if setting.scope() == Scope::PerOutput && device.is_none() {
+        // While kanshi sets up the displays, nothing stored for them is in effect: none is sent.
+        let own: Vec<SwayCmd> = if setting.scope() == Scope::PerOutput
+            && device.is_none()
+            && !self.is_live_only(setting)
+        {
             let outputs: Vec<String> = self
                 .state
                 .entries()

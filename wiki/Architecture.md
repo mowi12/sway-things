@@ -716,10 +716,13 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   display, `20-output.conf` says so in a comment and keeps the startup guard, and `hook displays` has kanshi apply its
   profile again (`kanshictl reload`, after it made sure a display is on). The app detects it when it opens (and then
   rewrites a `20-output.conf` it wrote that no longer fits, so lines from before go or come back), before each change
-  and when displays come and go; the command line when it opens and says after a change of a display that it is live
-  only. A kanshi started without `WAYLAND_DISPLAY` in its environment (a systemd unit that doesn't import it) isn't seen
-  from a Wayland session; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile.
-  Rows show what the displays run with. Profiles of our own in kanshi come with #211.
+  and when displays come and go (at most every two seconds), and rewrites the files when the answer changes; kanshi
+  stopping while nothing changes is seen at the next change or opening (`doctor --fix` writes the files too). A model
+  made for tests never looks. The command line looks when it opens and says after a change of a display that it is live
+  only (after a reset, that the stored value is removed). A value for every display sends no display's own value again
+  meanwhile. A kanshi started without `WAYLAND_DISPLAY` in its environment (a systemd unit that doesn't import it) isn't
+  seen from a Wayland session; `doctor` compares against the same and checks no conflicts of per-output settings
+  meanwhile. Rows show what the displays run with. Profiles of our own in kanshi come with #211.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
@@ -1117,8 +1120,9 @@ Sway Things keeps nothing running. Behavior that has to happen without the windo
 is needed, generated config calls the CLI briefly:
 
 - **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
-  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply its
-  profile again (`kanshictl reload`), since sway just read its config.
+  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it then (after making sure a
+  display is on) has kanshi apply its profile again (`kanshictl reload`, given five seconds), since sway just read its
+  config.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

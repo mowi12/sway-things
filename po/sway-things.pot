@@ -142,6 +142,12 @@ msgstr ""
 
 #: crates/cli/src/lib.rs
 msgid ""
+"kanshi sets up the displays: the stored value is removed, and kanshi's "
+"profile applies again when it next sets up the displays."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid ""
 "kanshi sets up the displays: the change takes effect now and isn't stored."
 msgstr ""
 
