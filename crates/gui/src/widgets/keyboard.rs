@@ -22,10 +22,17 @@ use sway_things_core::registry::Setting;
 use super::SettingRow;
 use super::layout_list::{LAYOUTS, LayoutList};
 use super::xkb_options::{self, OptionBrowser};
-use crate::i18n::{msg, tr};
+use crate::i18n::{Msg, msg, tr};
 use crate::model::Model;
 use crate::style;
 use crate::xkb;
+
+// Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
+// out here.
+/// Why the active layout can't be switched without a session.
+const NO_SESSION: Msg = msg!("Only in a running sway session");
+/// Why the active layout of a keyboard that isn't there can't be switched.
+const NOT_CONNECTED: Msg = msg!("The keyboard isn’t connected");
 
 /// The key of the keyboard model.
 const MODEL: &str = "input.keyboard.xkb_model";
@@ -187,9 +194,9 @@ fn active_layout(model: &Model, row: &SettingRow) -> gtk::Widget {
             }
             updating.set(false);
             let reason = if !model.devices_known() {
-                Some(tr(msg!("Only in a running sway session")))
+                Some(tr(NO_SESSION))
             } else if layouts.is_none() {
-                Some(tr(msg!("The keyboard isn’t connected")))
+                Some(tr(NOT_CONNECTED))
             } else {
                 None
             };

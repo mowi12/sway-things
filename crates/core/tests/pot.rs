@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Every string of the registry and of the doctor's report is in the gettext template, so it was
-//! marked with `msg!` and `po/sway-things.pot` is up to date. `scripts/check-pot.sh` checks the
+//! marked with `msg!` and `po/sway-things.pot` is up to date, and so is every string marked in
+//! the sources: xgettext skips some, such as those in the attributes of `glib::clone!`. `scripts/check-pot.sh` checks the
 //! other direction: the template holds nothing that is no longer marked.
 
 #![allow(
     clippy::panic,
+    clippy::unwrap_used,
     reason = "helpers of the tests: a step that fails fails the test"
 )]
 
@@ -16,12 +18,16 @@ use sway_things_core::doctor::Section;
 use sway_things_core::i18n::Msg;
 use sway_things_core::registry::{Group, Kind, Page, Registry};
 
-/// The msgids of a `.pot` file: `msgid "…"` and the `"…"` lines that continue it.
+/// The msgids of a `.pot` file: `msgid "…"` (and `msgid_plural "…"`) and the `"…"` lines that
+/// continue it.
 fn msgids(pot: &str) -> BTreeSet<String> {
     let mut msgids = BTreeSet::new();
     let mut current: Option<String> = None;
     for line in pot.lines() {
-        if let Some(rest) = line.strip_prefix("msgid ") {
+        let start = line
+            .strip_prefix("msgid ")
+            .or_else(|| line.strip_prefix("msgid_plural "));
+        if let Some(rest) = start {
             msgids.extend(current.take());
             current = Some(unquote(rest));
         } else if line.starts_with('"') {
@@ -105,6 +111,142 @@ fn the_template_holds_every_message() {
         missing.is_empty(),
         "not in po/sway-things.pot (mark them with msg! and run scripts/update-pot.sh):\n{}",
         missing.join("\n")
+    );
+}
+
+/// The string literals marked with `msg!` or `msg_plural!` in `source`, Rust code without its
+/// comments (the examples in the documentation are left out).
+fn marked(source: &str) -> Vec<String> {
+    let mut code = String::new();
+    for line in source
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+    {
+        code.push_str(line);
+        code.push('\n');
+    }
+    let mut found = Vec::new();
+    let mut rest = code.as_str();
+    while let Some(start) = ["msg!(", "msg_plural!("]
+        .iter()
+        .filter_map(|macro_call| rest.find(macro_call))
+        .min()
+    {
+        // Both macros end at the first `)` after their literals; a `)` in a literal is skipped.
+        let mut chars = rest[start..]
+            .char_indices()
+            .skip_while(|(_, c)| *c != '(')
+            .skip(1);
+        let mut end = rest.len() - start;
+        while let Some((index, c)) = chars.next() {
+            match c {
+                '"' => found.push(literal(&mut chars.by_ref().map(|(_, c)| c))),
+                ')' => {
+                    end = index;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        rest = &rest[start + end..];
+    }
+    found
+}
+
+/// The text of a Rust string literal up to its closing quote, read from `chars`.
+fn literal(chars: &mut impl Iterator<Item = char>) -> String {
+    let mut text = String::new();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => break,
+            '\\' => match chars.next() {
+                Some('n') => text.push('\n'),
+                Some('t') => text.push('\t'),
+                Some('u') => {
+                    let code: String = chars.by_ref().skip(1).take_while(|c| *c != '}').collect();
+                    let code = u32::from_str_radix(&code, 16).unwrap_or_default();
+                    text.extend(char::from_u32(code));
+                }
+                // A line continuation: the line break and the blanks after it are left out.
+                Some('\n') => {
+                    let mut next = chars.next();
+                    while next.is_some_and(char::is_whitespace) {
+                        next = chars.next();
+                    }
+                    match next {
+                        Some('"') => break,
+                        Some('\\') => text.push_str(&literal_escape(chars)),
+                        Some(other) => text.push(other),
+                        None => {}
+                    }
+                }
+                Some(other) => text.push(other),
+                None => {}
+            },
+            other => text.push(other),
+        }
+    }
+    text
+}
+
+/// An escape right after a line continuation, which is rare: only `\"` and `\\` are expected.
+fn literal_escape(chars: &mut impl Iterator<Item = char>) -> String {
+    chars.next().map(String::from).unwrap_or_default()
+}
+
+/// The Rust sources of every crate.
+fn sources(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            sources(&path, found);
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            found.push(path);
+        }
+    }
+}
+
+#[test]
+fn the_template_holds_every_marked_string() {
+    let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    let msgids = msgids(&std::fs::read_to_string(root.join("po/sway-things.pot")).unwrap());
+    let mut files = Vec::new();
+    for crate_dir in std::fs::read_dir(root.join("crates")).unwrap().flatten() {
+        let src = crate_dir.path().join("src");
+        if src.is_dir() {
+            sources(&src, &mut files);
+        }
+    }
+    let mut missing = Vec::new();
+    for file in files {
+        let source = std::fs::read_to_string(&file).unwrap();
+        for text in marked(&source) {
+            if !msgids.contains(&text) {
+                missing.push(format!("{}: {text:?}", file.display()));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "marked, but not in po/sway-things.pot (run scripts/update-pot.sh; a string xgettext \
+         skips, such as one in the attributes of glib::clone!, goes into a constant outside):\n{}",
+        missing.join("\n")
+    );
+}
+
+#[test]
+fn marked_strings_are_found_in_code() {
+    let code = "let a = tr(msg!(\"Keyboard\"));\n\
+                let b = msg_plural!(\"{count} file\", \"{count} files\");\n\
+                let c = msg!(\n    \"Sway Things\\u{2019} value, \\\n     \\\"quoted\\\"\"\n);";
+    assert_eq!(
+        marked(code),
+        [
+            "Keyboard",
+            "{count} file",
+            "{count} files",
+            "Sway Things\u{2019} value, \"quoted\"",
+        ]
     );
 }
 

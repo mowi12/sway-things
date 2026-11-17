@@ -94,8 +94,8 @@ pub fn set_running(button: &gtk::Button, running: bool, tooltip: &str) {
 /// What the button reads: _Search_ or _Stop_.
 pub fn text(button: &gtk::Button) -> String {
     stacks(button)
-        .and_then(|(_, labels)| labels.visible_child_name())
-        .map(|name| name.to_string())
+        .and_then(|(_, labels)| labels.visible_child().and_downcast::<gtk::Label>())
+        .map(|label| label.text().to_string())
         .unwrap_or_default()
 }
 

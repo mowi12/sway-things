@@ -14,6 +14,8 @@ COPY --chown=tester scripts/check-integration.sh /work/scripts/
 COPY --chown=tester ci/integration/ /work/ci/integration/
 COPY --chown=tester Cargo.toml Cargo.lock /work/
 COPY --chown=tester crates/ /work/crates/
+# The translation template, from which the GUI test in the pseudo-locale makes its catalog.
+COPY --chown=tester po/sway-things.pot /work/po/
 USER tester
 WORKDIR /work
 # The tests that need sway are built on the system they run on.

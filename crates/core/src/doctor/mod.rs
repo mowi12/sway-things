@@ -626,7 +626,7 @@ impl<V: Validate> Checkup<'_, V> {
                     Code::Session,
                     Severity::Ok,
                     Text::new(msg!("{compositor} runs in this session."))
-                        .arg("compositor", compositor),
+                        .text("compositor", compositor.text()),
                 ));
                 return;
             }
@@ -652,7 +652,7 @@ impl<V: Validate> Checkup<'_, V> {
                              {compositor}."
                         ))
                         .text("reason", reason.clone())
-                        .arg("compositor", compositor),
+                        .text("compositor", compositor.text()),
                     ),
                     Installed::Unknown => Finding::new(
                         Code::VersionUnknown,
@@ -695,7 +695,7 @@ impl<V: Validate> Checkup<'_, V> {
                             "The installed {compositor} is not supported: Sway Things \
                              {requirement}."
                         ))
-                        .arg("compositor", compositor)
+                        .text("compositor", compositor.text())
                         .text("requirement", unmet.text()),
                     )
                     .with_hint(supported),
@@ -931,7 +931,7 @@ impl<V: Validate> Checkup<'_, V> {
                          the stored settings for {compositor}."
                     ))
                     .arg("file", name)
-                    .arg("compositor", compositor),
+                    .text("compositor", compositor.text()),
                     None => Text::new(msg!(
                         "{file} is out of date: it doesn't hold what Sway Things generates from \
                          the stored settings."

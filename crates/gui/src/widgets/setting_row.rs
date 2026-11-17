@@ -774,7 +774,10 @@ impl SettingRow {
         let note = note(&view, setting, device.as_deref());
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
-        let reason = view.locked.as_ref().map(ToString::to_string);
+        let reason = view
+            .locked
+            .as_ref()
+            .map(|locked| locked.text().translated());
         for widget in control.widgets() {
             widget.set_sensitive(reason.is_none());
             widget.set_tooltip_text(reason.as_deref());

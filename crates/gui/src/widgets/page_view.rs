@@ -621,6 +621,7 @@ fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
 fn shown(value: &Value) -> String {
     match value {
         Value::Text(text) => text.clone(),
+        Value::Translated(text) => text.translated(),
         // TRANSLATORS: A value in the About section: a version that couldn't be found.
         Value::Unknown => tr(msg!("Unknown")).to_owned(),
         // TRANSLATORS: A value in the About section: a service that isn't running.

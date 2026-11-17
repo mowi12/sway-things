@@ -149,6 +149,21 @@ impl Compositor {
     }
 }
 
+impl Compositor {
+    /// `sway 1.11` or `SwayFX 0.5.3 (based on sway 1.11)`, to show: [`fmt::Display`] is the
+    /// English text.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Sway { version } => Text::data(format!("sway {version}")),
+            Self::SwayFx { version, base } => {
+                Text::new(msg!("SwayFX {version} (based on sway {base})"))
+                    .arg("version", version)
+                    .arg("base", base)
+            }
+        }
+    }
+}
+
 impl fmt::Display for Compositor {
     /// `sway 1.11` or `SwayFX 0.5.3 (based on sway 1.11)`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

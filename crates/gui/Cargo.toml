@@ -32,3 +32,7 @@ zbus.workspace = true
 name = "gui"
 # GTK runs on one thread: the test is a plain program that runs its checks in order.
 harness = false
+
+[[test]]
+name = "gui_pseudo"
+harness = false

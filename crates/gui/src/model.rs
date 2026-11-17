@@ -35,7 +35,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::i18n::{msg, tr, trf};
+use crate::i18n::{Msg, msg, tr, trf};
 use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
@@ -53,6 +53,13 @@ use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
+
+// Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
+// out here.
+/// The problem when the connected devices can't be followed.
+const NO_DEVICES: Msg = msg!("Connected devices can't be listed: {error}");
+/// The problem when the reloads of sway can't be followed.
+const NO_RELOADS: Msg = msg!("Reloads of sway from elsewhere won’t show: {error}");
 
 /// The preference whether collapsed sections are remembered across restarts.
 const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
@@ -780,7 +787,7 @@ impl Model {
                     Ok(watch) => watch,
                     Err(error) => {
                         model.emit_problem(&trf(
-                            msg!("Connected devices can't be listed: {error}"),
+                            NO_DEVICES,
                             &[("error", &error.text().translated())],
                         ));
                         return;
@@ -810,7 +817,7 @@ impl Model {
                     Ok(reloads) => reloads,
                     Err(error) => {
                         model.emit_problem(&trf(
-                            msg!("Reloads of sway from elsewhere won’t show: {error}"),
+                            NO_RELOADS,
                             &[("error", &error.text().translated())],
                         ));
                         return;

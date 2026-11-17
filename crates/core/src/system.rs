@@ -58,6 +58,8 @@ pub struct Details {
 pub enum Value {
     /// A version or a name.
     Text(String),
+    /// A version or a name with words that are translated: `SwayFX 0.5 (based on sway 1.11)`.
+    Translated(Text),
     /// It couldn't be found.
     Unknown,
     /// The service isn't running.
@@ -73,6 +75,7 @@ impl Value {
     pub fn text(&self) -> Text {
         match self {
             Self::Text(text) => Text::data(text),
+            Self::Translated(text) => text.clone(),
             // TRANSLATORS: A value of the system details: a version that couldn't be found.
             Self::Unknown => msg!("unknown").into(),
             // TRANSLATORS: A value of the system details: a service that isn't running.
@@ -122,7 +125,9 @@ impl Details {
             (
                 // TRANSLATORS: A label of the system details: the running or installed sway.
                 msg!("Compositor").into(),
-                found(self.compositor.map(|c| c.to_string())),
+                self.compositor.map_or(Value::Unknown, |compositor| {
+                    Value::Translated(compositor.text())
+                }),
             ),
             (Text::data("GTK"), found(self.gtk.clone())),
             (

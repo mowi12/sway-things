@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 09:06+0100\n"
+"POT-Creation-Date: 2026-11-17 09:12+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1020,6 +1020,11 @@ msgstr ""
 
 #: crates/core/src/include/mod.rs crates/core/src/view.rs
 msgid "Add the include line to change settings"
+msgstr ""
+
+#: crates/core/src/ipc/compositor.rs
+#, rust-format
+msgid "SwayFX {version} (based on sway {base})"
 msgstr ""
 
 #: crates/core/src/ipc/compositor.rs
@@ -3688,6 +3693,16 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "Connected devices can't be listed: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "Reloads of sway from elsewhere won’t show: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "Changes to the settings files from outside won't show: {error}"
 msgstr ""
 
@@ -4272,6 +4287,14 @@ msgstr ""
 #: crates/gui/src/widgets/group_row.rs
 #, rust-format
 msgid "{setting} {value}"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "Only in a running sway session"
+msgstr ""
+
+#: crates/gui/src/widgets/keyboard.rs
+msgid "The keyboard isn’t connected"
 msgstr ""
 
 #: crates/gui/src/widgets/keyboard.rs
