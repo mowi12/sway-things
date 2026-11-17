@@ -24,7 +24,6 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
-use sway_things_core::msg;
 use sway_things_core::network::{
     ActiveConnection, ActiveState, AgentEvent, Connection, ConnectionKind, Connectivity, Device,
     DeviceState, Error, IpConfig, Network, NetworkManager, SavedNetwork, SecretPrompt, Security,
@@ -33,6 +32,7 @@ use sway_things_core::network::{
 
 use self::dialogs::PasswordSpec;
 use super::{Placeholder, search_button};
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::style;
 
 /// How long to collect a burst of changes before reading the snapshot again.
@@ -269,10 +269,10 @@ impl NetworkPage {
     pub fn advanced_button(&self) -> Option<gtk::Button> {
         let imp = self.imp();
         if imp.advanced.borrow().is_none() && imp.editor.get() {
-            let button = gtk::Button::with_label("Advanced…");
-            button.set_tooltip_text(Some(
-                "Open nm-connection-editor for VPNs, 802.1X networks and more",
-            ));
+            let button = gtk::Button::with_label(tr(msg!("Advanced…")));
+            button.set_tooltip_text(Some(tr(msg!(
+                "Open nm-connection-editor for VPNs, 802.1X networks and more"
+            ))));
             let weak = self.downgrade();
             button.connect_clicked(move |_| {
                 if let Some(page) = weak.upgrade() {
@@ -424,12 +424,13 @@ impl NetworkPage {
         imp.error.set_visible(false);
         imp.controls.append(&imp.error);
 
-        imp.controls.append(&heading("Wi-Fi", true));
+        imp.controls.append(&heading(tr(msg!("Wi-Fi")), true));
         self.build_wifi();
         imp.controls.append(&imp.wifi);
         hint(&imp.wifi_hint);
-        imp.wifi_hint
-            .set_text("No Wi-Fi adapter. Plug one in; this page updates by itself.");
+        imp.wifi_hint.set_text(tr(msg!(
+            "No Wi-Fi adapter. Plug one in; this page updates by itself."
+        )));
         imp.controls.append(&imp.wifi_hint);
 
         imp.off.set_orientation(gtk::Orientation::Vertical);
@@ -438,10 +439,10 @@ impl NetworkPage {
         imp.controls.append(&imp.off);
 
         imp.known_heading
-            .set_label(&"Known networks".to_uppercase());
+            .set_label(&tr(msg!("Known networks")).to_uppercase());
         style_heading(&imp.known_heading, false);
         imp.controls.append(&imp.known_heading);
-        section(&imp.known, "Known networks");
+        section(&imp.known, tr(msg!("Known networks")));
         imp.controls.append(&imp.known);
         hint(&imp.known_hint);
         imp.controls.append(&imp.known_hint);
@@ -453,14 +454,14 @@ impl NetworkPage {
         let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         line.set_margin_top(24);
         line.set_margin_bottom(8);
-        let others = heading("Other networks", false);
+        let others = heading(tr(msg!("Other networks")), false);
         others.set_margin_top(0);
         others.set_margin_bottom(0);
         line.append(&others);
         imp.searching.set_spacing(6);
         imp.spinner_slot.set_valign(gtk::Align::Center);
         imp.searching.append(&imp.spinner_slot);
-        imp.searching_label.set_text("Searching");
+        imp.searching_label.set_text(tr(msg!("Searching")));
         imp.searching_label.add_css_class(style::DIM);
         imp.searching.append(&imp.searching_label);
         line.append(&imp.searching);
@@ -477,22 +478,23 @@ impl NetworkPage {
         self.update_search_button();
         self.set_manual_search(false);
         imp.controls.append(&imp.others_heading);
-        section(&imp.others, "Other networks");
+        section(&imp.others, tr(msg!("Other networks")));
         self.build_hidden_row();
         imp.controls.append(&imp.others);
         hint(&imp.others_hint);
         imp.controls.append(&imp.others_hint);
 
-        imp.wired_heading.set_label(&"Wired".to_uppercase());
+        imp.wired_heading
+            .set_label(&tr(msg!("Wired")).to_uppercase());
         style_heading(&imp.wired_heading, false);
         imp.controls.append(&imp.wired_heading);
-        section(&imp.wired, "Wired");
+        section(&imp.wired, tr(msg!("Wired")));
         imp.controls.append(&imp.wired);
 
-        imp.vpn_heading.set_label("VPN");
+        imp.vpn_heading.set_label(tr(msg!("VPN")));
         style_heading(&imp.vpn_heading, false);
         imp.controls.append(&imp.vpn_heading);
-        section(&imp.vpns, "VPN");
+        section(&imp.vpns, tr(msg!("VPN")));
         imp.controls.append(&imp.vpns);
     }
 
@@ -506,12 +508,12 @@ impl NetworkPage {
         let icon = gtk::Image::from_icon_name("dialog-information-symbolic");
         icon.set_accessible_role(gtk::AccessibleRole::Presentation);
         imp.portal.append(&icon);
-        let text = gtk::Label::new(Some("This network wants you to sign in."));
+        let text = gtk::Label::new(Some(tr(msg!("This network wants you to sign in."))));
         text.set_xalign(0.0);
         text.set_wrap(true);
         text.set_hexpand(true);
         imp.portal.append(&text);
-        imp.portal_open.set_label("Open Login Page");
+        imp.portal_open.set_label(tr(msg!("Open Login Page")));
         imp.portal_open.set_valign(gtk::Align::Center);
         let weak = self.downgrade();
         imp.portal_open.connect_clicked(move |_| {
@@ -525,21 +527,21 @@ impl NetworkPage {
     /// The Wi-Fi section: the adapter drop-down and the switch.
     fn build_wifi(&self) {
         let imp = self.imp();
-        section(&imp.wifi, "Wi-Fi");
+        section(&imp.wifi, tr(msg!("Wi-Fi")));
         imp.adapters.set_model(Some(&imp.adapter_names));
         imp.adapters.set_valign(gtk::Align::Center);
         imp.adapters
-            .update_property(&[gtk::accessible::Property::Label("Adapter")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!("Adapter")))]);
         let weak = self.downgrade();
         imp.adapters.connect_selected_notify(move |_| {
             if let Some(page) = weak.upgrade() {
                 page.adapter_chosen();
             }
         });
-        let adapter_hint = gtk::Label::new(Some("The Wi-Fi adapter this page shows"));
+        let adapter_hint = gtk::Label::new(Some(tr(msg!("The Wi-Fi adapter this page shows"))));
         adapter_hint.add_css_class(style::DIM);
         imp.adapter_row.set_child(Some(&row(
-            &gtk::Label::new(Some("Adapter")),
+            &gtk::Label::new(Some(tr(msg!("Adapter")))),
             &adapter_hint,
             &[imp.adapters.upcast_ref()],
         )));
@@ -550,14 +552,14 @@ impl NetworkPage {
         imp.power_subtitle.add_css_class(style::DIM);
         imp.power.set_valign(gtk::Align::Center);
         imp.power
-            .update_property(&[gtk::accessible::Property::Label("Wi-Fi")]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!("Wi-Fi")))]);
         let weak = self.downgrade();
         imp.power.connect_state_set(move |_, on| {
             weak.upgrade()
                 .map_or(glib::Propagation::Proceed, |page| page.wifi_changed(on))
         });
         imp.wifi.append(&list_row(&row(
-            &gtk::Label::new(Some("Wi-Fi")),
+            &gtk::Label::new(Some(tr(msg!("Wi-Fi")))),
             &imp.power_subtitle,
             &[imp.power.upcast_ref()],
         )));
@@ -570,7 +572,7 @@ impl NetworkPage {
     /// The last row of the other networks: "Connect to Hidden Network…".
     fn build_hidden_row(&self) {
         let imp = self.imp();
-        let label = gtk::Label::new(Some("Connect to Hidden Network…"));
+        let label = gtk::Label::new(Some(tr(msg!("Connect to Hidden Network…"))));
         label.set_xalign(0.0);
         label.set_hexpand(true);
         let arrow = gtk::Image::from_icon_name("go-next-symbolic");
@@ -580,9 +582,9 @@ impl NetworkPage {
         line.append(&arrow);
         imp.hidden_row.set_child(Some(&line));
         imp.hidden_row
-            .update_property(&[gtk::accessible::Property::Label(
-                "Connect to Hidden Network…",
-            )]);
+            .update_property(&[gtk::accessible::Property::Label(tr(msg!(
+                "Connect to Hidden Network…"
+            )))]);
         imp.others.append(&imp.hidden_row);
         let weak = self.downgrade();
         imp.others.connect_row_activated(move |_, row| {
@@ -628,7 +630,10 @@ impl NetworkPage {
                 Ok(changes) => changes,
                 Err(error) => {
                     if let Some(page) = weak.upgrade() {
-                        page.show_error(&format!("The page doesn't update on its own: {error}"));
+                        page.show_error(&trf(
+                            msg!("The page doesn't update on its own: {error}"),
+                            &[("error", &error.text().translated())],
+                        ));
                     }
                     return;
                 }
@@ -683,12 +688,17 @@ impl NetworkPage {
                 self.close_prompt();
                 let (title, text) = match error {
                     Error::Unavailable(_) => (
-                        "NetworkManager isn't running",
-                        "The network service isn't running. Start it with \
-                         `systemctl start NetworkManager`; this page updates by itself."
-                            .to_owned(),
+                        tr(msg!("NetworkManager isn't running")),
+                        tr(msg!(
+                            "The network service isn't running. Start it with `systemctl start \
+                             NetworkManager`; this page updates by itself."
+                        ))
+                        .to_owned(),
                     ),
-                    other => ("The network can't be read", other.to_string()),
+                    other => (
+                        tr(msg!("The network can't be read")),
+                        other.text().translated(),
+                    ),
                 };
                 self.show_missing("network-offline-symbolic", title, &text, false);
                 self.update_scan();
@@ -760,8 +770,10 @@ impl NetworkPage {
         if !snapshot.networking_enabled {
             self.show_missing(
                 "network-offline-symbolic",
-                "Networking is turned off",
-                "NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike.",
+                tr(msg!("Networking is turned off")),
+                tr(msg!(
+                    "NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike."
+                )),
                 true,
             );
             return;
@@ -772,8 +784,10 @@ impl NetworkPage {
         if wifi_devices.is_empty() && wired.is_empty() && vpns.is_empty() {
             self.show_missing(
                 "network-wired-disconnected-symbolic",
-                "No network adapter",
-                "Plug in a network adapter; this page updates by itself.",
+                tr(msg!("No network adapter")),
+                tr(msg!(
+                    "Plug in a network adapter; this page updates by itself."
+                )),
                 false,
             );
             return;
@@ -842,7 +856,7 @@ impl NetworkPage {
         let current = networks.iter().find(|n| n.active.is_some());
         imp.power_subtitle.set_text(
             &if !snapshot.wifi_enabled || !snapshot.wifi_hardware_enabled {
-                "Off".to_owned()
+                tr(msg!("Off")).to_owned()
             } else {
                 match current {
                     Some(n)
@@ -850,10 +864,10 @@ impl NetworkPage {
                             .as_ref()
                             .is_some_and(|a| a.state == ActiveState::Activated) =>
                     {
-                        format!("Connected to “{}”", n.name)
+                        trf(msg!("Connected to “{network}”"), &[("network", &n.name)])
                     }
-                    Some(n) => format!("Connecting to “{}”…", n.name),
-                    None => "Not connected".to_owned(),
+                    Some(n) => trf(msg!("Connecting to “{network}”…"), &[("network", &n.name)]),
+                    None => tr(msg!("Not connected")).to_owned(),
                 }
             },
         );
@@ -897,7 +911,9 @@ impl NetworkPage {
             if !on {
                 None
             } else if known.is_empty() {
-                Some("No saved networks yet. Pick one under Other networks to connect to it.")
+                Some(tr(msg!(
+                    "No saved networks yet. Pick one under Other networks to connect to it."
+                )))
             } else {
                 None
             },
@@ -906,7 +922,7 @@ impl NetworkPage {
         imp.others.set_visible(on);
         set_hint(
             &imp.others_hint,
-            (on && others.is_empty()).then_some("No other networks found yet."),
+            (on && others.is_empty()).then_some(tr(msg!("No other networks found yet."))),
         );
         (known, others)
     }
@@ -926,9 +942,12 @@ impl NetworkPage {
             let key = format!("wired:{}", device.path);
             let row = self.ensure_row(&key, true);
             let title = if devices.len() > 1 {
-                format!("Wired ({})", device.interface)
+                trf(
+                    msg!("Wired ({interface})"),
+                    &[("interface", &device.interface)],
+                )
             } else {
-                "Wired".to_owned()
+                tr(msg!("Wired")).to_owned()
             };
             self.update_wired_row(&row, device, &title, running.get(&key).copied());
             shown.push(key.clone());
@@ -1027,14 +1046,14 @@ impl NetworkPage {
             menu_box.append(&item);
             item
         };
-        let details = item("Details…", Self::show_details);
-        let edit = item("Edit…", Self::edit);
-        let forget = item("Forget…", Self::forget);
+        let details = item(tr(msg!("Details…")), Self::show_details);
+        let edit = item(tr(msg!("Edit…")), Self::edit);
+        let forget = item(tr(msg!("Forget…")), Self::forget);
         let menu = gtk::MenuButton::builder()
             .icon_name("view-more-symbolic")
             .popover(&popover)
             .valign(gtk::Align::Center)
-            .tooltip_text("More actions")
+            .tooltip_text(tr(msg!("More actions")))
             .build();
         menu.add_css_class("flat");
 
@@ -1065,40 +1084,38 @@ impl NetworkPage {
         row.icon.set_icon_name(Some(signal_icon(level)));
         row.icon.set_visible(true);
         row.icon
-            .update_property(&[gtk::accessible::Property::Label(&format!(
-                "Signal {}",
-                signal_word(level)
-            ))]);
+            .update_property(&[gtk::accessible::Property::Label(signal_label(level))]);
         // Untrusted: plain text, never markup.
         row.name.set_text(&network.name);
         let active = network.active.as_ref().map(|a| a.state);
         let state = running.or(match active {
-            Some(ActiveState::Activated) => Some("Connected"),
-            Some(ActiveState::Activating | ActiveState::Unknown) => Some("Connecting…"),
-            Some(ActiveState::Deactivating) => Some("Disconnecting…"),
-            _ if !network.saved.is_empty() => Some("Saved"),
+            Some(ActiveState::Activated) => Some(tr(msg!("Connected"))),
+            Some(ActiveState::Activating | ActiveState::Unknown) => Some(tr(msg!("Connecting…"))),
+            Some(ActiveState::Deactivating) => Some(tr(msg!("Disconnecting…"))),
+            _ if !network.saved.is_empty() => Some(tr(msg!("Saved"))),
             _ => None,
         });
         let mut status: Vec<&str> = state.into_iter().collect();
         status.push(security_text(network.security));
         let set_up = network.saved.is_empty() && !network.security.supported();
         if set_up && !editor {
-            status.push("needs nm-connection-editor");
+            status.push(tr(msg!("needs nm-connection-editor")));
         }
         row.status.set_text(&status.join(" \u{b7} "));
         let label = match running {
             Some(running) => running,
-            None if active.is_some_and(|a| a != ActiveState::Deactivated) => "Disconnect",
-            None if set_up => "Set Up…",
-            None => "Connect",
+            None if active.is_some_and(|a| a != ActiveState::Deactivated) => tr(msg!("Disconnect")),
+            None if set_up => tr(msg!("Set Up…")),
+            None => tr(msg!("Connect")),
         };
         row.button.set_label(label);
         row.button.set_visible(!set_up || editor);
         row.button.set_sensitive(running.is_none());
         row.button
-            .update_property(&[gtk::accessible::Property::Label(&format!(
-                "{label} {}",
-                network.name
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                // TRANSLATORS: The button of a network for screen readers: "Connect Home".
+                msg!("{action} {network}"),
+                &[("action", &label), ("network", &network.name)],
             ))]);
         let saved = !network.saved.is_empty();
         update_menu(
@@ -1119,7 +1136,8 @@ impl NetworkPage {
         row.icon.set_icon_name(None);
         row.icon.set_visible(true);
         row.name.set_text(&network.name);
-        row.status.set_text(running.unwrap_or("Not in range"));
+        row.status
+            .set_text(running.unwrap_or(tr(msg!("Not in range"))));
         row.button.set_visible(false);
         update_menu(
             row,
@@ -1139,18 +1157,18 @@ impl NetworkPage {
     ) {
         row.icon.set_visible(false);
         row.name.set_text(title);
-        let state = running.unwrap_or(match device.state {
-            DeviceState::Connected => "Connected",
-            DeviceState::Connecting | DeviceState::NeedAuth => "Connecting…",
-            DeviceState::Disconnecting => "Disconnecting…",
-            DeviceState::Unavailable => "Cable unplugged",
-            DeviceState::Failed => "Couldn't connect",
-            _ => "Off",
-        });
+        let state = running.unwrap_or(tr(match device.state {
+            DeviceState::Connected => msg!("Connected"),
+            DeviceState::Connecting | DeviceState::NeedAuth => msg!("Connecting…"),
+            DeviceState::Disconnecting => msg!("Disconnecting…"),
+            DeviceState::Unavailable => msg!("Cable unplugged"),
+            DeviceState::Failed => msg!("Couldn't connect"),
+            _ => msg!("Off"),
+        }));
         let mut status = vec![state.to_owned()];
         if running.is_none() && device.state == DeviceState::Connected {
             if let Some(speed) = device.speed {
-                status.push(format!("{speed} Mb/s"));
+                status.push(trf(msg!("{speed} Mb/s"), &[("speed", &speed)]));
             }
             if let Some(address) = first_address(device.ip4.as_ref()) {
                 status.push(address);
@@ -1195,12 +1213,12 @@ impl NetworkPage {
     ) {
         row.icon.set_visible(false);
         row.name.set_text(&vpn.name);
-        let state = running.unwrap_or(match active.map(|a| a.state) {
-            Some(ActiveState::Activated) => "Connected",
-            Some(ActiveState::Activating | ActiveState::Unknown) => "Connecting…",
-            Some(ActiveState::Deactivating) => "Disconnecting…",
-            _ => "Off",
-        });
+        let state = running.unwrap_or(tr(match active.map(|a| a.state) {
+            Some(ActiveState::Activated) => msg!("Connected"),
+            Some(ActiveState::Activating | ActiveState::Unknown) => msg!("Connecting…"),
+            Some(ActiveState::Deactivating) => msg!("Disconnecting…"),
+            _ => msg!("Off"),
+        }));
         let mut status = vec![vpn_kind(&vpn.kind).to_owned(), state.to_owned()];
         if running.is_none() {
             if let Some(address) = first_address(active.and_then(|a| a.ip4.as_ref())) {
@@ -1286,10 +1304,14 @@ impl NetworkPage {
         }
         if network.active.is_some() {
             let name = network.name.clone();
-            self.run(key, "Disconnecting…", move |nm| async move {
-                nm.disconnect_device(&device.path)
-                    .await
-                    .map_err(|error| format!("Couldn't disconnect from “{name}”: {error}"))
+            self.run(key, tr(msg!("Disconnecting…")), move |nm| async move {
+                nm.disconnect_device(&device.path).await.map_err(|error| {
+                    failed(
+                        msg!("Couldn't disconnect from “{network}”: {error}"),
+                        &name,
+                        &error,
+                    )
+                })
             });
         } else if network.saved.is_empty() && !network.security.supported() {
             self.open_editor(delegate::NEW_WIFI);
@@ -1306,8 +1328,11 @@ impl NetworkPage {
         let weak = self.downgrade();
         let id = key.to_owned();
         let spec = PasswordSpec {
-            title: format!("Connect to “{}”", network.name),
-            body: "Enter the password of the Wi-Fi network.",
+            title: trf(
+                msg!("Connect to “{network}”"),
+                &[("network", &network.name)],
+            ),
+            body: tr(msg!("Enter the password of the Wi-Fi network.")),
             security: network.security,
             saved_note: true,
         };
@@ -1335,7 +1360,13 @@ impl NetworkPage {
                 Ok(active) => nm.wait_connected(&active, Some(&device.path)).await,
                 Err(error) => Err(error),
             };
-            result.map_err(|error| format!("Couldn't connect to “{name}”: {error}"))
+            result.map_err(|error| {
+                failed(
+                    msg!("Couldn't connect to “{network}”: {error}"),
+                    &name,
+                    &error,
+                )
+            })
         });
     }
 
@@ -1362,7 +1393,13 @@ impl NetworkPage {
                     Ok(active) => nm.wait_connected(&active, Some(&device)).await,
                     Err(error) => Err(error),
                 };
-                result.map_err(|error| format!("Couldn't connect to “{ssid}”: {error}"))
+                result.map_err(|error| {
+                    failed(
+                        msg!("Couldn't connect to “{network}”: {error}"),
+                        &ssid,
+                        &error,
+                    )
+                })
             });
         });
         self.imp().dialog.replace(Some(dialog.window().clone()));
@@ -1391,13 +1428,15 @@ impl NetworkPage {
                             Ok(active) => nm.wait_connected(&active, Some(&device.path)).await,
                             Err(error) => Err(error),
                         };
-                        result.map_err(|error| format!("Couldn't connect the cable: {error}"))
+                        result.map_err(|error| {
+                            failed(msg!("Couldn't connect the cable: {error}"), "", &error)
+                        })
                     });
                 } else {
-                    self.run(key, "Disconnecting…", move |nm| async move {
-                        nm.disconnect_device(&device.path)
-                            .await
-                            .map_err(|error| format!("Couldn't disconnect the cable: {error}"))
+                    self.run(key, tr(msg!("Disconnecting…")), move |nm| async move {
+                        nm.disconnect_device(&device.path).await.map_err(|error| {
+                            failed(msg!("Couldn't disconnect the cable: {error}"), "", &error)
+                        })
                     });
                 }
             }
@@ -1415,13 +1454,15 @@ impl NetworkPage {
                             Ok(active) => nm.wait_connected(&active, None).await,
                             Err(error) => Err(error),
                         };
-                        result.map_err(|error| format!("Couldn't connect “{name}”: {error}"))
+                        result.map_err(|error| {
+                            failed(msg!("Couldn't connect “{vpn}”: {error}"), &name, &error)
+                        })
                     });
                 } else if let Some(active) = active {
-                    self.run(key, "Disconnecting…", move |nm| async move {
-                        nm.deactivate(&active.path)
-                            .await
-                            .map_err(|error| format!("Couldn't disconnect “{name}”: {error}"))
+                    self.run(key, tr(msg!("Disconnecting…")), move |nm| async move {
+                        nm.deactivate(&active.path).await.map_err(|error| {
+                            failed(msg!("Couldn't disconnect “{vpn}”: {error}"), &name, &error)
+                        })
                     });
                 }
             }
@@ -1446,10 +1487,10 @@ impl NetworkPage {
                 return;
             }
             if let Some(page) = weak.upgrade() {
-                page.run(&id, "Forgetting…", move |nm| async move {
-                    nm.forget(&saved)
-                        .await
-                        .map_err(|error| format!("Couldn't forget “{name}”: {error}"))
+                page.run(&id, tr(msg!("Forgetting…")), move |nm| async move {
+                    nm.forget(&saved).await.map_err(|error| {
+                        failed(msg!("Couldn't forget “{network}”: {error}"), &name, &error)
+                    })
                 });
             }
         });
@@ -1466,7 +1507,9 @@ impl NetworkPage {
         };
         match uuid.as_deref().and_then(delegate::edit_connection) {
             Some([option, uuid]) => self.open_editor(&[option.as_str(), uuid.as_str()]),
-            None => self.show_error("This connection can't be opened in nm-connection-editor"),
+            None => self.show_error(tr(msg!(
+                "This connection can't be opened in nm-connection-editor"
+            ))),
         }
     }
 
@@ -1481,23 +1524,28 @@ impl NetworkPage {
                         .cloned()
                 });
                 let mut rows = vec![(
-                    "Signal",
-                    format!(
-                        "{} ({} %)",
-                        capitalized(signal_word(signal_level(network.strength))),
-                        network.strength
+                    tr(msg!("Signal")),
+                    trf(
+                        msg!("{quality} ({percent} %)"),
+                        &[
+                            ("quality", &signal_quality(signal_level(network.strength))),
+                            ("percent", &network.strength),
+                        ],
                     ),
                 )];
                 if let Some(band) = ap.as_ref().and_then(|ap| band(ap.frequency)) {
-                    rows.push(("Frequency", band.to_owned()));
+                    rows.push((tr(msg!("Frequency")), band.to_owned()));
                 }
-                rows.push(("Security", security_name(network.security).to_owned()));
+                rows.push((
+                    tr(msg!("Security")),
+                    security_name(network.security).to_owned(),
+                ));
                 rows.extend(device_details(&device));
                 (format!("“{}”", network.name), rows)
             }
-            Some(Target::Wired(device)) => ("Wired".to_owned(), device_details(&device)),
+            Some(Target::Wired(device)) => (tr(msg!("Wired")).to_owned(), device_details(&device)),
             Some(Target::Vpn(vpn, active)) => {
-                let mut rows = vec![("Type", vpn_kind(&vpn.kind).to_owned())];
+                let mut rows = vec![(tr(msg!("Type")), vpn_kind(&vpn.kind).to_owned())];
                 if let Some(active) = active {
                     rows.extend(ip_details(active.ip4.as_ref(), active.ip6.as_ref()));
                 }
@@ -1550,7 +1598,7 @@ impl NetworkPage {
         imp.pending.set(imp.pending.get() + 1);
         self.update_agent();
         let weak = self.downgrade();
-        self.run(key, "Connecting…", move |nm| async move {
+        self.run(key, tr(msg!("Connecting…")), move |nm| async move {
             let result = action(nm).await;
             if let Some(page) = weak.upgrade() {
                 let pending = &page.imp().pending;
@@ -1577,9 +1625,13 @@ impl NetworkPage {
             if let Some(page) = weak.upgrade() {
                 page.show_error(&match result {
                     Ok(()) => String::new(),
-                    Err(error) => format!(
-                        "Couldn't turn Wi-Fi {}: {error}",
-                        if on { "on" } else { "off" }
+                    Err(error) => trf(
+                        if on {
+                            msg!("Couldn't turn Wi-Fi on: {error}")
+                        } else {
+                            msg!("Couldn't turn Wi-Fi off: {error}")
+                        },
+                        &[("error", &error.text().translated())],
                     ),
                 });
             }
@@ -1599,7 +1651,10 @@ impl NetworkPage {
             if let Some(page) = weak.upgrade() {
                 page.show_error(&match result {
                     Ok(()) => String::new(),
-                    Err(error) => format!("Couldn't turn networking on: {error}"),
+                    Err(error) => trf(
+                        msg!("Couldn't turn networking on: {error}"),
+                        &[("error", &error.text().translated())],
+                    ),
                 });
             }
             refresh(&weak, &nm).await;
@@ -1612,8 +1667,11 @@ impl NetworkPage {
         let window = self.root().and_downcast::<gtk::Window>();
         let spec = if prompt.retry {
             PasswordSpec {
-                title: format!("Wrong password for “{}”", prompt.network),
-                body: "The password didn't work, or it has changed.",
+                title: trf(
+                    msg!("Wrong password for “{network}”"),
+                    &[("network", &prompt.network)],
+                ),
+                body: tr(msg!("The password didn't work, or it has changed.")),
                 security: if prompt.wpa3 {
                     Security::Wpa3Personal
                 } else {
@@ -1623,8 +1681,11 @@ impl NetworkPage {
             }
         } else {
             PasswordSpec {
-                title: format!("Password for “{}”", prompt.network),
-                body: "Enter the password of the Wi-Fi network.",
+                title: trf(
+                    msg!("Password for “{network}”"),
+                    &[("network", &prompt.network)],
+                ),
+                body: tr(msg!("Enter the password of the Wi-Fi network.")),
                 security: if prompt.wpa3 {
                     Security::Wpa3Personal
                 } else {
@@ -1776,11 +1837,11 @@ impl NetworkPage {
         search_button::set_running(
             &imp.search,
             running,
-            if running {
-                "Stop waiting for the scan"
+            tr(if running {
+                msg!("Stop waiting for the scan")
             } else {
-                "Look for networks nearby now"
-            },
+                msg!("Look for networks nearby now")
+            }),
         );
     }
 
@@ -1870,7 +1931,10 @@ impl NetworkPage {
             gtk::gio::Cancellable::NONE,
             move |result| {
                 if let (Err(error), Some(page)) = (result, weak.upgrade()) {
-                    page.show_error(&format!("The login page can't be opened: {error}"));
+                    page.show_error(&trf(
+                        msg!("The login page can't be opened: {error}"),
+                        &[("error", &error)],
+                    ));
                 }
             },
         );
@@ -1886,7 +1950,10 @@ impl NetworkPage {
                 });
             }
             Err(error) => {
-                self.show_error(&format!("nm-connection-editor can't be started: {error}"));
+                self.show_error(&trf(
+                    msg!("nm-connection-editor can't be started: {error}"),
+                    &[("error", &error)],
+                ));
             }
         }
     }
@@ -1907,13 +1974,16 @@ impl NetworkPage {
         let Some(hard) = off else {
             return;
         };
-        let text = if hard {
-            "It's turned off by a hardware switch or key. Use it to turn Wi-Fi back on."
+        let text = tr(if hard {
+            msg!("It's turned off by a hardware switch or key. Use it to turn Wi-Fi back on.")
         } else {
-            "Turn it on with the switch above to see and connect to networks."
-        };
-        let placeholder =
-            Placeholder::new("network-wireless-disabled-symbolic", "Wi-Fi is off", text);
+            msg!("Turn it on with the switch above to see and connect to networks.")
+        });
+        let placeholder = Placeholder::new(
+            "network-wireless-disabled-symbolic",
+            tr(msg!("Wi-Fi is off")),
+            text,
+        );
         placeholder.set_hexpand(true);
         imp.off.append(&placeholder);
     }
@@ -1933,7 +2003,7 @@ impl NetworkPage {
         placeholder.set_hexpand(true);
         imp.missing.append(&placeholder);
         if turn_on {
-            let button = gtk::Button::with_label("Turn On");
+            let button = gtk::Button::with_label(tr(msg!("Turn On")));
             button.set_halign(gtk::Align::Center);
             button.add_css_class("suggested-action");
             let weak = self.downgrade();
@@ -1966,8 +2036,9 @@ fn update_menu(row: &NetRow, name: &str, items: [bool; 3], idle: bool) {
     row.menu.set_visible(details || edit || forget);
     row.menu.set_sensitive(idle);
     row.menu
-        .update_property(&[gtk::accessible::Property::Label(&format!(
-            "More actions for {name}"
+        .update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("More actions for {network}"),
+            &[("network", &name)],
         ))]);
 }
 
@@ -2007,20 +2078,26 @@ async fn refresh(page: &glib::WeakRef<NetworkPage>, nm: &NetworkManager) -> bool
 fn device_details(device: &Device) -> Vec<(&'static str, String)> {
     let mut rows = Vec::new();
     if let Some(speed) = device.speed {
-        rows.push(("Link speed", format!("{speed} Mb/s")));
+        rows.push((
+            tr(msg!("Link speed")),
+            trf(msg!("{speed} Mb/s"), &[("speed", &speed)]),
+        ));
     }
     rows.extend(ip_details(device.ip4.as_ref(), device.ip6.as_ref()));
     if !device.hw_address.is_empty() {
-        rows.push(("Hardware address", device.hw_address.clone()));
+        rows.push((tr(msg!("Hardware address")), device.hw_address.clone()));
     }
-    rows.push(("Interface", device.interface.clone()));
+    rows.push((tr(msg!("Interface")), device.interface.clone()));
     rows
 }
 
 /// The addresses, gateways and DNS servers of `ip4` and `ip6`.
 fn ip_details(ip4: Option<&IpConfig>, ip6: Option<&IpConfig>) -> Vec<(&'static str, String)> {
     let mut rows = Vec::new();
-    for (label, config) in [("IPv4 address", ip4), ("IPv6 address", ip6)] {
+    for (label, config) in [
+        (tr(msg!("IPv4 address")), ip4),
+        (tr(msg!("IPv6 address")), ip6),
+    ] {
         if let Some(config) = config.filter(|c| !c.addresses.is_empty()) {
             rows.push((label, config.addresses.join("\n")));
         }
@@ -2031,7 +2108,7 @@ fn ip_details(ip4: Option<&IpConfig>, ip6: Option<&IpConfig>) -> Vec<(&'static s
         .filter_map(|c| c.gateway.as_deref())
         .collect();
     if !gateways.is_empty() {
-        rows.push(("Gateway", gateways.join("\n")));
+        rows.push((tr(msg!("Gateway")), gateways.join("\n")));
     }
     let dns: Vec<&str> = [ip4, ip6]
         .into_iter()
@@ -2039,7 +2116,7 @@ fn ip_details(ip4: Option<&IpConfig>, ip6: Option<&IpConfig>) -> Vec<(&'static s
         .flat_map(|c| c.dns.iter().map(String::as_str))
         .collect();
     if !dns.is_empty() {
-        rows.push(("DNS", dns.join("\n")));
+        rows.push((tr(msg!("DNS")), dns.join("\n")));
     }
     rows
 }
@@ -2069,46 +2146,63 @@ fn signal_icon(level: u8) -> &'static str {
     }
 }
 
-/// A signal `level` in a word, as the icons name it.
-fn signal_word(level: u8) -> &'static str {
-    match level {
-        4 => "excellent",
-        3 => "good",
-        2 => "ok",
-        1 => "weak",
-        _ => "none",
-    }
+/// How good a signal of `level` (0 to 4) is, as the details say it.
+fn signal_quality(level: u8) -> &'static str {
+    // TRANSLATORS: How good the signal of a Wi-Fi network is.
+    tr(match level {
+        4 => msg!("Excellent"),
+        3 => msg!("Good"),
+        2 => msg!("OK"),
+        1 => msg!("Weak"),
+        _ => msg!("None"),
+    })
 }
 
-/// `word` with a capital first letter.
-fn capitalized(word: &str) -> String {
-    let mut chars = word.chars();
-    chars.next().map_or_else(String::new, |first| {
-        first.to_uppercase().chain(chars).collect()
+/// The signal of `level` (0 to 4), for screen readers.
+fn signal_label(level: u8) -> &'static str {
+    tr(match level {
+        4 => msg!("Signal excellent"),
+        3 => msg!("Signal good"),
+        2 => msg!("Signal ok"),
+        1 => msg!("Signal weak"),
+        _ => msg!("Signal none"),
     })
+}
+
+/// The message of an action on `name` that failed with `error`.
+fn failed(text: Msg, name: &str, error: &Error) -> String {
+    trf(
+        text,
+        &[
+            ("network", &name),
+            ("vpn", &name),
+            ("error", &error.text().translated()),
+        ],
+    )
 }
 
 /// How a row names `security`.
 fn security_text(security: Security) -> &'static str {
     match security {
-        Security::Open => "Open, not encrypted",
-        Security::EnhancedOpen => "Enhanced Open",
-        Security::Wep => "WEP, insecure",
+        Security::Open => tr(msg!("Open, not encrypted")),
+        Security::EnhancedOpen => tr(msg!("Enhanced Open")),
+        Security::Wep => tr(msg!("WEP, insecure")),
         Security::Personal => "WPA2",
         Security::Wpa3Personal => "WPA3",
-        Security::Enterprise => "Enterprise (802.1X)",
+        Security::Enterprise => tr(msg!("Enterprise (802.1X)")),
     }
 }
 
 /// How the details name `security`.
 fn security_name(security: Security) -> &'static str {
     match security {
-        Security::Open => "None",
-        Security::EnhancedOpen => "Enhanced Open (OWE)",
+        // TRANSLATORS: The security of a Wi-Fi network: none.
+        Security::Open => tr(msg!("None")),
+        Security::EnhancedOpen => tr(msg!("Enhanced Open (OWE)")),
         Security::Wep => "WEP",
-        Security::Personal => "WPA2 Personal",
-        Security::Wpa3Personal => "WPA3 Personal",
-        Security::Enterprise => "WPA Enterprise (802.1X)",
+        Security::Personal => tr(msg!("WPA2 Personal")),
+        Security::Wpa3Personal => tr(msg!("WPA3 Personal")),
+        Security::Enterprise => tr(msg!("WPA Enterprise (802.1X)")),
     }
 }
 
@@ -2263,7 +2357,7 @@ mod tests {
 
     #[test]
     fn rows_name_things_plainly() {
-        assert_eq!(capitalized("good"), "Good");
+        assert_eq!(signal_quality(3), "Good");
         assert_eq!(signal_icon(4), "network-wireless-signal-excellent-symbolic");
         assert_eq!(
             vpn_kind(&ConnectionKind::Vpn(
