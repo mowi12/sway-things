@@ -18,6 +18,8 @@ use std::process::Stdio;
 use async_process::{Child, Command};
 
 use crate::delegate::find_program;
+use crate::i18n::Text;
+use crate::msg;
 use crate::registry::ValueError;
 
 /// The key of the preference that holds the editor command.
@@ -36,12 +38,20 @@ pub enum SplitError {
     TrailingBackslash,
 }
 
+impl SplitError {
+    /// What is wrong with the command, to show after its name: "The editor command has a quote
+    /// that isn't closed".
+    pub fn text(&self) -> Text {
+        match self {
+            Self::UnclosedQuote => msg!("has a quote that isn't closed").into(),
+            Self::TrailingBackslash => msg!("ends in a backslash that escapes nothing").into(),
+        }
+    }
+}
+
 impl fmt::Display for SplitError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnclosedQuote => f.write_str("has a quote that isn't closed"),
-            Self::TrailingBackslash => f.write_str("ends in a backslash that escapes nothing"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

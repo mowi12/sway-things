@@ -42,8 +42,10 @@ use std::path::PathBuf;
 
 use crate::command::input::InputSelector;
 use crate::conflict::Report;
+use crate::i18n::Text;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
+use crate::msg;
 use crate::registry::{Kind, Setting, Value, Values, When};
 use crate::state::{Layer, State};
 
@@ -75,23 +77,34 @@ pub enum Source {
 pub enum Locked {
     /// The user's config doesn't include the generated files (or not all of them); the text says
     /// what to do.
-    ReadOnly(String),
+    ReadOnly(Text),
     /// The running compositor doesn't support the setting.
     Unsupported(Unmet),
     /// The setting only matters while another one is set differently; the text says which
     /// ("Turn on Blur first").
-    Needs(String),
+    Needs(Text),
+}
+
+impl Locked {
+    /// Why, to show next to the row. For [`Locked::ReadOnly`], only that the include line is
+    /// missing: the explanation is long and the same for every setting, so the app shows it once.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::ReadOnly(_) => msg!("Add the include line to change settings").into(),
+            Self::Unsupported(Unmet::Sway { needed }) => {
+                Text::new(msg!("Requires sway {version}")).arg("version", needed)
+            }
+            Self::Unsupported(Unmet::SwayFx { needed }) => {
+                Text::new(msg!("Requires SwayFX {version}")).arg("version", needed)
+            }
+            Self::Needs(text) => text.clone(),
+        }
+    }
 }
 
 impl fmt::Display for Locked {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            // The explanation is long and the same for every setting; the app shows it once.
-            Self::ReadOnly(_) => f.write_str("Add the include line to change settings"),
-            Self::Unsupported(Unmet::Sway { needed }) => write!(f, "Requires sway {needed}"),
-            Self::Unsupported(Unmet::SwayFx { needed }) => write!(f, "Requires SwayFX {needed}"),
-            Self::Needs(text) => f.write_str(text),
-        }
+        f.write_str(&self.text().english())
     }
 }
 
@@ -185,7 +198,7 @@ impl SettingView {
             Ok(()) => status
                 .write_access()
                 .err()
-                .map(|read_only| Locked::ReadOnly(read_only.explanation().to_owned()))
+                .map(|read_only| Locked::ReadOnly(read_only.explanation().clone()))
                 .or_else(|| unmet_dependency(setting, device, state, status, compositor)),
         };
 
@@ -212,21 +225,34 @@ fn unmet_dependency(
     if dependency.when.holds(&value) {
         return None;
     }
-    let title = other.title().msgid();
+    let title = other.title();
     let text = match dependency.when {
-        When::On => format!("Turn on {title} first"),
+        When::On => Text::new(msg!("Turn on {title} first")).text("title", title),
         When::OneOf(ids) => {
-            let labels: Vec<&str> = match other.kind() {
+            let labels: Vec<Text> = match other.kind() {
                 Kind::Choice { choices, .. } => choices
                     .iter()
                     .filter(|choice| ids.contains(&choice.id))
-                    .map(|choice| choice.label.msgid())
+                    .map(|choice| choice.label.into())
                     .collect(),
-                _ => ids.to_vec(),
+                _ => ids.iter().map(|id| Text::data(*id)).collect(),
             };
-            format!("Only with {title}: {}", labels.join(" or "))
+            let choices = labels
+                .into_iter()
+                .reduce(|first, second| {
+                    // TRANSLATORS: Two choices of a setting, or a list of them and one more.
+                    Text::new(msg!("{first} or {second}"))
+                        .text("first", first)
+                        .text("second", second)
+                })
+                .unwrap_or_else(|| Text::data(""));
+            Text::new(msg!("Only with {title}: {choices}"))
+                .text("title", title)
+                .text("choices", choices)
         }
-        When::Above(limit) => format!("Only with {title} above {limit}"),
+        When::Above(limit) => Text::new(msg!("Only with {title} above {limit}"))
+            .text("title", title)
+            .arg("limit", limit),
     };
     Some(Locked::Needs(text))
 }
@@ -414,10 +440,10 @@ mod tests {
         // The value in effect counts, also one from the user's config.
         let users = format!("default_border none\n{INCLUDE}");
         assert_eq!(
-            view(&empty, width, None, &users).locked,
-            Some(Locked::Needs(
-                "Only with Tiled windows: Border and title bar or Border only".to_owned()
-            ))
+            view(&empty, width, None, &users)
+                .locked
+                .map(|locked| locked.text().english()),
+            Some("Only with Tiled windows: Border and title bar or Border only".to_owned())
         );
         let pixel = setup("version = 1\n\n[windows.border]\nstyle = \"pixel\"\n");
         assert_eq!(view(&pixel, width, None, &users).locked, None);

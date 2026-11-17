@@ -123,7 +123,7 @@ fn a_missing_line_is_read_only_with_the_instructions() {
         assert_eq!(error.inclusion(), &Inclusion::Missing);
         assert_eq!(error.instructions().line(), LINE);
         assert_eq!(
-            error.explanation(),
+            error.explanation().english(),
             "Sway Things never edits your sway config. It writes its own files and needs one \
              line at the end of ~/.config/sway/config:\n\n    \
              include ~/.config/sway/sway-things/*.conf"
@@ -161,7 +161,7 @@ fn the_line_is_found_in_an_included_file() {
         ]
     );
     assert_eq!(
-        status.message(),
+        status.message().english(),
         "Sway Things is enabled: ~/.config/sway/config.d/50-things.conf:2 includes its files. 3 \
          of your config lines come after them and win where they set the same thing as Sway \
          Things."
@@ -180,7 +180,7 @@ fn lines_after_the_include_are_listed() {
     let last = self::status(&format!("gaps inner 8\n{LINE}\n# a comment\n\n"));
     assert!(last.is_last());
     assert_eq!(
-        last.message(),
+        last.message().english(),
         "Sway Things is enabled: ~/.config/sway/config:2 includes its files."
     );
 }
@@ -229,7 +229,9 @@ fn an_include_of_some_files_is_partial() {
         assert_eq!(status.position(ConfigFile::Effects), None, "{line}");
     }
     assert_eq!(
-        status("include ~/.config/sway/sway-things/[1-4]*.conf\n").message(),
+        status("include ~/.config/sway/sway-things/[1-4]*.conf\n")
+            .message()
+            .english(),
         "Not enabled yet: your config includes only some of the Sway Things files \
          (~/.config/sway/config:1). Not included: 90-effects.conf. Use this line instead:\n\n    \
          include ~/.config/sway/sway-things/*.conf"
@@ -262,7 +264,7 @@ fn an_include_that_cannot_be_followed_is_unknown() {
     );
     assert!(status.write_access().is_err());
     assert_eq!(
-        status.message(),
+        status.message().english(),
         "Not enabled yet: Sway Things can't follow part of your config:\n\n    \
          ~/.config/sway/config:2: include $(hostname).conf (the path needs a command to be \
          run)\n\nIf the Sway Things line is in there, add it to ~/.config/sway/config \
@@ -281,9 +283,10 @@ fn an_include_that_cannot_be_followed_is_unknown() {
     assert_eq!(unfollowed[0].kind, DiagnosticKind::NotAFile);
     assert!(
         fifo.message()
+            .english()
             .contains("    ~/.config/sway/fifo (not a regular file)\n"),
         "{}",
-        fifo.message()
+        fifo.message().english()
     );
 
     // With the line found elsewhere, what can't be followed doesn't matter.
@@ -323,7 +326,7 @@ fn without_a_config_the_instructions_say_to_create_one() {
         Some(Path::new("/etc/sway/config"))
     );
     assert_eq!(
-        instructions.text(),
+        instructions.text().english(),
         "Sway Things never edits your sway config. It writes its own files and needs one line \
          in it. You have no sway config of your own yet: copy /etc/sway/config to \
          ~/.config/sway/config first, then add this line at its end:\n\n    \
@@ -425,18 +428,21 @@ fn the_explanation_is_the_message_without_the_line() {
         "include ~/.config/sway/sway-things/10-input.conf\n",
     ] {
         let status = status(main);
-        let explanation = status.explanation();
+        let explanation = status.explanation().english();
         assert!(explanation.ends_with(':'), "{explanation}");
         assert!(!explanation.contains(LINE), "{explanation}");
         assert_eq!(
-            status.message(),
+            status.message().english(),
             format!("{explanation}\n\n    {}", status.instructions().line())
         );
     }
     let active = status(&format!("{LINE}\n"));
-    assert_eq!(active.explanation(), active.message());
+    assert_eq!(active.explanation().english(), active.message().english());
     assert_eq!(
-        active.instructions().text(),
-        format!("{}\n\n    {LINE}", active.instructions().explanation())
+        active.instructions().text().english(),
+        format!(
+            "{}\n\n    {LINE}",
+            active.instructions().explanation().english()
+        )
     );
 }

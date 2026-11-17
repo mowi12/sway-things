@@ -580,7 +580,7 @@ impl SettingRow {
         if let Some(locked @ Locked::Unsupported(_)) = &view.locked {
             imp.badges.append(&badge(
                 "changes-prevent-symbolic",
-                &locked.to_string(),
+                &locked.text().translated(),
                 false,
             ));
         }
@@ -686,7 +686,7 @@ impl SettingRow {
         let model = imp.model.get()?;
         model
             .view(self.setting()?, imp.device.borrow().as_deref())
-            .and_then(|view| view.locked.map(|locked| locked.to_string()))
+            .and_then(|view| view.locked.map(|locked| locked.text().translated()))
     }
 
     /// Shows `message` under the title, as for a change that failed, or with `None` hides it.
@@ -1157,7 +1157,7 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
     // The setting this one needs ("Turn on Blur first"). What the compositor lacks is a badge,
     // and the include line is explained once for the whole window, not on every row.
     if let Some(Locked::Needs(text)) = &view.locked {
-        parts.push(text.clone());
+        parts.push(text.translated());
     }
     parts.join(" · ")
 }

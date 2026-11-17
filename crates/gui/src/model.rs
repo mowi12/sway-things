@@ -228,9 +228,11 @@ impl Model {
     }
 
     async fn connect() -> Result<(Applier, IncludeWatch), String> {
-        let (applier, main) = Applier::open().await.map_err(|error| error.to_string())?;
+        let (applier, main) = Applier::open()
+            .await
+            .map_err(|error| error.text().translated())?;
         let watch = IncludeWatch::new(main, applier.locations().clone())
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| error.text().translated())?;
         Ok((applier, watch))
     }
 
@@ -657,7 +659,7 @@ impl Model {
                 | Op::MoveTo { key, device, .. },
                 Err(read_only),
             ) => {
-                self.emit_failed(key, device.as_deref(), read_only.explanation());
+                self.emit_failed(key, device.as_deref(), &explained(&read_only));
             }
             (Op::TryRiskyAll { device, changes }, access) => {
                 self.try_risky_all_now(&mut applier, device.as_deref(), &changes, &status, access)
@@ -669,14 +671,14 @@ impl Model {
                     .await;
             }
             (Op::LetConfigWin(report), Err(read_only)) => {
-                self.emit_failed(report.key(), report.device(), read_only.explanation());
+                self.emit_failed(report.key(), report.device(), &explained(&read_only));
             }
             (Op::Overwrite(file), Ok(access)) => match applier.persist(&[file], &access).await {
                 Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&error.to_string()),
+                Err(error) => self.emit_problem(&error.text().translated()),
             },
             (Op::ResetPage(_) | Op::ReloadSway | Op::Overwrite(_), Err(read_only)) => {
-                self.emit_problem(read_only.explanation());
+                self.emit_problem(&explained(&read_only));
             }
             (Op::Reset { key, device }, Ok(access)) => {
                 self.reset_now(&mut applier, key, device.as_deref(), &status, &access)
@@ -684,12 +686,12 @@ impl Model {
             }
             (Op::MoveTo { key, device, layer }, Ok(access)) => {
                 if let Err(error) = applier.move_to(key, device.as_deref(), layer, &access) {
-                    self.emit_failed(key, device.as_deref(), &error.to_string());
+                    self.emit_failed(key, device.as_deref(), &error.text().translated());
                 }
             }
             (Op::LetConfigWin(report), Ok(access)) => {
                 if let Err(error) = applier.let_config_win(&report, &access).await {
-                    self.emit_failed(report.key(), report.device(), &error.to_string());
+                    self.emit_failed(report.key(), report.device(), &error.text().translated());
                 }
             }
             (Op::ResetPage(page), Ok(access)) => {
@@ -708,7 +710,7 @@ impl Model {
             }
             (Op::Keep, Ok(access)) => {
                 if let Err(error) = applier.keep(&access) {
-                    self.emit_problem(&error.to_string());
+                    self.emit_problem(&error.text().translated());
                 }
             }
             // Without the include line nothing can be kept: back to the old value.
@@ -720,7 +722,7 @@ impl Model {
             },
             (Op::Persist, Ok(access)) => match applier.persist(&[], &access).await {
                 Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&error.to_string()),
+                Err(error) => self.emit_problem(&error.text().translated()),
             },
             (Op::Reload, Ok(access)) => {
                 applier.reload(&access).await;
@@ -843,7 +845,7 @@ impl Model {
             applier.set(key, device, value, access).await.map(|_| ())
         };
         if let Err(error) = result {
-            self.emit_failed(key, device, &error.to_string());
+            self.emit_failed(key, device, &error.text().translated());
         }
     }
 
@@ -866,7 +868,7 @@ impl Model {
             applier.reset(key, device, access).await.map(|_| ())
         };
         if let Err(error) = result {
-            self.emit_failed(key, device, &error.to_string());
+            self.emit_failed(key, device, &error.text().translated());
         }
     }
 
@@ -888,8 +890,8 @@ impl Model {
                 .try_risky_all(device, changes, status, &access)
                 .await
                 .map(drop)
-                .map_err(|error| error.to_string()),
-            Err(read_only) => Err(read_only.explanation().to_owned()),
+                .map_err(|error| error.text().translated()),
+            Err(read_only) => Err(explained(&read_only)),
         };
         if let Err(message) = result {
             self.emit_failed(key, device, &message);
@@ -927,7 +929,7 @@ impl Model {
             .collect();
         for (key, device) in stored {
             if let Err(error) = applier.reset(key, device.as_deref(), access).await {
-                self.emit_failed(key, device.as_deref(), &error.to_string());
+                self.emit_failed(key, device.as_deref(), &error.text().translated());
             }
         }
     }
@@ -1014,7 +1016,7 @@ impl Model {
     fn emit_persisted(&self, persisted: &Persisted) {
         for (file, outcome) in persisted.problems() {
             if let Some(problem) = outcome.problem(file) {
-                self.emit_problem(&problem);
+                self.emit_problem(&problem.translated());
             }
         }
     }
@@ -1085,4 +1087,9 @@ impl<V: Values> Values for Tried<'_, V> {
             .map(|(_, value)| *value)
             .or_else(|| self.under.get(key))
     }
+}
+
+/// Why settings can't be changed, in the user's language.
+fn explained(read_only: &ReadOnly) -> String {
+    read_only.explanation().translated()
 }

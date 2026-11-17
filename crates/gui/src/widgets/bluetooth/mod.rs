@@ -29,6 +29,8 @@ use sway_things_core::bluetooth::{
     parse_passkey, valid_pin,
 };
 use sway_things_core::delegate;
+use sway_things_core::i18n::Text;
+use sway_things_core::msg;
 
 use self::dialogs::{Dialog, Field, Spec};
 use super::{Placeholder, search_button};
@@ -563,7 +565,7 @@ impl BluetoothPage {
             let bluez = match &bus {
                 Bus::System => Bluez::connect().await,
                 Bus::Address(address) => Bluez::connect_to(address).await,
-                Bus::Off => Err(Error::Unavailable("no bus".to_owned())),
+                Bus::Off => Err(Error::Unavailable(msg!("no bus").into())),
             };
             let bluez = match bluez {
                 Ok(bluez) => bluez,
@@ -740,7 +742,7 @@ impl BluetoothPage {
         };
         let selected = imp.selected.borrow().clone();
         let Some(adapter) = selected.as_deref().and_then(|path| snapshot.adapter(path)) else {
-            self.show_missing(&Error::Unavailable(String::new()));
+            self.show_missing(&Error::Unavailable(Text::data("")));
             return;
         };
         imp.missing.set_visible(false);
@@ -869,7 +871,7 @@ impl BluetoothPage {
     fn show_missing(&self, error: &Error) {
         let imp = self.imp();
         let placeholder = match error {
-            Error::Unavailable(reason) if reason.is_empty() => Placeholder::new(
+            Error::Unavailable(reason) if reason.english().is_empty() => Placeholder::new(
                 "bluetooth-disabled-symbolic",
                 "No Bluetooth adapter",
                 "Plug in a Bluetooth adapter or turn it on in the firmware settings; this page \

@@ -9,6 +9,7 @@ use super::read::{self, ReadError};
 use super::{ConfigFile, Directive, Page, Setting, Value, When};
 use crate::command::effects::{self, DimClass};
 use crate::command::{Color, SwayCmd};
+use crate::i18n::Text;
 use crate::msg;
 use crate::version::SwayFxVersion;
 
@@ -39,9 +40,11 @@ const SHADOW_DEFAULT: Color = Color::rgba(0, 0, 0, 0x7f);
 fn whole_within(text: &str, max: i64) -> Result<Value, ReadError> {
     match read::whole(text)? {
         value if (0..=max).contains(&value) => Ok(Value::Integer(value)),
-        value => Err(ReadError::Rejected(format!(
-            "out of range [0, {max}]: {value}"
-        ))),
+        value => Err(ReadError::Rejected(
+            Text::new(msg!("out of range [0, {max}]: {value}"))
+                .arg("max", max)
+                .arg("value", value),
+        )),
     }
 }
 
@@ -49,9 +52,12 @@ fn whole_within(text: &str, max: i64) -> Result<Value, ReadError> {
 fn decimal_within(text: &str, min: f64, max: f64) -> Result<f64, ReadError> {
     match read::float(text)? {
         value if (min..=max).contains(&value) => Ok(value),
-        value => Err(ReadError::Rejected(format!(
-            "out of range [{min}, {max}]: {value}"
-        ))),
+        value => Err(ReadError::Rejected(
+            Text::new(msg!("out of range [{min}, {max}]: {value}"))
+                .arg("min", min)
+                .arg("max", max)
+                .arg("value", value),
+        )),
     }
 }
 
@@ -79,10 +85,9 @@ fn read_shadow_offset(args: &[String]) -> Result<(f64, f64), ReadError> {
             decimal_within(x, -99.9, 99.9)?,
             decimal_within(y, -99.9, 99.9)?,
         )),
-        _ => Err(ReadError::Rejected(format!(
-            "expected 2 offsets, got {}",
-            args.len()
-        ))),
+        _ => Err(ReadError::Rejected(
+            Text::new(msg!("expected 2 offsets, got {count}")).arg("count", args.len()),
+        )),
     }
 }
 
@@ -123,9 +128,9 @@ pub(super) fn settings() -> Vec<Setting> {
                 |ctx| Ok(vec![effects::corner_radius(ctx.integer(CORNER_RADIUS)?)?]),
                 |args| match read::whole(read::one(args)?)? {
                     radius @ 0..=99 => Ok(Value::Integer(radius)),
-                    radius => Err(ReadError::Rejected(format!(
-                        "out of range [0, 99]: {radius}"
-                    ))),
+                    radius => Err(ReadError::Rejected(
+                        Text::new(msg!("out of range [0, 99]: {radius}")).arg("radius", radius),
+                    )),
                 },
             )
             .build(),
@@ -447,9 +452,9 @@ pub(super) fn settings() -> Vec<Setting> {
                         )]
                         Ok(Value::Integer(value as i64))
                     } else {
-                        Err(ReadError::Unsupported(format!(
-                            "not whole milliseconds: {value}"
-                        )))
+                        Err(ReadError::Unsupported(
+                            Text::new(msg!("not whole milliseconds: {value}")).arg("value", value),
+                        ))
                     }
                 },
             )

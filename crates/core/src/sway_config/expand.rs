@@ -12,6 +12,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use super::Files;
+use crate::i18n::Text;
+use crate::msg;
 
 /// A pattern with more path segments than this isn't expanded.
 const MAX_SEGMENTS: usize = 64;
@@ -34,14 +36,22 @@ pub enum ExpandError {
     TooBig,
 }
 
+impl ExpandError {
+    /// Why the path can't be expanded, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::CommandSubstitution => msg!("the path needs a command to be run"),
+            Self::Unsupported => msg!("the path uses ~user or a ${{…}} operator"),
+            Self::Invalid => msg!("the path is not valid for sway"),
+            Self::TooBig => msg!("the pattern matches too many files"),
+        }
+        .into()
+    }
+}
+
 impl fmt::Display for ExpandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::CommandSubstitution => "the path needs a command to be run",
-            Self::Unsupported => "the path uses ~user or a ${…} operator",
-            Self::Invalid => "the path is not valid for sway",
-            Self::TooBig => "the pattern matches too many files",
-        })
+        f.write_str(&self.text().english())
     }
 }
 

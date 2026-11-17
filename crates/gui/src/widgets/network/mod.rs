@@ -24,6 +24,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
+use sway_things_core::msg;
 use sway_things_core::network::{
     ActiveConnection, ActiveState, AgentEvent, Connection, ConnectionKind, Connectivity, Device,
     DeviceState, Error, IpConfig, Network, NetworkManager, SavedNetwork, SecretPrompt, Security,
@@ -601,7 +602,7 @@ impl NetworkPage {
             let nm = match &bus {
                 Bus::System => NetworkManager::connect().await,
                 Bus::Address(address) => NetworkManager::connect_to(address).await,
-                Bus::Off => Err(Error::Unavailable("no bus".to_owned())),
+                Bus::Off => Err(Error::Unavailable(msg!("no bus").into())),
             };
             let nm = match nm {
                 Ok(nm) => nm,

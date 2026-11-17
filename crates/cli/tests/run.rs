@@ -23,6 +23,7 @@ use sway_things_core::apply::{Applier, Countdown};
 use sway_things_core::delegate;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
+use sway_things_core::i18n::Text;
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient};
@@ -780,8 +781,8 @@ fn doctor_lists_the_users_lines_that_win() {
     let config = setup.path("config/sway/config");
     assert!(
         ran.out.contains(&format!(
-            "  warning  The include line isn't last: 1 of your config lines come after it and \
-             win where they set the same thing as Sway Things.\n             \
+            "  warning  The include line isn't last: 1 of your config lines comes after it and \
+             wins where it sets the same thing as Sway Things.\n             \
              {config}:2: gaps inner 4\n",
             config = config.display()
         )),
@@ -882,8 +883,8 @@ fn doctor_without_sway_skips_validation() {
     let mut setup = Setup::new("version = 1\n\n[windows.gaps]\ninner = 8\n", INCLUDE, None);
     assert_eq!(setup.run(&["doctor", "--fix"]).exit, Exit::Ok);
     let found = Found::NoSession {
-        reason: "SWAYSOCK isn't set".to_owned(),
-        installed: Installed::Missing("No such file or directory (os error 2)".to_owned()),
+        reason: Text::data("SWAYSOCK isn't set"),
+        installed: Installed::Missing(Text::data("No such file or directory (os error 2)")),
     };
     let applier = &setup.session.applier;
     let checkup = Checkup {
@@ -933,7 +934,7 @@ fn doctor_without_sway_skips_validation() {
 /// The doctor's report on `setup` without a session, as `look` says.
 fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, String) {
     let found = Found::NoSession {
-        reason: "not in a sway session".to_owned(),
+        reason: Text::data("not in a sway session"),
         installed: Installed::Version(setup.session.applier.compositor()),
     };
     let applier = &setup.session.applier;
@@ -1054,7 +1055,7 @@ fn doctor_fails_when_it_cant_fix() {
 fn doctor_starts_with_the_system_details() {
     let setup = Setup::new("version = 1\n", INCLUDE, None);
     let found = Found::NoSession {
-        reason: "not in a sway session".to_owned(),
+        reason: Text::data("not in a sway session"),
         installed: Installed::Version(setup.session.applier.compositor()),
     };
     let applier = &setup.session.applier;

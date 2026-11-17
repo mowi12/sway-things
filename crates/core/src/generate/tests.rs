@@ -589,6 +589,7 @@ fn problems_with_generated_files_read_well() {
     assert_eq!(
         Outcome::EditedOutside
             .problem(ConfigFile::Appearance)
+            .map(|text| text.english())
             .as_deref(),
         Some("30-appearance.conf was changed outside Sway Things, so it was left alone")
     );
@@ -598,7 +599,10 @@ fn problems_with_generated_files_read_well() {
         source: None,
     }]);
     assert_eq!(
-        invalid.problem(ConfigFile::Appearance).as_deref(),
+        invalid
+            .problem(ConfigFile::Appearance)
+            .map(|text| text.english())
+            .as_deref(),
         Some(
             "sway rejected the new 30-appearance.conf, so the old one stays: line 4: \
              Unknown/invalid command 'gaps'"

@@ -506,7 +506,7 @@ impl Window {
             }
             let note = !status.is_last() && !imp.note_dismissed.get();
             if note {
-                imp.status_text.set_text(&status.explanation());
+                imp.status_text.set_text(&status.explanation().translated());
                 imp.status_button.set_label("Dismiss");
             }
             imp.status.set_reveal_child(note);

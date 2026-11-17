@@ -14,6 +14,7 @@ use super::{
 };
 use crate::generate::tests::{SWAY_1_10, SWAYFX_0_5, TOUCHPAD};
 use crate::generate::{ConfigError, HEADER, Locations, Outcome, Report, Validate};
+use crate::i18n::Text;
 use crate::include::{IncludeStatus, WriteAccess};
 use crate::ipc::Compositor;
 use crate::registry::{ConfigFile, Registry};
@@ -185,12 +186,16 @@ fn a_setup_that_works_is_fine() {
     );
     assert!(!diagnosis.can_fix(true));
     assert_eq!(
-        one(&diagnosis, Code::Session).message,
+        one(&diagnosis, Code::Session).message.english(),
         "sway 1.10.1 runs in this session."
     );
     let main = one(&diagnosis, Code::MainConfig);
     assert_eq!(main.file.as_deref(), Some(setup.config().as_path()));
-    assert!(main.message.ends_with(" (loaded by the running sway)"));
+    assert!(
+        main.message
+            .english()
+            .ends_with(" (loaded by the running sway)")
+    );
     // Only the file that exists is validated, also after the fix validated it.
     assert_eq!(
         setup.validator.asked.borrow().last(),
@@ -208,7 +213,7 @@ fn a_missing_include_line_comes_with_the_instructions() {
     assert_eq!(diagnosis.severity(), Severity::Problem);
     let include = one(&diagnosis, Code::IncludeMissing);
     assert_eq!(include.severity, Severity::Problem);
-    let hint = include.hint.as_deref().unwrap();
+    let hint = include.hint.as_ref().unwrap().english();
     assert!(
         hint.ends_with(&format!(
             "\n\n    include {}/*.conf",
@@ -244,9 +249,10 @@ fn a_missing_include_line_comes_with_the_instructions() {
     assert!(
         unresolved
             .message
+            .english()
             .contains(":1: include $(pwd)/*.conf can't be followed: "),
         "{}",
-        unresolved.message
+        unresolved.message.english()
     );
 }
 
@@ -262,16 +268,23 @@ fn lines_after_the_include_and_conflicts_are_listed() {
     assert_eq!(diagnosis.severity(), Severity::Warning, "{diagnosis:#?}");
     let config = setup.config().display().to_string();
     let after = one(&diagnosis, Code::IncludeNotLast);
-    assert!(after.message.contains(" 2 of your config lines "));
+    assert!(after.message.english().contains(" 2 of your config lines "));
     assert_eq!(
-        after.details,
+        after.details.iter().map(Text::english).collect::<Vec<_>>(),
         [
             format!("{config}:3: gaps inner 4"),
             format!("{config}:4: focus_follows_mouse no")
         ]
     );
     assert_eq!(after.line, Some(2));
-    assert!(after.hint.as_deref().unwrap().starts_with("Move `include "));
+    assert!(
+        after
+            .hint
+            .as_ref()
+            .unwrap()
+            .english()
+            .starts_with("Move `include ")
+    );
 
     let wins = one(&diagnosis, Code::ConfigWins);
     assert_eq!(wins.severity, Severity::Warning);
@@ -281,7 +294,7 @@ fn lines_after_the_include_and_conflicts_are_listed() {
         (Some(setup.config().as_path()), Some(3))
     );
     assert_eq!(
-        wins.message,
+        wins.message.english(),
         format!(
             "windows.gaps.inner: your config wins: {config}:3 comes after the generated file \
              (gaps inner 4)."
@@ -302,7 +315,7 @@ fn many_lines_after_the_include_are_cut_short() {
     let diagnosis = setup.diagnose();
     let after = one(&diagnosis, Code::IncludeNotLast);
     assert_eq!(after.details.len(), 11);
-    assert_eq!(after.details[10], "… and 2 more");
+    assert_eq!(after.details[10].english(), "… and 2 more");
 }
 
 #[test]
@@ -315,11 +328,11 @@ fn per_device_conflicts_name_the_device() {
     let wins = one(&diagnosis, Code::ConfigWins);
     assert_eq!(wins.device.as_deref(), Some(TOUCHPAD));
     assert!(
-        wins.message.starts_with(&format!(
+        wins.message.english().starts_with(&format!(
             "input.touchpad.tap (device {TOUCHPAD}): your config wins: "
         )),
         "{}",
-        wins.message
+        wins.message.english()
     );
 }
 
@@ -330,9 +343,9 @@ fn problems_of_the_settings_files_are_reported() {
     let unusable = one(&diagnosis, Code::SettingsUnusable);
     assert_eq!(unusable.severity, Severity::Problem);
     assert!(
-        unusable.message.contains("not valid TOML"),
+        unusable.message.english().contains("not valid TOML"),
         "{}",
-        unusable.message
+        unusable.message.english()
     );
     none(&diagnosis, Code::SettingsLoaded);
 
@@ -392,9 +405,10 @@ fn files_that_are_missing_or_out_of_date_are_fixed() {
     assert!(
         stale
             .message
+            .english()
             .ends_with("from the stored settings for sway 1.10.1."),
         "{}",
-        stale.message
+        stale.message.english()
     );
     setup.fix(false).unwrap();
     assert!(
@@ -420,7 +434,7 @@ fn switching_from_swayfx_to_sway_is_detected_and_fixed() {
 
     // sway is back: the file still holds the SwayFX directive, which sway rejects.
     setup.found = Found::NoSession {
-        reason: "SWAYSOCK isn't set".to_owned(),
+        reason: Text::data("SWAYSOCK isn't set"),
         installed: Installed::Version(SWAY_1_10),
     };
     setup.validator.errors = vec![ConfigError {
@@ -429,7 +443,7 @@ fn switching_from_swayfx_to_sway_is_detected_and_fixed() {
     }];
     let diagnosis = setup.diagnose();
     assert_eq!(
-        one(&diagnosis, Code::NoSession).message,
+        one(&diagnosis, Code::NoSession).message.english(),
         "No sway session runs (SWAYSOCK isn't set). The installed compositor is sway 1.10.1."
     );
     assert_eq!(
@@ -441,13 +455,17 @@ fn switching_from_swayfx_to_sway_is_detected_and_fixed() {
     assert_eq!(invalid.fix, Some(Fix::Regenerate));
     // The file isn't what would be generated now, so its lines can't be traced to settings.
     assert_eq!(
-        invalid.details,
+        invalid
+            .details
+            .iter()
+            .map(Text::english)
+            .collect::<Vec<_>>(),
         ["line 3: Unknown/invalid command 'corner_radius'"]
     );
     let skipped = one(&diagnosis, Code::SettingSkipped);
     assert_eq!(skipped.key, Some("effects.corner_radius"));
     assert_eq!(
-        skipped.message,
+        skipped.message.english(),
         "effects.corner_radius has no effect: requires SwayFX 0.5 or newer."
     );
 
@@ -473,12 +491,20 @@ fn a_rejected_file_names_the_settings_behind_its_lines() {
     }];
     let diagnosis = setup.diagnose();
     let invalid = one(&diagnosis, Code::FileInvalid);
-    assert_eq!(invalid.details, ["line 3: no (from windows.gaps.inner)"]);
+    assert_eq!(
+        invalid
+            .details
+            .iter()
+            .map(Text::english)
+            .collect::<Vec<_>>(),
+        ["line 3: no (from windows.gaps.inner)"]
+    );
     assert_eq!(invalid.fix, None);
     assert!(
         invalid
             .hint
-            .as_deref()
+            .as_ref()
+            .map(Text::english)
             .unwrap()
             .contains("report this as a bug")
     );
@@ -534,8 +560,8 @@ fn without_sway_validation_is_skipped_not_failed() {
     let mut setup = Setup::new(GAPS, INCLUDE);
     setup.fix(false).unwrap();
     setup.found = Found::NoSession {
-        reason: "SWAYSOCK isn't set".to_owned(),
-        installed: Installed::Missing("No such file or directory (os error 2)".to_owned()),
+        reason: Text::data("SWAYSOCK isn't set"),
+        installed: Installed::Missing(Text::data("No such file or directory (os error 2)")),
     };
     setup.validator.asked.borrow_mut().clear();
     let diagnosis = setup.diagnose();
@@ -558,9 +584,9 @@ fn without_sway_validation_is_skipped_not_failed() {
     let diagnosis = setup.diagnose();
     let skipped = one(&diagnosis, Code::ValidationSkipped);
     assert!(
-        skipped.message.contains("(no sway here)"),
+        skipped.message.english().contains("(no sway here)"),
         "{}",
-        skipped.message
+        skipped.message.english()
     );
     assert_eq!(diagnosis.severity(), Severity::Warning);
 }
@@ -569,7 +595,7 @@ fn without_sway_validation_is_skipped_not_failed() {
 fn compositors_sway_things_cant_use_are_problems() {
     let mut setup = Setup::new(GAPS, INCLUDE);
     setup.found = Found::Unusable {
-        error: "sway 1.9 is not supported: Sway Things requires sway 1.10 or newer".to_owned(),
+        error: Text::data("sway 1.9 is not supported: Sway Things requires sway 1.10 or newer"),
         installed: Installed::Unknown,
     };
     let diagnosis = setup.diagnose();
@@ -580,7 +606,7 @@ fn compositors_sway_things_cant_use_are_problems() {
     assert_eq!(one(&diagnosis, Code::FileMissing).fix, None);
 
     setup.found = Found::NoSession {
-        reason: "SWAYSOCK isn't set".to_owned(),
+        reason: Text::data("SWAYSOCK isn't set"),
         installed: Installed::Unknown,
     };
     let diagnosis = setup.diagnose();
@@ -593,13 +619,15 @@ fn compositors_sway_things_cant_use_are_problems() {
         version: SwayVersion::new(1, 9, 0),
     };
     setup.found = Found::NoSession {
-        reason: "SWAYSOCK isn't set".to_owned(),
+        reason: Text::data("SWAYSOCK isn't set"),
         installed: Installed::Version(old),
     };
     let diagnosis = setup.diagnose();
     one(&diagnosis, Code::NoSession);
     assert_eq!(
-        one(&diagnosis, Code::InstalledUnsupported).message,
+        one(&diagnosis, Code::InstalledUnsupported)
+            .message
+            .english(),
         "The installed sway 1.9 is not supported: Sway Things requires sway 1.10 or newer."
     );
 }
@@ -627,9 +655,10 @@ fn no_config_and_unreadable_files_are_problems() {
     assert!(
         not_a_file
             .message
+            .english()
             .ends_with("/config/sway: isn't a regular file, so it wasn't read."),
         "{}",
-        not_a_file.message
+        not_a_file.message.english()
     );
     assert!(not_a_file.hint.is_some());
 

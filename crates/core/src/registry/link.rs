@@ -9,6 +9,8 @@
 use std::fmt;
 
 use super::{Page, Registry, Setting};
+use crate::i18n::Text;
+use crate::msg;
 
 /// A page of the app, and maybe a setting on it.
 #[derive(Debug, Clone, Copy)]
@@ -86,29 +88,37 @@ pub enum LinkError {
     },
 }
 
-impl fmt::Display for LinkError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl LinkError {
+    /// What is wrong with the link, to show.
+    pub fn text(&self) -> Text {
         match self {
             Self::UnknownPage { id } => {
                 let ids: Vec<&str> = Page::ALL.iter().map(|page| page.id()).collect();
-                write!(
-                    f,
-                    "unknown page {id:?}; the pages are {}, and a setting is opened by its key \
-                     (input.keyboard.repeat_rate)",
-                    ids.join(", ")
-                )
+                Text::new(msg!(
+                    "unknown page {id}; the pages are {pages}, and a setting is opened by its key \
+                     (input.keyboard.repeat_rate)"
+                ))
+                .arg("id", format!("{id:?}"))
+                .arg("pages", ids.join(", "))
             }
-            Self::UnknownSetting { key, prefix, valid } if prefix.is_empty() => write!(
-                f,
-                "unknown setting {key:?}; the keys of settings start with {}",
-                valid.join(", ")
-            ),
-            Self::UnknownSetting { key, prefix, valid } => write!(
-                f,
-                "unknown setting {key:?}; the settings that start with {prefix} are {}",
-                valid.join(", ")
-            ),
+            Self::UnknownSetting { key, prefix, valid } if prefix.is_empty() => Text::new(msg!(
+                "unknown setting {key}; the keys of settings start with {keys}"
+            ))
+            .arg("key", format!("{key:?}"))
+            .arg("keys", valid.join(", ")),
+            Self::UnknownSetting { key, prefix, valid } => Text::new(msg!(
+                "unknown setting {key}; the settings that start with {prefix} are {keys}"
+            ))
+            .arg("key", format!("{key:?}"))
+            .arg("prefix", prefix)
+            .arg("keys", valid.join(", ")),
         }
+    }
+}
+
+impl fmt::Display for LinkError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

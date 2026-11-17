@@ -1125,12 +1125,16 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   constants too. The registry's builder methods (`title`, `subtitle`, `section`, `group`, `keywords`, `placeholder`) and
   `Choice::new` take `Msg`, so an unmarked literal doesn't compile. Registry titles, subtitles, sections, group titles,
   keywords, placeholders and choice labels, page and sidebar group titles and descriptions, the headings of the doctor's
-  report and the messages of the command line (`error:` and `warning:` too) are marked; the GUI's texts and the rest of
-  the core's (doctor findings, errors, system details) are still English literals. The command line's `--help` texts
-  stay English: the man pages and completions are generated from them, and clap's own words (`Usage:`, `Options:`, its
-  errors) can't be translated, so a translated help would mix two languages. `--json` output and its ids stay English
-  too. A `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the
-  section ids in `ui.toml`, use the English msgid, never the translation.
+  report and its findings, the core's errors, the explanation of the include line, the labels and values of the system
+  details, the reasons a row is locked (with the titles and choice labels in them) and the messages of the command line
+  (`error:` and `warning:` too) are marked; the GUI's own texts are still English literals. The command line and the GUI
+  show the core's messages and errors with `translated()`. Texts from other programs (sway's errors, the messages of
+  BlueZ and NetworkManager, the system's I/O errors) stay as they are. The block of system details that About copies for
+  a bug report stays English, for the maintainers who read it. The command line's `--help` texts stay English: the man
+  pages and completions are generated from them, and clap's own words (`Usage:`, `Options:`, its errors) can't be
+  translated, so a translated help would mix two languages. `--json` output and its ids stay English too. A
+  `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the section
+  ids in `ui.toml`, use the English msgid, never the translation.
 - **Template**: `scripts/update-pot.sh` extracts the marked strings with `xgettext` (0.24 or newer, the first version
   that reads Rust) into `po/sway-things.pot`, with file names but no line numbers, so the template only changes when the
   strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test
@@ -1147,6 +1151,12 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   languages are picked as gettext picks them: the list in `LANGUAGE`, else `LC_ALL`, `LC_MESSAGES` or `LANG`; nothing is
   translated in the C locale (also `C.UTF-8`). `de_AT.UTF-8` is tried as `de_AT.UTF-8`, `de_AT`, `de.UTF-8` and `de`,
   and a string missing from the first language's catalog is looked up in the next.
+- **Messages of the core**: a message the core makes for people and scripts alike (a finding of the doctor, why a row is
+  locked, an error) is an `i18n::Text`: the marked `Msg` (or `MsgPlural` and its count) with its values, each data shown
+  as it is (a file name, a number) or a `Text` or `Msg` of its own, translated with it (a setting's title, the error
+  that caused this one). `text.english()` gives the English text for logs and `--json`, `text.translated()` the text in
+  the user's language for display, and `Text::data` holds text that is never translated (a line of the user's config,
+  what another program said). An error has `fn text(&self) -> Text`, and its `Display` is the English text.
 - **Plural forms**: a message about a count is a `MsgPlural`, written as
   `msg_plural!("{count} problem", "{count} problems")` and extracted with its plural (`msgid_plural`).
   `i18n::ntr(msg, n)` and `i18n::ntrf(msg, n, args)` pick the form for `n` by the rule of the catalog it comes from: the
@@ -1165,8 +1175,11 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   every translation is its msgid with each ASCII letter swapped for an accented one, between `⟦` and `⟧`; placeholders,
   markup tags and entities stay. In it, a plain ASCII word in what is shown didn't go through a catalog, unless it is
   data. `crates/cli/tests/binary.rs` runs the commands that write nothing in that locale and fails on any English word
-  that isn't data (what the user typed, values, paths, commands, the system's I/O errors, and for now the core's texts,
-  taken from the `--json` output). Another test there checks that `--json` keeps its English ids.
+  that isn't data (what the user typed, the lines of the config, values, paths and versions from the `--json` output but
+  not the texts of findings, names of programs, commands, the system's I/O errors). Another test there checks that
+  `--json` keeps its English ids. `crates/core/tests/translated.rs` renders nested errors and the reasons a row is
+  locked in that locale: every part is translated, so every part is marked and in the template, and the English text
+  stays for logs.
 
 ## Testing
 

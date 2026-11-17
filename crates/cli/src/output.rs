@@ -99,7 +99,7 @@ impl Shown {
             ));
         }
         if let Some(Locked::Unsupported(unmet)) = &self.view.locked {
-            notes.push(unmet.to_string());
+            notes.push(unmet.text().translated());
         }
         notes
     }

@@ -13,7 +13,7 @@ use crate::command::window::{
     TitleAlign, TitleColors, WindowColors,
 };
 use crate::command::{Color, SwayCmd, Target};
-use crate::i18n::Msg;
+use crate::i18n::{Msg, Text};
 use crate::msg;
 
 const GAPS_INNER: &str = "windows.gaps.inner";
@@ -200,16 +200,14 @@ fn render_tab_title(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
 /// indicator the class's default, without a child border the background.
 fn client_colors(args: &[String], default_indicator: Color) -> Result<[Color; 5], ReadError> {
     let [border, background, text, rest @ ..] = args else {
-        return Err(ReadError::Rejected(format!(
-            "expected 3 to 5 colors, got {}",
-            args.len()
-        )));
+        return Err(ReadError::Rejected(
+            Text::new(msg!("expected 3 to 5 colors, got {count}")).arg("count", args.len()),
+        ));
     };
     if rest.len() > 2 {
-        return Err(ReadError::Rejected(format!(
-            "expected 3 to 5 colors, got {}",
-            args.len()
-        )));
+        return Err(ReadError::Rejected(
+            Text::new(msg!("expected 3 to 5 colors, got {count}")).arg("count", args.len()),
+        ));
     }
     let background = read::color(background)?;
     let indicator = rest
@@ -432,9 +430,12 @@ fn read_hide_edges(args: &[String]) -> Result<(&'static str, bool), ReadError> {
         "horizontal" => "horizontal",
         "both" => "both",
         other => {
-            return Err(ReadError::Rejected(format!(
-                "expected none, vertical, horizontal, both, smart or smart_no_gaps, got {other}"
-            )));
+            return Err(ReadError::Rejected(
+                Text::new(msg!(
+                    "expected none, vertical, horizontal, both, smart or smart_no_gaps, got {other}"
+                ))
+                .arg("other", other),
+            ));
         }
     };
     Ok((edges, lone_tab))
@@ -491,14 +492,12 @@ fn read_gaps(args: &[String], at_least: i64) -> Result<Value, ReadError> {
         Some((px, rest)) if rest.is_empty() || rest.eq_ignore_ascii_case("px") => {
             Ok(Value::Integer(px.max(at_least)))
         }
-        Some(_) => Err(ReadError::Rejected(format!(
-            "not a size in pixels: {}",
-            args.join(" ")
-        ))),
-        None => Err(ReadError::Unsupported(format!(
-            "too large: {}",
-            args.join(" ")
-        ))),
+        Some(_) => Err(ReadError::Rejected(
+            Text::new(msg!("not a size in pixels: {text}")).arg("text", args.join(" ")),
+        )),
+        None => Err(ReadError::Unsupported(
+            Text::new(msg!("too large: {text}")).arg("text", args.join(" ")),
+        )),
     }
 }
 
@@ -506,7 +505,9 @@ fn read_gaps(args: &[String], at_least: i64) -> Result<Value, ReadError> {
 fn read_titlebar_padding(args: &[String]) -> Result<(i64, i64), ReadError> {
     let size = |text: &str| match read::whole(text)? {
         px if px >= 0 => Ok(px),
-        px => Err(ReadError::Rejected(format!("negative padding: {px}"))),
+        px => Err(ReadError::Rejected(
+            Text::new(msg!("negative padding: {px}")).arg("px", px),
+        )),
     };
     let horizontal = size(read::first(args)?)?;
     let vertical = match args.get(1) {
@@ -673,7 +674,7 @@ pub(super) fn settings() -> Vec<Setting> {
                     // sway joins the arguments; `pango:` only turns on markup.
                     let font = args.join(" ");
                     match font.strip_prefix("pango:").unwrap_or(&font) {
-                        "" => Err(ReadError::Rejected("expected a font".to_owned())),
+                        "" => Err(ReadError::Rejected(msg!("expected a font").into())),
                         font => Ok(Value::Text(font.to_owned())),
                     }
                 },
@@ -715,7 +716,9 @@ pub(super) fn settings() -> Vec<Setting> {
                 },
                 |args| match read::whole(read::one(args)?)? {
                     px if px >= 0 => Ok(Value::Integer(px)),
-                    px => Err(ReadError::Rejected(format!("negative size: {px}"))),
+                    px => Err(ReadError::Rejected(
+                        Text::new(msg!("negative size: {px}")).arg("px", px),
+                    )),
                 },
             )
             .build(),

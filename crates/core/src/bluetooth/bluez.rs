@@ -15,6 +15,8 @@ use zbus::{Connection, MatchRule, Message, MessageStream};
 
 use super::agent::{self, Agent, AgentEvent};
 use super::{Adapter, Device, Error, Snapshot, check_alias, clean, sort};
+use crate::i18n::Text;
+use crate::msg;
 
 /// The bus name of BlueZ.
 pub(super) const SERVICE: &str = "org.bluez";
@@ -65,8 +67,9 @@ impl Bluez {
     ///
     /// [`Error::Unavailable`] without a system bus.
     pub async fn connect() -> Result<Self, Error> {
-        let builder = zbus::connection::Builder::system()
-            .map_err(|error| Error::Unavailable(format!("no system bus ({error})")))?;
+        let builder = zbus::connection::Builder::system().map_err(|error| {
+            Error::Unavailable(Text::new(msg!("no system bus ({error})")).arg("error", error))
+        })?;
         Self::build(builder).await
     }
 
@@ -77,8 +80,13 @@ impl Bluez {
     ///
     /// [`Error::Unavailable`] if there is no bus at `address`.
     pub async fn connect_to(address: &str) -> Result<Self, Error> {
-        let builder = zbus::connection::Builder::address(address)
-            .map_err(|error| Error::Unavailable(format!("no bus at {address} ({error})")))?;
+        let builder = zbus::connection::Builder::address(address).map_err(|error| {
+            Error::Unavailable(
+                Text::new(msg!("no bus at {address} ({error})"))
+                    .arg("address", address)
+                    .arg("error", error),
+            )
+        })?;
         Self::build(builder).await
     }
 
@@ -91,7 +99,9 @@ impl Bluez {
             .map_err(failure)?
             .build()
             .await
-            .map_err(|error| Error::Unavailable(format!("no bus ({error})")))?;
+            .map_err(|error| {
+                Error::Unavailable(Text::new(msg!("no bus ({error})")).arg("error", error))
+            })?;
         Ok(Self {
             connection,
             agent_events,
@@ -402,7 +412,7 @@ impl Bluez {
 
 /// `path` as an object path.
 fn object_path(path: &str) -> Result<ObjectPath<'_>, Error> {
-    ObjectPath::try_from(path).map_err(|error| Error::Failed(error.to_string()))
+    ObjectPath::try_from(path).map_err(|error| Error::Failed(Text::data(error.to_string())))
 }
 
 /// The error a failed D-Bus call stands for.
@@ -411,7 +421,7 @@ fn failure(error: zbus::Error) -> Error {
         zbus::Error::MethodError(name, description, _) => {
             method_error(name.as_str(), description.as_deref())
         }
-        other => Error::Failed(other.to_string()),
+        other => Error::Failed(Text::data(other.to_string())),
     }
 }
 
@@ -421,7 +431,7 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
         name,
         "org.freedesktop.DBus.Error.ServiceUnknown" | "org.freedesktop.DBus.Error.NameHasNoOwner"
     ) {
-        return Error::Unavailable("BlueZ isn't running".to_owned());
+        return Error::Unavailable(msg!("BlueZ isn't running").into());
     }
     let description = description.map(clean).unwrap_or_default();
     // BlueZ says `org.bluez.Error.Blocked`, or `Failed` with "Blocked through rfkill".
@@ -431,9 +441,9 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
     // `org.bluez.Error.AuthenticationFailed` → `AuthenticationFailed`
     let short = name.rsplit('.').next().unwrap_or(name);
     if description.is_empty() {
-        Error::Failed(short.to_owned())
+        Error::Failed(Text::data(short))
     } else {
-        Error::Failed(format!("{description} ({short})"))
+        Error::Failed(Text::data(format!("{description} ({short})")))
     }
 }
 
@@ -655,11 +665,11 @@ mod tests {
                 "org.bluez.Error.AuthenticationFailed",
                 Some("Authentication\nFailed")
             ),
-            Error::Failed("Authentication Failed (AuthenticationFailed)".to_owned())
+            Error::Failed(Text::data("Authentication Failed (AuthenticationFailed)"))
         );
         assert_eq!(
             method_error("org.bluez.Error.NotReady", Some("")),
-            Error::Failed("NotReady".to_owned())
+            Error::Failed(Text::data("NotReady"))
         );
     }
 

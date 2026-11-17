@@ -33,6 +33,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::i18n::Text;
+use crate::msg;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 
 /// A debounce time that fits files people edit: long enough for an editor or `git` to finish a
@@ -280,9 +282,16 @@ fn run(
 #[derive(Debug)]
 pub struct WatchError(notify::Error);
 
+impl WatchError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        Text::new(msg!("can't watch files: {error}")).arg("error", &self.0)
+    }
+}
+
 impl fmt::Display for WatchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "can't watch files: {}", self.0)
+        f.write_str(&self.text().english())
     }
 }
 

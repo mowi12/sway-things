@@ -7,6 +7,9 @@
 use std::fmt;
 use std::str::FromStr;
 
+use crate::i18n::Text;
+use crate::msg;
+
 /// A sway version. SwayFX is compared by the sway version it is based on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SwayVersion {
@@ -90,9 +93,16 @@ impl fmt::Display for SwayFxVersion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VersionError;
 
+impl VersionError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        msg!("not a version like 1.10 or 1.10.1").into()
+    }
+}
+
 impl fmt::Display for VersionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("not a version like 1.10 or 1.10.1")
+        f.write_str(&self.text().english())
     }
 }
 

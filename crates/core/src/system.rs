@@ -14,7 +14,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::delegate::{self, Tool};
-use crate::i18n::Msg;
+use crate::i18n::{Msg, Text};
 use crate::ipc::Compositor;
 use crate::msg;
 use crate::network::{NetworkManager, clean};
@@ -69,15 +69,18 @@ pub enum Value {
 }
 
 impl Value {
-    /// The value in the copied block and `doctor`: the text, `unknown`, `not running`,
-    /// `installed` or `not installed`.
-    pub fn text(&self) -> &str {
+    /// The value: the text, `unknown`, `not running`, `installed` or `not installed`.
+    pub fn text(&self) -> Text {
         match self {
-            Self::Text(text) => text,
-            Self::Unknown => "unknown",
-            Self::NotRunning => "not running",
-            Self::Installed => "installed",
-            Self::NotInstalled => "not installed",
+            Self::Text(text) => Text::data(text),
+            // TRANSLATORS: A value of the system details: a version that couldn't be found.
+            Self::Unknown => msg!("unknown").into(),
+            // TRANSLATORS: A value of the system details: a service that isn't running.
+            Self::NotRunning => msg!("not running").into(),
+            // TRANSLATORS: A value of the system details: a tool that is installed.
+            Self::Installed => msg!("installed").into(),
+            // TRANSLATORS: A value of the system details: a tool that isn't installed.
+            Self::NotInstalled => msg!("not installed").into(),
         }
     }
 }
@@ -107,21 +110,37 @@ impl Details {
         }
     }
 
-    /// The lines, each a label and a value, in the order of the copied block.
-    pub fn lines(&self) -> Vec<(&'static str, Value)> {
+    /// The lines, each a label and a value, in the order of the copied block. Names of programs
+    /// are labels that stay as they are.
+    pub fn lines(&self) -> Vec<(Text, Value)> {
         let found = |value: Option<String>| value.map_or(Value::Unknown, Value::Text);
         let mut lines = vec![
-            ("Sway Things", Value::Text(SWAY_THINGS_VERSION.to_owned())),
-            ("Compositor", found(self.compositor.map(|c| c.to_string()))),
-            ("GTK", found(self.gtk.clone())),
-            ("Distribution", found(self.distribution.clone())),
             (
-                "NetworkManager",
+                Text::data("Sway Things"),
+                Value::Text(SWAY_THINGS_VERSION.to_owned()),
+            ),
+            (
+                // TRANSLATORS: A label of the system details: the running or installed sway.
+                msg!("Compositor").into(),
+                found(self.compositor.map(|c| c.to_string())),
+            ),
+            (Text::data("GTK"), found(self.gtk.clone())),
+            (
+                // TRANSLATORS: A label of the system details: the Linux distribution.
+                msg!("Distribution").into(),
+                found(self.distribution.clone()),
+            ),
+            (
+                Text::data("NetworkManager"),
                 self.network_manager
                     .clone()
                     .map_or(Value::NotRunning, Value::Text),
             ),
-            ("Kernel", found(self.kernel.clone())),
+            (
+                // TRANSLATORS: A label of the system details: the version of the Linux kernel.
+                msg!("Kernel").into(),
+                found(self.kernel.clone()),
+            ),
         ];
         lines.extend(self.tools.iter().map(|(tool, installed)| {
             let value = if *installed {
@@ -129,18 +148,19 @@ impl Details {
             } else {
                 Value::NotInstalled
             };
-            (tool.program, value)
+            (Text::data(tool.program), value)
         }));
         lines
     }
 
-    /// The plain-text block to paste into a bug report: a `Label: value` line each.
+    /// The plain-text block to paste into a bug report: a `Label: value` line each. In English,
+    /// for the maintainers who read the report.
     pub fn text(&self) -> String {
         let mut text = String::new();
         for (label, value) in self.lines() {
-            text.push_str(label);
+            text.push_str(&label.english());
             text.push_str(": ");
-            text.push_str(value.text());
+            text.push_str(&value.text().english());
             text.push('\n');
         }
         text

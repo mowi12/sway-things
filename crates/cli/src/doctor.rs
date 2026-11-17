@@ -18,7 +18,7 @@ use sway_things_core::doctor::{
     Checkup, Diagnosis, Finding, Fix, FixError, Section, Severity, Step,
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
-use sway_things_core::i18n::{Msg, MsgPlural, fill, ntrf, tr, trf};
+use sway_things_core::i18n::{Msg, MsgPlural, Text, ntrf, tr, trf};
 use sway_things_core::system::{self, Details};
 use sway_things_core::{msg, msg_plural};
 
@@ -63,28 +63,27 @@ impl Fixed {
         }
     }
 
-    /// What happened, in a sentence, unless it is said per file: translated by `translate`, which
-    /// is [`tr`] for people and [`Msg::msgid`] for scripts.
-    fn message(&self, translate: fn(Msg) -> &'static str) -> Option<String> {
+    /// What happened, in a sentence, unless it is said per file.
+    fn message(&self) -> Option<Text> {
         let text = match self {
             Self::Nothing { edited: true } => msg!(
                 "Only generated files that were changed outside Sway Things are left; add \
                  --overwrite to replace them."
-            ),
-            Self::Nothing { edited: false } => msg!("Nothing for --fix to do."),
+            )
+            .into(),
+            Self::Nothing { edited: false } => msg!("Nothing for --fix to do.").into(),
             Self::ReadOnly => msg!(
                 "Nothing was written: Sway Things is read-only until your config includes its \
                  files."
-            ),
+            )
+            .into(),
             Self::Done(_) => return None,
             Self::Failed(error) => {
-                return Some(fill(
-                    translate(msg!("The generated files couldn't be written: {error}.")),
-                    &[("error", error)],
-                ));
+                Text::new(msg!("The generated files couldn't be written: {error}."))
+                    .text("error", error.text())
             }
         };
-        Some(translate(text).to_owned())
+        Some(text)
     }
 }
 
@@ -286,7 +285,12 @@ impl fmt::Display for Painted<'_> {
 fn system_text(system: &Details, paint: Paint, out: &mut dyn Write) {
     let _ = writeln!(out, "{}", paint.paint(HEADING, tr(system::heading())));
     for (label, value) in system.lines() {
-        let _ = writeln!(out, "  {label}: {}", value.text());
+        let _ = writeln!(
+            out,
+            "  {}: {}",
+            label.translated(),
+            value.text().translated()
+        );
     }
     let _ = writeln!(out);
 }
@@ -322,8 +326,8 @@ fn text<V>(
     if let Some(fixed) = fixed {
         // TRANSLATORS: The heading of what `sway-things doctor --fix` did.
         let _ = writeln!(out, "{}", paint.paint(HEADING, tr(msg!("Fix"))));
-        if let Some(message) = fixed.message(tr) {
-            let _ = writeln!(out, "  {message}");
+        if let Some(message) = fixed.message() {
+            let _ = writeln!(out, "  {}", message.translated());
         }
         if let Fixed::Done(report) = fixed {
             for (file, outcome) in report {
@@ -334,9 +338,10 @@ fn text<V>(
                         trf(msg!("wrote {file}"), &[("file", &paint.paint(DIM, &path))])
                     }
                     Outcome::Unchanged | Outcome::NotCreated => continue,
-                    _ => outcome
-                        .problem(*file)
-                        .unwrap_or_else(|| file.file_name().to_owned()),
+                    _ => outcome.problem(*file).map_or_else(
+                        || file.file_name().to_owned(),
+                        |problem| problem.translated(),
+                    ),
                 };
                 let _ = writeln!(out, "  {line}");
                 if let Outcome::Invalid(lines) = outcome {
@@ -425,7 +430,8 @@ fn summary(diagnosis: &Diagnosis, paint: Paint) -> String {
 }
 
 fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Write) {
-    let mut lines = finding.message.lines();
+    let message = finding.message.translated();
+    let mut lines = message.lines();
     let status = status_word(finding.severity);
     let (word, padding) = status.split_at(status.trim_end().len());
     let _ = writeln!(
@@ -438,10 +444,16 @@ fn finding_text(finding: &Finding, indent: &str, paint: Paint, out: &mut dyn Wri
         write_indented(out, indent, line, Style::new(), paint);
     }
     for detail in &finding.details {
-        write_indented(out, &format!("{indent}  "), detail, DIM, paint);
+        write_indented(
+            out,
+            &format!("{indent}  "),
+            &detail.translated(),
+            DIM,
+            paint,
+        );
     }
     if let Some(hint) = &finding.hint {
-        for line in hint.lines() {
+        for line in hint.translated().lines() {
             write_indented(out, indent, line, DIM, paint);
         }
     }
@@ -491,9 +503,9 @@ fn json<V>(
                 "section": finding.section().id(),
                 "code": finding.code.id(),
                 "status": finding.severity.id(),
-                "message": finding.message,
-                "details": finding.details,
-                "hint": finding.hint,
+                "message": finding.message.english(),
+                "details": finding.details.iter().map(Text::english).collect::<Vec<_>>(),
+                "hint": finding.hint.as_ref().map(Text::english),
                 "file": finding.file.as_ref().map(|file| file.display().to_string()),
                 "line": finding.line,
                 "key": finding.key,
@@ -524,7 +536,7 @@ fn json<V>(
         };
         json!({
             "result": fixed.id(),
-            "message": fixed.message(Msg::msgid),
+            "message": fixed.message().as_ref().map(Text::english),
             "files": files,
         })
     });

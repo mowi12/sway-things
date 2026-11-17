@@ -523,7 +523,7 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
     .lines();
     let mut values = Vec::new();
     for (label, _) in labels {
-        let (row, value) = info_row(label, "");
+        let (row, value) = info_row(&label.translated(), "");
         values.push(value);
         list.append(&list_row(&row));
     }

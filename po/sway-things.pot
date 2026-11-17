@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-16 22:53+0100\n"
+"POT-Creation-Date: 2026-11-17 08:38+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -325,7 +325,188 @@ msgstr ""
 msgid "y|yes"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "{key} can only be changed with the safety net"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "{key} {requirement}"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "not in a sway session, and sway can't be run: {error}"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+msgid "not in a sway session, and `sway --version` prints no version"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "{key} has no safety net; change it directly"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "keep or revert the change of {key} first"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+msgid "no change waits to be kept or reverted"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid ""
+"{key} can lock you out, so it is only tried in a running sway session, where "
+"it can be reverted"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "{key} wasn't changed: {reason}"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+msgid "sway isn't running, so it can't reload its config"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "{files} couldn't be written, so sway wouldn't read the changes"
+msgstr ""
+
+#: crates/core/src/bluetooth/bluez.rs crates/core/src/network/nm.rs
+#, rust-format
+msgid "no system bus ({error})"
+msgstr ""
+
+#: crates/core/src/bluetooth/bluez.rs crates/core/src/network/nm.rs
+#, rust-format
+msgid "no bus at {address} ({error})"
+msgstr ""
+
+#: crates/core/src/bluetooth/bluez.rs crates/core/src/network/nm.rs
+#, rust-format
+msgid "no bus ({error})"
+msgstr ""
+
+#: crates/core/src/bluetooth/bluez.rs
+msgid "BlueZ isn't running"
+msgstr ""
+
+#: crates/core/src/bluetooth/mod.rs
+#, rust-format
+msgid "Bluetooth isn't available: {reason}"
+msgstr ""
+
+#: crates/core/src/bluetooth/mod.rs
+msgid "Bluetooth is blocked"
+msgstr ""
+
+#: crates/core/src/bluetooth/mod.rs
+#, rust-format
+msgid "The name is longer than {max} bytes"
+msgstr ""
+
+#: crates/core/src/bluetooth/mod.rs
+msgid "The name has a control character"
+msgstr ""
+
+#: crates/core/src/command/color.rs
+msgid "expected a color as #rrggbb or #rrggbbaa"
+msgstr ""
+
+#: crates/core/src/command/input.rs
+msgid "expected a device identifier like 1133:16500:Logitech_G305"
+msgstr ""
+
+#: crates/core/src/command/input.rs
+#, rust-format
+msgid "{option} needs at least one value"
+msgstr ""
+
+#: crates/core/src/command/input.rs
+#, rust-format
+msgid "value {index} of {option} is empty"
+msgstr ""
+
+#: crates/core/src/command/input.rs
+#, rust-format
+msgid "value {index} of {option} contains a comma"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+msgid "the command only works in config files"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+msgid "the command only works over IPC"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+#, rust-format
+msgid "invalid keyword {keyword}"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+msgid "number is not finite"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+msgid "criteria have no match"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+msgid "a command after criteria can't contain criteria or for_window"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+#, rust-format
+msgid "{command} can't take a text argument"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
+#, rust-format
+msgid "{option} must be between {min} and {max}"
+msgstr ""
+
+#: crates/core/src/command/text.rs
+msgid "text is empty"
+msgstr ""
+
+#: crates/core/src/command/text.rs
+#, rust-format
+msgid "control character {character} at byte {index}"
+msgstr ""
+
+#: crates/core/src/command/text.rs
+#, rust-format
+msgid "backslash at byte {index}"
+msgstr ""
+
+#: crates/core/src/command/window.rs
+msgid "a workspace can't be called output or gaps in this command"
+msgstr ""
+
+#: crates/core/src/command/window.rs
+msgid "the font description must not start with pango:"
+msgstr ""
+
+#: crates/core/src/devices/mod.rs
+msgid "this would turn off the last keyboard you can type with"
+msgstr ""
+
+#: crates/core/src/devices/mod.rs
+msgid ""
+"this would turn off the last mouse, trackpoint or touchpad you can point with"
+msgstr ""
+
+#. TRANSLATORS: A label of the system details: the running or installed sway.
+#: crates/core/src/doctor/mod.rs crates/core/src/system.rs
 msgid "Compositor"
 msgstr ""
 
@@ -343,6 +524,657 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Conflicts"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "SWAYSOCK isn't set"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "nothing answers on {socket}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"it isn't known which compositor to generate for: no sway session runs, and "
+"`sway --version` names none"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Sway Things needs sway {sway} or SwayFX {swayfx} or newer."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{compositor} runs in this session."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The running sway can't be used: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"No sway session runs ({reason}). The installed compositor is {compositor}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"No sway session runs ({reason}), and `sway --version` names no version of "
+"sway or SwayFX."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Without the version, the generated files can't be checked against the "
+"compositor. Check which program `sway` is on your PATH."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "No sway session runs ({reason}), and sway can't be run: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install sway or SwayFX, or check your PATH. Without it, the generated files "
+"can't be validated."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The installed {compositor} is not supported: Sway Things {requirement}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Main config: {file} (loaded by the running sway)"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Main config: {file}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "sway finds no config file, so it starts with its defaults."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "The settings files load without problems ({count} stored value)."
+msgid_plural ""
+"The settings files load without problems ({count} stored values)."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Nothing in this file is in effect, and Sway Things doesn't write it until it "
+"is fixed."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "The entry is ignored and stays in the file. Fix or remove it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{setting} has no effect: {reason}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The value stays stored and is a comment in the generated file. It takes "
+"effect on a compositor that supports it; reset the setting to remove it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{file} can't be read: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The generated files weren't checked with sway --validate: sway can't be run "
+"({reason})."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Install sway or SwayFX, or check your PATH."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} isn't needed: no stored setting goes into it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} is missing, so the settings that go into it have no effect."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{name} was written by Sway Things; without knowing the compositor, it can't "
+"be told whether it is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings for {compositor}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"This happens after switching between sway and SwayFX, or after editing the "
+"settings files while Sway Things didn't run."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} was changed outside Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Move what you changed into your own config: fixing the file replaces it with "
+"what Sway Things generates."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{name} wasn't made by Sway Things, so it is never written."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"Move it out of {directory}: the include line reads every *.conf file there, "
+"and Sway Things needs the name."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} (device {device})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{setting}: your config wins: {place} comes after the generated file ({line})."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Remove or change that line, or reset the setting to let your config decide "
+"it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{setting}: {place} ({line}) has no effect while Sway Things stores the "
+"setting."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Remove the line, or reset the setting to let the line take effect again."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "No line of your config sets a stored setting."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "… and {count} more"
+msgid_plural "… and {count} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"Move `include {pattern}` to the end of {file}, unless those lines are meant "
+"to win. The conflicts below name the settings they change."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Move the include line to the end of your config."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The include line isn't last: {count} of your config lines comes after it and "
+"wins where it sets the same thing as Sway Things."
+msgid_plural ""
+"The include line isn't last: {count} of your config lines come after it and "
+"win where they set the same thing as Sway Things."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Sway Things is read-only: your config includes only some of its files."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things is read-only: it can't follow part of your config to find the "
+"include line."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things is read-only: your config doesn't include its files, so nothing "
+"it generates is in effect."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "sway --validate accepts {name}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The file holds what Sway Things generates for the stored settings: reset the "
+"settings named above, and please report this as a bug."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Fixing the file replaces it with what Sway Things generates, if sway accepts "
+"that."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"sway --validate rejects {name}; sway reports errors for it at every start."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{message} (from {settings})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "line {number}: {message}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "line {number}: {message} (from {settings})"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: can't be read: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things never runs commands to read your config, so it doesn't know what "
+"that include sets."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include {pattern} can't be followed: {reason}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include: {path} doesn't exist, so sway skips it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{place}: include: {path} was read already, so sway doesn't read it again."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Sway Things reads only regular files, as a device, FIFO or socket might "
+"never end, so it doesn't know what sway would read from it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: isn't a regular file, so it wasn't read."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: include needs exactly one path, so sway rejects it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: includes are nested too deeply to follow."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: a }} closes no block."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: a block is still open at the end of the file."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{place}: blocks are nested too deeply; this one was skipped with everything "
+"in it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{place}: the config is too big; the rest wasn't read."
+msgstr ""
+
+#: crates/core/src/editor.rs
+msgid "has a quote that isn't closed"
+msgstr ""
+
+#: crates/core/src/editor.rs
+msgid "ends in a backslash that escapes nothing"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "{file} was changed outside Sway Things, so it was left alone"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "{file} wasn't made by Sway Things, so it is never written"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays: {message}"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid ""
+"sway rejected the new {file}, so the old one stays: line {number}: {message}"
+msgstr ""
+
+#: crates/core/src/generate/write.rs crates/core/src/state/mod.rs
+#, rust-format
+msgid "{file}: {error}"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "can't run sway to validate: {error}"
+msgstr ""
+
+#: crates/core/src/include/instructions.rs
+#, rust-format
+msgid ""
+"Sway Things never edits your sway config. It writes its own files and needs "
+"one line in it. You have no sway config of your own yet: copy {system} to "
+"{config} first, then add this line at its end:"
+msgstr ""
+
+#: crates/core/src/include/instructions.rs
+#, rust-format
+msgid ""
+"Sway Things never edits your sway config. It writes its own files and needs "
+"one line at the end of {config}:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "Sway Things is enabled: {places} includes its files."
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Sway Things is enabled: {places} includes its files. {count} of your config "
+"lines comes after them and wins where it sets the same thing as Sway Things."
+msgid_plural ""
+"Sway Things is enabled: {places} includes its files. {count} of your config "
+"lines come after them and win where they set the same thing as Sway Things."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Not enabled yet: your config includes only some of the Sway Things files "
+"({places}). Not included: {missing}. Use this line instead:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid ""
+"Not enabled yet: Sway Things can't follow part of your config:\n"
+"\n"
+"{lines}\n"
+"\n"
+"If the Sway Things line is in there, add it to {config} instead:"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place}: include {pattern} ({reason})"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} ({error})"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (includes are nested too deeply)"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (not a regular file)"
+msgstr ""
+
+#: crates/core/src/include/mod.rs
+#, rust-format
+msgid "{place} (too big to read)"
+msgstr ""
+
+#: crates/core/src/include/mod.rs crates/core/src/view.rs
+msgid "Add the include line to change settings"
+msgstr ""
+
+#: crates/core/src/ipc/compositor.rs
+#, rust-format
+msgid "requires sway {version} or newer"
+msgstr ""
+
+#: crates/core/src/ipc/compositor.rs
+#, rust-format
+msgid "requires SwayFX {version} or newer"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+msgid "SWAYSOCK is not set: not in a sway session"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "sway is not running (no answer on {socket})"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "{compositor} is not supported: Sway Things {requirement}"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "the connection to sway failed: {error}"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "unexpected answer from sway: {problem}"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "can't read sway's reply to {request}: {error}"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "`{command}` {requirement}"
+msgstr ""
+
+#: crates/core/src/ipc/mod.rs
+#, rust-format
+msgid "sway rejected `{command}`: {message}"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network name is empty"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network name is longer than 32 bytes"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The password is shorter than 8 characters"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The password is longer than 63 characters"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The password is empty"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+#, rust-format
+msgid "The network isn't available: {reason}"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "Not allowed"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+#, rust-format
+msgid "Not allowed: {reason}"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "No password was given"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network refused the connection; the password may be wrong"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network didn't accept the connection"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network gave no IP address"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The cable is unplugged"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The network isn't in range"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+#, rust-format
+msgid "NetworkManager gave up (reason {reason})"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid ""
+"The VPN asks for a password, which Sway Things can't ask for yet. Save the "
+"password with Edit…, or run nm-applet"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The VPN refused the login"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The VPN didn't answer in time"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The VPN's plugin didn't start"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The VPN gave no usable address"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+#, rust-format
+msgid "The VPN connection ended (reason {reason})"
+msgstr ""
+
+#: crates/core/src/network/nm.rs
+msgid "The connection ended"
+msgstr ""
+
+#: crates/core/src/network/nm.rs
+msgid "NetworkManager stopped"
+msgstr ""
+
+#: crates/core/src/network/nm.rs
+msgid "This kind of network needs nm-connection-editor"
+msgstr ""
+
+#: crates/core/src/network/nm.rs
+msgid "NetworkManager isn't running"
 msgstr ""
 
 #: crates/core/src/registry/app.rs
@@ -402,7 +1234,8 @@ msgstr ""
 msgid "highlight"
 msgstr ""
 
-#: crates/core/src/registry/app.rs crates/core/src/registry/windows.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/value.rs
+#: crates/core/src/registry/windows.rs
 msgid "color"
 msgstr ""
 
@@ -708,6 +1541,53 @@ msgstr ""
 msgid "Never: X11 apps don't run"
 msgstr ""
 
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "{name} isn't offered as the drag modifier"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "not a modifier: {name}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "expected normal or inverse, got {word}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "not a size in pixels: {px}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/read.rs
+#, rust-format
+msgid "not a whole number: {text}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/read.rs
+#: crates/core/src/registry/windows.rs
+#, rust-format
+msgid "too large: {text}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "expected <width> x <height>, got {count} argument"
+msgid_plural "expected <width> x <height>, got {count} arguments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "expected x, got {x}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "width and height have different kinds of limit"
+msgstr ""
+
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
 msgid "floating"
 msgstr ""
@@ -726,6 +1606,16 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs
 msgid "In pixels"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "inhibit_idle {mode} for every window"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "expected focus, fullscreen, open, visible or none, got {mode}"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
@@ -942,6 +1832,11 @@ msgid "distance"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
+#, rust-format
+msgid "negative threshold: {px}"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
 msgid "Fullscreen"
 msgstr ""
 
@@ -1018,6 +1913,21 @@ msgid "legacy"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
+#, rust-format
+msgid "out of range [0, {max}]: {value}"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+#, rust-format
+msgid "out of range [{min}, {max}]: {value}"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+#, rust-format
+msgid "expected 2 offsets, got {count}"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
 msgid "Blur"
 msgstr ""
 
@@ -1043,6 +1953,11 @@ msgstr ""
 
 #: crates/core/src/registry/effects.rs
 msgid "round corners"
+msgstr ""
+
+#: crates/core/src/registry/effects.rs
+#, rust-format
+msgid "out of range [0, 99]: {radius}"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
@@ -1269,6 +2184,11 @@ msgstr ""
 msgid "speed"
 msgstr ""
 
+#: crates/core/src/registry/effects.rs
+#, rust-format
+msgid "not whole milliseconds: {value}"
+msgstr ""
+
 #: crates/core/src/registry/input.rs
 msgid "On"
 msgstr ""
@@ -1343,6 +2263,35 @@ msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "Number of fingers"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "expected enabled, disabled or disabled_on_external_mouse, got {word}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "only touchpads can be off while a mouse is connected"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "out of range [-1, 1]: {speed}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "the scroll factor can't be negative: {factor}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "a scroll factor above {max_scroll_factor}: {factor}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "a scroll button the setting doesn't offer: {word}"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
@@ -1798,11 +2747,25 @@ msgid "hold"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
+#, rust-format
+msgid "the repeat delay can't be negative: {delay}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
 msgid "Repeat rate"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "Characters per second while a key is held"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+#, rust-format
+msgid "the repeat rate can't be negative: {rate}"
+msgstr ""
+
+#: crates/core/src/registry/input.rs
+msgid "a repeat rate of 0 turns key repeat off"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
@@ -1839,6 +2802,23 @@ msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "uppercase"
+msgstr ""
+
+#: crates/core/src/registry/link.rs
+#, rust-format
+msgid ""
+"unknown page {id}; the pages are {pages}, and a setting is opened by its key "
+"(input.keyboard.repeat_rate)"
+msgstr ""
+
+#: crates/core/src/registry/link.rs
+#, rust-format
+msgid "unknown setting {key}; the keys of settings start with {keys}"
+msgstr ""
+
+#: crates/core/src/registry/link.rs
+#, rust-format
+msgid "unknown setting {key}; the settings that start with {prefix} are {keys}"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -2033,6 +3013,143 @@ msgstr ""
 msgid "Versions, config check, history and Sway Things preferences"
 msgstr ""
 
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "sway rejects the line: {reason}"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "Sway Things can't show this value: {reason}"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "expected 1 argument, got {count}"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+msgid "expected an argument"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "not a number: {text}"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "not a color: {text}"
+msgstr ""
+
+#: crates/core/src/registry/read.rs
+#, rust-format
+msgid "expected one of {choices}, got {word}"
+msgstr ""
+
+#: crates/core/src/registry/sway.rs crates/core/src/state/mod.rs
+#, rust-format
+msgid "unknown setting {key}"
+msgstr ""
+
+#: crates/core/src/registry/sway.rs
+#, rust-format
+msgid "{key} is not a sway setting"
+msgstr ""
+
+#: crates/core/src/registry/sway.rs
+msgid "the setting can't be set for a single device"
+msgstr ""
+
+#: crates/core/src/registry/sway.rs crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key}: {error}"
+msgstr ""
+
+#: crates/core/src/registry/sway.rs
+#, rust-format
+msgid ""
+"{key}: {variants} variants for {layouts} layouts; each variant belongs to "
+"the layout at the same position, so remove the extra variants or add their "
+"layouts"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+#, rust-format
+msgid "expected a {expected} value, found a {found} value"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+#, rust-format
+msgid "must be between {min} and {max}"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a color like #rrggbb or #rrggbbaa"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be true or false"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a whole number"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a number"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+#, rust-format
+msgid "must be a {expected} value"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+#, rust-format
+msgid "must be one of: {choices}"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "boolean"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "integer"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "decimal"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "choice"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "text"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "list"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "string"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "float"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "array"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "table"
+msgstr ""
+
 #: crates/core/src/registry/windows.rs
 msgid "Focused window"
 msgstr ""
@@ -2091,6 +3208,11 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "The border around the window"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+#, rust-format
+msgid "expected 3 to 5 colors, got {count}"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -2172,6 +3294,13 @@ msgid "All sides"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
+#, rust-format
+msgid ""
+"expected none, vertical, horizontal, both, smart or smart_no_gaps, got "
+"{other}"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
 msgid "Always"
 msgstr ""
 
@@ -2189,6 +3318,16 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Center"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+#, rust-format
+msgid "not a size in pixels: {text}"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+#, rust-format
+msgid "negative padding: {px}"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -2298,6 +3437,10 @@ msgid "text size"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
+msgid "expected a font"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
 msgid "Title alignment"
 msgstr ""
 
@@ -2311,6 +3454,11 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "In pixels, at most the padding"
+msgstr ""
+
+#: crates/core/src/registry/windows.rs
+#, rust-format
+msgid "negative size: {px}"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -2331,6 +3479,176 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "height"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{file}: {problem}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "can't be read: {error}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "not valid TOML: {error}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid ""
+"version {found} is not supported (this Sway Things reads version {version})"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "unknown setting {setting}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{setting}: {error}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "device.{device} is not a table for a device identifier"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} can't be set for a single device (device {device})"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} can't be set for a single device"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{device} is not a device identifier"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{file} couldn't be loaded, so it is left unchanged"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{file}: a value is in the way of the table for {key}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "there is no snapshot {id}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "snapshot {id} holds a file that can't be loaded"
+msgstr ""
+
+#: crates/core/src/state/paths.rs
+msgid "neither XDG_CONFIG_HOME and XDG_STATE_HOME nor HOME are set"
+msgstr ""
+
+#: crates/core/src/state/paths.rs
+msgid "the host name can't be used as a file name"
+msgstr ""
+
+#: crates/core/src/sway_config/expand.rs
+msgid "the path needs a command to be run"
+msgstr ""
+
+#: crates/core/src/sway_config/expand.rs
+msgid "the path uses ~user or a ${{…}} operator"
+msgstr ""
+
+#: crates/core/src/sway_config/expand.rs
+msgid "the path is not valid for sway"
+msgstr ""
+
+#: crates/core/src/sway_config/expand.rs
+msgid "the pattern matches too many files"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a version that couldn't be found.
+#: crates/core/src/system.rs
+msgid "unknown"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a service that isn't running.
+#: crates/core/src/system.rs
+msgid "not running"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a tool that is installed.
+#: crates/core/src/system.rs
+msgid "installed"
+msgstr ""
+
+#. TRANSLATORS: A value of the system details: a tool that isn't installed.
+#: crates/core/src/system.rs
+msgid "not installed"
+msgstr ""
+
+#. TRANSLATORS: A label of the system details: the Linux distribution.
+#: crates/core/src/system.rs
+msgid "Distribution"
+msgstr ""
+
+#. TRANSLATORS: A label of the system details: the version of the Linux kernel.
+#: crates/core/src/system.rs
+msgid "Kernel"
+msgstr ""
+
+#: crates/core/src/version.rs
+msgid "not a version like 1.10 or 1.10.1"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Requires sway {version}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Requires SwayFX {version}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Turn on {title} first"
+msgstr ""
+
+#. TRANSLATORS: Two choices of a setting, or a list of them and one more.
+#: crates/core/src/view.rs
+#, rust-format
+msgid "{first} or {second}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Only with {title}: {choices}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Only with {title} above {limit}"
+msgstr ""
+
+#: crates/core/src/watch.rs
+#, rust-format
+msgid "can't watch files: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/network/mod.rs
+msgid "no bus"
 msgstr ""
 
 #: data/io.github.mowi12.SwayThings.desktop.in

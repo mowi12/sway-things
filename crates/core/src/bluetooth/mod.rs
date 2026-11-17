@@ -18,6 +18,9 @@ pub mod stand_in;
 
 use std::fmt;
 
+use crate::i18n::Text;
+use crate::msg;
+
 pub use agent::{AgentEvent, Answer, Prompt, Request, parse_passkey, passkey_text, valid_pin};
 pub use bluez::Bluez;
 
@@ -111,23 +114,32 @@ impl Snapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// No system bus, or BlueZ isn't running on it. The text says which.
-    Unavailable(String),
+    Unavailable(Text),
     /// The radio is blocked by rfkill, so it can't be switched on.
     Blocked,
     /// A name that BlueZ wouldn't take: see [`check_alias`].
     InvalidName(NameError),
-    /// BlueZ refused or failed: the D-Bus error and its message (from BlueZ, so untrusted text).
-    Failed(String),
+    /// BlueZ refused or failed: the D-Bus error and its message (from BlueZ, so untrusted text, as
+    /// data).
+    Failed(Text),
+}
+
+impl Error {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Unavailable(reason) => Text::new(msg!("Bluetooth isn't available: {reason}"))
+                .text("reason", reason.clone()),
+            Self::Blocked => msg!("Bluetooth is blocked").into(),
+            Self::InvalidName(error) => error.text(),
+            Self::Failed(reason) => reason.clone(),
+        }
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unavailable(reason) => write!(f, "Bluetooth isn't available: {reason}"),
-            Self::Blocked => f.write_str("Bluetooth is blocked"),
-            Self::InvalidName(error) => error.fmt(f),
-            Self::Failed(reason) => f.write_str(reason),
-        }
+        f.write_str(&self.text().english())
     }
 }
 
@@ -142,12 +154,21 @@ pub enum NameError {
     ControlCharacter,
 }
 
+impl NameError {
+    /// What is wrong with the name, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::TooLong => {
+                Text::new(msg!("The name is longer than {max} bytes")).arg("max", MAX_NAME_BYTES)
+            }
+            Self::ControlCharacter => msg!("The name has a control character").into(),
+        }
+    }
+}
+
 impl fmt::Display for NameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TooLong => write!(f, "The name is longer than {MAX_NAME_BYTES} bytes"),
-            Self::ControlCharacter => f.write_str("The name has a control character"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

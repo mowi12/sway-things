@@ -22,6 +22,8 @@
 use std::fmt;
 
 use super::{BoolStyle, OutOfRange, SwayCmd, SwayText, TextError};
+use crate::i18n::Text;
+use crate::msg;
 use crate::version::SwayVersion;
 
 /// A device type, for `type:<type>` selectors.
@@ -530,22 +532,35 @@ impl From<TextError> for InputError {
     }
 }
 
-impl fmt::Display for InputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl InputError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
         match self {
-            Self::OutOfRange(error) => error.fmt(f),
+            Self::OutOfRange(error) => error.text(),
             Self::NotADeviceIdentifier => {
-                f.write_str("expected a device identifier like 1133:16500:Logitech_G305")
+                msg!("expected a device identifier like 1133:16500:Logitech_G305").into()
             }
-            Self::EmptyList { option } => write!(f, "{option} needs at least one value"),
+            Self::EmptyList { option } => {
+                Text::new(msg!("{option} needs at least one value")).arg("option", option)
+            }
             Self::EmptyListElement { option, index } => {
-                write!(f, "value {index} of {option} is empty")
+                Text::new(msg!("value {index} of {option} is empty"))
+                    .arg("index", index)
+                    .arg("option", option)
             }
             Self::CommaInListElement { option, index } => {
-                write!(f, "value {index} of {option} contains a comma")
+                Text::new(msg!("value {index} of {option} contains a comma"))
+                    .arg("index", index)
+                    .arg("option", option)
             }
-            Self::Text(error) => error.fmt(f),
+            Self::Text(error) => error.text(),
         }
+    }
+}
+
+impl fmt::Display for InputError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 
