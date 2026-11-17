@@ -53,7 +53,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev
+          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev libgtk4-layer-shell-dev
       - name: Install Rust
         run: |
           rustup toolchain install stable --profile minimal --component clippy --no-self-update
@@ -308,7 +308,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev
+          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev libgtk4-layer-shell-dev
       - name: Install Rust
         env:
           TOOLCHAIN: ${{ matrix.toolchain }}
@@ -333,7 +333,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev \
+          apt-get install -qq -y --no-install-recommends ca-certificates rustup gcc libc6-dev pkgconf libgtk-4-dev libgtk4-layer-shell-dev \
             gettext desktop-file-utils appstream groff-base zsh fish
       - name: Install Rust
         run: |

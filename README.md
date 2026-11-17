@@ -163,7 +163,8 @@ sudo apt install sway-things
 
 ### From source
 
-You need Rust 1.85 or newer, the GTK 4.18 development files, gettext and [just](https://just.systems/):
+You need Rust 1.85 or newer, the development files of GTK 4.18 and gtk4-layer-shell, gettext and
+[just](https://just.systems/):
 
 ```sh
 just build

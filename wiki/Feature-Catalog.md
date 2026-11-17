@@ -86,7 +86,7 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 Live apply over IPC, 15 s safety net for risky changes
 - [x] 🟢 Hotplug awareness (output events)
 - [x] 🟡 Outputs stored by make, model and serial instead of connector (stable across docks and ports)
-- [ ] 🟢 Identify displays (numbers flashed on each screen)
+- [x] 🟢 Identify displays (numbers flashed on each screen)
 - [ ] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode
 
 #### Profiles (kanshi backend)

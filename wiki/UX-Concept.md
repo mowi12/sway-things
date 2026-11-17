@@ -111,6 +111,9 @@ off go through the safety net.
   rest of the drag. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
   sharing at least a quarter of it, so the pointer can always cross. The whole layout then starts at 0,0 and every
   output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the arrangement before.
+- **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of
+  that display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A
+  display plugged in or out meanwhile takes the numbers away, since they may be wrong then.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a

@@ -17,6 +17,7 @@ async-channel.workspace = true
 futures-lite.workspace = true
 gio.workspace = true
 gtk.workspace = true
+gtk4-layer-shell.workspace = true
 sway-things-core = { path = "../core" }
 
 [build-dependencies]

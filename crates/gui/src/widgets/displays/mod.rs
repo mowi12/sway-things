@@ -15,6 +15,7 @@
 //! Output names, makes and models are external strings: they are only shown as plain text.
 
 mod canvas;
+mod identify;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -42,9 +43,20 @@ pub struct Arrangement {
     canvas: Canvas,
     /// Shown in place of the canvas while there is nothing to arrange.
     empty: gtk::Label,
-    hint: gtk::Label,
+    /// The hint and the "Identify" button.
+    hint: gtk::Widget,
     /// Shown while outputs overlap or don't touch.
     gaps: gtk::Box,
+    identify: gtk::Button,
+    /// The windows with the numbers while they are shown, and what they show.
+    identifying: Rc<RefCell<Option<Identifying>>>,
+}
+
+/// The windows "Identify" shows, and the outputs' names, numbers and labels on them.
+#[derive(Debug)]
+struct Identifying {
+    windows: Vec<gtk::Window>,
+    numbered: Vec<(String, usize, String)>,
 }
 
 impl Arrangement {
@@ -63,7 +75,21 @@ impl Arrangement {
         ));
         hint.set_wrap(true);
         hint.set_xalign(0.0);
+        hint.set_hexpand(true);
         hint.add_css_class(style::DIM);
+        let identify = gtk::Button::with_label("Identify");
+        identify.set_valign(gtk::Align::Center);
+        if identify::is_supported() {
+            identify.set_tooltip_text(Some("Show each display\u{2019}s number on it"));
+        } else {
+            identify.set_sensitive(false);
+            identify.set_tooltip_text(Some(
+                "Numbers on the displays need a compositor with wlr-layer-shell, like sway",
+            ));
+        }
+        let below = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        below.append(&hint);
+        below.append(&identify);
 
         let warning = gtk::Label::new(Some(
             "Some displays overlap or don\u{2019}t touch, so the pointer can\u{2019}t reach every \
@@ -91,14 +117,38 @@ impl Arrangement {
         root.append(&canvas);
         root.append(&empty);
         root.append(&gaps);
-        root.append(&hint);
-        Self {
+        root.append(&below);
+        let arrangement = Self {
             root,
             canvas,
             empty,
-            hint,
+            hint: below.upcast(),
             gaps,
-        }
+            identify,
+            identifying: Rc::new(RefCell::new(None)),
+        };
+        // Weak: the button belongs to the arrangement.
+        arrangement.identify.connect_clicked(glib::clone!(
+            #[weak(rename_to = canvas)]
+            arrangement.canvas,
+            #[strong(rename_to = identifying)]
+            arrangement.identifying,
+            move |button| {
+                start_identify(&canvas, button, &identifying);
+            }
+        ));
+        arrangement
+    }
+
+    /// Shows each output's number on it for a moment, and lights up the tiles meanwhile.
+    /// Returns on how many outputs the number is shown.
+    pub fn identify(&self) -> usize {
+        start_identify(&self.canvas, &self.identify, &self.identifying)
+    }
+
+    /// The button that shows each output's number on it.
+    pub fn identify_button(&self) -> &gtk::Button {
+        &self.identify
     }
 
     /// The widget to show.
@@ -136,6 +186,15 @@ impl Arrangement {
         self.hint.set_visible(message.is_none());
         self.canvas
             .set_outputs(outputs, |identifier| picker.number(identifier));
+        // A display plugged in or out while the numbers are shown: they may be wrong now.
+        let changed = self
+            .identifying
+            .borrow()
+            .as_ref()
+            .is_some_and(|shown| shown.numbered != shown_numbers(&self.canvas));
+        if changed {
+            stop_identify(&self.canvas, &self.identify, &self.identifying);
+        }
         let rects: Vec<Rect> = self
             .canvas
             .layout()
@@ -149,6 +208,63 @@ impl Arrangement {
         self.gaps
             .set_visible(message.is_none() && (overlapping || !layout::is_connected(&rects)));
     }
+}
+
+/// Shows each output's number on it for [`identify::SHOWN_FOR`] and outlines the tiles of
+/// `canvas` meanwhile; `button` can't be pressed again until then. Returns on how many outputs
+/// the number is shown.
+fn start_identify(
+    canvas: &Canvas,
+    button: &gtk::Button,
+    identifying: &Rc<RefCell<Option<Identifying>>>,
+) -> usize {
+    if identifying.borrow().is_some() {
+        return 0;
+    }
+    let numbered = shown_numbers(canvas);
+    let windows = identify::show(&numbered);
+    let shown = windows.len();
+    identifying.replace(Some(Identifying { windows, numbered }));
+    canvas.add_css_class("st-identifying");
+    button.set_sensitive(false);
+    let state = Rc::clone(identifying);
+    glib::timeout_add_local_once(
+        identify::SHOWN_FOR,
+        glib::clone!(
+            #[weak]
+            canvas,
+            #[weak]
+            button,
+            move || stop_identify(&canvas, &button, &state)
+        ),
+    );
+    shown
+}
+
+/// Takes the numbers off the displays and the outline off the tiles.
+fn stop_identify(
+    canvas: &Canvas,
+    button: &gtk::Button,
+    identifying: &Rc<RefCell<Option<Identifying>>>,
+) {
+    let Some(shown) = identifying.take() else {
+        return;
+    };
+    for window in shown.windows {
+        window.destroy();
+    }
+    canvas.remove_css_class("st-identifying");
+    button.set_sensitive(identify::is_supported());
+}
+
+/// The names, numbers and labels of the outputs on `canvas` that are on.
+fn shown_numbers(canvas: &Canvas) -> Vec<(String, usize, String)> {
+    canvas
+        .numbered()
+        .into_iter()
+        .filter(|(_, _, _, off)| !off)
+        .map(|(name, number, label, _)| (name, number, label))
+        .collect()
 }
 
 /// Picks the output the rows are for: every output at once, or one of them.
@@ -439,7 +555,18 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
         }
     );
     update(model);
-    model.connect_changed(update);
+    let handler = model.connect_changed(update);
+    // The model outlives the page: it lets go of the page when the canvas goes.
+    let handler = RefCell::new(Some(handler));
+    arrangement.canvas.connect_destroy(glib::clone!(
+        #[weak]
+        model,
+        move |_| {
+            if let Some(handler) = handler.take() {
+                model.disconnect(handler);
+            }
+        }
+    ));
     picker
 }
 

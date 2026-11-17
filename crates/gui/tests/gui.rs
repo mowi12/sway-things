@@ -5166,6 +5166,10 @@ fn check_displays() -> Vec<(String, Outcome)> {
             check_display_no_session(),
         ),
         (
+            "displays: identify shows the numbers on the displays".to_owned(),
+            check_display_identify(),
+        ),
+        (
             "contrast: displays with outputs (light)".to_owned(),
             check_display_contrast(false),
         ),
@@ -5447,6 +5451,55 @@ fn check_display_no_session() -> Outcome {
         "the canvas shows without a session",
     )?;
     row(&window, "output.scale")?;
+    window.destroy();
+    Ok(())
+}
+
+/// "Identify" shows the number of an output on the display GDK knows by its name, on the overlay
+/// layer, and takes it away again; the tiles are outlined meanwhile. The stand-in names its output
+/// like the headless sway's own, so GDK has a monitor for it.
+fn check_display_identify() -> Outcome {
+    let headless = DESK_OUTPUTS.replacen(r#""name": "DP-4""#, r#""name": "HEADLESS-1""#, 1);
+    let sway = with_outputs(&[&headless]);
+    let fixture = displays_fixture(&sway, "version = 1\n")?;
+    let window = open(&fixture, Page::Displays)?;
+    let (arrangement, _) = displays(&window)?;
+    ensure(
+        arrangement.identify_button().is_sensitive(),
+        "Identify can't be pressed on sway",
+    )?;
+    let numbers = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter(|window| window.has_css_class("st-identify") && window.is_visible())
+            .count()
+    };
+    let shown = arrangement.identify();
+    ensure(shown == 1, &format!("  the number is on {shown} displays"))?;
+    ensure(
+        arrangement.identify() == 0 && !arrangement.identify_button().is_sensitive(),
+        "Identify can be pressed again while the numbers are shown",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(2), || numbers() == 1),
+        "no window with the number",
+    )?;
+    ensure(
+        arrangement.canvas().has_css_class("st-identifying"),
+        "the tiles aren't outlined",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(6), || numbers() == 0),
+        "the number stays",
+    )?;
+    ensure(
+        !arrangement.canvas().has_css_class("st-identifying"),
+        "the tiles stay outlined",
+    )?;
+    ensure(
+        arrangement.identify_button().is_sensitive(),
+        "Identify can't be pressed again afterwards",
+    )?;
     window.destroy();
     Ok(())
 }

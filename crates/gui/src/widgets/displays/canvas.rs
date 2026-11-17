@@ -61,11 +61,17 @@ struct Tile {
     /// Whether it is off: shown greyed out beside the others, and not dragged.
     off: bool,
     button: gtk::ToggleButton,
+    /// The name sway gives the output (its connector), its number and its make and model.
+    name: String,
+    number: Option<usize>,
+    label: String,
 }
 
 /// What [`Canvas::set_outputs`] shows of an output.
 struct Shown {
     identifier: String,
+    /// The name sway gives the output, its connector.
+    name: String,
     /// Its place, while it is on.
     rect: Option<Rect>,
     label: String,
@@ -73,6 +79,33 @@ struct Shown {
     /// The size it is parked with while it is off.
     size: (i32, i32),
     parked: Option<Rect>,
+}
+
+/// Parks the outputs of `shown` that are off in a column right of those that are on.
+fn park(shown: &mut [Shown]) {
+    let right = shown
+        .iter()
+        .filter_map(|shown| shown.rect)
+        .map(Rect::right)
+        .max()
+        .unwrap_or(0);
+    let top = shown
+        .iter()
+        .filter_map(|shown| shown.rect)
+        .map(|rect| rect.y)
+        .min()
+        .unwrap_or(0);
+    let gap = shown.iter().map(|shown| shown.size.0).max().unwrap_or(0) / 8;
+    let mut y = top;
+    for off in shown.iter_mut().filter(|shown| shown.rect.is_none()) {
+        off.parked = Some(Rect {
+            x: right.saturating_add(gap),
+            y,
+            width: off.size.0,
+            height: off.size.1,
+        });
+        y = y.saturating_add(off.size.1).saturating_add(gap);
+    }
 }
 
 /// The second line of a tile: the size of the mode and a turn, or that the output is off.
@@ -431,6 +464,7 @@ impl Canvas {
             .filter(|output| output.is_connected())
             .map(|output| Shown {
                 identifier: output.identifier().to_owned(),
+                name: output.name().to_owned(),
                 rect: output.rect().filter(|_| output.is_enabled()),
                 label: output.label(),
                 details: details(output),
@@ -438,30 +472,7 @@ impl Canvas {
                 parked: None,
             })
             .collect();
-        // Those that are off are shown in a column right of the others.
-        let right = shown
-            .iter()
-            .filter_map(|shown| shown.rect)
-            .map(Rect::right)
-            .max()
-            .unwrap_or(0);
-        let top = shown
-            .iter()
-            .filter_map(|shown| shown.rect)
-            .map(|rect| rect.y)
-            .min()
-            .unwrap_or(0);
-        let gap = shown.iter().map(|shown| shown.size.0).max().unwrap_or(0) / 8;
-        let mut y = top;
-        for off in shown.iter_mut().filter(|shown| shown.rect.is_none()) {
-            off.parked = Some(Rect {
-                x: right.saturating_add(gap),
-                y,
-                width: off.size.0,
-                height: off.size.1,
-            });
-            y = y.saturating_add(off.size.1).saturating_add(gap);
-        }
+        park(&mut shown);
         let reported: Vec<(String, Rect, String)> = shown
             .iter()
             .filter_map(|shown| Some((shown.identifier.clone(), shown.rect?, shown.label.clone())))
@@ -486,12 +497,18 @@ impl Canvas {
                     rect: Rect::default(),
                     off: false,
                     button: self.tile_button(&shown.identifier),
+                    name: String::new(),
+                    number: None,
+                    label: String::new(),
                 })
                 .collect();
             imp.tiles.replace(tiles);
         }
         for (tile, shown) in imp.tiles.borrow_mut().iter_mut().zip(&shown) {
             tile.off = shown.rect.is_none();
+            tile.name.clone_from(&shown.name);
+            tile.label.clone_from(&shown.label);
+            tile.number = number(&tile.identifier);
             tile.rect = shown.rect.or(shown.parked).unwrap_or_default();
             let number = number(&tile.identifier).map_or_else(String::new, |n| n.to_string());
             set_tile_labels(
@@ -572,6 +589,20 @@ impl Canvas {
         }
         self.show_dropped(&arranged);
         self.apply(&arranged);
+    }
+
+    /// Each connected output's name (its connector), number, make and model, and whether it is
+    /// off, as the tiles show them.
+    pub fn numbered(&self) -> Vec<(String, usize, String, bool)> {
+        self.imp()
+            .tiles
+            .borrow()
+            .iter()
+            .filter_map(|tile| {
+                let number = tile.number?;
+                Some((tile.name.clone(), number, tile.label.clone(), tile.off))
+            })
+            .collect()
     }
 
     /// Presses the tile of the output `identifier`, or none.
