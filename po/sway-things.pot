@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 08:35+0100\n"
+"POT-Creation-Date: 2026-11-17 08:38+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -907,6 +907,32 @@ msgstr ""
 
 #: crates/core/src/editor.rs
 msgid "ends in a backslash that escapes nothing"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "{file} was changed outside Sway Things, so it was left alone"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "{file} wasn't made by Sway Things, so it is never written"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays: {message}"
+msgstr ""
+
+#: crates/core/src/generate/write.rs
+#, rust-format
+msgid ""
+"sway rejected the new {file}, so the old one stays: line {number}: {message}"
 msgstr ""
 
 #: crates/core/src/generate/write.rs crates/core/src/state/mod.rs
@@ -3613,6 +3639,11 @@ msgstr ""
 #: crates/core/src/view.rs
 #, rust-format
 msgid "Only with {title} above {limit}"
+msgstr ""
+
+#: crates/core/src/watch.rs
+#, rust-format
+msgid "can't watch files: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs

@@ -358,6 +358,15 @@ fn the_pseudo_locale_leaves_no_text_untranslated() {
         vec!["reset", "input.keyboard.xkb_layout"],
     ));
     cases.push((Home::new("version = 1\n", INCLUDE), vec!["show-generated"]));
+    // Errors of the core: a value that doesn't fit, and settings that can't be changed.
+    cases.push((
+        Home::new("version = 1\n", INCLUDE),
+        vec!["set", "windows.gaps.inner", "wide"],
+    ));
+    cases.push((
+        Home::new("version = 1\n", "gaps inner 4\n"),
+        vec!["set", "windows.gaps.inner", "8"],
+    ));
     cases.push((Home::new("version = 1\n", INCLUDE), vec!["open"]));
     for (home, args) in &cases {
         // What the user typed, the lines of their config and what the JSON output says are data:

@@ -207,7 +207,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
     let (applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
@@ -243,7 +243,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         Ok(found) => found,
         Err(error) => {
             look.spinner.clear();
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
@@ -358,7 +358,7 @@ pub async fn run<V: Validate>(
 pub fn open(link: Option<&str>, err: &mut dyn Write) -> Exit {
     if let Some(text) = link {
         if let Err(error) = Link::parse(text, Registry::builtin()) {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Usage;
         }
     }
@@ -581,7 +581,11 @@ async fn set<V: Validate>(
     let value = match setting.kind().parse(change.text) {
         Ok(value) => value,
         Err(error) => {
-            io.error(format_args!("{}: {error}", setting.key()));
+            io.error(format_args!(
+                "{}: {}",
+                setting.key(),
+                error.text().translated()
+            ));
             return Exit::Usage;
         }
     };
@@ -670,7 +674,7 @@ async fn keep_or_revert<V: Validate>(
         Err(error) => {
             io.error(trf(
                 msg!("{error}; the old value comes back when sway reloads its config"),
-                &[("error", &error)],
+                &[("error", &error.text().translated())],
             ));
             return Err(Exit::Failure);
         }
@@ -803,7 +807,7 @@ fn write_access<V>(session: &Session<V>, io: &mut Io<'_>) -> Option<WriteAccess>
     match session.status.write_access() {
         Ok(access) => Some(access),
         Err(read_only) => {
-            io.error(&read_only)
+            io.error(read_only.text().translated())
                 .note(read_only.explanation().translated());
             None
         }
@@ -837,7 +841,7 @@ async fn persist<V: Validate>(
             }
             Outcome::EditedOutside => {
                 if let Some(problem) = outcome.problem(file) {
-                    io.error(problem);
+                    io.error(problem.translated());
                 }
                 io.note(tr(msg!(
                     "The settings are saved. Run the command again with --overwrite to replace \
@@ -849,7 +853,7 @@ async fn persist<V: Validate>(
             }
             _ => {
                 if let Some(problem) = outcome.problem(file) {
-                    io.error(problem);
+                    io.error(problem.translated());
                 }
                 exit = Exit::Failure;
             }
@@ -916,7 +920,7 @@ fn effect_note(effect: &Effect) -> Option<String> {
 
 /// Reports `error` and returns the exit code it stands for.
 fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
-    io.error(error);
+    io.error(error.text().translated());
     match error {
         ApplyError::State(
             StateError::UnknownKey { .. }

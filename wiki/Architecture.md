@@ -1127,13 +1127,14 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
   keywords, placeholders and choice labels, page and sidebar group titles and descriptions, the headings of the doctor's
   report and its findings, the core's errors, the explanation of the include line, the labels and values of the system
   details, the reasons a row is locked (with the titles and choice labels in them) and the messages of the command line
-  (`error:` and `warning:` too) are marked; the GUI's own texts are still English literals. Texts from other programs
-  (sway's errors, the messages of BlueZ and NetworkManager, the system's I/O errors) stay as they are. The block of
-  system details that About copies for a bug report stays English, for the maintainers who read it. The command line's
-  `--help` texts stay English: the man pages and completions are generated from them, and clap's own words (`Usage:`,
-  `Options:`, its errors) can't be translated, so a translated help would mix two languages. `--json` output and its ids
-  stay English too. A `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a
-  string, like the section ids in `ui.toml`, use the English msgid, never the translation.
+  (`error:` and `warning:` too) are marked; the GUI's own texts are still English literals. The command line and the GUI
+  show the core's messages and errors with `translated()`. Texts from other programs (sway's errors, the messages of
+  BlueZ and NetworkManager, the system's I/O errors) stay as they are. The block of system details that About copies for
+  a bug report stays English, for the maintainers who read it. The command line's `--help` texts stay English: the man
+  pages and completions are generated from them, and clap's own words (`Usage:`, `Options:`, its errors) can't be
+  translated, so a translated help would mix two languages. `--json` output and its ids stay English too. A
+  `// TRANSLATORS:` comment above a string becomes a note in the template. Ids derived from a string, like the section
+  ids in `ui.toml`, use the English msgid, never the translation.
 - **Template**: `scripts/update-pot.sh` extracts the marked strings with `xgettext` (0.24 or newer, the first version
   that reads Rust) into `po/sway-things.pot`, with file names but no line numbers, so the template only changes when the
   strings do. `scripts/check-pot.sh` fails while the template is out of date, and a core test

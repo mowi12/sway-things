@@ -18,7 +18,7 @@ use sway_things_core::doctor::{
     Checkup, Diagnosis, Finding, Fix, FixError, Section, Severity, Step,
 };
 use sway_things_core::generate::{Outcome, Report, Validate};
-use sway_things_core::i18n::{Msg, MsgPlural, Text, fill, ntrf, tr, trf};
+use sway_things_core::i18n::{Msg, MsgPlural, Text, ntrf, tr, trf};
 use sway_things_core::system::{self, Details};
 use sway_things_core::{msg, msg_plural};
 
@@ -63,28 +63,27 @@ impl Fixed {
         }
     }
 
-    /// What happened, in a sentence, unless it is said per file: translated by `translate`, which
-    /// is [`tr`] for people and [`Msg::msgid`] for scripts.
-    fn message(&self, translate: fn(Msg) -> &'static str) -> Option<String> {
+    /// What happened, in a sentence, unless it is said per file.
+    fn message(&self) -> Option<Text> {
         let text = match self {
             Self::Nothing { edited: true } => msg!(
                 "Only generated files that were changed outside Sway Things are left; add \
                  --overwrite to replace them."
-            ),
-            Self::Nothing { edited: false } => msg!("Nothing for --fix to do."),
+            )
+            .into(),
+            Self::Nothing { edited: false } => msg!("Nothing for --fix to do.").into(),
             Self::ReadOnly => msg!(
                 "Nothing was written: Sway Things is read-only until your config includes its \
                  files."
-            ),
+            )
+            .into(),
             Self::Done(_) => return None,
             Self::Failed(error) => {
-                return Some(fill(
-                    translate(msg!("The generated files couldn't be written: {error}.")),
-                    &[("error", error)],
-                ));
+                Text::new(msg!("The generated files couldn't be written: {error}."))
+                    .text("error", error.text())
             }
         };
-        Some(translate(text).to_owned())
+        Some(text)
     }
 }
 
@@ -327,8 +326,8 @@ fn text<V>(
     if let Some(fixed) = fixed {
         // TRANSLATORS: The heading of what `sway-things doctor --fix` did.
         let _ = writeln!(out, "{}", paint.paint(HEADING, tr(msg!("Fix"))));
-        if let Some(message) = fixed.message(tr) {
-            let _ = writeln!(out, "  {message}");
+        if let Some(message) = fixed.message() {
+            let _ = writeln!(out, "  {}", message.translated());
         }
         if let Fixed::Done(report) = fixed {
             for (file, outcome) in report {
@@ -339,9 +338,10 @@ fn text<V>(
                         trf(msg!("wrote {file}"), &[("file", &paint.paint(DIM, &path))])
                     }
                     Outcome::Unchanged | Outcome::NotCreated => continue,
-                    _ => outcome
-                        .problem(*file)
-                        .unwrap_or_else(|| file.file_name().to_owned()),
+                    _ => outcome.problem(*file).map_or_else(
+                        || file.file_name().to_owned(),
+                        |problem| problem.translated(),
+                    ),
                 };
                 let _ = writeln!(out, "  {line}");
                 if let Outcome::Invalid(lines) = outcome {
@@ -536,7 +536,7 @@ fn json<V>(
         };
         json!({
             "result": fixed.id(),
-            "message": fixed.message(Msg::msgid),
+            "message": fixed.message().as_ref().map(Text::english),
             "files": files,
         })
     });

@@ -218,26 +218,39 @@ pub enum Outcome {
 impl Outcome {
     /// What went wrong with `file`, in words for the app and the command line, or `None` if
     /// nothing did.
-    pub fn problem(&self, file: ConfigFile) -> Option<String> {
+    pub fn problem(&self, file: ConfigFile) -> Option<Text> {
         let name = file.file_name();
         match self {
             Self::Written | Self::Unchanged | Self::NotCreated => None,
-            Self::EditedOutside => Some(format!(
-                "{name} was changed outside Sway Things, so it was left alone"
-            )),
-            Self::Foreign => Some(format!(
-                "{name} wasn't made by Sway Things, so it is never written"
-            )),
-            Self::Invalid(lines) => {
-                let first = lines
-                    .first()
-                    .map_or_else(String::new, |line| match line.line {
-                        0 => format!(": {}", line.message),
-                        number => format!(": line {number}: {}", line.message),
-                    });
-                Some(format!(
-                    "sway rejected the new {name}, so the old one stays{first}"
+            Self::EditedOutside => Some(
+                Text::new(msg!(
+                    "{file} was changed outside Sway Things, so it was left alone"
                 ))
+                .arg("file", name),
+            ),
+            Self::Foreign => Some(
+                Text::new(msg!(
+                    "{file} wasn't made by Sway Things, so it is never written"
+                ))
+                .arg("file", name),
+            ),
+            Self::Invalid(lines) => {
+                // sway's message stays as it is.
+                let text = match lines.first() {
+                    None => Text::new(msg!("sway rejected the new {file}, so the old one stays")),
+                    Some(InvalidLine { line: 0, .. }) => Text::new(msg!(
+                        "sway rejected the new {file}, so the old one stays: {message}"
+                    )),
+                    Some(_) => Text::new(msg!(
+                        "sway rejected the new {file}, so the old one stays: line {number}: \
+                         {message}"
+                    )),
+                };
+                let text = text.arg("file", name);
+                Some(match lines.first() {
+                    Some(line) => text.arg("number", line.line).arg("message", &line.message),
+                    None => text,
+                })
             }
         }
     }
