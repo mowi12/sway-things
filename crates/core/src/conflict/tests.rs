@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use super::{Order, Reach, Report, UserLine, check_all};
+use super::{Known, Order, Reach, Report, UserLine, check_all};
 use crate::command::Color;
 use crate::command::input::InputType;
 use crate::devices::Devices;
@@ -30,9 +30,17 @@ fn status(main: &str) -> IncludeStatus {
     status_of(&MemoryFiles::new().var("HOME", "/home/me").file(MAIN, main))
 }
 
+/// The known devices, without outputs.
+fn known(devices: &Devices) -> Known<'_> {
+    Known {
+        devices: Some(devices),
+        outputs: None,
+    }
+}
+
 fn report(status: &IncludeStatus, key: &str, device: Option<&str>) -> Report {
     let setting = Registry::builtin().get(key).unwrap();
-    Report::check(status, setting, device, None).unwrap()
+    Report::check(status, setting, device, Known::default()).unwrap()
 }
 
 fn numbers<'a>(lines: impl IntoIterator<Item = &'a UserLine>) -> Vec<usize> {
@@ -184,7 +192,7 @@ fn known_devices_of_another_type_are_left_out() {
     ));
     let devices = devices();
     let setting = Registry::builtin().get("input.touchpad.tap").unwrap();
-    let report = Report::check(&status, setting, None, Some(&devices)).unwrap();
+    let report = Report::check(&status, setting, None, known(&devices)).unwrap();
     assert_eq!(numbers(report.lines()), [3]);
 }
 
@@ -233,7 +241,7 @@ fn the_include_in_an_included_file_sets_the_position() {
 fn every_sway_setting_and_known_device_gets_a_report() {
     let status = status(&format!("{INCLUDE}\n"));
     let devices = devices();
-    let reports = check_all(&status, Registry::builtin(), Some(&devices));
+    let reports = check_all(&status, Registry::builtin(), known(&devices));
     let sway_settings = Registry::builtin()
         .iter()
         .filter(|setting| setting.sway().is_some())
@@ -263,5 +271,125 @@ fn every_sway_setting_and_known_device_gets_a_report() {
 fn preferences_of_sway_things_have_no_report() {
     let status = status(&format!("{INCLUDE}\n"));
     let setting = Registry::builtin().get("app.safety_net_timeout").unwrap();
-    assert_eq!(Report::check(&status, setting, None, None), None);
+    assert_eq!(
+        Report::check(&status, setting, None, Known::default()),
+        None
+    );
+}
+
+/// Two monitors of the same model and a laptop panel, as `GET_OUTPUTS` reports them.
+fn outputs() -> crate::outputs::Outputs {
+    let json = r#"[
+      {"name": "DP-4", "active": true, "primary": false, "make": "Samsung", "model": "LF27T850",
+       "serial": "H4LR303241", "modes": []},
+      {"name": "DP-5", "active": true, "primary": false, "make": "Samsung", "model": "LF27T850",
+       "serial": "H4LR100370", "modes": []},
+      {"name": "eDP-1", "active": true, "primary": false, "make": "BOE", "model": "0x0BCA",
+       "serial": "Unknown", "modes": []}
+    ]"#;
+    crate::outputs::Outputs::new(
+        &serde_json::from_str::<Vec<crate::ipc::types::Output>>(json).unwrap(),
+    )
+}
+
+const LEFT: &str = "Samsung LF27T850 H4LR303241";
+
+#[test]
+fn output_lines_count_by_name_identifier_or_star() {
+    let status = status(&format!(
+        "output * scale 2\n\
+         output DP-4 mode 2560x1440 pos 0 0 scale 1.25\n\
+         output DP-5 scale 3\n\
+         output \"{LEFT}\" {{\n  scale 1.5\n}}\n\
+         {INCLUDE}\n\
+         output DP-4 res 1920 1080 scale 1\n"
+    ));
+    let outputs = outputs();
+    let known = Known {
+        devices: None,
+        outputs: Some(&outputs),
+    };
+    let scale = Registry::builtin().get("output.scale").unwrap();
+    let report = Report::check(&status, scale, Some(LEFT), known).unwrap();
+    // DP-5 is another output; DP-4 is the one stored by its identifier.
+    assert_eq!(numbers(report.lines()), [1, 2, 5, 8]);
+    assert_eq!(numbers(report.overridden()), [1, 2, 5]);
+    let winner = report.overriding().unwrap();
+    assert_eq!(winner.line(), 8);
+    assert_eq!(winner.value, Ok(Value::Decimal(1.0)));
+
+    // One line sets several values; each setting reads its own.
+    let mode = Registry::builtin().get("output.mode").unwrap();
+    let report = Report::check(&status, mode, Some(LEFT), known).unwrap();
+    assert_eq!(numbers(report.lines()), [2, 8]);
+    assert_eq!(
+        report.overriding().unwrap().value,
+        Ok(Value::Text("1920x1080".to_owned()))
+    );
+    let position = Registry::builtin().get("output.position").unwrap();
+    let report = Report::check(&status, position, Some(LEFT), known).unwrap();
+    assert_eq!(
+        report.user_value().unwrap().value,
+        Ok(Value::Text("0,0".to_owned()))
+    );
+
+    // Without the outputs, a line by name can't be matched to the identifier.
+    let report = Report::check(&status, scale, Some(LEFT), Known::default()).unwrap();
+    assert_eq!(numbers(report.lines()), [1, 5]);
+
+    // For every output, lines for single outputs are listed but don't decide.
+    let report = Report::check(&status, scale, None, known).unwrap();
+    assert_eq!(numbers(report.lines()), [1, 2, 3, 5, 8]);
+    assert_eq!(report.user_value().unwrap().line(), 1);
+    assert_eq!(report.overriding(), None);
+    assert_eq!(numbers(report.for_devices()), [2, 3, 5, 8]);
+}
+
+#[test]
+fn an_output_line_sway_rejects_sets_nothing() {
+    let status = status(&format!(
+        "{INCLUDE}\noutput DP-4 scale 2 frobnicate\noutput DP-4 enable\noutput DP-4 toggle\n"
+    ));
+    let outputs = outputs();
+    let known = Known {
+        devices: None,
+        outputs: Some(&outputs),
+    };
+    let scale = Registry::builtin().get("output.scale").unwrap();
+    let report = Report::check(&status, scale, Some(LEFT), known).unwrap();
+    assert_eq!(report.lines(), []);
+    let enabled = Registry::builtin().get("output.enabled").unwrap();
+    let report = Report::check(&status, enabled, Some(LEFT), known).unwrap();
+    assert_eq!(numbers(report.lines()), [3, 4]);
+    // `toggle` depends on the state, so the line before it decides what can be shown.
+    assert!(matches!(
+        report.lines()[1].value,
+        Err(ReadError::Unsupported(_))
+    ));
+    assert_eq!(report.user_value().unwrap().line(), 4);
+}
+
+#[test]
+fn every_known_output_gets_a_report() {
+    let status = status(&format!("{INCLUDE}\n"));
+    let outputs = outputs();
+    let known = Known {
+        devices: None,
+        outputs: Some(&outputs),
+    };
+    let reports = check_all(&status, Registry::builtin(), known);
+    let scales: Vec<Option<&str>> = reports
+        .iter()
+        .filter(|report| report.key() == "output.scale")
+        .map(Report::device)
+        .collect();
+    assert_eq!(
+        scales,
+        [
+            None,
+            Some(LEFT),
+            Some("Samsung LF27T850 H4LR100370"),
+            Some("BOE 0x0BCA Unknown")
+        ]
+    );
 }

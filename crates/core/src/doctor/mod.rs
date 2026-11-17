@@ -979,9 +979,12 @@ impl<V: Validate> Checkup<'_, V> {
         }
         let before = findings.len();
         for entry in self.state.entries() {
-            let Some(report) =
-                conflict::Report::check(self.status, entry.setting, entry.device, None)
-            else {
+            let Some(report) = conflict::Report::check(
+                self.status,
+                entry.setting,
+                entry.device,
+                conflict::Known::default(),
+            ) else {
                 continue;
             };
             let name = match entry.device {

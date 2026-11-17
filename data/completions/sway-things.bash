@@ -424,7 +424,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__show__subcmd__generated)
-            opts="-h --color --help 10-input.conf 30-appearance.conf 40-behavior.conf 80-hooks.conf 90-effects.conf"
+            opts="-h --color --help 10-input.conf 20-output.conf 30-appearance.conf 40-behavior.conf 80-hooks.conf 90-effects.conf"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

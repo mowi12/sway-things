@@ -119,6 +119,18 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   title the app shows the group's row with. A setting alone in its group names none.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
+- **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
+  output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
+  [Outputs](#outputs)). `Setting::check_device` says whether a string can select a device or an output for a setting.
+  Where sway decides by itself while nothing is set (the preferred mode, the position next to the other outputs, a
+  scale for the pixel density), the default means "nothing set": an empty mode or position (`""`) and a scale that
+  isn't stored render no command. sway has no command that hands such a value back to its own choice, so a reset of one
+  takes effect after a reload of sway, live and through the safety net alike.
+- **`output` lines with several settings:** sway reads `output DP-4 mode 2560x1440 pos 0 0 scale 1` subcommand by
+  subcommand, each taking the words it needs (`registry/output_line.rs`, after `cmd_output` and its handlers in sway's
+  `commands/output/`). `Setting::read` splits such a line and reads its own subcommand; aliases count as the registry's
+  name (`res` and `resolution` as `mode`, `position` as `pos`, `disable` and `toggle` as `enable`). A line with an
+  unknown subcommand or a missing argument sets nothing, as in sway.
 - **Lists that line up:** layouts and variants are two settings, each with its own directive
   (`input.keyboard.xkb_layout = ["us", "de"]`, `input.keyboard.xkb_variant = ["", "nodeadkeys"]` → `xkb_layout "us,de"`,
   `xkb_variant ",nodeadkeys"`). The variants render with the number of layouts in effect: a shorter list is padded with
@@ -167,11 +179,12 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   whole range, in steps of 1 for whole numbers and a hundredth of the range for decimals.
 - **Config line:** `Registry::config_line(setting, values, device)` is the line of the generated file for a value, as
   the app shows it under the title: an `input` option without its `input <selector>` (`pointer_accel 0.3`).
-- **What a row shows** (`crates/core/src/view.rs`): `SettingView::of(setting, device, state, status, compositor)` gives
-  the value in effect and its source: the stored value (for a device without one of its own, its type's), else what the
-  user's config sets (the last line that decides it, with file and line), else sway's default. With one value of a group
-  stored, Sway Things writes the whole line, so the others show its defaults. It also has the config line and why the
-  setting is locked: no include line, or a compositor that doesn't support it.
+- **What a row shows** (`crates/core/src/view.rs`): `SettingView::of(setting, device, state, status, compositor, known)`
+  gives the value in effect and its source: the stored value (for a device without one of its own, its type's), else
+  what the user's config sets (the last line that decides it, with file and line), else for an output what it runs with
+  now (`known` has the outputs), else sway's default. With one value of a group stored, Sway Things writes the whole
+  line, so the others show its defaults. It also has the config line and why the setting is locked: no include line, or
+  a compositor that doesn't support it.
 
 Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
 setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
@@ -220,6 +233,10 @@ version = 1
 
 [device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
 tap = false
+
+[display."Dell Inc. DELL U2723QE ABC123".output]
+scale = 1.5
+position = "1920,0"
 ```
 
 - **Sparse:** only settings the user changed are stored. A missing key means _not managed by Sway Things_: the user's
@@ -234,12 +251,16 @@ tap = false
   file removes the one in the overlay, which would hide it otherwise.
 - **Per-device values** are stored below `device."<identifier>"` (the identifier from `GET_INPUTS`) at the same key as
   the value for all devices of the type. A device without a value of its own uses the value of its type.
+- **Per-output values** are stored below `display."<identifier>"` at the same key as the value for every output
+  (`[output] scale = 2`, which is why the table isn't called `output`). An output without a value of its own uses the
+  value for every output.
 - **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
   whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
   settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
-  range, entries of `device` that aren't device identifiers, and settings in a device table that can't be set per
+  range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
+  device or display table that can't be set per
   device. The lines stay in the file. A save only changes the lines of the settings that changed; comments, order,
   formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
@@ -438,8 +459,8 @@ Display mode, disabling an output or input device, changes of the keyboard layou
 1. Snapshot the current value and apply live.
 2. Show the _Keep / Revert_ banner with a 15 s countdown.
 3. **Nothing is persisted until the user presses _Keep_.** Revert or timeout re-applies the snapshot over IPC.
-4. Lockout protection: the last enabled keyboard and the last enabled pointing device can't be switched off (outputs
-   come with the Displays page).
+4. Lockout protection: the last enabled keyboard, the last enabled pointing device and the last output that is on
+   can't be switched off.
 
 `crates/core/src/apply/risky.rs` is this flow in the core; the GUI banner and the CLI prompt build on it.
 
@@ -464,9 +485,19 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   `set_risky_unchecked` and `reset_risky_unchecked` (for `sway-things set --yes` and `reset --yes`) send the value if
   there is a session and store or remove it at once.
 - **Lockout protection:** a change of `events` asks sway for the devices and is refused if it would leave no usable
-  keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. A session that has
-  none to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off
-  a whole type of keyboards or pointing devices is refused, one device is allowed.
+  keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. Switching off an
+  output asks sway for the outputs and is refused if none would stay on ([Outputs](#outputs)). A session that has none
+  to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off a
+  whole type of keyboards or pointing devices, or every output, is refused; one device or output is allowed.
+- **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
+  `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of
+  a setting without a stored value.
+- **Outputs:** where nothing sets an output's value, the snapshot is what the output runs with (`GET_OUTPUTS`, which
+  also matches the user's lines that name the output by its connector), so a revert of a new mode goes back to the mode
+  sway chose. A change that sends nothing (an empty mode, or removing a mode sway is to choose again; what the output
+  runs with doesn't count for that, sway chooses anew) needs no safety net: it is stored at once (`Tried::Stored`) and
+  waits for a reload of sway. So does a change that nothing could revert, such as the mode of an output that is off,
+  which sway doesn't report. Keeping a change drops what waited for a reload for the same setting.
 - **If the app or the command line ends** while a change waits, nothing was stored: the session keeps the tried value
   until the next reload of sway (or login), which brings back the old one.
 
@@ -540,6 +571,11 @@ on numbers taken from sway's and SwayFX's own checks:
   by its `GET_INPUTS` identifier. `drag_lock enabled_sticky` needs sway 1.11, and a sway built against a libinput that
   supports it; otherwise sway reads it as `disabled` without an error. The XKB lists are joined with commas, so an item
   can't contain one; `xkb_layout` needs at least one layout, the variants, options and model can be empty.
+- `command::output` builds `output <name> …` for every output (`*`) or one by its name or identifier (text, never `*`,
+  `-` or `--`, which sway reads as every output or the focused one): `mode` (`2560x1440@59.951Hz`, the refresh rate in
+  hertz with up to three decimals since sway counts millihertz and takes the mode nearest to it), `pos`, `scale`
+  (0.25 to 10; sway takes any scale above 0), `transform` and `enable`/`disable`. A mode is a word the builder makes
+  from numbers, so it isn't quoted.
 - `command::window` builds colors (`client.*`; sway ignores `client.background` and `client.placeholder`, so they have
   no builder), borders, gaps, the title bar and `opacity`. `gaps <which> <px>` only changes the default for new
   workspaces, and `gaps <which> all|current set <px>` (runtime-only) only open workspaces, including those with gaps of
@@ -632,10 +668,27 @@ the lockout protection.
 
 ### Outputs
 
-The page lists the connected outputs as the screens a drawing tablet or a touchscreen can map to. `OutputWatch`
-subscribes to sway's `output` events on a connection of its own and reads `GET_OUTPUTS` again after each one. If the
-outputs can't be read, the list stays empty; the choices still offer the automatic mapping, all screens and the stored
-value.
+`crates/core/src/outputs/` is the list of outputs for the Displays page, per-output settings and the lockout
+protection. The Cursor & Tablet page offers its connected outputs as the screens a drawing tablet or a touchscreen can
+map to.
+
+- **From sway:** each output has its name (the connector, `DP-4`), make, model and serial, whether it is on, the modes
+  it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the transform.
+  Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
+- **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
+  (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
+  port gives the output another name. An output is stored by its name instead when its identifier says nothing (all
+  three `Unknown`, like a headless output), when another connected output has the same one (two monitors of one model
+  without a serial), or when it is longer than the 127 bytes sway keeps.
+- **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
+  `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
+  changes are reported (added, removed, changed).
+- **Stored but not connected:** an output with values in the settings files stays listed as disconnected, by its
+  identifier.
+- **What sway chose:** `Output::session_value(key)` is what the output runs with for a Displays setting, as the setting
+  stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
+- **Last output:** `Outputs::lockout(output, enabled)` says whether switching every output (or one by its identifier or
+  name) off would leave none on.
 
 ### XKB rules
 
@@ -755,11 +808,11 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 | after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
 | our include missing, partial or unknown | nothing we generate is reliably active | app-wide **read-only** mode with the include instructions |
 
-`crates/core/src/conflict/` finds these lines. `Report::check(status, setting, device, devices)` lists every user line
+`crates/core/src/conflict/` finds these lines. `Report::check(status, setting, device, known)` lists every user line
 that sets a setting, in the order sway runs them, each with file, line, text, the value read from it, and whether it
 runs before or after the generated file of the setting. The search is linear in the length of the config, so it runs
-again for one setting after it changed, and for all of them (`check_all`, also for every known device) after the config
-or the settings files changed on disk.
+again for one setting after it changed, and for all of them (`check_all`, also for every known device and output) after
+the config or the settings files changed on disk.
 
 - **Top-level directives** match by name and, where the registry names them, leading arguments (`gaps inner`). Names
   compare without regard to case, as in sway.
@@ -770,6 +823,11 @@ or the settings files changed on disk.
   out.
 - **`seat` options** count for `seat *` and the default seat, `seat0`: Sway Things sets every seat with `seat *`, and
   sway takes the cursor of the default seat for `XCURSOR_THEME`. Lines for other seats are left out.
+- **`output` settings** merge per output the same way: for one output, the last line wins among those for `*`, for
+  its name and for its identifier (`Known::outputs` matches a line by name with the output stored by its identifier;
+  without the outputs only lines for `*` and the identifier count). sway's own merging depends on whether the output is
+  connected while it reads the line (`store_output_config` in `sway/config/output.c`), which a reload of a running
+  session always is.
 - **One line, several settings:** a `client.*` line sets all five colors, so every setting of the group reports it, and
   storing one color makes the user's line dead for all of them.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still

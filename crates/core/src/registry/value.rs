@@ -289,6 +289,10 @@ pub enum ValueError {
     NotACommand(SplitError),
     /// The text can't be an argument of a sway command, e.g. a cursor theme or output name.
     NotSwayText(TextError),
+    /// The text isn't an output mode like `2560x1440@59.951Hz`.
+    NotAMode,
+    /// The text isn't a position in the layout like `1920,0`.
+    NotAPosition,
 }
 
 impl ValueError {
@@ -329,6 +333,10 @@ impl ValueError {
             }
             Self::NotACommand(error) => error.text(),
             Self::NotSwayText(error) => error.text(),
+            Self::NotAMode => {
+                msg!("must be a mode like 2560x1440 or 2560x1440@59.951Hz, or empty").into()
+            }
+            Self::NotAPosition => msg!("must be a position like 1920,0, or empty").into(),
         }
     }
 }

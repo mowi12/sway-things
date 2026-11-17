@@ -127,7 +127,7 @@ fn screen_choices(model: &Model) -> Vec<(String, String)> {
         (MAP_AUTOMATIC.to_owned(), tr(msg!("Automatic")).to_owned()),
         (MAP_DESKTOP.to_owned(), tr(msg!("All screens")).to_owned()),
     ];
-    choices.extend(model.outputs());
+    choices.extend(model.output_choices());
     choices
 }
 

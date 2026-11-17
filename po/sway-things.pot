@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-18 10:42+0100\n"
+"POT-Creation-Date: 2026-11-19 08:41+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -291,6 +291,12 @@ msgstr ""
 msgid "default"
 msgstr ""
 
+#. TRANSLATORS: Where `sway-things get` found a value: nothing sets it, so it is what
+#. sway chose for the display (its preferred mode, its place, a scale).
+#: crates/cli/src/output.rs
+msgid "chosen by sway"
+msgstr ""
+
 #: crates/cli/src/output.rs
 #, rust-format
 msgid "your config wins: {file}:{line}"
@@ -453,6 +459,10 @@ msgid "invalid keyword {keyword}"
 msgstr ""
 
 #: crates/core/src/command/mod.rs
+msgid "invalid word in a command"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
 msgid "number is not finite"
 msgstr ""
 
@@ -472,6 +482,18 @@ msgstr ""
 #: crates/core/src/command/mod.rs
 #, rust-format
 msgid "{option} must be between {min} and {max}"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "*, - and -- don't name an output"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "expected a mode like 2560x1440 or 2560x1440@59.951Hz"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "expected a position like 1920,0"
 msgstr ""
 
 #: crates/core/src/command/text.rs
@@ -503,6 +525,10 @@ msgstr ""
 #: crates/core/src/devices/mod.rs
 msgid ""
 "this would turn off the last mouse, trackpoint or touchpad you can point with"
+msgstr ""
+
+#: crates/core/src/devices/mod.rs
+msgid "this would turn off the last display that is on"
 msgstr ""
 
 #. TRANSLATORS: A label of the system details: the running or installed sway.
@@ -1605,8 +1631,8 @@ msgstr ""
 msgid "not a whole number: {text}"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/read.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/read.rs crates/core/src/registry/windows.rs
 #, rust-format
 msgid "too large: {text}"
 msgstr ""
@@ -2093,7 +2119,7 @@ msgstr ""
 msgid "map to output"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/output.rs
 msgid "monitor"
 msgstr ""
 
@@ -2429,7 +2455,8 @@ msgstr ""
 
 #. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
-#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
@@ -2536,7 +2563,7 @@ msgstr ""
 msgid "trackpoint"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
 msgid "disable"
 msgstr ""
 
@@ -2576,7 +2603,7 @@ msgstr ""
 msgid "sensitivity"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
 msgid "dpi"
 msgstr ""
 
@@ -3039,6 +3066,194 @@ msgstr ""
 msgid "unknown setting {key}; the settings that start with {prefix} are {keys}"
 msgstr ""
 
+#: crates/core/src/registry/output.rs
+msgid "90° clockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "180°"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "90° counterclockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped, 90° clockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped, 180°"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped, 90° counterclockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Display"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Use this display"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "A display that is off gives its workspaces and windows to the others"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "off"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Resolution and refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Unless set, the display's preferred mode"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "resolution"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "hz"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "mode"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Scale"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid ""
+"How big everything is on this display. Unless set, sway picks a scale for "
+"the pixel density"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "zoom"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "hidpi"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "size"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Rotation"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "transform"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "orientation"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "portrait"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Position"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid ""
+"The top left corner in the layout, in logical pixels. Unless set, sway "
+"places the display right of the others"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "arrange"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "layout"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "left"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "right"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "{word} depends on whether the display is on at the time"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "a custom mode the display doesn't offer"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode width"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "missing mode height"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode height"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "a mode the setting can't hold: {mode}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "missing position argument (y)"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid position x"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "a scale outside {min} … {max}: {scale}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "invalid output transform: {transform}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "relative transforms can't be used in a config file"
+msgstr ""
+
 #: crates/core/src/registry/page.rs
 msgid "Devices"
 msgstr ""
@@ -3284,7 +3499,7 @@ msgid "{key} is not a sway setting"
 msgstr ""
 
 #: crates/core/src/registry/sway.rs
-msgid "the setting can't be set for a single device"
+msgid "the setting can't be set for a single device or output"
 msgstr ""
 
 #: crates/core/src/registry/sway.rs crates/core/src/state/mod.rs
@@ -3334,6 +3549,14 @@ msgstr ""
 #: crates/core/src/registry/value.rs
 #, rust-format
 msgid "must be one of: {choices}"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a mode like 2560x1440 or 2560x1440@59.951Hz, or empty"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a position like 1920,0, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -3750,12 +3973,22 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{key} can't be set for a single device"
+msgid "display.{output} is not a table for a display"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{device} is not a device identifier"
+msgid "{key} can't be set for a single display (display {output})"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} can't be set for a single device or display"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{device} is not a device identifier or display name"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
@@ -3923,6 +4156,11 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "{product} ({output})"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "Collapsed sections can’t be remembered: {error}"
 msgstr ""
 
@@ -3934,11 +4172,6 @@ msgstr ""
 #: crates/gui/src/model.rs
 #, rust-format
 msgid "Sway wasn’t reloaded: {error}."
-msgstr ""
-
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "{product} ({output})"
 msgstr ""
 
 #: crates/gui/src/model.rs
@@ -5176,6 +5409,10 @@ msgstr ""
 #: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "Use the value of {devices}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Use the value of all displays"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs

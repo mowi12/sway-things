@@ -65,7 +65,7 @@ fn the_line_is_found_in_every_spelling() {
         "INCLUDE ~/.config/sway/*/??-*.conf",
         "set $things ~/.config/sway/sway-things\ninclude $things/*.conf",
         // Two paths in one argument: sway removes the quotes, the expansion splits at the blank.
-        "include \"~/.config/sway/sway-things/10-input.conf ~/.config/sway/sway-things/[3-9]*\"",
+        "include \"~/.config/sway/sway-things/10-input.conf ~/.config/sway/sway-things/[2-9]*\"",
     ] {
         let status = status(&format!("gaps inner 8\n{line}\n"));
         assert_eq!(status.inclusion(), &Inclusion::Active, "{line}");
@@ -206,6 +206,7 @@ fn an_include_of_some_files_is_partial() {
         (
             "include ~/.config/sway/sway-things/10-input.conf",
             vec![
+                ConfigFile::Output,
                 ConfigFile::Appearance,
                 ConfigFile::Behavior,
                 ConfigFile::Hooks,

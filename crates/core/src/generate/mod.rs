@@ -44,7 +44,6 @@ use write::parse_error;
 
 use std::collections::BTreeSet;
 
-use crate::command::input::InputSelector;
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
 use crate::registry::{ConfigFile, Registry, Setting};
@@ -227,17 +226,7 @@ fn lines(
         return skipped(unmet.to_string());
     }
     let device = source.device.as_deref();
-    let selector = match device.map(InputSelector::device) {
-        Some(Ok(selector)) => Some(selector),
-        Some(Err(error)) => return skipped(error.to_string()),
-        None => None,
-    };
-    let commands = match registry.render(
-        setting,
-        &state.values(device),
-        selector.as_ref(),
-        Target::Config,
-    ) {
+    let commands = match registry.render(setting, &state.values(device), device, Target::Config) {
         Ok(commands) => commands,
         Err(error) => return skipped(error.to_string()),
     };

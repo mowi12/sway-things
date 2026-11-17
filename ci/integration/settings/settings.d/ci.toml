@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# The host overlay of the sample settings: it wins over settings.toml, and holds the values for one device.
+# The host overlay of the sample settings: it wins over settings.toml, and holds the values for one device and for
+# outputs, which aren't connected in the headless session.
 
 version = 1
 
@@ -16,3 +17,12 @@ dwt = false
 xkb_layout = ["fr", "us"]
 xkb_variant = ["bepo"]
 xkb_options = []
+
+[display."Fake Make Co.,Ltd Model 0x1".output]
+mode = "2560x1440@59.951Hz"
+scale = 1.25
+transform = "90"
+position = "1920,0"
+
+[display."DP-99".output]
+enabled = false

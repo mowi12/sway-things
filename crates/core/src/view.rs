@@ -10,6 +10,7 @@
 //!
 //! ```
 //! use std::path::Path;
+//! use sway_things_core::conflict::Known;
 //! use sway_things_core::generate::Locations;
 //! use sway_things_core::include::IncludeStatus;
 //! use sway_things_core::ipc::Compositor;
@@ -27,7 +28,7 @@
 //! let sway = Compositor::Sway { version: SwayVersion::new(1, 10, 1) };
 //!
 //! let gaps = Registry::builtin().get("windows.gaps.inner").ok_or("no such setting")?;
-//! let view = SettingView::of(gaps, None, &state, &status, sway);
+//! let view = SettingView::of(gaps, None, &state, &status, sway, Known::default());
 //! assert_eq!(view.value, Value::Integer(6));
 //! assert!(matches!(view.source, Source::Config { line: 1, .. }));
 //! assert_eq!(view.line.as_deref(), Some("gaps inner 6"));
@@ -40,13 +41,12 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::command::input::InputSelector;
-use crate::conflict::Report;
+use crate::conflict::{Known, Report};
 use crate::i18n::Text;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
 use crate::msg;
-use crate::registry::{Kind, Setting, Value, Values, When};
+use crate::registry::{Kind, Scope, Setting, Value, Values, When};
 use crate::state::{Layer, State};
 
 /// Where the value a row shows comes from.
@@ -70,6 +70,9 @@ pub enum Source {
     /// Nothing sets it: sway's default, or the default Sway Things writes for a setting whose
     /// directive it stores other values of.
     Default,
+    /// Nothing sets it, and sway chose the value itself: an output's preferred mode, its place in
+    /// the layout or a scale for its pixel density, as the session runs with it now.
+    Session,
 }
 
 /// Why a setting can't be changed.
@@ -123,14 +126,17 @@ pub struct SettingView {
 }
 
 impl SettingView {
-    /// What a row shows for `setting`, for the whole session or input type, or for the input
-    /// `device` with this identifier.
+    /// What a row shows for `setting`, for the whole session, input type or every output, or
+    /// for the input `device` or output with this identifier. `known` matches the lines of the
+    /// user's config with the devices and outputs (see [`Report::check`]); with the outputs, a
+    /// value of an output that nothing sets is what the session runs with ([`Source::Session`]).
     pub fn of(
         setting: &'static Setting,
         device: Option<&str>,
         state: &State,
         status: &IncludeStatus,
         compositor: Compositor,
+        known: Known<'_>,
     ) -> Self {
         let registry = state.registry();
         let key = setting.key();
@@ -145,7 +151,7 @@ impl SettingView {
         let mut users = BTreeMap::new();
         let mut user_line = None;
         if !group_stored {
-            if let Some(line) = Report::check(status, setting, device, None)
+            if let Some(line) = Report::check(status, setting, device, known)
                 .as_ref()
                 .and_then(Report::user_value)
             {
@@ -172,11 +178,12 @@ impl SettingView {
             (value.clone(), source)
         } else if let (Some(value), Some((file, line))) = (users.get(key), user_line) {
             (value.clone(), Source::Config { file, line })
+        } else if let Some(value) = session_value(setting, device, known) {
+            (value, Source::Session)
         } else {
             (setting.default_value(), Source::Default)
         };
 
-        let selector = device.and_then(|device| InputSelector::device(device).ok());
         let line = setting.sway().and_then(|_| {
             registry
                 .config_line(
@@ -185,7 +192,7 @@ impl SettingView {
                         over: &users,
                         under: &stored,
                     },
-                    selector.as_ref(),
+                    device,
                 )
                 .ok()
                 // A value can set nothing, like idle inhibition that is off.
@@ -199,7 +206,7 @@ impl SettingView {
                 .write_access()
                 .err()
                 .map(|read_only| Locked::ReadOnly(read_only.explanation().clone()))
-                .or_else(|| unmet_dependency(setting, device, state, status, compositor)),
+                .or_else(|| unmet_dependency(setting, device, state, status, compositor, known)),
         };
 
         Self {
@@ -211,6 +218,19 @@ impl SettingView {
     }
 }
 
+/// What the output `device` runs with for `setting`, if it is a setting of outputs and the
+/// output is known.
+fn session_value(setting: &Setting, device: Option<&str>, known: Known<'_>) -> Option<Value> {
+    if setting.scope() != Scope::PerOutput {
+        return None;
+    }
+    known
+        .outputs?
+        .get(device?)?
+        .session_value(setting.key())
+        .filter(|value| setting.check(value).is_ok())
+}
+
 /// Why `setting` doesn't matter with the values in effect, if its dependency isn't met.
 fn unmet_dependency(
     setting: &'static Setting,
@@ -218,10 +238,11 @@ fn unmet_dependency(
     state: &State,
     status: &IncludeStatus,
     compositor: Compositor,
+    known: Known<'_>,
 ) -> Option<Locked> {
     let dependency = setting.dependency()?;
     let other = state.registry().get(dependency.key)?;
-    let value = SettingView::of(other, device, state, status, compositor).value;
+    let value = SettingView::of(other, device, state, status, compositor, known).value;
     if dependency.when.holds(&value) {
         return None;
     }
@@ -275,6 +296,7 @@ mod tests {
 
     use super::{Locked, SettingView, Source};
     use crate::command::Color;
+    use crate::conflict::Known;
     use crate::generate::Locations;
     use crate::include::IncludeStatus;
     use crate::ipc::{Compositor, Unmet};
@@ -311,7 +333,61 @@ mod tests {
 
     fn view(setup: &Setup, key: &str, device: Option<&str>, main: &str) -> SettingView {
         let setting = Registry::builtin().get(key).unwrap();
-        SettingView::of(setting, device, &setup.state, &status(main), SWAY)
+        SettingView::of(
+            setting,
+            device,
+            &setup.state,
+            &status(main),
+            SWAY,
+            Known::default(),
+        )
+    }
+
+    #[test]
+    fn an_output_shows_what_sway_chose_where_nothing_sets_it() {
+        let json = r#"[{"name": "eDP-1", "active": true, "primary": false, "make": "A",
+            "model": "B", "serial": "C", "scale": 2.0, "transform": "normal", "modes": [],
+            "current_mode": {"width": 2880, "height": 1800, "refresh": 120000},
+            "rect": {"x": 0, "y": 0, "width": 1440, "height": 900}}]"#;
+        let outputs = crate::outputs::Outputs::new(&serde_json::from_str::<Vec<_>>(json).unwrap());
+        let known = Known {
+            devices: None,
+            outputs: Some(&outputs),
+        };
+        let setup = setup("version = 1\n\n[display.\"A B C\".output]\ntransform = \"90\"\n");
+        let status = status(&format!("output eDP-1 pos 10 20\n{INCLUDE}"));
+        let view = |key: &str| {
+            let setting = Registry::builtin().get(key).unwrap();
+            SettingView::of(setting, Some("A B C"), &setup.state, &status, SWAY, known)
+        };
+        let scale = view("output.scale");
+        assert_eq!(
+            (scale.value, scale.source),
+            (Value::Decimal(2.0), Source::Session)
+        );
+        // Nothing to show as a config line: sway chose it.
+        assert_eq!(scale.line, None);
+        assert_eq!(
+            view("output.mode").value,
+            Value::Text("2880x1800@120Hz".to_owned())
+        );
+        // The user's config and the stored value come first.
+        assert!(matches!(
+            view("output.position").source,
+            Source::Config { line: 1, .. }
+        ));
+        assert_eq!(
+            view("output.position").value,
+            Value::Text("10,20".to_owned())
+        );
+        assert!(matches!(
+            view("output.transform").source,
+            Source::Stored { .. }
+        ));
+        // An output that isn't known shows the default.
+        let setting = Registry::builtin().get("output.scale").unwrap();
+        let unknown = SettingView::of(setting, Some("X Y Z"), &setup.state, &status, SWAY, known);
+        assert_eq!(unknown.source, Source::Default);
     }
 
     #[test]
@@ -421,7 +497,14 @@ mod tests {
         assert_eq!(view.value, Value::Integer(4));
 
         let radius = Registry::builtin().get("effects.corner_radius").unwrap();
-        let view = SettingView::of(radius, None, &setup.state, &status(INCLUDE), SWAY);
+        let view = SettingView::of(
+            radius,
+            None,
+            &setup.state,
+            &status(INCLUDE),
+            SWAY,
+            Known::default(),
+        );
         let locked = view.locked.unwrap();
         assert_eq!(
             locked,

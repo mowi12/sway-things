@@ -13,7 +13,9 @@ use crate::command::input::{DragLock, Input, InputSelector, InputType};
 use crate::command::{CommandError, Target, behavior, effects, window};
 use crate::version::{SwayFxVersion, SwayVersion};
 
-pub(crate) use super::stand_in::{FakeSway, HANG_UP, SWAY_1_10, message, obedient, with_inputs};
+pub(crate) use super::stand_in::{
+    FakeSway, HANG_UP, SWAY_1_10, message, obedient, with_inputs, with_outputs,
+};
 
 const SWAYFX_0_5: &str = r#"{"human_readable": "0.5.3", "sway_original_version": "1.11.0",
     "variant": "sway", "major": 0, "minor": 5, "patch": 3,

@@ -133,6 +133,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
         persisted.files,
         [
             (ConfigFile::Input, Outcome::NotCreated),
+            (ConfigFile::Output, Outcome::NotCreated),
             (ConfigFile::Appearance, Outcome::Written),
             (ConfigFile::Behavior, Outcome::NotCreated),
             (ConfigFile::Hooks, Outcome::NotCreated),
@@ -155,7 +156,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
     let persisted = setup.persist(&[]);
     assert!(!persisted.saved);
     assert_eq!(
-        persisted.files[1],
+        persisted.files[2],
         (ConfigFile::Appearance, Outcome::Unchanged)
     );
 }
@@ -627,7 +628,8 @@ fn users(key: &str, lines: &str) -> crate::conflict::Report {
     let status =
         crate::include::IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations);
     let setting = crate::registry::Registry::builtin().get(key).unwrap();
-    crate::conflict::Report::check(&status, setting, None, None).unwrap()
+    crate::conflict::Report::check(&status, setting, None, crate::conflict::Known::default())
+        .unwrap()
 }
 
 impl Setup {
@@ -819,6 +821,7 @@ impl Setup {
             self.applier
                 .try_risky(key, device, value, &include_status(users), &self.access),
         )
+        .map(|tried| tried.trial().expect("the change waits to be kept"))
     }
 }
 
@@ -833,6 +836,7 @@ impl Setup {
             self.applier
                 .try_risky_reset(key, device, &include_status(users), &self.access),
         )
+        .map(super::Tried::trial)
     }
 
     fn reset_risky_unchecked(
@@ -1295,6 +1299,7 @@ impl Setup {
             self.applier
                 .try_risky_all(None, changes, &include_status(users), &self.access),
         )
+        .map(super::Tried::trial)
     }
 }
 
@@ -1602,5 +1607,221 @@ fn the_cursor_is_copied_to_gsettings_and_reset_there() {
     assert_eq!(
         setup.applier.state().get("cursor.size", None),
         Some(&Value::Integer(32))
+    );
+}
+
+/// A desk with two outputs, `A B C` on and `D E F` off, that records the commands.
+fn desk() -> FakeSway {
+    let outputs = r#"[
+      {"name": "eDP-1", "active": true, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "scale": 1.0, "transform": "normal",
+       "modes": [{"width": 1920, "height": 1080, "refresh": 60000},
+                 {"width": 1280, "height": 720, "refresh": 60000}],
+       "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
+       "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}},
+      {"name": "HDMI-A-1", "active": false, "primary": false, "make": "D", "model": "E",
+       "serial": "F", "modes": [], "rect": {"x": 0, "y": 0, "width": 0, "height": 0}}
+    ]"#;
+    FakeSway::with_version(SWAY, move |kind, _| match kind {
+        crate::ipc::wire::GET_OUTPUTS => message(kind, outputs),
+        crate::ipc::wire::GET_INPUTS => message(kind, "[]"),
+        _ => message(kind, r#"[{"success": true}]"#),
+    })
+}
+
+const MODE: &str = "output.mode";
+const ENABLED: &str = "output.enabled";
+const SCALE: &str = "output.scale";
+const PANEL: &str = "A B C";
+
+#[test]
+fn switching_off_the_last_output_that_is_on_is_refused() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    for output in [Some(PANEL), None] {
+        let error = setup
+            .try_risky(ENABLED, output, Value::Bool(false), "")
+            .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                ApplyError::Lockout {
+                    lockout: Lockout::Display,
+                    ..
+                }
+            ),
+            "{error}"
+        );
+    }
+    // The output that is off already can be switched off.
+    setup
+        .try_risky(ENABLED, Some("D E F"), Value::Bool(false), "")
+        .unwrap();
+    block_on(setup.applier.revert()).unwrap();
+    assert!(
+        sway.commands()
+            .iter()
+            .all(|command| !command.contains("A B C"))
+    );
+
+    // Without a session, only every output at once is refused.
+    let mut offline = Setup::offline("version = 1\n");
+    assert!(matches!(
+        block_on(offline.applier.set_risky_unchecked(
+            ENABLED,
+            None,
+            Value::Bool(false),
+            &offline.access
+        )),
+        Err(ApplyError::Lockout { .. })
+    ));
+    block_on(offline.applier.set_risky_unchecked(
+        ENABLED,
+        Some(PANEL),
+        Value::Bool(false),
+        &offline.access,
+    ))
+    .unwrap();
+}
+
+#[test]
+fn a_mode_sway_chose_is_what_a_revert_restores() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let trial = setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    assert_eq!(trial.commands, [r#"output "A B C" mode 1280x720"#]);
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"output "A B C" mode 1920x1080@60Hz"#]));
+    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
+}
+
+#[test]
+fn values_sway_has_no_command_for_wait_for_a_reload() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nscale = 1.5\nmode = \"1280x720\"\n",
+    );
+    // No command hands the scale back to sway's choice: it is removed and waits for a reload.
+    let reset = block_on(setup.applier.reset(SCALE, Some(PANEL), &setup.access)).unwrap();
+    assert_eq!(reset.effect, Effect::AfterReload);
+    assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
+    // A mode sway is to choose again: nothing to try, so it is removed at once.
+    let tried = block_on(setup.applier.try_risky_reset(
+        MODE,
+        Some(PANEL),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert_eq!(
+        tried,
+        super::Tried::Stored(Applied {
+            changed: true,
+            effect: Effect::AfterReload,
+            not_copied: Vec::new(),
+        })
+    );
+    assert_eq!(setup.applier.pending().map(super::Pending::key), None);
+    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
+    assert_eq!(waiting(&setup.applier, super::Until::Reload), [SCALE, MODE]);
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+}
+
+#[test]
+fn an_empty_mode_is_stored_without_a_trial_and_without_an_error() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nmode = \"1280x720\"\n",
+    );
+    let tried = block_on(setup.applier.try_risky(
+        MODE,
+        Some(PANEL),
+        Value::Text(String::new()),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert!(matches!(
+        tried,
+        super::Tried::Stored(Applied {
+            effect: Effect::AfterReload,
+            ..
+        })
+    ));
+    assert_eq!(
+        setup.applier.state().get(MODE, Some(PANEL)),
+        Some(&Value::Text(String::new()))
+    );
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+}
+
+#[test]
+fn a_reset_mode_falls_back_to_the_users_line_for_the_outputs_name() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nmode = \"1920x1080\"\n",
+    );
+    // The user's config names the output by its connector; the reset tries that mode.
+    let trial = setup
+        .try_risky_reset(MODE, Some(PANEL), "output eDP-1 mode 1280x720\n")
+        .unwrap()
+        .unwrap();
+    assert_eq!(trial.commands, [r#"output "A B C" mode 1280x720"#]);
+    block_on(setup.applier.revert()).unwrap();
+}
+
+#[test]
+fn the_mode_of_an_output_that_is_off_is_stored_at_once() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let tried = block_on(setup.applier.try_risky(
+        MODE,
+        Some("D E F"),
+        Value::Text("1280x720".to_owned()),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert_eq!(
+        tried,
+        super::Tried::Stored(Applied {
+            changed: true,
+            effect: live(&[r#"output "D E F" mode 1280x720"#]),
+            not_copied: Vec::new(),
+        })
+    );
+    assert!(setup.applier.pending().is_none());
+    assert_eq!(
+        setup.applier.state().get(MODE, Some("D E F")),
+        Some(&Value::Text("1280x720".to_owned()))
+    );
+}
+
+#[test]
+fn a_kept_mode_no_longer_waits_for_a_reload() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[display.\"A B C\".output]\nmode = \"1280x720\"\n",
+    );
+    setup.try_risky_reset(MODE, Some(PANEL), "").unwrap();
+    assert_eq!(waiting(&setup.applier, super::Until::Reload), [MODE]);
+    setup
+        .try_risky(
+            MODE,
+            Some(PANEL),
+            Value::Text("1920x1080@60Hz".to_owned()),
+            "",
+        )
+        .unwrap();
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        waiting(&setup.applier, super::Until::Reload),
+        [] as [&str; 0]
     );
 }

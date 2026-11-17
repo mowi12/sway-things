@@ -42,7 +42,7 @@ mod risky;
 mod tests;
 mod waiting;
 
-pub use risky::{Countdown, Pending, Trial, TriedValue};
+pub use risky::{Countdown, Pending, Trial, Tried, TriedValue};
 pub use waiting::{Until, Waiting, WaitingChange};
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -50,7 +50,6 @@ use std::fmt;
 use std::io;
 use std::time::{Duration, Instant};
 
-use crate::command::input::InputSelector;
 use crate::command::{CommandError, SwayCmd, Target};
 use crate::conflict;
 use crate::devices::Lockout;
@@ -63,7 +62,7 @@ use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::msg;
 use crate::registry::{
-    Apply, ConfigFile, Registry, RenderError, Setting, SwayMapping, Value, Values,
+    Apply, ConfigFile, Registry, RenderError, Scope, Setting, SwayMapping, Value, Values,
 };
 use crate::state::{ChangedKey, Changes, Layer, Paths, PathsError, State, StateError};
 
@@ -596,6 +595,11 @@ impl<V: Validate> Applier<V> {
             Apply::Relogin => return Ok(Effect::AfterRelogin),
         }
         let commands = render(&self.state, over, setting, device, Target::Ipc)?;
+        if commands.is_empty() && setting.scope() == Scope::PerOutput {
+            // sway has no command that hands an output's mode, position or scale back to its own
+            // choice: that happens when it reads its config again.
+            return Ok(Effect::AfterReload);
+        }
         let undo = match previous {
             Some(previous) => {
                 render(previous, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default()
@@ -792,20 +796,20 @@ fn render(
     device: Option<&str>,
     target: Target,
 ) -> Result<Vec<SwayCmd>, ApplyError> {
-    let selector =
-        device
-            .map(InputSelector::device)
-            .transpose()
+    if let Some(device) = device {
+        setting
+            .check_device(device)
             .map_err(|_| StateError::InvalidDevice {
-                device: device.unwrap_or_default().to_owned(),
+                device: device.to_owned(),
             })?;
+    }
     Ok(state.registry().render(
         setting,
         &Over {
             over,
             under: state.values(device),
         },
-        selector.as_ref(),
+        device,
         target,
     )?)
 }

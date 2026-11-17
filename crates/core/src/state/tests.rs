@@ -8,7 +8,6 @@ use std::path::Path;
 use tempfile::TempDir;
 
 use super::{ChangedKey, Changes, Layer, Paths, ProblemKind, State, StateError};
-use crate::command::input::InputSelector;
 use crate::command::{Color, Target};
 use crate::include::WriteAccess;
 use crate::registry::{Registry, Value, ValueError, Values};
@@ -355,6 +354,99 @@ tap = false
 }
 
 #[test]
+fn display_tables_hold_per_output_values() {
+    const DELL: &str = "Dell Inc. DELL U2723QE ABC";
+    let fixture = Fixture::new(
+        Some("[output]\nscale = 2.0\n"),
+        Some(&format!(
+            r#"
+[display."{DELL}".output]
+scale = 1.5
+position = "1920,0"
+
+[display."{DELL}".input.touchpad]
+tap = true
+
+[display."*".output]
+scale = 1.0
+
+[device."{TOUCHPAD}".output]
+scale = 1.0
+
+[display]
+"DP-1" = 5
+"#
+        )),
+    );
+    let state = fixture.load();
+    assert_eq!(
+        problems(&state),
+        [
+            (
+                Layer::Host,
+                ProblemKind::NotPerDevice {
+                    key: "output.scale",
+                    device: TOUCHPAD.to_owned()
+                }
+            ),
+            (
+                Layer::Host,
+                ProblemKind::NotPerOutput {
+                    key: TAP,
+                    output: DELL.to_owned()
+                }
+            ),
+            (
+                Layer::Host,
+                ProblemKind::InvalidOutput {
+                    output: "*".to_owned()
+                }
+            ),
+            (
+                Layer::Host,
+                ProblemKind::InvalidOutput {
+                    output: "DP-1".to_owned()
+                }
+            ),
+        ]
+    );
+    // The value for every output, and the one of a single output.
+    assert_eq!(state.get("output.scale", None), Some(&Value::Decimal(2.0)));
+    assert_eq!(
+        state.get("output.scale", Some(DELL)),
+        Some(&Value::Decimal(1.5))
+    );
+    assert_eq!(
+        state.values(Some("DP-4")).get("output.scale"),
+        Some(&Value::Decimal(2.0))
+    );
+
+    // A new value for an output goes below `display` in the host overlay.
+    let mut state = fixture.load();
+    state
+        .set("output.scale", Some("DP-4"), Value::Decimal(1.25), None)
+        .unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
+    assert!(
+        fixture
+            .text(Layer::Host)
+            .contains("[display.DP-4.output]\nscale = 1.25\n"),
+        "{}",
+        fixture.text(Layer::Host)
+    );
+    assert!(state.reset("output.scale", Some("DP-4")).unwrap());
+    assert_eq!(state.get("output.scale", Some("DP-4")), None);
+    assert!(matches!(
+        state.set("output.scale", Some("*"), Value::Decimal(1.0), None),
+        Err(StateError::InvalidDevice { .. })
+    ));
+    assert!(matches!(
+        state.set(TAP, Some(DELL), Value::Bool(true), None),
+        Err(StateError::InvalidDevice { .. })
+    ));
+}
+
+#[test]
 fn values_render_through_the_registry() {
     let fixture = Fixture::new(
         Some("[input.touchpad]\ntap = true\n[windows.focused]\nchild_border = \"#3b6e4f\"\n"),
@@ -365,12 +457,11 @@ fn values_render_through_the_registry() {
     let state = fixture.load();
     let registry = Registry::builtin();
     let render = |key: &str, device: Option<&str>| {
-        let selector = device.map(|device| InputSelector::device(device).unwrap());
         registry
             .render(
                 registry.get(key).unwrap(),
                 &state.values(device),
-                selector.as_ref(),
+                device,
                 Target::Config,
             )
             .unwrap()

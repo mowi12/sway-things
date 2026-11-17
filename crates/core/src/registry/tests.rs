@@ -7,7 +7,6 @@ use super::{
     Apply, Block, ConfigFile, Defaults, Kind, Page, ReadError, Registry, RenderError, Scope,
     Setting, SwayMapping, Value, ValueError, When,
 };
-use crate::command::input::InputSelector;
 use crate::command::{Availability, Color, SwayCmd, Target};
 
 fn registry() -> &'static Registry {
@@ -48,6 +47,18 @@ fn samples(setting: &Setting) -> Vec<Value> {
         Kind::Color { .. } => samples.push(Value::Color(Color::rgba(1, 2, 3, 4))),
         Kind::Text { .. } | Kind::List { .. } => {}
     }
+    // Texts whose default is "sway decides" also need a value that renders.
+    match setting.key() {
+        "output.mode" => samples.extend([
+            Value::Text("2560x1440@59.951Hz".to_owned()),
+            Value::Text("1920x1080".to_owned()),
+        ]),
+        "output.position" => samples.extend([
+            Value::Text("1920,0".to_owned()),
+            Value::Text("-1280,-304".to_owned()),
+        ]),
+        _ => {}
+    }
     samples
 }
 
@@ -77,14 +88,18 @@ fn holding(key: &str, when: When) -> Value {
     value
 }
 
-/// Values that render no line: off leaves the user's own `inhibit_idle` rules alone.
-fn renders_nothing(setting: &Setting, value: &Value) -> bool {
+/// Values that render no line for `target`: off leaves the user's own `inhibit_idle` rules alone,
+/// automatic leaves the mapping of a tablet or touchscreen to sway in a config file, and an empty
+/// mode or position of an output leaves the choice to sway.
+fn renders_nothing(setting: &Setting, value: &Value, target: Target) -> bool {
     match setting.key() {
         "behavior.inhibit_idle_fullscreen" => *value == Value::Bool(false),
-        // Automatic: sway maps the device by itself.
+        // Automatic: sway maps the device by itself. Over IPC it maps to the whole desktop, to end
+        // an earlier mapping.
         "input.tablet_tool.map_to_output" | "input.touch.map_to_output" => {
-            *value == Value::Text(String::new())
+            target == Target::Config && *value == Value::Text(String::new())
         }
+        "output.mode" | "output.position" => *value == Value::Text(String::new()),
         _ => false,
     }
 }
@@ -176,7 +191,7 @@ fn every_sway_setting_renders_for_config() {
         for sample in samples(setting) {
             assert_eq!(
                 lines(setting, &sample, Target::Config).is_empty(),
-                renders_nothing(setting, &sample),
+                renders_nothing(setting, &sample, Target::Config),
                 "{} = {sample:?}",
                 setting.key()
             );
@@ -189,7 +204,12 @@ fn every_live_setting_renders_for_ipc() {
     for (setting, _) in sway_settings() {
         if setting.apply().is_live() {
             for sample in samples(setting) {
-                assert_ne!(lines(setting, &sample, Target::Ipc), Vec::<String>::new());
+                assert_eq!(
+                    lines(setting, &sample, Target::Ipc).is_empty(),
+                    renders_nothing(setting, &sample, Target::Ipc),
+                    "{} = {sample:?}",
+                    setting.key()
+                );
             }
         }
     }
@@ -457,7 +477,7 @@ fn the_editor_command_must_split_into_words() {
 
 #[test]
 fn input_settings_are_per_device() {
-    let device = InputSelector::device("1267:12377:ELAN1300:00_04F3:3059_Touchpad").unwrap();
+    let device = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
     for (setting, mapping) in sway_settings() {
         let per_device = matches!(setting.scope(), Scope::PerDevice(_));
         assert_eq!(
@@ -466,7 +486,10 @@ fn input_settings_are_per_device() {
             "{}",
             setting.key()
         );
-        let rendered = registry().render(setting, &Defaults, Some(&device), Target::Config);
+        if setting.scope() == Scope::PerOutput {
+            continue;
+        }
+        let rendered = registry().render(setting, &Defaults, Some(device), Target::Config);
         if per_device {
             for command in rendered.unwrap() {
                 let line = command.render(Target::Config).unwrap();
@@ -932,7 +955,7 @@ fn every_sway_setting_reads_back_what_it_renders() {
                 .iter()
                 .filter_map(|directive| setting.read(directive))
                 .collect();
-            let expected = if renders_nothing(setting, &sample) {
+            let expected = if renders_nothing(setting, &sample, Target::Config) {
                 Vec::new()
             } else {
                 vec![Ok(sample.clone())]
@@ -1364,7 +1387,7 @@ fn sliders_fit_the_values_their_setting_accepts() {
 
 #[test]
 fn the_config_line_shows_the_option_without_the_input_selector() {
-    let line = |key: &str, value: Value, device: Option<&InputSelector>| {
+    let line = |key: &str, value: Value, device: Option<&str>| {
         let setting = setting(key);
         registry()
             .config_line(setting, &stored(setting, value), device)
@@ -1374,14 +1397,21 @@ fn the_config_line_shows_the_option_without_the_input_selector() {
         line("input.touchpad.tap", Value::Bool(true), None),
         "tap enabled"
     );
-    let device = InputSelector::device("1133:16500:Logitech_G305;quoted").unwrap();
     assert_eq!(
         line(
             "input.touchpad.pointer_accel",
             Value::Decimal(0.3),
-            Some(&device)
+            Some("1133:16500:Logitech_G305;quoted")
         ),
         "pointer_accel 0.3"
+    );
+    assert_eq!(
+        line(
+            "output.scale",
+            Value::Decimal(1.5),
+            Some("Dell Inc. DELL U2723QE ABC")
+        ),
+        "scale 1.5"
     );
     assert_eq!(
         line("windows.gaps.inner", Value::Integer(8), None),
@@ -1506,7 +1536,7 @@ fn cursor_lines_are_read_as_sway_reads_them() {
 
 #[test]
 fn the_cursor_conflicts_only_with_lines_for_every_seat_or_the_default_one() {
-    use crate::conflict::Report;
+    use crate::conflict::{Known, Report};
     use crate::generate::Locations;
     use crate::include::IncludeStatus;
     use crate::sway_config::MemoryFiles;
@@ -1526,7 +1556,7 @@ fn the_cursor_conflicts_only_with_lines_for_every_seat_or_the_default_one() {
         &files,
         &locations,
     );
-    let report = Report::check(&status, setting("cursor.theme"), None, None).unwrap();
+    let report = Report::check(&status, setting("cursor.theme"), None, Known::default()).unwrap();
     let lines: Vec<usize> = report
         .lines()
         .iter()

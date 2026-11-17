@@ -177,6 +177,7 @@ fn a_setup_that_works_is_fine() {
             Code::IncludeActive,
             Code::SettingsLoaded,
             Code::FileNotNeeded,
+            Code::FileNotNeeded,
             Code::FileCurrent,
             Code::FileValid,
             Code::FileNotNeeded,

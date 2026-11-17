@@ -563,6 +563,7 @@ impl SettingRow {
                     msg!("Use the value of {devices}"),
                     &[("devices", &all_of_type(kind))],
                 ),
+                (Scope::PerOutput, Some(_)) => tr(msg!("Use the value of all displays")).to_owned(),
                 _ => tr(msg!("Reset to default")).to_owned(),
             }));
         imp.machine.set_child_visible(layer.is_some());
@@ -1239,6 +1240,10 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
                 &[("devices", &all_of_type(kind))],
             ));
         }
+        (Source::Stored { for_type: true, .. }, Scope::PerOutput, Some(_)) => {
+            parts.push("Same as all displays".to_owned());
+        }
+        (Source::Session, _, _) => parts.push("Chosen by sway".to_owned()),
         _ => {}
     }
     // The setting this one needs ("Turn on Blur first"). What the compositor lacks is a badge,

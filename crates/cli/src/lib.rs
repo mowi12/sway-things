@@ -23,8 +23,10 @@ use anstream::{AutoStream, ColorChoice};
 
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
-use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial};
+use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial, Tried};
 use sway_things_core::command::input::InputSelector;
+use sway_things_core::command::output::OutputSelector;
+use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::i18n::{tr, trf};
@@ -32,7 +34,8 @@ use sway_things_core::include::{IncludeStatus, WriteAccess};
 use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
-use sway_things_core::registry::{Apply, ConfigFile, Link, Registry, Scope, Setting, Value};
+use sway_things_core::outputs::Outputs;
+use sway_things_core::registry::{Apply, ConfigFile, DeviceError, Link, Registry, Setting, Value};
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
@@ -315,7 +318,27 @@ pub async fn run<V: Validate>(
     }
     match command {
         Command::Get { key, device, json } => {
-            get(session, key.as_deref(), device.as_deref(), *json, &mut io)
+            // What the outputs run with, for the values that nothing sets.
+            let outputs = match session.applier.client() {
+                Some(client) => client
+                    .outputs()
+                    .await
+                    .ok()
+                    .map(|found| Outputs::new(&found)),
+                None => None,
+            };
+            let known = Known {
+                devices: None,
+                outputs: outputs.as_ref(),
+            };
+            get(
+                session,
+                key.as_deref(),
+                device.as_deref(),
+                known,
+                *json,
+                &mut io,
+            )
         }
         Command::Set {
             key,
@@ -501,6 +524,7 @@ fn get<V: Validate>(
     session: &Session<V>,
     key: Option<&str>,
     device: Option<&str>,
+    known: Known<'_>,
     json: bool,
     io: &mut Io<'_>,
 ) -> Exit {
@@ -512,6 +536,7 @@ fn get<V: Validate>(
             state,
             &session.status,
             session.applier.compositor(),
+            known,
         )
     };
     let paths = state.paths();
@@ -529,7 +554,7 @@ fn get<V: Validate>(
         return Exit::Ok;
     }
     if let Some(device) = device {
-        if InputSelector::device(device).is_err() {
+        if InputSelector::device(device).is_err() && OutputSelector::output(device).is_err() {
             let error = StateError::InvalidDevice {
                 device: device.to_owned(),
             };
@@ -568,13 +593,16 @@ fn lookup<V: Validate>(
                 key: key.to_owned(),
             })?;
     if let Some(device) = device {
-        if !matches!(setting.scope(), Scope::PerDevice(_)) {
-            return Err(StateError::NotPerDevice { key: setting.key() });
-        }
-        if InputSelector::device(device).is_err() {
-            return Err(StateError::InvalidDevice {
-                device: device.to_owned(),
-            });
+        match setting.check_device(device) {
+            Ok(()) => {}
+            Err(DeviceError::NotPerDevice) => {
+                return Err(StateError::NotPerDevice { key: setting.key() });
+            }
+            Err(DeviceError::Invalid) => {
+                return Err(StateError::InvalidDevice {
+                    device: device.to_owned(),
+                });
+            }
         }
     }
     Ok(setting)
@@ -665,7 +693,7 @@ async fn try_risky<V: Validate>(
     prompt: &mut impl Prompt,
     io: &mut Io<'_>,
 ) -> Result<Result<Applied, ApplyError>, Exit> {
-    let trial = session
+    let tried = session
         .applier
         .try_risky(
             setting.key(),
@@ -676,7 +704,18 @@ async fn try_risky<V: Validate>(
         )
         .await
         .map_err(|error| fail(io, &error))?;
-    keep_or_revert(session, setting, device, trial, access, prompt, io).await
+    match tried {
+        Tried::Waits(trial) => {
+            keep_or_revert(session, setting, device, trial, access, prompt, io).await
+        }
+        // Nothing to keep: there was no safety net to try it with.
+        Tried::Stored(applied) => Ok(Ok(applied)),
+        Tried::Unchanged => Ok(Ok(Applied {
+            changed: false,
+            effect: Effect::NotStored,
+            not_copied: Vec::new(),
+        })),
+    }
 }
 
 /// Asks whether to keep the risky change that `trial` sent: keeps it, or reverts it.
@@ -771,13 +810,14 @@ async fn reset<V: Validate>(
             .try_risky_reset(key, device, &session.status, &access)
             .await
         {
-            Ok(Some(trial)) => {
+            Ok(Tried::Waits(trial)) => {
                 match keep_or_revert(session, setting, device, trial, &access, prompt, io).await {
                     Ok(applied) => applied,
                     Err(exit) => return exit,
                 }
             }
-            Ok(None) => Ok(Applied {
+            Ok(Tried::Stored(applied)) => Ok(applied),
+            Ok(Tried::Unchanged) => Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
                 not_copied: Vec::new(),

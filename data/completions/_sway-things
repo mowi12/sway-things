@@ -69,7 +69,7 @@ _arguments "${_arguments_options[@]}" : \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::file -- Only this file:(10-input.conf 30-appearance.conf 40-behavior.conf 80-hooks.conf 90-effects.conf)' \
+'::file -- Only this file:(10-input.conf 20-output.conf 30-appearance.conf 40-behavior.conf 80-hooks.conf 90-effects.conf)' \
 && ret=0
 ;;
 (doctor)

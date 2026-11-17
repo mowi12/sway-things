@@ -28,6 +28,10 @@
 //! ([`Model::waiting`]); [`Model::reload_sway`] saves and asks sway for one. A reload from
 //! elsewhere (`swaymsg reload`, a key binding) counts too: sway reports each one.
 //!
+//! The outputs are kept current the same way ([`Model::outputs`]): an [`OutputWatch`] reads them
+//! again on each `output` event, and a value of an output that nothing sets shows what it runs
+//! with.
+//!
 //! In a session, the model also keeps the input devices current ([`Model::devices`]): a
 //! [`DeviceWatch`] reads them again on each `input` event of sway, and the devices that only have
 //! stored values are listed too. Without a session only those are known.
@@ -44,12 +48,12 @@ use sway_things_core::apply::{
     Applier, ApplyError, Countdown, Pending, Persisted, SAVE_DELAY, Waiting,
 };
 use sway_things_core::command::input::{InputSelector, XkbSwitch};
-use sway_things_core::conflict::Report;
+use sway_things_core::conflict::{Known, Report};
 use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
-use sway_things_core::ipc::types::Output;
-use sway_things_core::ipc::{Client, Compositor, OutputWatch, Reloads};
+use sway_things_core::ipc::{Client, Compositor, Reloads};
+use sway_things_core::outputs::{OutputWatch, Outputs};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
@@ -144,12 +148,24 @@ struct Core {
     devices: Devices,
     /// Whether the connected devices are known: in a session, once the device watch runs.
     devices_known: bool,
-    /// The outputs of the session, each its name and a label, as of the last `output` event.
-    outputs: Vec<(String, String)>,
+    /// The outputs: connected ones as of the last event, and those with stored values.
+    outputs: Outputs,
+    /// Whether the connected outputs are known: in a session, once the output watch runs.
+    outputs_known: bool,
     /// Whether changes are saved by themselves (not in tests, where saving would run sway).
     autosave: bool,
     /// Which sections are collapsed, saved while `app.remember_collapsed_sections` is on.
     ui: UiState,
+}
+
+impl Core {
+    /// The devices and outputs that the lines of the user's config are matched with.
+    fn known(&self) -> Known<'_> {
+        Known {
+            devices: Some(&self.devices),
+            outputs: Some(&self.outputs),
+        }
+    }
 }
 
 mod imp {
@@ -260,6 +276,8 @@ impl Model {
         let socket = applier.client().map(|client| client.socket().to_path_buf());
         let mut devices = Devices::default();
         devices.set_stored(applier.state());
+        let mut outputs = Outputs::default();
+        outputs.set_stored(applier.state());
         let ui_path = applier.state().paths().ui();
         let ui = if remembers_sections(applier.state()) {
             UiState::load(ui_path)
@@ -277,7 +295,8 @@ impl Model {
             status,
             devices,
             devices_known: false,
-            outputs: Vec::new(),
+            outputs,
+            outputs_known: false,
             autosave,
         };
         self.imp().core.replace(Some(core));
@@ -298,7 +317,14 @@ impl Model {
     pub fn view(&self, setting: &'static Setting, device: Option<&str>) -> Option<SettingView> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let mut view = SettingView::of(setting, device, &core.state, &core.status, core.compositor);
+        let mut view = SettingView::of(
+            setting,
+            device,
+            &core.state,
+            &core.status,
+            core.compositor,
+            core.known(),
+        );
         // A risky change that waits isn't stored, but it is in effect.
         let pending = core
             .pending
@@ -316,12 +342,11 @@ impl Model {
                     .collect(),
                 under: core.state.values(device),
             };
-            let selector = device.and_then(|device| InputSelector::device(device).ok());
             if setting.sway().is_some() {
                 view.line = core
                     .state
                     .registry()
-                    .config_line(setting, &tried, selector.as_ref())
+                    .config_line(setting, &tried, device)
                     .ok();
             }
         }
@@ -338,6 +363,26 @@ impl Model {
             .map(|core| core.devices.clone())
     }
 
+    /// The outputs: in a session the connected ones, then those that only have stored values.
+    /// `None` if the settings couldn't be loaded.
+    pub fn outputs(&self) -> Option<Outputs> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.outputs.clone())
+    }
+
+    /// Whether the connected outputs are known. Without a session, or before the output watch
+    /// has read them, only the outputs with stored values are listed.
+    pub fn outputs_known(&self) -> bool {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .is_some_and(|core| core.outputs_known)
+    }
+
     /// Whether the connected devices are known. Without a session, or before the device watch
     /// has read them, only the devices with stored values are listed.
     pub fn devices_known(&self) -> bool {
@@ -348,15 +393,33 @@ impl Model {
             .is_some_and(|core| core.devices_known)
     }
 
-    /// The outputs of the session, each its name and a label to show (make and model), as of
-    /// the last change. Empty without a session.
-    pub fn outputs(&self) -> Vec<(String, String)> {
-        self.imp()
-            .core
-            .borrow()
-            .as_ref()
-            .map(|core| core.outputs.clone())
-            .unwrap_or_default()
+    /// The connected outputs, each its name and a label to show (make and model), as of the
+    /// last change. Empty without a session.
+    pub fn output_choices(&self) -> Vec<(String, String)> {
+        let core = self.imp().core.borrow();
+        let Some(core) = core.as_ref() else {
+            return Vec::new();
+        };
+        core.outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(|output| {
+                let product = [output.make(), output.model()]
+                    .into_iter()
+                    .filter(|part| !part.is_empty() && *part != "Unknown")
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let label = if product.is_empty() {
+                    output.name().to_owned()
+                } else {
+                    trf(
+                        msg!("{product} ({output})"),
+                        &[("product", &product), ("output", &output.name())],
+                    )
+                };
+                (output.name().to_owned(), label)
+            })
+            .collect()
     }
 
     /// The risky change that waits to be kept or reverted, if there is one.
@@ -446,7 +509,7 @@ impl Model {
     pub fn report(&self, setting: &'static Setting, device: Option<&str>) -> Option<Report> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        Report::check(&core.status, setting, device, Some(&core.devices))
+        Report::check(&core.status, setting, device, core.known())
     }
 
     /// Removes the stored value of `key` for `device`, so the user's config or sway's default
@@ -781,6 +844,7 @@ impl Model {
         if let Some(core) = self.imp().core.borrow_mut().as_mut() {
             core.state = applier.state().clone();
             core.devices.set_stored(&core.state);
+            core.outputs.set_stored(&core.state);
             core.pending = pending;
             core.waiting = applier.waiting().clone();
             core.applier = Some(applier);
@@ -819,9 +883,7 @@ impl Model {
     }
 
     /// Follows the outputs of the session on `socket`: reads them, and again on each `output`
-    /// event. If they can't be read, the list stays empty and the choices of a screen offer
-    /// the automatic mapping, the whole desktop and the stored value only; that isn't worth a
-    /// problem of its own.
+    /// event, until sway closes the connection.
     fn watch_outputs(&self, socket: PathBuf) {
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = model)]
@@ -831,49 +893,29 @@ impl Model {
                     Ok(client) => OutputWatch::start(&client).await,
                     Err(error) => Err(error),
                 };
-                let Ok(mut watch) = started else {
-                    return;
-                };
-                loop {
-                    if let Ok(outputs) = watch.outputs().await {
-                        model.take_outputs(&outputs);
-                    }
-                    if watch.changed().await.is_none() {
+                let mut watch = match started {
+                    Ok(watch) => watch,
+                    Err(error) => {
+                        model.emit_problem(&format!("Displays can't be listed: {error}"));
                         return;
                     }
+                };
+                model.take_outputs(watch.outputs());
+                // An error leaves the list as it was; the events after it still come.
+                while watch.changed().await.is_some() {
+                    model.take_outputs(watch.outputs());
                 }
             }
         ));
     }
 
-    /// Takes the outputs of the session, without the ones that aren't for the desktop (VR
-    /// headsets).
-    fn take_outputs(&self, outputs: &[Output]) {
-        let outputs: Vec<(String, String)> = outputs
-            .iter()
-            .filter(|output| !output.non_desktop)
-            .map(|output| {
-                let product = [output.make.as_str(), output.model.as_str()]
-                    .into_iter()
-                    .filter(|part| !part.is_empty() && *part != "Unknown")
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let label = if product.is_empty() {
-                    output.name.clone()
-                } else {
-                    trf(
-                        msg!("{product} ({output})"),
-                        &[("product", &product), ("output", &output.name)],
-                    )
-                };
-                (output.name.clone(), label)
-            })
-            .collect();
+    /// Takes the connected outputs of `outputs`, and lists those with stored values too.
+    fn take_outputs(&self, outputs: &Outputs) {
         if let Some(core) = self.imp().core.borrow_mut().as_mut() {
-            if core.outputs == outputs {
-                return;
-            }
+            let mut outputs = outputs.clone();
+            outputs.set_stored(&core.state);
             core.outputs = outputs;
+            core.outputs_known = true;
         }
         self.emit_by_name::<()>("changed", &[]);
     }
