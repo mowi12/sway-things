@@ -256,9 +256,11 @@ impl Model {
     }
 
     async fn connect() -> Result<(Applier, IncludeWatch), String> {
-        let (applier, main) = Applier::open()
+        let (mut applier, main) = Applier::open()
             .await
             .map_err(|error| error.text().translated())?;
+        // While kanshi sets up the displays, no output lines of ours contradict it.
+        applier.set_displays(generate::Displays::detect());
         let watch = IncludeWatch::new(main, applier.locations().clone())
             .map_err(|error| error.text().translated())?;
         Ok((applier, watch))
@@ -452,7 +454,12 @@ impl Model {
     pub fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let files = generate::generate(core.state.registry(), &core.state, core.compositor);
+        let files = generate::generate_for(
+            core.state.registry(),
+            &core.state,
+            core.compositor,
+            generate::Displays::detect(),
+        );
         let on_disk = generate::on_disk(&files, &core.locations);
         Some(files.into_iter().zip(on_disk).collect())
     }
@@ -742,6 +749,8 @@ impl Model {
             (applier, core.status.clone())
         };
         let mut applier = applier;
+        // kanshi may have started or stopped since the app opened.
+        applier.set_displays(generate::Displays::detect());
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
             (

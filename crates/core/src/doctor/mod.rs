@@ -569,6 +569,8 @@ pub struct Checkup<'a, V> {
     /// The outputs of the session, if one runs: a line of the user's that names an output by
     /// its connector competes with a value stored by its make, model and serial.
     pub outputs: Option<&'a crate::outputs::Outputs>,
+    /// Who sets up the displays: with kanshi, no `output` lines are generated.
+    pub displays: generate::Displays,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -585,10 +587,9 @@ impl<V: Validate> Checkup<'_, V> {
         self.compositor(&mut findings);
         progress(Step::Section(Section::Config));
         self.config(&mut findings);
-        let generated = self
-            .found
-            .compositor()
-            .map(|compositor| generate::generate(self.state.registry(), self.state, compositor));
+        let generated = self.found.compositor().map(|compositor| {
+            generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
+        });
         progress(Step::Section(Section::Settings));
         self.settings(generated.as_deref(), &mut findings);
         progress(Step::Section(Section::Generated));
@@ -610,7 +611,8 @@ impl<V: Validate> Checkup<'_, V> {
     /// [`FixError::Write`] if a file can't be written or sway can't be run to validate it.
     pub async fn fix(&self, overwrite: bool, access: &WriteAccess) -> Result<Report, FixError> {
         let compositor = self.found.compositor().ok_or(FixError::NoCompositor)?;
-        let files = generate::generate(self.state.registry(), self.state, compositor);
+        let files =
+            generate::generate_for(self.state.registry(), self.state, compositor, self.displays);
         let overwrite: &[ConfigFile] = if overwrite { &ConfigFile::ALL } else { &[] };
         generate::write(&files, self.locations, self.validator, overwrite, access)
             .await

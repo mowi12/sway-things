@@ -995,26 +995,35 @@ mod tests {
     fn reordering_keeps_what_stands_below() {
         use super::{Slot, insert, place};
         // A | B | C over D (under A and B) and E (under C): A into the slot between B and C.
-        let a = rect(0, 0, 1000, 500);
-        let b = rect(1000, 0, 1000, 500);
-        let c = rect(2000, 0, 1000, 500);
-        let d = rect(0, 500, 2000, 500);
-        let e = rect(2000, 500, 1000, 500);
+        let first = rect(0, 0, 1000, 500);
+        let second = rect(1000, 0, 1000, 500);
+        let third = rect(2000, 0, 1000, 500);
+        let below_two = rect(0, 500, 2000, 500);
+        let below_third = rect(2000, 500, 1000, 500);
         let slot = Slot {
             before: 0,
             after: 1,
             stacked: false,
         };
-        let (placed, moved) = insert(rect(1600, 0, 1000, 500), a, &[b, c, d, e], slot).unwrap();
+        let (placed, moved) = insert(
+            rect(1600, 0, 1000, 500),
+            first,
+            &[second, third, below_two, below_third],
+            slot,
+        )
+        .unwrap();
         assert_eq!(placed, rect(1000, 0, 1000, 500));
-        assert_eq!(moved, [rect(0, 0, 1000, 500), c, d, e]);
+        assert_eq!(
+            moved,
+            [rect(0, 0, 1000, 500), third, below_two, below_third]
+        );
 
         // A | B | C, A dropped right below C: it stays below C as C closes up.
-        let (placed, moved) = place(rect(2000, 500, 1000, 500), a, &[b, c], None);
+        let (placed, moved) = place(rect(2000, 500, 1000, 500), first, &[second, third], None);
         assert_eq!(moved, [rect(0, 0, 1000, 500), rect(1000, 0, 1000, 500)]);
         assert_eq!(placed, rect(1000, 500, 1000, 500));
 
-        // Two monitors over a laptop in the middle, the left one dropped right of the other: they
+        // Two monitors over first laptop in the middle, the left one dropped right of the other: they
         // swap, and the laptop stays.
         let right = rect(1920, 0, 1920, 1080);
         let laptop = rect(960, 1080, 1920, 1080);

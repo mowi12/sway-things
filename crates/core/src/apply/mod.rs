@@ -169,6 +169,8 @@ pub struct Applier<V = SwayValidator> {
     waiting: Waiting,
     /// Where settings with a GSettings key are copied to.
     gsettings: Box<dyn GSettingsStore>,
+    /// Who sets up the displays: kanshi means no `output` lines are generated.
+    displays: generate::Displays,
 }
 
 impl Applier<SwayValidator> {
@@ -240,6 +242,7 @@ impl<V: Validate> Applier<V> {
             pending: None,
             waiting: Waiting::default(),
             gsettings: Box::new(NoGSettings),
+            displays: generate::Displays::Sway,
         }
     }
 
@@ -262,6 +265,7 @@ impl<V: Validate> Applier<V> {
             pending: None,
             waiting: Waiting::default(),
             gsettings: Box::new(NoGSettings),
+            displays: generate::Displays::Sway,
         }
     }
 
@@ -330,7 +334,23 @@ impl<V: Validate> Applier<V> {
 
     /// The contents of the generated files for the current settings, without writing them.
     pub fn generate(&self) -> Vec<GeneratedFile> {
-        generate::generate(self.state.registry(), &self.state, self.compositor)
+        generate::generate_for(
+            self.state.registry(),
+            &self.state,
+            self.compositor,
+            self.displays,
+        )
+    }
+
+    /// Generates for displays set up by `displays` from now on ([`generate::Displays::detect`]
+    /// says who runs). Sway by default.
+    pub fn set_displays(&mut self, displays: generate::Displays) {
+        self.displays = displays;
+    }
+
+    /// Who sets up the displays, as [`Applier::set_displays`] said.
+    pub fn displays(&self) -> generate::Displays {
+        self.displays
     }
 
     /// When to call [`Applier::persist`]: [`SAVE_DELAY`] after the last change that isn't

@@ -176,6 +176,23 @@ pub const WAIT_FOR_OUTPUTS: std::time::Duration = std::time::Duration::from_secs
 /// How long sway's outputs must stay unchanged before [`ensure_one_on`] switches one on.
 pub const QUIET: std::time::Duration = std::time::Duration::from_secs(3);
 
+/// Whether kanshi runs for this user: a process named `kanshi` in `/proc` that belongs to the
+/// same user as this one. Nothing is run and nothing is written.
+pub fn kanshi_runs() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(me) = std::fs::metadata("/proc/self").map(|meta| meta.uid()) else {
+        return false;
+    };
+    let Ok(processes) = std::fs::read_dir("/proc") else {
+        return false;
+    };
+    processes.filter_map(Result::ok).any(|process| {
+        let mine = process.metadata().is_ok_and(|meta| meta.uid() == me);
+        mine && std::fs::read_to_string(process.path().join("comm"))
+            .is_ok_and(|name| name.trim_end() == "kanshi")
+    })
+}
+
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and
 /// can't be matched reliably.
 const MAX_IDENTIFIER: usize = 127;

@@ -323,7 +323,7 @@ lines that come after the include and set the same thing win, and conflict detec
 ```text
 $XDG_CONFIG_HOME/sway/sway-things/
 ├── 10-input.conf
-├── 20-output.conf         # only when kanshi is not the display backend
+├── 20-output.conf         # output lines only while kanshi doesn't run
 ├── 30-appearance.conf
 ├── 40-behavior.conf
 ├── 50-bindings.conf
@@ -708,6 +708,11 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
   would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **kanshi:** `generate::Displays::detect` looks in `/proc` for a process `kanshi` of the same user (nothing is run).
+  While one runs, `generate_for(.., Displays::Kanshi)` leaves out every per-output line, so nothing contradicts kanshi's
+  profiles at a reload; `20-output.conf` then says so in a comment and keeps only the startup guard. The app and the
+  command line detect it when they open and the app again before each change; `doctor` compares against the same.
+  Changes on the Displays page stay live only meanwhile. Profiles of our own in kanshi come with #211.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores whether an output is on (a line of the user's may still switch it off),
@@ -922,7 +927,7 @@ trait Backend {
 
 | Area | Backends (reference first) |
 | --- | --- |
-| Display profiles | kanshi; fallback without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
+| Display profiles | kanshi (#211); without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
 | Notifications | swaync, mako, dunst (Do Not Disturb first) |

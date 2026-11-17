@@ -23,6 +23,7 @@ use std::rc::Rc;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
+use sway_things_core::generate;
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
 use sway_things_core::registry::{Scope, Value};
@@ -47,6 +48,8 @@ pub struct Arrangement {
     hint: gtk::Widget,
     /// Shown while outputs overlap or don't touch.
     gaps: gtk::Box,
+    /// Shown while kanshi sets up the displays: changes are live only then.
+    kanshi: gtk::Box,
     identify: gtk::Button,
     /// The windows with the numbers while they are shown, and what they show.
     identifying: Rc<RefCell<Option<Identifying>>>,
@@ -112,8 +115,22 @@ impl Arrangement {
             move |_| canvas.arrange_side_by_side()
         ));
 
+        let note = gtk::Label::new(Some(
+            "kanshi sets up your displays. Changes here take effect now and last until kanshi \
+             applies a profile; Sway Things doesn\u{2019}t store them in your sway config.",
+        ));
+        note.set_wrap(true);
+        note.set_xalign(0.0);
+        note.set_hexpand(true);
+        let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        kanshi.add_css_class("st-display-warning");
+        kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
+        kanshi.append(&note);
+        kanshi.set_visible(false);
+
         let root = gtk::Box::new(gtk::Orientation::Vertical, 12);
         root.add_css_class("st-display-arrangement");
+        root.append(&kanshi);
         root.append(&canvas);
         root.append(&empty);
         root.append(&gaps);
@@ -124,6 +141,7 @@ impl Arrangement {
             empty,
             hint: below.upcast(),
             gaps,
+            kanshi,
             identify,
             identifying: Rc::new(RefCell::new(None)),
         };
@@ -161,6 +179,11 @@ impl Arrangement {
         &self.canvas
     }
 
+    /// Whether the note that kanshi sets up the displays is shown.
+    pub fn says_kanshi_runs(&self) -> bool {
+        self.kanshi.is_visible()
+    }
+
     /// Whether the warning about overlapping or separate outputs is shown.
     pub fn warns_of_gaps(&self) -> bool {
         self.gaps.is_visible()
@@ -186,6 +209,8 @@ impl Arrangement {
         if let Some(fix) = self.gaps.last_child() {
             fix.set_sensitive(!waits);
         }
+        self.kanshi
+            .set_visible(known && generate::Displays::detect() == generate::Displays::Kanshi);
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());
@@ -465,6 +490,7 @@ impl Arrangement {
             empty: self.empty.downgrade(),
             hint: self.hint.downgrade(),
             gaps: self.gaps.downgrade(),
+            kanshi: self.kanshi.downgrade(),
             identify: self.identify.downgrade(),
             identifying: Rc::clone(&self.identifying),
         }
@@ -479,6 +505,7 @@ struct WeakArrangement {
     empty: glib::WeakRef<gtk::Label>,
     hint: glib::WeakRef<gtk::Widget>,
     gaps: glib::WeakRef<gtk::Box>,
+    kanshi: glib::WeakRef<gtk::Box>,
     identify: glib::WeakRef<gtk::Button>,
     identifying: Rc<RefCell<Option<Identifying>>>,
 }
@@ -491,6 +518,7 @@ impl WeakArrangement {
             empty: self.empty.upgrade()?,
             hint: self.hint.upgrade()?,
             gaps: self.gaps.upgrade()?,
+            kanshi: self.kanshi.upgrade()?,
             identify: self.identify.upgrade()?,
             identifying: Rc::clone(&self.identifying),
         })

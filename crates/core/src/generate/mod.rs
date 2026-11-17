@@ -48,7 +48,7 @@ use std::collections::BTreeSet;
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
 use crate::outputs;
-use crate::registry::{ConfigFile, Registry, Setting};
+use crate::registry::{ConfigFile, Registry, Scope, Setting};
 use crate::state::State;
 
 pub use manifest::{Manifest, Ownership};
@@ -135,6 +135,38 @@ impl GeneratedFile {
 /// stays stored and comes back when the compositor supports it. The same happens to a value the
 /// command builders reject, such as a font description with a backslash.
 pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> Vec<GeneratedFile> {
+    generate_for(registry, state, compositor, Displays::Sway)
+}
+
+/// Who sets up the displays: what decides whether the generated sway config has `output` lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Displays {
+    /// sway, from the `output` lines Sway Things generates.
+    Sway,
+    /// kanshi, which applies its own profiles whenever displays come and go: `output` lines of
+    /// Sway Things would contradict them at every reload, so there are none. Changes on the
+    /// Displays page are live only, until kanshi applies a profile.
+    Kanshi,
+}
+
+impl Displays {
+    /// kanshi if it runs for this user, else sway. Reads `/proc`; nothing is run.
+    pub fn detect() -> Self {
+        if crate::outputs::kanshi_runs() {
+            Self::Kanshi
+        } else {
+            Self::Sway
+        }
+    }
+}
+
+/// [`generate`] with `displays` set up by sway or by kanshi.
+pub fn generate_for(
+    registry: &Registry,
+    state: &State,
+    compositor: Compositor,
+    displays: Displays,
+) -> Vec<GeneratedFile> {
     let mut files = ConfigFile::ALL.map(|file| GeneratedFile {
         file,
         lines: Vec::new(),
@@ -147,6 +179,9 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
             let Some(mapping) = setting.sway() else {
                 continue;
             };
+            if displays == Displays::Kanshi && setting.scope() == Scope::PerOutput {
+                continue;
+            }
             // The settings of one directive make one command, at the place of the first one.
             let group: Vec<&Setting> = registry.group(setting).collect();
             if group.first().map(|first| first.key()) != Some(setting.key()) {
@@ -177,6 +212,18 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
         .iter_mut()
         .find(|file| file.file == ConfigFile::Output)
     {
+        if displays == Displays::Kanshi {
+            file.lines.push(Line {
+                text: "# kanshi sets up the displays: Sway Things writes no output lines while it \
+                       runs."
+                    .to_owned(),
+                source: Source {
+                    keys: Vec::new(),
+                    device: None,
+                },
+                skipped: None,
+            });
+        }
         file.lines.extend(display_guard(state));
     }
     files.into()

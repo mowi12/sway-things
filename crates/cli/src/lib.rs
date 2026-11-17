@@ -28,7 +28,7 @@ use sway_things_core::command::input::InputSelector;
 use sway_things_core::command::output::OutputSelector;
 use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
-use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
+use sway_things_core::generate::{self, Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
 use sway_things_core::ipc::Client;
@@ -231,13 +231,15 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         _ => {}
     }
-    let (applier, main) = match Applier::open().await {
+    let (mut applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
             let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
+    // While kanshi sets up the displays, no output lines of ours contradict it.
+    applier.set_displays(generate::Displays::detect());
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
     let mut session = Session { applier, status };
     run(
@@ -399,6 +401,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         status: &status,
         validator: &validator,
         outputs: outputs.as_ref(),
+        displays: generate::Displays::detect(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -628,6 +631,7 @@ async fn doctor_in<V: Validate>(
         status: &session.status,
         validator: applier.validator(),
         outputs: outputs.as_ref(),
+        displays: generate::Displays::detect(),
     };
     doctor(&checkup, None, args, out).await
 }

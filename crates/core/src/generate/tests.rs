@@ -709,3 +709,24 @@ exec_always sway-things hook displays
     let files = generate(Registry::builtin(), &scaled, SWAY_1_10);
     assert!(!text(&files, ConfigFile::Output).contains("hook"));
 }
+
+#[test]
+fn with_kanshi_the_displays_get_no_output_lines() {
+    let (_dir, stored) = state(
+        "[windows.gaps]\ninner = 8\n",
+        "[display.\"A B C\".output]\nscale = 2.0\nenabled = false\n",
+    );
+    let files = super::generate_for(
+        Registry::builtin(),
+        &stored,
+        SWAY_1_10,
+        super::Displays::Kanshi,
+    );
+    let output = text(&files, ConfigFile::Output);
+    assert!(!output.contains("output \""), "{output}");
+    assert!(output.contains("# kanshi sets up the displays"), "{output}");
+    // The guard stays: kanshi switches nothing on for a combination without a profile.
+    assert!(output.contains("hook displays"), "{output}");
+    // Everything else is generated as always.
+    assert!(text(&files, ConfigFile::Appearance).contains("gaps inner 8"));
+}

@@ -154,6 +154,9 @@ new mode, a rotation and switching an output off go through the safety net.
   on again (also at a reload, so `$mod+Shift+c` brings a display back after undocking). A display that is on although it
   is stored as off says _On for now: no other display was on_.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
+- **kanshi:** while kanshi runs, a note above the canvas says that kanshi sets up the displays: changes on the page take
+  effect at once and last until kanshi applies a profile, and Sway Things writes no `output` lines to the sway config.
+  Arrangements saved as kanshi profiles per combination of displays come with #211.
 
 ### Bluetooth
 
