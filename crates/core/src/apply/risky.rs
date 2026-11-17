@@ -213,9 +213,66 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         changes: &[(&str, Option<Value>)],
         status: &IncludeStatus,
+        access: &WriteAccess,
+    ) -> Result<Tried, ApplyError> {
+        let Some(earlier) = self.pending.take() else {
+            return self.try_fresh(device, changes, status, access).await;
+        };
+        // Another value for what waits (a second mode or rotation before keeping the first):
+        // tried in its place, and a revert still brings back what was before the first.
+        let same_keys = earlier.device.as_deref() == device
+            && changes
+                .iter()
+                .all(|(key, _)| earlier.values().any(|tried| tried.key == *key))
+            && earlier
+                .values()
+                .all(|tried| changes.iter().any(|(key, _)| tried.key == *key));
+        if !same_keys {
+            let key = earlier.key();
+            self.pending = Some(earlier);
+            return Err(ApplyError::PendingChange { key });
+        }
+        let again = changes.iter().all(|(key, change)| {
+            earlier.values().any(|tried| {
+                tried.key == *key && !tried.reset && change.as_ref() == Some(&tried.value)
+            })
+        });
+        if again {
+            let trial = Trial {
+                commands: earlier.sent.clone(),
+                countdown: earlier.countdown,
+            };
+            self.pending = Some(earlier);
+            return Ok(Tried::Waits(trial));
+        }
+        match self.try_fresh(device, changes, status, access).await {
+            Ok(Tried::Waits(trial)) => {
+                if let Some(pending) = &mut self.pending {
+                    pending.undo = earlier.undo;
+                }
+                Ok(Tried::Waits(trial))
+            }
+            Ok(other) => {
+                // Stored without a trial, or nothing to change: what was tried before goes back.
+                self.pending = Some(earlier);
+                let _ = self.revert().await;
+                Ok(other)
+            }
+            Err(error) => {
+                self.pending = Some(earlier);
+                Err(error)
+            }
+        }
+    }
+
+    /// [`Applier::try_risky_all`] while nothing waits.
+    async fn try_fresh(
+        &mut self,
+        device: Option<&str>,
+        changes: &[(&str, Option<Value>)],
+        status: &IncludeStatus,
         _access: &WriteAccess,
     ) -> Result<Tried, ApplyError> {
-        self.nothing_pending()?;
         let (tried, settings_changed) = self.as_tried(device, changes)?;
         if settings_changed.is_empty() {
             return Ok(Tried::Unchanged);
@@ -567,6 +624,11 @@ impl<V: Validate> Applier<V> {
         };
         let undo =
             render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
+        if commands.is_empty() {
+            // Nothing sway has a command for, such as a mode it is to choose again: the change
+            // takes effect at the next reload.
+            return Ok(Effect::AfterReload);
+        }
         let sent = send_guarded(client, setting.key(), device, switches, commands, &undo).await?;
         Ok(Effect::Live { commands: sent })
     }

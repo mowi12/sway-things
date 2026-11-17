@@ -1931,3 +1931,41 @@ fn resetting_a_display_the_guard_switched_on_never_switches_it_off_on_a_revert()
         sway.commands()
     );
 }
+
+#[test]
+fn another_value_while_a_trial_waits_takes_its_place() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    // The same value again: the trial that waits, nothing sent.
+    let sent = sway.commands().len();
+    let again = setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    assert_eq!(again.commands, [r#"output "A B C" mode 1280x720"#]);
+    assert_eq!(sway.commands().len(), sent);
+    // Another one: tried in its place.
+    let other = setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1920x1080".to_owned()), "")
+        .unwrap();
+    assert_eq!(other.commands, [r#"output "A B C" mode 1920x1080"#]);
+    // A revert brings back what was before the first.
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"output "A B C" mode 1920x1080@60Hz"#]));
+    // Another setting still waits for the first to be kept or reverted.
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    assert!(matches!(
+        block_on(setup.applier.try_risky(
+            ENABLED,
+            Some("D E F"),
+            Value::Bool(true),
+            &include_status(""),
+            &setup.access,
+        )),
+        Err(ApplyError::PendingChange { .. })
+    ));
+}
