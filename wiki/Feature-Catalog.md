@@ -78,13 +78,14 @@ kanshi, static `output` lines in our include (no profiles).
 
 #### Layout editor
 
-- [ ] 🟡 Drag-and-drop arrangement on a canvas, with smart snapping (guide lines, edge/corner/center alignment, a magnet
+- [x] 🟡 Drag-and-drop arrangement on a canvas, with smart snapping (guide lines, edge/corner/center alignment, a magnet
       that backs off)
-- [ ] 🟢 Resolution and refresh rate (**risky → safety net**)
-- [ ] 🟢 Scale and rotation per output
-- [ ] 🟢 Enable / disable outputs (**risky**). The last enabled output is protected
-- [ ] 🟢 Live apply over IPC, 15 s safety net for risky changes
-- [ ] 🟢 Hotplug awareness (output events)
+- [x] 🟢 Resolution and refresh rate (**risky → safety net**)
+- [x] 🟢 Scale and rotation per output
+- [x] 🟢 Enable / disable outputs (**risky**). The last enabled output is protected
+- [x] 🟢 Live apply over IPC, 15 s safety net for risky changes
+- [x] 🟢 Hotplug awareness (output events)
+- [x] 🟡 Outputs stored by make, model and serial instead of connector (stable across docks and ports)
 - [ ] 🟢 Identify displays (numbers flashed on each screen)
 - [ ] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode
 
@@ -109,8 +110,7 @@ kanshi, static `output` lines in our include (no profiles).
       `bindswitch` lines in our include call `sway-things hook lid closed|open`
 
 **Maybe:** 🟡 adaptive sync / VRR per output · 🟡 sway-only output options (allow tearing, 10-bit, subpixel, scale
-filter, ICC profile) · 🟡 custom modes / modelines · 🟡 match outputs by make/model/serial instead of connector (stable
-across docks) · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡 shikane backend
+filter, ICC profile) · 🟡 custom modes / modelines · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡 shikane backend
 
 ### Sound
 

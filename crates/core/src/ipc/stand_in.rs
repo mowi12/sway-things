@@ -161,7 +161,8 @@ pub fn with_inputs(inputs: &'static [&'static str]) -> FakeSway {
 /// A sway 1.10.1 that answers each `GET_OUTPUTS` with the next of `outputs` (the last one again
 /// after that), and sends one output event per reply after the first to a subscriber before it
 /// closes that connection. Every command succeeds, except those that contain `fail`.
-pub fn with_outputs(outputs: &'static [&'static str]) -> FakeSway {
+pub fn with_outputs(outputs: &[&str]) -> FakeSway {
+    let outputs: Vec<String> = outputs.iter().map(|&output| output.to_owned()).collect();
     let asked = std::sync::atomic::AtomicUsize::new(0);
     FakeSway::with_version(SWAY_1_10, move |kind, payload| match kind {
         wire::SUBSCRIBE => {
@@ -174,7 +175,7 @@ pub fn with_outputs(outputs: &'static [&'static str]) -> FakeSway {
         }
         wire::GET_OUTPUTS => {
             let index = asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            message(kind, outputs[index.min(outputs.len() - 1)])
+            message(kind, &outputs[index.min(outputs.len() - 1)])
         }
         wire::GET_INPUTS => message(kind, "[]"),
         _ if payload.contains("fail") => message(

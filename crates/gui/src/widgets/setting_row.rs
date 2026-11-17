@@ -42,6 +42,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
 use sway_things_core::conflict::{Report, UserLine};
+use sway_things_core::outputs;
 use sway_things_core::registry::{Apply, Kind, Registry, Scope, Setting, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
@@ -926,9 +927,10 @@ impl SettingRow {
         ));
     }
 
-    /// Replaces the choices of a row made [with choices](SettingRow::with_choices), e.g. when
-    /// the outputs or the sizes of the picked theme change, and shows the value in effect again.
-    /// Nothing is sent.
+    /// Replaces the choices of a row made [with choices](SettingRow::with_choices), each a value
+    /// and its label, e.g. when the outputs or the sizes of the picked theme change, or for the
+    /// modes of another output, and shows the value in effect again; a value that isn't among
+    /// them is shown at the end. Nothing is sent.
     pub fn set_choices(&self, choices: &[(String, String)]) {
         let imp = self.imp();
         let Some(Control::Pick { labels, values, .. }) = imp.control.get() else {
@@ -1243,7 +1245,15 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
         (Source::Stored { for_type: true, .. }, Scope::PerOutput, Some(_)) => {
             parts.push("Same as all displays".to_owned());
         }
-        (Source::Session, _, _) => parts.push("Chosen by sway".to_owned()),
+        // Where sway picks a value itself: the mode, the place and the scale of an output.
+        (Source::Session, _, _)
+            if matches!(
+                setting.key(),
+                outputs::MODE | outputs::POSITION | outputs::SCALE
+            ) =>
+        {
+            parts.push("Chosen by sway".to_owned());
+        }
         _ => {}
     }
     // The setting this one needs ("Turn on Blur first"). What the compositor lacks is a badge,

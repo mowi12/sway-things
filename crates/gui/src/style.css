@@ -243,3 +243,47 @@ st-placeholder > image {
 .st-dialog .st-passkey-typed {
   text-decoration: underline;
 }
+
+/* The arrangement of the displays: the outputs as tiles on a canvas */
+st-display-canvas {
+  background-color: alpha(currentColor, 0.04);
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+st-display-canvas > button.st-display-tile {
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+/* An output that is off: parked beside the others, outlined instead of filled */
+st-display-canvas > button.st-display-tile.st-off:not(:checked) {
+  background: none;
+  box-shadow: none;
+}
+
+st-display-canvas .st-display-number {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+st-display-canvas .st-display-name,
+st-display-canvas .st-display-details {
+  font-size: 0.85em;
+}
+
+/* The warning about displays that overlap or don't touch */
+.st-display-warning {
+  padding: 10px 12px;
+  border: 1px solid @borders;
+  border-radius: 8px;
+}
+
+/* The guide lines while a display is dragged: the accent, like a selection */
+st-display-canvas > .st-display-guide {
+  background-color: @theme_selected_bg_color;
+  min-width: 0;
+  min-height: 0;
+}

@@ -975,9 +975,19 @@ fn reload_text(count: usize) -> String {
 
 /// "Keep the change to Section › Title? Reverting in N s", with the seconds rounded up. The
 /// section says which type of device a title like "Enabled" is about; a change for one device
-/// names it too ("Mouse › MX Master 3 › Enabled").
+/// or output names it too ("Mouse › MX Master 3 › Enabled", "Display › Dell U2723QE (DP-4) ›
+/// Resolution and refresh rate").
 fn safety_text(model: &Model, pending: &Pending) -> String {
     let device = pending.device().map(|identifier| {
+        let output = || {
+            let outputs = model.outputs()?;
+            let output = outputs.get(identifier)?;
+            Some(if output.label() == output.name() {
+                output.label()
+            } else {
+                format!("{} ({})", output.label(), output.name())
+            })
+        };
         model
             .devices()
             .and_then(|devices| {
@@ -985,6 +995,7 @@ fn safety_text(model: &Model, pending: &Pending) -> String {
                     .get(identifier)
                     .map(|device| device.name().to_owned())
             })
+            .or_else(output)
             .unwrap_or_else(|| identifier.to_owned())
     });
     let name = Registry::builtin().get(pending.key()).map_or_else(

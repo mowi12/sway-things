@@ -97,6 +97,34 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
   _Right click_, …) to try tapping, the button maps and left-handed mode, and a strip of lines to scroll to feel scroll
   speed and natural scrolling.
 
+### Displays
+
+The Displays page arranges the outputs and sets each one up. Every change is live; a new mode and switching an output
+off go through the safety net.
+
+- **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit, each with its number,
+  make and model and its mode (with the scale and turn when they aren't the plain ones). Outputs that are off stand
+  outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your desk. Pick one to
+  change its settings below._ Without a session the canvas gives way to a hint.
+- **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
+  the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
+  rest of the drag. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
+  sharing at least a quarter of it, so the pointer can always cross. The whole layout then starts at 0,0 and every
+  output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the arrangement before.
+- **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
+  settled the same way.
+- **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
+  warning says the pointer can't reach every display and offers _Arrange Side by Side_.
+- **Sizes:** when the scale, rotation or mode of an output changes in the app, the outputs right of it and below it move
+  along, so the layout stays without overlaps and gaps. A change from elsewhere (`swaymsg`) is left as it is.
+- **The output's settings:** the _Display_ section starts with _Settings for_: _All displays_ and each output, numbered
+  as on the canvas, with "(off)" or "(not connected)". A click on a tile picks it there, and the other way round; at
+  first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (_Automatic_,
+  then the output's modes from the largest and fastest down, like _2560 × 1440 · 59.95 Hz_), _Scale_, _Rotation_ and
+  _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
+  _Chosen by sway_.
+- **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
+
 ### Bluetooth
 
 The Bluetooth page shows BlueZ's live state; nothing of it is stored by Sway Things, so it has no reset, no indicators
