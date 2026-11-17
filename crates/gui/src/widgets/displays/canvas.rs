@@ -316,6 +316,8 @@ mod imp {
         pub(super) baseline: RefCell<Option<(super::Layout, super::Sizes)>>,
         /// Since when the baseline is held for what is stored to catch up.
         pub(super) held_since: Cell<Option<Instant>>,
+        /// Since when a stored size waits for sway to report the new size.
+        pub(super) stored_at: Cell<Option<Instant>>,
     }
 
     #[glib::object_subclass]
@@ -554,12 +556,24 @@ impl Canvas {
             imp.baseline.replace(Some((layout, self.stored_sizes())));
             return;
         };
+        let sizes = self.stored_sizes();
         if before == layout {
-            // Nothing moved or resized yet: what was stored before still counts.
-            imp.baseline.replace(Some((before, sizes_before)));
+            // Nothing moved or resized yet. A stored size counts for the report of sway that
+            // follows it, for a moment; one that no new size followed (a mode of the same size)
+            // counts no longer after that, so a later change from elsewhere isn't taken for it.
+            if sizes != sizes_before && imp.stored_at.get().is_none() {
+                imp.stored_at.set(Some(Instant::now()));
+                self.recheck_after(HOLD);
+            }
+            let stale = imp.stored_at.get().is_some_and(|at| at.elapsed() >= HOLD);
+            if stale {
+                imp.stored_at.set(None);
+                imp.baseline.replace(Some((before, sizes)));
+            } else {
+                imp.baseline.replace(Some((before, sizes_before)));
+            }
             return;
         }
-        let sizes = self.stored_sizes();
         let resized = keep_together(&before, &layout).map(|(resized, _)| resized);
         let stored_yet = resized
             .as_ref()
@@ -571,13 +585,28 @@ impl Canvas {
         if resized.is_some() && !stored_yet && held.is_none_or(|since| since.elapsed() < HOLD) {
             if held.is_none() {
                 imp.held_since.set(Some(Instant::now()));
+                self.recheck_after(HOLD);
             }
             imp.baseline.replace(Some((before, sizes_before)));
             return;
         }
         imp.held_since.set(None);
+        imp.stored_at.set(None);
         self.follow_resize(&before, &sizes_before, &sizes);
         imp.baseline.replace(Some((self.layout(), sizes)));
+    }
+
+    /// Looks at the sizes again after `delay`, so what is held or stored doesn't count longer
+    /// than that when nothing else changes.
+    fn recheck_after(&self, delay: Duration) {
+        glib::timeout_add_local_once(
+            delay + Duration::from_millis(50),
+            glib::clone!(
+                #[weak(rename_to = canvas)]
+                self,
+                move || canvas.follow_size_changes()
+            ),
+        );
     }
 
     /// What the app stores for the size of each output that is on: its scale, rotation and

@@ -701,7 +701,8 @@ map to.
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while an output is stored as off, `20-output.conf` ends with `exec_always sway-things hook displays`,
   and at every start and reload `outputs::ensure_one_on` switches the first connected output on if none is on (for the
-  session only; it waits up to three seconds for sway to report outputs). Without a session the outputs aren't known,
+  session only; while sway reports no output at all, it waits for sway's `output` events until one comes or sway is
+  gone). Without a session the outputs aren't known,
   so switching one off is allowed there; the hook catches what that leaves. Undocking in a running session isn't
   covered: sway has no config hook for an output that goes; display profiles (kanshi) are the place for that.
 - **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's

@@ -57,9 +57,6 @@ pub const TRANSFORM: &str = "output.transform";
 /// The key of the setting that switches an output on or off.
 pub const ENABLED: &str = "output.enabled";
 
-/// How long [`ensure_one_on`] waits for sway to report outputs at all, as at its start.
-const WAIT_FOR_OUTPUTS: std::time::Duration = std::time::Duration::from_secs(3);
-
 /// The command the generated config runs at every start and reload of sway while an output is
 /// stored as off: `exec_always sway-things hook displays` ([`ensure_one_on`]).
 pub fn guard_command() -> crate::command::SwayCmd {
@@ -70,35 +67,41 @@ pub fn guard_command() -> crate::command::SwayCmd {
 /// leaves the user without a display: a laptop's panel, switched off at the dock, when sway
 /// starts without the dock. The first connected output in sway's order is switched on, for this
 /// session only; nothing is stored. Returns the name of the output switched on, or `None` if one
-/// was on already or none is connected. At sway's start, outputs may come a moment after the
-/// config runs this, so it waits up to three seconds for any.
+/// is on already. While sway reports no output at all (at its start, outputs can come after the
+/// config ran this), it waits for sway's `output` events, until one is connected or sway is
+/// gone.
 ///
 /// # Errors
 ///
-/// The errors of [`Client::outputs`] and [`Client::run`].
+/// The errors of [`Client::subscribe`], [`Client::outputs`] and [`Client::run`].
 pub async fn ensure_one_on(client: &mut Client) -> Result<Option<String>, IpcError> {
-    let started = std::time::Instant::now();
-    let outputs = loop {
+    // First the subscription, so an output that comes meanwhile isn't missed.
+    let mut events = client.subscribe(&[EventType::Output]).await?;
+    loop {
         let outputs = Outputs::new(&client.outputs().await?);
-        if outputs.connected.is_empty() && started.elapsed() < WAIT_FOR_OUTPUTS {
-            async_io::Timer::after(std::time::Duration::from_millis(100)).await;
-            continue;
+        if outputs.enabled().next().is_some() {
+            return Ok(None);
         }
-        break outputs;
-    };
-    if outputs.enabled().next().is_some() {
-        return Ok(None);
+        let usable = outputs.connected.iter().find_map(|output| {
+            let selector = crate::command::output::OutputSelector::output(&output.name).ok()?;
+            Some((output.name.clone(), selector))
+        });
+        if let Some((name, selector)) = usable {
+            client
+                .run(&crate::command::output::Output::new(selector).enable(true))
+                .await?;
+            return Ok(Some(name));
+        }
+        // Nothing connected yet: the next output event, or the end of sway.
+        loop {
+            match events.next().await {
+                None => return Ok(None),
+                Some(Ok(Event::Output(_))) => break,
+                Some(Ok(_) | Err(IpcError::InvalidReply { .. })) => {}
+                Some(Err(error)) => return Err(error),
+            }
+        }
     }
-    let Some((output, selector)) = outputs.connected.iter().find_map(|output| {
-        let selector = crate::command::output::OutputSelector::output(&output.name).ok()?;
-        Some((output, selector))
-    }) else {
-        return Ok(None);
-    };
-    client
-        .run(&crate::command::output::Output::new(selector).enable(true))
-        .await?;
-    Ok(Some(output.name.clone()))
 }
 
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and

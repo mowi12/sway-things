@@ -320,10 +320,10 @@ fn an_output_is_switched_on_when_none_is() {
     assert_eq!(switched, None);
     assert_eq!(sway.commands(), [] as [&str; 0]);
 
-    // Nothing connected (after the wait): nothing to do.
-    let sway = with_outputs(&["[]"]);
+    // Nothing connected at first: the output that comes with the next event is switched on.
+    let sway = with_outputs(&["[]", ALL_OFF]);
     let switched = block_on(super::ensure_one_on(&mut sway.connect())).unwrap();
-    assert_eq!(switched, None);
+    assert_eq!(switched.as_deref(), Some("eDP-1"));
 }
 
 #[test]
