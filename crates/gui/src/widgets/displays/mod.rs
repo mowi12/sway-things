@@ -519,8 +519,8 @@ pub fn mode_choices(output: Option<&Output>) -> Vec<(String, String)> {
 }
 
 /// The resolutions to choose from for `output`: _Automatic_, then each size it offers, largest
-/// first, each standing for its mode with the highest refresh rate. The size of `current` stands
-/// for `current` itself, so choosing a resolution keeps the refresh rate where it can.
+/// first, each standing for its mode with the highest refresh rate; the size of `current` stands
+/// for `current` itself, so the entry in use is the mode in use.
 fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
     let modes = known_modes(output, current);
     let current = current.and_then(|text| Mode::parse(text).ok());
@@ -678,7 +678,12 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             // The same output, maybe with other modes after a hotplug.
             let output = chosen.as_deref().and_then(|id| outputs.get(id));
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
-                offer_modes(&row, output);
+                // While a change runs, sway may report the outputs before the change is done:
+                // the modes are offered again once the model is done, so the choice doesn't
+                // jump back and forth.
+                if !model.is_busy() {
+                    offer_modes(&row, output);
+                }
                 show_for(&row, chosen.as_deref());
             }
         } else {
@@ -752,7 +757,14 @@ fn offer_modes(row: &SettingRow, output: Option<&Output>) {
     rates.offer(
         &refresh_choices(output, current.as_deref()),
         current.as_deref(),
+        row.locked().is_none(),
     );
+}
+
+thread_local! {
+    /// The refresh rates of each mode row, while it lives.
+    static RATES: RefCell<Vec<(glib::WeakRef<SettingRow>, RefreshRates)>> =
+        const { RefCell::new(Vec::new()) };
 }
 
 /// The second control of the mode's row: the refresh rate, apart from the resolution. Each entry
@@ -768,11 +780,7 @@ struct RefreshRates {
 impl RefreshRates {
     /// The refresh rates of the mode's `row`, added to it the first time.
     fn of(row: &SettingRow) -> Self {
-        thread_local! {
-            static ROWS: RefCell<Vec<(glib::WeakRef<SettingRow>, RefreshRates)>> =
-                const { RefCell::new(Vec::new()) };
-        }
-        ROWS.with_borrow_mut(|rows| {
+        RATES.with_borrow_mut(|rows| {
             rows.retain(|(weak, _)| weak.upgrade().is_some());
             if let Some((_, rates)) = rows
                 .iter()
@@ -782,6 +790,12 @@ impl RefreshRates {
             }
             let rates = Self::new(row);
             rows.push((row.downgrade(), rates.clone()));
+            // Let go of them with the row.
+            row.connect_destroy(|row| {
+                RATES.with_borrow_mut(|rows| {
+                    rows.retain(|(weak, _)| weak.upgrade().is_some_and(|other| other != *row));
+                });
+            });
             rates
         })
     }
@@ -818,8 +832,9 @@ impl RefreshRates {
         rates
     }
 
-    /// Offers `choices` and shows `current` among them; hidden while sway chooses the mode.
-    fn offer(&self, choices: &[(String, String)], current: Option<&str>) {
+    /// Offers `choices` and shows `current` among them; hidden while sway chooses the mode, and
+    /// only to look at unless `open` (the row can be changed now).
+    fn offer(&self, choices: &[(String, String)], current: Option<&str>, open: bool) {
         self.updating.set(true);
         let shown: Vec<&str> = choices.iter().map(|(_, label)| label.as_str()).collect();
         self.labels.splice(0, self.labels.n_items(), &shown);
@@ -833,7 +848,7 @@ impl RefreshRates {
         self.dropdown.set_selected(index);
         self.dropdown.set_visible(!choices.is_empty());
         // One rate is nothing to choose, but still says what it is.
-        self.dropdown.set_sensitive(choices.len() > 1);
+        self.dropdown.set_sensitive(open && choices.len() > 1);
         self.updating.set(false);
     }
 }
@@ -882,5 +897,34 @@ mod tests {
             [("1920x1080@59.94Hz".to_owned(), "59.94 Hz".to_owned())]
         );
         assert_eq!(refresh_choices(None, Some("")), [] as [(String, String); 0]);
+        // With the output's modes: the rates of the size in use, fastest first, each exact.
+        let json = r#"[{"name": "DP-4", "active": true, "primary": false, "make": "A",
+            "model": "B", "serial": "C",
+            "modes": [{"width": 2560, "height": 1440, "refresh": 59951},
+                      {"width": 2560, "height": 1440, "refresh": 143912},
+                      {"width": 1920, "height": 1080, "refresh": 60000}],
+            "current_mode": {"width": 2560, "height": 1440, "refresh": 59951}}]"#;
+        let outputs =
+            sway_things_core::outputs::Outputs::new(&serde_json::from_str::<Vec<_>>(json).unwrap());
+        let output = outputs.find("DP-4");
+        assert_eq!(
+            refresh_choices(output, Some("2560x1440@59.951Hz")),
+            [
+                ("2560x1440@143.912Hz".to_owned(), "143.912 Hz".to_owned()),
+                ("2560x1440@59.951Hz".to_owned(), "59.951 Hz".to_owned()),
+            ]
+        );
+        // The size in use stands for the mode in use; another size for its fastest mode.
+        assert_eq!(
+            mode_choices_with(output, Some("2560x1440@59.951Hz")),
+            [
+                (String::new(), "Automatic".to_owned()),
+                (
+                    "2560x1440@59.951Hz".to_owned(),
+                    "2560 \u{d7} 1440".to_owned()
+                ),
+                ("1920x1080@60Hz".to_owned(), "1920 \u{d7} 1080".to_owned()),
+            ]
+        );
     }
 }

@@ -77,6 +77,8 @@ struct Tile {
     grip: gtk::Box,
     /// The scale the output runs with.
     scale: f64,
+    /// The mode and more it shows under its name.
+    details: String,
     /// The name sway gives the output (its connector), its number and its make and model.
     name: String,
     number: Option<usize>,
@@ -517,6 +519,7 @@ impl Canvas {
                     button: self.tile_button(&shown.identifier),
                     grip: self.grip(),
                     scale: 1.0,
+                    details: String::new(),
                     name: String::new(),
                     number: None,
                     label: String::new(),
@@ -527,6 +530,7 @@ impl Canvas {
         for (tile, shown) in imp.tiles.borrow_mut().iter_mut().zip(&shown) {
             tile.off = shown.rect.is_none();
             tile.scale = shown.scale;
+            tile.details.clone_from(&shown.details);
             tile.name.clone_from(&shown.name);
             tile.label.clone_from(&shown.label);
             tile.number = number(&tile.identifier);
@@ -1176,6 +1180,18 @@ impl Canvas {
             .cloned()
     }
 
+    /// Shows the mode on the tile of `identifier` again, after its grip showed the scale.
+    fn restore_details(&self, identifier: &str) {
+        let tiles = self.imp().tiles.borrow();
+        if let Some(details) = tiles
+            .iter()
+            .find(|tile| tile.identifier == identifier)
+            .and_then(|tile| Some((tile_labels(&tile.button)?.2, tile.details.clone())))
+        {
+            details.0.set_text(&details.1);
+        }
+    }
+
     /// Shows `scale` on the tile of `identifier` while its grip is dragged.
     fn show_scale(&self, identifier: &str, scale: f64) {
         let tiles = self.imp().tiles.borrow();
@@ -1267,7 +1283,10 @@ impl Canvas {
         };
         // Near the edge between two tiles: a marker says it goes in between, and the tile
         // follows the pointer freely. Nothing else moves until it is dropped.
-        drag.slot = layout::slot_at(moved, &others, drag.slot);
+        // Only a slot it can go into: the marker never promises what the drop doesn't do.
+        let start = drag.start;
+        drag.slot = layout::slot_at(moved, &others, drag.slot)
+            .filter(|slot| layout::insert(moved, start, &others, *slot).is_some());
         if drag.slot.is_some() {
             drag.rect = moved;
             drag.guides.clear();
@@ -1349,23 +1368,13 @@ impl Canvas {
             return;
         };
         if let Some((from, scale)) = drag.scaling {
+            // The tile shows its mode again; once sway reports the new size, the layout flows
+            // along with it (`follow_size_changes`), as for a scale set in the row.
+            self.restore_details(&drag.identifier);
             if (scale - from).abs() > f64::EPSILON {
                 if let Some(model) = imp.model.get() {
                     model.set(SCALE, Some(&drag.identifier), Value::Decimal(scale));
                 }
-                // The tile keeps its new size until sway reports it.
-                let layout: Layout = self
-                    .layout()
-                    .into_iter()
-                    .map(|(id, rect)| {
-                        if id == drag.identifier {
-                            (id, drag.rect)
-                        } else {
-                            (id, rect)
-                        }
-                    })
-                    .collect();
-                self.show_dropped(&layout);
             }
             self.queue_allocate();
             return;
@@ -1377,7 +1386,9 @@ impl Canvas {
 
     fn cancel_drag(&self) {
         let imp = self.imp();
-        imp.drag.replace(None);
+        if let Some(drag) = imp.drag.replace(None) {
+            self.restore_details(&drag.identifier);
+        }
         imp.frozen.set(None);
         self.show_deferred();
         self.queue_allocate();
@@ -1398,10 +1409,12 @@ impl Canvas {
             .filter(|(id, _)| id != identifier)
             .map(|(_, rect)| *rect)
             .collect();
-        // Into the place between two tiles, the others moving along; else where it fits best.
-        let (settled, others) = slot
-            .and_then(|slot| layout::insert(rect, &others, slot))
-            .unwrap_or_else(|| (layout::settle(rect, &others), others));
+        // Where it stood: what the layout says while nothing is dragged any more.
+        let origin = layout
+            .iter()
+            .find(|(id, _)| id == identifier)
+            .map_or(rect, |(_, origin)| *origin);
+        let (settled, others) = layout::place(rect, origin, &others, slot);
         let identifiers: Vec<String> = layout.iter().map(|(id, _)| id.clone()).collect();
         let mut others = others.into_iter();
         let mut rects: Vec<Rect> = layout
@@ -1588,29 +1601,37 @@ impl Canvas {
 /// then the name, then the details. A tile too small for one of them leaves it out, rather than
 /// growing past the size of its display or cutting a line in half.
 fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32) {
-    let Some(content) = button.child().and_downcast::<gtk::Box>() else {
+    let Some((number, name, details)) = tile_labels(button) else {
         return;
     };
-    let labels: Vec<gtk::Label> =
-        std::iter::successors(content.first_child(), WidgetExt::next_sibling)
-            .filter_map(|child| child.downcast::<gtk::Label>().ok())
-            .collect();
-    let [_, name, details] = labels.as_slice() else {
-        return;
-    };
-    let fits = || {
-        let (needed_width, _, _, _) = button.measure(gtk::Orientation::Horizontal, -1);
-        let (needed, _, _, _) = button.measure(gtk::Orientation::Vertical, width);
-        needed <= height && needed_width <= width
-    };
-    name.set_visible(true);
-    details.set_visible(true);
-    if !fits() {
-        details.set_visible(false);
-        if !fits() {
-            name.set_visible(false);
-        }
+    // The lines' heights from their texts and fonts, so nothing is shown and hidden again just
+    // to measure it (which would lay the canvas out again on every frame).
+    let size = |label: &gtk::Label| label.create_pango_layout(Some(&label.text())).pixel_size();
+    // The tile's padding and border, and the space between the lines.
+    let (frame, gap) = (8, 2);
+    let room = width - frame;
+    let (_, number_height) = size(&number);
+    let (name_width, name_height) = size(&name);
+    let name_lines = if name_width <= room { 1 } else { 2 };
+    let (_, details_height) = size(&details);
+    let with_name = frame + number_height + gap + name_height * name_lines;
+    let with_details = with_name + gap + details_height;
+    let show_name = with_name <= height;
+    let show_details = show_name && with_details <= height && !details.text().is_empty();
+    if name.is_visible() != show_name {
+        name.set_visible(show_name);
     }
+    if details.is_visible() != show_details {
+        details.set_visible(show_details);
+    }
+}
+
+/// The number, name and details labels of a tile.
+fn tile_labels(button: &gtk::ToggleButton) -> Option<(gtk::Label, gtk::Label, gtk::Label)> {
+    let content = button.child().and_downcast::<gtk::Box>()?;
+    let mut labels = std::iter::successors(content.first_child(), WidgetExt::next_sibling)
+        .filter_map(|child| child.downcast::<gtk::Label>().ok());
+    Some((labels.next()?, labels.next()?, labels.next()?))
 }
 
 /// The scale for the grip of a tile `start` (logical pixels) at `from` moved by `dx`, `dy`
@@ -1695,5 +1716,45 @@ fn set_tile_labels(
 impl Default for Canvas {
     fn default() -> Self {
         glib::Object::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resized, scale_for_grip};
+    use sway_things_core::outputs::Rect;
+
+    const TILE: Rect = Rect {
+        x: 0,
+        y: 0,
+        width: 1600,
+        height: 900,
+    };
+
+    #[test]
+    fn the_grip_scales_along_the_diagonal() {
+        // Not moved: the scale it had.
+        assert!((scale_for_grip(TILE, 1.0, 0, 0) - 1.0).abs() < 1e-9);
+        // A third smaller along the diagonal: 150 %.
+        let scale = scale_for_grip(TILE, 1.0, -533, -300);
+        assert!((scale - 1.5).abs() < 1e-9, "{scale}");
+        // Across the diagonal: nothing.
+        let scale = scale_for_grip(TILE, 1.0, 300, -533);
+        assert!((scale - 1.0).abs() < 1e-9, "{scale}");
+        // Near a common scale it catches; else steps of 5 %.
+        let scale = scale_for_grip(TILE, 1.0, -330, -186);
+        assert!((scale - 1.25).abs() < 1e-9, "{scale}");
+        let scale = scale_for_grip(TILE, 1.0, -380, -214);
+        assert!((scale - 1.3).abs() < 1e-9, "{scale}");
+        // Within 50 % and 300 %.
+        assert!((scale_for_grip(TILE, 1.0, 5000, 5000) - 0.5).abs() < 1e-9);
+        assert!((scale_for_grip(TILE, 1.0, -1590, -895) - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_length_follows_the_scale() {
+        assert_eq!(resized(2560, 1.0, 2.0), 1280);
+        assert_eq!(resized(1280, 2.0, 1.0), 2560);
+        assert_eq!(resized(1, 1.0, 3.0), 1);
     }
 }

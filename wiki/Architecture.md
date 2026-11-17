@@ -494,7 +494,8 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   whole type of keyboards or pointing devices, or every output, is refused; one device or output is allowed.
 - **Another value while one waits:** `try_risky_all` for the same settings of the same device while a change waits tries
   the new value in its place and keeps the first one's undo, so a revert goes back to what was before the first; the
-  same value again returns the waiting trial and sends nothing. Any other risky change still gets `PendingChange`.
+  same value again returns the waiting trial and sends nothing; a value the output runs with already (the one from
+  before) is still tried rather than stored at once. Any other risky change still gets `PendingChange`.
 - **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
   `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of a
   setting without a stored value.
@@ -723,8 +724,9 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
   where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `slot_at`
   finds the edge two touching outputs share that a dragged one points at (with some hysteresis, so the marker doesn't
-  flicker), and `insert` puts it there, moving what stands behind by its size and closing the gap it left. `normalize`
-  moves the layout to start at 0,0.
+  flicker), and `insert` puts it there, moving what stands behind in that row (with what is stacked on it) by its size.
+  `place` is a drop: into a slot, else `settle`; moved away from where it stood, `close_gap` first closes the gap it
+  left in its row or column, and no other. `normalize` moves the layout to start at 0,0.
 
 ### XKB rules
 

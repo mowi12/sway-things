@@ -1969,3 +1969,25 @@ fn another_value_while_a_trial_waits_takes_its_place() {
         Err(ApplyError::PendingChange { .. })
     ));
 }
+
+#[test]
+fn a_value_that_runs_already_still_waits_when_it_replaces_a_trial() {
+    // The stand-in keeps reporting 1920x1080@60Hz: as if the trial had gone back there.
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    let tried = block_on(setup.applier.try_risky(
+        MODE,
+        Some(PANEL),
+        Value::Text("1920x1080@60Hz".to_owned()),
+        &include_status(""),
+        &setup.access,
+    ))
+    .unwrap();
+    assert!(matches!(tried, super::Tried::Waits(_)), "{tried:?}");
+    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert_eq!(reverted, live(&[r#"output "A B C" mode 1920x1080@60Hz"#]));
+}

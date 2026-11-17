@@ -216,7 +216,7 @@ impl<V: Validate> Applier<V> {
         access: &WriteAccess,
     ) -> Result<Tried, ApplyError> {
         let Some(earlier) = self.pending.take() else {
-            return self.try_fresh(device, changes, status, access).await;
+            return self.try_fresh(device, changes, status, access, false).await;
         };
         // Another value for what waits (a second mode or rotation before keeping the first):
         // tried in its place, and a revert still brings back what was before the first.
@@ -234,7 +234,11 @@ impl<V: Validate> Applier<V> {
         }
         let again = changes.iter().all(|(key, change)| {
             earlier.values().any(|tried| {
-                tried.key == *key && !tried.reset && change.as_ref() == Some(&tried.value)
+                tried.key == *key
+                    && match change {
+                        Some(value) => !tried.reset && *value == tried.value,
+                        None => tried.reset,
+                    }
             })
         });
         if again {
@@ -245,7 +249,8 @@ impl<V: Validate> Applier<V> {
             self.pending = Some(earlier);
             return Ok(Tried::Waits(trial));
         }
-        match self.try_fresh(device, changes, status, access).await {
+        let before = (self.state.clone(), self.waiting.clone(), self.unsaved_since);
+        match self.try_fresh(device, changes, status, access, true).await {
             Ok(Tried::Waits(trial)) => {
                 if let Some(pending) = &mut self.pending {
                     pending.undo = earlier.undo;
@@ -253,9 +258,15 @@ impl<V: Validate> Applier<V> {
                 Ok(Tried::Waits(trial))
             }
             Ok(other) => {
-                // Stored without a trial, or nothing to change: what was tried before goes back.
+                // Stored without a trial, or nothing to change: what was tried before goes back
+                // first. If sway can't take it back, nothing is stored and the trial still waits.
                 self.pending = Some(earlier);
-                let _ = self.revert().await;
+                let waiting = self.pending.clone();
+                if let Err(error) = self.revert().await {
+                    (self.state, self.waiting, self.unsaved_since) = before;
+                    self.pending = waiting;
+                    return Err(error);
+                }
                 Ok(other)
             }
             Err(error) => {
@@ -265,13 +276,16 @@ impl<V: Validate> Applier<V> {
         }
     }
 
-    /// [`Applier::try_risky_all`] while nothing waits.
+    /// [`Applier::try_risky_all`] while nothing waits, or `replacing` the change that waited: then
+    /// a value the output runs with already (the one tried before) is still a trial, since a
+    /// revert has to bring back what was before the first.
     async fn try_fresh(
         &mut self,
         device: Option<&str>,
         changes: &[(&str, Option<Value>)],
         status: &IncludeStatus,
         _access: &WriteAccess,
+        replacing: bool,
     ) -> Result<Tried, ApplyError> {
         let (tried, settings_changed) = self.as_tried(device, changes)?;
         if settings_changed.is_empty() {
@@ -305,6 +319,7 @@ impl<V: Validate> Applier<V> {
         let then = (&tried, &over);
         let commands = sequence(now, then, &settings, device)?;
         let undo = sequence(then, now, &settings, device)?;
+        let runs_as_tried = runs_as_tried && !replacing;
         if runs_as_tried || commands.is_empty() {
             // Nothing to try: the output runs with the new values already, or nothing changes
             // in the session (a mode sway chose is no longer stored), which then takes effect

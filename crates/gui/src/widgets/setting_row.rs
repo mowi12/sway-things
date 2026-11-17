@@ -832,6 +832,13 @@ impl SettingRow {
             .locked
             .as_ref()
             .map(|locked| locked.text().translated());
+        // Controls a page added are locked with the row; the page opens them as it sees fit.
+        if let Some(reason) = &reason {
+            for widget in imp.added.borrow().iter() {
+                widget.set_sensitive(false);
+                widget.set_tooltip_text(Some(reason));
+            }
+        }
         for widget in control.widgets() {
             widget.set_sensitive(reason.is_none());
             widget.set_tooltip_text(reason.as_deref());

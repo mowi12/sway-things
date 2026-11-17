@@ -25,6 +25,7 @@ glib-build-tools.workspace = true
 
 [dev-dependencies]
 async-io.workspace = true
+serde_json.workspace = true
 sway-things-core = { path = "../core", features = ["test-support"] }
 tempfile.workspace = true
 zbus.workspace = true
