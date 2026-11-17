@@ -21,6 +21,8 @@ use super::{
     Device, DeviceKind, DeviceState, Error, IpConfig, Network, Security, Snapshot, check_password,
     check_ssid, clean, ssid_text,
 };
+use crate::i18n::Text;
+use crate::msg;
 
 /// The bus name of NetworkManager.
 pub(super) const SERVICE: &str = "org.freedesktop.NetworkManager";
@@ -86,8 +88,9 @@ impl NetworkManager {
     ///
     /// [`Error::Unavailable`] without a system bus.
     pub async fn connect() -> Result<Self, Error> {
-        let builder = zbus::connection::Builder::system()
-            .map_err(|error| Error::Unavailable(format!("no system bus ({error})")))?;
+        let builder = zbus::connection::Builder::system().map_err(|error| {
+            Error::Unavailable(Text::new(msg!("no system bus ({error})")).arg("error", error))
+        })?;
         Self::build(builder).await
     }
 
@@ -98,8 +101,13 @@ impl NetworkManager {
     ///
     /// [`Error::Unavailable`] if there is no bus at `address`.
     pub async fn connect_to(address: &str) -> Result<Self, Error> {
-        let builder = zbus::connection::Builder::address(address)
-            .map_err(|error| Error::Unavailable(format!("no bus at {address} ({error})")))?;
+        let builder = zbus::connection::Builder::address(address).map_err(|error| {
+            Error::Unavailable(
+                Text::new(msg!("no bus at {address} ({error})"))
+                    .arg("address", address)
+                    .arg("error", error),
+            )
+        })?;
         Self::build(builder).await
     }
 
@@ -112,7 +120,9 @@ impl NetworkManager {
             .map_err(failure)?
             .build()
             .await
-            .map_err(|error| Error::Unavailable(format!("no bus ({error})")))?;
+            .map_err(|error| {
+                Error::Unavailable(Text::new(msg!("no bus ({error})")).arg("error", error))
+            })?;
         Ok(Self {
             connection,
             agent_events,
@@ -221,7 +231,9 @@ impl NetworkManager {
     pub async fn set_networking_enabled(&self, on: bool) -> Result<(), Error> {
         match self.call(MANAGER_PATH, MANAGER, "Enable", &(on,)).await {
             // Already in that state.
-            Err(Error::Failed(reason)) if reason.contains("AlreadyEnabledOrDisabled") => Ok(()),
+            Err(Error::Failed(reason)) if reason.english().contains("AlreadyEnabledOrDisabled") => {
+                Ok(())
+            }
             result => result,
         }
     }
@@ -239,7 +251,7 @@ impl NetworkManager {
             .call(device, WIRELESS, "RequestScan", &(options,))
             .await
         {
-            Err(Error::Failed(reason)) if reason.contains("NotAllowed") => Ok(()),
+            Err(Error::Failed(reason)) if reason.english().contains("NotAllowed") => Ok(()),
             result => result,
         }
     }
@@ -409,13 +421,13 @@ impl NetworkManager {
                     }
                     return Err(match reason {
                         // Unknown, none, or the user's own doing.
-                        0..=2 => Error::Failed("The connection ended".to_owned()),
+                        0..=2 => Error::Failed(msg!("The connection ended").into()),
                         reason => Error::Vpn(reason),
                     });
                 }
             }
             if changes.next().await.is_none() {
-                return Err(Error::Unavailable("NetworkManager stopped".to_owned()));
+                return Err(Error::Unavailable(msg!("NetworkManager stopped").into()));
             }
         }
     }
@@ -566,7 +578,7 @@ impl NetworkManager {
 
     /// Why a connection on `device` ended, as the device's state reason says.
     async fn failure_of(&self, device: Option<&str>) -> Error {
-        let ended = || Error::Failed("The connection ended".to_owned());
+        let ended = || Error::Failed(msg!("The connection ended").into());
         let Some(device) = device else {
             return ended();
         };
@@ -647,7 +659,7 @@ fn wifi_settings(
 ) -> Result<NewSettings<'static>, Error> {
     if !security.supported() {
         return Err(Error::Failed(
-            "This kind of network needs nm-connection-editor".to_owned(),
+            msg!("This kind of network needs nm-connection-editor").into(),
         ));
     }
     let mut wireless = HashMap::from([("ssid", Value::from(ssid.to_vec()))]);
@@ -679,7 +691,7 @@ fn wifi_settings(
 
 /// `path` as an object path.
 fn object_path(path: &str) -> Result<ObjectPath<'_>, Error> {
-    ObjectPath::try_from(path).map_err(|error| Error::Failed(error.to_string()))
+    ObjectPath::try_from(path).map_err(|error| Error::Failed(Text::data(error.to_string())))
 }
 
 /// The error a failed D-Bus call stands for.
@@ -688,7 +700,7 @@ fn failure(error: zbus::Error) -> Error {
         zbus::Error::MethodError(name, description, _) => {
             method_error(name.as_str(), description.as_deref())
         }
-        other => Error::Failed(other.to_string()),
+        other => Error::Failed(Text::data(other.to_string())),
     }
 }
 
@@ -698,7 +710,7 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
         name,
         "org.freedesktop.DBus.Error.ServiceUnknown" | "org.freedesktop.DBus.Error.NameHasNoOwner"
     ) {
-        return Error::Unavailable("NetworkManager isn't running".to_owned());
+        return Error::Unavailable(msg!("NetworkManager isn't running").into());
     }
     let description = description.map(clean).unwrap_or_default();
     // `org.freedesktop.NetworkManager.PermissionDenied` → `PermissionDenied`
@@ -707,9 +719,9 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
         return Error::Denied(description);
     }
     if description.is_empty() {
-        Error::Failed(short.to_owned())
+        Error::Failed(Text::data(short))
     } else {
-        Error::Failed(format!("{description} ({short})"))
+        Error::Failed(Text::data(format!("{description} ({short})")))
     }
 }
 
@@ -1299,7 +1311,7 @@ mod tests {
         );
         assert_eq!(
             method_error("org.freedesktop.NetworkManager.UnknownConnection", Some("")),
-            Error::Failed("UnknownConnection".to_owned())
+            Error::Failed(Text::data("UnknownConnection"))
         );
     }
 

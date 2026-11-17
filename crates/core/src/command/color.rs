@@ -4,6 +4,9 @@
 use std::fmt;
 use std::str::FromStr;
 
+use crate::i18n::Text;
+use crate::msg;
+
 /// A color in sway's notation: `#rrggbb`, or `#rrggbbaa` with alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Color {
@@ -83,9 +86,16 @@ impl FromStr for Color {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ColorError;
 
+impl ColorError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        msg!("expected a color as #rrggbb or #rrggbbaa").into()
+    }
+}
+
 impl fmt::Display for ColorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("expected a color as #rrggbb or #rrggbbaa")
+        f.write_str(&self.text().english())
     }
 }
 

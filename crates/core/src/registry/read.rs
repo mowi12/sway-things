@@ -11,6 +11,8 @@ use std::fmt;
 
 use super::Value;
 use crate::command::Color;
+use crate::i18n::Text;
+use crate::msg;
 
 /// Reads the value of a setting from the arguments of a user's directive: those after the
 /// directive's name and, for a directive with [leading arguments](super::Directive::arguments),
@@ -21,23 +23,35 @@ pub type ReadFn = fn(&[String]) -> Result<Value, ReadError>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadError {
     /// sway refuses the line, so it changes nothing.
-    Rejected(String),
+    Rejected(Text),
     /// sway takes the line, but the value is one the setting can't hold, e.g. out of its range.
-    Unsupported(String),
+    Unsupported(Text),
+}
+
+impl ReadError {
+    /// What is wrong with the line, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Rejected(reason) => {
+                Text::new(msg!("sway rejects the line: {reason}")).text("reason", reason.clone())
+            }
+            Self::Unsupported(reason) => {
+                Text::new(msg!("Sway Things can't show this value: {reason}"))
+                    .text("reason", reason.clone())
+            }
+        }
+    }
 }
 
 impl fmt::Display for ReadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Rejected(reason) => write!(f, "sway rejects the line: {reason}"),
-            Self::Unsupported(reason) => write!(f, "Sway Things can't show this value: {reason}"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 
 impl std::error::Error for ReadError {}
 
-fn rejected(reason: impl Into<String>) -> ReadError {
+fn rejected(reason: impl Into<Text>) -> ReadError {
     ReadError::Rejected(reason.into())
 }
 
@@ -45,7 +59,9 @@ fn rejected(reason: impl Into<String>) -> ReadError {
 pub(super) fn one(args: &[String]) -> Result<&str, ReadError> {
     match args {
         [arg] => Ok(arg),
-        _ => Err(rejected(format!("expected 1 argument, got {}", args.len()))),
+        _ => Err(rejected(
+            Text::new(msg!("expected 1 argument, got {count}")).arg("count", args.len()),
+        )),
     }
 }
 
@@ -53,7 +69,7 @@ pub(super) fn one(args: &[String]) -> Result<&str, ReadError> {
 pub(super) fn first(args: &[String]) -> Result<&str, ReadError> {
     args.first()
         .map(String::as_str)
-        .ok_or_else(|| rejected("expected an argument"))
+        .ok_or_else(|| rejected(msg!("expected an argument")))
 }
 
 /// sway's `parse_boolean`: a few words are true, `toggle` flips `current`, everything else is
@@ -98,23 +114,29 @@ pub(super) fn strtol(text: &str) -> Option<(i64, &str)> {
 pub(super) fn whole(text: &str) -> Result<i64, ReadError> {
     match strtol(text) {
         Some((value, "")) if !text.is_empty() => Ok(value),
-        Some(_) => Err(rejected(format!("not a whole number: {text}"))),
-        None => Err(ReadError::Unsupported(format!("too large: {text}"))),
+        Some(_) => Err(rejected(
+            Text::new(msg!("not a whole number: {text}")).arg("text", text),
+        )),
+        None => Err(ReadError::Unsupported(
+            Text::new(msg!("too large: {text}")).arg("text", text),
+        )),
     }
 }
 
 /// C's `atoi`: the number at the start, whatever follows; 0 without one.
 pub(super) fn atoi(text: &str) -> Result<i64, ReadError> {
-    strtol(text)
-        .map(|(value, _)| value)
-        .ok_or_else(|| ReadError::Unsupported(format!("too large: {text}")))
+    strtol(text).map(|(value, _)| value).ok_or_else(|| {
+        ReadError::Unsupported(Text::new(msg!("too large: {text}")).arg("text", text))
+    })
 }
 
 /// sway's `parse_float`: the whole text must be a number.
 pub(super) fn float(text: &str) -> Result<f64, ReadError> {
     match text.parse::<f64>() {
         Ok(value) if !value.is_nan() => Ok(value),
-        _ => Err(rejected(format!("not a number: {text}"))),
+        _ => Err(rejected(
+            Text::new(msg!("not a number: {text}")).arg("text", text),
+        )),
     }
 }
 
@@ -122,7 +144,7 @@ pub(super) fn float(text: &str) -> Result<f64, ReadError> {
 /// same color as none.
 pub(super) fn color(text: &str) -> Result<Color, ReadError> {
     let digits = text.strip_prefix('#').unwrap_or(text);
-    let invalid = || rejected(format!("not a color: {text}"));
+    let invalid = || rejected(Text::new(msg!("not a color: {text}")).arg("text", text));
     if !matches!(digits.len(), 6 | 8) || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(invalid());
     }
@@ -154,7 +176,13 @@ pub(super) fn choice(word: &str, ids: &[&str], exact: bool) -> Result<Value, Rea
             }
         })
         .map(|id| Value::Choice((*id).to_owned()))
-        .ok_or_else(|| rejected(format!("expected one of {}, got {word}", ids.join(", "))))
+        .ok_or_else(|| {
+            rejected(
+                Text::new(msg!("expected one of {choices}, got {word}"))
+                    .arg("choices", ids.join(", "))
+                    .arg("word", word),
+            )
+        })
 }
 
 #[cfg(test)]

@@ -3,6 +3,9 @@
 
 use std::fmt;
 
+use crate::i18n::Text;
+use crate::msg;
+
 /// External text that may become an argument of a sway command: device identifiers, output, seat
 /// and workspace names, font descriptions, XKB values.
 ///
@@ -145,15 +148,26 @@ pub enum TextError {
     },
 }
 
+impl TextError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Empty => msg!("text is empty").into(),
+            Self::ControlCharacter { index, character } => {
+                Text::new(msg!("control character {character} at byte {index}"))
+                    .arg("character", format!("{character:?}"))
+                    .arg("index", index)
+            }
+            Self::Backslash { index } => {
+                Text::new(msg!("backslash at byte {index}")).arg("index", index)
+            }
+        }
+    }
+}
+
 impl fmt::Display for TextError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => f.write_str("text is empty"),
-            Self::ControlCharacter { index, character } => {
-                write!(f, "control character {character:?} at byte {index}")
-            }
-            Self::Backslash { index } => write!(f, "backslash at byte {index}"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

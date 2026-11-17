@@ -48,6 +48,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use crate::command::{CommandError, SwayCmd, Target};
+use crate::i18n::Text;
+use crate::msg;
 use compositor::VersionReply;
 use wire::{Connection, WireError};
 
@@ -386,27 +388,50 @@ impl From<WireError> for IpcError {
     }
 }
 
-impl fmt::Display for IpcError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl IpcError {
+    /// What went wrong, to show. Details of the protocol and sway's own messages stay as they
+    /// are.
+    pub fn text(&self) -> Text {
         match self {
-            Self::NoSession => f.write_str("SWAYSOCK is not set: not in a sway session"),
+            Self::NoSession => msg!("SWAYSOCK is not set: not in a sway session").into(),
             Self::NotRunning { socket, .. } => {
-                write!(f, "sway is not running (no answer on {})", socket.display())
+                Text::new(msg!("sway is not running (no answer on {socket})"))
+                    .arg("socket", socket.display())
             }
-            Self::Unsupported { compositor, unmet } => {
-                write!(f, "{compositor} is not supported: Sway Things {unmet}")
+            Self::Unsupported { compositor, unmet } => Text::new(msg!(
+                "{compositor} is not supported: Sway Things {requirement}"
+            ))
+            .arg("compositor", compositor)
+            .text("requirement", unmet.text()),
+            Self::Io(error) => {
+                Text::new(msg!("the connection to sway failed: {error}")).arg("error", error)
             }
-            Self::Io(error) => write!(f, "the connection to sway failed: {error}"),
-            Self::Protocol(problem) => write!(f, "unexpected answer from sway: {problem}"),
+            Self::Protocol(problem) => {
+                Text::new(msg!("unexpected answer from sway: {problem}")).arg("problem", problem)
+            }
             Self::InvalidReply { request, source } => {
-                write!(f, "can't read sway's reply to {request}: {source}")
+                Text::new(msg!("can't read sway's reply to {request}: {error}"))
+                    .arg("request", request)
+                    .arg("error", source)
             }
-            Self::Render(error) => error.fmt(f),
-            Self::CommandUnsupported { command, unmet } => write!(f, "`{command}` {unmet}"),
+            Self::Render(error) => error.text(),
+            Self::CommandUnsupported { command, unmet } => {
+                Text::new(msg!("`{command}` {requirement}"))
+                    .arg("command", command)
+                    .text("requirement", unmet.text())
+            }
             Self::CommandFailed {
                 command, message, ..
-            } => write!(f, "sway rejected `{command}`: {message}"),
+            } => Text::new(msg!("sway rejected `{command}`: {message}"))
+                .arg("command", command)
+                .arg("message", message),
         }
+    }
+}
+
+impl fmt::Display for IpcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

@@ -66,7 +66,9 @@ use std::time::SystemTime;
 
 use crate::atomic;
 use crate::command::input::InputSelector;
+use crate::i18n::Text;
 use crate::include::WriteAccess;
+use crate::msg;
 use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
 use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
@@ -122,9 +124,18 @@ pub struct Problem {
     pub kind: ProblemKind,
 }
 
+impl Problem {
+    /// The file and what is wrong in it, to show.
+    pub fn text(&self) -> Text {
+        Text::new(msg!("{file}: {problem}"))
+            .arg("file", self.path.display())
+            .text("problem", self.kind.text())
+    }
+}
+
 impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.path.display(), self.kind)
+        f.write_str(&self.text().english())
     }
 }
 
@@ -177,41 +188,49 @@ pub enum ProblemKind {
     },
 }
 
-impl fmt::Display for ProblemKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let place = |f: &mut fmt::Formatter<'_>, key: &str, device: &Option<String>| match device {
-            Some(device) => write!(f, "{key} (device {device})"),
-            None => f.write_str(key),
+impl ProblemKind {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        let place = |key: &str, device: &Option<String>| match device {
+            Some(device) => Text::new(msg!("{key} (device {device})"))
+                .arg("key", key)
+                .arg("device", device),
+            None => Text::data(key),
         };
         match self {
-            Self::Unreadable { message } => write!(f, "can't be read: {message}"),
-            Self::Syntax { message } => write!(f, "not valid TOML: {}", message.trim_end()),
-            Self::UnsupportedVersion { found } => write!(
-                f,
-                "version {found} is not supported (this Sway Things reads version {})",
-                file::VERSION
-            ),
+            Self::Unreadable { message } => {
+                Text::new(msg!("can't be read: {error}")).arg("error", message)
+            }
+            Self::Syntax { message } => {
+                Text::new(msg!("not valid TOML: {error}")).arg("error", message.trim_end())
+            }
+            Self::UnsupportedVersion { found } => Text::new(msg!(
+                "version {found} is not supported (this Sway Things reads version {version})"
+            ))
+            .arg("found", found)
+            .arg("version", file::VERSION),
             Self::UnknownKey { key, device } => {
-                f.write_str("unknown setting ")?;
-                place(f, key, device)
+                Text::new(msg!("unknown setting {setting}")).text("setting", place(key, device))
             }
-            Self::InvalidValue { key, device, error } => {
-                place(f, key, device)?;
-                write!(f, ": {error}")
-            }
-            Self::InvalidDevice { device } => {
-                write!(
-                    f,
-                    "device.{device:?} is not a table for a device identifier"
-                )
-            }
-            Self::NotPerDevice { key, device } => {
-                write!(
-                    f,
-                    "{key} can't be set for a single device (device {device})"
-                )
-            }
+            Self::InvalidValue { key, device, error } => Text::new(msg!("{setting}: {error}"))
+                .text("setting", place(key, device))
+                .text("error", error.text()),
+            Self::InvalidDevice { device } => Text::new(msg!(
+                "device.{device} is not a table for a device identifier"
+            ))
+            .arg("device", format!("{device:?}")),
+            Self::NotPerDevice { key, device } => Text::new(msg!(
+                "{key} can't be set for a single device (device {device})"
+            ))
+            .arg("key", key)
+            .arg("device", device),
         }
+    }
+}
+
+impl fmt::Display for ProblemKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 
@@ -796,30 +815,46 @@ pub enum StateError {
     },
 }
 
+impl StateError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::UnknownKey { key } => Text::new(msg!("unknown setting {key}")).arg("key", key),
+            Self::InvalidValue { key, error } => Text::new(msg!("{key}: {error}"))
+                .arg("key", key)
+                .text("error", error.text()),
+            Self::NotPerDevice { key } => {
+                Text::new(msg!("{key} can't be set for a single device")).arg("key", key)
+            }
+            Self::InvalidDevice { device } => {
+                Text::new(msg!("{device} is not a device identifier"))
+                    .arg("device", format!("{device:?}"))
+            }
+            Self::Unusable { path } => {
+                Text::new(msg!("{file} couldn't be loaded, so it is left unchanged"))
+                    .arg("file", path.display())
+            }
+            Self::NotATable { key, path } => {
+                Text::new(msg!("{file}: a value is in the way of the table for {key}"))
+                    .arg("file", path.display())
+                    .arg("key", key)
+            }
+            Self::UnknownSnapshot { id } => {
+                Text::new(msg!("there is no snapshot {id}")).arg("id", id)
+            }
+            Self::UnusableSnapshot { id } => {
+                Text::new(msg!("snapshot {id} holds a file that can't be loaded")).arg("id", id)
+            }
+            Self::Io { path, source } => Text::new(msg!("{file}: {error}"))
+                .arg("file", path.display())
+                .arg("error", source),
+        }
+    }
+}
+
 impl fmt::Display for StateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let show = |path: &Path| path.display().to_string();
-        match self {
-            Self::UnknownKey { key } => write!(f, "unknown setting {key}"),
-            Self::InvalidValue { key, error } => write!(f, "{key}: {error}"),
-            Self::NotPerDevice { key } => write!(f, "{key} can't be set for a single device"),
-            Self::InvalidDevice { device } => write!(f, "{device:?} is not a device identifier"),
-            Self::Unusable { path } => write!(
-                f,
-                "{} couldn't be loaded, so it is left unchanged",
-                show(path)
-            ),
-            Self::NotATable { key, path } => write!(
-                f,
-                "{}: a value is in the way of the table for {key}",
-                show(path)
-            ),
-            Self::UnknownSnapshot { id } => write!(f, "there is no snapshot {id}"),
-            Self::UnusableSnapshot { id } => {
-                write!(f, "snapshot {id} holds a file that can't be loaded")
-            }
-            Self::Io { path, source } => write!(f, "{}: {source}", show(path)),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

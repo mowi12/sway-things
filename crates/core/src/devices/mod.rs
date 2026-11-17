@@ -38,8 +38,10 @@ mod tests;
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::command::input::{Input as InputCmd, InputSelector, InputType, XkbSwitch};
+use crate::i18n::Text;
 use crate::ipc::types::{Event, EventType, Input, SendEvents};
 use crate::ipc::{Client, Events, IpcError};
+use crate::msg;
 use crate::registry::Scope;
 use crate::state::State;
 
@@ -85,16 +87,24 @@ impl Lockout {
     }
 }
 
-impl std::fmt::Display for Lockout {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Lockout {
+    /// Why the change was refused, to show.
+    pub fn text(&self) -> Text {
         match self {
             Self::Keyboard => {
-                f.write_str("this would turn off the last keyboard you can type with")
+                msg!("this would turn off the last keyboard you can type with").into()
             }
-            Self::PointingDevice => f.write_str(
-                "this would turn off the last mouse, trackpoint or touchpad you can point with",
-            ),
+            Self::PointingDevice => msg!(
+                "this would turn off the last mouse, trackpoint or touchpad you can point with"
+            )
+            .into(),
         }
+    }
+}
+
+impl std::fmt::Display for Lockout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

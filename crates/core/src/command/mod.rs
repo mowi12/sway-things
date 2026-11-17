@@ -23,6 +23,8 @@ pub mod window;
 
 use std::fmt;
 
+use crate::i18n::Text;
+use crate::msg;
 use crate::version::{SwayFxVersion, SwayVersion};
 
 pub use color::{Color, ColorError};
@@ -466,23 +468,34 @@ pub enum CommandError {
     },
 }
 
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl CommandError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
         match self {
             Self::Unavailable {
                 target: Target::Ipc,
-            } => f.write_str("the command only works in config files"),
+            } => msg!("the command only works in config files").into(),
             Self::Unavailable {
                 target: Target::Config,
-            } => f.write_str("the command only works over IPC"),
-            Self::InvalidKeyword { keyword } => write!(f, "invalid keyword {keyword:?}"),
-            Self::NotFinite => f.write_str("number is not finite"),
-            Self::EmptyCriteria => f.write_str("criteria have no match"),
-            Self::NestedCriteria => {
-                f.write_str("a command after criteria can't contain criteria or for_window")
+            } => msg!("the command only works over IPC").into(),
+            Self::InvalidKeyword { keyword } => {
+                Text::new(msg!("invalid keyword {keyword}")).arg("keyword", format!("{keyword:?}"))
             }
-            Self::TextKeepsQuotes { command } => write!(f, "{command} can't take a text argument"),
+            Self::NotFinite => msg!("number is not finite").into(),
+            Self::EmptyCriteria => msg!("criteria have no match").into(),
+            Self::NestedCriteria => {
+                msg!("a command after criteria can't contain criteria or for_window").into()
+            }
+            Self::TextKeepsQuotes { command } => {
+                Text::new(msg!("{command} can't take a text argument")).arg("command", command)
+            }
         }
+    }
+}
+
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 
@@ -510,13 +523,19 @@ impl OutOfRange {
     }
 }
 
+impl OutOfRange {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        Text::new(msg!("{option} must be between {min} and {max}"))
+            .arg("option", self.option)
+            .arg("min", self.min)
+            .arg("max", self.max)
+    }
+}
+
 impl fmt::Display for OutOfRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} must be between {} and {}",
-            self.option, self.min, self.max
-        )
+        f.write_str(&self.text().english())
     }
 }
 

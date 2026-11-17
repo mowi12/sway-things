@@ -15,8 +15,10 @@ use async_process::Command;
 
 use super::{GeneratedFile, Manifest, Ownership, Source};
 use crate::atomic;
+use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::ipc::Compositor;
+use crate::msg;
 use crate::registry::ConfigFile;
 use crate::state::{PathsError, xdg_dir};
 
@@ -427,12 +429,23 @@ pub enum WriteError {
     Validator(io::Error),
 }
 
+impl WriteError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Io { path, source } => Text::new(msg!("{file}: {error}"))
+                .arg("file", path.display())
+                .arg("error", source),
+            Self::Validator(source) => {
+                Text::new(msg!("can't run sway to validate: {error}")).arg("error", source)
+            }
+        }
+    }
+}
+
 impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
-            Self::Validator(source) => write!(f, "can't run sway to validate: {source}"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

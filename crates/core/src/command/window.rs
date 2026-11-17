@@ -25,6 +25,8 @@
 use std::fmt;
 
 use super::{Color, OutOfRange, SwayCmd, SwayText, TextError};
+use crate::i18n::Text;
+use crate::msg;
 
 /// A window class for `client.<class>` colors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -427,16 +429,23 @@ impl From<TextError> for WindowError {
     }
 }
 
+impl WindowError {
+    /// What is wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::OutOfRange(error) => error.text(),
+            Self::ReservedWorkspaceName => {
+                msg!("a workspace can't be called output or gaps in this command").into()
+            }
+            Self::PangoPrefix => msg!("the font description must not start with pango:").into(),
+            Self::Text(error) => error.text(),
+        }
+    }
+}
+
 impl fmt::Display for WindowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::OutOfRange(error) => error.fmt(f),
-            Self::ReservedWorkspaceName => {
-                f.write_str("a workspace can't be called output or gaps in this command")
-            }
-            Self::PangoPrefix => f.write_str("the font description must not start with pango:"),
-            Self::Text(error) => error.fmt(f),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

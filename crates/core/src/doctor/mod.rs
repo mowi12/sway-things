@@ -24,8 +24,6 @@
 #[cfg(test)]
 mod tests;
 
-use crate::i18n::Msg;
-use crate::msg;
 use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -35,8 +33,10 @@ use crate::generate::{
     self, ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Ownership, Report,
     Source, SwayValidator, Validate, WriteError,
 };
+use crate::i18n::{Msg, Text};
 use crate::include::{IncludeStatus, Inclusion, MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError};
+use crate::msg;
 use crate::registry::{ConfigFile, SwayMapping};
 use crate::state::{ProblemKind, State};
 use crate::sway_config::{Diagnostic, DiagnosticKind};
@@ -523,15 +523,23 @@ pub enum FixError {
     Write(WriteError),
 }
 
+impl FixError {
+    /// Why nothing was written, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::NoCompositor => msg!(
+                "it isn't known which compositor to generate for: no sway session runs, and \
+                 `sway --version` names none"
+            )
+            .into(),
+            Self::Write(error) => error.text(),
+        }
+    }
+}
+
 impl fmt::Display for FixError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NoCompositor => f.write_str(
-                "it isn't known which compositor to generate for: no sway session runs, and \
-                 `sway --version` names none",
-            ),
-            Self::Write(error) => error.fmt(f),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

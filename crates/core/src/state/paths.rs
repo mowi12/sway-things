@@ -8,6 +8,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use super::Layer;
+use crate::i18n::Text;
+use crate::msg;
 
 /// The paths of the two settings files and of their history.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,14 +127,21 @@ pub enum PathsError {
     Hostname,
 }
 
-impl fmt::Display for PathsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl PathsError {
+    /// What is missing, to show.
+    pub fn text(&self) -> Text {
         match self {
             Self::NoConfigDir => {
-                f.write_str("neither XDG_CONFIG_HOME and XDG_STATE_HOME nor HOME are set")
+                msg!("neither XDG_CONFIG_HOME and XDG_STATE_HOME nor HOME are set").into()
             }
-            Self::Hostname => f.write_str("the host name can't be used as a file name"),
+            Self::Hostname => msg!("the host name can't be used as a file name").into(),
         }
+    }
+}
+
+impl fmt::Display for PathsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

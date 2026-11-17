@@ -379,7 +379,7 @@ impl Setting {
         Some((mapping.read)(args).and_then(|value| {
             self.check(&value)
                 .map(|()| value)
-                .map_err(|error| ReadError::Unsupported(error.to_string()))
+                .map_err(|error| ReadError::Unsupported(error.text()))
         }))
     }
 }

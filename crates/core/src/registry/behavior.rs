@@ -4,8 +4,6 @@
 //! Settings of the Window Behavior page (`man 5 sway`). Defaults are sway's own
 //! (`config_defaults` in `sway/config.c`).
 
-use crate::i18n::Msg;
-use crate::msg;
 use std::num::NonZeroU16;
 
 use super::read::{self, ReadError};
@@ -19,6 +17,9 @@ use crate::command::behavior::{
     Modifier, MouseWarping, Orientation, PopupDuringFullscreen, SizeLimit, WorkspaceLayout,
     Xwayland,
 };
+use crate::i18n::{Msg, Text};
+use crate::msg;
+use crate::msg_plural;
 
 const FOCUS_FOLLOWS_MOUSE: &str = "behavior.focus_follows_mouse";
 const FOCUS_FOLLOWS_MOUSE_CHOICES: &[Choice] = &[
@@ -263,20 +264,22 @@ fn read_floating_modifier(args: &[String]) -> Result<(&'static str, &'static str
     } else if is(&["Shift"]) {
         "Shift"
     } else if is(&["Lock", "Mod2", "Mod3", "Mod5"]) {
-        return Err(ReadError::Unsupported(format!(
-            "{name} isn't offered as the drag modifier"
-        )));
+        return Err(ReadError::Unsupported(
+            Text::new(msg!("{name} isn't offered as the drag modifier")).arg("name", name),
+        ));
     } else {
-        return Err(ReadError::Rejected(format!("not a modifier: {name}")));
+        return Err(ReadError::Rejected(
+            Text::new(msg!("not a modifier: {name}")).arg("name", name),
+        ));
     };
     let buttons = match args.get(1) {
         None => "normal",
         Some(word) if word.eq_ignore_ascii_case("normal") => "normal",
         Some(word) if word.eq_ignore_ascii_case("inverse") => "inverse",
         Some(word) => {
-            return Err(ReadError::Rejected(format!(
-                "expected normal or inverse, got {word}"
-            )));
+            return Err(ReadError::Rejected(
+                Text::new(msg!("expected normal or inverse, got {word}")).arg("word", word),
+            ));
         }
     };
     Ok((key, buttons))
@@ -291,9 +294,15 @@ fn read_limit(text: &str) -> Result<SizeLimit, ReadError> {
             .ok()
             .and_then(NonZeroU16::new)
             .map(SizeLimit::Pixels)
-            .ok_or_else(|| ReadError::Unsupported(format!("not a size in pixels: {px}"))),
-        Some(_) => Err(ReadError::Rejected(format!("not a whole number: {text}"))),
-        None => Err(ReadError::Unsupported(format!("too large: {text}"))),
+            .ok_or_else(|| {
+                ReadError::Unsupported(Text::new(msg!("not a size in pixels: {px}")).arg("px", px))
+            }),
+        Some(_) => Err(ReadError::Rejected(
+            Text::new(msg!("not a whole number: {text}")).arg("text", text),
+        )),
+        None => Err(ReadError::Unsupported(
+            Text::new(msg!("too large: {text}")).arg("text", text),
+        )),
     }
 }
 
@@ -301,13 +310,21 @@ fn read_limit(text: &str) -> Result<SizeLimit, ReadError> {
 /// limit of the same kind in both directions fits the settings.
 fn read_size(args: &[String]) -> Result<(&'static str, Option<[i64; 2]>), ReadError> {
     let [width, x, height] = args else {
-        return Err(ReadError::Rejected(format!(
-            "expected <width> x <height>, got {} arguments",
-            args.len()
-        )));
+        return Err(ReadError::Rejected(
+            Text::count(
+                msg_plural!(
+                    "expected <width> x <height>, got {count} argument",
+                    "expected <width> x <height>, got {count} arguments"
+                ),
+                args.len(),
+            )
+            .arg("count", args.len()),
+        ));
     };
     if x != "x" {
-        return Err(ReadError::Rejected(format!("expected x, got {x}")));
+        return Err(ReadError::Rejected(
+            Text::new(msg!("expected x, got {x}")).arg("x", x),
+        ));
     }
     match (read_limit(width)?, read_limit(height)?) {
         (SizeLimit::Automatic, SizeLimit::Automatic) => Ok(("automatic", None)),
@@ -317,7 +334,7 @@ fn read_size(args: &[String]) -> Result<(&'static str, Option<[i64; 2]>), ReadEr
             Some([i64::from(width.get()), i64::from(height.get())]),
         )),
         _ => Err(ReadError::Unsupported(
-            "width and height have different kinds of limit".to_owned(),
+            msg!("width and height have different kinds of limit").into(),
         )),
     }
 }
@@ -439,12 +456,15 @@ fn read_inhibit_idle(args: &[String]) -> Result<Value, ReadError> {
     match read::one(args)? {
         "fullscreen" => Ok(Value::Bool(true)),
         "none" => Ok(Value::Bool(false)),
-        mode @ ("focus" | "open" | "visible") => Err(ReadError::Unsupported(format!(
-            "inhibit_idle {mode} for every window"
-        ))),
-        mode => Err(ReadError::Rejected(format!(
-            "expected focus, fullscreen, open, visible or none, got {mode}"
-        ))),
+        mode @ ("focus" | "open" | "visible") => Err(ReadError::Unsupported(
+            Text::new(msg!("inhibit_idle {mode} for every window")).arg("mode", mode),
+        )),
+        mode => Err(ReadError::Rejected(
+            Text::new(msg!(
+                "expected focus, fullscreen, open, visible or none, got {mode}"
+            ))
+            .arg("mode", mode),
+        )),
     }
 }
 
@@ -688,7 +708,9 @@ pub(super) fn settings() -> Vec<Setting> {
             },
             |args| match read::whole(read::one(args)?)? {
                 px if px >= 0 => Ok(Value::Integer(px)),
-                px => Err(ReadError::Rejected(format!("negative threshold: {px}"))),
+                px => Err(ReadError::Rejected(
+                    Text::new(msg!("negative threshold: {px}")).arg("px", px),
+                )),
             },
         )
         .build(),

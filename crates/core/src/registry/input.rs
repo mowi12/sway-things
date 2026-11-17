@@ -16,7 +16,7 @@ use crate::command::input::{
     AccelProfile, ButtonMap, ClickMethod, DragLock, InputType, ScrollButton, ScrollMethod,
     SendEvents,
 };
-use crate::i18n::Msg;
+use crate::i18n::{Msg, Text};
 use crate::msg;
 
 const POINTER_EVENTS: &str = "input.pointer.events";
@@ -159,9 +159,12 @@ fn read_events(args: &[String]) -> Result<SendEvents, ReadError> {
     .find(|(name, _)| word.eq_ignore_ascii_case(name))
     .map(|(_, events)| events)
     .ok_or_else(|| {
-        ReadError::Rejected(format!(
-            "expected enabled, disabled or disabled_on_external_mouse, got {word}"
-        ))
+        ReadError::Rejected(
+            Text::new(msg!(
+                "expected enabled, disabled or disabled_on_external_mouse, got {word}"
+            ))
+            .arg("word", word),
+        )
     })
 }
 
@@ -182,7 +185,7 @@ fn read_on_off_events(args: &[String]) -> Result<Value, ReadError> {
         SendEvents::Enabled => Ok(Value::Bool(true)),
         SendEvents::Disabled => Ok(Value::Bool(false)),
         SendEvents::DisabledOnExternalMouse => Err(ReadError::Unsupported(
-            "only touchpads can be off while a mouse is connected".to_owned(),
+            msg!("only touchpads can be off while a mouse is connected").into(),
         )),
     }
 }
@@ -198,9 +201,9 @@ fn read_accel(args: &[String]) -> Result<Value, ReadError> {
     if (-1.0..=1.0).contains(&speed) {
         Ok(Value::Decimal(speed))
     } else {
-        Err(ReadError::Rejected(format!(
-            "out of range [-1, 1]: {speed}"
-        )))
+        Err(ReadError::Rejected(
+            Text::new(msg!("out of range [-1, 1]: {speed}")).arg("speed", speed),
+        ))
     }
 }
 
@@ -208,13 +211,15 @@ fn read_accel(args: &[String]) -> Result<Value, ReadError> {
 fn read_scroll_factor(args: &[String]) -> Result<Value, ReadError> {
     let factor = read::float(read::first(args)?)?;
     if factor < 0.0 {
-        Err(ReadError::Rejected(format!(
-            "the scroll factor can't be negative: {factor}"
-        )))
+        Err(ReadError::Rejected(
+            Text::new(msg!("the scroll factor can't be negative: {factor}")).arg("factor", factor),
+        ))
     } else if factor > MAX_SCROLL_FACTOR {
-        Err(ReadError::Unsupported(format!(
-            "a scroll factor above {MAX_SCROLL_FACTOR}: {factor}"
-        )))
+        Err(ReadError::Unsupported(
+            Text::new(msg!("a scroll factor above {max_scroll_factor}: {factor}"))
+                .arg("max_scroll_factor", MAX_SCROLL_FACTOR)
+                .arg("factor", factor),
+        ))
     } else {
         Ok(Value::Decimal(factor))
     }
@@ -230,9 +235,9 @@ fn read_scroll_button(args: &[String]) -> Result<Value, ReadError> {
     if SCROLL_BUTTONS.iter().any(|choice| choice.id == word) {
         Ok(Value::Choice(word.to_owned()))
     } else {
-        Err(ReadError::Unsupported(format!(
-            "a scroll button the setting doesn't offer: {word}"
-        )))
+        Err(ReadError::Unsupported(
+            Text::new(msg!("a scroll button the setting doesn't offer: {word}")).arg("word", word),
+        ))
     }
 }
 
@@ -820,9 +825,7 @@ fn keyboard() -> Vec<Setting> {
                 ConfigFile::Input,
                 |ctx| Ok(vec![ctx.input()?.repeat_delay(ctx.integer(REPEAT_DELAY)?)]),
                 |args| match read::atoi(read::one(args)?)? {
-                    delay if delay < 0 => Err(ReadError::Rejected(format!(
-                        "the repeat delay can't be negative: {delay}"
-                    ))),
+                    delay if delay < 0 => Err(ReadError::Rejected(Text::new(msg!("the repeat delay can't be negative: {delay}")).arg("delay", delay))),
                     delay => Ok(Value::Integer(delay)),
                 },
             )
@@ -839,12 +842,8 @@ fn keyboard() -> Vec<Setting> {
                 ConfigFile::Input,
                 |ctx| Ok(vec![ctx.input()?.repeat_rate(ctx.integer(REPEAT_RATE)?)]),
                 |args| match read::atoi(read::one(args)?)? {
-                    rate if rate < 0 => Err(ReadError::Rejected(format!(
-                        "the repeat rate can't be negative: {rate}"
-                    ))),
-                    0 => Err(ReadError::Unsupported(
-                        "a repeat rate of 0 turns key repeat off".to_owned(),
-                    )),
+                    rate if rate < 0 => Err(ReadError::Rejected(Text::new(msg!("the repeat rate can't be negative: {rate}")).arg("rate", rate))),
+                    0 => Err(ReadError::Unsupported(msg!("a repeat rate of 0 turns key repeat off").into())),
                     rate => Ok(Value::Integer(rate)),
                 },
             )

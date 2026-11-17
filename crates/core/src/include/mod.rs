@@ -59,6 +59,8 @@ use overlay::Overlay;
 pub use watch::{IncludeWatch, MainConfig};
 
 use crate::generate::Locations;
+use crate::i18n::Text;
+use crate::msg;
 use crate::registry::ConfigFile;
 use crate::sway_config::{
     Diagnostic, DiagnosticKind, Directive, Files, Include, SwayConfig, parse,
@@ -402,9 +404,17 @@ impl ReadOnly {
     }
 }
 
+impl ReadOnly {
+    /// Why settings can't be changed, short: the explanation is long and the same for every
+    /// setting.
+    pub fn text(&self) -> Text {
+        msg!("Add the include line to change settings").into()
+    }
+}
+
 impl fmt::Display for ReadOnly {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Add the include line to change settings")
+        f.write_str(&self.text().english())
     }
 }
 

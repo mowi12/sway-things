@@ -19,6 +19,9 @@ pub mod stand_in;
 
 use std::fmt;
 
+use crate::i18n::Text;
+use crate::msg;
+
 pub use agent::{AgentEvent, SecretPrompt};
 pub use nm::NetworkManager;
 
@@ -569,15 +572,23 @@ pub enum InputError {
     EmptyPassword,
 }
 
+impl InputError {
+    /// What is wrong with the input, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::EmptySsid => msg!("The network name is empty"),
+            Self::SsidTooLong => msg!("The network name is longer than 32 bytes"),
+            Self::PasswordTooShort => msg!("The password is shorter than 8 characters"),
+            Self::PasswordTooLong => msg!("The password is longer than 63 characters"),
+            Self::EmptyPassword => msg!("The password is empty"),
+        }
+        .into()
+    }
+}
+
 impl fmt::Display for InputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::EmptySsid => "The network name is empty",
-            Self::SsidTooLong => "The network name is longer than 32 bytes",
-            Self::PasswordTooShort => "The password is shorter than 8 characters",
-            Self::PasswordTooLong => "The password is longer than 63 characters",
-            Self::EmptyPassword => "The password is empty",
-        })
+        f.write_str(&self.text().english())
     }
 }
 
@@ -625,7 +636,7 @@ pub fn check_password(security: Security, password: &str) -> Result<(), InputErr
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// No system bus, or NetworkManager isn't running on it. The text says which.
-    Unavailable(String),
+    Unavailable(Text),
     /// NetworkManager (polkit) didn't allow it. The text is NetworkManager's, so untrusted.
     Denied(String),
     /// An SSID or password that can't be used: see [`check_ssid`] and [`check_password`].
@@ -635,50 +646,61 @@ pub enum Error {
     /// A VPN failed to connect: NetworkManager's `NMActiveConnectionStateReason` (see
     /// [`vpn_reason_text`]).
     Vpn(u32),
-    /// NetworkManager refused or failed: its message (untrusted text).
-    Failed(String),
+    /// NetworkManager refused or failed: its message (untrusted text, as data), or what Sway
+    /// Things makes of it.
+    Failed(Text),
+}
+
+impl Error {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Unavailable(reason) => Text::new(msg!("The network isn't available: {reason}"))
+                .text("reason", reason.clone()),
+            Self::Denied(reason) if reason.is_empty() => msg!("Not allowed").into(),
+            Self::Denied(reason) => Text::new(msg!("Not allowed: {reason}")).arg("reason", reason),
+            Self::Invalid(error) => error.text(),
+            Self::Connect(reason) => reason_text(*reason),
+            Self::Vpn(reason) => vpn_reason_text(*reason),
+            Self::Failed(reason) => reason.clone(),
+        }
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unavailable(reason) => write!(f, "The network isn't available: {reason}"),
-            Self::Denied(reason) if reason.is_empty() => f.write_str("Not allowed"),
-            Self::Denied(reason) => write!(f, "Not allowed: {reason}"),
-            Self::Invalid(error) => error.fmt(f),
-            Self::Connect(reason) => f.write_str(&reason_text(*reason)),
-            Self::Vpn(reason) => f.write_str(&vpn_reason_text(*reason)),
-            Self::Failed(reason) => f.write_str(reason),
-        }
+        f.write_str(&self.text().english())
     }
 }
 
 impl std::error::Error for Error {}
 
 /// What NetworkManager's `NMDeviceStateReason` `reason` means, for a failed connection.
-pub fn reason_text(reason: u32) -> String {
+pub fn reason_text(reason: u32) -> Text {
     match reason {
-        7 => "No password was given".to_owned(),
-        8 => "The network refused the connection; the password may be wrong".to_owned(),
-        9..=11 => "The network didn't accept the connection".to_owned(),
-        5 | 6 | 15..=17 => "The network gave no IP address".to_owned(),
-        40 => "The cable is unplugged".to_owned(),
-        53 => "The network isn't in range".to_owned(),
-        other => format!("NetworkManager gave up (reason {other})"),
+        7 => msg!("No password was given").into(),
+        8 => msg!("The network refused the connection; the password may be wrong").into(),
+        9..=11 => msg!("The network didn't accept the connection").into(),
+        5 | 6 | 15..=17 => msg!("The network gave no IP address").into(),
+        40 => msg!("The cable is unplugged").into(),
+        53 => msg!("The network isn't in range").into(),
+        other => Text::new(msg!("NetworkManager gave up (reason {reason})")).arg("reason", other),
     }
 }
 
 /// What NetworkManager's `NMActiveConnectionStateReason` `reason` means, for a VPN that failed.
-pub fn vpn_reason_text(reason: u32) -> String {
+pub fn vpn_reason_text(reason: u32) -> Text {
     match reason {
-        9 => "The VPN asks for a password, which Sway Things can't ask for yet. Save the password \
-              with Edit…, or run nm-applet"
-            .to_owned(),
-        10 => "The VPN refused the login".to_owned(),
-        6 | 7 => "The VPN didn't answer in time".to_owned(),
-        8 => "The VPN's plugin didn't start".to_owned(),
-        5 => "The VPN gave no usable address".to_owned(),
-        other => format!("The VPN connection ended (reason {other})"),
+        9 => msg!(
+            "The VPN asks for a password, which Sway Things can't ask for yet. Save the password \
+             with Edit…, or run nm-applet"
+        )
+        .into(),
+        10 => msg!("The VPN refused the login").into(),
+        6 | 7 => msg!("The VPN didn't answer in time").into(),
+        8 => msg!("The VPN's plugin didn't start").into(),
+        5 => msg!("The VPN gave no usable address").into(),
+        other => Text::new(msg!("The VPN connection ended (reason {reason})")).arg("reason", other),
     }
 }
 
@@ -780,7 +802,7 @@ mod tests {
         assert_eq!(band(5180), Some("5 GHz"));
         assert_eq!(band(5955), Some("6 GHz"));
         assert_eq!(band(60_480), None);
-        assert!(vpn_reason_text(9).contains("password"));
+        assert!(vpn_reason_text(9).english().contains("password"));
     }
 
     #[test]
@@ -840,7 +862,10 @@ mod tests {
         assert_eq!(DeviceState::from_nm(7), DeviceState::Unknown);
         assert_eq!(DeviceKind::from_nm(2), DeviceKind::Wifi);
         assert_eq!(Connectivity::from_nm(2), Connectivity::Portal);
-        assert!(reason_text(8).contains("password"));
-        assert_eq!(reason_text(999), "NetworkManager gave up (reason 999)");
+        assert!(reason_text(8).english().contains("password"));
+        assert_eq!(
+            reason_text(999).english(),
+            "NetworkManager gave up (reason 999)"
+        );
     }
 }

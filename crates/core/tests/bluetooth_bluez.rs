@@ -296,7 +296,10 @@ fn a_rejected_confirmation_fails_the_pairing() -> Result<()> {
         let (paired, _) =
             future::zip(bluez.pair(&phone), answer_next(&bluez, Answer::Reject)).await;
         match paired {
-            Err(BtError::Failed(reason)) => assert!(reason.contains("Rejected"), "{reason}"),
+            Err(BtError::Failed(reason)) => {
+                let reason = reason.english();
+                assert!(reason.contains("Rejected"), "{reason}");
+            }
             other => return Err(format!("pairing didn't fail: {other:?}").into()),
         }
         assert!(

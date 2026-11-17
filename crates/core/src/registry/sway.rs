@@ -13,6 +13,8 @@ use super::value::{Kind, Value, ValueError};
 use crate::command::input::{Input, InputError, InputSelector};
 use crate::command::window::WindowError;
 use crate::command::{Color, CommandError, OutOfRange, SwayCmd, Target};
+use crate::i18n::Text;
+use crate::msg;
 use crate::sway_config;
 
 /// Where a directive stands in a sway config.
@@ -400,27 +402,40 @@ impl From<OutOfRange> for RenderError {
     }
 }
 
-impl fmt::Display for RenderError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl RenderError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
         match self {
-            Self::UnknownKey { key } => write!(f, "unknown setting {key}"),
-            Self::NotASwaySetting { key } => write!(f, "{key} is not a sway setting"),
-            Self::NotPerDevice => f.write_str("the setting can't be set for a single device"),
-            Self::InvalidValue { key, error } => write!(f, "{key}: {error}"),
-            Self::Input(error) => error.fmt(f),
-            Self::Window(error) => error.fmt(f),
-            Self::OutOfRange(error) => error.fmt(f),
-            Self::Command(error) => error.fmt(f),
+            Self::UnknownKey { key } => Text::new(msg!("unknown setting {key}")).arg("key", key),
+            Self::NotASwaySetting { key } => {
+                Text::new(msg!("{key} is not a sway setting")).arg("key", key)
+            }
+            Self::NotPerDevice => msg!("the setting can't be set for a single device").into(),
+            Self::InvalidValue { key, error } => Text::new(msg!("{key}: {error}"))
+                .arg("key", key)
+                .text("error", error.text()),
+            Self::Input(error) => error.text(),
+            Self::Window(error) => error.text(),
+            Self::OutOfRange(error) => error.text(),
+            Self::Command(error) => error.text(),
             Self::TooManyVariants {
                 key,
                 variants,
                 layouts,
-            } => write!(
-                f,
+            } => Text::new(msg!(
                 "{key}: {variants} variants for {layouts} layouts; each variant belongs to the \
                  layout at the same position, so remove the extra variants or add their layouts"
-            ),
+            ))
+            .arg("key", key)
+            .arg("variants", variants)
+            .arg("layouts", layouts),
         }
+    }
+}
+
+impl fmt::Display for RenderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

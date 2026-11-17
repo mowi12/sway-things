@@ -8,6 +8,8 @@ use std::fmt;
 use serde::Deserialize;
 
 use crate::command::SwayCmd;
+use crate::i18n::Text;
+use crate::msg;
 use crate::version::{SwayFxVersion, SwayVersion};
 
 /// The compositor behind the IPC socket: sway, or SwayFX with the sway it is based on.
@@ -174,12 +176,23 @@ pub enum Unmet {
     },
 }
 
+impl Unmet {
+    /// What is needed, to show after what needs it: "requires sway 1.11 or newer".
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Sway { needed } => {
+                Text::new(msg!("requires sway {version} or newer")).arg("version", needed)
+            }
+            Self::SwayFx { needed } => {
+                Text::new(msg!("requires SwayFX {version} or newer")).arg("version", needed)
+            }
+        }
+    }
+}
+
 impl fmt::Display for Unmet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Sway { needed } => write!(f, "requires sway {needed} or newer"),
-            Self::SwayFx { needed } => write!(f, "requires SwayFX {needed} or newer"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

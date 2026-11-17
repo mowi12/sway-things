@@ -9,6 +9,8 @@ use std::str::FromStr;
 use super::Msg;
 use crate::command::Color;
 use crate::editor::SplitError;
+use crate::i18n::Text;
+use crate::msg;
 
 /// The value of a setting.
 #[derive(Debug, Clone, PartialEq)]
@@ -287,41 +289,69 @@ pub enum ValueError {
     NotACommand(SplitError),
 }
 
-impl fmt::Display for ValueError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl ValueError {
+    /// What is wrong with the value, to show.
+    pub fn text(&self) -> Text {
         match self {
             Self::WrongType { expected, found } => {
-                write!(f, "expected a {expected} value, found a {found} value")
+                Text::new(msg!("expected a {expected} value, found a {found} value"))
+                    .text("expected", type_name(expected))
+                    .text("found", type_name(found))
             }
             Self::IntegerOutOfRange { min, max } => {
-                write!(f, "must be between {min} and {max}")
+                Text::new(msg!("must be between {min} and {max}"))
+                    .arg("min", min)
+                    .arg("max", max)
             }
             Self::DecimalOutOfRange { min, max } => {
-                write!(f, "must be between {min} and {max}")
+                Text::new(msg!("must be between {min} and {max}"))
+                    .arg("min", min)
+                    .arg("max", max)
             }
-            Self::NotAColor => f.write_str("must be a color like #rrggbb or #rrggbbaa"),
+            Self::NotAColor => msg!("must be a color like #rrggbb or #rrggbbaa").into(),
             Self::Unparsable {
                 expected: "boolean",
-            } => f.write_str("must be true or false"),
+            } => msg!("must be true or false").into(),
             Self::Unparsable {
                 expected: "integer",
-            } => f.write_str("must be a whole number"),
+            } => msg!("must be a whole number").into(),
             Self::Unparsable {
                 expected: "decimal",
-            } => f.write_str("must be a number"),
-            Self::Unparsable { expected } => write!(f, "must be a {expected} value"),
-            Self::UnknownChoice { choices } => {
-                f.write_str("must be one of: ")?;
-                for (index, choice) in choices.iter().enumerate() {
-                    if index > 0 {
-                        f.write_str(", ")?;
-                    }
-                    f.write_str(choice.id)?;
-                }
-                Ok(())
+            } => msg!("must be a number").into(),
+            Self::Unparsable { expected } => {
+                Text::new(msg!("must be a {expected} value")).text("expected", type_name(expected))
             }
-            Self::NotACommand(error) => error.fmt(f),
+            Self::UnknownChoice { choices } => {
+                let ids: Vec<&str> = choices.iter().map(|choice| choice.id).collect();
+                Text::new(msg!("must be one of: {choices}")).arg("choices", ids.join(", "))
+            }
+            Self::NotACommand(error) => error.text(),
         }
+    }
+}
+
+/// The type `name` ([`Value::type_name`] or a TOML type), to show.
+fn type_name(name: &str) -> Text {
+    // TRANSLATORS: The types of values in "expected a {expected} value, found a {found} value".
+    match name {
+        "boolean" => msg!("boolean").into(),
+        "integer" => msg!("integer").into(),
+        "decimal" => msg!("decimal").into(),
+        "choice" => msg!("choice").into(),
+        "color" => msg!("color").into(),
+        "text" => msg!("text").into(),
+        "list" => msg!("list").into(),
+        "string" => msg!("string").into(),
+        "float" => msg!("float").into(),
+        "array" => msg!("array").into(),
+        "table" => msg!("table").into(),
+        other => Text::data(other),
+    }
+}
+
+impl fmt::Display for ValueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

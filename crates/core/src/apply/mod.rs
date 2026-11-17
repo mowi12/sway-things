@@ -57,8 +57,10 @@ use crate::devices::Lockout;
 use crate::generate::{
     self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate, WriteError,
 };
+use crate::i18n::Text;
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
+use crate::msg;
 use crate::registry::{
     Apply, ConfigFile, Registry, RenderError, Setting, SwayMapping, Value, Values,
 };
@@ -832,46 +834,61 @@ impl From<WriteError> for ApplyError {
     }
 }
 
-impl fmt::Display for ApplyError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl ApplyError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
         match self {
-            Self::Paths(error) => error.fmt(f),
-            Self::State(error) => error.fmt(f),
-            Self::Risky { key } => write!(f, "{key} can only be changed with the safety net"),
-            Self::Unsupported { key, unmet } => write!(f, "{key} {unmet}"),
-            Self::Render(error) => error.fmt(f),
-            Self::Command(error) => error.fmt(f),
-            Self::Ipc(error) => error.fmt(f),
-            Self::Write(error) => error.fmt(f),
-            Self::NoCompositor(Some(error)) => {
-                write!(f, "not in a sway session, and sway can't be run: {error}")
+            Self::Paths(error) => error.text(),
+            Self::State(error) => error.text(),
+            Self::Risky { key } => {
+                Text::new(msg!("{key} can only be changed with the safety net")).arg("key", key)
             }
+            Self::Unsupported { key, unmet } => Text::new(msg!("{key} {requirement}"))
+                .arg("key", key)
+                .text("requirement", unmet.text()),
+            Self::Render(error) => error.text(),
+            Self::Command(error) => error.text(),
+            Self::Ipc(error) => error.text(),
+            Self::Write(error) => error.text(),
+            Self::NoCompositor(Some(error)) => Text::new(msg!(
+                "not in a sway session, and sway can't be run: {error}"
+            ))
+            .arg("error", error),
             Self::NoCompositor(None) => {
-                f.write_str("not in a sway session, and `sway --version` prints no version")
+                msg!("not in a sway session, and `sway --version` prints no version").into()
             }
-            Self::NotRisky { key } => write!(f, "{key} has no safety net; change it directly"),
+            Self::NotRisky { key } => {
+                Text::new(msg!("{key} has no safety net; change it directly")).arg("key", key)
+            }
             Self::PendingChange { key } => {
-                write!(f, "keep or revert the change of {key} first")
+                Text::new(msg!("keep or revert the change of {key} first")).arg("key", key)
             }
-            Self::NothingPending => f.write_str("no change waits to be kept or reverted"),
-            Self::NoSession { key } => write!(
-                f,
+            Self::NothingPending => msg!("no change waits to be kept or reverted").into(),
+            Self::NoSession { key } => Text::new(msg!(
                 "{key} can lock you out, so it is only tried in a running sway session, where it \
                  can be reverted"
-            ),
-            Self::Lockout { key, lockout } => write!(f, "{key} wasn't changed: {lockout}"),
+            ))
+            .arg("key", key),
+            Self::Lockout { key, lockout } => Text::new(msg!("{key} wasn't changed: {reason}"))
+                .arg("key", key)
+                .text("reason", lockout.text()),
             Self::ReloadWithoutSession => {
-                f.write_str("sway isn't running, so it can't reload its config")
+                msg!("sway isn't running, so it can't reload its config").into()
             }
             Self::Unwritten { files } => {
                 let names: Vec<&str> = files.iter().map(|file| file.file_name()).collect();
-                write!(
-                    f,
-                    "{} couldn't be written, so sway wouldn't read the changes",
-                    names.join(", ")
-                )
+                Text::new(msg!(
+                    "{files} couldn't be written, so sway wouldn't read the changes"
+                ))
+                .arg("files", names.join(", "))
             }
         }
+    }
+}
+
+impl fmt::Display for ApplyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 
