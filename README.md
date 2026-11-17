@@ -128,7 +128,7 @@ sway-things doctor                        # system details, setup and conflicts
 Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x86_64 and aarch64) come from the
 [openSUSE Build Service](https://build.opensuse.org) project `home:mowi12:sway-things`. Fedora Rawhide and Debian
 unstable are built too, on a best-effort basis: their packages may lag behind when those distributions change under
-them.
+them. The AUR for Arch Linux is planned.
 
 ### openSUSE Tumbleweed
 
@@ -160,25 +160,6 @@ echo "deb [signed-by=/etc/apt/keyrings/sway-things.gpg] $repo/ /" | sudo tee /et
 sudo apt update
 sudo apt install sway-things
 ```
-
-### Arch Linux (AUR)
-
-[`sway-things-git`](https://aur.archlinux.org/packages/sway-things-git) builds the latest commit of `main`. With an AUR
-helper:
-
-```sh
-yay -S sway-things-git     # or: paru -S sway-things-git
-```
-
-Or by hand, with `base-devel` installed:
-
-```sh
-git clone https://aur.archlinux.org/sway-things-git.git
-cd sway-things-git
-makepkg -si
-```
-
-It depends on `sway`; SwayFX from the AUR satisfies that too.
 
 ### From source
 
