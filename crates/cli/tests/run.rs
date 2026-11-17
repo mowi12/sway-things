@@ -901,6 +901,7 @@ fn doctor_without_sway_skips_validation() {
         validator: applier.validator(),
         outputs: None,
         displays: sway_things_core::generate::Displays::Sway,
+        kanshi: None,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor(&checkup, None, &DoctorArgs::default(), &mut out));
@@ -954,6 +955,7 @@ fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, Strin
         validator: applier.validator(),
         outputs: None,
         displays: sway_things_core::generate::Displays::Sway,
+        kanshi: None,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor_with(&checkup, None, args, &mut out, look));
@@ -1077,6 +1079,7 @@ fn doctor_starts_with_the_system_details() {
         validator: applier.validator(),
         outputs: None,
         displays: sway_things_core::generate::Displays::Sway,
+        kanshi: None,
     };
     let system = Details {
         compositor: Some(setup.session.applier.compositor()),

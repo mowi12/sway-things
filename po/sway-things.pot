@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-19 08:43+0100\n"
+"POT-Creation-Date: 2026-11-19 08:50+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -757,6 +757,40 @@ msgstr ""
 msgid ""
 "Move it out of {directory}: the include line reads every *.conf file there, "
 "and Sway Things needs the name."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} doesn't include the profiles of Sway Things, so combinations of "
+"displays aren't remembered."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "Run: {command}"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{file} wasn't made by Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Move it away, so Sway Things can write its profiles there."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The profile {name} in {file} covers displays Sway Things remembers; kanshi "
+"applies the first profile that matches."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Remove it, or put the include line before it, so the arrangement made on the "
+"Displays page comes back."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs crates/core/src/state/mod.rs

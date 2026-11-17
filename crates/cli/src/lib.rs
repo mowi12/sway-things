@@ -411,6 +411,11 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
     }
 }
 
+/// kanshi's files for `doctor`, if kanshi is installed.
+fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
+    outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
+}
+
 /// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
 /// connected now, if they are placed.
 async fn hook_workspaces(err: &mut dyn Write) -> Exit {
@@ -525,6 +530,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         validator: &validator,
         outputs: outputs.as_ref(),
         displays: generate::Displays::detect(&status, &locations),
+        kanshi: kanshi_files(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -800,6 +806,7 @@ async fn doctor_in<V: Validate>(
         validator: applier.validator(),
         outputs: outputs.as_ref(),
         displays: applier.displays(),
+        kanshi: applier.kanshi_files().cloned(),
     };
     doctor(&checkup, None, args, out).await
 }

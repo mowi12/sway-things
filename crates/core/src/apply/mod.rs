@@ -177,6 +177,8 @@ pub struct Applier<V = SwayValidator> {
     /// The setups of the displays per combination, for kanshi. `None` until loaded, or if
     /// they can't be: then nothing is remembered and nothing is written for kanshi.
     profiles: Option<Profiles>,
+    /// kanshi's files, if kanshi is installed; `None` for an applier made for tests.
+    kanshi_files: Option<KanshiFiles>,
 }
 
 impl Applier<SwayValidator> {
@@ -196,6 +198,7 @@ impl Applier<SwayValidator> {
         let state = State::load(Registry::builtin(), paths);
         let mut applier = Self::connect(state, locations).await?;
         applier.profiles = Profiles::load(applier.state.paths().displays()).ok();
+        applier.kanshi_files = KanshiFiles::from_env().filter(|_| kanshi::installed());
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -251,6 +254,7 @@ impl<V: Validate> Applier<V> {
             gsettings: Box::new(NoGSettings),
             displays: generate::Displays::Sway,
             profiles: None,
+            kanshi_files: None,
         }
     }
 
@@ -275,6 +279,7 @@ impl<V: Validate> Applier<V> {
             gsettings: Box::new(NoGSettings),
             displays: generate::Displays::Sway,
             profiles: None,
+            kanshi_files: None,
         }
     }
 
@@ -825,6 +830,11 @@ impl<V: Validate> Applier<V> {
         let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
         let open = client.workspaces().await.map_err(ApplyError::Ipc)?;
         Ok(crate::outputs::workspaces::current(&outputs, &open))
+    }
+
+    /// kanshi's files, if kanshi is installed (not for an applier made for tests).
+    pub fn kanshi_files(&self) -> Option<&KanshiFiles> {
+        self.kanshi_files.as_ref()
     }
 
     /// The setups of the displays remembered per combination, if they could be loaded.

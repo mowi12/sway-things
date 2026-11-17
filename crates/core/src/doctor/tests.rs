@@ -96,6 +96,7 @@ impl Setup {
             validator: &self.validator,
             outputs: None,
             displays: crate::generate::Displays::Sway,
+            kanshi: None,
         }
     }
 

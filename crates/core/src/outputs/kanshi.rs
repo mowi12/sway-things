@@ -172,6 +172,59 @@ impl std::fmt::Display for KanshiError {
 
 impl std::error::Error for KanshiError {}
 
+/// The profiles of a kanshi config of the user's (`text`): each one's name (or its position,
+/// `#1`, for one without) and the displays it names, as written; a profile with `*` is left out,
+/// since it matches any display. Profiles in included files aren't followed.
+pub fn user_profiles(text: &str) -> Vec<(String, Vec<String>)> {
+    let mut profiles = Vec::new();
+    let mut current: Option<(String, Vec<String>, bool)> = None;
+    for line in text.lines().map(str::trim) {
+        if let Some(rest) = line.strip_prefix("profile") {
+            if rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{') {
+                let name = rest
+                    .trim()
+                    .trim_end_matches('{')
+                    .trim()
+                    .trim_matches(['"', '\'']);
+                let name = if name.is_empty() {
+                    format!("#{}", profiles.len() + 1)
+                } else {
+                    name.to_owned()
+                };
+                current = Some((name, Vec::new(), false));
+                continue;
+            }
+        }
+        if line.starts_with('}') {
+            if let Some((name, outputs, wildcard)) = current.take() {
+                if !wildcard && !outputs.is_empty() {
+                    profiles.push((name, outputs));
+                }
+            }
+            continue;
+        }
+        if let (Some((_, outputs, wildcard)), Some(rest)) =
+            (&mut current, line.strip_prefix("output"))
+        {
+            let rest = rest.trim();
+            let criteria = if let Some(quoted) = rest.strip_prefix('"') {
+                quoted.split('"').next().unwrap_or_default().to_owned()
+            } else {
+                rest.split_whitespace()
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            if criteria == "*" {
+                *wildcard = true;
+            } else if !criteria.is_empty() {
+                outputs.push(criteria);
+            }
+        }
+    }
+    profiles
+}
+
 /// Whether `kanshi` is installed: an executable of that name in a directory of `$PATH`.
 pub fn installed() -> bool {
     use std::os::unix::fs::PermissionsExt;
@@ -218,6 +271,13 @@ pub async fn reload() {
 
 /// `text` in single quotes for a POSIX shell, a `'` in it closed, escaped and opened again.
 fn shell_quote(text: &str) -> String {
+    let plain = !text.is_empty()
+        && text
+            .chars()
+            .all(|char| char.is_ascii_alphanumeric() || "_./-+,:@%=".contains(char));
+    if plain {
+        return text.to_owned();
+    }
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 
@@ -300,6 +360,19 @@ mod tests {
         assert!(command.contains(" >> "), "{command}");
         assert_eq!(super::shell_quote("it's"), "'it'\\''s'");
         assert!(!matches("/a/*.conf", "/a/b/c.conf"));
+    }
+
+    #[test]
+    fn the_user_s_profiles_are_read_with_their_displays() {
+        let text = "profile 'Home Office' {\n    output \"Dell U27 ABC\" enable\n    \
+                    output eDP-1 disable\n}\nprofile {\n    output * enable\n}\n";
+        assert_eq!(
+            super::user_profiles(text),
+            [(
+                "Home Office".to_owned(),
+                vec!["Dell U27 ABC".to_owned(), "eDP-1".to_owned()]
+            )]
+        );
     }
 
     #[test]
