@@ -58,7 +58,7 @@ use sway_things_core::outputs::{OutputWatch, Outputs};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
-use sway_things_core::view::{SettingView, Source};
+use sway_things_core::view::SettingView;
 
 // Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
 // out here.
@@ -128,6 +128,9 @@ enum Op {
     /// Places the workspaces on the displays, or not; with a placement for the displays
     /// connected now, or with the one they have now.
     PlaceWorkspaces { place: bool, placement: Placement },
+    /// While kanshi sets up the displays: has the stored values of the displays follow the
+    /// combination connected now ([`Applier::follow_combination`]).
+    FollowCombination,
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -400,16 +403,7 @@ impl Model {
             }
         }
         if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
-            // kanshi sets up the displays: what they run with counts, not what was stored
-            // before kanshi ran.
-            let live = device
-                .and_then(|device| core.outputs.get(device))
-                .and_then(|output| output.session_value(setting.key()));
-            if let Some(live) = live {
-                view.value = live;
-                view.source = Source::Session;
-            }
-            // No line of ours is in the sway config meanwhile.
+            // kanshi sets up the displays: no line of ours is in the sway config meanwhile.
             view.line = None;
         }
         Some(view)
@@ -712,11 +706,24 @@ impl Model {
     /// Keeps the risky change that waits: stores it, to be saved like any other change.
     pub fn keep(&self) {
         self.queue(Op::Keep);
+        self.follow_after_trial();
     }
 
     /// Reverts the risky change that waits: puts the value from before it back.
     pub fn revert(&self) {
         self.queue(Op::Revert);
+        self.follow_after_trial();
+    }
+
+    /// After a risky change is kept or reverted: the stored values of the displays follow the
+    /// combination again, which they don't while it waits (displays may have come or gone
+    /// meanwhile). A follow queued before the change is done moves behind it.
+    fn follow_after_trial(&self) {
+        self.imp()
+            .queue
+            .borrow_mut()
+            .retain(|op| *op != Op::FollowCombination);
+        self.queue(Op::FollowCombination);
     }
 
     /// Whether and where the user's config includes the generated files, as last read. `None`
@@ -849,6 +856,7 @@ impl Model {
             | Op::Reload
             | Op::ReloadSway
             | Op::SwayReloaded
+            | Op::FollowCombination
             | Op::Overwrite(_)
             | Op::PlaceWorkspaces { .. }
             | Op::SetMirror { .. } => false,
@@ -1013,7 +1021,10 @@ impl Model {
                 )),
             },
             (Op::SwayReloaded, _) => applier.reloaded(),
-            (op @ (Op::SetMirror { .. } | Op::PlaceWorkspaces { .. }), _) => {
+            (
+                op @ (Op::SetMirror { .. } | Op::PlaceWorkspaces { .. } | Op::FollowCombination),
+                _,
+            ) => {
                 self.displays_now(&mut applier, op).await;
             }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
@@ -1125,6 +1136,8 @@ impl Model {
             core.outputs = outputs;
             core.outputs_known = true;
         }
+        // While kanshi sets up the displays, the stored values follow what it set up.
+        self.queue(Op::FollowCombination);
         self.emit_by_name::<()>("changed", &[]);
     }
 
@@ -1281,7 +1294,8 @@ impl Model {
         }
     }
 
-    /// Runs an operation of the displays that aren't settings: a mirror, the workspaces.
+    /// Runs an operation of the displays that isn't a change of a setting: a mirror, the
+    /// workspaces, following the combination kanshi set up.
     async fn displays_now(&self, applier: &mut Applier, op: Op) {
         match op {
             Op::SetMirror { target, mirror } => {
@@ -1291,6 +1305,13 @@ impl Model {
             }
             Op::PlaceWorkspaces { place, placement } => {
                 self.place_workspaces_now(applier, place, placement).await;
+            }
+            Op::FollowCombination => {
+                if let Err(error) = applier.follow_combination().await {
+                    self.emit_problem(&format!(
+                        "The settings of the displays weren\u{2019}t updated: {error}."
+                    ));
+                }
             }
             _ => {}
         }

@@ -316,7 +316,12 @@ impl Output {
                 width: output.rect.width,
                 height: output.rect.height,
             }),
-            scale: output.scale.filter(|scale| enabled && *scale > 0.0),
+            // sway keeps the scale as a 32-bit float: 1.3 is reported as 1.2999999523. To six
+            // places, it is the scale that was set again.
+            scale: output
+                .scale
+                .filter(|scale| enabled && *scale > 0.0)
+                .map(|scale| (scale * 1e6).round() / 1e6),
             transform: output
                 .transform
                 .as_deref()

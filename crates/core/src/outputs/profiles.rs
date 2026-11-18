@@ -37,9 +37,11 @@ use sha2::{Digest, Sha256};
 use toml_edit::{DocumentMut, Item, Table, value};
 
 use super::mirror::{Mirror, Scaling};
-use super::{Output, Outputs};
+use super::{ENABLED, MODE, Output, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::atomic;
-use crate::command::output::{Mode, Transform};
+use crate::command::output::{Mode, Transform, parse_position};
+use crate::registry::Value;
+use crate::state::State;
 
 const VERSION: i64 = 1;
 
@@ -65,17 +67,20 @@ pub struct Setup {
 }
 
 impl Setup {
+    /// Off.
+    const OFF: Self = Self {
+        enabled: false,
+        mode: None,
+        position: None,
+        scale: None,
+        transform: None,
+        mirror: None,
+    };
+
     /// How `output` runs now.
     fn of(output: &Output) -> Self {
         if !output.is_enabled() {
-            return Self {
-                enabled: false,
-                mode: None,
-                position: None,
-                scale: None,
-                transform: None,
-                mirror: None,
-            };
+            return Self::OFF;
         }
         Self {
             enabled: true,
@@ -85,6 +90,68 @@ impl Setup {
             transform: output.transform(),
             mirror: None,
         }
+    }
+
+    /// How `output` is set up by what `state` stores for it, with what it runs with now where
+    /// nothing (or nothing readable) is stored.
+    fn stored(output: &Output, state: &State) -> Self {
+        let identifier = output.identifier();
+        let value = |key: &str| {
+            state
+                .get(key, Some(identifier))
+                .cloned()
+                .or_else(|| output.session_value(key))
+        };
+        let enabled = match value(ENABLED) {
+            Some(Value::Bool(enabled)) => enabled,
+            _ => output.is_enabled(),
+        };
+        if !enabled {
+            return Self::OFF;
+        }
+        let text = |key: &str| match value(key) {
+            Some(Value::Text(text) | Value::Choice(text)) => Some(text),
+            _ => None,
+        };
+        Self {
+            enabled: true,
+            mode: text(MODE)
+                .and_then(|text| Mode::parse(&text).ok())
+                .or_else(|| output.mode()),
+            position: text(POSITION)
+                .and_then(|text| parse_position(&text).ok())
+                .or_else(|| output.rect().map(|rect| (rect.x, rect.y))),
+            scale: match value(SCALE) {
+                Some(Value::Decimal(scale)) => Some(scale),
+                _ => output.scale(),
+            },
+            transform: text(TRANSFORM)
+                .and_then(|name| Transform::from_name(&name))
+                .or_else(|| output.transform()),
+            mirror: None,
+        }
+    }
+
+    /// The values of the Displays settings that set a display up like this, by key: whether it
+    /// is on, and for one that is on, what is known of its mode, position, scale and rotation.
+    pub fn values(&self) -> Vec<(&'static str, Value)> {
+        let mut values = vec![(ENABLED, Value::Bool(self.enabled))];
+        if !self.enabled {
+            return values;
+        }
+        if let Some(mode) = self.mode {
+            values.push((MODE, Value::Text(mode.to_string())));
+        }
+        if let Some((x, y)) = self.position {
+            values.push((POSITION, Value::Text(format!("{x},{y}"))));
+        }
+        if let Some(scale) = self.scale {
+            values.push((SCALE, Value::Decimal(scale)));
+        }
+        if let Some(transform) = self.transform {
+            values.push((TRANSFORM, Value::Choice(transform.name().to_owned())));
+        }
+        values
     }
 }
 
@@ -109,6 +176,42 @@ impl Profile {
         let any_on = connected.values().any(|setup| setup.enabled);
         (any_on).then_some(Self {
             outputs: connected,
+            workspaces: BTreeMap::new(),
+        })
+    }
+
+    /// How the connected outputs of `outputs` are set up by what `state` stores for them, with
+    /// what they run with now where nothing is stored. `None` if none is connected, or if every
+    /// one would be off.
+    pub fn stored(outputs: &Outputs, state: &State) -> Option<Self> {
+        let connected: BTreeMap<String, Setup> = outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(|output| (output.identifier().to_owned(), Setup::stored(output, state)))
+            .collect();
+        let any_on = connected.values().any(|setup| setup.enabled);
+        any_on.then_some(Self {
+            outputs: connected,
+            workspaces: BTreeMap::new(),
+        })
+    }
+
+    /// The displays `names` set up by what `state` stores for them, for a combination that
+    /// isn't connected any more (nothing runs to fill in what isn't stored). `None` if every
+    /// one would be off.
+    pub fn stored_for(names: &[String], state: &State) -> Option<Self> {
+        let outputs: BTreeMap<String, Setup> = names
+            .iter()
+            .map(|name| {
+                (
+                    name.clone(),
+                    Setup::stored(&Output::disconnected(name), state),
+                )
+            })
+            .collect();
+        let any_on = outputs.values().any(|setup| setup.enabled);
+        any_on.then_some(Self {
+            outputs,
             workspaces: BTreeMap::new(),
         })
     }
@@ -585,6 +688,37 @@ mod tests {
         let mut again = Profiles::load(&path).unwrap();
         assert!(!again.remember(Profile::capture(&outputs(DOCK)).unwrap()));
         assert_eq!(again.iter().count(), 1);
+    }
+
+    #[test]
+    fn a_profile_is_made_of_the_stored_values_and_what_runs_where_none_is() {
+        let (_dir, state) = crate::generate::tests::state(
+            "version = 1\n\
+             [display.\"Dell U27 ABC\".output]\nscale = 1.25\nposition = \"1920,0\"\n\
+             [display.eDP-1.output]\nenabled = true\n",
+            "version = 1\n",
+        );
+        let profile = Profile::stored(&outputs(DOCK), &state).unwrap();
+        let setups: Vec<(&str, &super::Setup)> = profile.outputs().collect();
+        let (_, dell) = setups[0];
+        assert_eq!(dell.scale, Some(1.25));
+        assert_eq!(dell.position, Some((1920, 0)));
+        // Not stored: as it runs.
+        assert_eq!(
+            dell.mode.map(|mode| mode.to_string()).as_deref(),
+            Some("2560x1440@59.951Hz")
+        );
+        // Stored as on, though off now: on, the rest left to sway.
+        let (_, panel) = setups[1];
+        assert!(panel.enabled);
+        assert_eq!(panel.scale, None);
+        // Its values are what the settings store.
+        let values = dell.values();
+        assert!(values.contains(&("output.scale", crate::registry::Value::Decimal(1.25))));
+        assert!(values.contains(&(
+            "output.position",
+            crate::registry::Value::Text("1920,0".to_owned())
+        )));
     }
 
     #[test]

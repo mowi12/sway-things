@@ -710,14 +710,23 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   would leave none on. Switching every output at once isn't offered: it is one at a time.
 - **kanshi (profiles per combination):** `generate::Displays::detect` makes kanshi the display backend when it is
   installed (`kanshi` in `$PATH`) and its config includes ours, or there is none (it is then created with the include
-  line). Nothing is run. With kanshi, changes of per-output settings are live only (`Applier::is_live_only`): sent,
-  never stored in the settings, and nothing waits for a reload. Instead, when the settings are saved after a per-output
-  setting changed (`Applier::touch`) and no risky change waits, `Applier::remember_displays` captures how the connected
-  outputs run (`outputs::profiles::Profile`) and remembers it for their combination in `displays.toml` next to the
-  settings files (`Profiles`), writes `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile
-  per combination named `sway-things-<hash>`, then `sway-things-any` with `...output * enable`, which switches on every
-  display of a combination no profile matches, so none stays dark; a combination with every display off is never
-  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds).
+  line). Nothing is run. With kanshi, per-output settings are stored as always, so a row shows exactly the value set
+  (never a value sway reports back, like a scale of 1.2999999523, which a control would send again) and the canvas flows
+  the layout along with a new size. They stand for the combination connected now: `Applier::follow_combination` (the app
+  runs it whenever sway reports a change of the outputs, the command line before a change of a display) replaces them
+  with the profile of a combination that comes back, or with what the displays run with for one never set up here, and
+  drops the values of displays that aren't connected; until a setting of the displays changes here, they keep following,
+  and never while a risky change waits. Nothing is sent: kanshi sets the displays up. When the settings are saved after
+  a per-output setting changed (`Applier::touch`) and no risky change waits, `Applier::remember_displays` makes the
+  profile of the connected outputs from the stored values (`outputs::profiles::Profile::stored`, what they run with
+  where nothing is stored) and remembers it for their combination in `displays.toml` next to the settings files
+  (`Profiles`), unless the combination changed since the values were made for it, writes
+  `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per combination named
+  `sway-things-<hash>`, then `sway-things-any` with `...output * enable`, which switches on every display of a
+  combination no profile matches, so none stays dark; a combination with every display off is never remembered nor
+  written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our include starts
+  kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`), not only at the next login. sway
+  reports a scale as a 32-bit float; `Output` rounds it to six places, which is the scale that was set.
   `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the user's config except to
   create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always with kanshi), and
   `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`, not counting our files) and no
@@ -728,8 +737,9 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   two seconds) and writes the files when the answer changes; `doctor` compares against the same and checks no conflicts
   of per-output settings meanwhile. With kanshi installed, `doctor` reports a kanshi config without our include (with
   the command that appends it), a file of someone else's in the place of ours, and a profile of the user's that covers a
-  remembered combination (`kanshi::user_profiles`), since kanshi applies the first that matches. Rows show what the
-  displays run with. A model made for tests never looks.
+  remembered combination (`kanshi::user_profiles`), since kanshi applies the first that matches. The rows of the
+  displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for every
+  machine. A model made for tests never looks.
 - **Workspace placement:** `outputs::workspaces` maps workspaces `1` to `10` to displays by their name in the settings,
   per combination in `displays.toml` (`[[profile]] workspaces`), opt-in with `[workspaces] place = true`. Presets round
   the displays left to right or fill them in blocks; `current` reads `GET_WORKSPACES`. `commands` declares

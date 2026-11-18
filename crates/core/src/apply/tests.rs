@@ -1993,7 +1993,7 @@ fn a_value_that_runs_already_still_waits_when_it_replaces_a_trial() {
 }
 
 #[test]
-fn while_kanshi_sets_up_the_displays_their_changes_are_live_only() {
+fn while_kanshi_sets_up_the_displays_their_changes_are_stored_as_always() {
     let sway = desk();
     let mut setup = Setup::live(&sway, "version = 1\n");
     setup
@@ -2007,29 +2007,167 @@ fn while_kanshi_sets_up_the_displays_their_changes_are_live_only() {
     ))
     .unwrap();
     assert_eq!(applied.effect, live(&[r#"output "A B C" scale 1.5"#]));
-    // Changed in effect, though not stored.
     assert!(applied.changed);
-    assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
-    // A risky change kept: in effect, not stored either.
+    // Stored, so the page shows exactly it and the profile of the combination is made of it.
+    assert_eq!(
+        setup.applier.state().get(SCALE, Some(PANEL)),
+        Some(&Value::Decimal(1.5))
+    );
     setup
         .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
         .unwrap();
     setup.applier.keep(&setup.access).unwrap();
-    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
-    // Without the safety net (`set --yes`): not stored either.
-    let applied = block_on(setup.applier.set_risky_unchecked(
-        MODE,
-        Some(PANEL),
-        Value::Text("1280x720".to_owned()),
-        &setup.access,
-    ))
-    .unwrap();
-    assert!(applied.changed);
-    assert_eq!(setup.applier.state().get(MODE, Some(PANEL)), None);
-    // Other settings are stored as always.
-    setup.set(GAPS, Value::Integer(8)).unwrap();
     assert_eq!(
-        setup.applier.state().get(GAPS, None),
-        Some(&Value::Integer(8))
+        setup.applier.state().get(MODE, Some(PANEL)),
+        Some(&Value::Text("1280x720".to_owned()))
+    );
+    // None of it is in the generated file: kanshi sets the displays up.
+    let output = setup
+        .applier
+        .generate()
+        .into_iter()
+        .find(|file| file.file() == crate::registry::ConfigFile::Output)
+        .unwrap()
+        .text();
+    assert!(!output.contains("scale 1.5"), "{output}");
+}
+
+#[test]
+fn the_stored_displays_follow_the_combination_kanshi_set_up() {
+    let sway = desk();
+    // A value of another combination's display, and one of the panel kanshi changed since.
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\
+         [display.\"X Y Z\".output]\nscale = 2.0\n\
+         [display.\"A B C\".output]\nscale = 1.5\n",
+    );
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    // Never set up here: what the displays run with.
+    assert!(block_on(setup.applier.follow_combination()).unwrap());
+    let state = setup.applier.state();
+    assert_eq!(state.get(SCALE, Some("X Y Z")), None);
+    assert_eq!(state.get(SCALE, Some(PANEL)), Some(&Value::Decimal(1.0)));
+    assert_eq!(
+        state.get(MODE, Some(PANEL)),
+        Some(&Value::Text("1920x1080@60Hz".to_owned()))
+    );
+    assert_eq!(state.get(ENABLED, Some("D E F")), Some(&Value::Bool(false)));
+    // Nothing more to follow.
+    assert!(!block_on(setup.applier.follow_combination()).unwrap());
+    // A change made here isn't undone before it is remembered.
+    block_on(
+        setup
+            .applier
+            .set(SCALE, Some(PANEL), Value::Decimal(1.25), &setup.access),
+    )
+    .unwrap();
+    assert!(!block_on(setup.applier.follow_combination()).unwrap());
+    assert_eq!(
+        setup.applier.state().get(SCALE, Some(PANEL)),
+        Some(&Value::Decimal(1.25))
+    );
+}
+
+#[test]
+fn a_change_not_saved_yet_is_remembered_for_the_displays_that_went() {
+    let desk = r#"[
+      {"name": "eDP-1", "active": true, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "scale": 1.0, "transform": "normal",
+       "modes": [{"width": 1920, "height": 1080, "refresh": 60000}],
+       "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
+       "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}},
+      {"name": "HDMI-A-1", "active": true, "primary": false, "make": "D", "model": "E",
+       "serial": "F", "scale": 1.0, "transform": "normal",
+       "modes": [{"width": 1920, "height": 1080, "refresh": 60000}],
+       "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
+       "rect": {"x": 1920, "y": 0, "width": 1920, "height": 1080}}
+    ]"#;
+    let alone = r#"[
+      {"name": "eDP-1", "active": true, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "scale": 1.0, "transform": "normal",
+       "modes": [{"width": 1920, "height": 1080, "refresh": 60000}],
+       "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
+       "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}}
+    ]"#;
+    let connected = std::sync::Arc::new(std::sync::Mutex::new(desk));
+    let reported = std::sync::Arc::clone(&connected);
+    let sway = FakeSway::with_version(SWAY, move |kind, _| match kind {
+        crate::ipc::wire::GET_OUTPUTS => message(kind, &reported.lock().unwrap()),
+        crate::ipc::wire::GET_INPUTS => message(kind, "[]"),
+        _ => message(kind, r#"[{"success": true}]"#),
+    });
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let path = setup.dir.path().join("displays.toml");
+    setup
+        .applier
+        .set_profiles(crate::outputs::profiles::Profiles::empty(&path));
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    block_on(setup.applier.follow_combination()).unwrap();
+    block_on(
+        setup
+            .applier
+            .set(SCALE, Some(PANEL), Value::Decimal(1.25), &setup.access),
+    )
+    .unwrap();
+    // Unplugged before the change was saved.
+    *connected.lock().unwrap() = alone;
+    block_on(setup.applier.follow_combination()).unwrap();
+    let profiles = setup.applier.profiles().unwrap();
+    let docked = profiles.of(&[PANEL, "D E F"]).unwrap();
+    let panel = docked.outputs().find(|(name, _)| *name == PANEL).unwrap().1;
+    assert_eq!(panel.scale, Some(1.25));
+    // The panel alone runs as it does now.
+    assert_eq!(
+        setup.applier.state().get(SCALE, Some(PANEL)),
+        Some(&Value::Decimal(1.0))
+    );
+}
+
+#[test]
+fn a_remembered_combination_brings_its_values_back() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let path = setup.dir.path().join("displays.toml");
+    std::fs::write(
+        &path,
+        "version = 1\n\
+         [[profile]]\n\
+         [profile.output.\"A B C\"]\nenabled = true\nmode = \"1280x720@60Hz\"\n\
+         position = \"0,0\"\nscale = 1.75\ntransform = \"normal\"\n\
+         [profile.output.\"D E F\"]\nenabled = false\n",
+    )
+    .unwrap();
+    setup
+        .applier
+        .set_profiles(crate::outputs::profiles::Profiles::load(&path).unwrap());
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    assert!(block_on(setup.applier.follow_combination()).unwrap());
+    let state = setup.applier.state();
+    assert_eq!(state.get(SCALE, Some(PANEL)), Some(&Value::Decimal(1.75)));
+    assert_eq!(
+        state.get(MODE, Some(PANEL)),
+        Some(&Value::Text("1280x720@60Hz".to_owned()))
+    );
+    assert_eq!(state.get(ENABLED, Some("D E F")), Some(&Value::Bool(false)));
+}
+
+#[test]
+fn without_kanshi_the_stored_displays_stay_as_they_are() {
+    let sway = desk();
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n[display.\"X Y Z\".output]\nscale = 2.0\n",
+    );
+    assert!(!block_on(setup.applier.follow_combination()).unwrap());
+    assert_eq!(
+        setup.applier.state().get(SCALE, Some("X Y Z")),
+        Some(&Value::Decimal(2.0))
     );
 }

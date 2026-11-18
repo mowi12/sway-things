@@ -61,9 +61,9 @@ use crate::i18n::Text;
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::msg;
-use crate::outputs::Outputs;
 use crate::outputs::kanshi::{self, KanshiFiles};
 use crate::outputs::profiles::{Profile, Profiles, kanshi_config};
+use crate::outputs::{ENABLED, MODE, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::registry::{
     Apply, ConfigFile, Registry, RenderError, Scope, Setting, SwayMapping, Value, Values,
 };
@@ -184,6 +184,9 @@ pub struct Applier<V = SwayValidator> {
     displays_touched: bool,
     /// What went wrong with the remembered displays or kanshi's files, to tell the user once.
     displays_problem: Option<String>,
+    /// While kanshi sets up the displays: the combination of displays (their names, sorted)
+    /// the stored values of the displays were made for; `None` until known.
+    combination: Option<Vec<String>>,
 }
 
 impl Applier<SwayValidator> {
@@ -270,6 +273,7 @@ impl<V: Validate> Applier<V> {
             kanshi_files: None,
             displays_touched: false,
             displays_problem: None,
+            combination: None,
         }
     }
 
@@ -297,6 +301,7 @@ impl<V: Validate> Applier<V> {
             kanshi_files: None,
             displays_touched: false,
             displays_problem: None,
+            combination: None,
         }
     }
 
@@ -448,25 +453,9 @@ impl<V: Validate> Applier<V> {
         if changed {
             self.state.set(key, device, value, None)?;
         }
-        let saved = before.clone();
         let applied = self.finish(setting, device, changed, before).await?;
-        if self.is_live_only(setting) {
-            // kanshi sets up the displays: the change is live only, nothing is stored.
-            self.state = saved;
-            return Ok(Applied {
-                changed,
-                effect: applied.effect,
-                not_copied: Vec::new(),
-            });
-        }
         self.note(setting, device, &applied.effect, was);
         Ok(applied)
-    }
-
-    /// Whether a change of `setting` is live only and never stored: a setting of the displays
-    /// while kanshi sets them up.
-    pub(crate) fn is_live_only(&self, setting: &Setting) -> bool {
-        self.displays.is_kanshi() && setting.scope() == Scope::PerOutput
     }
 
     /// Removes the stored value of `key`, so Sway Things no longer manages the setting, and sends
@@ -495,10 +484,7 @@ impl<V: Validate> Applier<V> {
             });
         }
         let applied = self.finish(setting, device, true, before).await?;
-        // kanshi sets up the displays: nothing waits for a reload of sway.
-        if !self.is_live_only(setting) {
-            self.note(setting, device, &applied.effect, was);
-        }
+        self.note(setting, device, &applied.effect, was);
         Ok(applied)
     }
 
@@ -701,11 +687,7 @@ impl<V: Validate> Applier<V> {
         // A value for every output (`output * scale 2`) takes the place of each output's own one
         // in sway, unlike in the generated file, where the outputs' own lines come after: they
         // are sent again, so the session is as sway will read the file.
-        // While kanshi sets up the displays, nothing stored for them is in effect: none is sent.
-        let own: Vec<SwayCmd> = if setting.scope() == Scope::PerOutput
-            && device.is_none()
-            && !self.is_live_only(setting)
-        {
+        let own: Vec<SwayCmd> = if setting.scope() == Scope::PerOutput && device.is_none() {
             let outputs: Vec<String> = self
                 .state
                 .entries()
@@ -779,10 +761,12 @@ impl<V: Validate> Applier<V> {
         Ok(persisted)
     }
 
-    /// While kanshi sets up the displays: remembers how the connected ones run for their
-    /// combination, writes the profiles for kanshi and has kanshi read them again. Not while a
-    /// risky change waits (that isn't kept yet), nor without a session. Best effort: what can't
-    /// be written is tried again at the next save.
+    /// While kanshi sets up the displays: remembers how the connected ones are set up here (the
+    /// stored values, and what they run with where nothing is stored) for their combination,
+    /// writes the profiles for kanshi and has kanshi read them again. Not while a risky change
+    /// waits (that isn't kept yet), nor without a session, nor for a combination other than the
+    /// one the stored values were made for ([`Applier::follow_combination`]). Best effort: what
+    /// can't be written is tried again at the next save.
     async fn remember_displays(&mut self) {
         if !self.displays.is_kanshi() || self.pending.is_some() || !self.displays_touched {
             return;
@@ -793,7 +777,15 @@ impl<V: Validate> Applier<V> {
         let Ok(found) = client.outputs().await else {
             return;
         };
-        if let Some(profile) = Profile::capture(&Outputs::new(&found)) {
+        let outputs = Outputs::new(&found);
+        if self
+            .combination
+            .as_ref()
+            .is_some_and(|combination| *combination != combination_of(&outputs))
+        {
+            return;
+        }
+        if let Some(profile) = Profile::stored(&outputs, &self.state) {
             if profiles.remember(profile) {
                 if let Err(error) = profiles.save() {
                     self.displays_problem = Some(format!(
@@ -805,9 +797,122 @@ impl<V: Validate> Applier<V> {
             }
         }
         self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        // The generated config starts kanshi, but it doesn't run yet (the displays are set up
+        // here for the first time): sway starts it now, so the arrangement doesn't wait for the
+        // next login to come back with the displays.
+        let starts = matches!(self.displays, generate::Displays::Kanshi { start: true });
+        if self.displays_problem.is_none() && starts && !crate::outputs::kanshi_runs() {
+            let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
+        }
         // Written: nothing more to remember until a setting of the displays changes; else tried
         // again at the next save.
         self.displays_touched = self.displays_problem.is_some();
+    }
+
+    /// While kanshi sets up the displays: has the stored values of the displays follow the
+    /// combination that is connected, so the page shows what kanshi set up. When the
+    /// combination changes, the values of its profile take the place of what was stored for the
+    /// displays (for a combination never set up here: what the displays run with now), and the
+    /// values of displays that aren't connected are removed. Until a setting of the displays
+    /// changes here, the values keep following the combination's profile, or what the displays
+    /// run with. Nothing is sent: kanshi sets the displays up. Not while a risky change waits.
+    /// Returns whether the stored values changed.
+    ///
+    /// # Errors
+    ///
+    /// The IPC errors of asking sway, and [`ApplyError::State`] if a value can't be stored.
+    pub async fn follow_combination(&mut self) -> Result<bool, ApplyError> {
+        if !self.displays.is_kanshi() || self.pending.is_some() {
+            return Ok(false);
+        }
+        let Some(client) = &mut self.client else {
+            return Ok(false);
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        let combination = combination_of(&outputs);
+        if combination.is_empty() {
+            return Ok(false);
+        }
+        if self.combination.as_ref() == Some(&combination) {
+            if self.displays_touched {
+                return Ok(false);
+            }
+        } else {
+            // A change made here for the displays connected before, not remembered yet (the
+            // combination changed within the delay before saving): remembered for theirs now,
+            // before the values follow the new one.
+            let before = self.combination.replace(combination.clone());
+            if let Some(before) = before.filter(|_| self.displays_touched) {
+                self.remember_combination(&before).await;
+            }
+            self.displays_touched = false;
+        }
+        let names: Vec<&str> = combination.iter().map(String::as_str).collect();
+        let profile = self
+            .profiles
+            .as_ref()
+            .and_then(|profiles| profiles.of(&names))
+            .cloned()
+            .or_else(|| Profile::capture(&outputs));
+        let Some(profile) = profile else {
+            return Ok(false);
+        };
+        let mut changed = false;
+        let stale: Vec<(&'static str, String)> = self
+            .state
+            .entries()
+            .into_iter()
+            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
+            .filter(|(_, device)| !combination.contains(device))
+            .collect();
+        for (key, device) in &stale {
+            changed |= self.state.reset(key, Some(device))?;
+        }
+        for (name, setup) in profile.outputs() {
+            let values = setup.values();
+            for key in [ENABLED, MODE, POSITION, SCALE, TRANSFORM] {
+                let wanted = values
+                    .iter()
+                    .find(|(wanted, _)| *wanted == key)
+                    .map(|(_, value)| value);
+                match wanted {
+                    Some(value) if self.state.get(key, Some(name)) != Some(value) => {
+                        self.state.set(key, Some(name), value.clone(), None)?;
+                        changed = true;
+                    }
+                    Some(_) => {}
+                    None => changed |= self.state.reset(key, Some(name))?,
+                }
+            }
+        }
+        if changed {
+            self.unsaved_since = Some(Instant::now());
+            self.waiting.settle(&self.state);
+        }
+        Ok(changed)
+    }
+
+    /// Remembers the stored values of the displays `names`, a combination that isn't connected
+    /// any more, for that combination, and writes the profiles for kanshi. Best effort, like
+    /// [`Applier::remember_displays`].
+    async fn remember_combination(&mut self, names: &[String]) {
+        let Some(profiles) = &mut self.profiles else {
+            return;
+        };
+        let Some(profile) = Profile::stored_for(names, &self.state) else {
+            return;
+        };
+        if profiles.remember(profile) {
+            if let Err(error) = profiles.save() {
+                self.displays_problem = Some(format!(
+                    "the displays can't be remembered in {}: {error}",
+                    profiles.path().display()
+                ));
+                return;
+            }
+        }
+        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
     }
 
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
@@ -842,7 +947,7 @@ impl<V: Validate> Applier<V> {
             });
         };
         let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
-        let Some(captured) = Profile::capture(&outputs) else {
+        let Some(captured) = Profile::stored(&outputs, &self.state) else {
             return Ok(());
         };
         let combination: Vec<String> = captured
@@ -899,6 +1004,12 @@ impl<V: Validate> Applier<V> {
         self.kanshi_files.as_ref()
     }
 
+    /// Uses `profiles` as the setups of the displays remembered per combination.
+    #[cfg(test)]
+    pub(crate) fn set_profiles(&mut self, profiles: Profiles) {
+        self.profiles = Some(profiles);
+    }
+
     /// The setups of the displays remembered per combination, if they could be loaded.
     pub fn profiles(&self) -> Option<&Profiles> {
         self.profiles.as_ref()
@@ -924,7 +1035,7 @@ impl<V: Validate> Applier<V> {
         profiles.set_places_workspaces(place);
         if let Some(placement) = placement {
             let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
-            if let Some(mut profile) = Profile::capture(&outputs) {
+            if let Some(mut profile) = Profile::stored(&outputs, &self.state) {
                 let names: Vec<&str> = profile.combination();
                 if let Some(known) = profiles.of(&names) {
                     profile = known.clone();
@@ -1084,6 +1195,17 @@ impl<V: Values> Values for Over<'_, V> {
 
 /// The commands that set the directive of `setting` to its values in `state`, with those in
 /// `over` in place of the state's.
+/// The names of the connected displays of `outputs`, sorted: their combination.
+fn combination_of(outputs: &Outputs) -> Vec<String> {
+    let mut names: Vec<String> = outputs
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(|output| output.identifier().to_owned())
+        .collect();
+    names.sort_unstable();
+    names
+}
+
 fn render(
     state: &State,
     over: &BTreeMap<String, Value>,

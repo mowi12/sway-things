@@ -109,7 +109,7 @@ mod imp {
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use sway_things_core::registry::Setting;
+    use sway_things_core::registry::{Setting, Value};
 
     use crate::model::Model;
 
@@ -125,6 +125,12 @@ mod imp {
         pub(super) control: OnceCell<super::Control>,
         /// Set while the row writes a value into its control, so that isn't sent as a change.
         pub(super) updating: Cell<bool>,
+        /// Set while a pointer button is down on a number control whose changes wait for it
+        /// ([`super::SettingRow::defers`]).
+        pub(super) held: Cell<bool>,
+        /// The value of such a control that waits to be sent, and the timer that sends it.
+        pub(super) unsent: RefCell<Option<Value>>,
+        pub(super) commit: RefCell<Option<glib::SourceId>>,
         /// Set for a member of a group, whose row shows the line of the sway config instead.
         pub(super) grouped: Cell<bool>,
         pub(super) title: gtk::Label,
@@ -556,7 +562,12 @@ impl SettingRow {
     ) {
         let imp = self.imp();
         let Some(model) = imp.model.get() else { return };
-        let layer = model.stored_in(setting, device);
+        // While kanshi sets up the displays, each of their values is remembered for the
+        // combination as it is: there is no value of all displays to go back to, and nothing
+        // only for this machine.
+        let layer = model
+            .stored_in(setting, device)
+            .filter(|_| !(model.kanshi_runs() && setting.scope() == Scope::PerOutput));
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
         imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
@@ -688,6 +699,25 @@ impl SettingRow {
         if imp.device.borrow().as_deref() == device {
             return;
         }
+        // A value that waits belongs to the display shown so far: sent for it now, unless it
+        // went (that is why another one is shown).
+        if let Some(planned) = imp.commit.take() {
+            planned.remove();
+        }
+        imp.held.set(false);
+        let unsent = imp.unsent.take();
+        let shown = imp.device.borrow().clone();
+        let still_there = imp.model.get().is_some_and(|model| {
+            model.outputs().is_some_and(|outputs| {
+                shown
+                    .as_deref()
+                    .and_then(|shown| outputs.get(shown))
+                    .is_some_and(sway_things_core::outputs::Output::is_connected)
+            })
+        });
+        if let Some(value) = unsent.filter(|_| still_there || shown.is_none()) {
+            self.send(value);
+        }
         imp.device.replace(device.map(str::to_owned));
         self.show_error(None);
         self.refresh();
@@ -788,6 +818,96 @@ impl SettingRow {
         model.set(setting.key(), imp.device.borrow().as_deref(), value);
     }
 
+    /// Whether the changes of the row's number control wait until the pointer is let go and
+    /// the control stayed still for a moment: for a display's scale. A display that changes its
+    /// scale changes the size of every window on it, the app's too, under the pointer: a change
+    /// sent while a button is down (a slider dragged, a step button held) would move what the
+    /// pointer is on, and the button could be let go elsewhere, leaving the step button
+    /// repeating.
+    fn defers(&self) -> bool {
+        self.setting()
+            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+    }
+
+    /// Sends `value` from the number control: at once, or for a control that defers
+    /// ([`SettingRow::defers`]) once the pointer is let go and the control stayed still.
+    fn send_number(&self, value: Value) {
+        if self.imp().updating.get() {
+            return;
+        }
+        if !self.defers() {
+            self.send(value);
+            return;
+        }
+        self.imp().unsent.replace(Some(value));
+        self.plan_commit();
+    }
+
+    /// Sends the value that waits after [`COMMIT_DELAY`], unless a button is down then.
+    fn plan_commit(&self) {
+        let imp = self.imp();
+        if let Some(planned) = imp.commit.take() {
+            planned.remove();
+        }
+        let planned = glib::timeout_add_local_once(
+            COMMIT_DELAY,
+            glib::clone!(
+                #[weak(rename_to = row)]
+                self,
+                move || {
+                    let imp = row.imp();
+                    // It fired: nothing to remove any more.
+                    imp.commit.replace(None);
+                    // Sent when the button is let go.
+                    if imp.held.get() {
+                        return;
+                    }
+                    if let Some(value) = imp.unsent.take() {
+                        row.send(value);
+                    }
+                }
+            ),
+        );
+        imp.commit.replace(Some(planned));
+    }
+
+    /// Follows whether a pointer button is down on `widget`, a part of a number control that
+    /// defers: the value waits while it is, and is sent a moment after it is let go.
+    fn follow_presses(&self, widget: &gtk::Widget) {
+        let presses = gtk::EventControllerLegacy::new();
+        presses.set_propagation_phase(gtk::PropagationPhase::Capture);
+        presses.connect_event(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, event| {
+                match event.event_type() {
+                    gtk::gdk::EventType::ButtonPress | gtk::gdk::EventType::TouchBegin => {
+                        row.imp().held.set(true);
+                    }
+                    gtk::gdk::EventType::ButtonRelease
+                    | gtk::gdk::EventType::TouchEnd
+                    | gtk::gdk::EventType::TouchCancel => {
+                        row.imp().held.set(false);
+                        if row.imp().unsent.borrow().is_some() {
+                            row.plan_commit();
+                        }
+                    }
+                    _ => {}
+                }
+                glib::Propagation::Proceed
+            }
+        ));
+        widget.add_controller(presses);
+    }
+
+    /// Whether the number control shows a value that isn't sent yet.
+    fn holds_unsent(&self) -> bool {
+        let imp = self.imp();
+        imp.held.get() || imp.unsent.borrow().is_some()
+    }
+
     /// Shows the value in effect and whether it can be changed.
     fn refresh(&self) {
         let imp = self.imp();
@@ -801,7 +921,7 @@ impl SettingRow {
             return;
         };
         // While a newer value is on its way, the control already shows it.
-        if !model.is_pending(setting.key(), device.as_deref()) {
+        if !model.is_pending(setting.key(), device.as_deref()) && !self.holds_unsent() {
             imp.updating.set(true);
             show_value(control, setting, &view.value);
             imp.updating.set(false);
@@ -880,7 +1000,7 @@ impl SettingRow {
                         row.imp().updating.set(true);
                         spin.set_value(value);
                         row.imp().updating.set(false);
-                        row.send(number(value, whole));
+                        row.send_number(number(value, whole));
                     }
                 ));
                 spin.connect_value_changed(glib::clone!(
@@ -896,9 +1016,13 @@ impl SettingRow {
                         row.imp().updating.set(true);
                         scale.set_value(value);
                         row.imp().updating.set(false);
-                        row.send(number(value, whole));
+                        row.send_number(number(value, whole));
                     }
                 ));
+                if self.defers() {
+                    self.follow_presses(scale.upcast_ref());
+                    self.follow_presses(spin.upcast_ref());
+                }
             }
             Control::Choice { dropdown, ids } => {
                 let ids = ids.clone();
@@ -1071,6 +1195,10 @@ fn control(setting: &'static Setting) -> Option<Control> {
         Kind::List { .. } => Control::None,
     })
 }
+
+/// How long a number control whose changes wait ([`SettingRow::defers`]) stays still before its
+/// value is sent: clicks on its buttons in a row become one change.
+const COMMIT_DELAY: std::time::Duration = std::time::Duration::from_millis(600);
 
 /// The share of a slider's range around the default in which dragging locks to the default.
 const SNAP_ZONE: f64 = 0.02;

@@ -154,9 +154,10 @@ fn session_values_are_what_sway_runs_with() {
         laptop.session_value("output.position"),
         Some(Value::Text("5120,304".to_owned()))
     );
+    // sway reports 1.3 as the 32-bit float 1.2999999523: it is the scale that was set.
     assert_eq!(
         laptop.session_value("output.scale"),
-        Some(Value::Decimal(1.299_999_952_316_284_2))
+        Some(Value::Decimal(1.3))
     );
     assert_eq!(
         desk.get(LEFT).unwrap().session_value("output.transform"),

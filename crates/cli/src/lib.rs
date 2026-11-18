@@ -335,13 +335,26 @@ fn note_kanshi<V: Validate>(
     }
     if reset {
         io.note(tr(msg!(
-            "kanshi sets up the displays: the stored value is removed, and kanshi's profile \
-             applies again when it next sets up the displays."
+            "kanshi sets up the displays: what the display runs with now is remembered for the \
+             displays connected now."
         )));
     } else {
         io.note(tr(msg!(
-            "kanshi sets up the displays: the change takes effect now and isn't stored."
+            "kanshi sets up the displays: the change is remembered for the displays connected \
+             now, and kanshi brings it back whenever they are."
         )));
+    }
+}
+
+/// Before a change of a display's setting while kanshi sets up the displays: has the stored
+/// values of the displays follow the combination connected now, so the change is remembered for
+/// it with the rest as kanshi set it up. Best effort: says on stderr what went wrong.
+async fn follow_combination<V: Validate>(session: &mut Session<V>, key: &str, io: &mut Io<'_>) {
+    if !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
+        return;
+    }
+    if let Err(error) = session.applier.follow_combination().await {
+        io.note(error_line(&error));
     }
 }
 
@@ -647,6 +660,7 @@ pub async fn run<V: Validate>(
                 layer,
                 yes: *yes,
             };
+            follow_combination(session, key, &mut io).await;
             let exit = set(session, &change, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, false, &mut io);
             exit
@@ -663,6 +677,7 @@ pub async fn run<V: Validate>(
                 device: device.as_deref(),
                 yes: *yes,
             };
+            follow_combination(session, key, &mut io).await;
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, true, &mut io);
             exit
@@ -1016,9 +1031,7 @@ async fn set<V: Validate>(
         Ok(applied) => applied,
         Err(error) => return fail(io, &error),
     };
-    // A change that is live only (a display's, while kanshi sets them up) has nothing to move.
-    let live_only = session.applier.displays().is_kanshi() && setting.scope() == Scope::PerOutput;
-    if let Some(layer) = change.layer.filter(|_| !live_only) {
+    if let Some(layer) = change.layer {
         if let Err(error) = session.applier.move_to(key, device, layer, &access) {
             return fail(io, &error);
         }

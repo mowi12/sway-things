@@ -63,7 +63,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   from 200 to 120 px first. On a narrower row the controls move below the text, aligned to the end, so the text never
   gets squeezed. Each row decides for itself: a switch stays beside its text where a slider has already moved below.
 - **Sliders** mark the setting's default on their track and snap to it while dragged with the pointer (within 2 % of the
-  range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact.
+  range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact. A display's scale is
+  sent only once the pointer is let go and the control stood still for 0.6 s, so steps in a row are one change: the
+  display (often the one the app is on) changes size under the pointer with each one, and a change while the button is
+  down would move what the pointer is on.
 - **Grouped rows:** settings that are values of one directive (the five colors of `client.focused`) share one row with
   the group's title (_Focused window_), a compact summary of their values (a swatch per color, else the values), the
   directive once in monospace (while _Show sway directives_ is on) and a chevron. It starts collapsed; a click, `Enter`
@@ -154,12 +157,14 @@ new mode, a rotation and switching an output off go through the safety net.
   on again (also at a reload, so `$mod+Shift+c` brings a display back after undocking). A display that is on although it
   is stored as off says _On for now: no other display was on_.
 - **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
-- **Remembered per combination:** with kanshi installed, every combination of displays is remembered on its own: what
-  the displays run with when the page saves is kanshi's profile for that combination, and kanshi brings it back whenever
-  those displays are connected together, also without the app. Nothing is named or picked by hand. A note above the
-  canvas says so (and that kanshi starts with the next login, if nothing starts it yet). Without the include line in an
-  existing kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes
-  this happen. Any one display alone always comes on, so no combination stays dark.
+- **Remembered per combination:** with kanshi installed, every combination of displays is remembered on its own: what is
+  set on the page when it saves is kanshi's profile for that combination, and kanshi brings it back whenever those
+  displays are connected together, also without the app. Nothing is named or picked by hand. When the combination
+  changes, the page shows what kanshi set up for it, so the rows and the canvas always show what runs; the rows then
+  have no reset button or machine toggle. The first time, kanshi is started at once. A note above the canvas says so
+  (and that kanshi starts with the next login, if it can't be started yet). Without the include line in an existing
+  kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes this
+  happen. Any one display alone always comes on, so no combination stays dark.
 - **Workspaces (opt-in, with kanshi):** the _Workspaces_ section has _Place workspaces on the displays_ (off by
   default). On, a card per display that is on, from left to right and numbered as on the canvas, holds the numbers of
   its workspaces 1 to 10: a click sends a number to the next display, dragging puts it on another card, and the presets

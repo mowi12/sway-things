@@ -5158,6 +5158,10 @@ fn check_displays() -> Vec<(String, Outcome)> {
         ),
         ("displays: plugged in".to_owned(), check_display_plugged()),
         (
+            "displays: a scale is sent once, when the control stays still".to_owned(),
+            check_display_scale_waits(),
+        ),
+        (
             "displays: the last output can't be switched off".to_owned(),
             check_display_last(),
         ),
@@ -5333,6 +5337,39 @@ fn check_display_pick() -> Outcome {
 
 /// The right monitor dropped below the left one, overlapping it, is settled below it; both
 /// positions are stored and sent; Ctrl+Z puts them back.
+/// Steps of a display's scale in a row are sent as one change once the control stays still, not
+/// one by one: the display changes size under the pointer with each one.
+fn check_display_scale_waits() -> Outcome {
+    let sway = with_outputs(&[DESK_OUTPUTS]);
+    let fixture = displays_fixture(&sway, "version = 1\n")?;
+    let window = open(&fixture, Page::Displays)?;
+    let scale = row(&window, "output.scale")?;
+    let spin = scale
+        .controls()
+        .into_iter()
+        .find_map(|widget| widget.downcast::<gtk::SpinButton>().ok())
+        .ok_or_else(|| "  no number field".to_owned())?;
+    let sent = || {
+        sway.commands()
+            .into_iter()
+            .filter(|command| command.contains(" scale "))
+            .collect::<Vec<_>>()
+    };
+    for value in [1.05, 1.1, 1.15] {
+        spin.set_value(value);
+    }
+    ensure(sent().is_empty(), &format!("  sent at once: {:?}", sent()))?;
+    let done = run_until(Duration::from_secs(3), || !sent().is_empty());
+    ensure(done, "  nothing sent within 3 s")?;
+    wait_for_model(&fixture.model)?;
+    ensure(
+        sent() == [r#"output "Samsung LF27T850 A1" scale 1.15"#],
+        &format!("  sent {:?}", sent()),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
 fn check_display_move() -> Outcome {
     let sway = with_outputs(&[DESK_OUTPUTS]);
     let fixture = displays_fixture(&sway, "version = 1\n")?;

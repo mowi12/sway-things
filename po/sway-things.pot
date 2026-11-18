@@ -142,13 +142,14 @@ msgstr ""
 
 #: crates/cli/src/lib.rs
 msgid ""
-"kanshi sets up the displays: the stored value is removed, and kanshi's "
-"profile applies again when it next sets up the displays."
+"kanshi sets up the displays: what the display runs with now is remembered "
+"for the displays connected now."
 msgstr ""
 
 #: crates/cli/src/lib.rs
 msgid ""
-"kanshi sets up the displays: the change takes effect now and isn't stored."
+"kanshi sets up the displays: the change is remembered for the displays "
+"connected now, and kanshi brings it back whenever they are."
 msgstr ""
 
 #. TRANSLATORS: `sway-things hook displays` switched on a display because no
