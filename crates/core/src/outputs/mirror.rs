@@ -17,6 +17,14 @@ use super::profiles::Profiles;
 /// The title of the windows of the mirrors Sway Things starts, by which it finds them again.
 pub const TITLE: &str = "Sway Things mirror";
 
+/// `no_focus` for the windows of the mirrors Sway Things starts: a picture that starts doesn't
+/// take the focus from where the user works.
+pub fn no_focus_command() -> crate::command::SwayCmd {
+    crate::command::SwayCmd::no_focus(
+        crate::command::Criteria::new().exact(crate::command::CriteriaKey::Title, TITLE),
+    )
+}
+
 /// How a mirror fits the display it is shown on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Scaling {
@@ -55,6 +63,9 @@ pub struct Mirror {
     pub of: String,
     /// How it fits.
     pub scaling: Scaling,
+    /// The workspaces that stood on the display when its picture started and moved to the one
+    /// shown ([`gather_workspaces`]): they go back when it shows its own content again.
+    pub gathered: Vec<String>,
 }
 
 /// Whether `wl-mirror` is installed: an executable of that name in a directory of `$PATH`.
@@ -118,6 +129,126 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
         }
     }
     started
+}
+
+/// Moves the workspaces that stand on a display about to show another one's picture to that other
+/// display, as the profile of the combination of displays connected now asks: they stay within
+/// reach instead of hiding behind the picture. Call it before [`apply`], whose window goes on
+/// the display's own workspace. The profile notes them ([`Mirror::gathered`]), to be saved by the
+/// caller, so they go back when the picture ends ([`give_back_workspaces`]). Returns how many
+/// commands were sent.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the commands.
+pub async fn gather_workspaces(
+    client: &mut crate::ipc::Client,
+    profiles: &mut Profiles,
+) -> Result<usize, crate::ipc::IpcError> {
+    let outputs = Outputs::new(&client.outputs().await?);
+    let names: Vec<&str> = outputs
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(super::Output::identifier)
+        .collect();
+    let Some(profile) = profiles.of(&names) else {
+        return Ok(0);
+    };
+    let open = client.workspaces().await?;
+    let running = running();
+    let mut placement = std::collections::BTreeMap::new();
+    let mut gathered: Vec<(String, Vec<String>)> = Vec::new();
+    for (target, setup) in profile.outputs() {
+        let Some(mirror) = &setup.mirror else {
+            continue;
+        };
+        let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
+        let (Some(target), Some(source)) = (on(target), on(&mirror.of)) else {
+            continue;
+        };
+        // A picture that is shown already took them along: what stands there now is its own.
+        let shown = running.iter().any(|(_, arguments)| {
+            arguments
+                .windows(2)
+                .any(|pair| pair[0] == "--fullscreen-output" && pair[1] == target.name())
+        });
+        if shown {
+            continue;
+        }
+        let moved: Vec<String> = open
+            .iter()
+            .filter(|open| open.output == target.name())
+            .map(|open| open.name.clone())
+            .collect();
+        for name in &moved {
+            placement.insert(name.clone(), source.identifier().to_owned());
+        }
+        gathered.push((target.identifier().to_owned(), moved));
+    }
+    if placement.is_empty() {
+        return Ok(0);
+    }
+    if let Some(profile) = profiles.of_mut(&names) {
+        for (target, moved) in gathered {
+            profile.note_gathered(&target, &moved);
+        }
+    }
+    let Ok(commands) = super::workspaces::commands(&placement, &outputs, &open) else {
+        return Ok(0);
+    };
+    for command in &commands {
+        client.run(command).await?;
+    }
+    Ok(commands.len())
+}
+
+/// Moves the workspaces `names` back to the display `target` (by its name in the settings), as
+/// far as they are open: they stood there before it showed another display's picture.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the commands.
+pub async fn give_back_workspaces(
+    client: &mut crate::ipc::Client,
+    target: &str,
+    names: &[String],
+) -> Result<usize, crate::ipc::IpcError> {
+    if names.is_empty() {
+        return Ok(0);
+    }
+    let outputs = Outputs::new(&client.outputs().await?);
+    let open = client.workspaces().await?;
+    let placement: std::collections::BTreeMap<String, String> = names
+        .iter()
+        .filter(|name| open.iter().any(|open| open.name == **name))
+        .map(|name| (name.clone(), target.to_owned()))
+        .collect();
+    let Ok(mut commands) = super::workspaces::commands(&placement, &outputs, &open) else {
+        return Ok(0);
+    };
+    // The display shows the first of them again rather than an empty one, and the focus goes
+    // back to where it was.
+    let first = names
+        .iter()
+        .find(|name| placement.contains_key(*name))
+        .and_then(|name| crate::command::SwayText::new(name).ok());
+    let focused = open
+        .iter()
+        .find(|open| open.focused)
+        .and_then(|open| crate::command::SwayText::new(&open.name).ok());
+    if let (Some(first), Some(focused)) = (first, focused) {
+        for name in [first, focused] {
+            commands.push(
+                crate::command::SwayCmd::new("workspace")
+                    .keyword("--no-auto-back-and-forth")
+                    .text(name),
+            );
+        }
+    }
+    for command in &commands {
+        client.run(command).await?;
+    }
+    Ok(commands.len())
 }
 
 /// The lock of [`apply`]: a file in `$XDG_RUNTIME_DIR`, made only if it isn't there, and

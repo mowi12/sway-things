@@ -766,7 +766,11 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   (`setsid -f wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>`), with argument
   lists and no shell. Once any combination mirrors, every kanshi profile, those of a display alone too, runs
   `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. A display that mirrors
-  takes no workspaces.
+  takes no workspaces: `mirror::gather_workspaces` moves the workspaces on it to the display shown before its mirror
+  starts (not again while one runs) and notes them in the profile (`mirror_workspaces`), which `give_back_workspaces`
+  moves back when it shows its own content again; the mirror's window doesn't take the focus (`no_focus` by its title,
+  in `20-output.conf` and sent before a mirror starts). The app reads `displays.toml` again before it changes it, since
+  the hook may have noted something meanwhile.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),

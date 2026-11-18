@@ -870,6 +870,7 @@ impl<V: Validate> Applier<V> {
         if !self.displays.is_kanshi() || self.pending.is_some() || !self.displays_touched {
             return;
         }
+        self.reread_profiles();
         let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
             return;
         };
@@ -1036,6 +1037,19 @@ impl<V: Validate> Applier<V> {
         self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
     }
 
+    /// Reads the remembered displays again: `sway-things hook mirror`, run by kanshi, may have
+    /// noted something in them since (the workspaces a picture took along), which a save from
+    /// what was read before would drop. Kept as they are if the file can't be read now.
+    fn reread_profiles(&mut self) {
+        let fresh = self
+            .profiles
+            .as_ref()
+            .and_then(|profiles| Profiles::load(profiles.path()).ok());
+        if let Some(fresh) = fresh {
+            self.profiles = Some(fresh);
+        }
+    }
+
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
     /// Returns what went wrong.
     async fn write_kanshi(files: Option<&KanshiFiles>, profiles: &Profiles) -> Option<String> {
@@ -1062,6 +1076,7 @@ impl<V: Validate> Applier<V> {
         target: &str,
         mirror: Option<crate::outputs::mirror::Mirror>,
     ) -> Result<(), ApplyError> {
+        self.reread_profiles();
         let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
             return Err(ApplyError::NoSession {
                 key: "displays.mirror",
@@ -1082,6 +1097,12 @@ impl<V: Validate> Applier<V> {
         }
         let gone = !names.contains(&target);
         let ending = mirror.is_none();
+        // The workspaces that left the display when its picture started, to give back.
+        let given_back = profiles
+            .of(&names)
+            .map(|profile| profile.gathered(target))
+            .filter(|_| ending)
+            .unwrap_or_default();
         let set = profiles
             .of_mut(&names)
             .is_some_and(|profile| profile.set_mirror(target, mirror));
@@ -1092,13 +1113,24 @@ impl<V: Validate> Applier<V> {
             }
             return Err(ApplyError::Mirror);
         }
+        // The workspaces of a display that shows another one's picture go to that one first, so
+        // they stay within reach; noted (and saved before kanshi reads the profiles again and runs
+        // its own hook), so they come back. Best effort, like the mirror itself.
+        let _ = crate::outputs::mirror::gather_workspaces(client, profiles).await;
         let path = profiles.path().to_owned();
         profiles
             .save()
             .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
         self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        // The picture doesn't take the focus when it starts (the generated config says so from
+        // the next reload of sway on).
+        let _ = client
+            .run(&crate::outputs::mirror::no_focus_command())
+            .await;
         // Idempotent: kanshi's own `hook mirror` after the reload changes nothing more.
         crate::outputs::mirror::apply(profiles, &outputs);
+        // Its own content again: its workspaces come back.
+        let _ = crate::outputs::mirror::give_back_workspaces(client, target, &given_back).await;
         Ok(())
     }
 
@@ -1148,6 +1180,7 @@ impl<V: Validate> Applier<V> {
         place: bool,
         placement: Option<std::collections::BTreeMap<String, String>>,
     ) -> Result<(), ApplyError> {
+        self.reread_profiles();
         let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
             return Err(ApplyError::NoSession {
                 key: "workspaces.placement",

@@ -1372,15 +1372,18 @@ impl Canvas {
         let Some(view) = imp.frozen.get() else {
             return;
         };
-        let (other_ids, others): (Vec<String>, Vec<Rect>) = {
+        let (all, other_ids, others): (Layout, Vec<String>, Vec<Rect>) = {
             let drag = imp.drag.borrow();
             let Some(drag) = drag.as_ref() else {
                 return;
             };
-            self.layout()
-                .into_iter()
+            let all = self.layout();
+            let (ids, rects) = all
+                .iter()
                 .filter(|(identifier, _)| *identifier != drag.identifier)
-                .unzip()
+                .cloned()
+                .unzip();
+            (all, ids, rects)
         };
         let mut guard = imp.drag.borrow_mut();
         let Some(drag) = guard.as_mut() else {
@@ -1395,12 +1398,7 @@ impl Canvas {
         }
         if let Some((from, _)) = drag.scaling {
             let scale = scale_for_grip(drag.start, from, view.logical(dx), view.logical(dy));
-            drag.scaling = Some((from, scale));
-            drag.rect = Rect {
-                width: resized(drag.start.width, from, scale),
-                height: resized(drag.start.height, from, scale),
-                ..drag.start
-            };
+            scale_with_grip(drag, &all, from, scale);
             let identifier = drag.identifier.clone();
             drop(guard);
             self.show_scale(&identifier, scale);
@@ -1861,6 +1859,39 @@ fn scale_for_grip(start: Rect, from: f64, dx: i32, dy: i32) -> f64 {
 )]
 fn resized(length: i32, from: f64, to: f64) -> i32 {
     ((f64::from(length) * from / to).round() as i32).max(1)
+}
+
+/// The tile of `drag`, dragged by its grip, at `scale` (from `from`), and the others of `all`
+/// where they go once the new size is in effect.
+fn scale_with_grip(drag: &mut Drag, all: &[(String, Rect)], from: f64, scale: f64) {
+    drag.scaling = Some((from, scale));
+    drag.rect = Rect {
+        width: resized(drag.start.width, from, scale),
+        height: resized(drag.start.height, from, scale),
+        ..drag.start
+    };
+    drag.room = grip_room(all, drag);
+}
+
+/// Where the others of `all` go while the tile of `drag` is scaled with its grip: flowed along
+/// with its new size, so what touched still touches ([`keep_together`]).
+fn grip_room(all: &[(String, Rect)], drag: &Drag) -> Vec<(String, Rect)> {
+    let with = |rect: Rect| -> Layout {
+        all.iter()
+            .map(|(id, shown)| {
+                let rect = if *id == drag.identifier { rect } else { *shown };
+                (id.clone(), rect)
+            })
+            .collect()
+    };
+    keep_together(&with(drag.start), &with(drag.rect))
+        .map(|(_, arranged)| {
+            arranged
+                .into_iter()
+                .filter(|(id, _)| *id != drag.identifier)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Notes the slot between two of `others` (by identifier in `ids`) that `drag`, moved to `moved`,

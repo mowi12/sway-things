@@ -498,13 +498,20 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     let Ok(paths) = sway_things_core::state::Paths::from_env() else {
         return Ok(0);
     };
-    let Ok(profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
+    let Ok(mut profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
         return Ok(0);
     };
     if !profiles.iter().any(outputs::profiles::Profile::mirrors) {
         return Ok(0);
     }
+    // The workspaces of a display that shows another one's picture go to that one first, noted
+    // so they come back when it shows its own content again.
+    if outputs::mirror::gather_workspaces(client, &mut profiles).await? > 0 {
+        let _ = profiles.save();
+    }
     let found = Outputs::new(&client.outputs().await?);
+    // A picture that starts doesn't take the focus.
+    let _ = client.run(&outputs::mirror::no_focus_command()).await;
     Ok(outputs::mirror::apply(&profiles, &found))
 }
 

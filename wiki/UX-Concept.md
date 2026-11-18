@@ -133,8 +133,9 @@ new mode, a rotation and switching an output off go through the safety net.
   plugged in or out meanwhile takes the numbers away, since they may be wrong then.
 - **Scaling:** the picked tile has a grip in its bottom right corner. Dragging it along the tile's diagonal scales the
   output, the tile keeping its proportions and showing the scale; it catches at 100, 125, 150, 175 and 200 % and else
-  moves in steps of 5 %, from 50 to 300 %. Released, the scale is stored, and once sway reports the new size the layout
-  flows along as for a scale set in the row.
+  moves in steps of 5 %, from 50 to 300 %. While it is dragged, the other tiles already stand where the new size puts
+  them; released, the scale is stored, and once sway reports the new size the layout flows along as for a scale set in
+  the row.
 - **While a risky change waits** (a new mode, a rotation, a display switched off), another value of the same setting for
   the same display takes its place (still with the safety net, even if it is the value from before), and Revert still
   goes back to what was before the first. _Automatic_ meanwhile puts back what was before and is stored for the next
@@ -184,8 +185,11 @@ new mode, a rotation and switching an output off go through the safety net.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
   there for a display that is on while another one is. The picture starts at once as a fullscreen `wl-mirror` window on
-  that display and comes back whenever kanshi brings the combination back (no daemon: kanshi runs the hook); a display
-  that mirrors takes no workspaces. Without kanshi or wl-mirror the row says what it needs.
+  that display, without taking the focus, and comes back whenever kanshi brings the combination back (no daemon: kanshi
+  runs the hook). The workspaces that stood on the display move to the one shown, so they stay within reach, and go back
+  (the first of them shown again) when it shows its own content again; a display that mirrors takes no workspaces. The
+  pointer can still move onto it: sway has no way to keep it off an output. Without kanshi or wl-mirror the row says
+  what it needs.
 
 ### Bluetooth
 

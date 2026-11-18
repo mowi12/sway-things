@@ -234,14 +234,37 @@ pub fn generate_for(
         .iter_mut()
         .find(|file| file.file == ConfigFile::Output)
     {
-        let for_displays = state
-            .entries()
-            .iter()
-            .any(|entry| entry.setting.scope() == Scope::PerOutput);
-        if displays.is_kanshi() && for_displays {
-            file.lines.push(Line {
-                text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
-                    .to_owned(),
+        file.lines.extend(output_tail(state, displays));
+    }
+    files.into()
+}
+
+/// The lines at the end of `20-output.conf`, after the settings of the outputs: with kanshi, what
+/// starts and serves it, and the display guard.
+fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
+    let mut lines = Vec::new();
+    let for_displays = state
+        .entries()
+        .iter()
+        .any(|entry| entry.setting.scope() == Scope::PerOutput);
+    if displays.is_kanshi() && for_displays {
+        lines.push(Line {
+            text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
+                .to_owned(),
+            source: Source {
+                keys: Vec::new(),
+                device: None,
+            },
+            skipped: None,
+        });
+    }
+    if displays == (Displays::Kanshi { start: true }) {
+        if let Ok(text) = crate::command::SwayCmd::new("exec")
+            .keyword("kanshi")
+            .render(Target::Config)
+        {
+            lines.push(Line {
+                text,
                 source: Source {
                     keys: Vec::new(),
                     device: None,
@@ -249,41 +272,39 @@ pub fn generate_for(
                 skipped: None,
             });
         }
-        if displays == (Displays::Kanshi { start: true }) {
-            if let Ok(text) = crate::command::SwayCmd::new("exec")
-                .keyword("kanshi")
+    }
+    // The picture of another display doesn't take the focus when it starts.
+    if displays.is_kanshi() {
+        if let Ok(text) = crate::outputs::mirror::no_focus_command().render(Target::Config) {
+            lines.push(Line {
+                text,
+                source: Source {
+                    keys: Vec::new(),
+                    device: None,
+                },
+                skipped: None,
+            });
+        }
+    }
+    // With kanshi, the hook also has kanshi apply its profile again and places the
+    // workspaces after every reload, whatever is stored.
+    let guard = display_guard(state).or_else(|| {
+        displays.is_kanshi().then(|| {
+            outputs::guard_command()
                 .render(Target::Config)
-            {
-                file.lines.push(Line {
+                .ok()
+                .map(|text| Line {
                     text,
                     source: Source {
                         keys: Vec::new(),
                         device: None,
                     },
                     skipped: None,
-                });
-            }
-        }
-        // With kanshi, the hook also has kanshi apply its profile again and places the
-        // workspaces after every reload, whatever is stored.
-        let guard = display_guard(state).or_else(|| {
-            displays.is_kanshi().then(|| {
-                outputs::guard_command()
-                    .render(Target::Config)
-                    .ok()
-                    .map(|text| Line {
-                        text,
-                        source: Source {
-                            keys: Vec::new(),
-                            device: None,
-                        },
-                        skipped: None,
-                    })
-            })?
-        });
-        file.lines.extend(guard);
-    }
-    files.into()
+                })
+        })?
+    });
+    lines.extend(guard);
+    lines
 }
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key

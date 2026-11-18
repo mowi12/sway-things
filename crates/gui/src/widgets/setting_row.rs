@@ -1377,6 +1377,12 @@ fn show_value(control: &Control, setting: &Setting, value: &Value) {
         (Control::Text(entry), Value::Text(text)) => {
             if entry.text() != *text {
                 entry.set_text(text);
+                // GTK's GPU renderers can leave a few pixels of a longer text before (seen with a
+                // position after picking another display): the whole field is drawn again.
+                entry.queue_draw();
+                if let Some(inner) = entry.first_child() {
+                    inner.queue_draw();
+                }
             }
         }
         (

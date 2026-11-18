@@ -260,11 +260,44 @@ impl Profile {
         }
         match self.outputs.get_mut(target) {
             Some(setup) => {
+                // The same picture with another fit: the workspaces it took along stay noted.
+                let mut mirror = mirror;
+                if let (Some(new), Some(old)) = (&mut mirror, &setup.mirror) {
+                    if new.of == old.of && new.gathered.is_empty() {
+                        new.gathered.clone_from(&old.gathered);
+                    }
+                }
                 setup.mirror = mirror;
                 true
             }
             None => false,
         }
+    }
+
+    /// Notes that the workspaces `names` moved off the display `target` when its picture started
+    /// ([`super::mirror::gather_workspaces`]).
+    pub fn note_gathered(&mut self, target: &str, names: &[String]) {
+        let Some(mirror) = self
+            .outputs
+            .get_mut(target)
+            .and_then(|setup| setup.mirror.as_mut())
+        else {
+            return;
+        };
+        for name in names {
+            if !mirror.gathered.contains(name) {
+                mirror.gathered.push(name.clone());
+            }
+        }
+    }
+
+    /// The workspaces that moved off the display `target` when its picture started.
+    pub fn gathered(&self, target: &str) -> Vec<String> {
+        self.outputs
+            .get(target)
+            .and_then(|setup| setup.mirror.as_ref())
+            .map(|mirror| mirror.gathered.clone())
+            .unwrap_or_default()
     }
 
     /// Whether a display of the combination mirrors another.
@@ -530,6 +563,13 @@ fn read_setup(table: &Table) -> Option<Setup> {
         None => None,
     };
     let mirror = table.get("mirror").and_then(Item::as_str).map(|of| Mirror {
+        gathered: table
+            .get("mirror_workspaces")
+            .and_then(Item::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|name| name.as_str().map(str::to_owned))
+            .collect(),
         of: of.to_owned(),
         scaling: table
             .get("mirror_scaling")
@@ -565,6 +605,10 @@ fn write_setup(setup: &Setup) -> Table {
     if let Some(mirror) = &setup.mirror {
         table.insert("mirror", value(mirror.of.as_str()));
         table.insert("mirror_scaling", value(mirror.scaling.name()));
+        if !mirror.gathered.is_empty() {
+            let names: toml_edit::Array = mirror.gathered.iter().map(String::as_str).collect();
+            table.insert("mirror_workspaces", value(names));
+        }
     }
     table
 }
@@ -782,6 +826,7 @@ mod tests {
             Some(crate::outputs::mirror::Mirror {
                 of: of.to_owned(),
                 scaling: crate::outputs::mirror::Scaling::Fit,
+                gathered: Vec::new(),
             })
         };
         assert!(profile.set_mirror("eDP-1", mirror("Dell U27 ABC")));

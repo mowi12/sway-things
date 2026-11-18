@@ -107,7 +107,14 @@ impl Mirroring {
                 .ok()
                 .and_then(|index| Scaling::ALL.get(index).copied())
                 .unwrap_or_default();
-            model.set_mirror(&target, of.map(|of| Mirror { of, scaling: fits }));
+            model.set_mirror(
+                &target,
+                of.map(|of| Mirror {
+                    of,
+                    scaling: fits,
+                    gathered: Vec::new(),
+                }),
+            );
         });
         let on_source = Rc::clone(&send);
         self.source.connect_selected_notify(move |_| on_source());

@@ -149,6 +149,17 @@ impl SwayCmd {
         }
     }
 
+    /// `no_focus <criteria>`: a new window that matches `criteria` doesn't take the focus.
+    pub fn no_focus(criteria: Criteria) -> Self {
+        Self {
+            parts: vec![Part::Keyword("no_focus"), Part::Criteria(criteria)],
+            availability: Availability::Anywhere,
+            min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
+            criteria: None,
+        }
+    }
+
     /// `for_window <criteria> <command>`: runs `command` on every new window that matches
     /// `criteria`.
     ///
