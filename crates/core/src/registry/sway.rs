@@ -25,6 +25,9 @@ pub enum Block {
     /// In an `input <identifier> { … }` block, or after `input <identifier>` on one line. Which
     /// identifiers count follows from the setting's [`Scope::PerDevice`] and the selected device.
     Input,
+    /// In a `seat <name> { … }` block, or after `seat <name>` on one line. Sway Things writes
+    /// `seat *`; `*` and the default seat, `seat0`, count.
+    Seat,
 }
 
 /// The sway directive a setting maps to. Conflict detection looks for it in the user's config, and
@@ -38,6 +41,9 @@ pub struct Directive {
     /// The leading arguments, where one name covers several independent values: `inner` for
     /// `gaps inner <px>`, `[all]` and `inhibit_idle` for `for_window [all] inhibit_idle <mode>`.
     pub arguments: &'static [&'static str],
+    /// First arguments after the leading ones that make the line another directive: `hide_cursor
+    /// <ms>` isn't `hide_cursor when-typing <on/off>`.
+    pub except: &'static [&'static str],
 }
 
 impl Directive {
@@ -47,6 +53,7 @@ impl Directive {
             block: Block::Top,
             name,
             arguments: &[],
+            except: &[],
         }
     }
 
@@ -56,6 +63,17 @@ impl Directive {
             block: Block::Input,
             name,
             arguments: &[],
+            except: &[],
+        }
+    }
+
+    /// An option of `seat` blocks, e.g. `xcursor_theme`.
+    pub const fn seat(name: &'static str) -> Self {
+        Self {
+            block: Block::Seat,
+            name,
+            arguments: &[],
+            except: &[],
         }
     }
 
@@ -63,6 +81,13 @@ impl Directive {
     #[must_use]
     pub const fn arguments(mut self, arguments: &'static [&'static str]) -> Self {
         self.arguments = arguments;
+        self
+    }
+
+    /// Leaves out the lines whose first argument after the leading ones is one of these.
+    #[must_use]
+    pub const fn except(mut self, except: &'static [&'static str]) -> Self {
+        self.except = except;
         self
     }
 }
@@ -121,30 +146,39 @@ impl SwayMapping {
 
     /// Whether a directive of the user's config is this setting's directive, and if so, the
     /// arguments its value is read from: those after the leading arguments the directive names.
-    /// Like sway, names, the `input` block and the leading arguments match without regard to
-    /// case.
-    /// Which `input` identifiers count is up to the caller.
+    /// Like sway, names, the `input` and `seat` blocks and the leading arguments match without
+    /// regard to case.
+    /// Which `input` identifiers and seat names count is up to the caller.
     pub fn matches<'a>(&self, directive: &'a sway_config::Directive) -> Option<&'a [String]> {
+        let in_block = |name: &str| {
+            directive.block.len() == 2
+                && directive
+                    .block
+                    .first()
+                    .is_some_and(|word| word.eq_ignore_ascii_case(name))
+        };
         let block = match self.directive.block {
             Block::Top => directive.block.is_empty(),
-            Block::Input => {
-                directive.block.len() == 2
-                    && directive
-                        .block
-                        .first()
-                        .is_some_and(|word| word.eq_ignore_ascii_case("input"))
-            }
+            Block::Input => in_block("input"),
+            Block::Seat => in_block("seat"),
         };
         if !block || !directive.name.eq_ignore_ascii_case(self.directive.name) {
             return None;
         }
         let leading = self.directive.arguments;
         let rest = directive.args.get(leading.len()..)?;
-        leading
-            .iter()
-            .zip(&directive.args)
-            .all(|(expected, arg)| arg.eq_ignore_ascii_case(expected))
-            .then_some(rest)
+        let excluded = rest.first().is_some_and(|first| {
+            self.directive
+                .except
+                .iter()
+                .any(|word| first.eq_ignore_ascii_case(word))
+        });
+        (!excluded
+            && leading
+                .iter()
+                .zip(&directive.args)
+                .all(|(expected, arg)| arg.eq_ignore_ascii_case(expected)))
+        .then_some(rest)
     }
 }
 
