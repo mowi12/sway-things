@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 13:23+0100\n"
+"POT-Creation-Date: 2026-11-20 13:25+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1561,6 +1561,36 @@ msgstr ""
 
 #: crates/core/src/registry/app.rs
 msgid "sections"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "Allow volume above 100 %"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid ""
+"Let the volume sliders on the Sound page go up to 150 %, which can distort "
+"the sound"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "amplify"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "boost"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "loud"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "over-amplification"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "volume"
 msgstr ""
 
 #: crates/core/src/registry/app.rs
@@ -4351,6 +4381,11 @@ msgstr ""
 msgid "Distribution"
 msgstr ""
 
+#. TRANSLATORS: A label of the system details: PipeWire's or PulseAudio's server.
+#: crates/core/src/system.rs
+msgid "Sound server"
+msgstr ""
+
 #. TRANSLATORS: A label of the system details: the version of the Linux kernel.
 #: crates/core/src/system.rs
 msgid "Kernel"
@@ -4584,7 +4619,7 @@ msgid "Couldn't rename “{device}”: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/sound/mod.rs
 msgid "Advanced…"
 msgstr ""
 
@@ -6053,6 +6088,199 @@ msgid "{count} result"
 msgid_plural "{count} results"
 msgstr[0] ""
 msgstr[1] ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Open a volume control for balance, latency and more"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Input level"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Speak to test the microphone"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Apps"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Sound cards"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Output"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Output device"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Where sound plays"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Output connector"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Output volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Input"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Input device"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "What apps record from, like a microphone"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Input connector"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Input volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Like speakers or headphones"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Connector"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Mute output"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Mute input"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "The volume wasn’t changed: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "The mute wasn’t changed: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "No sound server"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid ""
+"No PulseAudio-compatible sound server is running. Start PipeWire’s with "
+"`systemctl --user start pipewire-pulse`; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Sound can’t be read"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid ""
+"No output device. Plug in speakers or headphones; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid ""
+"No input device. Plug in a microphone or headset; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Another device"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "No app is playing or recording sound."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "App volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "Profile of {card}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Connectors and sound quality"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "The device wasn’t switched: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "The connector wasn’t switched: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "The profile wasn’t switched: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "{tool} can’t be started: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "Volume of {app}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "Mute {app}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Recording"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Playing"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/mod.rs
+#, rust-format
+msgid "{what} · on {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/volume.rs
+msgid "Mute"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/volume.rs
+#, rust-format
+msgid "{percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/volume.rs
+msgid "Unmute"
+msgstr ""
 
 #: crates/gui/src/widgets/test_area.rs
 msgid "Click, double-click or tap here"

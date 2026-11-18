@@ -1089,6 +1089,7 @@ fn doctor_starts_with_the_system_details() {
         gtk: Some("4.18.6".to_owned()),
         distribution: Some("Debian GNU/Linux 13 (trixie)".to_owned()),
         network_manager: None,
+        sound_server: Some("PulseAudio (on PipeWire 1.6.9)".to_owned()),
         kernel: Some("6.12.48+deb13-amd64".to_owned()),
         tools: vec![
             (delegate::NM_CONNECTION_EDITOR, false),
@@ -1106,8 +1107,8 @@ fn doctor_starts_with_the_system_details() {
     let expected = format!(
         "System\n  Sway Things: {}\n  Compositor: sway 1.10.1\n  GTK: 4.18.6\n  \
          Distribution: Debian GNU/Linux 13 (trixie)\n  NetworkManager: not running\n  \
-         Kernel: 6.12.48+deb13-amd64\n  nm-connection-editor: not installed\n  \
-         blueman-manager: installed\n\nCompositor\n",
+         Sound server: PulseAudio (on PipeWire 1.6.9)\n  Kernel: 6.12.48+deb13-amd64\n  \
+         nm-connection-editor: not installed\n  blueman-manager: installed\n\nCompositor\n",
         env!("CARGO_PKG_VERSION")
     );
     assert!(out.starts_with(&expected), "{out}");
@@ -1127,6 +1128,7 @@ fn doctor_starts_with_the_system_details() {
             "gtk": "4.18.6",
             "distribution": "Debian GNU/Linux 13 (trixie)",
             "network_manager": null,
+            "sound_server": "PulseAudio (on PipeWire 1.6.9)",
             "kernel": "6.12.48+deb13-amd64",
             "tools": {"nm-connection-editor": false, "blueman-manager": true},
         })

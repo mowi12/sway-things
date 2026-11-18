@@ -64,6 +64,7 @@ use sway_things_core::ipc::stand_in::{
 };
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
 use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
+use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
@@ -75,7 +76,8 @@ use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GroupRow, LayoutList,
-    NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, SettingRow, TestArea,
+    NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, SettingRow, SoundPage,
+    SoundServer, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -255,8 +257,9 @@ fn main() -> ExitCode {
     // The Bluetooth page shows the stand-in's devices; without python-dbusmock (screenshots on
     // a desktop) it shows Bluetooth as unavailable, never the machine's own.
     let bluetooth = bluetooth_stand_in();
-    // Likewise the Network page and NetworkManager.
+    // Likewise the Network page and NetworkManager, and the Sound page and the sound server.
     let network = network_stand_in().map(|(stand_in, _)| stand_in);
+    let sound = sound_stand_in();
     let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
@@ -271,6 +274,9 @@ fn main() -> ExitCode {
         use_stand_in(&window, bluetooth.as_ref().ok());
         if let Ok(network) = &network {
             window.use_network_bus(NetworkBus::Address(network.address().to_owned()));
+        }
+        if let Ok(sound) = &sound {
+            window.use_sound_server(SoundServer::Address(sound.server()));
         }
         window.present();
         for page in Page::ALL {
@@ -302,6 +308,7 @@ fn main() -> ExitCode {
     results.extend(check_devices());
     results.extend(check_displays());
     results.extend(check_bluetooth_pages());
+    results.extend(check_sound_pages());
     results.extend(check_network_pages());
     results.extend(check_keyboard());
     results.extend(check_indicators());
@@ -802,6 +809,26 @@ fn check_generated_footer() -> Outcome {
     Ok(())
 }
 
+/// The texts About & Maintenance shows besides the versions: the labels of the system details,
+/// their value for what doesn't run in tests (no bus, no sound server) and the project's links.
+const ABOUT_TEXTS: [&str; 15] = [
+    "Sway Things",
+    "Compositor",
+    "GTK",
+    "Distribution",
+    "NetworkManager",
+    "Not running",
+    "Sound server",
+    "Kernel",
+    "nm-connection-editor",
+    "blueman-manager",
+    "pwvucontrol",
+    "pavucontrol",
+    "Website",
+    "Source Code (GitHub)",
+    "Report a Bug",
+];
+
 /// About & Maintenance starts with the system details, a button that copies them, and the
 /// project's links.
 fn check_about() -> Outcome {
@@ -823,24 +850,16 @@ fn check_about() -> Outcome {
         .map(|label| label.label().to_string())
         .collect();
     let gtk_version = sway_things_gui::app::gtk_version();
-    for expected in [
-        "Sway Things",
-        env!("CARGO_PKG_VERSION"),
-        "Compositor",
-        &SWAYFX.to_string(),
-        "GTK",
-        &gtk_version,
-        "Distribution",
-        "NetworkManager",
-        // The window in tests talks to no bus.
-        "Not running",
-        "Kernel",
-        "nm-connection-editor",
-        "blueman-manager",
-        "Website",
-        "Source Code (GitHub)",
-        "Report a Bug",
-    ] {
+    let dynamic = [
+        env!("CARGO_PKG_VERSION").to_owned(),
+        SWAYFX.to_string(),
+        gtk_version.clone(),
+    ];
+    for expected in ABOUT_TEXTS
+        .iter()
+        .copied()
+        .chain(dynamic.iter().map(String::as_str))
+    {
         ensure(
             texts.iter().any(|text| text == expected),
             &format!("  no {expected:?} among {texts:?}"),
@@ -900,7 +919,8 @@ fn check_about() -> Outcome {
     );
     ensure(
         copied.starts_with(&start)
-            && copied.contains("\nNetworkManager: not running\nKernel: ")
+            && copied
+                .contains("\nNetworkManager: not running\nSound server: not running\nKernel: ")
             && copied.contains("\nnm-connection-editor: ")
             && copied.ends_with("installed\n"),
         &format!("  Copy System Details copied {copied:?}"),
@@ -1903,6 +1923,21 @@ fn check_narrow_threshold() -> Outcome {
 fn check_tile_width() -> Outcome {
     let fixture = fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true)?;
     let window = Window::with_model(&fixture.model);
+    // The Sound page with its devices and apps, each with long names, if the stand-in runs.
+    let sound = sound_stand_in().and_then(|stand_in| {
+        let long =
+            "Tiger_Lake-LP_Smart_Sound_Technology_Audio_Controller_HDMI_DisplayPort_3_Output";
+        stand_in
+            .add_output("long", long)
+            .map_err(|error| error.to_string())?;
+        stand_in
+            .pactl(&["set-default-sink", "long"])
+            .map_err(|error| error.to_string())?;
+        Ok(stand_in)
+    });
+    if let Ok(sound) = &sound {
+        window.use_sound_server(SoundServer::Address(sound.server()));
+    }
     window.present();
     settle(&window)?;
     let mut problems = String::new();
@@ -1913,6 +1948,11 @@ fn check_tile_width() -> Outcome {
             group.set_expanded(true);
         }
         settle(&window)?;
+        if page == Page::Sound && sound.is_ok() {
+            // Until the server's devices are shown.
+            run_until(Duration::from_secs(5), || false);
+            settle(&window)?;
+        }
         if !view.fits(TILE_WIDTH) {
             let (content, _, _, _) = view.content().measure(gtk::Orientation::Horizontal, -1);
             let _ = writeln!(
@@ -4380,6 +4420,221 @@ fn check_bluetooth_pages() -> Vec<(String, Outcome)> {
             check_bluetooth_manual(true),
         ),
     ]
+}
+
+/// A sound server with two outputs, a microphone, an app that plays and one that records.
+fn sound_stand_in() -> Result<SoundStandIn, String> {
+    let start = || {
+        let mut stand_in = SoundStandIn::start()?;
+        stand_in.add_output("speakers", "Speakers")?;
+        stand_in.add_output("hdmi", "HDMI")?;
+        stand_in.add_input("mic", "Microphone")?;
+        stand_in.pactl(&["set-default-sink", "speakers"])?;
+        stand_in.pactl(&["set-default-source", "mic"])?;
+        stand_in.play("Music")?;
+        stand_in.record("Recorder")?;
+        Ok::<_, sway_things_core::sound::stand_in::Error>(stand_in)
+    };
+    start().map_err(|error| format!("  the sound server's stand-in: {error}"))
+}
+
+fn check_sound_pages() -> Vec<(String, Outcome)> {
+    vec![
+        ("sound: devices, volume and apps".to_owned(), check_sound()),
+        (
+            "sound: a server that goes away and comes back".to_owned(),
+            check_sound_server_gone(),
+        ),
+    ]
+}
+
+/// The Sound page against the stand-in: the devices and apps, switching the output, its volume
+/// and mute reaching the server, and sliders above 100 % only with the preference.
+fn check_sound() -> Outcome {
+    let stand_in = sound_stand_in()?;
+    let page = SoundPage::new(&SoundServer::Address(stand_in.server()));
+    let window = gtk::Window::new();
+    window.set_default_size(720, 900);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let items = |choice: &gtk::DropDown| choice.model().map_or(0, |model| model.n_items());
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            items(page.output_choice()) == 2 && page.app_rows().len() == 2
+        }),
+        &format!(
+            "  the devices and apps didn't show: {} outputs, apps {:?}",
+            items(page.output_choice()),
+            page.app_rows()
+        ),
+    )?;
+    let names: Vec<String> = page.app_rows().into_iter().map(|(name, _)| name).collect();
+    ensure(
+        names == ["Music", "Recorder"],
+        &format!("  apps: {names:?}"),
+    )?;
+    ensure(
+        page.app_rows()[1].1 == "Recording",
+        &format!("  the recording app: {:?}", page.app_rows()),
+    )?;
+    let pactl = |args: &[&str]| stand_in.pactl(args).unwrap_or_default();
+    // Sorted by name: HDMI first.
+    page.output_choice().set_selected(0);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["info"]).contains("Default Sink: hdmi")
+        }),
+        "  choosing HDMI didn't make it the default output",
+    )?;
+    let (scale, mute) = page.output_volume().ok_or("  no output volume")?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.output_name().as_deref() == Some("hdmi")
+        }),
+        "  the page didn't follow the new default output",
+    )?;
+    check_sound_device_volume(&page, &stand_in, &scale, &mute)?;
+    let music = page.app_volume("Music").ok_or("  no volume for Music")?;
+    music.set_value(0.25);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["list", "sink-inputs"]).contains(" 25%")
+        }),
+        "  the app's volume didn't reach the server",
+    )?;
+    ensure(
+        (scale.adjustment().upper() - 1.0).abs() < f64::EPSILON,
+        "  the slider goes above 100 % without the preference",
+    )?;
+    page.set_above_100(true);
+    ensure(
+        (scale.adjustment().upper() - 1.5).abs() < f64::EPSILON,
+        "  the slider doesn't go to 150 % with the preference",
+    )?;
+    ensure(
+        page.error_text().is_empty(),
+        &format!("  an error: {}", page.error_text()),
+    )?;
+    check_sound_unknown_default(&page, &stand_in)?;
+    shoot(&window, "sound")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The output's volume slider and mute reach the server, and the server's own changes move the
+/// slider; where the server keeps virtual devices at 100 % (PipeWire 1.4), there is nothing to
+/// check.
+fn check_sound_device_volume(
+    page: &SoundPage,
+    stand_in: &SoundStandIn,
+    scale: &gtk::Scale,
+    mute: &gtk::ToggleButton,
+) -> Outcome {
+    if !stand_in.device_volume_works("hdmi") {
+        println!("note: this PipeWire doesn't change the volume of virtual devices");
+        return Ok(());
+    }
+    let pactl = |args: &[&str]| stand_in.pactl(args).unwrap_or_default();
+    // The probe's own change has to be over before the slider is moved.
+    run_until(Duration::from_secs(5), || {
+        (scale.value() - 1.0).abs() < 0.01
+    });
+    scale.set_value(0.5);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["get-sink-volume", "hdmi"]).contains(" 50%")
+        }),
+        &format!(
+            "  the volume didn't reach the server: {}",
+            pactl(&["get-sink-volume", "hdmi"])
+        ),
+    )?;
+    mute.set_active(true);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["get-sink-mute", "hdmi"]).contains("yes")
+        }),
+        "  muting didn't reach the server",
+    )?;
+    // The server's changes from elsewhere show up, once the slider's own moment is over.
+    run_until(Duration::from_secs(1), || false);
+    let _ = stand_in.pactl(&["set-sink-volume", "hdmi", "80%"]);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            (scale.value() - 0.8).abs() < 0.01
+        }),
+        &format!("  the slider didn't follow the server: {}", scale.value()),
+    )?;
+    // Unmuted again, for the screenshot.
+    mute.set_active(false);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["get-sink-mute", "hdmi"]).contains("no")
+        }),
+        "  unmuting didn't reach the server",
+    )?;
+    ensure(
+        page.error_text().is_empty(),
+        &format!("  an error: {}", page.error_text()),
+    )
+}
+
+/// A default the page doesn't list (the monitor of an output): the drop-down says so, and the
+/// only microphone can be chosen to make it the default again.
+fn check_sound_unknown_default(page: &SoundPage, stand_in: &SoundStandIn) -> Outcome {
+    let pactl = |args: &[&str]| stand_in.pactl(args).unwrap_or_default();
+    let _ = stand_in.pactl(&["set-default-source", "hdmi.monitor"]);
+    let items = |choice: &gtk::DropDown| choice.model().map_or(0, |model| model.n_items());
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.input_choice().selected() == 0
+                && items(page.input_choice()) == 2
+                && page.input_choice().is_sensitive()
+        }),
+        "  a monitor as the default input shows the microphone as chosen",
+    )?;
+    page.input_choice().set_selected(1);
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            pactl(&["get-default-source"]).trim() == "mic"
+        }),
+        "  choosing the microphone didn't make it the default input",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || items(page.input_choice()) == 1),
+        "  the entry for a device not listed stayed",
+    )
+}
+
+/// The Sound page while the server goes away and comes back: the placeholder, then the controls.
+fn check_sound_server_gone() -> Outcome {
+    let mut stand_in = sound_stand_in()?;
+    let page = SoundPage::new(&SoundServer::Address(stand_in.server()));
+    let window = gtk::Window::new();
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    ensure(
+        run_until(Duration::from_secs(10), || page.app_rows().len() == 2),
+        "  the page didn't show the server",
+    )?;
+    stand_in.stop_server();
+    ensure(
+        run_until(Duration::from_secs(10), || page.missing_shown()),
+        "  no placeholder after the server went away",
+    )?;
+    stand_in
+        .start_server()
+        .map_err(|error| format!("  the server didn't start again: {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(15), || !page.missing_shown()),
+        "  the page didn't come back with the server",
+    )?;
+    window.destroy();
+    let off = SoundPage::new(&SoundServer::Off);
+    ensure(off.missing_shown(), "  no placeholder without a server")?;
+    Ok(())
 }
 
 /// Saves `window` as `<name>.png` in `$SWAY_THINGS_SCREENSHOTS`, if set, once it is drawn, and

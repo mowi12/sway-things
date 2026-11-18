@@ -308,6 +308,7 @@ fn system_json(system: &Details) -> Json {
         "gtk": system.gtk,
         "distribution": system.distribution,
         "network_manager": system.network_manager,
+        "sound_server": system.sound_server,
         "kernel": system.kernel,
         "tools": tools,
     })

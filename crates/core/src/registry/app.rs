@@ -76,6 +76,21 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("sections"),
             ])
             .build(),
+        Setting::toggle("app.sound_above_100", Page::About, false)
+            .section(msg!("Sway Things"))
+            .title(msg!("Allow volume above 100 %"))
+            .subtitle(msg!(
+                "Let the volume sliders on the Sound page go up to 150 %, which can distort the \
+                 sound"
+            ))
+            .keywords(&[
+                msg!("amplify"),
+                msg!("boost"),
+                msg!("loud"),
+                msg!("over-amplification"),
+                msg!("volume"),
+            ])
+            .build(),
         Setting::choice(
             "app.bluetooth_search",
             Page::About,

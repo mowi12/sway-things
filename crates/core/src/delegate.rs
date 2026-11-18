@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The specialist tools a page hands what it doesn't cover to: its "Advanced…" button starts one
-//! (blueman-manager for Bluetooth, nm-connection-editor for Network). A button only shows while
-//! its tool is installed.
+//! (pwvucontrol or pavucontrol for Sound, blueman-manager for Bluetooth, nm-connection-editor for
+//! Network). A button only shows while its tool is installed.
 
 use std::ffi::OsStr;
 use std::io;
@@ -30,6 +30,18 @@ pub const BLUEMAN: Tool = Tool {
 /// settings, other kinds of connections).
 pub const NM_CONNECTION_EDITOR: Tool = Tool {
     program: "nm-connection-editor",
+};
+
+/// pwvucontrol, the volume control of PipeWire, for what the Sound page doesn't do (balance,
+/// latency offsets, the routing of every stream). The Sound page prefers it to pavucontrol.
+pub const PWVUCONTROL: Tool = Tool {
+    program: "pwvucontrol",
+};
+
+/// pavucontrol, PulseAudio's volume control, which works with pipewire-pulse too; for the Sound
+/// page when pwvucontrol isn't installed.
+pub const PAVUCONTROL: Tool = Tool {
+    program: "pavucontrol",
 };
 
 /// nm-connection-editor's arguments for a new Wi-Fi connection.

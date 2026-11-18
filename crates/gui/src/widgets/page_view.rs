@@ -30,6 +30,7 @@ use sway_things_core::command::input::InputType;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
+use sway_things_core::sound::Sound;
 use sway_things_core::system::{self, Details, Value};
 use sway_things_core::ui_state;
 use sway_things_core::view::Source;
@@ -38,8 +39,8 @@ use super::device_selector::none_connected;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
-    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
-    WorkspaceMap,
+    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
+    TestArea, WorkspaceMap,
 };
 use super::{cursor, keyboard};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
@@ -646,6 +647,7 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
         gtk: None,
         distribution: None,
         network_manager: None,
+        sound_server: None,
         kernel: None,
         tools: system::TOOLS.iter().map(|tool| (*tool, false)).collect(),
     }
@@ -666,10 +668,13 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
         #[weak]
         copy,
         move |list| {
-            let bus = list
-                .root()
-                .and_downcast::<crate::window::Window>()
-                .map_or(NetworkBus::Off, |window| window.network_bus());
+            let window = list.root().and_downcast::<crate::window::Window>();
+            let bus = window
+                .as_ref()
+                .map_or(NetworkBus::Off, crate::window::Window::network_bus);
+            let server = window
+                .as_ref()
+                .map_or(SoundServer::Off, crate::window::Window::sound_server);
             let values = values.clone();
             let details = details.clone();
             glib::spawn_future_local(glib::clone!(
@@ -683,9 +688,18 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
                         }
                         NetworkBus::Off => None,
                     };
-                    let read =
-                        Details::read(compositor, Some(crate::app::gtk_version()), nm.as_ref())
-                            .await;
+                    let sound = match &server {
+                        SoundServer::Session => Sound::connect().ok(),
+                        SoundServer::Address(address) => Sound::connect_to(Some(address)).ok(),
+                        SoundServer::Off => None,
+                    };
+                    let read = Details::read(
+                        compositor,
+                        Some(crate::app::gtk_version()),
+                        nm.as_ref(),
+                        sound.as_ref(),
+                    )
+                    .await;
                     for (label, (_, value)) in values.iter().zip(read.lines()) {
                         label.set_label(&shown(&value));
                     }

@@ -39,6 +39,7 @@ use sway_things_core::outputs::{self, Outputs};
 use sway_things_core::registry::{
     Apply, ConfigFile, DeviceError, Link, Registry, Scope, Setting, Value,
 };
+use sway_things_core::sound::Sound;
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
@@ -129,9 +130,9 @@ pub enum Command {
     /// line, the settings files, the generated files and the lines of your config that win
     ///
     /// The report starts with the system details for bug reports: the versions of Sway Things,
-    /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager
-    /// (while it runs) and the kernel, and whether nm-connection-editor and blueman-manager are
-    /// installed.
+    /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager and
+    /// the sound server (while they run) and the kernel, and whether the tools the pages delegate
+    /// to (nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol) are installed.
     Doctor(DoctorArgs),
     /// Start the app, or bring its window up if it runs, at a page or a setting
     Open {
@@ -707,7 +708,8 @@ async fn system_details(compositor: Option<Compositor>) -> Details {
             .then(|| system::gtk_from_app_version(&text))?
     });
     let network_manager = NetworkManager::connect().await.ok();
-    Details::read(compositor, gtk, network_manager.as_ref()).await
+    let sound = Sound::connect().ok();
+    Details::read(compositor, gtk, network_manager.as_ref(), sound.as_ref()).await
 }
 
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
