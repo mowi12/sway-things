@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Builders for `input <identifier> …` commands (`man 5 sway-input`), used by the Mouse & Touchpad
-//! and Keyboard pages.
+//! Builders for `input <identifier> …` commands (`man 5 sway-input`), used by the Mouse & Touchpad,
+//! Keyboard and Cursor & Tablet pages.
 //!
 //! ```
 //! use sway_things_core::command::Target;
@@ -215,6 +215,26 @@ pub enum XkbSwitch {
     Prev,
     /// The layout at this index of `xkb_layout`, counting from zero.
     Index(u8),
+}
+
+/// `map_to_output`: where the input of a touchscreen, drawing tablet or pointer goes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MapTo {
+    /// `*`: the whole desktop layout. This also ends a mapping to a region.
+    Desktop,
+    /// One output, by its name (`eDP-1`) or its identifier (`<make> <model> <serial>`), as
+    /// `GET_OUTPUTS` reports it.
+    Output(SwayText),
+}
+
+/// `tool_mode`: whether a tablet's pen follows the pointer like a mouse or points at a fixed spot
+/// of the screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ToolMode {
+    /// `absolute`: each spot on the tablet is one spot on the screen.
+    Absolute,
+    /// `relative`: the pen moves the pointer like a mouse.
+    Relative,
 }
 
 /// Builds `input` commands for one [`InputSelector`].
@@ -450,6 +470,24 @@ impl Input {
             XkbSwitch::Index(index) => cmd.int(i64::from(index)),
         }
         .runtime_only()
+    }
+
+    /// `map_to_output`: maps the input of the devices to one output or the whole desktop.
+    pub fn map_to_output(&self, target: &MapTo) -> SwayCmd {
+        let cmd = self.command("map_to_output");
+        match target {
+            MapTo::Desktop => cmd.keyword("*"),
+            MapTo::Output(output) => cmd.text(output.clone()),
+        }
+    }
+
+    /// `tool_mode * <mode>`: the mode of every tool of a drawing tablet (pens, erasers, brushes,
+    /// pencils, airbrushes; sway always treats mouse and lens tools as relative).
+    pub fn tool_mode(&self, mode: ToolMode) -> SwayCmd {
+        self.command("tool_mode").keyword("*").keyword(match mode {
+            ToolMode::Absolute => "absolute",
+            ToolMode::Relative => "relative",
+        })
     }
 
     fn xkb_list<S: AsRef<str>>(

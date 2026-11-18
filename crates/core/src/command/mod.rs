@@ -16,6 +16,7 @@ pub mod effects;
 pub mod input;
 #[cfg(test)]
 pub(crate) mod model;
+pub mod seat;
 #[cfg(test)]
 mod tests;
 mod text;
