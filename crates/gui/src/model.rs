@@ -131,6 +131,8 @@ enum Op {
     /// While kanshi sets up the displays: has the stored values of the displays follow the
     /// combination connected now ([`Applier::follow_combination`]).
     FollowCombination,
+    /// Moves other displays along with the trial of a display's new size, to these places.
+    MoveAlong(Vec<(String, Value)>),
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -400,6 +402,17 @@ impl Model {
                     .registry()
                     .config_line(setting, &tried, device)
                     .ok();
+            }
+        }
+        // A display moved along with a trial: its place is in effect, though not stored yet.
+        if setting.key() == sway_things_core::outputs::POSITION {
+            let along = core
+                .pending
+                .as_ref()
+                .zip(device)
+                .and_then(|(pending, device)| pending.along(device));
+            if let Some(place) = along {
+                view.value = place.clone();
             }
         }
         if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
@@ -729,6 +742,12 @@ impl Model {
         self.follow_after_trial();
     }
 
+    /// Moves other displays along with the trial of a display's new size that waits, to
+    /// `places` ("x,y" by display).
+    pub fn move_along(&self, places: Vec<(String, Value)>) {
+        self.queue(Op::MoveAlong(places));
+    }
+
     /// After a risky change is kept or reverted: the stored values of the displays follow the
     /// combination again, which they don't while it waits (displays may have come or gone
     /// meanwhile). A follow queued before the change is done moves behind it.
@@ -871,6 +890,7 @@ impl Model {
             | Op::ReloadSway
             | Op::SwayReloaded
             | Op::FollowCombination
+            | Op::MoveAlong(_)
             | Op::Overwrite(_)
             | Op::PlaceWorkspaces { .. }
             | Op::SetMirror { .. } => false,
@@ -972,10 +992,9 @@ impl Model {
             (Op::LetConfigWin(report), Err(read_only)) => {
                 self.emit_failed(report.key(), report.device(), &explained(&read_only));
             }
-            (Op::Overwrite(file), Ok(access)) => match applier.persist(&[file], &access).await {
-                Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&error.text().translated()),
-            },
+            (Op::Overwrite(file), Ok(access)) => {
+                self.persist_now(&mut applier, &[file], &access).await;
+            }
             (Op::ResetPage(_) | Op::ReloadSway | Op::Overwrite(_), Err(read_only)) => {
                 self.emit_problem(&explained(&read_only));
             }
@@ -1020,10 +1039,7 @@ impl Model {
                     &[("error", &error.text().translated())],
                 )),
             },
-            (Op::Persist, Ok(access)) => match applier.persist(&[], &access).await {
-                Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&error.text().translated()),
-            },
+            (Op::Persist, Ok(access)) => self.persist_now(&mut applier, &[], &access).await,
             (Op::Reload, Ok(access)) => {
                 applier.reload(&access).await;
             }
@@ -1036,7 +1052,10 @@ impl Model {
             },
             (Op::SwayReloaded, _) => applier.reloaded(),
             (
-                op @ (Op::SetMirror { .. } | Op::PlaceWorkspaces { .. } | Op::FollowCombination),
+                op @ (Op::SetMirror { .. }
+                | Op::PlaceWorkspaces { .. }
+                | Op::FollowCombination
+                | Op::MoveAlong(_)),
                 _,
             ) => {
                 self.displays_now(&mut applier, op).await;
@@ -1045,6 +1064,19 @@ impl Model {
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
         self.give_back(applier, was_pending);
+    }
+
+    /// Saves and writes the files, replacing the generated files `overwrite` changed outside.
+    async fn persist_now(
+        &self,
+        applier: &mut Applier,
+        overwrite: &[ConfigFile],
+        access: &WriteAccess,
+    ) {
+        match applier.persist(overwrite, access).await {
+            Ok(persisted) => self.emit_persisted(&persisted),
+            Err(error) => self.emit_problem(&error.text().translated()),
+        }
     }
 
     /// Takes `applier` back after an operation: copies what the rows read, plans the revert of a
@@ -1319,6 +1351,15 @@ impl Model {
             }
             Op::PlaceWorkspaces { place, placement } => {
                 self.place_workspaces_now(applier, place, placement).await;
+            }
+            Op::MoveAlong(places) => {
+                // Nothing waits any more (kept or reverted meanwhile): nothing to move along.
+                match applier.move_along(&places).await {
+                    Ok(()) | Err(ApplyError::NothingPending) => {}
+                    Err(error) => self.emit_problem(&format!(
+                        "The other displays weren\u{2019}t moved along: {error}."
+                    )),
+                }
             }
             Op::FollowCombination => {
                 if let Err(error) = applier.follow_combination().await {

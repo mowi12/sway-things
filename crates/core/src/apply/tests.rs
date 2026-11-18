@@ -2164,6 +2164,67 @@ fn a_value_for_every_display_is_one_for_each_while_kanshi_sets_them_up() {
 }
 
 #[test]
+fn a_display_switched_on_is_placed_right_of_the_others() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let trial = setup
+        .try_risky(ENABLED, Some("D E F"), Value::Bool(true), "")
+        .unwrap();
+    assert!(
+        trial
+            .commands
+            .iter()
+            .any(|command| command == r#"output "D E F" pos 1920 0"#),
+        "{:?}",
+        trial.commands
+    );
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        setup.applier.state().get("output.position", Some("D E F")),
+        Some(&Value::Text("1920,0".to_owned()))
+    );
+}
+
+#[test]
+fn other_displays_move_along_with_a_trial_and_back_with_its_revert() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    block_on(
+        setup
+            .applier
+            .move_along(&[(PANEL.to_owned(), Value::Text("100,0".to_owned()))]),
+    )
+    .unwrap();
+    assert_eq!(
+        setup.applier.pending().unwrap().along(PANEL),
+        Some(&Value::Text("100,0".to_owned()))
+    );
+    let reverted = block_on(setup.applier.revert()).unwrap();
+    assert!(
+        matches!(&reverted, Effect::Live { commands } if commands.iter().any(|command| command == r#"output "A B C" pos 0 0"#)),
+        "{reverted:?}"
+    );
+    // Kept: stored with the change.
+    setup
+        .try_risky(MODE, Some(PANEL), Value::Text("1280x720".to_owned()), "")
+        .unwrap();
+    block_on(
+        setup
+            .applier
+            .move_along(&[(PANEL.to_owned(), Value::Text("100,0".to_owned()))]),
+    )
+    .unwrap();
+    setup.applier.keep(&setup.access).unwrap();
+    assert_eq!(
+        setup.applier.state().get("output.position", Some(PANEL)),
+        Some(&Value::Text("100,0".to_owned()))
+    );
+}
+
+#[test]
 fn a_remembered_combination_brings_its_values_back() {
     let sway = desk();
     let mut setup = Setup::live(&sway, "version = 1\n");

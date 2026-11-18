@@ -5530,6 +5530,10 @@ msgid "Applies after re-login"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
+msgid "Keep or revert the change of the other display first"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""

@@ -109,8 +109,11 @@ new mode, a rotation and switching an output off go through the safety net.
 - **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit with room around them
   for half of the smallest output on every side, each with its number, model and its mode (with the scale and turn when
   they aren't the plain ones); a tile shows only the lines that fit it, and the whole name in its tooltip. Outputs that
-  are off stand outlined right of them and say _Off_. Below it a hint: _Drag the displays to where they stand on your
-  desk. Pick one to change its settings below._ Without a session the canvas gives way to a hint.
+  are off stand right of them with a thin grey outline and no fill (picked: the outline in the accent) and say _Off_;
+  picked, only _Use this display_ shows below, since nothing else applies to a display that is off. Switched on, a
+  display is placed right of the others in the same trial, never at 0,0 over another one. Below it a hint: _Drag the
+  displays to where they stand on your desk. Pick one to change its settings below._ Without a session the canvas gives
+  way to a hint.
 - **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where
@@ -134,8 +137,10 @@ new mode, a rotation and switching an output off go through the safety net.
 - **While a risky change waits** (a new mode, a rotation, a display switched off), another value of the same setting for
   the same display takes its place (still with the safety net, even if it is the value from before), and Revert still
   goes back to what was before the first. _Automatic_ meanwhile puts back what was before and is stored for the next
-  reload of sway, as it is when nothing waits, since sway can't try it live. The canvas and the other risky settings
-  wait until it is kept or reverted, so Revert puts everything back.
+  reload of sway, as it is when nothing waits, since sway can't try it live. Meanwhile the tiles can be picked but not
+  moved or scaled, and the settings of the other displays wait (their controls say why), so Revert puts everything back.
+  A new mode or rotation that changes the display's size moves the others along already during the trial, so nothing
+  overlaps and nothing floats apart while the user decides; Revert puts them back, Keep stores them with the change.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
@@ -174,10 +179,11 @@ new mode, a rotation and switching an output off go through the safety net.
   and opened again after a change goes where it was first placed in this session until sway reloads; kanshi has the
   workspaces placed again whenever the combination comes back, and so does every start and reload of sway. Without
   kanshi the section says that it needs kanshi.
-- **Mirroring (with kanshi and wl-mirror):** the _Mirroring_ section has a row per display that is on: what it shows,
-  _Its own content_ or _Mirror of …_ another display, and for a mirror how it fits (_Fit_, _Cover_, _Exact Multiples_).
-  The mirror starts at once as a fullscreen `wl-mirror` window on that display and comes back with the combination; a
-  display that mirrors takes no workspaces. Without kanshi or wl-mirror the section says what it needs.
+- **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
+  content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
+  there for a display that is on while another one is. The picture starts at once as a fullscreen `wl-mirror` window on
+  that display and comes back whenever kanshi brings the combination back (no daemon: kanshi runs the hook); a display
+  that mirrors takes no workspaces. Without kanshi or wl-mirror the row says what it needs.
 
 ### Bluetooth
 

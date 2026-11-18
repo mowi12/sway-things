@@ -990,10 +990,21 @@ impl SettingRow {
         }
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
+        // While a display's change waits to be kept or reverted, the others' settings wait too:
+        // Revert puts back only that change.
+        let waits_for_other = setting.scope() == Scope::PerOutput
+            && model
+                .pending_change()
+                .is_some_and(|pending| pending.device() != device.as_deref());
         let reason = view
             .locked
             .as_ref()
-            .map(|locked| locked.text().translated());
+            .map(|locked| locked.text().translated())
+            .or_else(|| {
+                waits_for_other.then(|| {
+                    tr(msg!("Keep or revert the change of the other display first")).to_owned()
+                })
+            });
         // Controls a page added are locked with the row; the page opens them as it sees fit.
         if let Some(reason) = &reason {
             for widget in imp.added.borrow().iter() {

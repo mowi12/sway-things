@@ -29,7 +29,7 @@ use sway_things_core::generate;
 use sway_things_core::outputs::kanshi;
 
 use sway_things_core::outputs::layout::{self, overlaps};
-use sway_things_core::outputs::{MODE, Output, Outputs, Rect};
+use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, Rect};
 use sway_things_core::registry::{Scope, Value};
 
 pub use canvas::Canvas;
@@ -270,7 +270,7 @@ impl Arrangement {
         };
         // While a risky change waits, the layout stays as it is: Revert puts back only that change.
         let waits = model.pending_change().is_some();
-        self.canvas.set_sensitive(!waits);
+        self.canvas.set_locked(waits);
         if let Some(fix) = self.gaps.last_child() {
             fix.set_sensitive(!waits);
         }
@@ -709,17 +709,28 @@ fn refresh_label(mode: Mode) -> String {
 /// at once stays picked once the user picked it. Returns the picker.
 pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> OutputPicker {
     let picker = OutputPicker::new();
-    let rows = Rc::new(insert_picker(&picker, rows));
+    let mirroring = Mirroring::new(model);
+    let rows = Rc::new(insert_picker(&picker, rows, &mirroring));
+    let weak_numbers = picker.downgrade();
+    let show_mirroring = Rc::new(
+        move |model: &Model, outputs: &Outputs, identifier: Option<&str>| {
+            let picker = weak_numbers.upgrade();
+            let number = |id: &str| picker.as_ref().and_then(|picker| picker.number(id));
+            mirroring.update(model, outputs, identifier, &number);
+        },
+    );
     let point_rows = Rc::new({
         let rows = Rc::clone(&rows);
+        let show_mirroring = Rc::clone(&show_mirroring);
         move |model: &Model, identifier: Option<&str>| {
             let outputs = model.outputs().unwrap_or_default();
             let output = identifier.and_then(|identifier| outputs.get(identifier));
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                 row.set_device(identifier);
                 offer_modes(&row, output);
-                show_for(&row, identifier);
+                show_for(&row, identifier, output);
             }
+            show_mirroring(model, &outputs, identifier);
         }
     });
     picker.connect_picked(glib::clone!(
@@ -779,8 +790,9 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
                 if !model.is_busy() {
                     offer_modes(&row, output);
                 }
-                show_for(&row, chosen.as_deref());
+                show_for(&row, chosen.as_deref(), output);
             }
+            show_mirroring(model, &outputs, chosen.as_deref());
         } else {
             point_rows(model, chosen.as_deref());
         }
@@ -803,7 +815,11 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
 
 /// Puts `picker` before the first of the rows of `rows` that are for outputs, and returns those
 /// rows.
-fn insert_picker(picker: &OutputPicker, rows: &[SettingRow]) -> Vec<glib::WeakRef<SettingRow>> {
+fn insert_picker(
+    picker: &OutputPicker,
+    rows: &[SettingRow],
+    mirroring: &Mirroring,
+) -> Vec<glib::WeakRef<SettingRow>> {
     let rows: Vec<&SettingRow> = rows
         .iter()
         .filter(|row| {
@@ -822,6 +838,8 @@ fn insert_picker(picker: &OutputPicker, rows: &[SettingRow]) -> Vec<glib::WeakRe
         item.set_focusable(false);
         item.set_child(Some(picker.widget()));
         list.prepend(&item);
+        // What the display shows, after its settings.
+        list.append(mirroring.item());
     }
     rows.into_iter().map(ObjectExt::downgrade).collect()
 }
@@ -829,12 +847,17 @@ fn insert_picker(picker: &OutputPicker, rows: &[SettingRow]) -> Vec<glib::WeakRe
 /// Shows `row` unless its setting is only for one display at a time and the rows are for every
 /// display (`identifier` is `None`): a mode, a position or switching off for all of them at once
 /// isn't offered.
-fn show_for(row: &SettingRow, identifier: Option<&str>) {
+fn show_for(row: &SettingRow, identifier: Option<&str>, output: Option<&Output>) {
     let one_at_a_time = row
         .setting()
         .is_some_and(sway_things_core::registry::Setting::is_one_at_a_time);
+    // A display that is off has nothing to set but switching it on.
+    let off = output.is_some_and(|output| output.is_connected() && !output.is_enabled());
+    let switch = row
+        .setting()
+        .is_some_and(|setting| setting.key() == ENABLED);
     if let Some(item) = row.parent() {
-        item.set_visible(identifier.is_some() || !one_at_a_time);
+        item.set_visible((identifier.is_some() || !one_at_a_time) && (!off || switch));
     }
 }
 
@@ -950,20 +973,6 @@ impl RefreshRates {
         }
         self.updating.set(false);
     }
-}
-
-/// Keeps `mirroring` showing what each display of `model` shows, numbered as `picker` numbers
-/// them, until it is gone.
-pub fn follow_mirroring(model: &Model, mirroring: &Mirroring, picker: &OutputPicker) {
-    let shown = mirroring.clone();
-    follow_section(
-        model,
-        mirroring.widget(),
-        picker,
-        move |model, outputs, number| {
-            shown.update(model, outputs, number);
-        },
-    );
 }
 
 /// Keeps `map` showing the placement of the workspaces for the outputs of `model`, numbered as

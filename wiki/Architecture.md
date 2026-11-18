@@ -726,24 +726,26 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   (`outputs::profiles::Profile::stored`, what they run with where nothing is stored) and remembers it for their
   combination in `displays.toml` next to the settings files (`Profiles`), unless the combination changed since the
   values were made for it, writes `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per
-  combination named `sway-things-<hash>`, then `sway-things-any` with `...output * enable`, which switches on every
-  display of a combination no profile matches, so none stays dark; a combination with every display off is never
-  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our
-  include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per run of the app),
-  not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places, which is the
-  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the
-  user's config except to create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always
-  with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`, not counting
-  our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps being started.
-  `displays.toml` starts with our header and a file without it is never written over; one that can't be read isn't
-  either: the displays are set up from our sway lines meanwhile, and the app says why. `hook displays` has kanshi apply
-  its profile again and then makes sure a display is on. The app looks again before each change and when displays come
-  and go (at most every two seconds) and writes the files when the answer changes; `doctor` compares against the same
-  and checks no conflicts of per-output settings meanwhile. With kanshi installed, `doctor` reports a kanshi config
-  without our include (with the command that appends it), a file of someone else's in the place of ours, and a profile
-  of the user's that covers a remembered combination (`kanshi::user_profiles`), since kanshi applies the first that
-  matches. The rows of the displays have no reset button and no machine toggle meanwhile: the values stand for the
-  combination, not for every machine. A model made for tests never looks.
+  combination named `sway-things-<hash>`, then for each display of them without a remembered combination of its own, one
+  that switches it on when it is the only one connected (a laptop's panel switched off at the dock comes back when the
+  dock goes). There is no profile for any displays (`...output *`): kanshi keeps a profile that still matches when
+  displays are plugged in, so it would never switch to a remembered combination again; a combination with every display
+  off is never remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file
+  changed. If our include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per
+  run of the app), not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places,
+  which is the scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and
+  never the user's config except to create it. `20-output.conf` then has no per-output lines, a comment, the startup
+  guard (always with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`,
+  not counting our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps
+  being started. `displays.toml` starts with our header and a file without it is never written over; one that can't be
+  read isn't either: the displays are set up from our sway lines meanwhile, and the app says why. `hook displays` has
+  kanshi apply its profile again and then makes sure a display is on. The app looks again before each change and when
+  displays come and go (at most every two seconds) and writes the files when the answer changes; `doctor` compares
+  against the same and checks no conflicts of per-output settings meanwhile. With kanshi installed, `doctor` reports a
+  kanshi config without our include (with the command that appends it), a file of someone else's in the place of ours,
+  and a profile of the user's that covers a remembered combination (`kanshi::user_profiles`), since kanshi applies the
+  first that matches. The rows of the displays have no reset button and no machine toggle meanwhile: the values stand
+  for the combination, not for every machine. A model made for tests never looks.
 - **Workspace placement:** `outputs::workspaces` maps workspaces `1` to `10` to displays by their name in the settings,
   per combination in `displays.toml` (`[[profile]] workspaces`), opt-in with `[workspaces] place = true`. Presets round
   the displays left to right or fill them in blocks; `current` reads `GET_WORKSPACES`. `commands` declares
@@ -762,7 +764,7 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   Things mirror_ and the session's `XDG_RUNTIME_DIR`/`WAYLAND_DISPLAY`), ends those the combination connected now
   doesn't ask for (`kill` with their numbers) and starts only the missing ones
   (`setsid -f wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>`), with argument
-  lists and no shell. Once any combination mirrors, every kanshi profile, `sway-things-any` too, runs
+  lists and no shell. Once any combination mirrors, every kanshi profile, those of a display alone too, runs
   `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. A display that mirrors
   takes no workspaces.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
@@ -1174,8 +1176,8 @@ profile sway-things-1a2b3c4d {
     exec sway-things hook workspaces
 }
 
-profile sway-things-any {
-    ...output * enable
+profile sway-things-5e6f7a8b {
+    output "eDP-1" enable
 }
 
 # ~/.config/sway/sway-things/80-hooks.conf (generated)
@@ -1291,15 +1293,19 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   grip in its corner: dragging it projects the movement onto the tile's diagonal, so the tile keeps its proportions, and
   stores the scale on release; a drop stores the position of every output that is on (`Model::set`), shows the dropped
   layout until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page).
-  While a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When outputs'
-  sizes change with what is stored for them, the layout flows so that what touched still touches
-  (`outputs::layout::reflow`, for one output or several, like a scale for all of them); the layout to compare with is
-  held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up with
-  sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs
-  picks the output they are for (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the
-  output: the resolutions (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that
-  resolution (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps
-  an `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
+  While a risky change waits, the tiles can be picked but not moved (`Canvas::set_locked`), and a trial that changes a
+  display's size has the others follow it at once: the canvas works out the flowed layout against the one before the
+  trial and sends their new places with `Applier::move_along`, which records how to put them back in the trial's undo
+  and stores them on Keep (`Pending::along`); `Applier::try_risky_all` gives a display that is switched on a place right
+  of the others in the same trial. Revert puts back everything that changed. When outputs' sizes change with what is
+  stored for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or
+  several, like a scale for all of them); the layout to compare with is held while the model is busy or a risky change
+  waits, and for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere
+  (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
+  (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the output: the resolutions
+  (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that resolution
+  (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps an
+  `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
   sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the overlay layer of
   `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
   no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't

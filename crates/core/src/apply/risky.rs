@@ -100,6 +100,9 @@ pub struct Pending {
     sent: Vec<String>,
     undo: Vec<SwayCmd>,
     countdown: Countdown,
+    /// The places the other displays got so the layout keeps together with the display's new
+    /// size ([`Applier::move_along`]), by display: stored with the change, put back with it.
+    along: Vec<(String, Value)>,
 }
 
 impl Pending {
@@ -133,6 +136,14 @@ impl Pending {
     /// When it is reverted unless it is kept.
     pub fn countdown(&self) -> Countdown {
         self.countdown
+    }
+
+    /// The place a display got along with the change ([`Applier::move_along`]), if it got one.
+    pub fn along(&self, device: &str) -> Option<&Value> {
+        self.along
+            .iter()
+            .find(|(moved, _)| moved == device)
+            .map(|(_, place)| place)
     }
 }
 
@@ -216,6 +227,8 @@ impl<V: Validate> Applier<V> {
         access: &WriteAccess,
     ) -> Result<Tried, ApplyError> {
         let Some(earlier) = self.pending.take() else {
+            let placed = self.placed_when_on(device, changes).await;
+            let changes = placed.as_deref().unwrap_or(changes);
             return self.try_fresh(device, changes, status, access, false).await;
         };
         // Another value for what waits (a second mode or rotation before keeping the first):
@@ -254,6 +267,7 @@ impl<V: Validate> Applier<V> {
             Ok(Tried::Waits(trial)) => {
                 if let Some(pending) = &mut self.pending {
                     pending.undo = earlier.undo;
+                    pending.along = earlier.along;
                 }
                 Ok(Tried::Waits(trial))
             }
@@ -376,6 +390,7 @@ impl<V: Validate> Applier<V> {
             sent: sent.clone(),
             undo,
             countdown,
+            along: Vec::new(),
         });
         Ok(Tried::Waits(Trial {
             commands: sent,
@@ -396,8 +411,19 @@ impl<V: Validate> Applier<V> {
     ) -> Result<(State, Vec<(&'static Setting, Option<Value>)>), ApplyError> {
         let mut tried = self.state.clone();
         let mut settings_changed = Vec::new();
-        for (key, change) in changes {
-            let setting = self.risky_setting(key)?;
+        for (index, (key, change)) in changes.iter().enumerate() {
+            // The first is risky; a position can come along with it (a display switched on gets
+            // its place in the same trial).
+            let setting = if index > 0 && *key == crate::outputs::POSITION {
+                self.state
+                    .registry()
+                    .get(key)
+                    .ok_or_else(|| StateError::UnknownKey {
+                        key: (*key).to_owned(),
+                    })?
+            } else {
+                self.risky_setting(key)?
+            };
             match change {
                 Some(value) => {
                     tried.set(key, device, value.clone(), None)?;
@@ -477,6 +503,11 @@ impl<V: Validate> Applier<V> {
                 state.set(tried.key, device, tried.value.clone(), None)
             }
         });
+        let stored = stored.and_then(|()| {
+            pending.along.iter().try_for_each(|(moved, place)| {
+                state.set(crate::outputs::POSITION, Some(moved), place.clone(), None)
+            })
+        });
         if let Err(error) = stored {
             self.pending = Some(pending);
             return Err(error.into());
@@ -494,6 +525,76 @@ impl<V: Validate> Applier<V> {
             },
             not_copied: Vec::new(),
         })
+    }
+
+    /// Moves other displays along with the risky change of a display's size that waits (a mode
+    /// or a rotation), to `places` ("x,y" by display), so the layout keeps together while the
+    /// user decides: sent now, stored when the change is kept, put back when it is reverted.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NothingPending`] if no change waits, [`ApplyError::NoSession`] without a
+    /// session, and the errors of rendering and sending the commands.
+    pub async fn move_along(&mut self, places: &[(String, Value)]) -> Result<(), ApplyError> {
+        let mut pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
+        let moved = self.send_along(&mut pending, places).await;
+        self.pending = Some(pending);
+        moved
+    }
+
+    async fn send_along(
+        &mut self,
+        pending: &mut Pending,
+        places: &[(String, Value)],
+    ) -> Result<(), ApplyError> {
+        use crate::outputs::POSITION;
+        let position =
+            self.state
+                .registry()
+                .get(POSITION)
+                .ok_or_else(|| StateError::UnknownKey {
+                    key: POSITION.to_owned(),
+                })?;
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession { key: POSITION });
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        for (device, place) in places {
+            let mut moved = self.state.clone();
+            moved.set(POSITION, Some(device), place.clone(), None)?;
+            let commands = render(
+                &moved,
+                &BTreeMap::new(),
+                position,
+                Some(device),
+                Target::Ipc,
+            )?;
+            // The first move of a display: Revert puts it back where it ran.
+            let first = pending.along.iter().all(|(known, _)| known != device);
+            let was = outputs
+                .find(device)
+                .and_then(|output| output.session_value(POSITION));
+            if let (true, Some(was)) = (first, was) {
+                let mut before = self.state.clone();
+                before.set(POSITION, Some(device), was, None)?;
+                pending.undo.extend(render(
+                    &before,
+                    &BTreeMap::new(),
+                    position,
+                    Some(device),
+                    Target::Ipc,
+                )?);
+            }
+            for command in &commands {
+                client.run(command).await.map_err(ApplyError::Ipc)?;
+                pending
+                    .sent
+                    .push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+            }
+            pending.along.retain(|(known, _)| known != device);
+            pending.along.push((device.clone(), place.clone()));
+        }
+        Ok(())
     }
 
     /// Reverts the pending risky change: sends the value that was in effect before it again.
@@ -678,6 +779,41 @@ impl<V: Validate> Applier<V> {
     }
 
     /// The risky setting `key`.
+    /// `changes` with a place for the display `device` if they switch it on while it is off and
+    /// don't place it themselves: right of the displays that are on, at the top of the one
+    /// furthest right. sway would put it at 0,0, over another one. `None` to leave them as they
+    /// are, also without a session.
+    async fn placed_when_on<'a>(
+        &mut self,
+        device: Option<&str>,
+        changes: &[(&'a str, Option<Value>)],
+    ) -> Option<Vec<(&'a str, Option<Value>)>> {
+        use crate::outputs::{ENABLED, POSITION};
+        let device = device?;
+        let switches_on = changes
+            .iter()
+            .any(|(key, value)| *key == ENABLED && *value == Some(Value::Bool(true)));
+        let places = changes.iter().any(|(key, _)| *key == POSITION);
+        if !switches_on || places {
+            return None;
+        }
+        let client = self.client.as_mut()?;
+        let outputs = Outputs::new(&client.outputs().await.ok()?);
+        if outputs.find(device)?.is_enabled() {
+            return None;
+        }
+        let furthest = outputs
+            .enabled()
+            .filter_map(crate::outputs::Output::rect)
+            .max_by_key(|rect| (rect.right(), std::cmp::Reverse(rect.y)))?;
+        let mut with_place = changes.to_vec();
+        with_place.push((
+            POSITION,
+            Some(Value::Text(format!("{},{}", furthest.right(), furthest.y))),
+        ));
+        Some(with_place)
+    }
+
     fn risky_setting(&self, key: &str) -> Result<&'static Setting, ApplyError> {
         let setting = self
             .state

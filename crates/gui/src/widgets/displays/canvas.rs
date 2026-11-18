@@ -307,6 +307,8 @@ mod imp {
         pub(super) drag: RefCell<Option<super::Drag>>,
         /// The view while a drag runs, so the canvas doesn't rescale under the pointer.
         pub(super) frozen: Cell<Option<super::View>>,
+        /// Set while a risky change waits: the tiles can be picked, not moved or scaled.
+        pub(super) locked: Cell<bool>,
         /// A layout that was applied and isn't reported by sway yet, and since when.
         pub(super) dropped: RefCell<Option<(super::Layout, Instant)>>,
         /// Set while the tiles are updated, so that isn't taken as the user's choice.
@@ -569,11 +571,14 @@ impl Canvas {
         let imp = self.imp();
         // While a change is sent or waits to be kept, the layout before it stays the one to
         // compare with: sway's report and what the app stores arrive in either order.
-        let waits = imp
-            .model
-            .get()
-            .is_some_and(|model| model.pending_change().is_some() || model.is_busy());
-        if waits {
+        let Some(model) = imp.model.get() else {
+            return;
+        };
+        if model.is_busy() {
+            return;
+        }
+        if model.pending_change().is_some() {
+            self.move_along_with_trial(model);
             return;
         }
         let layout = self.layout();
@@ -622,6 +627,37 @@ impl Canvas {
         imp.stored_at.set(None);
         self.follow_resize(&before, &sizes_before, &sizes);
         imp.baseline.replace(Some((self.layout(), sizes)));
+    }
+
+    /// While the trial of a display's new size (a mode or a rotation) waits: the others move along
+    /// so that what touched before still touches, now and not only once it is kept. The layout
+    /// before the trial stays the one to compare with, so Revert puts back all of it.
+    fn move_along_with_trial(&self, model: &Model) {
+        let before = self
+            .imp()
+            .baseline
+            .borrow()
+            .as_ref()
+            .map(|(before, _)| before.clone());
+        let Some(before) = before else {
+            return;
+        };
+        let layout = self.layout();
+        let Some((_, arranged)) = keep_together(&before, &layout) else {
+            return;
+        };
+        let places: Vec<(String, Value)> = arranged
+            .iter()
+            .filter(|(id, rect)| {
+                layout
+                    .iter()
+                    .any(|(shown, now)| shown == id && (now.x, now.y) != (rect.x, rect.y))
+            })
+            .map(|(id, rect)| (id.clone(), Value::Text(format!("{},{}", rect.x, rect.y))))
+            .collect();
+        if !places.is_empty() {
+            model.move_along(places);
+        }
     }
 
     /// Looks at the sizes again after `delay`, so what is held or stored doesn't count longer
@@ -801,6 +837,14 @@ impl Canvas {
         button
     }
 
+    /// Locks the layout while a risky change waits (so Revert puts back only that change): the
+    /// tiles can still be picked, but not moved, nudged or scaled. The grip goes meanwhile.
+    pub fn set_locked(&self, locked: bool) {
+        if self.imp().locked.replace(locked) != locked {
+            self.queue_allocate();
+        }
+    }
+
     /// Picks the output `identifier` and tells.
     fn pick(&self, identifier: &str) {
         self.imp().selected.replace(Some(identifier.to_owned()));
@@ -829,6 +873,9 @@ impl Canvas {
         key: gtk::gdk::Key,
         modifiers: gtk::gdk::ModifierType,
     ) -> glib::Propagation {
+        if self.imp().locked.get() {
+            return glib::Propagation::Proceed;
+        }
         let step = if modifiers.contains(gtk::gdk::ModifierType::SHIFT_MASK) {
             NUDGE * 10
         } else {
@@ -984,7 +1031,8 @@ impl Canvas {
             // The grip sits in the bottom right corner of the picked tile, if it is on and big
             // enough: one grip at a time keeps the others' names clear.
             let picked = imp.selected.borrow().as_deref() == Some(tile.identifier.as_str());
-            let grip_shown = picked && !tile.off && w > GRIP * 3 && h > GRIP * 3;
+            let grip_shown =
+                picked && !tile.off && !imp.locked.get() && w > GRIP * 3 && h > GRIP * 3;
             tile.grip.set_visible(grip_shown);
             if grip_shown {
                 tile.grip.size_allocate(
@@ -1183,6 +1231,10 @@ impl Canvas {
 
     fn begin_drag(&self, x: f64, y: f64) {
         let imp = self.imp();
+        // Locked: a press only picks the tile.
+        if imp.locked.get() {
+            return;
+        }
         let grabbed_tile = self.grip_at(x, y);
         let grabbed = grabbed_tile.is_some();
         let Some(tile) = grabbed_tile
@@ -1618,7 +1670,7 @@ impl Canvas {
     /// Goes back to the arrangement before the last one the user made. Returns whether there
     /// was one.
     pub fn undo(&self) -> bool {
-        if !self.is_sensitive() {
+        if !self.is_sensitive() || self.imp().locked.get() {
             return false;
         }
         let previous = self.imp().history.borrow_mut().pop();
@@ -1673,11 +1725,13 @@ fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32, grip: bool) {
     let room = width - frame_across;
     let (_, number_height) = size(&number);
     let (name_width, name_height) = size(&name);
+    // A name that doesn't fit on one line wraps at its spaces; one without spaces would be cut.
+    let wraps = name.text().contains(' ') && name_width <= 2 * room;
     let name_lines = if name_width <= room { 1 } else { 2 };
     let (details_width, details_height) = size(&details);
     let with_name = frame + number_height + gap + name_height * name_lines;
     let with_details = with_name + gap + details_height;
-    let show_name = with_name <= height;
+    let show_name = with_name <= height && (name_width <= room || wraps);
     // On the tile with the grip, the last line is centered above the grip's corner: it keeps
     // clear of it on both sides.
     let clear = if grip { 2 * GRIP } else { 0 };
