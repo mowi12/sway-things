@@ -171,8 +171,9 @@ out of date and prints the difference, which is enough to fix it elsewhere.
 
 The sway config parser reads files from shared dotfiles, so it is fuzzed: `fuzz/fuzz_targets/sway_config.rs` feeds it a
 config and the files it includes, all in memory. `fuzz/` is a workspace of its own, outside `just check`. It needs
-[cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (`cargo install cargo-fuzz --locked`, or its release binary) and a
-C++ compiler for libFuzzer (`c++`, or `clang++`); the stable toolchain is enough, as it runs without a sanitizer.
+[cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (`cargo install cargo-fuzz --locked`, or its release binary), a
+C++ compiler for libFuzzer (`c++`, or `clang++`) and the GLib headers the core builds against; the stable toolchain is
+enough, as it runs without a sanitizer.
 
 ```sh
 just fuzz 300                         # fuzz for 300 s (scripts/fuzz.sh run 300)

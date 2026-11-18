@@ -16,9 +16,10 @@
 #   report DIR [--dry-run]  open a Bug issue for each input in DIR, or comment on the open issue with the same title;
 #                           with --dry-run, only print the issues and comments
 #
-# Needs cargo (stable is enough: the target runs without a sanitizer, as the parser has no unsafe code), cargo-fuzz and
-# a C++ compiler for libFuzzer (c++, or clang++ if there's no c++); lint needs clippy and cargo-deny. report needs only
-# gh (logged in, or GH_TOKEN set); it targets the repository of the current checkout, or GH_REPO=owner/name if set.
+# Needs cargo (stable is enough: the target runs without a sanitizer, as the parser has no unsafe code), cargo-fuzz, a
+# C++ compiler for libFuzzer (c++, or clang++ if there's no c++) and the GLib headers (the core writes GSettings with
+# GIO); lint needs clippy and cargo-deny. report needs only gh (logged in, or GH_TOKEN set); it targets the repository
+# of the current checkout, or GH_REPO=owner/name if set.
 
 set -euo pipefail
 
