@@ -92,6 +92,9 @@ impl Layer {
     /// The file a new value of `setting` goes to unless the user chooses otherwise: values bound
     /// to this machine's hardware go to the host overlay.
     pub fn default_for(setting: &Setting, device: Option<&str>) -> Self {
+        if setting.host_by_default() {
+            return Self::Host;
+        }
         match (setting.scope(), device) {
             (Scope::Global, _) | (Scope::PerDevice(_), None) => Self::Shared,
             (Scope::PerHost | Scope::PerOutput, _) | (Scope::PerDevice(_), Some(_)) => Self::Host,

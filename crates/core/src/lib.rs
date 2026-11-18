@@ -3,7 +3,7 @@
 
 //! Core of Sway Things: settings registry, state, generators, sway config parser, IPC and backends.
 //!
-//! This crate has no GTK dependency. Both the `sway-things` CLI and the `sway-things-gui` app build on it.
+//! This crate has no GTK dependency; it uses GIO only to write GSettings. Both the `sway-things` CLI and the `sway-things-gui` app build on it.
 
 #![warn(missing_docs)]
 #![deny(clippy::print_stdout)]
@@ -19,6 +19,7 @@ pub mod devices;
 pub mod doctor;
 pub mod editor;
 pub mod generate;
+pub mod gsettings;
 pub mod i18n;
 pub mod include;
 pub mod ipc;

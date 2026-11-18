@@ -102,13 +102,21 @@ pub enum ConfigFile {
     Appearance,
     /// `40-behavior.conf`
     Behavior,
+    /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`.
+    Hooks,
     /// `90-effects.conf`: SwayFX directives only, written only while SwayFX runs.
     Effects,
 }
 
 impl ConfigFile {
     /// Every generated file, in the order of their names, which is the order sway reads them in.
-    pub const ALL: [Self; 4] = [Self::Input, Self::Appearance, Self::Behavior, Self::Effects];
+    pub const ALL: [Self; 5] = [
+        Self::Input,
+        Self::Appearance,
+        Self::Behavior,
+        Self::Hooks,
+        Self::Effects,
+    ];
 
     /// The file name.
     pub const fn file_name(self) -> &'static str {
@@ -116,6 +124,7 @@ impl ConfigFile {
             Self::Input => "10-input.conf",
             Self::Appearance => "30-appearance.conf",
             Self::Behavior => "40-behavior.conf",
+            Self::Hooks => "80-hooks.conf",
             Self::Effects => "90-effects.conf",
         }
     }

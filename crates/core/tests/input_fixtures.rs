@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Generates the `input` fixtures in `ci/integration/` from the input builders and checks that the
-//! committed files are up to date. `scripts/check-integration.sh` feeds them to a real sway:
+//! Generates the `input` fixtures in `ci/integration/` from the input and seat builders and checks
+//! that the committed files are up to date. `scripts/check-integration.sh` feeds them to a real sway:
 //! `input.conf` (every option and value that works in a config file) must pass `sway --validate`,
 //! and every command in `input-ipc.txt` (every one that works over IPC) must succeed.
 //!
@@ -13,10 +13,10 @@ mod common;
 
 use common::{Result, push_line};
 use sway_things_core::command::input::{
-    AccelProfile, ButtonMap, ClickMethod, DragLock, Input, InputSelector, InputType, ScrollButton,
-    ScrollMethod, SendEvents, XkbSwitch,
+    AccelProfile, ButtonMap, ClickMethod, DragLock, Input, InputSelector, InputType, MapTo,
+    ScrollButton, ScrollMethod, SendEvents, ToolMode, XkbSwitch,
 };
-use sway_things_core::command::{Availability, SwayCmd, Target};
+use sway_things_core::command::{Availability, SwayCmd, SwayText, Target, seat};
 
 /// A device identifier with characters that need quoting, including the `$mod` variable that
 /// `ci/integration/sway.conf` defines.
@@ -123,6 +123,27 @@ fn all_commands() -> Result<Vec<SwayCmd>> {
     ] {
         commands.push(Input::new(InputSelector::Type(input_type)).events(SendEvents::Enabled));
     }
+    let tablet = Input::new(InputSelector::Type(InputType::TabletTool));
+    let touch = Input::new(InputSelector::Type(InputType::Touch));
+    // An output name with characters that need quoting.
+    let output = MapTo::Output(SwayText::new(r#"Fake "Display" $mod"#)?);
+    commands.extend([
+        tablet.map_to_output(&output),
+        tablet.map_to_output(&MapTo::Desktop),
+        touch.map_to_output(&MapTo::Output(SwayText::new("eDP-1")?)),
+        touch.map_to_output(&MapTo::Desktop),
+        tablet.tool_mode(ToolMode::Relative),
+        tablet.tool_mode(ToolMode::Absolute),
+    ]);
+    // A theme name with characters that need quoting.
+    commands.extend([
+        seat::xcursor_theme(&SwayText::new(r#"Fake "Cursors" $mod"#)?, 48)?,
+        seat::xcursor_theme(&SwayText::new("default")?, 24)?,
+        seat::hide_cursor(2500)?,
+        seat::hide_cursor(0)?,
+        seat::hide_cursor_when_typing(true),
+        seat::hide_cursor_when_typing(false),
+    ]);
     Ok(commands)
 }
 

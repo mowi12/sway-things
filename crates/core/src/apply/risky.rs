@@ -313,6 +313,7 @@ impl<V: Validate> Applier<V> {
             effect: Effect::Live {
                 commands: pending.sent,
             },
+            not_copied: Vec::new(),
         })
     }
 
@@ -373,6 +374,7 @@ impl<V: Validate> Applier<V> {
         Ok(Applied {
             changed: stored,
             effect,
+            not_copied: Vec::new(),
         })
     }
 
@@ -399,6 +401,7 @@ impl<V: Validate> Applier<V> {
             return Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
+                not_copied: Vec::new(),
             });
         }
         let effect =
@@ -419,6 +422,7 @@ impl<V: Validate> Applier<V> {
         Ok(Applied {
             changed: true,
             effect,
+            not_copied: Vec::new(),
         })
     }
 

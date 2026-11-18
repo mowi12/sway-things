@@ -11,10 +11,11 @@ use super::{Applied, Applier, ApplyError, Effect, SAVE_DELAY};
 use crate::devices::Lockout;
 use crate::generate::tests::{FakeValidator, SWAY_1_10, SWAYFX_0_5, TOUCHPAD, state};
 use crate::generate::{ConfigError, HEADER, Locations, Outcome};
+use crate::gsettings::{GSettingsError, GSettingsStore};
 use crate::include::WriteAccess;
 use crate::ipc::tests::{FakeSway, message, obedient};
 use crate::ipc::{IpcError, Unmet};
-use crate::registry::{ConfigFile, Value};
+use crate::registry::{ConfigFile, GSettingsKey, Value};
 use crate::state::{ChangedKey, Layer, StateError};
 use crate::version::SwayFxVersion;
 
@@ -110,6 +111,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
         Applied {
             changed: true,
             effect: live(&["gaps inner 8", "gaps inner all set 8"]),
+            not_copied: Vec::new(),
         }
     );
     assert_eq!(sway.commands(), ["gaps inner 8", "gaps inner all set 8"]);
@@ -133,6 +135,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
             (ConfigFile::Input, Outcome::NotCreated),
             (ConfigFile::Appearance, Outcome::Written),
             (ConfigFile::Behavior, Outcome::NotCreated),
+            (ConfigFile::Hooks, Outcome::NotCreated),
             (ConfigFile::Effects, Outcome::NotCreated),
         ]
     );
@@ -373,6 +376,7 @@ fn a_reset_sends_the_default_and_removes_the_value() {
         Applied {
             changed: true,
             effect: live(&["gaps inner 0", "gaps inner all set 0"]),
+            not_copied: Vec::new(),
         }
     );
     // One value of a directive: the others stay as stored.
@@ -400,6 +404,7 @@ fn a_reset_sends_the_default_and_removes_the_value() {
         Applied {
             changed: false,
             effect: Effect::NotStored,
+            not_copied: Vec::new(),
         }
     );
     assert_eq!(sway.commands().len(), sent);
@@ -643,6 +648,7 @@ fn letting_the_config_win_sends_the_users_value_and_removes_ours() {
         Applied {
             changed: true,
             effect: live(&["gaps inner 4", "gaps inner all set 4"]),
+            not_copied: Vec::new(),
         }
     );
     assert_eq!(setup.applier.state().get(GAPS, None), None);
@@ -713,6 +719,7 @@ fn a_value_that_cant_be_read_is_left_to_a_reload() {
         Applied {
             changed: true,
             effect: Effect::AfterReload,
+            not_copied: Vec::new(),
         }
     );
     assert_eq!(sway.commands(), Vec::<String>::new());
@@ -737,6 +744,7 @@ fn letting_the_config_win_needs_a_stored_value_and_no_safety_net() {
         Applied {
             changed: false,
             effect: Effect::NotStored,
+            not_copied: Vec::new(),
         }
     );
     assert_eq!(sway.commands(), Vec::<String>::new());
@@ -1249,7 +1257,8 @@ fn an_unchecked_risky_reset_removes_the_value_but_is_still_protected() {
         applied,
         Applied {
             changed: false,
-            effect: Effect::NotStored
+            effect: Effect::NotStored,
+            not_copied: Vec::new(),
         }
     );
 
@@ -1544,4 +1553,54 @@ fn changes_on_disk_for_the_config_only_wait_for_a_reload_of_sway() {
     block_on(setup.applier.reload(&setup.access));
     // The risky layout is left to the safety net.
     assert_eq!(waiting(&setup.applier, Until::Reload), [WORKSPACE_LAYOUT]);
+}
+
+/// A GSettings store that refuses every value.
+#[derive(Debug)]
+struct Refusing;
+impl GSettingsStore for Refusing {
+    fn set(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+    fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+}
+
+#[test]
+fn the_cursor_is_copied_to_gsettings_and_reset_there() {
+    use crate::gsettings::MemoryGSettings;
+
+    let store = MemoryGSettings::default();
+    let mut setup = Setup::offline("version = 1\n");
+    setup.applier.set_gsettings(Box::new(store.clone()));
+    let theme = || store.get("org.gnome.desktop.interface", "cursor-theme");
+    let size = || store.get("org.gnome.desktop.interface", "cursor-size");
+
+    let applied = setup
+        .set("cursor.theme", Value::Text("Bibata".to_owned()))
+        .unwrap();
+    assert_eq!(applied.not_copied, []);
+    assert_eq!(theme(), Some(Value::Text("Bibata".to_owned())));
+    // The size isn't stored, so its key stays at its default.
+    assert_eq!(size(), None);
+    setup.set("cursor.size", Value::Integer(48)).unwrap();
+    assert_eq!(size(), Some(Value::Integer(48)));
+    // Settings without a key aren't copied.
+    setup.set(GAPS, Value::Integer(4)).unwrap();
+    assert_eq!(theme(), Some(Value::Text("Bibata".to_owned())));
+
+    setup.reset("cursor.theme").unwrap();
+    assert_eq!(theme(), None);
+    assert_eq!(size(), Some(Value::Integer(48)));
+
+    // A store that refuses: the change is made and the key reported.
+    setup.applier.set_gsettings(Box::new(Refusing));
+    let applied = setup.set("cursor.size", Value::Integer(32)).unwrap();
+    assert!(applied.changed);
+    assert_eq!(applied.not_copied.len(), 2);
+    assert_eq!(
+        setup.applier.state().get("cursor.size", None),
+        Some(&Value::Integer(32))
+    );
 }

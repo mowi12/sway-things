@@ -208,12 +208,13 @@ fn an_include_of_some_files_is_partial() {
             vec![
                 ConfigFile::Appearance,
                 ConfigFile::Behavior,
+                ConfigFile::Hooks,
                 ConfigFile::Effects,
             ],
         ),
         (
             "include ~/.config/sway/sway-things/[1-4]*.conf",
-            vec![ConfigFile::Effects],
+            vec![ConfigFile::Hooks, ConfigFile::Effects],
         ),
     ] {
         let status = status(&format!("{line}\n"));
@@ -233,13 +234,13 @@ fn an_include_of_some_files_is_partial() {
             .message()
             .english(),
         "Not enabled yet: your config includes only some of the Sway Things files \
-         (~/.config/sway/config:1). Not included: 90-effects.conf. Use this line instead:\n\n    \
+         (~/.config/sway/config:1). Not included: 80-hooks.conf, 90-effects.conf. Use this line instead:\n\n    \
          include ~/.config/sway/sway-things/*.conf"
     );
     // Two lines that cover everything together are fine.
     let status = status(
         "include ~/.config/sway/sway-things/[1-4]*.conf\ngaps inner 8\n\
-         include ~/.config/sway/sway-things/9*.conf\n",
+         include ~/.config/sway/sway-things/[89]*.conf\n",
     );
     assert!(status.is_active());
     assert_eq!(places(&status), ["config:1", "config:3"]);

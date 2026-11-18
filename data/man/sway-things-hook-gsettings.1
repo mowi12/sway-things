@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-gsettings 1 "" "Sway Things 0.2.1" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-gsettings \- Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway
+.SH SYNOPSIS
+\fBsway\-things hook gsettings\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

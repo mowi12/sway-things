@@ -17,17 +17,18 @@ use std::path::{Path, PathBuf};
 use async_io::block_on;
 use clap::Parser;
 use sway_things_cli::{
-    Cli, Command, DoctorArgs, Exit, Look, Prompt, Session, Spinner, doctor, doctor_with, run,
+    Cli, Command, DoctorArgs, Exit, Hook, Look, Prompt, Session, Spinner, doctor, doctor_with, run,
 };
 use sway_things_core::apply::{Applier, Countdown};
 use sway_things_core::delegate;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
+use sway_things_core::gsettings::MemoryGSettings;
 use sway_things_core::i18n::Text;
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient};
-use sway_things_core::registry::Registry;
+use sway_things_core::registry::{Registry, Value};
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::Details;
@@ -594,6 +595,8 @@ fn commands_parse_as_documented() {
     );
     let cli = Cli::try_parse_from(["sway-things"]).unwrap();
     assert_eq!(cli.command, None);
+    let cli = Cli::try_parse_from(["sway-things", "hook", "gsettings"]).unwrap();
+    assert_eq!(cli.command, Some(Command::Hook(Hook::Gsettings)));
     let cli = Cli::try_parse_from(["sway-things", "open", "input.keyboard.repeat_rate"]).unwrap();
     assert_eq!(
         cli.command,
@@ -634,6 +637,7 @@ fn doctor_reports_a_setup_that_works() {
              ok       30-appearance.conf is up to date.\n  \
              ok       sway --validate accepts 30-appearance.conf.\n  \
              ok       40-behavior.conf isn't needed: no stored setting goes into it.\n  \
+             ok       80-hooks.conf isn't needed: no stored setting goes into it.\n  \
              ok       90-effects.conf isn't needed: no stored setting goes into it.\n\
              \n\
              Conflicts\n  \
@@ -873,7 +877,7 @@ fn doctor_prints_json_for_scripts() {
     assert_eq!(json["fix"]["result"], "done");
     assert_eq!(json["fix"]["message"], serde_json::Value::Null);
     let files = json["fix"]["files"].as_array().unwrap();
-    assert_eq!(files.len(), 4);
+    assert_eq!(files.len(), 5);
     assert_eq!(files[1]["outcome"], "written");
     assert_eq!(files[0]["outcome"], "not_created");
 }
@@ -1119,4 +1123,36 @@ fn doctor_starts_with_the_system_details() {
     block_on(doctor(&checkup, None, &args, &mut out));
     let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
     assert_eq!(json["system"], serde_json::Value::Null);
+}
+
+#[test]
+fn the_cursor_reaches_gsettings_on_set_reset_and_with_the_hook() {
+    let sway = obedient(SWAY_1_10);
+    let shared = "version = 1\n\n[cursor]\ntheme = \"Adwaita\"\n";
+    let mut setup = Setup::new(shared, INCLUDE, Some(&sway));
+    let store = MemoryGSettings::default();
+    setup.session.applier.set_gsettings(Box::new(store.clone()));
+    let get = |key: &str| store.get("org.gnome.desktop.interface", key);
+
+    // The hook writes what is stored and leaves the rest.
+    let ran = setup.run(&["hook", "gsettings"]);
+    assert_eq!(
+        (ran.exit, ran.out.as_str(), ran.err.as_str()),
+        (Exit::Ok, "", "")
+    );
+    assert_eq!(get("cursor-theme"), Some(Value::Text("Adwaita".to_owned())));
+    assert_eq!(get("cursor-size"), None);
+
+    let ran = setup.run(&["set", "cursor.size", "48"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(sway.commands(), [r#"seat * xcursor_theme "Adwaita" 48"#]);
+    assert_eq!(get("cursor-size"), Some(Value::Integer(48)));
+    assert_eq!(
+        setup.generated("80-hooks.conf").lines().last(),
+        Some("exec_always sway-things hook gsettings")
+    );
+
+    let ran = setup.run(&["reset", "cursor.theme"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(get("cursor-theme"), None);
 }

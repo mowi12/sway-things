@@ -1,0 +1,32 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook 1 "" "Sway Things 0.2.1" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook \- Run a hook; the generated sway config runs these, in 80\-hooks.conf
+.SH SYNOPSIS
+\fBsway\-things hook\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Run a hook; the generated sway config runs these, in 80\-hooks.conf
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH SUBCOMMANDS
+.TP
+sway\-things\-hook\-gsettings(1)
+Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway

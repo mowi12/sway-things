@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-17 09:12+0100\n"
+"POT-Creation-Date: 2026-11-18 10:21+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -945,6 +945,38 @@ msgstr ""
 msgid "can't run sway to validate: {error}"
 msgstr ""
 
+#: crates/core/src/gsettings.rs
+#, rust-format
+msgid ""
+"GTK apps keep their own setting: the GSettings schema {schema} isn't "
+"installed"
+msgstr ""
+
+#: crates/core/src/gsettings.rs
+#, rust-format
+msgid "GTK apps keep their own setting: GSettings has no key {key} in {schema}"
+msgstr ""
+
+#: crates/core/src/gsettings.rs
+#, rust-format
+msgid ""
+"GTK apps keep their own setting: GSettings key {key} in {schema} takes "
+"another type"
+msgstr ""
+
+#: crates/core/src/gsettings.rs
+#, rust-format
+msgid ""
+"GTK apps keep their own setting: GSettings key {key} in {schema} is locked"
+msgstr ""
+
+#: crates/core/src/gsettings.rs
+#, rust-format
+msgid ""
+"GTK apps keep their own setting: GSettings refused the value of {key} in "
+"{schema}"
+msgstr ""
+
 #: crates/core/src/include/instructions.rs
 #, rust-format
 msgid ""
@@ -1633,7 +1665,7 @@ msgstr ""
 msgid "Focus follows mouse"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/cursor.rs
 msgid "pointer"
 msgstr ""
 
@@ -1657,7 +1689,7 @@ msgstr ""
 msgid "mouse warping"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/cursor.rs
 msgid "cursor"
 msgstr ""
 
@@ -1917,6 +1949,189 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs
 msgid "legacy"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Like a pen on paper"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Like a mouse"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+#, rust-format
+msgid "expected a theme and a size, got {count} arguments"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+#, rust-format
+msgid "a negative timeout: {ms}"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Cursor theme"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Hide after inactivity"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Cursor"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Theme"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Also for GTK apps; other apps get it when they start again"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "mouse pointer"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "xcursor"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "arrow"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Size"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "The sizes the theme comes in"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "large cursor"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "bigger"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "accessibility"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Hides the cursor while the mouse doesn't move"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "hide"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "timeout"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "unclutter"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Seconds"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "How long the mouse doesn't move before the cursor hides"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Hide while typing"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Hides the cursor when a key is pressed, until the mouse moves"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/input.rs
+msgid "keyboard"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/input.rs
+msgid "typing"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Drawing tablet"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Screen"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "The screen the tablet's surface covers"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "tablet"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "wacom"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "pen"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "stylus"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "map to output"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "monitor"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Pen moves the pointer"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid ""
+"Like a pen points at a spot on the screen, or like a mouse pushes the pointer"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "tool mode"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "absolute"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "relative"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "Touchscreen"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "The screen your touches land on"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "touchscreen"
+msgstr ""
+
+#: crates/core/src/registry/cursor.rs
+msgid "touch"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
@@ -2602,10 +2817,6 @@ msgid "Off ignores the keyboard until it is turned on again"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
-msgid "keyboard"
-msgstr ""
-
-#: crates/core/src/registry/input.rs
 msgid "Layouts"
 msgstr ""
 
@@ -2743,10 +2954,6 @@ msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "Milliseconds a key is held before it repeats"
-msgstr ""
-
-#: crates/core/src/registry/input.rs
-msgid "typing"
 msgstr ""
 
 #: crates/core/src/registry/input.rs

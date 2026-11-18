@@ -7,7 +7,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::Msg;
-use crate::command::Color;
+use crate::command::{Color, TextError};
 use crate::editor::SplitError;
 use crate::i18n::Text;
 use crate::msg;
@@ -287,6 +287,8 @@ pub enum ValueError {
     },
     /// The text can't be split into a program and its arguments.
     NotACommand(SplitError),
+    /// The text can't be an argument of a sway command, e.g. a cursor theme or output name.
+    NotSwayText(TextError),
 }
 
 impl ValueError {
@@ -326,6 +328,7 @@ impl ValueError {
                 Text::new(msg!("must be one of: {choices}")).arg("choices", ids.join(", "))
             }
             Self::NotACommand(error) => error.text(),
+            Self::NotSwayText(error) => error.text(),
         }
     }
 }

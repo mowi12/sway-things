@@ -30,6 +30,20 @@ repeat_rate = 30
 xkb_numlock = true
 xkb_capslock = false
 
+[input.tablet_tool]
+map_to_output = "*"
+tool_mode = "relative"
+
+[input.touch]
+map_to_output = "eDP-1"
+
+[cursor]
+theme = "Adwaita"
+size = 32
+hide = true
+hide_after = 2.5
+hide_when_typing = true
+
 [windows]
 font = "Noto Sans 11"
 title_align = "center"

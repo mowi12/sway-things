@@ -34,6 +34,7 @@
 
 mod app;
 mod behavior;
+mod cursor;
 mod effects;
 mod input;
 mod link;
@@ -52,13 +53,14 @@ use std::sync::LazyLock;
 use crate::command::input::InputSelector;
 use crate::command::{SwayCmd, Target};
 
+pub use cursor::{MAP_AUTOMATIC, MAP_DESKTOP};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
-    Apply, Dependency, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider,
-    TextCheck, When,
+    Apply, Dependency, GSettingsKey, Msg, Requirements, Scope, Setting, SettingBuilder,
+    SettingGroup, Slider, TextCheck, When,
 };
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
@@ -74,6 +76,7 @@ pub struct Registry {
 static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     let mut settings = Vec::new();
     settings.extend(input::settings());
+    settings.extend(cursor::settings());
     settings.extend(windows::settings());
     settings.extend(effects::settings());
     settings.extend(behavior::settings());

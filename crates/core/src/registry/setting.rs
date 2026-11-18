@@ -136,6 +136,17 @@ impl When {
 /// A check of text values beyond their type, e.g. that a command can be split into words.
 pub type TextCheck = fn(&str) -> Result<(), ValueError>;
 
+/// A GSettings key a setting is copied to, for the apps that read it instead of asking sway: the
+/// cursor theme of GTK apps. A text setting maps to a string key, a whole number to an integer
+/// key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GSettingsKey {
+    /// The schema, e.g. `org.gnome.desktop.interface`.
+    pub schema: &'static str,
+    /// The key, e.g. `cursor-theme`.
+    pub key: &'static str,
+}
+
 /// The definition of one setting. Everything about a setting derives from it: the row in the app,
 /// the search entry, the command line key, the checks on stored values, the default, the sway
 /// commands and the config lines.
@@ -161,6 +172,8 @@ pub struct Setting {
     clears_first: Option<&'static str>,
     placeholder: Option<Msg>,
     check_text: Option<TextCheck>,
+    host_by_default: bool,
+    gsettings: Option<GSettingsKey>,
 }
 
 impl Setting {
@@ -187,6 +200,8 @@ impl Setting {
             clears_first: None,
             placeholder: None,
             check_text: None,
+            host_by_default: false,
+            gsettings: None,
         })
     }
 
@@ -358,6 +373,17 @@ impl Setting {
         self.dependency
     }
 
+    /// Whether a new value goes to the host overlay even where the [scope](Setting::scope) would
+    /// share it: the value names something of this machine, like an output.
+    pub fn host_by_default(&self) -> bool {
+        self.host_by_default
+    }
+
+    /// The GSettings key the setting is copied to, if any.
+    pub fn gsettings(&self) -> Option<GSettingsKey> {
+        self.gsettings
+    }
+
     /// The sway directive behind the setting, or `None` for a preference of Sway Things itself.
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
@@ -509,6 +535,19 @@ impl SettingBuilder {
     /// Checks text values with `check` too, beyond their type.
     pub fn check_text(mut self, check: TextCheck) -> Self {
         self.0.check_text = Some(check);
+        self
+    }
+
+    /// Stores new values in the host overlay, also for a whole input type
+    /// ([`Setting::host_by_default`]).
+    pub fn host_by_default(mut self) -> Self {
+        self.0.host_by_default = true;
+        self
+    }
+
+    /// Copies the value to the GSettings `key` of `schema` ([`Setting::gsettings`]).
+    pub fn gsettings(mut self, schema: &'static str, key: &'static str) -> Self {
+        self.0.gsettings = Some(GSettingsKey { schema, key });
         self
     }
 
