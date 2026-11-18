@@ -538,6 +538,37 @@ impl<V: Validate> Applier<V> {
         &mut self,
         key: &str,
         device: Option<&str>,
+        access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        // As for [`Applier::set`]: under kanshi, the value of every display is each one's.
+        if let Some(each) = self.each_display(key, device).await? {
+            let mut applied = Applied {
+                changed: false,
+                effect: Effect::NotStored,
+                not_copied: Vec::new(),
+            };
+            for output in &each {
+                let one = self.reset_one(key, Some(output), access).await?;
+                if one.changed {
+                    let mut not_copied = applied.not_copied;
+                    not_copied.extend(one.not_copied);
+                    applied = Applied {
+                        changed: true,
+                        effect: merged(applied.effect, one.effect),
+                        not_copied,
+                    };
+                }
+            }
+            return Ok(applied);
+        }
+        self.reset_one(key, device, access).await
+    }
+
+    /// [`Applier::reset`] for one `device`, or the whole session or input type.
+    async fn reset_one(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
         _access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
         let setting = self.setting(key)?;
@@ -1285,6 +1316,17 @@ impl<V: Values> Values for Over<'_, V> {
 
 /// The commands that set the directive of `setting` to its values in `state`, with those in
 /// `over` in place of the state's.
+/// The commands of two effects of one change, sent one after the other.
+fn merged(first: Effect, then: Effect) -> Effect {
+    match (first, then) {
+        (Effect::Live { mut commands }, Effect::Live { commands: more }) => {
+            commands.extend(more);
+            Effect::Live { commands }
+        }
+        (_, then) => then,
+    }
+}
+
 /// How long after a combination of displays came the stored values follow what the displays
 /// run with, while kanshi sets them up.
 const FOLLOW_TIME: Duration = Duration::from_secs(10);

@@ -891,15 +891,23 @@ impl SettingRow {
         }
     }
 
-    /// Whether a pointer button is down on the pointer of the row's seat.
+    /// Whether a pointer button is down on the pointer of the row's seat, as the window's
+    /// surface last heard of it.
     fn button_down(&self) -> bool {
         let buttons = gtk::gdk::ModifierType::BUTTON1_MASK
             | gtk::gdk::ModifierType::BUTTON2_MASK
             | gtk::gdk::ModifierType::BUTTON3_MASK;
-        self.display()
+        let Some(pointer) = self
+            .display()
             .default_seat()
             .and_then(|seat| seat.pointer())
-            .is_some_and(|pointer| pointer.modifier_state().intersects(buttons))
+        else {
+            return false;
+        };
+        self.native()
+            .and_then(|native| native.surface())
+            .and_then(|surface| surface.device_position(&pointer))
+            .is_some_and(|(_, _, state)| state.intersects(buttons))
     }
 
     /// Follows whether a pointer button is down on `widget`, a part of a number control that

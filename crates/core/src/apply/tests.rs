@@ -2147,6 +2147,10 @@ fn a_value_for_every_display_is_one_for_each_while_kanshi_sets_them_up() {
     let state = setup.applier.state();
     assert_eq!(state.get(SCALE, Some(PANEL)), Some(&Value::Decimal(1.5)));
     assert_eq!(state.get(SCALE, None), None);
+    // Reset for every display: for each one.
+    let reset = block_on(setup.applier.reset(SCALE, None, &setup.access)).unwrap();
+    assert!(reset.changed);
+    assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
     // A position is for one display at a time, also here.
     assert!(
         block_on(setup.applier.set(
