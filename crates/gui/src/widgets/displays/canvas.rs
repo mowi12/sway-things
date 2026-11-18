@@ -643,6 +643,31 @@ impl Canvas {
             return;
         };
         let layout = self.layout();
+        // A display switched off in the trial: the gap it leaves closes, so nothing floats.
+        if before.len() == layout.len() + 1 {
+            let vacated = before
+                .iter()
+                .find(|(id, _)| layout.iter().all(|(shown, _)| shown != id))
+                .map(|(_, rect)| *rect);
+            let rects: Vec<Rect> = layout.iter().map(|(_, rect)| *rect).collect();
+            let was_tidy =
+                layout::is_tidy(&before.iter().map(|(_, rect)| *rect).collect::<Vec<_>>());
+            if let Some(closed) = vacated
+                .filter(|_| was_tidy && !layout::is_tidy(&rects))
+                .and_then(|vacated| layout::close_gap(&rects, vacated))
+            {
+                let places: Vec<(String, Value)> = layout
+                    .iter()
+                    .zip(closed)
+                    .filter(|((_, now), new)| (now.x, now.y) != (new.x, new.y))
+                    .map(|((id, _), new)| (id.clone(), Value::Text(format!("{},{}", new.x, new.y))))
+                    .collect();
+                if !places.is_empty() {
+                    model.move_along(places);
+                }
+            }
+            return;
+        }
         // From the places before the trial, with the sizes now: another value tried in its place
         // (back to the one before, say) puts the others where that one needs them, not where
         // the first one did.
@@ -1063,7 +1088,7 @@ impl Canvas {
                     -1,
                 );
             }
-            fit_labels(&tile.button, w, h, grip_shown);
+            fit_labels(&tile.button, (w, h), grip_shown, &tile.details, tile.scale);
             tile.button.size_allocate(
                 &gtk::Allocation::new(x.round() as i32, y.round() as i32, w, h),
                 -1,
@@ -1728,19 +1753,42 @@ impl Canvas {
 }
 
 /// Shows on `button`, `width` × `height` pixels, as many of its lines as fit: the number always,
-/// then the name, then the details (clear of the `grip` if it has one). A tile too small for one
-/// of them leaves it out, rather than growing past the size of its display or cutting a line in
-/// half.
-fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32, grip: bool) {
+/// then the name, then the details (clear of the `grip` if it has one): `full`, or only the
+/// `scale` where that doesn't fit. A tile too small for one of them leaves it out, rather than
+/// growing past the size of its display or cutting a line in half.
+fn fit_labels(
+    button: &gtk::ToggleButton,
+    (width, height): (i32, i32),
+    grip: bool,
+    full: &str,
+    scale: f64,
+) {
     let Some((number, name, details)) = tile_labels(button) else {
         return;
     };
+    // On the tile with the grip, the last line is centered above the grip's corner: it keeps
+    // clear of it on both sides.
+    let clear = if grip { 2 * GRIP } else { 0 };
+    let room = width - 10;
+    // Details too long for the tile: its scale at least, so a change of it shows.
+    let compact = ((scale - 1.0).abs() > 0.001).then(|| format!("{:.0}\u{a0}%", scale * 100.0));
+    let shown = details.text();
+    if shown == full || compact.as_deref() == Some(shown.as_str()) {
+        let fits =
+            |text: &str| details.create_pango_layout(Some(text)).pixel_size().0 <= room - clear;
+        let wanted = match &compact {
+            Some(compact) if !fits(full) => compact.as_str(),
+            _ => full,
+        };
+        if shown != wanted {
+            details.set_text(wanted);
+        }
+    }
     // The lines' heights from their texts and fonts, so nothing is shown and hidden again just
     // to measure it (which would lay the canvas out again on every frame).
     let size = |label: &gtk::Label| label.create_pango_layout(Some(&label.text())).pixel_size();
     // The tile's padding and border across and down (style.css), and the space between lines.
-    let (frame_across, frame, gap) = (10, 6, 2);
-    let room = width - frame_across;
+    let (frame, gap) = (6, 2);
     let (_, number_height) = size(&number);
     let (name_width, name_height) = size(&name);
     // A name that doesn't fit on one line wraps at its spaces; one without spaces would be cut.
@@ -1750,13 +1798,27 @@ fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32, grip: bool) {
     let with_name = frame + number_height + gap + name_height * name_lines;
     let with_details = with_name + gap + details_height;
     let show_name = with_name <= height && (name_width <= room || wraps);
-    // On the tile with the grip, the last line is centered above the grip's corner: it keeps
-    // clear of it on both sides.
-    let clear = if grip { 2 * GRIP } else { 0 };
-    let show_details = show_name
+    let mut show_name = show_name;
+    let mut show_details = show_name
         && with_details <= height
         && details_width <= room - clear
         && !details.text().is_empty();
+    // The picked tile (the one with the grip) too small for both: its scale under the number
+    // instead of its name, which the picker shows, so a change of the scale shows on it.
+    if grip && !show_details {
+        if let Some(compact) = &compact {
+            let (compact_width, _) = details.create_pango_layout(Some(compact)).pixel_size();
+            let fits = frame + number_height + gap + details_height <= height
+                && compact_width <= room - clear;
+            if fits {
+                if details.text() != *compact {
+                    details.set_text(compact);
+                }
+                show_name = false;
+                show_details = true;
+            }
+        }
+    }
     if name.is_visible() != show_name {
         name.set_visible(show_name);
     }
@@ -1823,15 +1885,52 @@ fn take_slot(drag: &mut Drag, moved: Rect, ids: &[String], others: &[Rect]) -> b
     true
 }
 
-/// The name a tile shows: the model, which tells two monitors of one make apart, unless it isn't
-/// known; the whole label is in the tooltip.
+/// The name a tile shows, short and readable: _Built-in_ for a laptop's panel, else the brand of
+/// the make (_Samsung_ for "Samsung Electric Company"), else the model, else the connector. The
+/// number on the tile tells two of a brand apart; the whole name is in the tooltip.
 pub(super) fn short_label(output: &Output) -> String {
+    if !output.is_connected() {
+        return output.label();
+    }
+    let built_in = ["eDP", "LVDS", "DSI"]
+        .iter()
+        .any(|kind| output.name().starts_with(kind));
+    if built_in {
+        return "Built-in".to_owned();
+    }
+    let known = |part: &str| !part.is_empty() && part != "Unknown";
+    let make = output.make();
+    if known(make) {
+        return brand(make);
+    }
     let model = output.model();
-    if output.is_connected() && !model.is_empty() && model != "Unknown" {
+    if known(model) {
         model.to_owned()
     } else {
-        output.label()
+        output.name().to_owned()
     }
+}
+
+/// The brand people know a monitor's make by: its first word, or for makes that EDID names
+/// after the company behind the brand, the brand.
+fn brand(make: &str) -> String {
+    let first = make
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .find(|word| !word.is_empty())
+        .unwrap_or(make)
+        .trim_end_matches('.');
+    let known = [
+        ("Goldstar", "LG"),
+        ("Ancor", "ASUS"),
+        ("Hewlett", "HP"),
+        ("Microstep", "MSI"),
+        ("Lenovo", "Lenovo"),
+        ("BenQ", "BenQ"),
+    ];
+    known
+        .iter()
+        .find(|(company, _)| first.eq_ignore_ascii_case(company))
+        .map_or_else(|| first.to_owned(), |(_, brand)| (*brand).to_owned())
 }
 
 /// Shows `number`, `label` (`short` on the tile) and `details` on a tile, and says it all to

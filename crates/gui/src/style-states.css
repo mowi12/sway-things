@@ -1,0 +1,21 @@
+/* SPDX-FileCopyrightText: 2026 Sway Things contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/* The states of the tiles on the displays' canvas, which carry meaning: loaded above the user's
+   own gtk.css (which styles every button), so a display that is off never looks like one that is
+   on or picked. */
+
+/* An output that is off: parked beside the others, a thin grey outline instead of a fill, also
+   when picked (then the outline is in the accent) */
+st-display-canvas > button.st-display-tile.st-off,
+st-display-canvas > button.st-display-tile.st-off:checked,
+st-display-canvas > button.st-display-tile.st-off:hover {
+  background: none;
+  box-shadow: inset 0 0 0 1px alpha(currentColor, 0.35);
+  color: @theme_fg_color;
+}
+
+st-display-canvas > button.st-display-tile.st-off:checked {
+  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
+}

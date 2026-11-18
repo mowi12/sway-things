@@ -1340,6 +1340,8 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   shows a `Placeholder`.
 - Our own CSS (`crates/gui/src/style.css`) covers structure only. Colors come from the GTK theme. Secondary text uses
   `.st-dim` (opacity 0.75) instead of the theme's `.dim-label` (0.55), which stays below 4.5:1 in GTK's own theme.
+- States that carry meaning (a display that is off on the canvas) are in `crates/gui/src/style-states.css`, loaded above
+  the user's own `gtk.css` (`STYLE_PROVIDER_PRIORITY_USER + 1`), which otherwise styles every button alike.
 - Icons the themes don't have (the globe, code brackets and bug of the project links) are Lucide's, as symbolic SVGs in
   `crates/gui/resources/` that GTK recolors with the text color. `build.rs` compiles them into a GResource bundle in the
   binary, which `icons::register` adds to the icon theme at startup, so nothing extra is installed.
