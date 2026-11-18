@@ -204,9 +204,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   turns repeating off at 0) and the repeat delay at least 100 ms (below that every key repeats almost at once).
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`, `app.accent_source`, `app.editor_command`,
   `app.show_directives`, `app.remember_collapsed_sections`, `app.sound_above_100`, `app.bluetooth_search`,
-  `app.wifi_search`, `app.wallpaper_folder`) are settings without a sway mapping. A text setting can have its own check
-  beyond the type (`SettingBuilder::check_text`; the editor command must split into words) and a hint for its empty
-  field (`SettingBuilder::placeholder`).
+  `app.wifi_search`, `app.wallpaper_folder`) are settings without a sway mapping, like the settings of a wallpaper
+  collection. A text setting can have its own check beyond the type (`SettingBuilder::check_text`; the editor command
+  must split into words) and a hint for its empty field (`SettingBuilder::placeholder`).
 - **Search:** `SearchIndex::new(registry, translate)` collects the texts of every page and setting once, in English and
   translated, in lowercase. Synonyms are keywords like any other (`dpi`, `sensitivity` → _Pointer speed_), and so is the
   title of a setting's group (_Focused window_ for its _Title bar border_). `search` needs every word of the query in
@@ -269,6 +269,7 @@ $XDG_CONFIG_HOME/sway-things/
 $XDG_STATE_HOME/sway-things/
 ├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
 ├── ui.toml                # which sections of which pages are collapsed (app state, not a setting)
+├── wallpaper/             # links to the current picture of each output's collection: all, output-<id>
 └── history/               # snapshots of the settings files (restore, undo)
     └── 20261110T142355Z/  # both files as they were before a save, named after the UTC time
         ├── settings.toml
@@ -311,14 +312,18 @@ position = "1920,0"
 - **Per-output values** are stored below `display."<identifier>"` at the same key as the value for every output
   (`[output] scale = 2`, which is why the table isn't called `output`). An output without a value of its own uses the
   value for every output.
+- **Per-collection values** (`Scope::PerCollection`) are stored below `collection."<name>"`, without the `collection.`
+  their keys start with: `collection.order` of the collection _Nature_ is `order` in `[collection.Nature]`. A collection
+  name has 1 to 64 characters, no control characters and no spaces at either end. There is no value for every
+  collection; the values go to the shared file.
 - **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
   whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
   settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
-  range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
-  device or display table that can't be set per device. The lines stay in the file. A save only changes the lines of the
-  settings that changed; comments, order, formatting and unknown keys survive.
+  range, entries of `device` that aren't device identifiers, of `display` that can't name an output or of `collection`
+  that aren't collection names, and settings in such a table that can't be set for it. The lines stay in the file. A
+  save only changes the lines of the settings that changed; comments, order, formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.

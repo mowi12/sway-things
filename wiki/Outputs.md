@@ -11,7 +11,8 @@ drawing tablet or a touchscreen can map to.
 
 - **From sway:** each output has its name (the connector, `DP-4`), make, model and serial, whether it is on, the modes
   it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the
-  transform. Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
+  transform, and its size in pixels as turned (`Output::pixels`, for the Wallpaper preview). Outputs that aren't
+  desktops (VR headsets) are left out. All of these strings are external.
 - **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
   (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
   port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop

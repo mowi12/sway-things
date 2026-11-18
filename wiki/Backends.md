@@ -142,4 +142,30 @@ fights the script.
 For wallpapers, `wallpaper::starters` lists the `exec` and `exec_always` lines of the user's config that start a known
 wallpaper tool (swaybg, swww, wpaperd, hyprpaper, mpvpaper, waypaper, azote, …) or a program whose name contains
 "wallpaper", also inside a shell command. Such a tool draws a layer of its own over or under the background of
-`output … bg`, so the Wallpaper page names each line, with a button that opens it in the editor.
+`output … bg`, so the Wallpaper page names them, one notice per program with its lines, and a button that opens the
+first in the editor. A line that runs `sway-things` itself isn't one.
+
+## Wallpaper collections
+
+`crates/core/src/wallpaper/` holds the collections: named sets of pictures and folders (a folder adds the pictures in
+it, read each time) with when the picture changes (`login`, `daily`, `interval` with the minutes) and the order
+(`shuffle` never shows the same picture twice in a row; `in_order`). An output shows one when `wallpaper.collection`
+names it.
+
+- **The link:** the `bg` line of such an output names a symbolic link in `$XDG_STATE_HOME/sway-things/wallpaper/`
+  (`all`, or `output-<identifier>` with the identifier escaped like `systemd-escape` does, since it comes from the
+  screen and may hold anything), which points at the current picture. The generated config stays the same while the
+  pictures change, and sway shows the current one at login and after a reload. The link is replaced atomically, and its
+  own modification time is the time of the last change. Before a `bg` line naming it is applied or written, `prepare`
+  makes the links that are missing or point outside the collection; a collection without pictures gets a color line.
+- **Changing:** `wallpaper::next` moves the link on and sends the output's `bg` command again; for every output it sends
+  the commands of the outputs with a background of their own after it, since `output *` at runtime replaces theirs.
+- **No daemon:** while any output shows a collection, `20-output.conf` ends with one `exec sway-things wallpaper start`,
+  which names no output, so no identifier of a screen reaches the shell that runs the line. For each output with a
+  collection, it changes the picture if its time has come (at every login for `login`, else when the day or interval has
+  passed since the last change) and starts a transient systemd user timer, `sway-things-wallpaper[-<identifier>]`
+  (escaped like the link; `systemd-run --user`, no unit file), that runs `sway-things wallpaper next --due` (with
+  `--device <identifier>` as an argument of its own for one output) with the session's `SWAYSOCK`: hourly for `daily` (a
+  day counts from the last change, which needs no time zone), else at the interval. The app and `set`/`reset` start the
+  timers again after a change of a collection or of the collection an output shows. A timer whose session ended stops
+  itself. Without a systemd user manager, pictures change at login only, and the app offers only that.

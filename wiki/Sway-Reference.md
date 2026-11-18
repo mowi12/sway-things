@@ -59,6 +59,7 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | `bg <color> solid_color` and the fallback color of `bg <file> <mode> [<color>]` only take `#rrggbb`. The modes are `stretch`, `center`, `fill`, `fit` and `tile`, without regard to case; the file is the words up to the first mode, and what follows the optional color is the next subcommand of the line. `background` is another name of `bg`. | `sway/commands/output/background.c` 1.10 and 1.12, `sway/commands/output.c` |
 | The file goes through `wordexp(3)` with no flags, so `$(…)` and backticks run commands and variables expand, after sway put a backslash between two spaces in a row. A relative path is relative to the config file while the config is read. | `expand_path` in `common/stringop.c`, `background.c` 1.10 and 1.12 |
 | sway 1.10 rejects `bg` with a file it can't find, also with a fallback color, and `sway --validate` fails; sway 1.11 and later use the fallback color then and reject only a line without one. | `background.c` 1.10 vs 1.11 and 1.12; `sway -d --validate` logs "Cannot access file" with 1.12. |
+| `output … bg` over IPC makes sway start swaybg again, which reads the file again, also when the line names the same file as before. | `cmd_output` in `sway/commands/output.c` 1.10 (calls `spawn_swaybg` unless the config is being read); `_spawn_swaybg` in `sway/config/output.c` destroys the old client without comparing commands |
 
 ## Windows, borders, gaps and title bars
 

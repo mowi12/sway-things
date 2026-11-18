@@ -58,13 +58,18 @@
   identifier, shown by name and model), and a row for one output notes that it uses the value of all displays. The
   Displays page picks its output on the arrangement instead. The value for all displays applies to screens plugged in
   later, so these sections never give way to a hint.
-- **Wallpaper page** (`crates/gui/src/widgets/wallpaper.rs`): below the group of the image, fill mode and color, a
-  notice for each line of the user's config that starts a wallpaper tool, _Choose Image…_ (a `gtk::FileDialog`), and the
-  pictures of `app.wallpaper_folder` (else `~/Pictures/Wallpapers`, else `/usr/share/backgrounds`) as a `FlowBox` of
-  thumbnails with _Change Folder…_. The folder is listed and each thumbnail decoded and scaled off the main loop
-  (`gio::spawn_blocking`; a pixbuf can't leave its thread, so its pixels become a `gdk::MemoryTexture`). A picked image
-  is stored with `~/` for the home folder and set for the output the image row is for; the thumbnail of the image in use
-  is selected. Widgets a page adds below a member of a group go below the whole group.
+- **Wallpaper page** (`crates/gui/src/widgets/wallpaper.rs`), a page of its own rather than rows: the notices about
+  wallpaper tools; a preview with a tile per output, sized and placed like the layout (a `gtk::Fixed`), with its
+  wallpaper; _Same wallpaper on all displays_, which edits the values for every output, or while off those of the tile
+  clicked (switching back removes the values of single outputs, after asking); the name of what the edited output shows,
+  _Next Picture_ for a collection, the fit as linked toggle buttons and the color. The tiles draw the fit as swaybg
+  does: `center` and `tile` show the picture at its own size against the output's pixels (a `gtk::DrawingArea` with
+  cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG pictures folder, `~/Pictures`) and of its
+  subfolders, which become filter chips, with _Choose Image…_; the collections as cards, with the settings and pictures
+  of the open one (_Add Pictures…_, _Add Folder…_, a click removes one, _Delete Collection…_); and colors. Folders are
+  listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf can't leave its thread, so
+  its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored with `~/` for the home folder;
+  picking one, or a color, stops a collection on that output.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the
