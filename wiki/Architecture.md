@@ -164,9 +164,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   turns repeating off at 0) and the repeat delay at least 100 ms (below that every key repeats almost at once).
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`, `app.accent_source`, `app.editor_command`,
   `app.show_directives`, `app.remember_collapsed_sections`, `app.sound_above_100`, `app.bluetooth_search`,
-  `app.wifi_search`, `app.wallpaper_folder`) are settings without a sway mapping. A text setting can have its own check
-  beyond the type (`SettingBuilder::check_text`; the editor command must split into words) and a hint for its empty
-  field (`SettingBuilder::placeholder`).
+  `app.wifi_search`, `app.wallpaper_folder`) are settings without a sway mapping, like the settings of a wallpaper
+  collection. A text setting can have its own check beyond the type (`SettingBuilder::check_text`; the editor command
+  must split into words) and a hint for its empty field (`SettingBuilder::placeholder`).
 - **Search:** `SearchIndex::new(registry, translate)` collects the texts of every page and setting once, in English and
   translated, in lowercase. Synonyms are keywords like any other (`dpi`, `sensitivity` → _Pointer speed_), and so is the
   title of a setting's group (_Focused window_ for its _Title bar border_). `search` needs every word of the query in
@@ -221,6 +221,7 @@ $XDG_CONFIG_HOME/sway-things/
 $XDG_STATE_HOME/sway-things/
 ├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
 ├── ui.toml                # which sections of which pages are collapsed (app state, not a setting)
+├── wallpaper/             # links to the current picture of each output's collection: all, output-<id>
 └── history/               # snapshots of the settings files (restore, undo)
     └── 20261110T142355Z/  # both files as they were before a save, named after the UTC time
         ├── settings.toml
@@ -263,14 +264,18 @@ position = "1920,0"
 - **Per-output values** are stored below `display."<identifier>"` at the same key as the value for every output
   (`[output] scale = 2`, which is why the table isn't called `output`). An output without a value of its own uses the
   value for every output.
+- **Per-collection values** (`Scope::PerCollection`) are stored below `collection."<name>"`, without the `collection.`
+  their keys start with: `collection.order` of the collection _Nature_ is `order` in `[collection.Nature]`. A collection
+  name has 1 to 64 characters, no control characters and no spaces at either end. There is no value for every
+  collection; the values go to the shared file.
 - **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
   whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
   settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
-  range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
-  device or display table that can't be set per device. The lines stay in the file. A save only changes the lines of the
-  settings that changed; comments, order, formatting and unknown keys survive.
+  range, entries of `device` that aren't device identifiers, of `display` that can't name an output or of `collection`
+  that aren't collection names, and settings in such a table that can't be set for it. The lines stay in the file. A
+  save only changes the lines of the settings that changed; comments, order, formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
@@ -700,7 +705,8 @@ drawing tablet or a touchscreen can map to.
 
 - **From sway:** each output has its name (the connector, `DP-4`), make, model and serial, whether it is on, the modes
   it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the
-  transform. Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
+  transform, and its size in pixels as turned (`Output::pixels`, for the Wallpaper preview). Outputs that aren't
+  desktops (VR headsets) are left out. All of these strings are external.
 - **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
   (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
   port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop
@@ -1152,7 +1158,33 @@ reports **managed externally by file:line**. The page explains this and offers a
 For wallpapers, `wallpaper::starters` lists the `exec` and `exec_always` lines of the user's config that start a known
 wallpaper tool (swaybg, swww, wpaperd, hyprpaper, mpvpaper, waypaper, azote, …) or a program whose name contains
 "wallpaper", also inside a shell command. Such a tool draws a layer of its own over or under the background of
-`output … bg`, so the Wallpaper page names each line, with a button that opens it in the editor.
+`output … bg`, so the Wallpaper page names them, one notice per program with its lines, and a button that opens the
+first in the editor. A line that runs `sway-things` itself isn't one.
+
+### Wallpaper collections
+
+`crates/core/src/wallpaper/` holds the collections: named sets of pictures and folders (a folder adds the pictures in
+it, read each time) with when the picture changes (`login`, `daily`, `interval` with the minutes) and the order
+(`shuffle` never shows the same picture twice in a row; `in_order`). An output shows one when `wallpaper.collection`
+names it.
+
+- **The link:** the `bg` line of such an output names a symbolic link in `$XDG_STATE_HOME/sway-things/wallpaper/`
+  (`all`, or `output-<identifier>` with the identifier escaped like `systemd-escape` does, since it comes from the
+  screen and may hold anything), which points at the current picture. The generated config stays the same while the
+  pictures change, and sway shows the current one at login and after a reload. The link is replaced atomically, and its
+  own modification time is the time of the last change. Before a `bg` line naming it is applied or written, `prepare`
+  makes the links that are missing or point outside the collection; a collection without pictures gets a color line.
+- **Changing:** `wallpaper::next` moves the link on and sends the output's `bg` command again; for every output it sends
+  the commands of the outputs with a background of their own after it, since `output *` at runtime replaces theirs.
+- **No daemon:** while any output shows a collection, `20-output.conf` ends with one `exec sway-things wallpaper start`,
+  which names no output, so no identifier of a screen reaches the shell that runs the line. For each output with a
+  collection, it changes the picture if its time has come (at every login for `login`, else when the day or interval has
+  passed since the last change) and starts a transient systemd user timer, `sway-things-wallpaper[-<identifier>]`
+  (escaped like the link; `systemd-run --user`, no unit file), that runs `sway-things wallpaper next --due` (with
+  `--device <identifier>` as an argument of its own for one output) with the session's `SWAYSOCK`: hourly for `daily` (a
+  day counts from the last change, which needs no time zone), else at the interval. The app and `set`/`reset` start the
+  timers again after a change of a collection or of the collection an output shows. A timer whose session ended stops
+  itself. Without a systemd user manager, pictures change at login only, and the app offers only that.
 
 ## Command line
 
@@ -1172,11 +1204,12 @@ with what the app reads.
 
 | Command | What it does |
 | --- | --- |
-| `get [<key>] [--device <id>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](#settings-registry)): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device and display under it. |
-| `set <key> <value> [--device <id>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
-| `reset <key> [--device <id>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
+| `get [<key>] [--device <id> \| --collection <name>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](#settings-registry)): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device, display and collection under it. |
+| `set <key> <value> [--device <id> \| --collection <name>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
+| `reset <key> [--device <id> \| --collection <name>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
+| `wallpaper start [--device <id>]`, `wallpaper next [--device <id>] [--due]` | the picture of a [collection](#wallpaper-collections), for one display by its identifier or in a session by its name: `start` (run by the generated config at login, for every display with a collection) changes it when its time has come and starts its timer; `next` changes it now, with `--due` (run by the timer) only when its time has come, and stops the timer without a session. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
@@ -1389,13 +1422,18 @@ the table says what protects it.
   identifier, shown by name and model), and a row for one output notes that it uses the value of all displays. The
   Displays page picks its output on the arrangement instead. The value for all displays applies to screens plugged in
   later, so these sections never give way to a hint.
-- **Wallpaper page** (`crates/gui/src/widgets/wallpaper.rs`): below the group of the image, fill mode and color, a
-  notice for each line of the user's config that starts a wallpaper tool, _Choose Image…_ (a `gtk::FileDialog`), and the
-  pictures of `app.wallpaper_folder` (else `~/Pictures/Wallpapers`, else `/usr/share/backgrounds`) as a `FlowBox` of
-  thumbnails with _Change Folder…_. The folder is listed and each thumbnail decoded and scaled off the main loop
-  (`gio::spawn_blocking`; a pixbuf can't leave its thread, so its pixels become a `gdk::MemoryTexture`). A picked image
-  is stored with `~/` for the home folder and set for the output the image row is for; the thumbnail of the image in use
-  is selected. Widgets a page adds below a member of a group go below the whole group.
+- **Wallpaper page** (`crates/gui/src/widgets/wallpaper.rs`), a page of its own rather than rows: the notices about
+  wallpaper tools; a preview with a tile per output, sized and placed like the layout (a `gtk::Fixed`), with its
+  wallpaper; _Same wallpaper on all displays_, which edits the values for every output, or while off those of the tile
+  clicked (switching back removes the values of single outputs, after asking); the name of what the edited output shows,
+  _Next Picture_ for a collection, the fit as linked toggle buttons and the color. The tiles draw the fit as swaybg
+  does: `center` and `tile` show the picture at its own size against the output's pixels (a `gtk::DrawingArea` with
+  cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG pictures folder, `~/Pictures`) and of its
+  subfolders, which become filter chips, with _Choose Image…_; the collections as cards, with the settings and pictures
+  of the open one (_Add Pictures…_, _Add Folder…_, a click removes one, _Delete Collection…_); and colors. Folders are
+  listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf can't leave its thread, so
+  its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored with `~/` for the home folder;
+  picking one, or a color, stops a collection on that output.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the

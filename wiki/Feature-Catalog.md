@@ -193,9 +193,11 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Image per output or for all outputs (`output * bg`)
 - [x] 🟢 Fill mode: fill / fit / stretch / center / tile
 - [x] 🟢 Solid color background
-- [x] 🟢 Folder browser with thumbnails
+- [x] 🟢 Folder browser with thumbnails (`~/Pictures` by default, subfolders as filters)
+- [x] 🟢 Preview of the displays as laid out, one or all edited at a time
 - [x] 🟢 "Managed externally" detection when a custom wallpaper script runs (handover)
-- **Maybe:** 🟡 slideshow (with no daemon this needs a tool like swww plus a timer)
+- [x] 🟡 Collections: named sets of pictures and folders whose pictures take turns at login, daily or after an interval,
+      shuffled or in order (systemd user timer, no daemon)
 
 ### Apps Look & Feel
 

@@ -84,7 +84,8 @@ the view of the generated config and the app's own preferences. The other pages 
 ### Appearance
 
 - **Windows:** focus colors, borders, gaps, title bars, color themes, SwayFX effects (blur, shadows, rounded corners)
-- **Wallpaper:** an image or a color for all displays or one, with a folder browser
+- **Wallpaper:** an image, a collection whose pictures take turns (at login, daily or every few minutes), or a color,
+  for all displays or one, with a preview of the displays and a picture browser
 - **Apps Look & Feel:** GTK and Qt themes, icons, fonts, dark mode
 - **Bar:** waybar or swaybar layout, modules and style
 
