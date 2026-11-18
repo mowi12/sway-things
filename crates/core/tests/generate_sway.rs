@@ -54,7 +54,10 @@ fn generated_files_pass_sway_and_are_written() -> Result<()> {
         let compositor = Client::connect().await?.compositor();
         assert_eq!(SwayValidator::new().compositor().await?, Some(compositor));
         let files = generate(Registry::builtin(), &state, compositor);
-        let effects = &files[3];
+        let effects = files
+            .iter()
+            .find(|file| file.file() == ConfigFile::Effects)
+            .ok_or("no effects file")?;
         assert_eq!(
             effects.lines()[0].skipped.is_none(),
             compositor.is_swayfx(),
@@ -77,9 +80,12 @@ fn generated_files_pass_sway_and_are_written() -> Result<()> {
                 generated.ok_or("no such file")?.text()
             );
         }
-        assert_eq!(report.len(), 4);
+        assert_eq!(report.len(), ConfigFile::ALL.len());
         // No staged file is left behind.
-        assert_eq!(fs::read_dir(locations.directory())?.count(), 4);
+        assert_eq!(
+            fs::read_dir(locations.directory())?.count(),
+            ConfigFile::ALL.len()
+        );
 
         let report = write(
             &files,
@@ -139,7 +145,11 @@ fn a_file_sway_rejects_keeps_its_old_content() -> Result<()> {
             &access(&locations)?,
         )
         .await?;
-        match &report[3] {
+        let position = ConfigFile::ALL
+            .iter()
+            .position(|file| *file == ConfigFile::Effects)
+            .ok_or("no effects file")?;
+        match &report[position] {
             (ConfigFile::Effects, Outcome::Invalid(lines)) => {
                 // Every effect line is rejected, each with the settings behind it.
                 let effects = invalid
@@ -162,7 +172,7 @@ fn a_file_sway_rejects_keeps_its_old_content() -> Result<()> {
         }
         assert_eq!(fs::read_to_string(&effects)?, old);
         assert!(
-            report[..3]
+            report[..position]
                 .iter()
                 .all(|(_, outcome)| *outcome == Outcome::Unchanged)
         );

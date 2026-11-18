@@ -10,6 +10,7 @@ use super::value::{Choice, Kind, Value, ValueError};
 use crate::command::Color;
 use crate::command::input::InputType;
 pub use crate::i18n::Msg;
+use crate::msg;
 use crate::version::{SwayFxVersion, SwayVersion};
 
 /// The row the settings of one directive with several values are shown under: the five colors of
@@ -151,8 +152,8 @@ impl Unit {
     pub fn symbol(self) -> Msg {
         // TRANSLATORS: Unit symbols, shown after a number with a space: "12 px", "3 s".
         match self {
-            Self::Pixels => crate::msg!("px"),
-            Self::Seconds => crate::msg!("s"),
+            Self::Pixels => msg!("px"),
+            Self::Seconds => msg!("s"),
         }
     }
 }

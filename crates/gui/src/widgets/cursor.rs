@@ -52,6 +52,17 @@ pub fn choices(model: &Model, setting: &Setting) -> Option<Vec<(String, String)>
     }
 }
 
+/// How a summary shows the text `value` of `setting`: a cursor theme by the label of its
+/// choice ("Default", or the theme's title). `None` for other settings.
+pub fn label(setting: &Setting, value: &str) -> Option<String> {
+    (setting.key() == THEME).then(|| {
+        theme_choices()
+            .into_iter()
+            .find(|(name, _)| name == value)
+            .map_or_else(|| value.to_owned(), |(_, label)| label)
+    })
+}
+
 /// Default first, then the installed themes by title. A theme called `default` is what Default
 /// loads anyway, so it isn't listed twice.
 fn theme_choices() -> Vec<(String, String)> {

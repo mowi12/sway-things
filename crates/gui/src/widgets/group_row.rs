@@ -430,6 +430,12 @@ fn value_text(setting: &Setting, value: &Value) -> String {
             &[("value", value), ("unit", &tr(unit.symbol()))],
         );
     }
+    if let Some(label) = match value {
+        Value::Text(text) => super::cursor::label(setting, text),
+        _ => None,
+    } {
+        return label;
+    }
     match (setting.kind(), value) {
         (Kind::Bool { .. }, Value::Bool(true)) => tr(msg!("On")).to_owned(),
         (Kind::Bool { .. }, Value::Bool(false)) => tr(msg!("Off")).to_owned(),
@@ -460,8 +466,8 @@ mod tests {
         );
         assert_eq!(value_text(setting("cursor.hide"), &Value::Bool(true)), "On");
         assert_eq!(
-            value_text(setting("cursor.theme"), &Value::Text("Adwaita".to_owned())),
-            "Adwaita"
+            value_text(setting("cursor.theme"), &Value::Text("default".to_owned())),
+            "Default"
         );
     }
 }
