@@ -31,8 +31,8 @@ const SEARCH_MODES: &[Choice] = &[
     Choice::new("manual", msg!("Manual")),
 ];
 
-/// The folder whose pictures the Wallpaper page shows; empty for `~/Pictures/Wallpapers`, or
-/// the system's backgrounds without that folder.
+/// The folder whose pictures the Wallpaper page shows; empty for the pictures folder
+/// (`~/Pictures`).
 pub const WALLPAPER_FOLDER: &str = "app.wallpaper_folder";
 
 pub(super) fn settings() -> Vec<Setting> {
@@ -148,7 +148,7 @@ fn page_preferences() -> Vec<Setting> {
             .section(msg!("Sway Things"))
             .title(msg!("Wallpaper folder"))
             .subtitle(msg!("The pictures the Wallpaper page offers"))
-            .placeholder(msg!("~/Pictures/Wallpapers or the system’s backgrounds"))
+            .placeholder(msg!("~/Pictures"))
             .keywords(&[msg!("pictures"), msg!("background"), msg!("folder")])
             .build(),
     ]

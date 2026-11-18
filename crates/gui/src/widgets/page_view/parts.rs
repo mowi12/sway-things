@@ -16,7 +16,7 @@ use super::{
 };
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
-use crate::widgets::{SettingRow, cursor, keyboard, look, wallpaper};
+use crate::widgets::{SettingRow, cursor, keyboard, look};
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
 /// Maintenance, the note of Apps Look & Feel, the arrangement of the displays. `first` says
@@ -79,10 +79,7 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
 }
 
 /// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
-/// option browser, the Wallpaper page's pictures and its notice about wallpaper tools.
+/// option browser.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     keyboard::below(model, row)
-        .into_iter()
-        .chain(wallpaper::below(model, row))
-        .collect()
 }

@@ -192,7 +192,11 @@ pub(crate) fn check_group_keyboard() -> Outcome {
 /// Every page with settings shows a row for each of them, in the order of the registry.
 pub(crate) fn check_rows() -> Outcome {
     let fixture = fixture(SWAYFX, STORED, USERS, true)?;
-    for page in Page::ALL {
+    // The Wallpaper page is built of its own parts, not rows: `check_wallpaper` covers it.
+    for page in Page::ALL
+        .into_iter()
+        .filter(|page| *page != Page::Wallpaper)
+    {
         let window = open(&fixture, page)?;
         let expected: Vec<&str> = Registry::builtin()
             .iter()
