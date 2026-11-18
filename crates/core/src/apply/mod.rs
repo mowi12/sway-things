@@ -478,9 +478,12 @@ impl<V: Validate> Applier<V> {
         key: &str,
         device: Option<&str>,
     ) -> Result<Option<Vec<String>>, ApplyError> {
+        let setting = self.setting(key)?;
+        // A position, a mode or switching off is for one display at a time anyway.
         let for_each = device.is_none()
             && self.displays.is_kanshi()
-            && self.setting(key)?.scope() == Scope::PerOutput;
+            && setting.scope() == Scope::PerOutput
+            && !setting.is_one_at_a_time();
         let Some(client) = self.client.as_mut().filter(|_| for_each) else {
             return Ok(None);
         };

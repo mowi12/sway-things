@@ -405,6 +405,20 @@ impl Model {
         if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
             // kanshi sets up the displays: no line of ours is in the sway config meanwhile.
             view.line = None;
+            // A value for every display is stored for each one: the row shows the one they
+            // share, if they do.
+            if device.is_none() {
+                let mut each = core
+                    .outputs
+                    .iter()
+                    .filter(|output| output.is_connected() && output.is_enabled())
+                    .map(|output| core.state.get(setting.key(), Some(output.identifier())));
+                if let Some(Some(first)) = each.next() {
+                    if each.all(|value| value == Some(first)) {
+                        view.value = first.clone();
+                    }
+                }
+            }
         }
         Some(view)
     }

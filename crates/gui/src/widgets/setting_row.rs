@@ -128,6 +128,8 @@ mod imp {
         /// Set while a pointer button is down on a number control whose changes wait for it
         /// ([`super::SettingRow::defers`]).
         pub(super) held: Cell<bool>,
+        /// Set while that is a finger, which has no button the seat could report.
+        pub(super) touched: Cell<bool>,
         /// The value of such a control that waits to be sent, and the timer that sends it.
         pub(super) unsent: RefCell<Option<Value>>,
         pub(super) commit: RefCell<Option<glib::SourceId>>,
@@ -847,7 +849,7 @@ impl SettingRow {
                     // Sent when the button is let go; if that never reached the control (the
                     // window lost the pointer meanwhile), once no button is down any more.
                     if imp.held.get() {
-                        if row.button_down() {
+                        if imp.touched.get() || row.button_down() {
                             row.plan_commit();
                             return;
                         }
@@ -870,6 +872,7 @@ impl SettingRow {
             planned.remove();
         }
         imp.held.set(false);
+        imp.touched.set(false);
         let Some(value) = imp.unsent.take() else {
             return;
         };
@@ -911,13 +914,16 @@ impl SettingRow {
             glib::Propagation::Proceed,
             move |_, event| {
                 match event.event_type() {
-                    gtk::gdk::EventType::ButtonPress | gtk::gdk::EventType::TouchBegin => {
+                    gtk::gdk::EventType::ButtonPress => row.imp().held.set(true),
+                    gtk::gdk::EventType::TouchBegin => {
                         row.imp().held.set(true);
+                        row.imp().touched.set(true);
                     }
                     gtk::gdk::EventType::ButtonRelease
                     | gtk::gdk::EventType::TouchEnd
                     | gtk::gdk::EventType::TouchCancel => {
                         row.imp().held.set(false);
+                        row.imp().touched.set(false);
                         if row.imp().unsent.borrow().is_some() {
                             row.plan_commit();
                         }
