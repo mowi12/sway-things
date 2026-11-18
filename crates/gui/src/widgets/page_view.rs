@@ -37,7 +37,6 @@ use sway_things_core::view::Source;
 use super::device_selector::{Instances, none_connected_of};
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
-use super::wallpaper;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
     TestArea, WorkspaceMap,
@@ -898,13 +897,10 @@ impl Grouping {
         }
     }
 
-    /// Adds the page's own widgets below `row` (the Keyboard and Wallpaper pages have some) to
+    /// Adds the page's own widgets below `row` (the Keyboard page has some) to
     /// `list`, or below the group being built, whose rows go into the list when it is complete.
     fn add_below(&mut self, model: &Model, row: &SettingRow, list: &gtk::ListBox) {
-        let below = keyboard::below(model, row)
-            .into_iter()
-            .chain(wallpaper::below(model, row));
-        for widget in below {
+        for widget in keyboard::below(model, row) {
             match &mut self.open {
                 Some((.., after)) => after.push(widget),
                 None => list.append(&list_row(&widget)),

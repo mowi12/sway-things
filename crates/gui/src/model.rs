@@ -636,6 +636,15 @@ impl Model {
             .collect()
     }
 
+    /// A copy of the stored settings. `None` if they couldn't be loaded.
+    pub fn state(&self) -> Option<State> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.state.clone())
+    }
+
     /// The risky change that waits to be kept or reverted, if there is one.
     pub fn pending_change(&self) -> Option<Pending> {
         self.imp()

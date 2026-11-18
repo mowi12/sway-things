@@ -47,6 +47,7 @@ pub use setting_row::SettingRow;
 pub use sidebar::Sidebar;
 pub use sound::{Server as SoundServer, SoundPage};
 pub use test_area::TestArea;
+pub use wallpaper::page as wallpaper_page;
 pub use welcome::Welcome;
 pub use workspaces::WorkspaceMap;
 pub use xkb_options::OptionBrowser;

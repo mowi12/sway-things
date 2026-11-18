@@ -1673,7 +1673,7 @@ msgid "The pictures the Wallpaper page offers"
 msgstr ""
 
 #: crates/core/src/registry/app.rs
-msgid "~/Pictures/Wallpapers or the system’s backgrounds"
+msgid "~/Pictures"
 msgstr ""
 
 #: crates/core/src/registry/app.rs crates/core/src/registry/wallpaper.rs
@@ -3548,7 +3548,7 @@ msgstr ""
 msgid "Cursor & Tablet"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Displays"
 msgstr ""
 
@@ -3889,11 +3889,11 @@ msgstr ""
 msgid "table"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "At login"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Daily"
 msgstr ""
 
@@ -3901,11 +3901,11 @@ msgstr ""
 msgid "After the interval"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Shuffle"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "In order"
 msgstr ""
 
@@ -3957,6 +3957,7 @@ msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
 #: crates/gui/src/widgets/displays/mirroring.rs
+#: crates/gui/src/widgets/wallpaper.rs
 msgid "Fit"
 msgstr ""
 
@@ -4026,7 +4027,7 @@ msgstr ""
 msgid "rotate"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Collections"
 msgstr ""
 
@@ -4039,7 +4040,7 @@ msgid ""
 "Pictures and folders of the collection; a folder adds every picture in it"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Change picture"
 msgstr ""
 
@@ -4047,7 +4048,7 @@ msgstr ""
 msgid "When the next picture of the collection is shown; always at login too"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "daily"
 msgstr ""
 
@@ -4055,7 +4056,7 @@ msgstr ""
 msgid "interval"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Interval"
 msgstr ""
 
@@ -4063,15 +4064,15 @@ msgstr ""
 msgid "Minutes until the next picture"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "minutes"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "hours"
 msgstr ""
 
-#: crates/core/src/registry/wallpaper.rs
+#: crates/core/src/registry/wallpaper.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Order"
 msgstr ""
 
@@ -4285,7 +4286,7 @@ msgstr ""
 msgid "Outer gaps only with one window"
 msgstr ""
 
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/registry/windows.rs crates/gui/src/widgets/wallpaper.rs
 msgid "Center"
 msgstr ""
 
@@ -4893,7 +4894,8 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 #: crates/gui/src/widgets/generated.rs
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/page_view.rs crates/gui/src/window.rs
+#: crates/gui/src/widgets/page_view.rs crates/gui/src/widgets/wallpaper.rs
+#: crates/gui/src/window.rs
 msgid "Cancel"
 msgstr ""
 
@@ -5307,7 +5309,7 @@ msgid "Settings for"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
-#: crates/gui/src/widgets/displays/mod.rs
+#: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/wallpaper.rs
 msgid "All displays"
 msgstr ""
 
@@ -6709,20 +6711,77 @@ msgid "Button {number} triple-click"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
-msgid "Choose an Image"
+msgid "Fill"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
-msgid "Choose the Wallpaper Folder"
+msgid "Stretch"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
-msgid "Images"
+msgid "Tile"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
-#, rust-format
-msgid "No pictures in {folder}"
+msgid "Next Picture"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Background color"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid ""
+"No collections yet. A collection is a set of pictures and folders whose "
+"pictures take turns."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Colors"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Same wallpaper on all displays"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Change the folder whose pictures are shown"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose Image…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "New Collection…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Name, e.g. Nature"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Name of the collection"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Create"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "At most 64 characters, on one line"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "A collection with this name exists"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Other Color…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Solid color"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
@@ -6731,18 +6790,160 @@ msgid "{folder} can't be read: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper.rs
+msgid "All"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "No pictures in {folder}"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Use the same wallpaper on all displays?"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid ""
+"The wallpapers set for single displays are removed, and every display shows "
+"the wallpaper set for all of them."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Use the Same Wallpaper"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose an Image"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose the Wallpaper Folder"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Add Pictures"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Add a Folder"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "Delete the collection {name}?"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid ""
+"The pictures stay where they are. Displays that show the collection show "
+"their color instead."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Delete"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Every…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "days"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Unit"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Pictures of the collection"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Needs systemd: without it, pictures change at login"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "{count} picture in {name}"
+msgid_plural "{count} pictures in {name}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Delete Collection…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Also when sway starts"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Add Pictures…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Add Folder…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Click a picture or folder to remove it from the collection."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "{count} picture"
+msgid_plural "{count} pictures"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "shuffled"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "in order"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "at login"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "every {count} day"
+msgid_plural "every {count} days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "every {count} hour"
+msgid_plural "every {count} hours"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "every {count} minute"
+msgid_plural "every {count} minutes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "Remove {name} from the collection"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Images"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
 #, rust-format
 msgid ""
 "Your config starts {program} ({place}). It sets a wallpaper of its own, "
 "which may cover the one set here. To use this page, remove that line."
-msgstr ""
-
-#: crates/gui/src/widgets/wallpaper.rs
-msgid "Choose Image…"
-msgstr ""
-
-#: crates/gui/src/widgets/wallpaper.rs
-msgid "Change Folder…"
 msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs

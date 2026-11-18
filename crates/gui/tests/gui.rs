@@ -2463,7 +2463,11 @@ fn wait_for_model(model: &Model) -> Outcome {
 /// Every page with settings shows a row for each of them, in the order of the registry.
 fn check_rows() -> Outcome {
     let fixture = fixture(SWAYFX, STORED, USERS, true)?;
-    for page in Page::ALL {
+    // The Wallpaper page is built of its own parts, not rows: `check_wallpaper` covers it.
+    for page in Page::ALL
+        .into_iter()
+        .filter(|page| *page != Page::Wallpaper)
+    {
         let window = open(&fixture, page)?;
         let expected: Vec<&str> = Registry::builtin()
             .iter()
@@ -3250,13 +3254,23 @@ const LAPTOP_SCREEN: &str = r#"[{"name": "eDP-1", "make": "BOE", "model": "0x0BC
   "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
   "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}}]"#;
 
-/// The display selector lists the screen of the session; the pictures of the wallpaper folder
-/// are offered, and picking one sets it for the display picked and selects it.
-fn check_wallpaper_picker() -> Outcome {
+/// A wallpaper folder with two pictures, a file that isn't one, and a subfolder with a picture.
+fn wallpaper_folder() -> Result<tempfile::TempDir, String> {
     let pictures = tempfile::tempdir().map_err(|error| error.to_string())?;
     for name in ["a.png", "b.jpg", "notes.txt"] {
         std::fs::write(pictures.path().join(name), b"").map_err(|error| error.to_string())?;
     }
+    std::fs::create_dir(pictures.path().join("Holidays")).map_err(|error| error.to_string())?;
+    std::fs::write(pictures.path().join("Holidays/c.webp"), b"")
+        .map_err(|error| error.to_string())?;
+    Ok(pictures)
+}
+
+/// The preview shows the screen of the session; switched to one display at a time, the tile of
+/// the display is the one edited. The pictures of the wallpaper folder and its subfolders are
+/// offered, and picking one sets it for that display and selects it.
+fn check_wallpaper_picker() -> Outcome {
+    let pictures = wallpaper_folder()?;
     let sway = with_outputs(&[LAPTOP_SCREEN]);
     let stored = format!(
         "{STORED}\n[app]\nwallpaper_folder = {:?}\n",
@@ -3267,23 +3281,58 @@ fn check_wallpaper_picker() -> Outcome {
     let content = window
         .content()
         .ok_or_else(|| "  no content pane".to_owned())?;
-    let displays = all::<DeviceSelector>(&content)
+    let same = all::<gtk::Switch>(&content)
         .into_iter()
-        .find(|selector| selector.kind().is_none())
-        .ok_or_else(|| "  no display selector".to_owned())?;
-    let listed = run_until(Duration::from_secs(5), || displays.labels().len() == 2);
-    let labels = displays.labels();
+        .next()
+        .ok_or_else(|| "  no switch for all displays".to_owned())?;
     ensure(
-        listed && labels == ["All displays", "eDP-1 · BOE 0x0BCA"],
-        &format!("  the display selector offers {labels:?}"),
+        same.is_active(),
+        "  the displays start out edited one by one",
     )?;
-    let tiles = || all::<gtk::FlowBoxChild>(&content);
-    let loaded = run_until(Duration::from_secs(5), || tiles().len() == 2);
-    ensure(loaded, &format!("  {} pictures are offered", tiles().len()))?;
+    let tiles = || -> Vec<gtk::Button> {
+        all::<gtk::Button>(&content)
+            .into_iter()
+            .filter(|button| button.has_css_class("st-wallpaper-tile"))
+            .collect()
+    };
+    let shown = run_until(Duration::from_secs(5), || tiles().len() == 1);
+    let names: Vec<String> = tiles()
+        .iter()
+        .filter_map(|tile| tile.tooltip_text().map(Into::into))
+        .collect();
+    ensure(
+        shown && names == ["BOE 0x0BCA · eDP-1"],
+        &format!("  the preview shows {names:?}"),
+    )?;
+    // The pictures: their tiles hold a box with the picture and its name.
+    let pictures_shown = || -> Vec<gtk::FlowBoxChild> {
+        all::<gtk::FlowBoxChild>(&content)
+            .into_iter()
+            .filter(|child| child.child().and_downcast::<gtk::Box>().is_some())
+            .collect()
+    };
+    let loaded = run_until(Duration::from_secs(5), || pictures_shown().len() == 3);
+    ensure(
+        loaded,
+        &format!("  {} pictures are offered", pictures_shown().len()),
+    )?;
+    let chips: Vec<String> = all::<gtk::ToggleButton>(&content)
+        .into_iter()
+        .filter(|chip| chip.has_css_class("st-wallpaper-chip"))
+        .filter_map(|chip| chip.label().map(Into::into))
+        .collect();
+    ensure(
+        chips == ["All", "Holidays"],
+        &format!("  the chips are {chips:?}"),
+    )?;
 
-    displays.select_device(Some("eDP-1"));
+    same.set_active(false);
     settle(&window)?;
-    let second = tiles()
+    ensure(
+        tiles().iter().any(|tile| tile.has_css_class("st-editing")),
+        "  the display isn't marked as edited",
+    )?;
+    let second = pictures_shown()
         .into_iter()
         .nth(1)
         .ok_or_else(|| "  no second picture".to_owned())?;
@@ -3311,13 +3360,15 @@ fn check_wallpaper_picker() -> Outcome {
         &format!("  the display's image comes from {:?}", view.source),
     )?;
     settle(&window)?;
-    ensure(second.is_selected(), "the picture in use isn't selected")?;
-    displays.select_device(None);
-    settle(&window)?;
+    let selected = pictures_shown().into_iter().nth(1);
     ensure(
-        !second.is_selected(),
-        "the picture of one display is selected for all of them",
+        selected.is_some_and(|picture| picture.is_selected()),
+        "the picture in use isn't selected",
     )?;
+    let title = all::<gtk::Label>(&content)
+        .into_iter()
+        .any(|label| label.has_css_class("st-wallpaper-title") && label.text() == "b.jpg");
+    ensure(title, "  the picture in use isn't named")?;
     window.destroy();
     Ok(())
 }

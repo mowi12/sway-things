@@ -253,7 +253,16 @@ impl Fixture {
         let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
         let config = dir.path().join("config");
         std::fs::create_dir_all(&config).map_err(|error| error.to_string())?;
-        std::fs::write(config.join("settings.toml"), STORED).map_err(|error| error.to_string())?;
+        // An empty wallpaper folder of its own: the user's pictures are no part of the test. The
+        // page names it, and a name without letters isn't taken for English.
+        let pictures = dir.path().join("2026");
+        std::fs::create_dir_all(&pictures).map_err(|error| error.to_string())?;
+        let stored = format!(
+            // `STORED` ends in the table `[app]`.
+            "{STORED}wallpaper_folder = {:?}\n",
+            pictures.display().to_string()
+        );
+        std::fs::write(config.join("settings.toml"), stored).map_err(|error| error.to_string())?;
         let paths = Paths::new(&config, &dir.path().join("state"), "host")
             .map_err(|error| error.to_string())?;
         let state = State::load(Registry::builtin(), paths);
