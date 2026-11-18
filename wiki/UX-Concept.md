@@ -231,6 +231,43 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
 - **New workspaces:** _Layout of new workspaces_, _Split of new workspaces_ and _Back and forth_, which were on Window
   Behavior.
 
+### Sound
+
+The Sound page shows the sound server's live state (pipewire-pulse or PulseAudio); nothing of it is stored by Sway
+Things, so it has no reset, no indicators and no generated file. Every change applies at once: the server remembers it.
+
+- **Output:** _Output device_, a drop-down of the devices sound can play on, sorted by name, the default chosen (a
+  default the page doesn't list, such as one not known yet, shows as _Another device_, and choosing a listed one makes
+  it the default); _Connector_ (speakers, headphones, line out) where the device has more than one that is plugged in;
+  _Volume_ with the mute button, the slider and the level in percent.
+- **Input:** _Input device_ (the monitors of the outputs aren't offered), _Connector_, _Volume_ with mute, and _Input
+  level_, a meter that moves with the default input while the page is on screen: not on a hidden workspace, where the
+  window is suspended, so it doesn't keep the microphone in use ("Speak to test the microphone"). While the meter runs,
+  a privacy indicator may show the microphone in use, since the meter does read it; a Bluetooth headset stays in its
+  music profile (A2DP), because WirePlumber doesn't switch it for a meter. A monitor of an output as the default input
+  shows as _Another device_.
+- **Apps:** a row per app that plays or records: its icon, its name, what it plays (or _Recording_), _on_ the device
+  when it isn't the default, and its volume with mute. A new row goes where it sorts; the rows already there are never
+  moved or rebuilt, so a slider being dragged or focused keeps its row. Screen readers hear each control with its app
+  ("Volume of Firefox", "Mute Firefox"). Without any: "No app is playing or recording sound."
+- **Sound cards:** for each card that offers a choice, its available profiles (HDMI, a headset's A2DP or HFP), under
+  "Connectors and sound quality". _Pro Audio_ is left out unless it is in use: its raw channels don't route HDMI or
+  headphones the usual way, so it is a trap for anyone who isn't setting up a studio (Advanced… still offers it).
+- **Sliders:** a move is sent at once, and what the server reports while the slider moves, while a request is on its way
+  and a moment after doesn't move it back. A change the server refuses (a profile the headset can't run) shows its
+  error, and the drop-down goes back to what the server has. Sliders go to 100 %; the app preference _Allow volume above
+  100 %_ lets them go to 150 % with a mark at 100 %. A volume set above the range elsewhere still shows, with the slider
+  reaching it.
+- **Long names:** a drop-down is as wide as its names need, up to 40 characters, and shrinks to 12 on a narrow page; a
+  longer name is shortened with an ellipsis, whole in its list and its tooltip, so the page fits a third of a laptop
+  screen.
+- **Advanced…:** in the header, while pwvucontrol or pavucontrol is installed (pwvucontrol first): balance, latency
+  offsets and the routing of every stream stay there.
+- **Not available:** without a sound server, a placeholder says how to start PipeWire's
+  (`systemctl --user start pipewire-pulse`); the page looks again every three seconds and comes back by itself, also
+  after the server restarts.
+- The volume of alert sounds isn't offered: see [Architecture → Backends](Architecture.md#backends).
+
 ### Bluetooth
 
 The Bluetooth page shows BlueZ's live state; nothing of it is stored by Sway Things, so it has no reset, no indicators
@@ -508,9 +545,9 @@ preference:
 - **Accent = sway's focus color** (`client.focused` child border, default `#285577`). Changing it on the Windows page
   recolors the app live, so the accent is personal to each setup. An app preference switches back to the theme's accent.
 - **App preferences** (accent source, safety-net timeout, editor command, show sway directives, remember collapsed
-  sections, and whether Bluetooth and Wi-Fi search automatically or only with _Search_) are a "Sway Things" section at
-  the bottom of About & Maintenance. There search, the CLI and reset work for them like for any setting, without a
-  separate preferences window in a tiling window manager.
+  sections, volume above 100 % on the Sound page, and whether Bluetooth and Wi-Fi search automatically or only with
+  _Search_) are a "Sway Things" section at the bottom of About & Maintenance. There search, the CLI and reset work for
+  them like for any setting, without a separate preferences window in a tiling window manager.
 - Our own CSS only for structure (sidebar, rows, cards, banners).
 
 ## SwayFX
