@@ -165,7 +165,12 @@ impl Mirroring {
             .iter()
             .position(|scaling| Some(*scaling) == current.map(|mirror| mirror.scaling))
             .unwrap_or(0);
-        let note = if !model.kanshi_runs() {
+        // A change that waits to be kept or reverted: the picture waits too (setting it writes
+        // kanshi's profiles, which would put back what the trial changed).
+        let waits = model.pending_change().is_some();
+        let note = if waits {
+            Some("Keep or revert the change first")
+        } else if !model.kanshi_runs() {
             Some("Needs kanshi, which remembers each combination of displays (see above)")
         } else if !mirror::installed() {
             Some("Needs wl-mirror, which shows one display on another")
@@ -182,9 +187,10 @@ impl Mirroring {
             .set_selected(u32::try_from(scaling_index).unwrap_or(0));
         self.updating.set(false);
         self.sources.replace(sources);
-        // A mirror that runs can always be ended.
+        // A mirror that runs can always be ended, except while a change waits.
         self.source
-            .set_sensitive(note.is_none() || current.is_some());
+            .set_sensitive(!waits && (note.is_none() || current.is_some()));
+        self.scaling.set_sensitive(!waits);
         self.scaling.set_visible(current.is_some());
         self.note.set_text(note.unwrap_or_default());
         self.note.set_visible(note.is_some());

@@ -111,9 +111,9 @@ new mode, a rotation and switching an output off go through the safety net.
   they aren't the plain ones); a tile shows only the lines that fit it, and the whole name in its tooltip. Outputs that
   are off stand right of them with a thin grey outline and no fill (picked: the outline in the accent) and say _Off_;
   picked, only _Use this display_ shows below, since nothing else applies to a display that is off. Switched on, a
-  display is placed right of the others in the same trial, never at 0,0 over another one. Below it a hint: _Drag the
-  displays to where they stand on your desk. Pick one to change its settings below._ Without a session the canvas gives
-  way to a hint.
+  display goes to the place stored for it, else right of the others in the same trial, never at 0,0 over another one.
+  Below it a hint: _Drag the displays to where they stand on your desk. Pick one to change its settings below._ Without
+  a session the canvas gives way to a hint.
 - **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where
@@ -138,9 +138,10 @@ new mode, a rotation and switching an output off go through the safety net.
   the same display takes its place (still with the safety net, even if it is the value from before), and Revert still
   goes back to what was before the first. _Automatic_ meanwhile puts back what was before and is stored for the next
   reload of sway, as it is when nothing waits, since sway can't try it live. Meanwhile the tiles can be picked but not
-  moved or scaled, and the settings of the other displays wait (their controls say why), so Revert puts everything back.
-  A new mode or rotation that changes the display's size moves the others along already during the trial, so nothing
-  overlaps and nothing floats apart while the user decides; Revert puts them back, Keep stores them with the change.
+  moved or scaled, and the settings of the other displays and every display's _Show_ wait (their controls say why), so
+  Revert puts everything back. A new mode or rotation that changes the display's size moves the others along already
+  during the trial, so nothing overlaps and nothing floats apart while the user decides; Revert puts them back, Keep
+  stores them with the change.
 - **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
   settled the same way.
 - **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a

@@ -2178,6 +2178,13 @@ fn a_display_switched_on_is_placed_right_of_the_others() {
         "{:?}",
         trial.commands
     );
+    // Switched off again before deciding: tried in its place.
+    setup
+        .try_risky(ENABLED, Some("D E F"), Value::Bool(false), "")
+        .unwrap();
+    setup
+        .try_risky(ENABLED, Some("D E F"), Value::Bool(true), "")
+        .unwrap();
     setup.applier.keep(&setup.access).unwrap();
     assert_eq!(
         setup.applier.state().get("output.position", Some("D E F")),

@@ -226,20 +226,22 @@ impl<V: Validate> Applier<V> {
         status: &IncludeStatus,
         access: &WriteAccess,
     ) -> Result<Tried, ApplyError> {
+        let placed = self.placed_when_on(device, changes).await;
+        let changes = placed.as_deref().unwrap_or(changes);
         let Some(earlier) = self.pending.take() else {
-            let placed = self.placed_when_on(device, changes).await;
-            let changes = placed.as_deref().unwrap_or(changes);
             return self.try_fresh(device, changes, status, access, false).await;
         };
         // Another value for what waits (a second mode or rotation before keeping the first):
         // tried in its place, and a revert still brings back what was before the first.
         let same_keys = earlier.device.as_deref() == device
-            && changes
-                .iter()
-                .all(|(key, _)| earlier.values().any(|tried| tried.key == *key))
-            && earlier
-                .values()
-                .all(|tried| changes.iter().any(|(key, _)| tried.key == *key));
+            && changes.iter().all(|(key, _)| {
+                *key == crate::outputs::POSITION || earlier.values().any(|tried| tried.key == *key)
+            })
+            // The place a display switched on got along with it isn't asked for again.
+            && earlier.values().all(|tried| {
+                tried.key == crate::outputs::POSITION
+                    || changes.iter().any(|(key, _)| tried.key == *key)
+            });
         if !same_keys {
             let key = earlier.key();
             self.pending = Some(earlier);
@@ -793,7 +795,9 @@ impl<V: Validate> Applier<V> {
         let switches_on = changes
             .iter()
             .any(|(key, value)| *key == ENABLED && *value == Some(Value::Bool(true)));
-        let places = changes.iter().any(|(key, _)| *key == POSITION);
+        // A place it has (in the settings, or in the change) is where it goes.
+        let places = changes.iter().any(|(key, _)| *key == POSITION)
+            || self.state.get(POSITION, Some(device)).is_some();
         if !switches_on || places {
             return None;
         }

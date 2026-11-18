@@ -643,9 +643,27 @@ impl Canvas {
             return;
         };
         let layout = self.layout();
-        let Some((_, arranged)) = keep_together(&before, &layout) else {
-            return;
-        };
+        // From the places before the trial, with the sizes now: another value tried in its place
+        // (back to the one before, say) puts the others where that one needs them, not where
+        // the first one did.
+        let sized: Vec<(String, Rect)> = layout
+            .iter()
+            .map(|(id, now)| {
+                let was = before
+                    .iter()
+                    .find(|(known, _)| known == id)
+                    .map_or(*now, |(_, was)| *was);
+                (
+                    id.clone(),
+                    Rect {
+                        x: was.x,
+                        y: was.y,
+                        ..*now
+                    },
+                )
+            })
+            .collect();
+        let arranged = keep_together(&before, &sized).map_or(sized, |(_, arranged)| arranged);
         let places: Vec<(String, Value)> = arranged
             .iter()
             .filter(|(id, rect)| {
