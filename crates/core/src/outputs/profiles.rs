@@ -45,6 +45,27 @@ use crate::state::State;
 
 const VERSION: i64 = 1;
 
+/// The gap in logical pixels between the displays and one that shows another display's picture
+/// ([`Profile::apart`]).
+pub const APART: i32 = 2000;
+
+/// The width of a display set up as `setup` in logical pixels: its mode turned as it is, divided
+/// by its scale. `None` without a mode.
+fn logical_width(setup: &Setup) -> Option<i32> {
+    let mode = setup.mode?;
+    let turned = matches!(
+        setup.transform,
+        Some(Transform::R90 | Transform::R270 | Transform::Flipped90 | Transform::Flipped270)
+    );
+    let pixels = if turned { mode.height() } else { mode.width() };
+    let scale = setup.scale.filter(|scale| *scale > 0.0).unwrap_or(1.0);
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "a mode's width divided by a positive scale fits easily"
+    )]
+    Some((f64::from(pixels) / scale).ceil() as i32)
+}
+
 /// The first line of `displays.toml`: a file without it wasn't written by Sway Things and is
 /// never written over.
 const HEADER: &str = "# Written by Sway Things: the displays remembered per combination.";
@@ -263,8 +284,11 @@ impl Profile {
                 // The same picture with another fit: the workspaces it took along stay noted.
                 let mut mirror = mirror;
                 if let (Some(new), Some(old)) = (&mut mirror, &setup.mirror) {
-                    if new.of == old.of && new.gathered.is_empty() {
+                    // Its workspaces went to the display shown before; they come back from wherever
+                    // they are when it shows its own content again.
+                    if new.gathered.is_empty() {
                         new.gathered.clone_from(&old.gathered);
+                        new.session.clone_from(&old.session);
                     }
                 }
                 setup.mirror = mirror;
@@ -276,7 +300,7 @@ impl Profile {
 
     /// Notes that the workspaces `names` moved off the display `target` when its picture started
     /// ([`super::mirror::gather_workspaces`]).
-    pub fn note_gathered(&mut self, target: &str, names: &[String]) {
+    pub fn note_gathered(&mut self, target: &str, names: &[String], session: &str) {
         let Some(mirror) = self
             .outputs
             .get_mut(target)
@@ -284,6 +308,11 @@ impl Profile {
         else {
             return;
         };
+        // Names of another sway session are other workspaces now.
+        if mirror.session != session {
+            mirror.gathered.clear();
+            session.clone_into(&mut mirror.session);
+        }
         for name in names {
             if !mirror.gathered.contains(name) {
                 mirror.gathered.push(name.clone());
@@ -291,11 +320,33 @@ impl Profile {
         }
     }
 
-    /// The workspaces that moved off the display `target` when its picture started.
-    pub fn gathered(&self, target: &str) -> Vec<String> {
+    /// Where the display `target` stands while it shows another display's picture: right of the
+    /// displays that show their own content, with a gap of [`APART`] logical pixels, which the
+    /// pointer doesn't cross, so it can't go onto the picture by accident. `None` if it shows
+    /// its own content, or if the others' places or sizes aren't known.
+    pub fn apart(&self, target: &str) -> Option<(i32, i32)> {
+        self.outputs.get(target)?.mirror.as_ref()?;
+        let others: Vec<(i32, i32, i32)> = self
+            .outputs
+            .iter()
+            .filter(|(name, setup)| *name != target && setup.enabled && setup.mirror.is_none())
+            .map(|(_, setup)| {
+                let (x, y) = setup.position?;
+                Some((x, y, x.saturating_add(logical_width(setup)?)))
+            })
+            .collect::<Option<_>>()?;
+        let right = others.iter().map(|(_, _, right)| *right).max()?;
+        let top = others.iter().map(|(_, y, _)| *y).min()?;
+        Some((right.saturating_add(APART), top))
+    }
+
+    /// The workspaces that moved off the display `target` when its picture started, in the sway
+    /// `session` (its IPC socket); none for another one.
+    pub fn gathered(&self, target: &str, session: &str) -> Vec<String> {
         self.outputs
             .get(target)
             .and_then(|setup| setup.mirror.as_ref())
+            .filter(|mirror| mirror.session == session)
             .map(|mirror| mirror.gathered.clone())
             .unwrap_or_default()
     }
@@ -563,6 +614,11 @@ fn read_setup(table: &Table) -> Option<Setup> {
         None => None,
     };
     let mirror = table.get("mirror").and_then(Item::as_str).map(|of| Mirror {
+        session: table
+            .get("mirror_session")
+            .and_then(Item::as_str)
+            .unwrap_or_default()
+            .to_owned(),
         gathered: table
             .get("mirror_workspaces")
             .and_then(Item::as_array)
@@ -608,6 +664,7 @@ fn write_setup(setup: &Setup) -> Table {
         if !mirror.gathered.is_empty() {
             let names: toml_edit::Array = mirror.gathered.iter().map(String::as_str).collect();
             table.insert("mirror_workspaces", value(names));
+            table.insert("mirror_session", value(mirror.session.as_str()));
         }
     }
     table
@@ -673,6 +730,8 @@ fn kanshi_profile(profile: &Profile, place_workspaces: bool, mirrors: bool) -> O
     let mut block = format!("profile {} {{\n", profile.name());
     for (name, setup) in profile.outputs() {
         let quoted = kanshi_quote(name)?;
+        // A display that shows another one's picture stands apart from the others.
+        let position = profile.apart(name).or(setup.position);
         if !setup.enabled {
             let _ = writeln!(block, "    output {quoted} disable");
             continue;
@@ -681,7 +740,7 @@ fn kanshi_profile(profile: &Profile, place_workspaces: bool, mirrors: bool) -> O
         if let Some(mode) = setup.mode {
             let _ = write!(block, " mode {mode}");
         }
-        if let Some((x, y)) = setup.position {
+        if let Some((x, y)) = position {
             let _ = write!(block, " position {x},{y}");
         }
         if let Some(scale) = setup.scale {
@@ -788,6 +847,63 @@ mod tests {
     }
 
     #[test]
+    fn workspaces_a_picture_took_along_are_noted_per_sway_session() {
+        let mut profile = Profile::capture(&outputs(DOCK)).unwrap();
+        let mirror = crate::outputs::mirror::Mirror {
+            of: "Dell U27 ABC".to_owned(),
+            scaling: crate::outputs::mirror::Scaling::Fit,
+            gathered: Vec::new(),
+            session: String::new(),
+        };
+        profile.outputs.get_mut("eDP-1").unwrap().enabled = true;
+        assert!(profile.set_mirror("eDP-1", Some(mirror.clone())));
+        profile.note_gathered("eDP-1", &["2".to_owned()], "/run/sway-ipc.1.sock");
+        profile.note_gathered("eDP-1", &["4".to_owned()], "/run/sway-ipc.1.sock");
+        assert_eq!(
+            profile.gathered("eDP-1", "/run/sway-ipc.1.sock"),
+            ["2", "4"]
+        );
+        // Another fit keeps them.
+        assert!(profile.set_mirror("eDP-1", Some(mirror)));
+        assert_eq!(
+            profile.gathered("eDP-1", "/run/sway-ipc.1.sock"),
+            ["2", "4"]
+        );
+        // After another login, the names are other workspaces.
+        assert_eq!(
+            profile.gathered("eDP-1", "/run/sway-ipc.2.sock"),
+            [] as [&str; 0]
+        );
+        profile.note_gathered("eDP-1", &["1".to_owned()], "/run/sway-ipc.2.sock");
+        assert_eq!(profile.gathered("eDP-1", "/run/sway-ipc.2.sock"), ["1"]);
+    }
+
+    #[test]
+    fn a_display_showing_a_picture_stands_apart_where_the_pointer_cant_go() {
+        let mut profile = Profile::capture(&outputs(DOCK)).unwrap();
+        let panel = profile.outputs.get_mut("eDP-1").unwrap();
+        panel.enabled = true;
+        panel.position = Some((1707, 0));
+        let mirror = crate::outputs::mirror::Mirror {
+            of: "Dell U27 ABC".to_owned(),
+            scaling: crate::outputs::mirror::Scaling::Fit,
+            gathered: Vec::new(),
+            session: String::new(),
+        };
+        assert_eq!(profile.apart("eDP-1"), None);
+        assert!(profile.set_mirror("eDP-1", Some(mirror)));
+        // Right of the Dell (2560 at scale 1.5: 1707 wide), with the gap.
+        assert_eq!(profile.apart("eDP-1"), Some((1707 + super::APART, 0)));
+        let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
+        profiles.remember(profile);
+        let text = kanshi_config(&profiles);
+        assert!(
+            text.contains(&format!("position {},0", 1707 + super::APART)),
+            "{text}"
+        );
+    }
+
+    #[test]
     fn kanshi_gets_a_profile_per_combination_and_a_safety_one() {
         let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
         profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
@@ -827,6 +943,7 @@ mod tests {
                 of: of.to_owned(),
                 scaling: crate::outputs::mirror::Scaling::Fit,
                 gathered: Vec::new(),
+                session: String::new(),
             })
         };
         assert!(profile.set_mirror("eDP-1", mirror("Dell U27 ABC")));

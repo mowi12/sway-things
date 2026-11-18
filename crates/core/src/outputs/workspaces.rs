@@ -169,7 +169,16 @@ pub async fn apply(
         return Ok(0);
     };
     let open = client.workspaces().await?;
-    let Ok(commands) = commands(profile.workspaces(), &outputs, &open) else {
+    // A display that shows another one's picture takes no workspaces: its go to that one.
+    let mut placement = profile.workspaces().clone();
+    for (target, setup) in profile.outputs() {
+        if let Some(mirror) = &setup.mirror {
+            for display in placement.values_mut().filter(|display| *display == target) {
+                display.clone_from(&mirror.of);
+            }
+        }
+    }
+    let Ok(commands) = commands(&placement, &outputs, &open) else {
         return Ok(0);
     };
     for command in &commands {

@@ -29,7 +29,7 @@ use sway_things_core::generate;
 use sway_things_core::outputs::kanshi;
 
 use sway_things_core::outputs::layout::{self, overlaps};
-use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, Rect};
+use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
 use sway_things_core::registry::{Scope, Value};
 
 pub use canvas::Canvas;
@@ -282,6 +282,24 @@ impl Arrangement {
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());
         self.hint.set_visible(message.is_none());
+        // A display that shows another one's picture stands apart: parked, saying whose.
+        let showing = model
+            .mirrors()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(target, _)| {
+                outputs
+                    .get(target)
+                    .is_some_and(|output| output.is_connected() && output.is_enabled())
+            })
+            .map(|(target, mirror)| {
+                let whose = picker
+                    .number(&mirror.of)
+                    .map_or_else(|| mirror.of.clone(), |number| number.to_string());
+                (target, format!("Picture of {whose}"))
+            })
+            .collect();
+        self.canvas.set_showing(showing);
         self.canvas
             .set_outputs(outputs, |identifier| picker.number(identifier));
         // A display plugged in or out while the numbers are shown: they may be wrong now.
@@ -728,8 +746,8 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
             for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
                 row.set_device(identifier);
                 offer_modes(&row, output);
-                show_for(&row, identifier, output);
             }
+            show_rows_for(&rows, model, identifier, output);
             show_mirroring(model, &outputs, identifier);
         }
     });
@@ -790,8 +808,8 @@ pub fn follow(model: &Model, arrangement: &Arrangement, rows: &[SettingRow]) -> 
                 if !model.is_busy() {
                     offer_modes(&row, output);
                 }
-                show_for(&row, chosen.as_deref(), output);
             }
+            show_rows_for(&rows, model, chosen.as_deref(), output);
             show_mirroring(model, &outputs, chosen.as_deref());
         } else {
             point_rows(model, chosen.as_deref());
@@ -847,7 +865,7 @@ fn insert_picker(
 /// Shows `row` unless its setting is only for one display at a time and the rows are for every
 /// display (`identifier` is `None`): a mode, a position or switching off for all of them at once
 /// isn't offered.
-fn show_for(row: &SettingRow, identifier: Option<&str>, output: Option<&Output>) {
+fn show_for(row: &SettingRow, identifier: Option<&str>, output: Option<&Output>, apart: bool) {
     let one_at_a_time = row
         .setting()
         .is_some_and(sway_things_core::registry::Setting::is_one_at_a_time);
@@ -856,9 +874,37 @@ fn show_for(row: &SettingRow, identifier: Option<&str>, output: Option<&Output>)
     let switch = row
         .setting()
         .is_some_and(|setting| setting.key() == ENABLED);
+    // One that shows another display's picture stands apart: it has no place among the others.
+    let place = row
+        .setting()
+        .is_some_and(|setting| setting.key() == POSITION);
     if let Some(item) = row.parent() {
-        item.set_visible((identifier.is_some() || !one_at_a_time) && (!off || switch));
+        item.set_visible(
+            (identifier.is_some() || !one_at_a_time) && (!off || switch) && !(apart && place),
+        );
     }
+}
+
+/// Shows the rows of `rows` that apply to the display `identifier` of `model` ([`show_for`]).
+fn show_rows_for(
+    rows: &[glib::WeakRef<SettingRow>],
+    model: &Model,
+    identifier: Option<&str>,
+    output: Option<&Output>,
+) {
+    let apart = showing_picture(model, identifier);
+    for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
+        show_for(&row, identifier, output, apart);
+    }
+}
+
+/// Whether the display `identifier` shows another display's picture.
+fn showing_picture(model: &Model, identifier: Option<&str>) -> bool {
+    identifier.is_some_and(|identifier| {
+        model
+            .mirrors()
+            .is_some_and(|mirrors| mirrors.contains_key(identifier))
+    })
 }
 
 /// Offers the modes of `output` in `row`, if it is the mode row.

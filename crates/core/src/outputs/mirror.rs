@@ -13,6 +13,7 @@ use std::process::{Command, Stdio};
 
 use super::Outputs;
 use super::profiles::Profiles;
+use crate::command::{SwayCmd, SwayText};
 
 /// The title of the windows of the mirrors Sway Things starts, by which it finds them again.
 pub const TITLE: &str = "Sway Things mirror";
@@ -66,6 +67,9 @@ pub struct Mirror {
     /// The workspaces that stood on the display when its picture started and moved to the one
     /// shown ([`gather_workspaces`]): they go back when it shows its own content again.
     pub gathered: Vec<String>,
+    /// The sway session they were gathered in (its IPC socket): after another login, the names
+    /// are other workspaces and nothing goes back.
+    pub session: String,
 }
 
 /// Whether `wl-mirror` is installed: an executable of that name in a directory of `$PATH`.
@@ -158,6 +162,8 @@ pub async fn gather_workspaces(
     let running = running();
     let mut placement = std::collections::BTreeMap::new();
     let mut gathered: Vec<(String, Vec<String>)> = Vec::new();
+    // Each display that starts showing a picture: its connector and where it goes apart.
+    let mut apart: Vec<(String, Option<(i32, i32)>)> = Vec::new();
     for (target, setup) in profile.outputs() {
         let Some(mirror) = &setup.mirror else {
             continue;
@@ -175,31 +181,86 @@ pub async fn gather_workspaces(
         if shown {
             continue;
         }
+        // Only workspaces with windows: an empty one (the one sway makes on a display plugged
+        // in) goes away by itself, and its name would stand for other work later.
         let moved: Vec<String> = open
             .iter()
             .filter(|open| open.output == target.name())
+            .filter(|open| {
+                open.representation
+                    .as_deref()
+                    .is_some_and(|windows| !windows.is_empty())
+            })
             .map(|open| open.name.clone())
             .collect();
         for name in &moved {
             placement.insert(name.clone(), source.identifier().to_owned());
         }
         gathered.push((target.identifier().to_owned(), moved));
+        apart.push((target.name().to_owned(), profile.apart(target.identifier())));
     }
-    if placement.is_empty() {
+    if apart.is_empty() {
         return Ok(0);
     }
+    let session = client.socket().display().to_string();
     if let Some(profile) = profiles.of_mut(&names) {
         for (target, moved) in gathered {
-            profile.note_gathered(&target, &moved);
+            profile.note_gathered(&target, &moved, &session);
         }
     }
-    let Ok(commands) = super::workspaces::commands(&placement, &outputs, &open) else {
+    let Ok(mut commands) = super::workspaces::commands(&placement, &outputs, &open) else {
         return Ok(0);
     };
+    commands.extend(set_apart(&apart, &open).unwrap_or_default());
     for command in &commands {
         client.run(command).await?;
     }
     Ok(commands.len())
+}
+
+/// The commands that set each display of `apart` (its connector and place) apart from the others
+/// and give it a workspace of its own for the picture, named after it, so no workspace number
+/// leads there; then the focus goes back to the workspace of `open` that had it (which moves the
+/// pointer off the display, if it was there).
+fn set_apart(
+    apart: &[(String, Option<(i32, i32)>)],
+    open: &[crate::ipc::types::Workspace],
+) -> Result<Vec<SwayCmd>, crate::command::TextError> {
+    let mut commands = Vec::new();
+    for (name, place) in apart {
+        if let Some((x, y)) = place {
+            commands.push(
+                SwayCmd::new("output")
+                    .text(SwayText::new(name)?)
+                    .keyword("pos")
+                    .int(i64::from(*x))
+                    .int(i64::from(*y)),
+            );
+        }
+        commands.push(
+            SwayCmd::new("focus")
+                .keyword("output")
+                .text(SwayText::new(name)?),
+        );
+        commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(workspace_name(name))?),
+        );
+    }
+    if let Some(focused) = open.iter().find(|open| open.focused) {
+        commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(&focused.name)?),
+        );
+    }
+    Ok(commands)
+}
+
+/// The name of the workspace the picture on the display with connector `name` stands on.
+pub fn workspace_name(name: &str) -> String {
+    format!("Mirror {name}")
 }
 
 /// Moves the workspaces `names` back to the display `target` (by its name in the settings), as
@@ -212,11 +273,23 @@ pub async fn give_back_workspaces(
     client: &mut crate::ipc::Client,
     target: &str,
     names: &[String],
+    place: Option<(i32, i32)>,
 ) -> Result<usize, crate::ipc::IpcError> {
+    let outputs = Outputs::new(&client.outputs().await?);
+    // Back where it stood among the others.
+    if let Some(((x, y), output)) = place.zip(outputs.find(target)) {
+        if let Ok(name) = SwayText::new(output.name()) {
+            let back = SwayCmd::new("output")
+                .text(name)
+                .keyword("pos")
+                .int(i64::from(x))
+                .int(i64::from(y));
+            client.run(&back).await?;
+        }
+    }
     if names.is_empty() {
         return Ok(0);
     }
-    let outputs = Outputs::new(&client.outputs().await?);
     let open = client.workspaces().await?;
     let placement: std::collections::BTreeMap<String, String> = names
         .iter()

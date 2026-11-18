@@ -186,10 +186,12 @@ new mode, a rotation and switching an output off go through the safety net.
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
   there for a display that is on while another one is. The picture starts at once as a fullscreen `wl-mirror` window on
   that display, without taking the focus, and comes back whenever kanshi brings the combination back (no daemon: kanshi
-  runs the hook). The workspaces that stood on the display move to the one shown, so they stay within reach, and go back
-  (the first of them shown again) when it shows its own content again; a display that mirrors takes no workspaces. The
-  pointer can still move onto it: sway has no way to keep it off an output. Without kanshi or wl-mirror the row says
-  what it needs.
+  runs the hook). Meanwhile the display stands apart from the others, 2000 logical pixels right of them, which the
+  pointer doesn't cross, and its tile is parked beside the others like one that is off, saying _Picture of …_ (its
+  position isn't offered). The picture has a workspace of its own named after the display, so no workspace number leads
+  there. The workspaces with windows that stood on the display move to the one shown and go back (the first of them
+  shown again, the display at its place again) when it shows its own content again; a display that mirrors takes no
+  workspaces, also not from the placement. Without kanshi or wl-mirror the row says what it needs.
 
 ### Bluetooth
 

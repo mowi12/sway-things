@@ -309,6 +309,9 @@ mod imp {
         pub(super) frozen: Cell<Option<super::View>>,
         /// Set while a risky change waits: the tiles can be picked, not moved or scaled.
         pub(super) locked: Cell<bool>,
+        /// The displays that show another display's picture, and what their tiles say about it:
+        /// parked beside the others like one that is off.
+        pub(super) showing: RefCell<Vec<(String, String)>>,
         /// A layout that was applied and isn't reported by sway yet, and since when.
         pub(super) dropped: RefCell<Option<(super::Layout, Instant)>>,
         /// Set while the tiles are updated, so that isn't taken as the user's choice.
@@ -490,16 +493,26 @@ impl Canvas {
         let mut shown: Vec<Shown> = outputs
             .iter()
             .filter(|output| output.is_connected())
-            .map(|output| Shown {
-                identifier: output.identifier().to_owned(),
-                name: output.name().to_owned(),
-                rect: output.rect().filter(|_| output.is_enabled()),
-                label: output.label(),
-                short: short_label(output),
-                details: details(output),
-                scale: output.scale().unwrap_or(1.0),
-                size: parked_size(output),
-                parked: None,
+            .map(|output| {
+                let showing = imp
+                    .showing
+                    .borrow()
+                    .iter()
+                    .find(|(id, _)| id == output.identifier())
+                    .map(|(_, what)| what.clone());
+                Shown {
+                    identifier: output.identifier().to_owned(),
+                    name: output.name().to_owned(),
+                    rect: output
+                        .rect()
+                        .filter(|_| output.is_enabled() && showing.is_none()),
+                    label: output.label(),
+                    short: short_label(output),
+                    details: showing.unwrap_or_else(|| details(output)),
+                    scale: output.scale().unwrap_or(1.0),
+                    size: parked_size(output),
+                    parked: None,
+                }
             })
             .collect();
         park(&mut shown);
@@ -888,6 +901,12 @@ impl Canvas {
         }
     }
 
+    /// Notes the displays that show another display's picture (by identifier, with what their
+    /// tile says): they stand apart, so they are parked beside the others like ones that are off.
+    pub fn set_showing(&self, showing: Vec<(String, String)>) {
+        self.imp().showing.replace(showing);
+    }
+
     /// Picks the output `identifier` and tells.
     fn pick(&self, identifier: &str) {
         self.imp().selected.replace(Some(identifier.to_owned()));
@@ -1088,7 +1107,19 @@ impl Canvas {
                     -1,
                 );
             }
-            fit_labels(&tile.button, (w, h), grip_shown, &tile.details, tile.scale);
+            // While its grip is dragged: the scale it gets, and the details that say so.
+            let scaling = imp
+                .drag
+                .borrow()
+                .as_ref()
+                .filter(|drag| drag.identifier == tile.identifier)
+                .and_then(|drag| drag.scaling)
+                .map(|(_, scale)| scale);
+            let (full, scale) = match (scaling, tile_labels(&tile.button)) {
+                (Some(scale), Some((_, _, details))) => (details.text().to_string(), scale),
+                _ => (tile.details.clone(), tile.scale),
+            };
+            fit_labels(&tile.button, (w, h), grip_shown, &full, scale);
             tile.button.size_allocate(
                 &gtk::Allocation::new(x.round() as i32, y.round() as i32, w, h),
                 -1,

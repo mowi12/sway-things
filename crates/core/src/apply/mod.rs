@@ -1019,6 +1019,7 @@ impl<V: Validate> Applier<V> {
     /// any more, for that combination, and writes the profiles for kanshi. Best effort, like
     /// [`Applier::remember_displays`].
     async fn remember_combination(&mut self, names: &[String]) {
+        self.reread_profiles();
         let Some(profiles) = &mut self.profiles else {
             return;
         };
@@ -1091,6 +1092,11 @@ impl<V: Validate> Applier<V> {
             .into_iter()
             .map(str::to_owned)
             .collect();
+        // Where the display stands among the others, to go back to from apart.
+        let place = captured
+            .outputs()
+            .find(|(name, _)| *name == target)
+            .and_then(|(_, setup)| setup.position);
         let names: Vec<&str> = combination.iter().map(String::as_str).collect();
         if profiles.of(&names).is_none() {
             profiles.remember(captured);
@@ -1098,14 +1104,15 @@ impl<V: Validate> Applier<V> {
         let gone = !names.contains(&target);
         let ending = mirror.is_none();
         // The workspaces that left the display when its picture started, to give back.
+        let session = client.socket().display().to_string();
         let given_back = profiles
             .of(&names)
-            .map(|profile| profile.gathered(target))
+            .map(|profile| profile.gathered(target, &session))
             .filter(|_| ending)
             .unwrap_or_default();
         let set = profiles
             .of_mut(&names)
-            .is_some_and(|profile| profile.set_mirror(target, mirror));
+            .is_some_and(|profile| profile.set_mirror(target, mirror.clone()));
         if !set {
             // A display that went meanwhile shows nothing to end.
             if gone && ending {
@@ -1117,6 +1124,24 @@ impl<V: Validate> Applier<V> {
         // they stay within reach; noted (and saved before kanshi reads the profiles again and runs
         // its own hook), so they come back. Best effort, like the mirror itself.
         let _ = crate::outputs::mirror::gather_workspaces(client, profiles).await;
+        // Saved onto the file as it is now: kanshi's hook may have noted workspaces in it while
+        // sway was asked.
+        let noted = profiles
+            .of(&names)
+            .map(|profile| profile.gathered(target, &session))
+            .unwrap_or_default();
+        if let Ok(mut fresh) = Profiles::load(profiles.path()) {
+            if fresh.of(&names).is_none() {
+                if let Some(profile) = profiles.of(&names) {
+                    fresh.remember(profile.clone());
+                }
+            }
+            if let Some(profile) = fresh.of_mut(&names) {
+                profile.set_mirror(target, mirror);
+                profile.note_gathered(target, &noted, &session);
+            }
+            *profiles = fresh;
+        }
         let path = profiles.path().to_owned();
         profiles
             .save()
@@ -1130,7 +1155,11 @@ impl<V: Validate> Applier<V> {
         // Idempotent: kanshi's own `hook mirror` after the reload changes nothing more.
         crate::outputs::mirror::apply(profiles, &outputs);
         // Its own content again: its workspaces come back.
-        let _ = crate::outputs::mirror::give_back_workspaces(client, target, &given_back).await;
+        if ending {
+            let _ =
+                crate::outputs::mirror::give_back_workspaces(client, target, &given_back, place)
+                    .await;
+        }
         Ok(())
     }
 

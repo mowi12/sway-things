@@ -113,6 +113,7 @@ impl Mirroring {
                     of,
                     scaling: fits,
                     gathered: Vec::new(),
+                    session: String::new(),
                 }),
             );
         });
