@@ -214,6 +214,7 @@ fn walk(
         return;
     }
     let bounds = || context.transform.transform_bounds(&node.bounds());
+    let before = fills.len();
     match node.node_type() {
         gsk::RenderNodeType::ColorNode => {
             if let Some(color) = node.downcast_ref::<gsk::ColorNode>() {
@@ -256,6 +257,17 @@ fn walk(
             bounds: bounds(),
             paint: Paint::Unknown(format!("{other:?}")),
         }),
+    }
+    // What a node paints stays inside its clip: a picture that covers its box
+    // (`ContentFit::Cover`) is larger than what is drawn of it.
+    if let Some(clip) = &context.clip {
+        let added: Vec<Fill> = fills.drain(before..).collect();
+        fills.extend(added.into_iter().filter_map(|fill| {
+            Some(Fill {
+                bounds: fill.bounds.intersection(clip)?,
+                paint: fill.paint,
+            })
+        }));
     }
 }
 
