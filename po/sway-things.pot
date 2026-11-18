@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-18 10:21+0100\n"
+"POT-Creation-Date: 2026-11-18 10:33+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1222,7 +1222,7 @@ msgstr ""
 msgid "The GTK theme’s accent"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/gui/src/widgets/cursor.rs
 msgid "Automatic"
 msgstr ""
 
@@ -3930,6 +3930,11 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "{product} ({output})"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "The layout can't be switched: {error}"
 msgstr ""
 
@@ -4329,6 +4334,24 @@ msgid "Stays visible for {count} minute"
 msgid_plural "Stays visible for {count} minutes"
 msgstr[0] ""
 msgstr[1] ""
+
+#: crates/gui/src/widgets/cursor.rs
+msgid "Default"
+msgstr ""
+
+#: crates/gui/src/widgets/cursor.rs
+#, rust-format
+msgid "{size} px (default)"
+msgstr ""
+
+#: crates/gui/src/widgets/cursor.rs
+#, rust-format
+msgid "{size} px"
+msgstr ""
+
+#: crates/gui/src/widgets/cursor.rs
+msgid "All screens"
+msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
 msgid "Settings for"

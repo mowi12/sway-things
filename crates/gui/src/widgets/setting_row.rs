@@ -188,8 +188,9 @@ impl SettingRow {
         Self::with_control(model, setting, device, control(setting)?)
     }
 
-    /// The row of the text setting `setting` with a drop-down of known `choices` (each a value
-    /// and its label) in place of an entry. A value that isn't among them is shown at the end.
+    /// The row of the text or whole-number setting `setting` with a drop-down of known `choices`
+    /// (each a value as text and its label) in place of an entry or a slider. A value that isn't
+    /// among them is shown at the end. [`SettingRow::set_choices`] replaces them.
     pub fn with_choices(
         model: &Model,
         setting: &'static Setting,
@@ -905,20 +906,60 @@ impl SettingRow {
         }
     }
 
-    /// Sends the value picked in `dropdown`, one of `values`.
+    /// Sends the value picked in `dropdown`, one of `values`, read as the setting's type.
     fn connect_pick(&self, dropdown: &gtk::DropDown, values: &Rc<RefCell<Vec<String>>>) {
         let values = Rc::clone(values);
         dropdown.connect_selected_notify(glib::clone!(
             #[weak(rename_to = row)]
             self,
             move |dropdown| {
+                let Some(setting) = row.setting() else {
+                    return;
+                };
                 let selected = usize::try_from(dropdown.selected()).ok();
                 let value = selected.and_then(|index| values.borrow().get(index).cloned());
-                if let Some(value) = value {
-                    row.send(Value::Text(value));
+                if let Some(Ok(value)) = value.map(|text| setting.kind().parse(&text)) {
+                    row.send(value);
                 }
             }
         ));
+    }
+
+    /// Replaces the choices of a row made [with choices](SettingRow::with_choices), e.g. when
+    /// the outputs or the sizes of the picked theme change, and shows the value in effect again.
+    /// Nothing is sent.
+    pub fn set_choices(&self, choices: &[(String, String)]) {
+        let imp = self.imp();
+        let Some(Control::Pick { labels, values, .. }) = imp.control.get() else {
+            return;
+        };
+        let same = values
+            .borrow()
+            .iter()
+            .map(String::as_str)
+            .eq(choices.iter().map(|(value, _)| value.as_str()))
+            && (0..labels.n_items())
+                .filter_map(|index| labels.string(index))
+                .map(|label| label.to_string())
+                .eq(choices.iter().map(|(_, label)| label.clone()));
+        if same {
+            return;
+        }
+        imp.updating.set(true);
+        let texts: Vec<&str> = choices.iter().map(|(_, label)| label.as_str()).collect();
+        labels.splice(0, labels.n_items(), &texts);
+        values.replace(choices.iter().map(|(value, _)| value.clone()).collect());
+        imp.updating.set(false);
+        self.refresh();
+    }
+
+    /// The drop-down of a row made [with choices](SettingRow::with_choices), e.g. to draw its
+    /// items with a picture.
+    pub fn dropdown(&self) -> Option<gtk::DropDown> {
+        match self.imp().control.get() {
+            Some(Control::Pick { dropdown, .. }) => Some(dropdown.clone()),
+            _ => None,
+        }
     }
 
     /// Sends the text of `entry` if it differs from the value in effect.
@@ -1121,8 +1162,12 @@ fn show_value(control: &Control, setting: &Setting, value: &Value) {
                 labels,
                 values,
             },
-            Value::Text(text),
+            Value::Text(_) | Value::Integer(_),
         ) => {
+            let text = &match value {
+                Value::Text(text) => text.clone(),
+                other => other.to_string(),
+            };
             let known = values.borrow().iter().position(|value| value == text);
             let index = known.unwrap_or_else(|| {
                 // A value typed by hand: shown by its name.

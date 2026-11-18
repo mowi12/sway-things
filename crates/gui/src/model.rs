@@ -48,7 +48,8 @@ use sway_things_core::conflict::Report;
 use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
-use sway_things_core::ipc::{Client, Compositor, Reloads};
+use sway_things_core::ipc::types::Output;
+use sway_things_core::ipc::{Client, Compositor, OutputWatch, Reloads};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
@@ -143,6 +144,8 @@ struct Core {
     devices: Devices,
     /// Whether the connected devices are known: in a session, once the device watch runs.
     devices_known: bool,
+    /// The outputs of the session, each its name and a label, as of the last `output` event.
+    outputs: Vec<(String, String)>,
     /// Whether changes are saved by themselves (not in tests, where saving would run sway).
     autosave: bool,
     /// Which sections are collapsed, saved while `app.remember_collapsed_sections` is on.
@@ -274,11 +277,13 @@ impl Model {
             status,
             devices,
             devices_known: false,
+            outputs: Vec::new(),
             autosave,
         };
         self.imp().core.replace(Some(core));
         if let Some(socket) = socket {
             self.watch_devices(socket.clone());
+            self.watch_outputs(socket.clone());
             self.watch_reloads(socket);
         }
     }
@@ -341,6 +346,17 @@ impl Model {
             .borrow()
             .as_ref()
             .is_some_and(|core| core.devices_known)
+    }
+
+    /// The outputs of the session, each its name and a label to show (make and model), as of
+    /// the last change. Empty without a session.
+    pub fn outputs(&self) -> Vec<(String, String)> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.outputs.clone())
+            .unwrap_or_default()
     }
 
     /// The risky change that waits to be kept or reverted, if there is one.
@@ -800,6 +816,66 @@ impl Model {
                 }
             }
         ));
+    }
+
+    /// Follows the outputs of the session on `socket`: reads them, and again on each `output`
+    /// event. If they can't be read, the list stays empty and the choices of a screen offer
+    /// the automatic mapping, the whole desktop and the stored value only; that isn't worth a
+    /// problem of its own.
+    fn watch_outputs(&self, socket: PathBuf) {
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                let started = match Client::connect_to(socket).await {
+                    Ok(client) => OutputWatch::start(&client).await,
+                    Err(error) => Err(error),
+                };
+                let Ok(mut watch) = started else {
+                    return;
+                };
+                loop {
+                    if let Ok(outputs) = watch.outputs().await {
+                        model.take_outputs(&outputs);
+                    }
+                    if watch.changed().await.is_none() {
+                        return;
+                    }
+                }
+            }
+        ));
+    }
+
+    /// Takes the outputs of the session, without the ones that aren't for the desktop (VR
+    /// headsets).
+    fn take_outputs(&self, outputs: &[Output]) {
+        let outputs: Vec<(String, String)> = outputs
+            .iter()
+            .filter(|output| !output.non_desktop)
+            .map(|output| {
+                let product = [output.make.as_str(), output.model.as_str()]
+                    .into_iter()
+                    .filter(|part| !part.is_empty() && *part != "Unknown")
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let label = if product.is_empty() {
+                    output.name.clone()
+                } else {
+                    trf(
+                        msg!("{product} ({output})"),
+                        &[("product", &product), ("output", &output.name)],
+                    )
+                };
+                (output.name.clone(), label)
+            })
+            .collect();
+        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
+            if core.outputs == outputs {
+                return;
+            }
+            core.outputs = outputs;
+        }
+        self.emit_by_name::<()>("changed", &[]);
     }
 
     /// Follows the reloads of sway's config in the session on `socket`, whoever asks for them, so
