@@ -183,7 +183,7 @@ pub struct Applier<V = SwayValidator> {
     /// is what they run with remembered for their combination.
     displays_touched: bool,
     /// What went wrong with the remembered displays or kanshi's files, to tell the user once.
-    displays_problem: Option<String>,
+    displays_problem: Option<Text>,
     /// While kanshi sets up the displays: the combination of displays (their names, sorted)
     /// the stored values of the displays were made for; `None` until known.
     combination: Option<Vec<String>>,
@@ -212,10 +212,13 @@ impl Applier<SwayValidator> {
         match Profiles::load(applier.state.paths().displays()) {
             Ok(profiles) => applier.profiles = Some(profiles),
             Err(error) => {
-                applier.displays_problem = Some(format!(
-                    "{error} ({}); the displays are set up from the sway config meanwhile",
-                    applier.state.paths().displays().display()
-                ));
+                applier.displays_problem = Some(
+                    Text::new(msg!(
+                        "{error} ({file}); the displays are set up from the sway config meanwhile"
+                    ))
+                    .text("error", error.text())
+                    .arg("file", applier.state.paths().displays().display()),
+                );
             }
         }
         applier.kanshi_files = KanshiFiles::from_env().filter(|_| kanshi::installed());
@@ -408,7 +411,7 @@ impl<V: Validate> Applier<V> {
     }
 
     /// What went wrong with the remembered displays or kanshi's files since last asked.
-    pub fn take_displays_problem(&mut self) -> Option<String> {
+    pub fn take_displays_problem(&mut self) -> Option<Text> {
         self.displays_problem.take()
     }
 
@@ -888,10 +891,11 @@ impl<V: Validate> Applier<V> {
         if let Some(profile) = Profile::stored(&outputs, &self.state) {
             if profiles.remember(profile) {
                 if let Err(error) = profiles.save() {
-                    self.displays_problem = Some(format!(
-                        "the displays can't be remembered in {}: {error}",
-                        profiles.path().display()
-                    ));
+                    self.displays_problem = Some(
+                        Text::new(msg!("the displays can't be remembered in {file}: {error}"))
+                            .arg("file", profiles.path().display())
+                            .arg("error", error),
+                    );
                     return;
                 }
             }
@@ -1028,10 +1032,11 @@ impl<V: Validate> Applier<V> {
         };
         if profiles.remember(profile) {
             if let Err(error) = profiles.save() {
-                self.displays_problem = Some(format!(
-                    "the displays can't be remembered in {}: {error}",
-                    profiles.path().display()
-                ));
+                self.displays_problem = Some(
+                    Text::new(msg!("the displays can't be remembered in {file}: {error}"))
+                        .arg("file", profiles.path().display())
+                        .arg("error", error),
+                );
                 return;
             }
         }
@@ -1053,7 +1058,7 @@ impl<V: Validate> Applier<V> {
 
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
     /// Returns what went wrong.
-    async fn write_kanshi(files: Option<&KanshiFiles>, profiles: &Profiles) -> Option<String> {
+    async fn write_kanshi(files: Option<&KanshiFiles>, profiles: &Profiles) -> Option<Text> {
         let files = files?;
         match files.write(&kanshi_config(profiles)) {
             Ok(true) => {
@@ -1061,7 +1066,7 @@ impl<V: Validate> Applier<V> {
                 None
             }
             Ok(false) => None,
-            Err(error) => Some(error.to_string()),
+            Err(error) => Some(error.text()),
         }
     }
 

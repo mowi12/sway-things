@@ -37,11 +37,12 @@ pub use mirroring::Mirroring;
 pub use workspaces::WorkspaceMap;
 
 use super::SettingRow;
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
 /// The label of the picker's entry for every output at once.
-const ALL_DISPLAYS: &str = "All displays";
+const ALL_DISPLAYS: Msg = msg!("All displays");
 
 /// The arrangement section's content: the canvas, its hint and the warning about gaps.
 #[derive(Debug, Clone)]
@@ -78,36 +79,36 @@ impl Arrangement {
         empty.add_css_class(style::DIM);
         empty.add_css_class("st-section-hint");
         empty.set_visible(false);
-        let hint = gtk::Label::new(Some(
+        let hint = gtk::Label::new(Some(tr(msg!(
             "Drag the displays to where they stand on your desk. Pick one to change its \
-             settings below.",
-        ));
+             settings below."
+        ))));
         hint.set_wrap(true);
         hint.set_xalign(0.0);
         hint.set_hexpand(true);
         hint.add_css_class(style::DIM);
-        let identify = gtk::Button::with_label("Identify");
+        let identify = gtk::Button::with_label(tr(msg!("Identify")));
         identify.set_valign(gtk::Align::Center);
         if identify::is_supported() {
-            identify.set_tooltip_text(Some("Show each display\u{2019}s number on it"));
+            identify.set_tooltip_text(Some(tr(msg!("Show each display\u{2019}s number on it"))));
         } else {
             identify.set_sensitive(false);
-            identify.set_tooltip_text(Some(
-                "Numbers on the displays need a compositor with wlr-layer-shell, like sway",
-            ));
+            identify.set_tooltip_text(Some(tr(msg!(
+                "Numbers on the displays need a compositor with wlr-layer-shell, like sway"
+            ))));
         }
         let below = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         below.append(&hint);
         below.append(&identify);
 
-        let warning = gtk::Label::new(Some(
+        let warning = gtk::Label::new(Some(tr(msg!(
             "Some displays overlap or don\u{2019}t touch, so the pointer can\u{2019}t reach every \
-             one.",
-        ));
+             one."
+        ))));
         warning.set_wrap(true);
         warning.set_xalign(0.0);
         warning.set_hexpand(true);
-        let fix = gtk::Button::with_label("Arrange Side by Side");
+        let fix = gtk::Button::with_label(tr(msg!("Arrange Side by Side")));
         fix.set_valign(gtk::Align::Center);
         let gaps = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         gaps.add_css_class("st-display-warning");
@@ -126,7 +127,7 @@ impl Arrangement {
         note.set_xalign(0.0);
         note.set_hexpand(true);
         note.set_selectable(true);
-        let copy = gtk::Button::with_label("Copy Command");
+        let copy = gtk::Button::with_label(tr(msg!("Copy Command")));
         copy.set_valign(gtk::Align::Center);
         copy.set_visible(false);
         copy.connect_clicked(|button| {
@@ -209,14 +210,19 @@ impl Arrangement {
         let text = match (displays, &files) {
             (generate::Displays::Kanshi { start }, _) => {
                 copy.set_visible(false);
-                let mut text = String::from(
-                    "Each combination of displays is remembered: kanshi brings this arrangement \
-                     back whenever these displays are connected together.",
-                );
-                if start && !sway_things_core::outputs::kanshi_runs() {
-                    text.push_str(" kanshi starts with your next login.");
-                }
-                Some(text)
+                let text = if start && !sway_things_core::outputs::kanshi_runs() {
+                    msg!(
+                        "Each combination of displays is remembered: kanshi brings this \
+                         arrangement back whenever these displays are connected together. kanshi \
+                         starts with your next login."
+                    )
+                } else {
+                    msg!(
+                        "Each combination of displays is remembered: kanshi brings this \
+                         arrangement back whenever these displays are connected together."
+                    )
+                };
+                Some(tr(text).to_owned())
             }
             (generate::Displays::Sway, Some(files))
                 if kanshi::installed() && files.inclusion() == kanshi::Inclusion::Missing =>
@@ -224,18 +230,23 @@ impl Arrangement {
                 let command = files.append_command();
                 copy.set_tooltip_text(Some(&command));
                 copy.set_visible(true);
-                Some(format!(
-                    "So that each combination of displays is remembered, your kanshi config needs \
-                     the line \u{201c}{}\u{201d} at its end. This command adds it: {command}",
-                    files.include_line()
+                Some(trf(
+                    msg!(
+                        "So that each combination of displays is remembered, your kanshi config \
+                         needs the line \u{201c}{line}\u{201d} at its end. This command adds it: \
+                         {command}"
+                    ),
+                    &[("line", &files.include_line()), ("command", &command)],
                 ))
             }
             (generate::Displays::Sway, _) if !kanshi::installed() => {
                 copy.set_visible(false);
                 Some(
-                    "With kanshi installed, each combination of displays is remembered and comes \
-                     back on its own."
-                        .to_owned(),
+                    tr(msg!(
+                        "With kanshi installed, each combination of displays is remembered and \
+                         comes back on its own."
+                    ))
+                    .to_owned(),
                 )
             }
             (generate::Displays::Sway, _) => None,
@@ -262,9 +273,11 @@ impl Arrangement {
             .count();
         let known = model.outputs_known();
         let message = if !known {
-            Some("Displays can be arranged while Sway Things runs in a sway session.")
+            Some(tr(msg!(
+                "Displays can be arranged while Sway Things runs in a sway session."
+            )))
         } else if on == 0 {
-            Some("No display is on.")
+            Some(tr(msg!("No display is on.")))
         } else {
             None
         };
@@ -296,7 +309,7 @@ impl Arrangement {
                 let whose = picker
                     .number(&mirror.of)
                     .map_or_else(|| mirror.of.clone(), |number| number.to_string());
-                (target, format!("Picture of {whose}"))
+                (target, trf(msg!("Picture of {name}"), &[("name", &whose)]))
             })
             .collect();
         self.canvas.set_showing(showing);
@@ -404,15 +417,15 @@ impl Default for OutputPicker {
 impl OutputPicker {
     /// A picker with only "All displays".
     pub fn new() -> Self {
-        let title = gtk::Label::new(Some("Settings for"));
+        let title = gtk::Label::new(Some(tr(msg!("Settings for"))));
         title.set_xalign(0.0);
         title.set_hexpand(true);
         title.set_wrap(true);
         title.add_css_class("st-row-title");
-        let labels = gtk::StringList::new(&[ALL_DISPLAYS]);
+        let labels = gtk::StringList::new(&[tr(ALL_DISPLAYS)]);
         let dropdown = gtk::DropDown::new(Some(labels.clone()), gtk::Expression::NONE);
         dropdown.set_valign(gtk::Align::Center);
-        dropdown.update_property(&[gtk::accessible::Property::Label("Settings for")]);
+        dropdown.update_property(&[gtk::accessible::Property::Label(tr(msg!("Settings for")))]);
         let root = gtk::Box::new(gtk::Orientation::Horizontal, 24);
         root.append(&title);
         root.append(&dropdown);
@@ -496,7 +509,7 @@ impl OutputPicker {
                     .zip(&entries)
                     .all(|(known, (identifier, _))| known == identifier)
         };
-        let shown: Vec<String> = std::iter::once(ALL_DISPLAYS.to_owned())
+        let shown: Vec<String> = std::iter::once(tr(ALL_DISPLAYS).to_owned())
             .chain(entries.iter().map(|(_, label)| label.clone()))
             .collect();
         if same && shown == self.labels() {
@@ -615,9 +628,21 @@ impl WeakArrangement {
 fn entry(number: usize, output: &Output) -> String {
     let label = output.label();
     if !output.is_connected() {
-        format!("{number}  {label} (not connected)")
+        trf(
+            // TRANSLATORS: A display in the drop-down of displays: its number and name.
+            msg!("{number}  {label} (not connected)"),
+            &[("number", &number), ("label", &label)],
+        )
     } else if !output.is_enabled() {
-        format!("{number}  {label} \u{b7} {} (off)", output.name())
+        trf(
+            // TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
+            msg!("{number}  {label} \u{b7} {name} (off)"),
+            &[
+                ("number", &number),
+                ("label", &label),
+                ("name", &output.name()),
+            ],
+        )
     } else if label == output.name() {
         format!("{number}  {label}")
     } else {
@@ -643,7 +668,7 @@ fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(Str
             sizes.push((mode.width(), mode.height()));
         }
     }
-    std::iter::once((String::new(), "Automatic".to_owned()))
+    std::iter::once((String::new(), tr(msg!("Automatic")).to_owned()))
         .chain(sizes.into_iter().filter_map(|(width, height)| {
             let mode = current
                 .filter(|mode| (mode.width(), mode.height()) == (width, height))
@@ -716,7 +741,7 @@ fn refresh_label(mode: Mode) -> String {
             let hertz = hertz.trim_end_matches('0').trim_end_matches('.');
             format!("{hertz} Hz")
         }
-        None => "Any rate".to_owned(),
+        None => tr(msg!("Any rate")).to_owned(),
     }
 }
 
@@ -968,8 +993,8 @@ impl RefreshRates {
         let labels = gtk::StringList::new(&[]);
         let dropdown = gtk::DropDown::new(Some(labels.clone()), gtk::Expression::NONE);
         dropdown.set_valign(gtk::Align::Center);
-        dropdown.update_property(&[gtk::accessible::Property::Label("Refresh rate")]);
-        dropdown.set_tooltip_text(Some("Refresh rate"));
+        dropdown.update_property(&[gtk::accessible::Property::Label(tr(msg!("Refresh rate")))]);
+        dropdown.set_tooltip_text(Some(tr(msg!("Refresh rate"))));
         let rates = Self {
             dropdown,
             labels,
@@ -1015,7 +1040,8 @@ impl RefreshRates {
         self.dropdown.set_sensitive(open && choices.len() > 1);
         // The row says why it is locked; open, the drop-down says what it is.
         if open {
-            self.dropdown.set_tooltip_text(Some("Refresh rate"));
+            self.dropdown
+                .set_tooltip_text(Some(tr(msg!("Refresh rate"))));
         }
         self.updating.set(false);
     }

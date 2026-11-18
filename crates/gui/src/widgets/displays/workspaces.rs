@@ -20,7 +20,11 @@ use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::workspaces::{NAMES, Preset, left_to_right};
 
 use super::canvas::short_label;
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::{Model, Placement};
+
+/// The title of the switch, and what it says to screen readers.
+const PLACE: Msg = msg!("Place workspaces on the displays");
 
 /// The section's contents.
 #[derive(Debug, Clone)]
@@ -36,13 +40,13 @@ pub struct WorkspaceMap {
 impl WorkspaceMap {
     /// The map, applied through `model`.
     pub fn new(model: &Model) -> Self {
-        let title = gtk::Label::new(Some("Place workspaces on the displays"));
+        let title = gtk::Label::new(Some(tr(PLACE)));
         title.set_xalign(0.0);
         title.add_css_class("st-row-title");
-        let subtitle = gtk::Label::new(Some(
+        let subtitle = gtk::Label::new(Some(tr(msg!(
             "Workspaces 1 to 10 go where you put them, remembered for each combination of \
-             displays and placed again whenever it comes back.",
-        ));
+             displays and placed again whenever it comes back."
+        ))));
         subtitle.set_xalign(0.0);
         subtitle.set_wrap(true);
         subtitle.add_css_class("st-row-detail");
@@ -52,9 +56,7 @@ impl WorkspaceMap {
         texts.append(&subtitle);
         let switch = gtk::Switch::new();
         switch.set_valign(gtk::Align::Center);
-        switch.update_property(&[gtk::accessible::Property::Label(
-            "Place workspaces on the displays",
-        )]);
+        switch.update_property(&[gtk::accessible::Property::Label(tr(PLACE))]);
         let header = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         header.append(&texts);
         header.append(&switch);
@@ -110,13 +112,13 @@ impl WorkspaceMap {
     }
 
     fn add_presets(&self, model: &Model) {
-        let buttons: [(&str, Option<Preset>); 3] = [
-            ("Left to Right", Some(Preset::LeftToRight)),
-            ("A Block per Display", Some(Preset::Blocks)),
-            ("As They Are Now", None),
+        let buttons: [(Msg, Option<Preset>); 3] = [
+            (msg!("Left to Right"), Some(Preset::LeftToRight)),
+            (msg!("A Block per Display"), Some(Preset::Blocks)),
+            (msg!("As They Are Now"), None),
         ];
         for (label, preset) in buttons {
-            let button = gtk::Button::with_label(label);
+            let button = gtk::Button::with_label(tr(label));
             button.connect_clicked(glib::clone!(
                 #[weak]
                 model,
@@ -154,7 +156,9 @@ impl WorkspaceMap {
         self.note.set_text(if kanshi {
             ""
         } else {
-            "Needs kanshi, which remembers each combination of displays (see above)."
+            tr(msg!(
+                "Needs kanshi, which remembers each combination of displays (see above)."
+            ))
         });
         self.note.set_visible(!kanshi);
         let open = kanshi && place;
@@ -223,9 +227,12 @@ fn card(
         .filter(|name| placed.get(**name).map(String::as_str) == Some(display))
     {
         let button = gtk::Button::with_label(name);
-        button.set_tooltip_text(Some("Click to send it to the next display, or drag it"));
-        button.update_property(&[gtk::accessible::Property::Label(&format!(
-            "Workspace {name}, on {shown}"
+        button.set_tooltip_text(Some(tr(msg!(
+            "Click to send it to the next display, or drag it"
+        ))));
+        button.update_property(&[gtk::accessible::Property::Label(&trf(
+            msg!("Workspace {name}, on {display}"),
+            &[("name", name), ("display", &shown)],
         ))]);
         let moved = |target: &str| {
             let mut placement = placed.clone();

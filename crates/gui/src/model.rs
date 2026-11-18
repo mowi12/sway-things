@@ -66,6 +66,8 @@ use sway_things_core::view::SettingView;
 const NO_DEVICES: Msg = msg!("Connected devices can't be listed: {error}");
 /// The problem when the reloads of sway can't be followed.
 const NO_RELOADS: Msg = msg!("Reloads of sway from elsewhere won’t show: {error}");
+/// The problem when the connected displays can't be followed.
+const NO_DISPLAYS: Msg = msg!("Displays can't be listed: {error}");
 
 /// The preference whether collapsed sections are remembered across restarts.
 const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
@@ -1043,13 +1045,7 @@ impl Model {
             (Op::Reload, Ok(access)) => {
                 applier.reload(&access).await;
             }
-            (Op::ReloadSway, Ok(access)) => match applier.reload_sway(&access).await {
-                Ok(persisted) => self.emit_persisted(&persisted),
-                Err(error) => self.emit_problem(&trf(
-                    msg!("Sway wasn’t reloaded: {error}."),
-                    &[("error", &error.text().translated())],
-                )),
-            },
+            (Op::ReloadSway, Ok(access)) => self.reload_sway_now(&mut applier, &access).await,
             (Op::SwayReloaded, _) => applier.reloaded(),
             (
                 op @ (Op::SetMirror { .. }
@@ -1079,12 +1075,23 @@ impl Model {
         }
     }
 
+    /// Saves and writes the files, and has sway reload its config.
+    async fn reload_sway_now(&self, applier: &mut Applier, access: &WriteAccess) {
+        match applier.reload_sway(access).await {
+            Ok(persisted) => self.emit_persisted(&persisted),
+            Err(error) => self.emit_problem(&trf(
+                msg!("Sway wasn’t reloaded: {error}."),
+                &[("error", &error.text().translated())],
+            )),
+        }
+    }
+
     /// Takes `applier` back after an operation: copies what the rows read, plans the revert of a
     /// risky change that started waiting (none waited with the countdown `was_pending`), and
     /// tells the rows.
     fn give_back(&self, mut applier: Applier, was_pending: Option<Countdown>) {
         if let Some(problem) = applier.take_displays_problem() {
-            self.emit_problem(&problem);
+            self.emit_problem(&problem.translated());
         }
         let pending = applier.pending().cloned();
         if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
@@ -1148,7 +1155,10 @@ impl Model {
                 let mut watch = match started {
                     Ok(watch) => watch,
                     Err(error) => {
-                        model.emit_problem(&format!("Displays can't be listed: {error}"));
+                        model.emit_problem(&trf(
+                            NO_DISPLAYS,
+                            &[("error", &error.text().translated())],
+                        ));
                         return;
                     }
                 };
@@ -1346,7 +1356,10 @@ impl Model {
         match op {
             Op::SetMirror { target, mirror } => {
                 if let Err(error) = applier.set_mirror(&target, mirror).await {
-                    self.emit_problem(&format!("The display wasn\u{2019}t mirrored: {error}."));
+                    self.emit_problem(&trf(
+                        msg!("The display wasn\u{2019}t mirrored: {error}."),
+                        &[("error", &error.text().translated())],
+                    ));
                 }
             }
             Op::PlaceWorkspaces { place, placement } => {
@@ -1356,15 +1369,17 @@ impl Model {
                 // Nothing waits any more (kept or reverted meanwhile): nothing to move along.
                 match applier.move_along(&places).await {
                     Ok(()) | Err(ApplyError::NothingPending) => {}
-                    Err(error) => self.emit_problem(&format!(
-                        "The other displays weren\u{2019}t moved along: {error}."
+                    Err(error) => self.emit_problem(&trf(
+                        msg!("The other displays weren\u{2019}t moved along: {error}."),
+                        &[("error", &error.text().translated())],
                     )),
                 }
             }
             Op::FollowCombination => {
                 if let Err(error) = applier.follow_combination().await {
-                    self.emit_problem(&format!(
-                        "The settings of the displays weren\u{2019}t updated: {error}."
+                    self.emit_problem(&trf(
+                        msg!("The settings of the displays weren\u{2019}t updated: {error}."),
+                        &[("error", &error.text().translated())],
                     ));
                 }
             }
@@ -1384,7 +1399,10 @@ impl Model {
             Err(error) => Err(error),
         };
         if let Err(error) = placed {
-            self.emit_problem(&format!("The workspaces weren\u{2019}t placed: {error}."));
+            self.emit_problem(&trf(
+                msg!("The workspaces weren\u{2019}t placed: {error}."),
+                &[("error", &error.text().translated())],
+            ));
         }
     }
 

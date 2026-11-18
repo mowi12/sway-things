@@ -40,6 +40,8 @@ use super::mirror::{Mirror, Scaling};
 use super::{ENABLED, MODE, Output, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::atomic;
 use crate::command::output::{Mode, Transform, parse_position};
+use crate::i18n::Text;
+use crate::msg;
 use crate::registry::Value;
 use crate::state::State;
 
@@ -585,14 +587,22 @@ pub enum ProfilesError {
     Invalid,
 }
 
-impl std::fmt::Display for ProfilesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ProfilesError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
         match self {
-            Self::Io(error) => write!(f, "the remembered displays can't be read: {error}"),
+            Self::Io(error) => Text::new(msg!("the remembered displays can't be read: {error}"))
+                .arg("error", error),
             Self::Invalid => {
-                f.write_str("the remembered displays aren't in a form Sway Things knows")
+                msg!("the remembered displays aren't in a form Sway Things knows").into()
             }
         }
+    }
+}
+
+impl std::fmt::Display for ProfilesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text().english())
     }
 }
 

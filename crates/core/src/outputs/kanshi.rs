@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::atomic;
+use crate::i18n::Text;
+use crate::msg;
 use crate::sway_config::SwayConfig;
 
 /// The first line of the files Sway Things writes for kanshi.
@@ -186,16 +188,23 @@ pub enum KanshiError {
     Io(io::Error),
 }
 
+impl KanshiError {
+    /// What went wrong, to show.
+    pub fn text(&self) -> Text {
+        match self {
+            Self::Foreign(path) => Text::new(msg!(
+                "{file} wasn't written by Sway Things, so it is left alone"
+            ))
+            .arg("file", path.display()),
+            Self::Io(error) => Text::new(msg!("the profiles for kanshi can't be written: {error}"))
+                .arg("error", error),
+        }
+    }
+}
+
 impl std::fmt::Display for KanshiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Foreign(path) => write!(
-                f,
-                "{} wasn't written by Sway Things, so it is left alone",
-                path.display()
-            ),
-            Self::Io(error) => write!(f, "the profiles for kanshi can't be written: {error}"),
-        }
+        f.write_str(&self.text().english())
     }
 }
 

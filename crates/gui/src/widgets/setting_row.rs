@@ -986,7 +986,7 @@ impl SettingRow {
             if !note.is_empty() {
                 note.push_str(" \u{b7} ");
             }
-            note.push_str("On for now: no other display was on");
+            note.push_str(tr(msg!("On for now: no other display was on")));
         }
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
@@ -1469,7 +1469,7 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
             ));
         }
         (Source::Stored { for_type: true, .. }, Scope::PerOutput, Some(_)) => {
-            parts.push("Same as all displays".to_owned());
+            parts.push(tr(msg!("Same as all displays")).to_owned());
         }
         // Where sway picks a value itself: the mode, the place and the scale of an output.
         (Source::Session, _, _)
@@ -1478,7 +1478,7 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
                 outputs::MODE | outputs::POSITION | outputs::SCALE
             ) =>
         {
-            parts.push("Chosen by sway".to_owned());
+            parts.push(tr(msg!("Chosen by sway")).to_owned());
         }
         _ => {}
     }

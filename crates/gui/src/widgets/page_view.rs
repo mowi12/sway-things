@@ -554,7 +554,8 @@ fn arrangement_section(
     sections: &mut Vec<Section>,
 ) -> Arrangement {
     let arrangement = Arrangement::new(model);
-    let section = Section::new(model, Page::Displays, "Arrangement", "Arrangement", first);
+    let title = msg!("Arrangement");
+    let section = Section::new(model, Page::Displays, title.msgid(), tr(title), first);
     section.body.append(arrangement.widget());
     // Ctrl+Z goes back to the arrangement before, wherever the focus is on the page.
     body.add_controller(arrangement.canvas().undo_shortcut());
@@ -580,7 +581,8 @@ fn follow_displays(
 
 /// The "Workspaces" section of Displays: which workspace goes on which display.
 fn workspaces_section(model: &Model, body: &gtk::Box, picker: &displays::OutputPicker) -> Section {
-    let section = Section::new(model, Page::Displays, "Workspaces", "Workspaces", false);
+    let title = msg!("Workspaces");
+    let section = Section::new(model, Page::Displays, title.msgid(), tr(title), false);
     let map = displays::WorkspaceMap::new(model);
     section.body.append(map.widget());
     displays::follow_workspaces(model, &map, picker);

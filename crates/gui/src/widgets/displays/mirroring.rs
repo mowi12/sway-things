@@ -13,6 +13,7 @@ use sway_things_core::outputs::mirror::{self, Mirror, Scaling};
 use sway_things_core::outputs::workspaces::left_to_right;
 
 use super::canvas::short_label;
+use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 
 /// The row, for the display picked above the settings.
@@ -32,13 +33,17 @@ pub struct Mirroring {
 impl Mirroring {
     /// The row, applied through `model`.
     pub fn new(model: &Model) -> Self {
-        let title = gtk::Label::new(Some("Show"));
+        let title = gtk::Label::new(Some(tr(
+            // TRANSLATORS: The title of the row that picks what a display shows: its own content
+            // or another display's picture.
+            msg!("Show"),
+        )));
         title.set_xalign(0.0);
         title.add_css_class("st-row-title");
-        let subtitle = gtk::Label::new(Some(
+        let subtitle = gtk::Label::new(Some(tr(msg!(
             "Its own content, or the picture of another display, like a projector showing the \
-             laptop's screen",
-        ));
+             laptop's screen"
+        ))));
         subtitle.set_xalign(0.0);
         subtitle.set_wrap(true);
         subtitle.add_css_class(crate::style::DIM);
@@ -55,11 +60,19 @@ impl Mirroring {
         texts.append(&note);
         let source = gtk::DropDown::from_strings(&[]);
         source.set_valign(gtk::Align::Center);
-        source.update_property(&[gtk::accessible::Property::Label("What the display shows")]);
-        let scaling = gtk::DropDown::from_strings(&["Fit", "Cover", "Exact Multiples"]);
+        source.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+            "What the display shows"
+        )))]);
+        let scaling = gtk::DropDown::from_strings(&[
+            tr(msg!("Fit")),
+            tr(msg!("Cover")),
+            tr(msg!("Exact Multiples")),
+        ]);
         scaling.set_valign(gtk::Align::Center);
-        scaling.set_tooltip_text(Some("How the picture fits the display"));
-        scaling.update_property(&[gtk::accessible::Property::Label("How the picture fits")]);
+        scaling.set_tooltip_text(Some(tr(msg!("How the picture fits the display"))));
+        scaling.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+            "How the picture fits"
+        )))]);
         let controls = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         controls.set_valign(gtk::Align::Center);
         controls.append(&source);
@@ -150,7 +163,7 @@ impl Mirroring {
         // display shown elsewhere keeps its own.
         let shown_elsewhere = mirrors.values().any(|mirror| mirror.of == target);
         let mut sources: Vec<Option<String>> = vec![None];
-        let mut labels: Vec<String> = vec!["Its own content".to_owned()];
+        let mut labels: Vec<String> = vec![tr(msg!("Its own content")).to_owned()];
         if !shown_elsewhere {
             let others = on.iter().filter(|output| {
                 output.identifier() != target && !mirrors.contains_key(output.identifier())
@@ -161,7 +174,7 @@ impl Mirroring {
                     |n| format!("{n}  {}", short_label(output)),
                 );
                 sources.push(Some(output.identifier().to_owned()));
-                labels.push(format!("Picture of {name}"));
+                labels.push(trf(msg!("Picture of {name}"), &[("name", &name)]));
             }
         }
         let current = mirrors.get(target);
@@ -177,13 +190,19 @@ impl Mirroring {
         // kanshi's profiles, which would put back what the trial changed).
         let waits = model.pending_change().is_some();
         let note = if waits {
-            Some("Keep or revert the change first")
+            Some(tr(msg!("Keep or revert the change first")))
         } else if !model.kanshi_runs() {
-            Some("Needs kanshi, which remembers each combination of displays (see above)")
+            Some(tr(msg!(
+                "Needs kanshi, which remembers each combination of displays (see above)"
+            )))
         } else if !mirror::installed() {
-            Some("Needs wl-mirror, which shows one display on another")
+            Some(tr(msg!(
+                "Needs wl-mirror, which shows one display on another"
+            )))
         } else if shown_elsewhere {
-            Some("Shown on another display, so it shows its own content")
+            Some(tr(msg!(
+                "Shown on another display, so it shows its own content"
+            )))
         } else {
             None
         };

@@ -29,6 +29,7 @@ use sway_things_core::outputs::{MODE, Output, Outputs, POSITION, Rect, SCALE, TR
 use sway_things_core::registry::Value;
 use sway_things_core::view::Source;
 
+use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 
 /// How close, in pixels on the screen, an edge has to come to snap.
@@ -133,7 +134,7 @@ fn park(shown: &mut [Shown]) {
 /// The second line of a tile: the size of the mode and a turn, or that the output is off.
 fn details(output: &Output) -> String {
     if !output.is_enabled() {
-        return "Off".to_owned();
+        return tr(msg!("Off")).to_owned();
     }
     let Some(mode) = output.mode() else {
         return String::new();
@@ -146,9 +147,18 @@ fn details(output: &Output) -> String {
     let scaled = output
         .scale()
         .filter(|scale| (scale - 1.0).abs() > 0.001)
-        .map(|scale| format!(" \u{b7} {:.0}\u{a0}%", scale * 100.0))
+        .map(|scale| format!(" \u{b7} {}", percent(scale)))
         .unwrap_or_default();
     format!("{} \u{d7} {}{scaled}{turned}", mode.width(), mode.height())
+}
+
+/// A scale as a percentage, as people read it: _150 %_.
+pub(super) fn percent(scale: f64) -> String {
+    trf(
+        // TRANSLATORS: A display's scale as a percentage, such as 150 %.
+        msg!("{percent}\u{a0}%"),
+        &[("percent", &format!("{:.0}", scale * 100.0))],
+    )
 }
 
 /// A transform as people read it.
@@ -158,10 +168,10 @@ fn turn(transform: Transform) -> &'static str {
         Transform::R90 => "90\u{b0}",
         Transform::R180 => "180\u{b0}",
         Transform::R270 => "270\u{b0}",
-        Transform::Flipped => "Flipped",
-        Transform::Flipped90 => "Flipped, 90\u{b0}",
-        Transform::Flipped180 => "Flipped, 180\u{b0}",
-        Transform::Flipped270 => "Flipped, 270\u{b0}",
+        Transform::Flipped => tr(msg!("Flipped")),
+        Transform::Flipped90 => tr(msg!("Flipped, 90\u{b0}")),
+        Transform::Flipped180 => tr(msg!("Flipped, 180\u{b0}")),
+        Transform::Flipped270 => tr(msg!("Flipped, 270\u{b0}")),
     }
 }
 
@@ -428,9 +438,9 @@ impl Canvas {
         let _ = canvas.imp().model.set(model.clone());
         canvas.set_hexpand(true);
         canvas.set_overflow(gtk::Overflow::Hidden);
-        canvas.update_property(&[gtk::accessible::Property::Label(
-            "Arrangement of the displays",
-        )]);
+        canvas.update_property(&[gtk::accessible::Property::Label(tr(msg!(
+            "Arrangement of the displays"
+        )))]);
         let guide = |name: &str| {
             let line = gtk::Box::new(gtk::Orientation::Horizontal, 0);
             line.add_css_class("st-display-guide");
@@ -440,10 +450,10 @@ impl Canvas {
             line.set_parent(&canvas);
             line
         };
-        let _ = canvas
-            .imp()
-            .guides
-            .set((guide("Vertical guide"), guide("Horizontal guide")));
+        let _ = canvas.imp().guides.set((
+            guide(tr(msg!("Vertical guide"))),
+            guide(tr(msg!("Horizontal guide"))),
+        ));
         canvas.add_drag();
         canvas
     }
@@ -1369,7 +1379,7 @@ impl Canvas {
             .filter_map(|child| child.downcast::<gtk::Label>().ok())
             .nth(2);
         if let Some(details) = details {
-            details.set_text(&format!("{:.0}\u{a0}%", scale * 100.0));
+            details.set_text(&percent(scale));
         }
     }
 
@@ -1378,7 +1388,7 @@ impl Canvas {
         let grip = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         grip.add_css_class("st-display-grip");
         grip.set_cursor_from_name(Some("nwse-resize"));
-        grip.set_tooltip_text(Some("Drag to scale"));
+        grip.set_tooltip_text(Some(tr(msg!("Drag to scale"))));
         grip.set_visible(false);
         grip.set_parent(self);
         grip
@@ -1800,7 +1810,7 @@ fn fit_labels(
     let clear = if grip { 2 * GRIP } else { 0 };
     let room = width - 10;
     // Details too long for the tile: its scale at least, so a change of it shows.
-    let compact = ((scale - 1.0).abs() > 0.001).then(|| format!("{:.0}\u{a0}%", scale * 100.0));
+    let compact = ((scale - 1.0).abs() > 0.001).then(|| percent(scale));
     let shown = details.text();
     if shown == full || compact.as_deref() == Some(shown.as_str()) {
         let fits =
@@ -1958,7 +1968,7 @@ pub(super) fn short_label(output: &Output) -> String {
         .iter()
         .any(|kind| output.name().starts_with(kind));
     if built_in {
-        return "Built-in".to_owned();
+        return tr(msg!("Built-in")).to_owned();
     }
     let known = |part: &str| !part.is_empty() && part != "Unknown";
     let make = output.make();
@@ -2025,11 +2035,20 @@ fn set_tile_labels(
     }
     button.set_tooltip_text(Some(label));
     let description = if off {
-        format!("Display {number}, {label}, off")
+        trf(
+            msg!("Display {number}, {label}, off"),
+            &[("number", &number), ("label", &label)],
+        )
     } else {
-        format!(
-            "Display {number}, {label}, {details}, at {}, {}",
-            rect.x, rect.y
+        trf(
+            msg!("Display {number}, {label}, {details}, at {x}, {y}"),
+            &[
+                ("number", &number),
+                ("label", &label),
+                ("details", &details),
+                ("x", &rect.x),
+                ("y", &rect.y),
+            ],
         )
     };
     button.update_property(&[gtk::accessible::Property::Label(&description)]);

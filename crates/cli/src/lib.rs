@@ -288,7 +288,7 @@ impl Displays {
         ) = (&listed, command)
         {
             if device.is_some() && is_for_displays(Some(key)) {
-                io.error(error_line(error));
+                io.error(error_line(&error.text().translated()));
                 return Err(Exit::Failure);
             }
         }
@@ -354,7 +354,7 @@ async fn follow_combination<V: Validate>(session: &mut Session<V>, key: &str, io
         return;
     }
     if let Err(error) = session.applier.follow_combination().await {
-        io.note(error_line(&error));
+        io.note(error_line(&error.text().translated()));
     }
 }
 
@@ -373,7 +373,7 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
     let mut client = match Client::connect().await {
         Ok(client) => client,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
@@ -420,7 +420,7 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
         }
         Ok(None) => Exit::Ok,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             Exit::Failure
         }
     }
@@ -437,14 +437,14 @@ async fn hook_workspaces(err: &mut dyn Write) -> Exit {
     let mut client = match connect_for_hook().await {
         Ok(client) => client,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
     match place_workspaces(&mut client).await {
         Ok(_) => Exit::Ok,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             Exit::Failure
         }
     }
@@ -479,14 +479,14 @@ async fn hook_mirror(err: &mut dyn Write) -> Exit {
     let mut client = match connect_for_hook().await {
         Ok(client) => client,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             return Exit::Failure;
         }
     };
     match start_mirrors(&mut client).await {
         Ok(_) => Exit::Ok,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error));
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             Exit::Failure
         }
     }
@@ -711,7 +711,7 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
                     Exit::Ok
                 }
                 Err(error) => {
-                    io.error(error_line(&error));
+                    io.error(error_line(&error.text().translated()));
                     Exit::Failure
                 }
             },
@@ -725,7 +725,7 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
                 match outputs::workspaces::apply(client, &profiles).await {
                     Ok(_) => Exit::Ok,
                     Err(error) => {
-                        io.error(error_line(&error));
+                        io.error(error_line(&error.text().translated()));
                         Exit::Failure
                     }
                 }
@@ -736,7 +736,7 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
             Some(client) => match outputs::ensure_one_on(client).await {
                 Ok(_) => Exit::Ok,
                 Err(error) => {
-                    io.error(error_line(&error));
+                    io.error(error_line(&error.text().translated()));
                     Exit::Failure
                 }
             },
