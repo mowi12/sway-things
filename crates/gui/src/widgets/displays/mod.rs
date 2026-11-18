@@ -54,7 +54,7 @@ pub struct Arrangement {
     hint: gtk::Widget,
     /// Shown while outputs overlap or don't touch.
     gaps: gtk::Box,
-    /// Shown while kanshi sets up the displays: changes are live only then.
+    /// Says how the arrangement is remembered: by kanshi, or what that takes.
     kanshi: gtk::Box,
     identify: gtk::Button,
     /// The windows with the numbers while they are shown, and what they show.

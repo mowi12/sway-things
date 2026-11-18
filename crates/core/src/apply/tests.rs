@@ -2048,7 +2048,8 @@ fn the_stored_displays_follow_the_combination_kanshi_set_up() {
     // Never set up here: what the displays run with.
     assert!(block_on(setup.applier.follow_combination()).unwrap());
     let state = setup.applier.state();
-    assert_eq!(state.get(SCALE, Some("X Y Z")), None);
+    // Held by no remembered combination: it stays.
+    assert_eq!(state.get(SCALE, Some("X Y Z")), Some(&Value::Decimal(2.0)));
     assert_eq!(state.get(SCALE, Some(PANEL)), Some(&Value::Decimal(1.0)));
     assert_eq!(
         state.get(MODE, Some(PANEL)),
@@ -2126,6 +2127,26 @@ fn a_change_not_saved_yet_is_remembered_for_the_displays_that_went() {
         setup.applier.state().get(SCALE, Some(PANEL)),
         Some(&Value::Decimal(1.0))
     );
+}
+
+#[test]
+fn a_value_for_every_display_is_one_for_each_while_kanshi_sets_them_up() {
+    let sway = desk();
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    block_on(setup.applier.follow_combination()).unwrap();
+    let applied = block_on(
+        setup
+            .applier
+            .set(SCALE, None, Value::Decimal(1.5), &setup.access),
+    )
+    .unwrap();
+    assert_eq!(applied.effect, live(&[r#"output "A B C" scale 1.5"#]));
+    let state = setup.applier.state();
+    assert_eq!(state.get(SCALE, Some(PANEL)), Some(&Value::Decimal(1.5)));
+    assert_eq!(state.get(SCALE, None), None);
 }
 
 #[test]

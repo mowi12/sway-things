@@ -187,6 +187,10 @@ pub struct Applier<V = SwayValidator> {
     /// While kanshi sets up the displays: the combination of displays (their names, sorted)
     /// the stored values of the displays were made for; `None` until known.
     combination: Option<Vec<String>>,
+    /// When that combination came.
+    combination_since: Option<Instant>,
+    /// Whether sway was asked to start kanshi already ([`Applier::remember_displays`]).
+    kanshi_started: bool,
 }
 
 impl Applier<SwayValidator> {
@@ -274,6 +278,8 @@ impl<V: Validate> Applier<V> {
             displays_touched: false,
             displays_problem: None,
             combination: None,
+            combination_since: None,
+            kanshi_started: false,
         }
     }
 
@@ -302,6 +308,8 @@ impl<V: Validate> Applier<V> {
             displays_touched: false,
             displays_problem: None,
             combination: None,
+            combination_since: None,
+            kanshi_started: false,
         }
     }
 
@@ -431,6 +439,63 @@ impl<V: Validate> Applier<V> {
     /// value can't be turned into a command, and [`ApplyError::Ipc`] if sway rejects a command or
     /// can't be reached.
     pub async fn set(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        value: Value,
+        access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        // While kanshi sets up the displays, each one's values are stored for the combination:
+        // a value for every display is one for each display connected now, else their own
+        // values would win over it.
+        if let Some(each) = self.each_display(key, device).await? {
+            let mut commands = Vec::new();
+            let mut changed = false;
+            let mut not_copied = Vec::new();
+            for output in &each {
+                let applied = self
+                    .set_one(key, Some(output), value.clone(), access)
+                    .await?;
+                changed |= applied.changed;
+                not_copied.extend(applied.not_copied);
+                if let Effect::Live { commands: sent } = applied.effect {
+                    commands.extend(sent);
+                }
+            }
+            return Ok(Applied {
+                changed,
+                effect: Effect::Live { commands },
+                not_copied,
+            });
+        }
+        self.set_one(key, device, value, access).await
+    }
+
+    /// The displays connected now, for a value of the display setting `key` for every display
+    /// (`device` is `None`) while kanshi sets them up; `None` otherwise, or without a session.
+    async fn each_display(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+    ) -> Result<Option<Vec<String>>, ApplyError> {
+        let for_each = device.is_none()
+            && self.displays.is_kanshi()
+            && self.setting(key)?.scope() == Scope::PerOutput;
+        let Some(client) = self.client.as_mut().filter(|_| for_each) else {
+            return Ok(None);
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        Ok(Some(
+            outputs
+                .iter()
+                .filter(|output| output.is_connected() && output.is_enabled())
+                .map(|output| output.identifier().to_owned())
+                .collect(),
+        ))
+    }
+
+    /// [`Applier::set`] for one `device`, or the whole session or input type.
+    async fn set_one(
         &mut self,
         key: &str,
         device: Option<&str>,
@@ -801,7 +866,13 @@ impl<V: Validate> Applier<V> {
         // here for the first time): sway starts it now, so the arrangement doesn't wait for the
         // next login to come back with the displays.
         let starts = matches!(self.displays, generate::Displays::Kanshi { start: true });
-        if self.displays_problem.is_none() && starts && !crate::outputs::kanshi_runs() {
+        // Once: a kanshi the user stopped, or one that ends at once, isn't started again and again.
+        if self.displays_problem.is_none()
+            && starts
+            && !self.kanshi_started
+            && !crate::outputs::kanshi_runs()
+        {
+            self.kanshi_started = true;
             let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
         }
         // Written: nothing more to remember until a setting of the displays changes; else tried
@@ -834,10 +905,16 @@ impl<V: Validate> Applier<V> {
             return Ok(false);
         }
         if self.combination.as_ref() == Some(&combination) {
-            if self.displays_touched {
+            // Changed here, or long enough after the combination came that kanshi has set it up:
+            // a change from elsewhere (`swaymsg`) is left as it is, as without kanshi.
+            let settled = self
+                .combination_since
+                .is_none_or(|since| since.elapsed() > FOLLOW_TIME);
+            if self.displays_touched || settled {
                 return Ok(false);
             }
         } else {
+            self.combination_since = Some(Instant::now());
             // A change made here for the displays connected before, not remembered yet (the
             // combination changed within the delay before saving): remembered for theirs now,
             // before the values follow the new one.
@@ -865,6 +942,15 @@ impl<V: Validate> Applier<V> {
             .filter(|entry| entry.setting.scope() == Scope::PerOutput)
             .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
             .filter(|(_, device)| !combination.contains(device))
+            // Only what a remembered combination holds: it comes back with it. The values of a
+            // display set up before kanshi did it stay.
+            .filter(|(_, device)| {
+                self.profiles.as_ref().is_some_and(|profiles| {
+                    profiles
+                        .iter()
+                        .any(|profile| profile.combination().contains(&device.as_str()))
+                })
+            })
             .collect();
         for (key, device) in &stale {
             changed |= self.state.reset(key, Some(device))?;
@@ -886,8 +972,9 @@ impl<V: Validate> Applier<V> {
                 }
             }
         }
+        // Not saved for this alone: the values come back whenever the app follows again, and a
+        // save per dock and undock would push the user's own changes out of the history.
         if changed {
-            self.unsaved_since = Some(Instant::now());
             self.waiting.settle(&self.state);
         }
         Ok(changed)
@@ -1195,6 +1282,10 @@ impl<V: Values> Values for Over<'_, V> {
 
 /// The commands that set the directive of `setting` to its values in `state`, with those in
 /// `over` in place of the state's.
+/// How long after a combination of displays came the stored values follow what the displays
+/// run with, while kanshi sets them up.
+const FOLLOW_TIME: Duration = Duration::from_secs(10);
+
 /// The names of the connected displays of `outputs`, sorted: their combination.
 fn combination_of(outputs: &Outputs) -> Vec<String> {
     let mut names: Vec<String> = outputs

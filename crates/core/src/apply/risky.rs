@@ -516,6 +516,11 @@ impl<V: Validate> Applier<V> {
             client.run(command).await.map_err(ApplyError::Ipc)?;
             sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
         }
+        // The trial marked the displays as changed here, which keeps their values from following
+        // the combination until they are remembered: the next save does that (to what it was).
+        if self.displays_touched {
+            self.unsaved_since.get_or_insert_with(Instant::now);
+        }
         Ok(Effect::Live { commands: sent })
     }
 

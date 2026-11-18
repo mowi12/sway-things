@@ -1405,6 +1405,9 @@ impl Canvas {
             now != reported
         });
         if replaced {
+            if drag.as_ref().is_some_and(|drag| !drag.room.is_empty()) {
+                self.start_slide();
+            }
             self.show_deferred();
             return;
         }
@@ -1441,6 +1444,10 @@ impl Canvas {
         let imp = self.imp();
         if let Some(drag) = imp.drag.replace(None) {
             self.restore_details(&drag.identifier);
+            // The others go back from where they made room.
+            if !drag.room.is_empty() {
+                self.start_slide();
+            }
         }
         imp.frozen.set(None);
         self.show_deferred();

@@ -173,6 +173,9 @@ mod imp {
         }
 
         fn dispose(&self) {
+            // A value of the number control that waits is sent before the row goes: the control
+            // showed it.
+            self.obj().flush_unsent();
             while let Some(child) = self.obj().first_child() {
                 child.unparent();
             }
@@ -699,25 +702,8 @@ impl SettingRow {
         if imp.device.borrow().as_deref() == device {
             return;
         }
-        // A value that waits belongs to the display shown so far: sent for it now, unless it
-        // went (that is why another one is shown).
-        if let Some(planned) = imp.commit.take() {
-            planned.remove();
-        }
-        imp.held.set(false);
-        let unsent = imp.unsent.take();
-        let shown = imp.device.borrow().clone();
-        let still_there = imp.model.get().is_some_and(|model| {
-            model.outputs().is_some_and(|outputs| {
-                shown
-                    .as_deref()
-                    .and_then(|shown| outputs.get(shown))
-                    .is_some_and(sway_things_core::outputs::Output::is_connected)
-            })
-        });
-        if let Some(value) = unsent.filter(|_| still_there || shown.is_none()) {
-            self.send(value);
-        }
+        // A value that waits belongs to the display shown so far.
+        self.flush_unsent();
         imp.device.replace(device.map(str::to_owned));
         self.show_error(None);
         self.refresh();
@@ -858,9 +844,14 @@ impl SettingRow {
                     let imp = row.imp();
                     // It fired: nothing to remove any more.
                     imp.commit.replace(None);
-                    // Sent when the button is let go.
+                    // Sent when the button is let go; if that never reached the control (the
+                    // window lost the pointer meanwhile), once no button is down any more.
                     if imp.held.get() {
-                        return;
+                        if row.button_down() {
+                            row.plan_commit();
+                            return;
+                        }
+                        imp.held.set(false);
                     }
                     if let Some(value) = imp.unsent.take() {
                         row.send(value);
@@ -869,6 +860,43 @@ impl SettingRow {
             ),
         );
         imp.commit.replace(Some(planned));
+    }
+
+    /// Sends the value of the number control that waits now, for the display shown, unless that
+    /// went (which is why another one is shown, or the row goes).
+    fn flush_unsent(&self) {
+        let imp = self.imp();
+        if let Some(planned) = imp.commit.take() {
+            planned.remove();
+        }
+        imp.held.set(false);
+        let Some(value) = imp.unsent.take() else {
+            return;
+        };
+        let shown = imp.device.borrow().clone();
+        let still_there = shown.as_deref().is_none_or(|shown| {
+            imp.model.get().is_some_and(|model| {
+                model.outputs().is_some_and(|outputs| {
+                    outputs
+                        .get(shown)
+                        .is_some_and(sway_things_core::outputs::Output::is_connected)
+                })
+            })
+        });
+        if still_there {
+            self.send(value);
+        }
+    }
+
+    /// Whether a pointer button is down on the pointer of the row's seat.
+    fn button_down(&self) -> bool {
+        let buttons = gtk::gdk::ModifierType::BUTTON1_MASK
+            | gtk::gdk::ModifierType::BUTTON2_MASK
+            | gtk::gdk::ModifierType::BUTTON3_MASK;
+        self.display()
+            .default_seat()
+            .and_then(|seat| seat.pointer())
+            .is_some_and(|pointer| pointer.modifier_state().intersects(buttons))
     }
 
     /// Follows whether a pointer button is down on `widget`, a part of a number control that
