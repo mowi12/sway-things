@@ -47,6 +47,7 @@ Source:         https://github.com/mowi12/sway-things/releases/download/v%{versi
 BuildRequires:  cargo-rpm-macros >= 25
 BuildRequires:  pkgconfig(gtk4) >= 4.18
 BuildRequires:  pkgconfig(gtk4-layer-shell-0)
+BuildRequires:  pkgconfig(libpulse)
 # msgfmt, with the ITS rules for the AppStream metainfo
 BuildRequires:  gettext
 BuildRequires:  desktop-file-utils
