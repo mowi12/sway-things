@@ -22,6 +22,7 @@ async-io.workspace = true
 async-process.workspace = true
 futures-lite.workspace = true
 gio.workspace = true
+libpulse-binding.workspace = true
 notify.workspace = true
 roxmltree.workspace = true
 rustix.workspace = true
@@ -48,4 +49,8 @@ required-features = ["test-support"]
 
 [[test]]
 name = "network_nm"
+required-features = ["test-support"]
+
+[[test]]
+name = "sound_pulse"
 required-features = ["test-support"]

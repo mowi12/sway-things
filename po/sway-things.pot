@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 11:10+0100\n"
+"POT-Creation-Date: 2026-11-20 13:23+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4189,6 +4189,26 @@ msgstr ""
 
 #: crates/core/src/registry/workspaces.rs
 msgid "how many"
+msgstr ""
+
+#: crates/core/src/sound/meter.rs
+msgid "the level meter can't be started"
+msgstr ""
+
+#: crates/core/src/sound/mod.rs
+msgid "no sound server is running"
+msgstr ""
+
+#: crates/core/src/sound/pulse.rs
+msgid "the sound server didn't answer the list"
+msgstr ""
+
+#: crates/core/src/sound/pulse.rs
+msgid "libpulse can't be set up"
+msgstr ""
+
+#: crates/core/src/sound/pulse.rs
+msgid "the sound server didn't answer in time"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
