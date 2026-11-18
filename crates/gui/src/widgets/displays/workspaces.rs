@@ -19,6 +19,7 @@ use gtk::prelude::*;
 use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::workspaces::{NAMES, Preset, left_to_right};
 
+use super::canvas::short_label;
 use crate::model::{Model, Placement};
 
 /// The section's contents.
@@ -171,8 +172,10 @@ impl WorkspaceMap {
             .into_iter()
             .filter(|output| !mirrors.iter().any(|name| name == output.identifier()))
             .map(|output| {
-                let shown = number(output.identifier())
-                    .map_or_else(|| output.label(), |n| format!("{n}  {}", output.model()));
+                let shown = number(output.identifier()).map_or_else(
+                    || output.label(),
+                    |n| format!("{n}  {}", short_label(output)),
+                );
                 (output.identifier().to_owned(), shown)
             })
             .collect();

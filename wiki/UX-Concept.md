@@ -115,14 +115,15 @@ new mode, a rotation and switching an output off go through the safety net.
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where
   the tile fits in): dropped there, it goes in between, and the outputs behind it in that row, with whatever stands on
-  them, make room; taken from that same row, it is a reorder, and what stands below doesn't move. Nothing but the
-  dragged tile moves during the drag, and the bar holds a little beyond its zone, so it doesn't flicker. Dropped on
-  another output or apart from all of them, it moves to the nearest place next to an edge, sharing at least a quarter of
-  it, so the pointer can always cross. Moved away from where it stood (not just nudged), the gap it leaves closes: what
-  stood behind it in its row (or column) moves up, it stays next to the output it was dropped at, and other gaps stay as
-  they are. After a drop the tiles slide to their places (unless animations are off). The whole layout then starts at
-  0,0 and every output that is on gets its position stored, so it comes back as arranged. Ctrl+Z goes back to the
-  arrangement before.
+  them, make room; taken from that same row, it is a reorder, and what stands below doesn't move. While the bar shows,
+  the other tiles slide aside to where the drop puts them, and back once it goes; they move only when the bar comes,
+  goes or moves to another edge, never with each motion of the pointer, and the bar holds a little beyond its zone, so
+  nothing flickers. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
+  sharing at least a quarter of it, so the pointer can always cross. Moved away from where it stood (not just nudged),
+  the gap it leaves closes: what stood behind it in its row (or column) moves up, it stays next to the output it was
+  dropped at, and other gaps stay as they are. After a drop the tiles slide to their places (unless animations are off).
+  The whole layout then starts at 0,0 and every output that is on gets its position stored, so it comes back as
+  arranged. Ctrl+Z goes back to the arrangement before.
 - **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of that
   display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A display
   plugged in or out meanwhile takes the numbers away, since they may be wrong then.

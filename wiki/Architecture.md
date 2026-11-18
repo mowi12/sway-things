@@ -1282,19 +1282,20 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
   moves becomes a drag instead of a click. Snapping, settling, the slot between two outputs (`slot_at`, `insert`) and
   moving the layout to 0,0 come from `outputs::layout`; after a drop the tiles slide to their places in a tick callback
-  (200 ms, eased; not with `gtk-enable-animations` off). The picked tile has a grip in its corner: dragging it projects
-  the movement onto the tile's diagonal, so the tile keeps its proportions, and stores the scale on release; a drop
-  stores the position of every output that is on (`Model::set`), shows the dropped layout until sway reports it or for
-  three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page). While a risky change waits, the
-  canvas can't be changed, so Revert puts back everything that changed. When outputs' sizes change with what is stored
-  for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or several,
-  like a scale for all of them); the layout to compare with is held while the model is busy or a risky change waits, and
-  for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere (`swaymsg`)
-  moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
-  (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the output: the resolutions
-  (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that resolution
-  (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps an
-  `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
+  (200 ms, eased; not with `gtk-enable-animations` off), and so do the others when a dragged tile comes over a slot or
+  leaves it (the drag keeps where `place` would put them, worked out only when the slot changes). The picked tile has a
+  grip in its corner: dragging it projects the movement onto the tile's diagonal, so the tile keeps its proportions, and
+  stores the scale on release; a drop stores the position of every output that is on (`Model::set`), shows the dropped
+  layout until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page).
+  While a risky change waits, the canvas can't be changed, so Revert puts back everything that changed. When outputs'
+  sizes change with what is stored for them, the layout flows so that what touched still touches
+  (`outputs::layout::reflow`, for one output or several, like a scale for all of them); the layout to compare with is
+  held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up with
+  sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs
+  picks the output they are for (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the
+  output: the resolutions (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that
+  resolution (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps
+  an `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
   sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the overlay layer of
   `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
   no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't

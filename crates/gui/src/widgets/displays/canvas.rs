@@ -274,6 +274,9 @@ struct Drag {
     escapes: (u8, u8),
     /// The place between two tiles it goes into if dropped now: the others make room then.
     slot: Option<layout::Slot>,
+    /// While it is over a slot: where the others go to make room, as they are drawn (by
+    /// identifier). Worked out when the slot changes, so they move once, not with each motion.
+    room: Vec<(String, Rect)>,
     /// For a drag of the grip: the scale the output ran with, and the one it gets.
     scaling: Option<(f64, f64)>,
 }
@@ -870,6 +873,12 @@ impl Canvas {
     /// new size until sway reports a size for it (or for [`SETTLING`]), so it doesn't snap back
     /// in between. Only the drawing: the layout is what sway reports.
     fn drawn_rect(&self, tile: &Tile) -> Rect {
+        // Making room for a tile dragged over a slot.
+        if let Some(drag) = self.imp().drag.borrow().as_ref() {
+            if let Some((_, rect)) = drag.room.iter().find(|(id, _)| *id == tile.identifier) {
+                return *rect;
+            }
+        }
         let shown = self.shown_rect(tile);
         let scaled = self.imp().scaled.borrow();
         match scaled.as_ref() {
@@ -988,7 +997,7 @@ impl Canvas {
                     -1,
                 );
             }
-            fit_labels(&tile.button, w, h);
+            fit_labels(&tile.button, w, h, grip_shown);
             tile.button.size_allocate(
                 &gtk::Allocation::new(x.round() as i32, y.round() as i32, w, h),
                 -1,
@@ -1193,6 +1202,7 @@ impl Canvas {
             snapped: (false, false),
             escapes: (0, 0),
             slot: None,
+            room: Vec::new(),
             scaling: grabbed.then_some((tile.scale, tile.scale)),
         }));
     }
@@ -1267,7 +1277,7 @@ impl Canvas {
         let Some(view) = imp.frozen.get() else {
             return;
         };
-        let others: Vec<Rect> = {
+        let (other_ids, others): (Vec<String>, Vec<Rect>) = {
             let drag = imp.drag.borrow();
             let Some(drag) = drag.as_ref() else {
                 return;
@@ -1275,8 +1285,7 @@ impl Canvas {
             self.layout()
                 .into_iter()
                 .filter(|(identifier, _)| *identifier != drag.identifier)
-                .map(|(_, rect)| rect)
-                .collect()
+                .unzip()
         };
         let mut guard = imp.drag.borrow_mut();
         let Some(drag) = guard.as_mut() else {
@@ -1309,21 +1318,30 @@ impl Canvas {
             y: drag.start.y.saturating_add(view.logical(dy)),
             ..drag.start
         };
-        // Near the edge between two tiles: a marker says it goes in between, and the tile
-        // follows the pointer freely. Nothing else moves until it is dropped.
-        // Only a slot it can go into: the marker never promises what the drop doesn't do.
-        let start = drag.start;
-        drag.slot = layout::slot_at(moved, &others, drag.slot)
-            .filter(|slot| layout::insert(moved, start, &others, *slot).is_some());
+        // Near the edge between two tiles: a marker says it goes in between, the others slide
+        // aside to make room, and the tile follows the pointer freely.
+        let slot_changed = take_slot(drag, moved, &other_ids, &others);
         if drag.slot.is_some() {
             drag.rect = moved;
             drag.guides.clear();
             drag.snapped = (false, false);
             drop(guard);
+            if slot_changed {
+                // The others slide aside to make room, or back.
+                self.start_slide();
+            }
             self.queue_allocate();
             self.queue_draw();
             return;
         }
+        if slot_changed {
+            drop(guard);
+            self.start_slide();
+            guard = imp.drag.borrow_mut();
+        }
+        let Some(drag) = guard.as_mut() else {
+            return;
+        };
         let snapped = layout::snap(moved, &others, view.logical(SNAP_DISTANCE));
         let on_x = snapped
             .guides
@@ -1633,9 +1651,10 @@ impl Canvas {
 }
 
 /// Shows on `button`, `width` × `height` pixels, as many of its lines as fit: the number always,
-/// then the name, then the details. A tile too small for one of them leaves it out, rather than
-/// growing past the size of its display or cutting a line in half.
-fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32) {
+/// then the name, then the details (clear of the `grip` if it has one). A tile too small for one
+/// of them leaves it out, rather than growing past the size of its display or cutting a line in
+/// half.
+fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32, grip: bool) {
     let Some((number, name, details)) = tile_labels(button) else {
         return;
     };
@@ -1648,11 +1667,17 @@ fn fit_labels(button: &gtk::ToggleButton, width: i32, height: i32) {
     let (_, number_height) = size(&number);
     let (name_width, name_height) = size(&name);
     let name_lines = if name_width <= room { 1 } else { 2 };
-    let (_, details_height) = size(&details);
+    let (details_width, details_height) = size(&details);
     let with_name = frame + number_height + gap + name_height * name_lines;
     let with_details = with_name + gap + details_height;
     let show_name = with_name <= height;
-    let show_details = show_name && with_details <= height && !details.text().is_empty();
+    // On the tile with the grip, the last line is centered above the grip's corner: it keeps
+    // clear of it on both sides.
+    let clear = if grip { 2 * GRIP } else { 0 };
+    let show_details = show_name
+        && with_details <= height
+        && details_width <= room - clear
+        && !details.text().is_empty();
     if name.is_visible() != show_name {
         name.set_visible(show_name);
     }
@@ -1697,9 +1722,31 @@ fn resized(length: i32, from: f64, to: f64) -> i32 {
     ((f64::from(length) * from / to).round() as i32).max(1)
 }
 
+/// Notes the slot between two of `others` (by identifier in `ids`) that `drag`, moved to `moved`,
+/// is over now, and where the others go to make room for it. Says whether the slot changed: the
+/// others move only then, so they don't shift with every motion of the pointer.
+fn take_slot(drag: &mut Drag, moved: Rect, ids: &[String], others: &[Rect]) -> bool {
+    let start = drag.start;
+    // Only a slot it can go into: the marker never promises what the drop doesn't do.
+    let slot = layout::slot_at(moved, others, drag.slot)
+        .filter(|slot| layout::insert(moved, start, others, *slot).is_some());
+    if slot == drag.slot {
+        return false;
+    }
+    drag.slot = slot;
+    drag.room = match slot {
+        Some(slot) => {
+            let (_, made_room) = layout::place(moved, start, others, Some(slot));
+            ids.iter().cloned().zip(made_room).collect()
+        }
+        None => Vec::new(),
+    };
+    true
+}
+
 /// The name a tile shows: the model, which tells two monitors of one make apart, unless it isn't
 /// known; the whole label is in the tooltip.
-fn short_label(output: &Output) -> String {
+pub(super) fn short_label(output: &Output) -> String {
     let model = output.model();
     if output.is_connected() && !model.is_empty() && model != "Unknown" {
         model.to_owned()

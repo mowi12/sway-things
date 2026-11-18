@@ -17,6 +17,7 @@ use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::mirror::{self, Mirror, Scaling};
 use sway_things_core::outputs::workspaces::left_to_right;
 
+use super::canvas::short_label;
 use crate::model::Model;
 
 /// The section's contents.
@@ -78,8 +79,10 @@ impl Mirroring {
         let displays: Vec<(String, String)> = left_to_right(outputs)
             .into_iter()
             .map(|output| {
-                let shown = number(output.identifier())
-                    .map_or_else(|| output.label(), |n| format!("{n}  {}", output.model()));
+                let shown = number(output.identifier()).map_or_else(
+                    || output.label(),
+                    |n| format!("{n}  {}", short_label(output)),
+                );
                 (output.identifier().to_owned(), shown)
             })
             .collect();
