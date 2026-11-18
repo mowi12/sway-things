@@ -60,7 +60,7 @@ pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
     Apply, Dependency, GSettingsKey, Msg, Requirements, Scope, Setting, SettingBuilder,
-    SettingGroup, Slider, TextCheck, When,
+    SettingGroup, Slider, TextCheck, Unit, When,
 };
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,

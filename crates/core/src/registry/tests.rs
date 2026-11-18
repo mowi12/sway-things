@@ -1585,3 +1585,18 @@ fn a_mapping_to_a_screen_renders_automatic_only_over_ipc() {
         crate::state::Layer::Host
     );
 }
+
+#[test]
+fn only_numbers_have_a_unit() {
+    for setting in registry().iter().filter(|setting| setting.unit().is_some()) {
+        assert!(
+            matches!(setting.kind(), Kind::Integer { .. } | Kind::Decimal { .. }),
+            "{} has a unit",
+            setting.key()
+        );
+    }
+    assert_eq!(
+        setting("cursor.hide_after").unit(),
+        Some(super::Unit::Seconds)
+    );
+}

@@ -334,6 +334,7 @@ pub(super) fn settings() -> Vec<Setting> {
         .title(msg!("Offset to the right"))
         .subtitle(msg!("In pixels; negative values move it left"))
         .slider(-20.0, 20.0, 0.5)
+        .unit(super::Unit::Pixels)
         .keywords(&[msg!("shadow position")])
         .sway(
             Directive::top("shadow_offset"),
@@ -353,6 +354,7 @@ pub(super) fn settings() -> Vec<Setting> {
         .title(msg!("Offset down"))
         .subtitle(msg!("In pixels; negative values move it up"))
         .slider(-20.0, 20.0, 0.5)
+        .unit(super::Unit::Pixels)
         .keywords(&[msg!("shadow position")])
         .sway(
             Directive::top("shadow_offset"),

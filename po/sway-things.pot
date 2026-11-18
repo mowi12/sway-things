@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-18 10:33+0100\n"
+"POT-Creation-Date: 2026-11-18 10:40+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4517,6 +4517,11 @@ msgstr ""
 #: crates/gui/src/widgets/group_row.rs
 #, rust-format
 msgid "{setting} {value}"
+msgstr ""
+
+#: crates/gui/src/widgets/group_row.rs
+#, rust-format
+msgid "{value} {unit}"
 msgstr ""
 
 #: crates/gui/src/widgets/keyboard.rs

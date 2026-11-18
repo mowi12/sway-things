@@ -136,6 +136,27 @@ impl When {
 /// A check of text values beyond their type, e.g. that a command can be split into words.
 pub type TextCheck = fn(&str) -> Result<(), ValueError>;
 
+/// The unit of a number setting, shown after its value where the value stands alone, as in the
+/// summary of a group: "3 s", with a space as the SI writes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Unit {
+    /// Pixels, `px`.
+    Pixels,
+    /// Seconds, `s`.
+    Seconds,
+}
+
+impl Unit {
+    /// The symbol, translatable.
+    pub fn symbol(self) -> Msg {
+        // TRANSLATORS: Unit symbols, shown after a number with a space: "12 px", "3 s".
+        match self {
+            Self::Pixels => crate::msg!("px"),
+            Self::Seconds => crate::msg!("s"),
+        }
+    }
+}
+
 /// A GSettings key a setting is copied to, for the apps that read it instead of asking sway: the
 /// cursor theme of GTK apps. A text setting maps to a string key, a whole number to an integer
 /// key.
@@ -174,6 +195,7 @@ pub struct Setting {
     check_text: Option<TextCheck>,
     host_by_default: bool,
     gsettings: Option<GSettingsKey>,
+    unit: Option<Unit>,
 }
 
 impl Setting {
@@ -202,6 +224,7 @@ impl Setting {
             check_text: None,
             host_by_default: false,
             gsettings: None,
+            unit: None,
         })
     }
 
@@ -384,6 +407,11 @@ impl Setting {
         self.gsettings
     }
 
+    /// The unit of a number setting, if it has one.
+    pub fn unit(&self) -> Option<Unit> {
+        self.unit
+    }
+
     /// The sway directive behind the setting, or `None` for a preference of Sway Things itself.
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
@@ -542,6 +570,12 @@ impl SettingBuilder {
     /// ([`Setting::host_by_default`]).
     pub fn host_by_default(mut self) -> Self {
         self.0.host_by_default = true;
+        self
+    }
+
+    /// Sets the unit of a number setting ([`Setting::unit`]).
+    pub fn unit(mut self, unit: Unit) -> Self {
+        self.0.unit = Some(unit);
         self
     }
 

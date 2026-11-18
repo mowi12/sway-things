@@ -14,7 +14,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
-use sway_things_core::registry::{Kind, SettingGroup, Value};
+use sway_things_core::registry::{Kind, Setting, SettingGroup, Value};
 
 use super::SettingRow;
 use super::setting_row::shows_directives;
@@ -325,7 +325,7 @@ impl GroupRow {
 
         let texts: Vec<String> = views
             .iter()
-            .map(|(setting, view)| value_text(setting.kind(), &view.value))
+            .map(|(setting, view)| value_text(setting, &view.value))
             .collect();
         imp.summary_text.set_text(&texts.join(" · "));
         let named: Vec<String> = views
@@ -422,8 +422,15 @@ fn swatch() -> Swatch {
 }
 
 /// `value` as the summary shows it.
-fn value_text(kind: &Kind, value: &Value) -> String {
-    match (kind, value) {
+fn value_text(setting: &Setting, value: &Value) -> String {
+    if let (Some(unit), Value::Integer(_) | Value::Decimal(_)) = (setting.unit(), value) {
+        // TRANSLATORS: A number and its unit symbol, such as "3 s" or "12 px".
+        return trf(
+            msg!("{value} {unit}"),
+            &[("value", value), ("unit", &tr(unit.symbol()))],
+        );
+    }
+    match (setting.kind(), value) {
         (Kind::Bool { .. }, Value::Bool(true)) => tr(msg!("On")).to_owned(),
         (Kind::Bool { .. }, Value::Bool(false)) => tr(msg!("Off")).to_owned(),
         (Kind::Choice { choices, .. }, Value::Choice(id)) => choices
@@ -431,5 +438,30 @@ fn value_text(kind: &Kind, value: &Value) -> String {
             .find(|choice| choice.id == id)
             .map_or_else(|| id.clone(), |choice| tr(choice.label).to_owned()),
         _ => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sway_things_core::registry::{Registry, Value};
+
+    use super::value_text;
+
+    #[test]
+    fn a_number_shows_its_unit_after_a_space() {
+        let setting = |key| Registry::builtin().get(key).unwrap();
+        assert_eq!(
+            value_text(setting("cursor.hide_after"), &Value::Decimal(3.0)),
+            "3 s"
+        );
+        assert_eq!(
+            value_text(setting("cursor.size"), &Value::Integer(48)),
+            "48 px"
+        );
+        assert_eq!(value_text(setting("cursor.hide"), &Value::Bool(true)), "On");
+        assert_eq!(
+            value_text(setting("cursor.theme"), &Value::Text("Adwaita".to_owned())),
+            "Adwaita"
+        );
     }
 }

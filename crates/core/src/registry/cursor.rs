@@ -7,7 +7,7 @@
 //! The theme and size are also copied to GSettings, which GTK apps read instead of asking sway.
 
 use super::read::{self, ReadError};
-use super::{ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Value, When};
+use super::{ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Unit, Value, When};
 use crate::command::input::{InputType, MapTo, ToolMode};
 use crate::command::{SwayCmd, SwayText, Target, seat};
 use crate::cursor::{DEFAULT_SIZE, DEFAULT_THEME};
@@ -183,6 +183,7 @@ fn cursor() -> Vec<Setting> {
         .title(msg!("Size"))
         .subtitle(msg!("The sizes the theme comes in"))
         .slider(16.0, 128.0, 8.0)
+        .unit(Unit::Pixels)
         .keywords(&[
             msg!("cursor"),
             msg!("pointer"),
@@ -225,6 +226,7 @@ fn cursor() -> Vec<Setting> {
             "How long the mouse doesn't move before the cursor hides"
         ))
         .slider(1.0, 30.0, 0.5)
+        .unit(Unit::Seconds)
         .keywords(&[
             msg!("cursor"),
             msg!("pointer"),
