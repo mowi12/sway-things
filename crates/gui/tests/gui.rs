@@ -57,13 +57,14 @@ use sway_things_core::apply::Applier;
 use sway_things_core::bluetooth::stand_in::StandIn;
 use sway_things_core::command::input::InputType;
 use sway_things_core::generate::{Locations, SwayValidator};
+use sway_things_core::gsettings::{GSettingsError, GSettingsStore, INTERFACE, MemoryGSettings};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{
     FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs, with_outputs,
 };
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
-use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, GSettingsKey, Link, Page, Registry, Value};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::Layer;
 use sway_things_core::state::{Paths, State};
@@ -193,6 +194,19 @@ fn fixture_with_ui(
     sway: Option<&FakeSway>,
     ui: Option<&str>,
 ) -> Result<Fixture, String> {
+    fixture_with_gsettings(compositor, stored, users, include, sway, ui, None)
+}
+
+/// A model like [`fixture_with_ui`] that copies settings to `gsettings` and reads them there.
+fn fixture_with_gsettings(
+    compositor: Compositor,
+    stored: &str,
+    users: &str,
+    include: bool,
+    sway: Option<&FakeSway>,
+    ui: Option<&str>,
+    gsettings: Option<Box<dyn GSettingsStore>>,
+) -> Result<Fixture, String> {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
     let config = dir.path().join("config");
     std::fs::create_dir_all(&config).map_err(|error| error.to_string())?;
@@ -217,10 +231,13 @@ fn fixture_with_ui(
     let status = fixture.status(users, include);
     // `true` accepts every file, so a reload of sway saves without running sway.
     let validator = SwayValidator::with_program("true");
-    let applier = match sway {
+    let mut applier = match sway {
         Some(sway) => Applier::with_session(state, locations, validator, sway.connect()),
         None => Applier::without_session(state, locations, validator, compositor),
     };
+    if let Some(gsettings) = gsettings {
+        applier.set_gsettings(gsettings);
+    }
     fixture.model = Model::with_applier(applier, status);
     Ok(fixture)
 }
@@ -312,10 +329,15 @@ fn main() -> ExitCode {
     results.extend(check_network_pages());
     results.extend(check_keyboard());
     results.extend(check_indicators());
+    results.extend(check_look());
     results.extend(check_welcomes(&settings));
+    report(&results)
+}
 
+/// Prints each result as the test harness does and the summary; fails if one failed.
+fn report(results: &[(String, Outcome)]) -> ExitCode {
     let mut failed = 0;
-    for (name, outcome) in &results {
+    for (name, outcome) in results {
         match outcome {
             Ok(()) => println!("test {name} ... ok"),
             Err(message) => {
@@ -5901,6 +5923,174 @@ fn check_workspace_map() -> Outcome {
     ensure(
         workspace_cards(&window)?.is_empty(),
         "  a map shows while sway places the workspaces",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+fn check_look() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "look: a row shows what GSettings has and a pick writes it there".to_owned(),
+            check_look_gsettings(),
+        ),
+        (
+            "look: a font row shows the font and keeps it".to_owned(),
+            check_look_font(),
+        ),
+        (
+            "look: a value GSettings refuses shows under its row".to_owned(),
+            check_look_refused(),
+        ),
+    ]
+}
+
+/// GSettings without the schema: every write fails.
+#[derive(Debug)]
+struct NoSchema;
+
+impl GSettingsStore for NoSchema {
+    fn set(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+    fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+    fn value(&self, _: GSettingsKey) -> Option<Value> {
+        None
+    }
+    fn check(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+}
+
+/// A style GSettings can't take is stored, and its row says that apps keep their own.
+fn check_look_refused() -> Outcome {
+    let fixture = fixture_with_gsettings(
+        SWAY,
+        "version = 1\n",
+        USERS,
+        true,
+        None,
+        None,
+        Some(Box::new(NoSchema)),
+    )?;
+    let window = open(&fixture, Page::AppsLookFeel)?;
+    let style = row(&window, "look.style")?;
+    let choice = style
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::DropDown>().ok())
+        .ok_or_else(|| "  the style row has no drop-down".to_owned())?;
+    choice.set_selected(2);
+    wait_for_model(&fixture.model)?;
+    let shown = run_until(Duration::from_secs(5), || style.error().is_some());
+    ensure(shown, "the row shows no error")?;
+    let error = style.error().unwrap_or_default();
+    ensure(
+        error.contains("org.gnome.desktop.interface"),
+        &format!("the row shows {error:?}"),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The key of `key` in the interface schema.
+fn interface(key: &'static str) -> GSettingsKey {
+    GSettingsKey {
+        schema: INTERFACE,
+        key,
+    }
+}
+
+/// Apps Look & Feel with GSettings in memory: a theme set with another tool shows in its row as
+/// GSettings', a style picked in the app goes to `color-scheme` as its id, and a reset puts the
+/// key back to its default.
+fn check_look_gsettings() -> Outcome {
+    let store = MemoryGSettings::default();
+    store
+        .set(
+            interface("gtk-theme"),
+            &Value::Text("Elsewhere-dark".to_owned()),
+        )
+        .map_err(|error| error.to_string())?;
+    let fixture = fixture_with_gsettings(
+        SWAY,
+        "version = 1\n",
+        USERS,
+        true,
+        None,
+        None,
+        Some(Box::new(store.clone())),
+    )?;
+    let window = open(&fixture, Page::AppsLookFeel)?;
+    let theme = row(&window, "look.gtk_theme")?;
+    let dropdown = theme
+        .dropdown()
+        .ok_or_else(|| "  the theme row has no drop-down".to_owned())?;
+    let shown = dropdown
+        .selected_item()
+        .and_downcast::<gtk::StringObject>()
+        .map(|item| item.string().to_string());
+    // Not installed, so it shows by its name.
+    ensure(
+        shown.as_deref() == Some("Elsewhere-dark"),
+        &format!("the theme row shows {shown:?}, not GSettings' theme"),
+    )?;
+    let setting = |key| {
+        Registry::builtin()
+            .get(key)
+            .ok_or_else(|| format!("  no setting {key}"))
+    };
+    let view = fixture
+        .model
+        .view(setting("look.gtk_theme")?, None)
+        .ok_or("  no settings")?;
+    ensure(view.source == Source::Desktop, "the theme isn't GSettings'")?;
+
+    let style = row(&window, "look.style")?;
+    let choice = style
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::DropDown>().ok())
+        .ok_or_else(|| "  the style row has no drop-down".to_owned())?;
+    // Default, Light, Dark.
+    choice.set_selected(2);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        store.get(INTERFACE, "color-scheme") == Some(Value::Text("prefer-dark".to_owned())),
+        "Dark didn't reach color-scheme",
+    )?;
+    ensure(style.error().is_none(), "the change shows an error")?;
+    fixture.model.reset("look.style", None);
+    wait_for_model(&fixture.model)?;
+    ensure(
+        store.get(INTERFACE, "color-scheme").is_none(),
+        "the reset didn't reset color-scheme",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The interface font shows as it is stored, in a button that opens the font dialog.
+fn check_look_font() -> Outcome {
+    let fixture = fixture(
+        SWAY,
+        "version = 1\n\n[look]\nfont = \"Cantarell Bold 12\"\n",
+        USERS,
+        true,
+    )?;
+    let window = open(&fixture, Page::AppsLookFeel)?;
+    let font = row(&window, "look.font")?;
+    let label = font
+        .controls()
+        .into_iter()
+        .find_map(|control| control.downcast::<gtk::Button>().ok())
+        .and_then(|button| button.child().and_downcast::<gtk::Label>())
+        .ok_or_else(|| "  the font row has no button with a label".to_owned())?;
+    ensure(
+        label.text() == "Cantarell Bold 12",
+        &format!("the font row shows {:?}", label.text()),
     )?;
     window.destroy();
     Ok(())

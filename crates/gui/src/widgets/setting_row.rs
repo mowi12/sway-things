@@ -43,7 +43,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
 use sway_things_core::conflict::{Report, UserLine};
 use sway_things_core::outputs;
-use sway_things_core::registry::{Apply, Kind, Registry, Scope, Setting, Value};
+use sway_things_core::registry::{Apply, Font, Kind, Registry, Scope, Setting, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
@@ -77,6 +77,9 @@ enum Control {
     },
     Color(gtk::ColorDialogButton),
     Text(gtk::Entry),
+    /// A font description, shown as it is stored ("Adwaita Sans 11") in that font, and picked
+    /// with GTK's font dialog. GTK's own font button names a font that isn't installed "None".
+    Font(gtk::Button),
     /// A text picked from known values; a value that isn't one of them is added to the end.
     Pick {
         dropdown: gtk::DropDown,
@@ -97,6 +100,7 @@ impl Control {
                 vec![dropdown.clone().upcast()]
             }
             Self::Color(button) => vec![button.clone().upcast()],
+            Self::Font(button) => vec![button.clone().upcast()],
             Self::Text(entry) => vec![entry.clone().upcast()],
             Self::None => Vec::new(),
         }
@@ -1038,45 +1042,7 @@ impl SettingRow {
                     }
                 ));
             }
-            Control::Number { scale, spin, whole } => {
-                let whole = *whole;
-                scale.connect_value_changed(glib::clone!(
-                    #[weak(rename_to = row)]
-                    self,
-                    #[weak]
-                    spin,
-                    move |scale| {
-                        if row.imp().updating.get() {
-                            return;
-                        }
-                        let value = scale.value();
-                        row.imp().updating.set(true);
-                        spin.set_value(value);
-                        row.imp().updating.set(false);
-                        row.send_number(number(value, whole));
-                    }
-                ));
-                spin.connect_value_changed(glib::clone!(
-                    #[weak(rename_to = row)]
-                    self,
-                    #[weak]
-                    scale,
-                    move |spin| {
-                        if row.imp().updating.get() {
-                            return;
-                        }
-                        let value = spin.value();
-                        row.imp().updating.set(true);
-                        scale.set_value(value);
-                        row.imp().updating.set(false);
-                        row.send_number(number(value, whole));
-                    }
-                ));
-                if self.defers() {
-                    self.follow_presses(scale.upcast_ref());
-                    self.follow_presses(spin.upcast_ref());
-                }
-            }
+            Control::Number { scale, spin, whole } => self.connect_number(scale, spin, *whole),
             Control::Choice { dropdown, ids } => {
                 let ids = ids.clone();
                 dropdown.connect_selected_notify(glib::clone!(
@@ -1101,6 +1067,13 @@ impl SettingRow {
                     }
                 ));
             }
+            Control::Font(button) => {
+                button.connect_clicked(glib::clone!(
+                    #[weak(rename_to = row)]
+                    self,
+                    move |button| row.pick_font(button)
+                ));
+            }
             Control::Text(entry) => {
                 entry.connect_activate(glib::clone!(
                     #[weak(rename_to = row)]
@@ -1121,6 +1094,47 @@ impl SettingRow {
                 dropdown, values, ..
             } => self.connect_pick(dropdown, values),
             Control::None => {}
+        }
+    }
+
+    /// Sends a number from `scale` or `spin`, which follow each other; `whole` for a whole
+    /// number.
+    fn connect_number(&self, scale: &gtk::Scale, spin: &gtk::SpinButton, whole: bool) {
+        scale.connect_value_changed(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[weak]
+            spin,
+            move |scale| {
+                if row.imp().updating.get() {
+                    return;
+                }
+                let value = scale.value();
+                row.imp().updating.set(true);
+                spin.set_value(value);
+                row.imp().updating.set(false);
+                row.send_number(number(value, whole));
+            }
+        ));
+        spin.connect_value_changed(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[weak]
+            scale,
+            move |spin| {
+                if row.imp().updating.get() {
+                    return;
+                }
+                let value = spin.value();
+                row.imp().updating.set(true);
+                scale.set_value(value);
+                row.imp().updating.set(false);
+                row.send_number(number(value, whole));
+            }
+        ));
+        if self.defers() {
+            self.follow_presses(scale.upcast_ref());
+            self.follow_presses(spin.upcast_ref());
         }
     }
 
@@ -1181,6 +1195,43 @@ impl SettingRow {
         }
     }
 
+    /// Opens GTK's font dialog at the font in effect and sends the font picked there.
+    fn pick_font(&self, button: &gtk::Button) {
+        let Some(label) = button.child().and_downcast::<gtk::Label>() else {
+            return;
+        };
+        let current = gtk::pango::FontDescription::from_string(&label.text());
+        let window = self.root().and_downcast::<gtk::Window>();
+        let dialog = gtk::FontDialog::new();
+        dialog.set_title(tr(self.setting().map_or(msg!("Font"), Setting::title)));
+        if self.setting().and_then(Setting::font) == Some(Font::Monospace) {
+            // The dialog lists families, or faces once one is picked.
+            dialog.set_filter(Some(&gtk::CustomFilter::new(|item| {
+                let family = match item.downcast_ref::<gtk::pango::FontFace>() {
+                    Some(face) => face.family(),
+                    None => match item.downcast_ref::<gtk::pango::FontFamily>() {
+                        Some(family) => family.clone(),
+                        None => return true,
+                    },
+                };
+                family.is_monospace()
+            })));
+        }
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            async move {
+                // Cancelling the dialog is an error too; nothing changes then.
+                if let Ok(font) = dialog
+                    .choose_font_future(window.as_ref(), Some(&current))
+                    .await
+                {
+                    row.send(Value::Text(font.to_str().to_string()));
+                }
+            }
+        ));
+    }
+
     /// Sends the text of `entry` if it differs from the value in effect.
     fn send_text(&self, entry: &gtk::Entry) {
         let imp = self.imp();
@@ -1230,6 +1281,15 @@ fn control(setting: &'static Setting) -> Option<Control> {
             let button = gtk::ColorDialogButton::new(Some(dialog));
             button.set_valign(gtk::Align::Center);
             Control::Color(button)
+        }
+        Kind::Text { .. } if setting.font().is_some() => {
+            let label = gtk::Label::new(None);
+            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            label.set_max_width_chars(28);
+            let button = gtk::Button::new();
+            button.set_child(Some(&label));
+            button.set_valign(gtk::Align::Center);
+            Control::Font(button)
         }
         Kind::Text { .. } => {
             let entry = gtk::Entry::new();
@@ -1374,6 +1434,19 @@ fn show_value(control: &Control, setting: &Setting, value: &Value) {
                 button.set_rgba(&rgba);
             }
         }
+        (Control::Font(button), Value::Text(text)) => {
+            if let Some(label) = button.child().and_downcast::<gtk::Label>() {
+                if label.text() != *text {
+                    label.set_text(text);
+                    // In the font itself, at the size of the label: the size is in the text.
+                    let mut font = gtk::pango::FontDescription::from_string(text);
+                    font.unset_fields(gtk::pango::FontMask::SIZE);
+                    let attributes = gtk::pango::AttrList::new();
+                    attributes.insert(gtk::pango::AttrFontDesc::new(&font));
+                    label.set_attributes(Some(&attributes));
+                }
+            }
+        }
         (Control::Text(entry), Value::Text(text)) => {
             if entry.text() != *text {
                 entry.set_text(text);
@@ -1486,6 +1559,15 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
     // and the include line is explained once for the whole window, not on every row.
     if let Some(Locked::Needs(text)) = &view.locked {
         parts.push(text.translated());
+    }
+    if let Some(other) = &view.changed_elsewhere {
+        parts.push(trf(
+            msg!(
+                "Apps use {value} now, set by another tool. Sway Things sets its own again when \
+                 sway starts or reloads."
+            ),
+            &[("value", &super::group_row::value_text(setting, other))],
+        ));
     }
     parts.join(" · ")
 }

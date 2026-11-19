@@ -42,7 +42,7 @@ use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
     TestArea, WorkspaceMap,
 };
-use super::{cursor, keyboard};
+use super::{cursor, keyboard, look};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
@@ -195,6 +195,9 @@ impl PageView {
             sections.push(about_section(model, &body));
             sections.push(generated_section(model, &body));
         }
+        if page == Page::AppsLookFeel {
+            body.append(&look::note());
+        }
         let mut first = page != Page::About;
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
@@ -210,7 +213,6 @@ impl PageView {
             let Some(row) = setting_row(model, setting) else {
                 continue;
             };
-            cursor::follow(model, &row);
             if let Some(mapping) = setting.sway() {
                 files.insert(mapping.file());
             }
@@ -532,18 +534,6 @@ fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
     Some(footer)
 }
 
-/// The row of `setting` for the whole session or input type: a drop-down of known values for
-/// the keyboard model and an output's mode.
-fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
-    if setting.key() == outputs::MODE {
-        return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
-    }
-    match keyboard::choices(setting).or_else(|| cursor::choices(model, setting)) {
-        Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
-        None => SettingRow::new(model, setting, None),
-    }
-}
-
 /// The "Arrangement" section of Displays, the first on the page if `first`, added to `body` and
 /// `sections`. The page starts with it; its rows follow the output picked there.
 fn arrangement_section(
@@ -626,6 +616,25 @@ const COPY_DETAILS: Msg = msg!("Copy System Details");
 const COPIED: Msg = msg!("Copied");
 /// How long it says so.
 const COPIED_FOR: Duration = Duration::from_secs(2);
+
+/// The row of `setting` on its page, for the whole session or input type: a drop-down where the
+/// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
+/// themes, the screens), following what they depend on.
+fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
+    if setting.key() == outputs::MODE {
+        return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
+    }
+    let choices = keyboard::choices(setting)
+        .or_else(|| cursor::choices(model, setting))
+        .or_else(|| look::choices(setting));
+    let row = match choices {
+        Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
+        None => SettingRow::new(model, setting, None),
+    }?;
+    cursor::follow(model, &row);
+    look::follow(&row);
+    Some(row)
+}
 
 /// The "About" section of About & Maintenance: a row per line of the system details (Sway
 /// Things, the compositor, GTK, the distribution, NetworkManager, the kernel and the tools the

@@ -422,7 +422,7 @@ fn swatch() -> Swatch {
 }
 
 /// `value` as the summary shows it.
-fn value_text(setting: &Setting, value: &Value) -> String {
+pub(super) fn value_text(setting: &Setting, value: &Value) -> String {
     if let (Some(unit), Value::Integer(_) | Value::Decimal(_)) = (setting.unit(), value) {
         // TRANSLATORS: A number and its unit symbol, such as "3 s" or "12 px".
         return trf(
@@ -431,7 +431,9 @@ fn value_text(setting: &Setting, value: &Value) -> String {
         );
     }
     if let Some(label) = match value {
-        Value::Text(text) => super::cursor::label(setting, text),
+        Value::Text(text) => {
+            super::cursor::label(setting, text).or_else(|| super::look::label(setting, text))
+        }
         _ => None,
     } {
         return label;

@@ -5750,6 +5750,25 @@ msgstr ""
 msgid "Standard"
 msgstr ""
 
+#: crates/gui/src/widgets/look.rs
+msgid ""
+"Apps can't read these settings: GSettings has no "
+"org.gnome.desktop.interface. Install the package gsettings-desktop-schemas, "
+"then open Sway Things again."
+msgstr ""
+
+#: crates/gui/src/widgets/look.rs
+msgid ""
+"Apps can't read these settings: nothing keeps them, since dconf isn't "
+"installed. Install dconf, then log in again."
+msgstr ""
+
+#: crates/gui/src/widgets/look.rs
+msgid ""
+"Apps can't learn the style: no desktop portal tells them. Install xdg-"
+"desktop-portal-gtk, then log in again."
+msgstr ""
+
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "WPA & WPA2 Personal"
 msgstr ""
@@ -6369,6 +6388,10 @@ msgid "Keep or revert the change of the other display first"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
+msgid "Font"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""
@@ -6384,6 +6407,13 @@ msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
 msgid "Chosen by sway"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+#, rust-format
+msgid ""
+"Apps use {value} now, set by another tool. Sway Things sets its own again "
+"when sway starts or reloads."
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
