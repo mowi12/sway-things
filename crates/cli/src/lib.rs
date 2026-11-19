@@ -126,6 +126,17 @@ pub enum Command {
         /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
         link: Option<String>,
     },
+    /// Run a hook; the generated sway config runs these, in 80-hooks.conf
+    #[command(subcommand)]
+    Hook(Hook),
+}
+
+/// A hook of `sway-things hook`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
+pub enum Hook {
+    /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
+    /// GSettings; run at login and at each reload of sway
+    Gsettings,
 }
 
 /// The binary of the app.
@@ -345,6 +356,21 @@ pub async fn run<V: Validate>(
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
+        Command::Hook(Hook::Gsettings) => hook_gsettings(session, &mut io),
+    }
+}
+
+/// `hook gsettings`: writes every stored setting with a GSettings key to GSettings. Keys Sway
+/// Things doesn't store stay as they are.
+fn hook_gsettings<V: Validate>(session: &Session<V>, io: &mut Io<'_>) -> Exit {
+    let failed = session.applier.copy_stored_to_gsettings();
+    for (_, error) in &failed {
+        io.error(error.text().translated());
+    }
+    if failed.is_empty() {
+        Exit::Ok
+    } else {
+        Exit::Failure
     }
 }
 
@@ -617,7 +643,16 @@ async fn set<V: Validate>(
         }
     }
     io.out(changed(setting, device, &value, &applied));
+    warn_not_copied(&applied, io);
     persist(session, overwrite, &access, io).await
+}
+
+/// Warns about the GSettings keys a change couldn't be copied to: the change is made, but GTK
+/// apps keep their own value.
+fn warn_not_copied(applied: &Applied, io: &mut Io<'_>) {
+    for error in &applied.not_copied {
+        io.warn(error.text().translated());
+    }
 }
 
 /// Tries a risky change and asks whether to keep it. `Err` with the exit code if it wasn't kept.
@@ -745,6 +780,7 @@ async fn reset<V: Validate>(
             Ok(None) => Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
+                not_copied: Vec::new(),
             }),
             Err(error) => Err(error),
         }
@@ -773,6 +809,7 @@ async fn reset<V: Validate>(
         Some(note) => io.out(sentences(&done, &note)),
         None => io.out(done),
     }
+    warn_not_copied(&applied, io);
     persist(session, overwrite, &access, io).await
 }
 

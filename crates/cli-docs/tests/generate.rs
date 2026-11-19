@@ -20,11 +20,16 @@ fn generated() -> std::io::Result<BTreeMap<PathBuf, String>> {
 
 #[test]
 fn there_is_a_page_per_command_and_a_completion_per_shell() {
-    let mut expected: Vec<String> = Cli::command()
-        .get_subcommands()
-        .filter(|subcommand| !subcommand.is_hide_set())
-        .map(|subcommand| format!("man/sway-things-{}.1", subcommand.get_name()))
-        .collect();
+    // A page for each command that isn't hidden, also for those of a command (`hook gsettings`).
+    fn pages(command: &clap::Command, prefix: &str, found: &mut Vec<String>) {
+        for subcommand in command.get_subcommands().filter(|sub| !sub.is_hide_set()) {
+            let name = format!("{prefix}-{}", subcommand.get_name());
+            found.push(format!("man/{name}.1"));
+            pages(subcommand, &name, found);
+        }
+    }
+    let mut expected = Vec::new();
+    pages(&Cli::command(), "sway-things", &mut expected);
     expected.extend(
         [
             "man/sway-things.1",

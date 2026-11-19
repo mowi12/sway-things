@@ -3,9 +3,11 @@
 
 use super::{
     AccelProfile, ButtonMap, ClickMethod, DragLock, Input, InputError, InputSelector, InputType,
-    ScrollButton, ScrollMethod, SendEvents, XkbSwitch,
+    MapTo, ScrollButton, ScrollMethod, SendEvents, ToolMode, XkbSwitch,
 };
-use crate::command::{CommandError, Criteria, CriteriaKey, OutOfRange, SwayCmd, Target, TextError};
+use crate::command::{
+    CommandError, Criteria, CriteriaKey, OutOfRange, SwayCmd, SwayText, Target, TextError,
+};
 use crate::version::SwayVersion;
 
 fn touchpad() -> Input {
@@ -336,4 +338,26 @@ fn input_types_have_sways_names() {
     assert_eq!(InputType::from_name("touchpad"), Some(InputType::Touchpad));
     assert_eq!(InputType::from_name("unknown"), None);
     assert_eq!(InputType::from_name("Keyboard"), None);
+}
+
+#[test]
+fn tablet_options_render() {
+    let tablet = Input::new(InputSelector::Type(InputType::TabletTool));
+    assert_eq!(
+        rendered(&tablet.map_to_output(&MapTo::Desktop)),
+        "input type:tablet_tool map_to_output *"
+    );
+    let output = MapTo::Output(SwayText::new("eDP-1").unwrap());
+    assert_eq!(
+        rendered(&tablet.map_to_output(&output)),
+        r#"input type:tablet_tool map_to_output "eDP-1""#
+    );
+    assert_eq!(
+        rendered(&tablet.tool_mode(ToolMode::Relative)),
+        "input type:tablet_tool tool_mode * relative"
+    );
+    assert_eq!(
+        rendered(&tablet.tool_mode(ToolMode::Absolute)),
+        "input type:tablet_tool tool_mode * absolute"
+    );
 }

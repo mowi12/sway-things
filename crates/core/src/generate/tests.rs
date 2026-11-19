@@ -50,6 +50,9 @@ pub(super) fn sample() -> (tempfile::TempDir, State) {
 workspace_layout = "tabbed"
 focus_follows_mouse = "always"
 
+[cursor]
+size = 32
+
 [effects]
 corner_radius = 8
 
@@ -98,6 +101,7 @@ fn an_empty_state_generates_only_headers() {
             ConfigFile::Input,
             ConfigFile::Appearance,
             ConfigFile::Behavior,
+            ConfigFile::Hooks,
             ConfigFile::Effects
         ]
     );
@@ -121,6 +125,7 @@ input type:touchpad tap enabled
 input type:touchpad pointer_accel 0.3
 input type:keyboard xkb_layout \"us,de\"
 input type:keyboard repeat_delay 300
+seat * xcursor_theme \"default\" 32
 input \"{TOUCHPAD}\" tap disabled
 "
         )
@@ -144,6 +149,10 @@ focus_follows_mouse always
 workspace_layout tabbed
 "
         )
+    );
+    assert_eq!(
+        text(&files, ConfigFile::Hooks),
+        format!("{HEADER}exec_always sway-things hook gsettings\n")
     );
     assert_eq!(
         text(&files, ConfigFile::Effects),
@@ -177,7 +186,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
         text(&files, ConfigFile::Effects),
         format!("{HEADER}# effects.corner_radius: requires SwayFX 0.5 or newer\n")
     );
-    let effects = &files[3];
+    let effects = &files[4];
     assert!(!effects.is_empty());
     assert_eq!(
         effects.lines()[0].skipped.as_deref(),
@@ -185,7 +194,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
     );
     // The other files are the same on sway and SwayFX.
     let on_swayfx = generate(Registry::builtin(), &state, SWAYFX_0_5);
-    assert_eq!(files[..3], on_swayfx[..3]);
+    assert_eq!(files[..4], on_swayfx[..4]);
 }
 
 #[test]
@@ -231,14 +240,15 @@ fn a_line_number_leads_back_to_its_settings() {
     assert_eq!(source(0, 3), global(&["input.touchpad.tap"]));
     assert_eq!(source(0, 5), global(&["input.keyboard.xkb_layout"]));
     assert_eq!(source(0, 6), global(&["input.keyboard.repeat_delay"]));
+    assert_eq!(source(0, 7), global(&["cursor.size"]));
     assert_eq!(
-        source(0, 7),
+        source(0, 8),
         Some(Source {
             keys: vec!["input.touchpad.tap"],
             device: Some(TOUCHPAD.to_owned())
         })
     );
-    assert_eq!(source(0, 8), None);
+    assert_eq!(source(0, 9), None);
     // Only the stored values of the directive, in the order of the registry.
     assert_eq!(
         source(1, 3),
@@ -320,10 +330,11 @@ impl Written {
     }
 }
 
-const ALL_FILES: [&str; 4] = [
+const ALL_FILES: [&str; 5] = [
     "10-input.conf",
     "30-appearance.conf",
     "40-behavior.conf",
+    "80-hooks.conf",
     "90-effects.conf",
 ];
 
@@ -333,7 +344,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Written }; 4]
+        [const { Outcome::Written }; 5]
     );
     assert_eq!(written.names(), ALL_FILES);
     for file in &written.files {
@@ -343,7 +354,7 @@ fn files_are_validated_then_written_and_recorded() {
     }
     // Each file was staged under a name the include `*.conf` doesn't match, with its content.
     let staged = validator.staged.borrow();
-    assert_eq!(staged.len(), 4);
+    assert_eq!(staged.len(), 5);
     for ((name, content), file) in staged.iter().zip(&written.files) {
         assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
         assert!(name.ends_with(".staged"), "{name}");
@@ -355,7 +366,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Unchanged }; 4]
+        [const { Outcome::Unchanged }; 5]
     );
     assert!(validator.staged.borrow().is_empty());
 }
@@ -431,7 +442,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
 
     let outcomes = written.write(&FakeValidator::default(), &[]);
     assert_eq!(outcomes[0], Outcome::EditedOutside);
-    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 3]);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 4]);
     assert!(
         fs::read_to_string(&input)
             .unwrap()
@@ -446,7 +457,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
     assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
-        [const { Outcome::Unchanged }; 4]
+        [const { Outcome::Unchanged }; 5]
     );
 }
 
@@ -466,6 +477,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
         ConfigFile::Input,
         ConfigFile::Appearance,
         ConfigFile::Behavior,
+        ConfigFile::Hooks,
         ConfigFile::Effects,
     ];
     assert_eq!(
@@ -474,6 +486,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Unchanged,
             Outcome::EditedOutside,
             Outcome::Foreign,
+            Outcome::Written,
             Outcome::Written
         ]
     );
@@ -489,6 +502,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Unchanged,
             Outcome::Written,
             Outcome::Foreign,
+            Outcome::Unchanged,
             Outcome::Unchanged
         ]
     );
@@ -509,6 +523,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
         [
             not_created.clone(),
             Outcome::Written,
+            not_created.clone(),
             not_created.clone(),
             not_created.clone()
         ]
@@ -628,14 +643,14 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert!(before.iter().all(|file| file.content.is_none()));
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 4]
+        [const { Ok(super::Ownership::Absent) }; 5]
     );
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 4]
+        [const { Ok(super::Ownership::Current) }; 5]
     );
 
     let input = written.path(ConfigFile::Input);

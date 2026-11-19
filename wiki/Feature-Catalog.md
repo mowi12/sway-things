@@ -62,11 +62,14 @@ scope → host overlay by default).
 
 ### Cursor & Tablet
 
-- [ ] 🟢 Cursor theme and size (`seat * xcursor_theme` + gsettings / `XCURSOR_*` for apps)
-- [ ] 🟢 Hide the cursor after inactivity / while typing (`seat * hide_cursor`)
-- **Maybe:** 🟢 map a tablet or touchscreen to an output (`map_to_output`) · 🟢 map to a region (`map_to_region`,
-  `map_from_region`) · 🟢 tool mode absolute / relative (`tool_mode`) · 🟡 touchscreen calibration wizard
-  (`calibration_matrix`)
+- [x] 🟢 Cursor theme and size (`seat * xcursor_theme`, copied to GSettings for GTK apps), with a preview of each theme
+      and the sizes it ships
+- [x] 🟢 Hide the cursor after inactivity / while typing (`seat * hide_cursor`)
+- [x] 🟢 Map a drawing tablet or touchscreen to one screen or all of them (`map_to_output`)
+- [x] 🟢 Tablet tool mode absolute / relative (`tool_mode`)
+- **Maybe:** 🟢 map to a region (`map_to_region`, `map_from_region`; it shares the mapping with `map_to_output`, so it
+  fits the Displays canvas) · 🟢 `XCURSOR_*` in our `environment.d` file for apps started outside sway (→ Environment) ·
+  🟡 touchscreen calibration wizard (`calibration_matrix`)
 
 ### Displays
 
@@ -315,7 +318,7 @@ swaybar via our sway include.
 
 ### Accessibility
 
-- [ ] 🟢 Large cursor (→ Cursor & Tablet)
+- [x] 🟢 Large cursor (→ Cursor & Tablet)
 - [ ] 🟢 Larger text (→ Apps Look & Feel)
 - [x] 🟢 Slow keys / repeat tuning (→ Keyboard)
 - **Not possible on sway:** sticky keys, color inversion, zoom/magnifier

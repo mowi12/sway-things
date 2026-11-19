@@ -5,6 +5,7 @@
 
 mod bluetooth;
 mod clamp;
+mod cursor;
 mod device_selector;
 mod generated;
 mod group_row;

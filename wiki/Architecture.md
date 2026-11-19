@@ -68,7 +68,9 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 | Conflict detection | the sway directive and block context the setting maps to; the read function gives the value of a user's line |
 | Version and fork gating | `min_sway(…)`, `swayfx_only(…)` |
 | Dependencies | `depends_on("effects.blur", When::On)`: the row is locked with the reason ("Turn on Blur first") while the other setting's value in effect doesn't meet the condition (on, one of some choices, above a number) |
-| Scope | global / per-host / per-device / per-output (decides the host-overlay default) |
+| Scope | global / per-host / per-device / per-output (decides the host-overlay default); `host_by_default()` sends a per-device value for a whole type to the host overlay too, for values that name something of the machine (an output) |
+| Unit | `unit(Unit::Seconds)`: shown after the value where it stands alone, as in a group's summary ("3 s", with a space as in the SI) |
+| GSettings copy | `gsettings("org.gnome.desktop.interface", "cursor-theme")`: the value is copied there for the apps that read GSettings, see [GSettings](#gsettings) |
 | Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
 | Requirements | `requires_tools(&["swayidle"])` → "Requires swayidle" indicator plus install hints |
 
@@ -315,8 +317,10 @@ input type:touchpad pointer_accel 0.3
 input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 ```
 
-`crates/core/src/generate/` makes these files. v0.1 has `10-input.conf`, `30-appearance.conf`, `40-behavior.conf` and
-`90-effects.conf`.
+`crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `30-appearance.conf`,
+`40-behavior.conf`, `80-hooks.conf` and `90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to
+`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line, see
+[No daemon](#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
   "Show generated config" and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
@@ -372,7 +376,7 @@ The app never adds this line itself. It shows the line with a copy button and de
 | gammastep / wlsunset | gammastep has a config file; wlsunset uses arguments | Own config file or our generated `exec` line |
 | environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf` |
 | default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`; the user's `mimeapps.list` is never touched |
-| GTK look, fonts, dark mode | dconf database | Written via gsettings/GIO (official API, allowed) |
+| GTK look, fonts, dark mode, cursor | dconf database | Written via GIO (official API, allowed); see [GSettings](#gsettings) |
 | electron/chromium flags | text files | Create if missing, otherwise handover |
 | XDG autostart | directory of `.desktop` files | Our entries are `exec` lines in `70-autostart.conf`. To disable a system entry we create **our own** override `~/.config/autostart/<name>.desktop` with `Hidden=true` (only if no user file of that name exists). The runner (`xdg-desktop-autostart.target` or `dex -a`) is started from our include |
 
@@ -612,6 +616,27 @@ the lockout protection.
   index (`xkb_switch_layout` over IPC). It is an action, not a setting: nothing is stored, and sway starts with the
   first layout again.
 
+### Cursor themes
+
+`crates/core/src/cursor/` lists the installed cursor themes for the Cursor & Tablet page. It only reads.
+
+- **Where:** the directories libXcursor and wlroots search: `$XCURSOR_PATH` if set, otherwise the `icons` directories of
+  `$XDG_DATA_HOME` (or `~/.local/share`) and of `$XDG_DATA_DIRS`, with `~/.icons` after the first, then
+  `/usr/share/pixmaps`. A theme is a directory with a `cursors/` subdirectory, counted where its name is found first.
+- **What:** its directory name (what `seat * xcursor_theme` and GSettings take), its title from the `Name=` of the
+  `[Icon Theme]` group in `index.theme`, and the sizes its arrow (`left_ptr`, `default` or `arrow`) ships. The size
+  drop-down offers these sizes, since libXcursor picks the closest one and doesn't scale.
+- **Xcursor files** are external input: each is read up to 16 MiB, every offset and size is checked against the file,
+  and a table of contents or image larger than libXcursor allows is refused. The reader returns the image of the size
+  closest to the one asked for, which the theme list shows as a preview.
+
+### Outputs
+
+The page lists the connected outputs as the screens a drawing tablet or a touchscreen can map to. `OutputWatch`
+subscribes to sway's `output` events on a connection of its own and reads `GET_OUTPUTS` again after each one. If the
+outputs can't be read, the list stays empty; the choices still offer the automatic mapping, all screens and the stored
+value.
+
 ### XKB rules
 
 `crates/core/src/xkb/` lists the keyboard models, layouts, variants and XKB options of the system for the Keyboard page,
@@ -743,6 +768,8 @@ or the settings files changed on disk.
   Identifiers and types compare exactly (`strcmp`). In a report for a whole input type, a line for one device is listed
   with that device and doesn't decide the type's value; with the device list, lines for devices of another type are left
   out.
+- **`seat` options** count for `seat *` and the default seat, `seat0`: Sway Things sets every seat with `seat *`, and
+  sway takes the cursor of the default seat for `XCURSOR_THEME`. Lines for other seats are left out.
 - **One line, several settings:** a `client.*` line sets all five colors, so every setting of the group reports it, and
   storing one color makes the user's line dead for all of them.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
@@ -845,6 +872,23 @@ NetworkManager, and only for WPA and WPA3 Personal passwords when it may ask the
 secrets) gets `NoSecrets`, so another agent can answer. `delegate` starts nm-connection-editor: the whole editor,
 `--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which is checked to be one before it becomes an
 argument.
+
+### GSettings
+
+Some apps don't ask sway: GTK apps take their cursor theme and size from `org.gnome.desktop.interface`. A setting with a
+GSettings key (`Setting::gsettings`) is copied there by `crates/core/src/gsettings.rs`, through GIO, so the schema and
+the backend (dconf) are the desktop's. The schema is looked up first, so a missing one is an error, not an abort.
+
+- **After each change** (set, reset, "Let my config win", a settings file changed on disk) the `Applier` copies the
+  settings of the changed directive: a stored value is written, and once nothing is stored the key is reset to its
+  schema default. A key that can't be written (no schema, locked) is reported with the change (`not_copied`), which is
+  made anyway; the CLI prints a warning.
+- **At login and each reload** `80-hooks.conf` runs `sway-things hook gsettings` while such a value is stored. It writes
+  the stored values again and leaves the other keys alone, so a `settings.toml` from another machine reaches dconf too,
+  and a cursor set with another tool stays while Sway Things stores none.
+- **Tests** never touch the user's dconf: `Applier::with_session` and `without_session` copy nothing until
+  `set_gsettings` names a store, and the tests use `MemoryGSettings`. Only `Applier::connect` (the app and the CLI) uses
+  GIO.
 
 If an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh` line), `detect()`
 reports **managed externally by file:line**. The page explains this and offers a handover. It never fights the script.
@@ -969,9 +1013,12 @@ profile office {
 }
 
 # ~/.config/sway/sway-things/80-hooks.conf (generated)
+exec_always sway-things hook gsettings
 bindswitch --reload --locked lid:on  exec sway-things hook lid closed
 bindswitch --reload --locked lid:off exec sway-things hook lid open
 ```
+
+`hook gsettings` exists so far (see [GSettings](#gsettings)); the lid and workspace hooks come with the Displays page.
 
 Our generated files can also contain the `exec kanshi` / `exec_always kanshictl reload` lines. They're our files, so
 that needs no edit of the user's config.

@@ -181,6 +181,7 @@ fn a_setup_that_works_is_fine() {
             Code::FileValid,
             Code::FileNotNeeded,
             Code::FileNotNeeded,
+            Code::FileNotNeeded,
             Code::NoConflicts,
         ]
     );

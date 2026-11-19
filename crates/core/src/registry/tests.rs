@@ -79,7 +79,14 @@ fn holding(key: &str, when: When) -> Value {
 
 /// Values that render no line: off leaves the user's own `inhibit_idle` rules alone.
 fn renders_nothing(setting: &Setting, value: &Value) -> bool {
-    setting.key() == "behavior.inhibit_idle_fullscreen" && *value == Value::Bool(false)
+    match setting.key() {
+        "behavior.inhibit_idle_fullscreen" => *value == Value::Bool(false),
+        // Automatic: sway maps the device by itself.
+        "input.tablet_tool.map_to_output" | "input.touch.map_to_output" => {
+            *value == Value::Text(String::new())
+        }
+        _ => false,
+    }
 }
 
 fn commands(setting: &Setting, value: &Value, target: Target) -> Vec<SwayCmd> {
@@ -1392,4 +1399,204 @@ fn the_config_line_shows_the_option_without_the_input_selector() {
         registry().config_line(setting("app.safety_net_timeout"), &Defaults, None),
         Err(RenderError::NotASwaySetting { .. })
     ));
+}
+
+#[test]
+fn the_cursor_renders_for_every_seat() {
+    let values = BTreeMap::from([
+        (
+            "cursor.theme".to_owned(),
+            Value::Text("Bibata Modern".to_owned()),
+        ),
+        ("cursor.size".to_owned(), Value::Integer(48)),
+        ("cursor.hide".to_owned(), Value::Bool(true)),
+        ("cursor.hide_after".to_owned(), Value::Decimal(2.5)),
+    ]);
+    let line = |key: &str| registry().config_line(setting(key), &values, None).unwrap();
+    assert_eq!(line("cursor.size"), r#"xcursor_theme "Bibata Modern" 48"#);
+    assert_eq!(line("cursor.hide_after"), "hide_cursor 2500");
+    assert_eq!(
+        lines(
+            setting("cursor.theme"),
+            &Value::Text("Adwaita".to_owned()),
+            Target::Ipc
+        ),
+        [r#"seat * xcursor_theme "Adwaita" 24"#]
+    );
+    // Off sends 0, whatever the seconds.
+    assert_eq!(
+        lines(setting("cursor.hide"), &Value::Bool(false), Target::Config),
+        ["seat * hide_cursor 0"]
+    );
+    assert_eq!(
+        lines(
+            setting("cursor.hide_when_typing"),
+            &Value::Bool(true),
+            Target::Config
+        ),
+        ["seat * hide_cursor when-typing enable"]
+    );
+    assert_eq!(
+        setting("cursor.theme").check(&Value::Text("a\\b".to_owned())),
+        Err(ValueError::NotSwayText(
+            crate::command::TextError::Backslash { index: 1 }
+        ))
+    );
+}
+
+#[test]
+fn cursor_lines_are_read_as_sway_reads_them() {
+    let ok = |key: &str, line: &str| match read(key, line) {
+        Some(Ok(value)) => value,
+        other => panic!("{key} from {line}: {other:?}"),
+    };
+    assert_eq!(
+        ok("cursor.theme", "seat * xcursor_theme Adwaita"),
+        Value::Text("Adwaita".to_owned())
+    );
+    assert_eq!(
+        ok("cursor.size", "seat seat0 xcursor_theme Adwaita"),
+        Value::Integer(24)
+    );
+    assert_eq!(
+        ok("cursor.size", "seat * xcursor_theme Adwaita 32"),
+        Value::Integer(32)
+    );
+    assert!(matches!(
+        read("cursor.size", "seat * xcursor_theme Adwaita big"),
+        Some(Err(ReadError::Rejected(_)))
+    ));
+    // sway raises a timeout below 100 ms to 100.
+    assert_eq!(
+        ok("cursor.hide_after", "seat * hide_cursor 20"),
+        Value::Decimal(0.1)
+    );
+    assert_eq!(
+        ok("cursor.hide", "seat * hide_cursor 0"),
+        Value::Bool(false)
+    );
+    assert_eq!(
+        ok("cursor.hide", "seat * hide_cursor 3000"),
+        Value::Bool(true)
+    );
+    // `hide_cursor when-typing` is another directive.
+    assert_eq!(
+        read("cursor.hide", "seat * hide_cursor when-typing enable"),
+        None
+    );
+    assert_eq!(
+        ok(
+            "cursor.hide_when_typing",
+            "seat * hide_cursor when-typing enable"
+        ),
+        Value::Bool(true)
+    );
+    assert_eq!(
+        read("cursor.hide_when_typing", "seat * hide_cursor 3000"),
+        None
+    );
+    // A line in a seat block, and an `input` line, which isn't a seat option.
+    let directives = parsed("seat * {\n    xcursor_theme Adwaita 48\n}\n");
+    assert_eq!(
+        setting("cursor.size").read(&directives[0]),
+        Some(Ok(Value::Integer(48)))
+    );
+    assert_eq!(read("cursor.theme", "input * xcursor_theme Adwaita"), None);
+}
+
+#[test]
+fn the_cursor_conflicts_only_with_lines_for_every_seat_or_the_default_one() {
+    use crate::conflict::Report;
+    use crate::generate::Locations;
+    use crate::include::IncludeStatus;
+    use crate::sway_config::MemoryFiles;
+    use std::path::Path;
+
+    let locations = Locations::new(
+        Path::new("/home/me/.config/sway/sway-things"),
+        Path::new("/home/me/.local/state/sway-things"),
+    );
+    let files = MemoryFiles::new().var("HOME", "/home/me").file(
+        "/home/me/.config/sway/config",
+        "seat * xcursor_theme Adwaita\nseat seat1 xcursor_theme Other\n\
+         include ~/.config/sway/sway-things/*.conf\nseat seat0 xcursor_theme Bibata 32\n",
+    );
+    let status = IncludeStatus::detect(
+        Some(Path::new("/home/me/.config/sway/config")),
+        &files,
+        &locations,
+    );
+    let report = Report::check(&status, setting("cursor.theme"), None, None).unwrap();
+    let lines: Vec<usize> = report
+        .lines()
+        .iter()
+        .map(crate::conflict::UserLine::line)
+        .collect();
+    assert_eq!(lines, [1, 4]);
+    assert_eq!(
+        report.overriding().map(|line| line.value.clone()),
+        Some(Ok(Value::Text("Bibata".to_owned())))
+    );
+}
+
+#[test]
+fn a_mapping_to_a_screen_renders_automatic_only_over_ipc() {
+    let tablet = setting("input.tablet_tool.map_to_output");
+    let automatic = Value::Text(String::new());
+    assert_eq!(
+        lines(tablet, &automatic, Target::Config),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        lines(tablet, &automatic, Target::Ipc),
+        ["input type:tablet_tool map_to_output *"]
+    );
+    assert_eq!(
+        lines(
+            setting("input.touch.map_to_output"),
+            &Value::Text("eDP-1".to_owned()),
+            Target::Config
+        ),
+        [r#"input type:touch map_to_output "eDP-1""#]
+    );
+    assert_eq!(
+        lines(tablet, &Value::Text("*".to_owned()), Target::Config),
+        ["input type:tablet_tool map_to_output *"]
+    );
+    assert_eq!(
+        lines(
+            setting("input.tablet_tool.tool_mode"),
+            &Value::Choice("relative".to_owned()),
+            Target::Config
+        ),
+        ["input type:tablet_tool tool_mode * relative"]
+    );
+    // A line for one tool isn't the setting for all tools.
+    assert_eq!(
+        read(
+            "input.tablet_tool.tool_mode",
+            "input type:tablet_tool tool_mode pen relative"
+        ),
+        None
+    );
+    assert!(tablet.host_by_default());
+    assert_eq!(
+        crate::state::Layer::default_for(tablet, None),
+        crate::state::Layer::Host
+    );
+}
+
+#[test]
+fn only_numbers_have_a_unit() {
+    for setting in registry().iter().filter(|setting| setting.unit().is_some()) {
+        assert!(
+            matches!(setting.kind(), Kind::Integer { .. } | Kind::Decimal { .. }),
+            "{} has a unit",
+            setting.key()
+        );
+    }
+    assert_eq!(
+        setting("cursor.hide_after").unit(),
+        Some(super::Unit::Seconds)
+    );
 }

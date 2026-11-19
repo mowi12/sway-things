@@ -16,6 +16,7 @@ pub mod effects;
 pub mod input;
 #[cfg(test)]
 pub(crate) mod model;
+pub mod seat;
 #[cfg(test)]
 mod tests;
 mod text;
@@ -433,6 +434,16 @@ enum Rendering {
 /// its config take effect then.
 pub fn reload() -> SwayCmd {
     SwayCmd::new("reload").runtime_only()
+}
+
+/// `exec_always sway-things hook <hook>`: runs a hook of the command line whenever sway starts or
+/// reloads its config. Only for generated files: over IPC it would run once, now.
+pub fn hook(hook: &'static str) -> SwayCmd {
+    SwayCmd::new("exec_always")
+        .keyword("sway-things")
+        .keyword("hook")
+        .keyword(hook)
+        .config_only()
 }
 
 fn is_keyword(keyword: &str) -> bool {

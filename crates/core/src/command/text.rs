@@ -130,7 +130,7 @@ impl TryFrom<String> for SwayText {
 }
 
 /// Why a string can't be a [`SwayText`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextError {
     /// The text is empty.
     Empty,

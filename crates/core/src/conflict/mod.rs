@@ -14,6 +14,8 @@
 //!   `*`, for its type and for its identifier, in config order (sway's `store_input_config`
 //!   merges each onto the others). For a whole input type, a line for one device is reported
 //!   with that device; it doesn't decide the type's value.
+//! - **`seat` options** count for `seat *` and the default seat, `seat0`, which are those Sway
+//!   Things changes with `seat *`.
 //! - **One directive, several settings** (the five colors of `client.focused`): a line sets all
 //!   of them, so every setting of the group reports the same lines.
 //!
@@ -157,6 +159,7 @@ impl Report {
                 let reach = match mapping.directive().block {
                     Block::Top => Reach::All,
                     Block::Input => reach(directive, setting.scope(), device, devices)?,
+                    Block::Seat => seat_reach(directive)?,
                 };
                 let order = match position {
                     Some(position) if index < position => Order::Before,
@@ -251,6 +254,13 @@ fn reach(
         .and_then(Device::kind)
         .is_some_and(|known| known != kind);
     (!other_type).then(|| Reach::Device(selector.clone()))
+}
+
+/// Whether a `seat` line covers the seats Sway Things sets: `seat *` and the default seat do;
+/// another seat isn't what the setting is about. sway compares seat names with `strcmp`.
+fn seat_reach(directive: &Directive) -> Option<Reach> {
+    let name = directive.block.get(1)?;
+    (name == "*" || name == "seat0").then_some(Reach::All)
 }
 
 /// Reports for every sway setting of `registry`: for the whole session or input type, and for

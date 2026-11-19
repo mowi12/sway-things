@@ -57,6 +57,7 @@ use crate::devices::Lockout;
 use crate::generate::{
     self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate, WriteError,
 };
+use crate::gsettings::{self, GSettingsError, GSettingsStore, Gio, NoGSettings};
 use crate::i18n::Text;
 use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
@@ -106,6 +107,9 @@ pub struct Applied {
     pub changed: bool,
     /// How the change takes effect.
     pub effect: Effect,
+    /// The GSettings keys the change couldn't be copied to
+    /// ([`gsettings`](crate::gsettings)). The change itself is made.
+    pub not_copied: Vec<GSettingsError>,
 }
 
 /// What [`Applier::persist`] did.
@@ -146,6 +150,8 @@ pub struct Reloaded {
     /// Each changed directive with how its new value takes effect, or why it couldn't be sent.
     /// Settings that are values of one directive are listed once, under the first changed key.
     pub applied: Vec<(ChangedKey, Result<Effect, ApplyError>)>,
+    /// The GSettings keys the changes couldn't be copied to.
+    pub not_copied: Vec<GSettingsError>,
 }
 
 /// Applies changes of settings: live, to the settings files and to the generated files.
@@ -162,6 +168,8 @@ pub struct Applier<V = SwayValidator> {
     pending: Option<Pending>,
     /// The stored changes that wait for a reload of sway or the next login.
     waiting: Waiting,
+    /// Where settings with a GSettings key are copied to.
+    gsettings: Box<dyn GSettingsStore>,
 }
 
 impl Applier<SwayValidator> {
@@ -193,7 +201,8 @@ impl Applier<SwayValidator> {
     }
 
     /// An applier for this user: connected to the session in `$SWAYSOCK`, or without a session
-    /// if there is none. Then the compositor to generate for is the installed `sway`.
+    /// if there is none. Then the compositor to generate for is the installed `sway`. Settings
+    /// with a GSettings key are copied to the user's GSettings ([`Gio`]).
     ///
     /// # Errors
     ///
@@ -201,25 +210,26 @@ impl Applier<SwayValidator> {
     /// [`ApplyError::NoCompositor`] if there is no session and no `sway` to ask either.
     pub async fn connect(state: State, locations: Locations) -> Result<Self, ApplyError> {
         let validator = SwayValidator::new();
-        match Client::connect().await {
-            Ok(client) => Ok(Self::with_session(state, locations, validator, client)),
+        let mut applier = match Client::connect().await {
+            Ok(client) => Self::with_session(state, locations, validator, client),
             Err(IpcError::NoSession | IpcError::NotRunning { .. }) => {
                 let compositor = validator
                     .compositor()
                     .await
                     .map_err(|source| ApplyError::NoCompositor(Some(source)))?
                     .ok_or(ApplyError::NoCompositor(None))?;
-                Ok(Self::without_session(
-                    state, locations, validator, compositor,
-                ))
+                Self::without_session(state, locations, validator, compositor)
             }
-            Err(error) => Err(ApplyError::Ipc(error)),
-        }
+            Err(error) => return Err(ApplyError::Ipc(error)),
+        };
+        applier.set_gsettings(Box::new(Gio));
+        Ok(applier)
     }
 }
 
 impl<V: Validate> Applier<V> {
-    /// An applier that changes the session of `client`.
+    /// An applier that changes the session of `client`. It copies nothing to GSettings until
+    /// [`Applier::set_gsettings`] says where to.
     pub fn with_session(state: State, locations: Locations, validator: V, client: Client) -> Self {
         Self {
             compositor: client.compositor(),
@@ -230,11 +240,13 @@ impl<V: Validate> Applier<V> {
             unsaved_since: None,
             pending: None,
             waiting: Waiting::default(),
+            gsettings: Box::new(NoGSettings),
         }
     }
 
     /// An applier without a session, e.g. for the command line at login: changes are saved and
-    /// generated for `compositor`, and nothing is sent.
+    /// generated for `compositor`, and nothing is sent. Like [`Applier::with_session`], it copies
+    /// nothing to GSettings until told where to.
     pub fn without_session(
         state: State,
         locations: Locations,
@@ -250,7 +262,38 @@ impl<V: Validate> Applier<V> {
             unsaved_since: None,
             pending: None,
             waiting: Waiting::default(),
+            gsettings: Box::new(NoGSettings),
         }
+    }
+
+    /// Copies settings with a GSettings key to `store` from now on.
+    pub fn set_gsettings(&mut self, store: Box<dyn GSettingsStore>) {
+        self.gsettings = store;
+    }
+
+    /// Copies the settings of the directive of `setting` that have a GSettings key: the stored
+    /// value for the whole session, or the schema default once nothing is stored. Returns the keys
+    /// that couldn't be written.
+    fn copy_to_gsettings(&self, setting: &Setting) -> Vec<GSettingsError> {
+        self.state
+            .registry()
+            .group(setting)
+            .filter_map(|member| {
+                gsettings::copy(
+                    self.gsettings.as_ref(),
+                    member,
+                    self.state.get(member.key(), None),
+                )
+                .err()
+            })
+            .collect()
+    }
+
+    /// Writes every stored value of a setting with a GSettings key to the store, as
+    /// `sway-things hook gsettings` does ([`gsettings::copy_stored`]). Returns the keys that
+    /// couldn't be written.
+    pub fn copy_stored_to_gsettings(&self) -> Vec<(&'static str, GSettingsError)> {
+        gsettings::copy_stored(&self.state, self.gsettings.as_ref())
     }
 
     /// The settings, with the changes that aren't persisted yet.
@@ -360,6 +403,7 @@ impl<V: Validate> Applier<V> {
             return Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
+                not_copied: Vec::new(),
             });
         }
         let applied = self.finish(setting, device, true, before).await?;
@@ -419,6 +463,7 @@ impl<V: Validate> Applier<V> {
             return Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
+                not_copied: Vec::new(),
             });
         }
         let mut users = BTreeMap::new();
@@ -433,6 +478,7 @@ impl<V: Validate> Applier<V> {
                     return Ok(Applied {
                         changed: true,
                         effect: Effect::AfterReload,
+                        not_copied: self.copy_to_gsettings(setting),
                     });
                 };
                 users.insert(member.key().to_owned(), value);
@@ -451,6 +497,7 @@ impl<V: Validate> Applier<V> {
                 Ok(Applied {
                     changed: true,
                     effect,
+                    not_copied: self.copy_to_gsettings(setting),
                 })
             }
             Err(error) => {
@@ -499,7 +546,12 @@ impl<V: Validate> Applier<V> {
                 if self.state.is_dirty() {
                     self.unsaved_since = Some(Instant::now());
                 }
-                Ok(Applied { changed, effect })
+                let not_copied = self.copy_to_gsettings(setting);
+                Ok(Applied {
+                    changed,
+                    effect,
+                    not_copied,
+                })
             }
             Err(error) => {
                 self.state = before;
@@ -681,6 +733,7 @@ impl<V: Validate> Applier<V> {
         let registry = self.state.registry();
         let mut seen = BTreeSet::new();
         let mut applied = Vec::new();
+        let mut not_copied = Vec::new();
         for changed in &changes.keys {
             let Some(setting) = registry.get(changed.key) else {
                 continue;
@@ -702,12 +755,19 @@ impl<V: Validate> Applier<V> {
                     }
                 }
             }
+            if changed.device.is_none() {
+                not_copied.extend(self.copy_to_gsettings(setting));
+            }
             applied.push((changed.clone(), effect));
         }
         if !changes.is_empty() {
             self.unsaved_since = Some(Instant::now());
         }
-        Reloaded { changes, applied }
+        Reloaded {
+            changes,
+            applied,
+            not_copied,
+        }
     }
 }
 

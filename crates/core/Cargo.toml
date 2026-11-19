@@ -21,6 +21,7 @@ async-channel.workspace = true
 async-io.workspace = true
 async-process.workspace = true
 futures-lite.workspace = true
+gio.workspace = true
 notify.workspace = true
 roxmltree.workspace = true
 rustix.workspace = true

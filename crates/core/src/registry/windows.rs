@@ -397,6 +397,7 @@ fn border_settings(floating: bool) -> Vec<Setting> {
             .title(title[1])
             .subtitle(msg!("In pixels, for windows opened from now on"))
             .slider(0.0, 20.0, 1.0)
+            .unit(super::Unit::Pixels)
             .keywords(keywords)
             .depends_on(style_key, When::OneOf(&["normal", "pixel"]))
             .sway(
@@ -725,6 +726,7 @@ pub(super) fn settings() -> Vec<Setting> {
         Setting::integer(TITLEBAR_PADDING_H, Page::Windows, 5, 0, 100)
             .section(msg!("Title bars"))
             .group("windows.titlebar.padding", msg!("Title bar padding"))
+            .unit(super::Unit::Pixels)
             .title(msg!("Title bar padding, left and right"))
             .subtitle(msg!("In pixels, at least the title bar border"))
             .slider(0.0, 20.0, 1.0)
@@ -739,6 +741,7 @@ pub(super) fn settings() -> Vec<Setting> {
         Setting::integer(TITLEBAR_PADDING_V, Page::Windows, 4, 0, 100)
             .section(msg!("Title bars"))
             .group("windows.titlebar.padding", msg!("Title bar padding"))
+            .unit(super::Unit::Pixels)
             .title(msg!("Title bar padding, top and bottom"))
             .subtitle(msg!("In pixels, at least the title bar border"))
             .slider(0.0, 20.0, 1.0)

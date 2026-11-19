@@ -9,7 +9,8 @@
 //! nothing is stored for the type, the run shows its first heading and a hint instead of its rows.
 //!
 //! The Keyboard page adds its own widgets below some rows (the layouts, the XKB options), see
-//! [`keyboard`].
+//! [`keyboard`]. The Cursor & Tablet page offers drop-downs for its themes, sizes and screens,
+//! see [`cursor`].
 //!
 //! The settings of a directive with several values form a [`GroupRow`], collapsed, with their
 //! rows below it.
@@ -33,11 +34,11 @@ use sway_things_core::ui_state;
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
-use super::keyboard;
 use super::setting_row::tilde;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
 };
+use super::{cursor, keyboard};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
@@ -198,13 +199,15 @@ impl PageView {
             .iter()
             .filter(|setting| setting.page() == page)
         {
-            let row = match keyboard::choices(setting) {
+            let choices = keyboard::choices(setting).or_else(|| cursor::choices(model, setting));
+            let row = match choices {
                 Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
                 None => SettingRow::new(model, setting, None),
             };
             let Some(row) = row else {
                 continue;
             };
+            cursor::follow(model, &row);
             if let Some(mapping) = setting.sway() {
                 files.insert(mapping.file());
             }

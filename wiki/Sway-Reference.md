@@ -34,6 +34,12 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | `pointer_accel` must be within −1 … 1 and `scroll_factor` ≥ 0 (both `parse_float`); `repeat_delay` and `repeat_rate` are read with `atoi` and must be ≥ 0. | `sway/commands/input/*.c` 1.10 |
 | `drag_lock enabled_sticky` needs sway 1.11 and a libinput with `LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY`; otherwise `parse_boolean` reads it as disabled. | `sway-input.5.scd` 1.10 vs 1.11, `sway/commands/input/drag_lock.c`, `meson.build` 1.11 |
 | `xkb_numlock` and `xkb_capslock` are config-only. | `input_config_handlers` in `sway/commands/input.c` 1.10 |
+| `map_to_output` and `map_to_region` set the same mapping of a device; the last one wins. `map_to_output *` maps to the whole desktop and also ends a mapping to a region. | `sway/commands/input/map_to_output.c`, `map_to_region.c`, `seat_apply_input_mapping` in `sway/input/seat.c` 1.10 |
+| Without a mapping, sway maps a built-in touchscreen or tablet to the built-in output and leaves other devices unmapped, but it never undoes a mapping by itself: once mapped over IPC, a device keeps it until another `map_to_output`. | `seat_apply_input_mapping` (`MAPPED_TO_DEFAULT`) in `sway/input/seat.c` 1.10 |
+| `tool_mode * <mode>` sets the pen, eraser, brush, pencil and airbrush; mouse and lens tools are always relative. | `sway/commands/input/tool_mode.c`, `sway-input.5.scd` 1.10 |
+| `seat * xcursor_theme <theme> [<size>]` (size 24 unless given) applies live; sway sets `XCURSOR_THEME` and `XCURSOR_SIZE` from the default seat's theme, which `seat *` reaches, for the programs it starts afterwards. Without a theme, wlroots loads the one called `default`. | `sway/commands/seat/xcursor_theme.c`, `seat_configure_xcursor` in `sway/input/seat.c` 1.10 |
+| `hide_cursor <ms>` raises a timeout between 1 and 99 ms to 100; 0 never hides. `hide_cursor when-typing enable\|disable` is a separate option. | `sway/commands/seat/hide_cursor.c` 1.10 |
+| GTK apps take the cursor theme and size from GSettings (`org.gnome.desktop.interface` `cursor-theme`, `cursor-size`), not from sway. | The `translations` table in `gdk/wayland/gdkdisplay-wayland.c` (GTK 4), which maps these keys to `gtk-cursor-theme-name` and `gtk-cursor-theme-size`. |
 
 ## Windows, borders, gaps and title bars
 

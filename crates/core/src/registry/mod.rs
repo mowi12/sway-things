@@ -34,6 +34,7 @@
 
 mod app;
 mod behavior;
+mod cursor;
 mod effects;
 mod input;
 mod link;
@@ -52,13 +53,14 @@ use std::sync::LazyLock;
 use crate::command::input::InputSelector;
 use crate::command::{SwayCmd, Target};
 
+pub use cursor::{MAP_AUTOMATIC, MAP_DESKTOP};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
-    Apply, Dependency, Msg, Requirements, Scope, Setting, SettingBuilder, SettingGroup, Slider,
-    TextCheck, When,
+    Apply, Dependency, GSettingsKey, Msg, Requirements, Scope, Setting, SettingBuilder,
+    SettingGroup, Slider, TextCheck, Unit, When,
 };
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
@@ -74,6 +76,7 @@ pub struct Registry {
 static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     let mut settings = Vec::new();
     settings.extend(input::settings());
+    settings.extend(cursor::settings());
     settings.extend(windows::settings());
     settings.extend(effects::settings());
     settings.extend(behavior::settings());
@@ -157,7 +160,8 @@ impl Registry {
 
     /// The line of the generated file that sets `setting` to its value in `values`, for showing
     /// it in the app: what [`Registry::render`] builds for the config, without the
-    /// `input <selector>` an option of an `input` block starts with (`pointer_accel 0.3`).
+    /// `input <selector>` or `seat <name>` an option of an `input` or `seat` block starts with
+    /// (`pointer_accel 0.3`).
     ///
     /// # Errors
     ///
@@ -170,7 +174,7 @@ impl Registry {
         device: Option<&InputSelector>,
     ) -> Result<String, RenderError> {
         let skip = match setting.sway().map(|mapping| mapping.directive().block) {
-            Some(Block::Input) => 2,
+            Some(Block::Input | Block::Seat) => 2,
             Some(Block::Top) | None => 0,
         };
         let lines = self
