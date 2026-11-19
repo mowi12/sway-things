@@ -1,0 +1,63 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// The privacy notice (GDPR Art. 13). It names no person: the controller is whoever the imprint names.
+import { repo } from '../data/links.mjs';
+import Legal from '../layouts/Legal.astro';
+---
+
+<Legal
+  title="Privacy · Sway Things"
+  description="What sway-things.org does with your data: GitHub Pages serves it and logs your IP address; no cookies, no analytics."
+  heading="Privacy"
+>
+  <p>
+    This site sets no cookies, runs no analytics or tracking, and loads nothing from other servers: its fonts, images
+    and scripts all come from sway-things.org. What remains is what any web server needs to deliver a page.
+  </p>
+
+  <h2>Who is responsible</h2>
+  <p>
+    The person named in the <a href="/imprint">imprint</a> is responsible for this website (the controller under the
+    GDPR). You can reach them at the email address given there.
+  </p>
+
+  <h2>Hosting by GitHub Pages</h2>
+  <p>
+    The site is served by GitHub Pages, a service of GitHub B.V., Prins Bernhardplein 200, 1097 JB Amsterdam,
+    Netherlands, and of GitHub, Inc., USA. When you open a page, GitHub processes the data your browser sends with every
+    request: your IP address, the date and time, the page requested, and your browser and operating system. It does so
+    to deliver the page and to protect the service from abuse. GitHub keeps these logs only as long as it needs them for
+    that, as its privacy statement describes; the operator of this site has no access to them.
+  </p>
+  <p>
+    You aren't obliged by law or contract to provide this data, but without it your browser can't load the site.
+  </p>
+  <p>
+    The legal basis is the legitimate interest in delivering this site securely and reliably (Art. 6 (1) (f) GDPR). The
+    data may be transferred to the USA; GitHub, Inc. is certified under the EU-U.S. Data Privacy Framework. Details are
+    in <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+    >GitHub's General Privacy Statement</a>.
+  </p>
+
+  <h2>Links and the install command</h2>
+  <p>
+    Links to the <a href={repo}>source code</a>, the wiki, the issues and the releases lead to GitHub; only when you
+    follow one does GitHub's privacy statement apply there. The install command downloads its script from this site, and
+    the script then downloads the packages from the openSUSE Build Service, run by SUSE. For those downloads, the <a
+      href="https://www.suse.com/company/policies/privacy/"
+    >privacy policy of SUSE</a> applies.
+  </p>
+
+  <h2>Your rights</h2>
+  <p>
+    You have the right to access the data about you, to have it corrected or erased, to restrict its processing, to data
+    portability, and to object to its processing (Art. 15 to 21 GDPR). You also have the right to complain to a data
+    protection supervisory authority (Art. 77 GDPR), in particular in the EU member state where you live or work.
+  </p>
+  <p>
+    The site itself stores nothing about you, so it has nothing it could hand out or erase; GitHub's logs are kept by
+    GitHub.
+  </p>
+</Legal>

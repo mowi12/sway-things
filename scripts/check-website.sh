@@ -2,9 +2,9 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Builds the website and checks the result: valid HTML (html-validate, configured in website/.htmlvalidate.json) and
-# working relative links and anchors (lychee, offline). The build itself fails when README.md no longer has the
-# sections the site reads.
+# Runs the website's unit tests (website/src/lib/*.test.mjs, with node --test), builds the website and checks the
+# result: valid HTML (html-validate, configured in website/.htmlvalidate.json), working relative links and anchors
+# (lychee, offline). The build itself fails when README.md no longer has the sections the site reads.
 #
 # Usage: scripts/check-website.sh
 #
@@ -22,6 +22,8 @@ for tool in html-validate lychee; do
     exit 1
   fi
 done
+
+node --test website/src/lib/*.test.mjs
 
 scripts/build-website.sh
 

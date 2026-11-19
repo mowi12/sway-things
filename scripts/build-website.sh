@@ -5,6 +5,9 @@
 # Builds the website (website/, Astro) into website/dist. The site reads README.md and the app icon, so it is built
 # from the whole repository.
 #
+# The imprint is fetched from IMPRINT_URL while building (website/src/lib/imprint.mjs); without it, the imprint page
+# says that this copy has none, and with IMPRINT_REQUIRED set the build fails instead.
+#
 # Usage: scripts/build-website.sh
 #
 # Needs Node.js 22.12 or newer and the website's packages: `npm ci --prefix website`.

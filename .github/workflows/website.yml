@@ -2,7 +2,9 @@ name: Website
 
 # sway-things.org: the site in website/, built with Astro and served by GitHub Pages. The custom domain and the Pages
 # source "GitHub Actions" are set in the repository settings. The site shows parts of README.md and the app icon, so
-# their changes deploy too.
+# their changes deploy too. The imprint is fetched while building
+# from the page the repository variable IMPRINT_URL names; the build fails without it. The weekly build picks up a
+# changed imprint.
 on:
   push:
     branches: [main]
@@ -12,6 +14,8 @@ on:
       - data/icons/**
       - scripts/build-website.sh
       - .github/workflows/website.yml
+  schedule:
+    - cron: "23 5 * * 1"
   workflow_dispatch:
 
 permissions: {}
@@ -38,6 +42,9 @@ jobs:
       - name: Install Website Packages
         run: npm ci --prefix website --no-audit --no-fund
       - name: Build Website
+        env:
+          IMPRINT_URL: ${{ vars.IMPRINT_URL }}
+          IMPRINT_REQUIRED: "1"
         run: scripts/build-website.sh
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
