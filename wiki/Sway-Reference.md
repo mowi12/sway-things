@@ -94,6 +94,7 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | While its profile still matches, kanshi keeps it when displays are plugged in or out: with `...output * enable` active, plugging in a display of a remembered combination doesn't switch to that profile; without such a profile it does. | Tried on headless sway with kanshi 1.9.0 (`swaymsg create_output`, `output … unplug`) and seen on a docked laptop |
 | `kanshictl reload` has kanshi read its config again; `exec` lines of a profile run (through a shell) when it was applied. | `man 1 kanshictl`, `man 5 kanshi` of kanshi 1.9.0 |
 | sway's `workspace N output X` adds to the list of outputs of workspace N and never clears it; a new workspace goes to the first connected output of the list. A reload of sway clears the lists. | sway `commands/workspace.c`, `tree/workspace.c` (`workspace_get_initial_output`) |
+| `workspace N output A B C` lists several outputs: the first one available is used, and a workspace placed on an output further down moves to a higher one once that one is there again. | `man 5 sway` (`workspace <name> output <outputs...>`), 1.12 |
 | `wl-mirror --fullscreen-output O --scaling fit\|cover\|exact --title T <source>` shows `<source>` fullscreen on `O`. | `wl-mirror --help` |
 | waybar's `include`: the first definition of a key wins. | `man 5 waybar` (0.15) |
 | mako supports `include=` with an absolute or `~/` path. | mako `doc/mako.5.scd` |

@@ -100,12 +100,7 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 `kanshictl reload` after saving
 - [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
 
-#### Workspace placement (opt-in)
-
-- [x] 🟡 Map of the displays with workspace numbers: click a number to send it to the next display, drag it to another
-- [x] 🟢 Presets: left-to-right, one block per display, as they are now
-- [x] 🟡 Applied at every activation of a profile via the CLI hook `sway-things hook workspaces`, and at every start and
-      reload of sway
+Workspace placement: see [Workspaces](#workspaces).
 
 #### Laptop lid (opt-in)
 
@@ -234,21 +229,31 @@ swaybar via our sway include.
 - [x] 🟢 Mouse warping (`mouse_warping`)
 - [x] 🟢 Focus wrapping (`focus_wrapping`)
 - [x] 🟢 Focus on window activation (`focus_on_window_activation`)
-- [x] 🟢 Default layout for new workspaces (`workspace_layout`)
-- [x] 🟢 Default split orientation (`default_orientation`)
+- [x] 🟢 Default layout for new workspaces (`workspace_layout`): on Workspaces
+- [x] 🟢 Default split orientation (`default_orientation`): on Workspaces
 - [x] 🟢 Floating modifier and drag behavior (`floating_modifier`)
 - [x] 🟢 Floating min/max size (`floating_minimum_size`, `floating_maximum_size`)
 - [x] 🟢 Tiling drag and threshold (`tiling_drag`, `tiling_drag_threshold`)
 - [x] 🟢 Popups during fullscreen (`popup_during_fullscreen`)
-- [x] 🟢 Workspace back-and-forth (`workspace_auto_back_and_forth`)
+- [x] 🟢 Workspace back-and-forth (`workspace_auto_back_and_forth`): on Workspaces
 - [x] 🟢 XWayland on/off (`xwayland`)
 - [x] 🟢 Inhibit idle for fullscreen apps (`for_window [...] inhibit_idle fullscreen`)
 
 ### Workspaces
 
+- [x] 🟡 Placement on the displays by a rule worked out for the displays connected: sway's own, round robin from left to
+      right, a block per display, all on the built-in display
+- [x] 🟡 Fixed placement remembered per combination of displays: a map of the displays with the workspace numbers; click
+      a number to send it to the next display, drag it to another
+- [x] 🟢 Fallback displays: each workspace lists the other displays after its own, so it moves away when its display is
+      unplugged and back when it returns
+- [x] 🟢 Number of workspaces placed (1–20)
+- [x] 🟡 Applied at every start and reload of sway and each kanshi profile (`sway-things hook workspaces`), and at once
+      from the page
+- [x] 🟢 Layout, split and back-and-forth of new workspaces (moved from Window Behavior)
+- [ ] 🟡 Keys for workspaces 11–20 and to move a workspace to another display, with conflict detection for the user's
+      own bindings (→ shares the binding parser with Keyboard Shortcuts)
 - [ ] 🟢 Workspace names / icons
-- [ ] 🟢 Number of workspaces with generated default bindings
-- Workspace-to-output placement: see [Displays](#displays)
 
 ### Keyboard Shortcuts
 

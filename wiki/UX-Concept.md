@@ -174,14 +174,7 @@ new mode, a rotation and switching an output off go through the safety net.
   (and that kanshi starts with the next login, if it can't be started yet). Without the include line in an existing
   kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes this
   happen. Any one display alone always comes on, so no combination stays dark.
-- **Workspaces (opt-in, with kanshi):** the _Workspaces_ section has _Place workspaces on the displays_ (off by
-  default). On, a card per display that is on, from left to right and numbered as on the canvas, holds the numbers of
-  its workspaces 1 to 10: a click sends a number to the next display, dragging puts it on another card, and the presets
-  _Left to Right_ (1 4 7 · 2 5 8 · 3 6 9 …), _A Block per Display_ and _As They Are Now_ fill all cards. Each change is
-  applied at once and remembered for the combination (switching it on keeps what the cards show), and a workspace closed
-  and opened again after a change goes where it was first placed in this session until sway reloads; kanshi has the
-  workspaces placed again whenever the combination comes back, and so does every start and reload of sway. Without
-  kanshi the section says that it needs kanshi.
+- **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
   there for a display that is on while another one is. The picture starts at once as a fullscreen `wl-mirror` window on
@@ -192,6 +185,36 @@ new mode, a rotation and switching an output off go through the safety net.
   there. The workspaces with windows that stood on the display move to the one shown and go back (the first of them
   shown again, the display at its place again) when it shows its own content again; a display that mirrors takes no
   workspaces, also not from the placement. Without kanshi or wl-mirror the row says what it needs.
+
+### Workspaces
+
+The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are.
+
+- **Place workspaces:** a choice for the whole page.
+  - _Off (sway decides)_, the default: sway's own behavior, a new workspace on the display with the focus. Nothing is
+    placed, and the map is hidden.
+  - _Round robin, left to right_: 1 on the first display, 2 on the second, … (1 3 5 · 2 4 6 with two).
+  - _A block per display_: 1–5 on the first of two displays, 6–10 on the second.
+  - _All on one display (the laptop's, or the leftmost)_.
+  - _Fixed, as you arrange them_: remembered for each combination of displays; one seen for the first time starts round
+    robin.
+
+  A rule is worked out again for whatever displays are connected, so it fits at home, at the office and on the laptop
+  alone without any setup per combination. A display that shows another one's picture takes no workspaces.
+- **Workspaces placed:** how many, from 1 (default 10, up to 20). sway's own keys reach 1 to 10; keys for more come with
+  Keyboard Shortcuts.
+- **The map:** below the rows, a card per display from left to right (two displays of one brand with their connector)
+  with the numbers it holds. A click on a number sends it to the next display, dragging puts it on another card; either
+  makes the placement _Fixed_, starting from what the rule gave. With one display there is nothing to arrange, and the
+  map says so.
+- **Applied:** open workspaces move at once. sway only adds to the displays it knows for a workspace, so the ones that
+  aren't open follow with the next reload: the change waits for it like other settings, with the reload banner.
+- **When displays come and go:** every workspace gets the other displays after its own, from left to right
+  (`workspace 3 output DP-1 eDP-1`). Unplugging a display moves its workspaces to the next one; plugging it back in
+  moves them back. With kanshi, each combination places the workspaces again as the rule says; every start and reload of
+  sway does too. Without kanshi, a combination seen for the first time is placed at the next start or reload.
+- **New workspaces:** _Layout of new workspaces_, _Split of new workspaces_ and _Back and forth_, which were on Window
+  Behavior.
 
 ### Bluetooth
 

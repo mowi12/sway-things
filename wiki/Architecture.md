@@ -746,17 +746,23 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   and a profile of the user's that covers a remembered combination (`kanshi::user_profiles`), since kanshi applies the
   first that matches. The rows of the displays have no reset button and no machine toggle meanwhile: the values stand
   for the combination, not for every machine. A model made for tests never looks.
-- **Workspace placement:** `outputs::workspaces` maps workspaces `1` to `10` to displays by their name in the settings,
-  per combination in `displays.toml` (`[[profile]] workspaces`), opt-in with `[workspaces] place = true`. Presets round
-  the displays left to right or fill them in blocks; `current` reads `GET_WORKSPACES`. `commands` declares
-  `workspace N output X` and moves an open workspace that stands elsewhere (`workspace --no-auto-back-and-forth N`,
-  `move workspace to output X`), since sway's declaration only appends to a list that is never cleared, then gives the
-  focus back. Each kanshi profile with a placement runs `exec sway-things hook workspaces`, and `hook displays` places
-  them again after a start or reload of sway (which forgets the declarations). The page's _Workspaces_ section changes
-  the placement through `Applier::place_workspaces`; switching placement on stores what the page shows. Limit: sway
-  keeps a session's declarations in order and uses the first connected display, so after a placement changed while its
-  old display stays connected, a workspace closed and opened again goes to the old display until sway reloads; open
-  workspaces are moved at once.
+- **Workspace placement:** `outputs::workspaces` puts workspaces `1` to `workspaces.count` on the displays by the rule
+  `workspaces.placement` (`Rule`: sway's own, round robin, blocks, the built-in display, or fixed). Both settings are on
+  the Workspaces page and have no sway directive, since the placement depends on the displays connected. `place` gives
+  each workspace its display (by its name in the settings), leaving out displays that show another one's picture; a
+  fixed placement is remembered per combination in `displays.toml` (`[[profile]] workspaces`), and what it misses is
+  placed round robin. `with_fallbacks` adds the other displays from left to right, and `placing` declares
+  `workspace N output A B C` with the connected ones, so a workspace whose display goes away moves to the next one and
+  back when it returns. It also moves an open workspace that stands elsewhere (`workspace --no-auto-back-and-forth N`,
+  `move workspace to output A`), since sway's declaration only appends to a list that is never cleared, then gives the
+  focus back. `apply` does all that for the session; it runs from `sway-things hook workspaces`, which every kanshi
+  profile runs while a rule places (kanshi's file is written again when the rule changes) and `80-hooks.conf` runs at
+  every start and reload of sway while a rule places (sway forgets the declarations then), and from the applier after a
+  change of either setting. A click or drag on the map sends one move (`Applier::fix_placement`): it is made on the
+  placement as it is then, so fast moves all count, remembered for the combination, and makes the rule fixed, so the
+  workspaces are placed once. Both settings apply after a reload (`Apply::Reload`, which a setting without a sway
+  directive honors with `Effect::AfterReload`, and so does a move on the map): sway keeps a session's declarations in
+  order, so open workspaces move at once, but one closed and opened again goes to its old display until sway reloads.
 - **Mirroring:** `outputs::mirror` keeps, per display of a combination, which display it shows instead of its own
   content and how it fits (`mirror`, `mirror_scaling` in `displays.toml`); `Profile::set_mirror` refuses chains and
   cycles (a source that shows another display, a target shown elsewhere), and so does the page. `apply` is idempotent:
