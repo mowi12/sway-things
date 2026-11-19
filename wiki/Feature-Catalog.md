@@ -199,11 +199,12 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 
 ### Apps Look & Feel
 
-- [ ] 🟢 GTK theme, icon theme, font (gsettings)
-- [ ] 🟢 Dark / light preference (`color-scheme`)
+- [x] 🟢 GTK theme, icon theme, font (gsettings): the installed themes as drop-downs, the icon themes with a few of
+      their icons, the interface, document and monospace fonts with GTK's font dialog
+- [x] 🟢 Dark / light preference (`color-scheme`)
 - [ ] 🟡 Qt theming (`QT_QPA_PLATFORMTHEME`, qt5ct/qt6ct, Kvantum) via our `environment.d` file
-- [ ] 🟢 Font rendering: antialiasing, hinting, subpixel order
-- [ ] 🟢 Text scaling factor
+- [x] 🟢 Font rendering: antialiasing, hinting, subpixel order
+- [x] 🟢 Text scaling factor
 - [ ] 🟡 Automatic dark mode by time of day (darkman backend)
 
 ### Bar
@@ -332,7 +333,7 @@ swaybar via our sway include.
 ### Accessibility
 
 - [x] 🟢 Large cursor (→ Cursor & Tablet)
-- [ ] 🟢 Larger text (→ Apps Look & Feel)
+- [x] 🟢 Larger text (→ Apps Look & Feel)
 - [x] 🟢 Slow keys / repeat tuning (→ Keyboard)
 - **Not possible on sway:** sticky keys, color inversion, zoom/magnifier
 
