@@ -512,6 +512,8 @@ fn check_relogin_badge() -> Outcome {
         xwayland.badges() == ["Applies after re-login"],
         &format!("  Xwayland has the badges {:?}", xwayland.badges()),
     )?;
+    window.destroy();
+    let window = open(&fixture, Page::Workspaces)?;
     let layout = row(&window, WORKSPACE_LAYOUT)?;
     ensure(
         layout.badges() == ["Applies after reload"],

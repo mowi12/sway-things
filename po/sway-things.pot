@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-19 08:54+0100\n"
+"POT-Creation-Date: 2026-11-19 21:08+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1869,67 +1869,6 @@ msgstr ""
 msgid "attention"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/page.rs
-#: crates/gui/src/widgets/page_view.rs
-msgid "Workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Layout of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "tabs"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "stack"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
-msgid "tiling"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Split of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "How the windows of a new workspace are arranged"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "default orientation"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "horizontal"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "vertical"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Back and forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Switching to the current workspace again goes back to the previous one"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "workspace_auto_back_and_forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "previous workspace"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "toggle"
-msgstr ""
-
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
 msgid "Mouse"
 msgstr ""
@@ -2077,6 +2016,66 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs
 msgid "legacy"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "New workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Layout of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tabs"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "stack"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "tiling"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Split of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "How the windows of a new workspace are arranged"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "default orientation"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "horizontal"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "vertical"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Back and forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Switching to the current workspace again goes back to the previous one"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "workspace_auto_back_and_forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "previous workspace"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "toggle"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs
@@ -3419,6 +3418,10 @@ msgstr ""
 msgid "Window Behavior"
 msgstr ""
 
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/page_view.rs
+msgid "Workspaces"
+msgstr ""
+
 #: crates/core/src/registry/page.rs
 msgid "Keyboard Shortcuts"
 msgstr ""
@@ -3508,7 +3511,7 @@ msgid "How focus, floating and tiling behave"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Names, icons and the number of workspaces"
+msgid "How new workspaces start"
 msgstr ""
 
 #: crates/core/src/registry/page.rs

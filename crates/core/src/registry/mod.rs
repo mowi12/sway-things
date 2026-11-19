@@ -82,6 +82,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(windows::settings());
     settings.extend(effects::settings());
     settings.extend(behavior::settings());
+    settings.extend(behavior::new_workspaces());
     settings.extend(app::settings());
     Registry { settings }
 });
