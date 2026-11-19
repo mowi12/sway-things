@@ -23,6 +23,7 @@ pub mod gsettings;
 pub mod i18n;
 pub mod include;
 pub mod ipc;
+pub mod look;
 pub mod network;
 pub mod outputs;
 pub mod registry;
