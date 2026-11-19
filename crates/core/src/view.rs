@@ -362,6 +362,7 @@ mod tests {
     use crate::command::Color;
     use crate::conflict::Known;
     use crate::generate::Locations;
+    use crate::gsettings::{GSettingsStore, MemoryGSettings};
     use crate::include::IncludeStatus;
     use crate::ipc::{Compositor, Unmet};
     use crate::registry::{Registry, Value};
@@ -500,6 +501,93 @@ mod tests {
             (Value::Bool(false), Source::Default)
         );
         assert_eq!(view.line.as_deref(), Some("tap disabled"));
+    }
+
+    #[test]
+    fn a_gsettings_only_setting_shows_what_gsettings_has_unless_one_is_stored() {
+        let store = MemoryGSettings::default();
+        let theme = Registry::builtin().get("look.gtk_theme").unwrap();
+        let style = Registry::builtin().get("look.style").unwrap();
+        let cursor = Registry::builtin().get("cursor.theme").unwrap();
+        let setup = setup("version = 1\n\n[look]\nicon_theme = \"Papirus\"\n");
+        let views = |key: &str| {
+            let setting = Registry::builtin().get(key).unwrap();
+            SettingView::with_desktop(
+                setting,
+                None,
+                &setup.state,
+                &status(INCLUDE),
+                SWAY,
+                Known::default(),
+                &store,
+            )
+        };
+        // Nothing readable: the default stays.
+        assert_eq!(views("look.gtk_theme").source, Source::Default);
+
+        store
+            .set(theme.gsettings().unwrap(), &Value::Text("Arc".into()))
+            .unwrap();
+        store
+            .set(
+                style.gsettings().unwrap(),
+                &Value::Choice("prefer-dark".into()),
+            )
+            .unwrap();
+        store
+            .set(cursor.gsettings().unwrap(), &Value::Text("Bibata".into()))
+            .unwrap();
+        let view = views("look.gtk_theme");
+        assert_eq!(
+            (view.value, view.source),
+            (Value::Text("Arc".into()), Source::Desktop)
+        );
+        assert_eq!(view.line, None);
+        // An enum key's string is a choice.
+        assert_eq!(
+            views("look.style").value,
+            Value::Choice("prefer-dark".into())
+        );
+        // A stored value wins.
+        store
+            .set(
+                Registry::builtin()
+                    .get("look.icon_theme")
+                    .unwrap()
+                    .gsettings()
+                    .unwrap(),
+                &Value::Text("Adwaita".into()),
+            )
+            .unwrap();
+        let icons = views("look.icon_theme");
+        assert_eq!(icons.value, Value::Text("Papirus".into()));
+        // But what another tool set since shows too.
+        assert_eq!(icons.changed_elsewhere, Some(Value::Text("Adwaita".into())));
+        assert_eq!(views("look.gtk_theme").changed_elsewhere, None);
+        // A setting depends on what GSettings has: subpixel smoothing set elsewhere unlocks the
+        // subpixel order.
+        assert!(views("look.subpixel_order").locked.is_some());
+        store
+            .set(
+                Registry::builtin()
+                    .get("look.antialiasing")
+                    .unwrap()
+                    .gsettings()
+                    .unwrap(),
+                &Value::Choice("rgba".into()),
+            )
+            .unwrap();
+        assert_eq!(views("look.subpixel_order").locked, None);
+        // Sway draws the cursor: its theme is what sway has, whatever GTK's is.
+        assert_eq!(views("cursor.theme").source, Source::Default);
+        // A value that doesn't fit the setting isn't shown.
+        store
+            .set(
+                style.gsettings().unwrap(),
+                &Value::Text("prefer-purple".into()),
+            )
+            .unwrap();
+        assert_eq!(views("look.style").source, Source::Default);
     }
 
     #[test]

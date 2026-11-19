@@ -38,6 +38,7 @@ mod cursor;
 mod effects;
 mod input;
 mod link;
+mod look;
 mod output;
 mod output_line;
 mod page;
@@ -61,7 +62,7 @@ pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
-    Apply, Dependency, DeviceError, GSettingsKey, Msg, Requirements, Scope, Setting,
+    Apply, Dependency, DeviceError, Font, GSettingsKey, Msg, Requirements, Scope, Setting,
     SettingBuilder, SettingGroup, Slider, TextCheck, Unit, When,
 };
 pub use sway::{
@@ -82,6 +83,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(output::settings());
     settings.extend(windows::settings());
     settings.extend(effects::settings());
+    settings.extend(look::settings());
     settings.extend(behavior::settings());
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());

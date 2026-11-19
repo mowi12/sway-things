@@ -1507,7 +1507,8 @@ msgstr ""
 msgid "The color of switches, sliders and selections in this app"
 msgstr ""
 
-#: crates/core/src/registry/app.rs crates/core/src/registry/windows.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/windows.rs
 msgid "theme"
 msgstr ""
 
@@ -1551,7 +1552,7 @@ msgstr ""
 msgid "vim"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/look.rs
 msgid "terminal"
 msgstr ""
 
@@ -2289,11 +2290,11 @@ msgstr ""
 msgid "large cursor"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/look.rs
 msgid "bigger"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/look.rs
 msgid "accessibility"
 msgstr ""
 
@@ -2706,8 +2707,8 @@ msgstr ""
 
 #. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
-#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
@@ -3317,6 +3318,293 @@ msgstr ""
 msgid "unknown setting {key}; the settings that start with {prefix} are {keys}"
 msgstr ""
 
+#. TRANSLATORS: No light or dark style asked for: apps choose, most of them light.
+#: crates/core/src/registry/look.rs
+msgid "No preference"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Light"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Dark"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Standard (grayscale)"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Subpixel (for LCD screens)"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Slight"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Medium"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Full"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "RGB"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "BGR"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Vertical RGB"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Vertical BGR"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Style"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Light or dark, for the apps that follow it"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "dark mode"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "light mode"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "dark theme"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "night"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "color scheme"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "prefer dark"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "GTK theme"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid ""
+"For GTK apps without libadwaita, which don't follow the style: pick a dark "
+"theme for them too"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "gtk"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "look"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "skin"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "widgets"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Icons"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "The icons of apps, folders and files"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "icon theme"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "icons"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "symbols"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Fonts"
+msgstr ""
+
+#: crates/core/src/registry/look.rs crates/gui/src/widgets/network/mod.rs
+msgid "Interface"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Menus, buttons and labels"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "font"
+msgstr ""
+
+#: crates/core/src/registry/look.rs crates/core/src/registry/windows.rs
+msgid "typeface"
+msgstr ""
+
+#: crates/core/src/registry/look.rs crates/core/src/registry/value.rs
+msgid "text"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "interface font"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Documents"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Text you read and write in apps"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "document font"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "reading"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Monospace"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Terminals and code"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "monospace font"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "fixed width"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "code"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Text size"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "1 is the normal size, 1.25 a quarter larger"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "larger text"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "large text"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "text scaling"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "font size"
+msgstr ""
+
+#: crates/core/src/registry/look.rs crates/core/src/registry/output.rs
+msgid "zoom"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Font rendering"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Smoothing"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "How the edges of letters are smoothed"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "antialiasing"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "font rendering"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "subpixel"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "cleartype"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "blurry"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Hinting"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Fits letters to the pixel grid: sharper, but less true to their shape"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "sharp"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "crisp"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "Subpixel order"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "The order of the color stripes in a pixel of your screen; most are RGB"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "rgb"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "bgr"
+msgstr ""
+
+#: crates/core/src/registry/look.rs
+msgid "lcd"
+msgstr ""
+
 #: crates/core/src/registry/output.rs
 msgid "90° clockwise"
 msgstr ""
@@ -3400,10 +3688,6 @@ msgstr ""
 msgid ""
 "How big everything is on this display. Unless set, sway picks a scale for "
 "the pixel density"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
-msgid "zoom"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -3818,6 +4102,14 @@ msgid "must be a position like 1920,0, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
+msgid "must be the name of a theme's folder, without slashes or line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a font and size like \"Adwaita Sans 11\", without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
 msgid "boolean"
 msgstr ""
 
@@ -3831,10 +4123,6 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "choice"
-msgstr ""
-
-#: crates/core/src/registry/value.rs
-msgid "text"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -4133,10 +4421,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Font family and size, e.g. \"monospace 10\""
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "typeface"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -5796,10 +6080,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
 msgid "Hardware address"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Interface"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs

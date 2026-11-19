@@ -175,8 +175,9 @@ impl Unit {
 }
 
 /// A GSettings key a setting is copied to, for the apps that read it instead of asking sway: the
-/// cursor theme of GTK apps. A text setting maps to a string key, a whole number to an integer
-/// key.
+/// cursor theme of GTK apps, their theme, fonts and light or dark style. A text or a choice maps
+/// to a string key (an enum key takes the choice's id), a whole number to an integer key, a
+/// decimal to a double key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GSettingsKey {
     /// The schema, e.g. `org.gnome.desktop.interface`.
@@ -214,6 +215,16 @@ pub struct Setting {
     gsettings: Option<GSettingsKey>,
     unit: Option<Unit>,
     one_at_a_time: bool,
+    font: Option<Font>,
+}
+
+/// What kind of font a text setting holds ([`Setting::font`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Font {
+    /// Any font.
+    Any,
+    /// A font whose letters all have the same width, for terminals and code.
+    Monospace,
 }
 
 impl Setting {
@@ -244,6 +255,7 @@ impl Setting {
             gsettings: None,
             unit: None,
             one_at_a_time: false,
+            font: None,
         })
     }
 
@@ -468,6 +480,12 @@ impl Setting {
         self.unit
     }
 
+    /// Whether the text is a Pango font description (`Adwaita Sans 11`), which the app picks with
+    /// a font dialog, and of which fonts.
+    pub fn font(&self) -> Option<Font> {
+        self.font
+    }
+
     /// The sway directive behind the setting, or `None` for a preference of Sway Things itself.
     pub fn sway(&self) -> Option<&SwayMapping> {
         self.sway.as_ref()
@@ -648,6 +666,12 @@ impl SettingBuilder {
     /// Sets the unit of a number setting ([`Setting::unit`]).
     pub fn unit(mut self, unit: Unit) -> Self {
         self.0.unit = Some(unit);
+        self
+    }
+
+    /// Records that the text is a description of a font of `kind` ([`Setting::font`]).
+    pub fn font(mut self, kind: Font) -> Self {
+        self.0.font = Some(kind);
         self
     }
 

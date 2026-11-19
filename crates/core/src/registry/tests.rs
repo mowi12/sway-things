@@ -427,14 +427,22 @@ fn app_preferences_have_no_sway_mapping() {
         let is_app = setting.key().starts_with("app.");
         // The placement of the workspaces depends on the displays connected: a hook sends it.
         let is_placement = setting.key().starts_with("workspaces.");
+        // The settings of Apps Look & Feel live in GSettings only.
+        let is_gsettings_only = setting.page() == Page::AppsLookFeel;
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement,
+            is_app || is_placement || is_gsettings_only,
             "{}",
             setting.key()
         );
         if is_placement {
             assert_eq!(setting.page(), Page::Workspaces);
+            assert_eq!(registry().group(setting).count(), 1);
+        }
+        if is_gsettings_only {
+            assert!(setting.key().starts_with("look."), "{}", setting.key());
+            assert!(setting.gsettings().is_some(), "{}", setting.key());
+            assert_eq!(setting.scope(), Scope::Global);
             assert_eq!(registry().group(setting).count(), 1);
         }
         if is_app {
