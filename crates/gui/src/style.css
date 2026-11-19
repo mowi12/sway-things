@@ -281,15 +281,20 @@ st-display-canvas > .st-display-grip:hover {
   border-color: @theme_selected_bg_color;
 }
 
-/* A display's card in the "Workspaces" section, with the numbers of its workspaces */
-.st-display-workspace-card {
+/* The map of the Workspaces page, below the placement rows */
+.st-workspace-map {
+  margin-top: 12px;
+}
+
+/* A display's card on the Workspaces page, with the numbers of its workspaces */
+.st-workspace-card {
   padding: 10px;
   border: 1px solid @borders;
   border-radius: 8px;
   background-color: alpha(currentColor, 0.04);
 }
 
-.st-display-workspace-card > flowbox > flowboxchild > button {
+.st-workspace-card > flowbox > flowboxchild > button {
   min-width: 32px;
 }
 

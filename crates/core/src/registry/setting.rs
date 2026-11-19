@@ -126,6 +126,8 @@ pub enum When {
     On,
     /// A choice is one of these ids.
     OneOf(&'static [&'static str]),
+    /// A choice is none of these ids.
+    NoneOf(&'static [&'static str]),
     /// A number is above this.
     Above(f64),
 }
@@ -136,6 +138,7 @@ impl When {
         match (self, value) {
             (Self::On, Value::Bool(on)) => *on,
             (Self::OneOf(ids), Value::Choice(id)) => ids.contains(&id.as_str()),
+            (Self::NoneOf(ids), Value::Choice(id)) => !ids.contains(&id.as_str()),
             #[expect(
                 clippy::cast_precision_loss,
                 reason = "the ranges of whole-number settings are far below 2^52"

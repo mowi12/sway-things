@@ -80,6 +80,14 @@ fn holding(key: &str, when: When) -> Value {
     let value = match (when, setting(key).kind()) {
         (When::On, _) => Value::Bool(true),
         (When::OneOf(ids), _) => Value::Choice(ids[0].to_owned()),
+        (When::NoneOf(ids), Kind::Choice { choices, .. }) => Value::Choice(
+            choices
+                .iter()
+                .find(|choice| !ids.contains(&choice.id))
+                .map(|choice| choice.id.to_owned())
+                .unwrap_or_default(),
+        ),
+        (When::NoneOf(_), kind) => panic!("{key}: NoneOf for {kind:?}"),
         (When::Above(_), Kind::Decimal { max, .. }) => Value::Decimal(*max),
         (When::Above(_), Kind::Integer { max, .. }) => Value::Integer(*max),
         (When::Above(_), kind) => panic!("{key}: Above for {kind:?}"),
@@ -417,7 +425,18 @@ fn every_stored_value_changes_the_commands() {
 fn app_preferences_have_no_sway_mapping() {
     for setting in registry().iter() {
         let is_app = setting.key().starts_with("app.");
-        assert_eq!(setting.sway().is_none(), is_app, "{}", setting.key());
+        // The placement of the workspaces depends on the displays connected: a hook sends it.
+        let is_placement = setting.key().starts_with("workspaces.");
+        assert_eq!(
+            setting.sway().is_none(),
+            is_app || is_placement,
+            "{}",
+            setting.key()
+        );
+        if is_placement {
+            assert_eq!(setting.page(), Page::Workspaces);
+            assert_eq!(registry().group(setting).count(), 1);
+        }
         if is_app {
             assert_eq!(setting.page(), Page::About);
             assert_eq!(setting.scope(), Scope::Global);
@@ -1302,7 +1321,7 @@ fn dependencies_name_an_earlier_setting_of_the_page_with_values_it_can_take() {
             let fits = match (dependency.when, other.kind()) {
                 (When::On, Kind::Bool { .. })
                 | (When::Above(_), Kind::Integer { .. } | Kind::Decimal { .. }) => true,
-                (When::OneOf(ids), Kind::Choice { choices, .. }) => {
+                (When::OneOf(ids) | When::NoneOf(ids), Kind::Choice { choices, .. }) => {
                     !ids.is_empty()
                         && ids
                             .iter()
@@ -1325,6 +1344,8 @@ fn dependencies_name_an_earlier_setting_of_the_page_with_values_it_can_take() {
 fn a_dependency_holds_for_the_values_it_names() {
     assert!(When::On.holds(&Value::Bool(true)));
     assert!(!When::On.holds(&Value::Bool(false)));
+    assert!(When::NoneOf(&["sway"]).holds(&Value::Choice("fixed".to_owned())));
+    assert!(!When::NoneOf(&["sway"]).holds(&Value::Choice("sway".to_owned())));
     assert!(When::OneOf(&["pixel"]).holds(&Value::Choice("pixel".to_owned())));
     assert!(!When::OneOf(&["pixel"]).holds(&Value::Choice("none".to_owned())));
     assert!(When::Above(0.0).holds(&Value::Integer(1)));

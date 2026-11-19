@@ -66,6 +66,7 @@ use crate::outputs::profiles::{Profile, Profiles, kanshi_config};
 use crate::outputs::{ENABLED, MODE, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::registry::{
     Apply, ConfigFile, Registry, RenderError, Scope, Setting, SwayMapping, Value, Values,
+    workspaces,
 };
 use crate::state::{ChangedKey, Changes, Layer, Paths, PathsError, State, StateError};
 
@@ -725,6 +726,11 @@ impl<V: Validate> Applier<V> {
                 if self.state.is_dirty() {
                     self.unsaved_since = Some(Instant::now());
                 }
+                if [workspaces::PLACEMENT, workspaces::COUNT].contains(&setting.key()) {
+                    self.write_profiles_for_kanshi().await;
+                    // Best effort: the hook places them again when sway starts or reloads.
+                    let _ = self.place_now().await;
+                }
                 let not_copied = self.copy_to_gsettings(setting);
                 Ok(Applied {
                     changed,
@@ -750,7 +756,11 @@ impl<V: Validate> Applier<V> {
         over: &BTreeMap<String, Value>,
     ) -> Result<Effect, ApplyError> {
         if setting.sway().is_none() {
-            return Ok(Effect::Preference);
+            // A setting a hook sends (the placement of the workspaces) can need a reload.
+            return Ok(match setting.apply() {
+                Apply::Reload => Effect::AfterReload,
+                _ => Effect::Preference,
+            });
         }
         let requirements = setting.requirements();
         if let Err(unmet) = self
@@ -900,7 +910,12 @@ impl<V: Validate> Applier<V> {
                 }
             }
         }
-        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        self.displays_problem = Self::write_kanshi(
+            self.kanshi_files.as_ref(),
+            profiles,
+            crate::outputs::workspaces::Rule::of(&self.state).places(),
+        )
+        .await;
         // The generated config starts kanshi, but it doesn't run yet (the displays are set up
         // here for the first time): sway starts it now, so the arrangement doesn't wait for the
         // next login to come back with the displays.
@@ -1040,7 +1055,12 @@ impl<V: Validate> Applier<V> {
                 return;
             }
         }
-        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        self.displays_problem = Self::write_kanshi(
+            self.kanshi_files.as_ref(),
+            profiles,
+            crate::outputs::workspaces::Rule::of(&self.state).places(),
+        )
+        .await;
     }
 
     /// Reads the remembered displays again: `sway-things hook mirror`, run by kanshi, may have
@@ -1058,9 +1078,13 @@ impl<V: Validate> Applier<V> {
 
     /// Writes the profiles for kanshi and has kanshi read them again, if anything changed.
     /// Returns what went wrong.
-    async fn write_kanshi(files: Option<&KanshiFiles>, profiles: &Profiles) -> Option<Text> {
+    async fn write_kanshi(
+        files: Option<&KanshiFiles>,
+        profiles: &Profiles,
+        places: bool,
+    ) -> Option<Text> {
         let files = files?;
-        match files.write(&kanshi_config(profiles)) {
+        match files.write(&kanshi_config(profiles, places)) {
             Ok(true) => {
                 kanshi::reload().await;
                 None
@@ -1151,7 +1175,12 @@ impl<V: Validate> Applier<V> {
         profiles
             .save()
             .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
-        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
+        self.displays_problem = Self::write_kanshi(
+            self.kanshi_files.as_ref(),
+            profiles,
+            crate::outputs::workspaces::Rule::of(&self.state).places(),
+        )
+        .await;
         // The picture doesn't take the focus when it starts (the generated config says so from
         // the next reload of sway on).
         let _ = client
@@ -1166,24 +1195,6 @@ impl<V: Validate> Applier<V> {
                     .await;
         }
         Ok(())
-    }
-
-    /// Where the workspaces are now, by workspace name and display name.
-    ///
-    /// # Errors
-    ///
-    /// [`ApplyError::NoSession`] without a session, and the IPC errors.
-    pub async fn current_placement(
-        &mut self,
-    ) -> Result<std::collections::BTreeMap<String, String>, ApplyError> {
-        let Some(client) = &mut self.client else {
-            return Err(ApplyError::NoSession {
-                key: "workspaces.placement",
-            });
-        };
-        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
-        let open = client.workspaces().await.map_err(ApplyError::Ipc)?;
-        Ok(crate::outputs::workspaces::current(&outputs, &open))
     }
 
     /// kanshi's files, if kanshi is installed (not for an applier made for tests).
@@ -1202,47 +1213,102 @@ impl<V: Validate> Applier<V> {
         self.profiles.as_ref()
     }
 
-    /// Places the workspaces on the displays as the profile of each combination says (`place`),
-    /// or not; with `placement`, that is the placement for the combination connected now. Saved
-    /// at once, written for kanshi, and with `place` the workspaces are moved now.
+    /// Puts `workspace` on `display` (by its name in the settings) in the placement as it is now
+    /// for the displays connected, remembers that as their fixed placement, saved at once, and
+    /// makes the rule fixed, which places the workspaces.
     ///
     /// # Errors
     ///
-    /// [`ApplyError::NoSession`]-like errors without a session or profiles, and the IPC errors.
-    pub async fn place_workspaces(
+    /// [`ApplyError::NoSession`] without a session or profiles, a write error of `displays.toml`,
+    /// and the errors of the change and the IPC.
+    pub async fn fix_placement(
         &mut self,
-        place: bool,
-        placement: Option<std::collections::BTreeMap<String, String>>,
+        workspace: &str,
+        display: &str,
+        access: &WriteAccess,
     ) -> Result<(), ApplyError> {
         self.reread_profiles();
+        // No displays remembered yet: the file is made now. One that can't be read stays as it is.
+        let path = self.state.paths().displays();
+        if self.profiles.is_none() && !path.exists() {
+            self.profiles = Some(Profiles::empty(path));
+        }
         let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
             return Err(ApplyError::NoSession {
-                key: "workspaces.placement",
+                key: crate::registry::workspaces::PLACEMENT,
             });
         };
-        profiles.set_places_workspaces(place);
-        if let Some(placement) = placement {
-            let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
-            if let Some(mut profile) = Profile::stored(&outputs, &self.state) {
-                let names: Vec<&str> = profile.combination();
-                if let Some(known) = profiles.of(&names) {
-                    profile = known.clone();
-                }
-                profile.set_workspaces(placement);
-                profiles.remember(profile);
-            }
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        // The move is made on the placement as it is now, so moves made one after the other
+        // all count, however fast they come.
+        let rule = crate::outputs::workspaces::Rule::of(&self.state);
+        let mirrors = crate::outputs::workspaces::mirrored(Some(profiles), &outputs);
+        let mut placement = crate::outputs::workspaces::place(
+            if rule.places() {
+                rule
+            } else {
+                crate::outputs::workspaces::Rule::RoundRobin
+            },
+            &outputs,
+            &mirrors,
+            crate::outputs::workspaces::count(&self.state),
+            &crate::outputs::workspaces::fixed(Some(profiles), &outputs),
+        );
+        placement.insert(workspace.to_owned(), display.to_owned());
+        let Some(mut profile) = Profile::stored(&outputs, &self.state) else {
+            return Ok(());
+        };
+        let names: Vec<&str> = profile.combination();
+        if let Some(known) = profiles.of(&names) {
+            profile = known.clone();
         }
+        profile.set_workspaces(placement);
+        profiles.remember(profile);
         let path = profiles.path().to_owned();
         profiles
             .save()
             .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
-        self.displays_problem = Self::write_kanshi(self.kanshi_files.as_ref(), profiles).await;
-        if place {
-            crate::outputs::workspaces::apply(client, profiles)
+        // The rule becomes fixed, which places them; or it was, and a reload settles the
+        // workspaces that aren't open (sway only appends to their displays).
+        let fixed = Value::Choice("fixed".to_owned());
+        if self.state.get(workspaces::PLACEMENT, None) == Some(&fixed) {
+            self.write_profiles_for_kanshi().await;
+            self.place_now().await?;
+            if let Some(setting) = self.state.registry().get(workspaces::PLACEMENT) {
+                self.note(setting, None, &Effect::AfterReload, Some(fixed));
+            }
+            Ok(())
+        } else {
+            self.set(workspaces::PLACEMENT, None, fixed, access)
                 .await
-                .map_err(ApplyError::Ipc)?;
+                .map(drop)
         }
-        Ok(())
+    }
+
+    /// Writes kanshi's profiles again, after the placement of the workspaces changed: they run
+    /// the hook only while it places.
+    async fn write_profiles_for_kanshi(&mut self) {
+        if let Some(profiles) = &self.profiles {
+            let places = crate::outputs::workspaces::Rule::of(&self.state).places();
+            self.displays_problem =
+                Self::write_kanshi(self.kanshi_files.as_ref(), profiles, places).await;
+        }
+    }
+
+    /// Puts the workspaces on the displays connected now as the Workspaces page says
+    /// ([`crate::outputs::workspaces::apply`]). Nothing without a session.
+    ///
+    /// # Errors
+    ///
+    /// The IPC errors.
+    pub async fn place_now(&mut self) -> Result<(), ApplyError> {
+        let Some(client) = &mut self.client else {
+            return Ok(());
+        };
+        crate::outputs::workspaces::apply(client, &self.state, self.profiles.as_ref())
+            .await
+            .map(drop)
+            .map_err(ApplyError::Ipc)
     }
 
     /// The stored changes that wait for a reload of sway or the next login.

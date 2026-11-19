@@ -153,8 +153,9 @@ pub enum Hook {
     /// run at every start and reload of sway while Sway Things stores anything for a display, so
     /// it never leaves you without one
     Displays,
-    /// Put the workspaces on the displays as remembered for the displays connected now: run by
-    /// kanshi when it applied a profile, while the workspaces are placed (Displays page)
+    /// Put the workspaces on the displays connected now as the Workspaces page says: run at
+    /// every start and reload of sway while a rule places them, and by kanshi when it applied a
+    /// profile
     Workspaces,
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
     /// the mirrors of other combinations: run by kanshi when it applied a profile
@@ -400,9 +401,8 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
     }
     // A display is on in the end, whatever kanshi did.
     let ensured = outputs::ensure_one_on(&mut client).await;
-    // sway forgot where the workspaces go, and the mirrors may be gone: placed and started
-    // again (both change nothing where kanshi's profile did it already).
-    let _ = place_workspaces(&mut client).await;
+    // The mirrors may be gone: started again (nothing changes where kanshi's profile did it
+    // already). The workspaces are placed by `hook workspaces`, which runs at the same time.
     let _ = start_mirrors(&mut client).await;
     match ensured {
         Ok(Some(name)) => {
@@ -515,16 +515,16 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     Ok(outputs::mirror::apply(&profiles, &found))
 }
 
-/// Puts the workspaces where the remembered profiles say, as [`outputs::workspaces::apply`].
-/// Without remembered profiles (none, or none that can be read), nothing happens.
+/// Puts the workspaces where the Workspaces page says, as [`outputs::workspaces::apply`], with
+/// the settings and the remembered profiles of the user. Without settings paths nothing happens;
+/// profiles that can't be read count as none.
 async fn place_workspaces(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
     let Ok(paths) = sway_things_core::state::Paths::from_env() else {
         return Ok(0);
     };
-    let Ok(profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
-        return Ok(0);
-    };
-    outputs::workspaces::apply(client, &profiles).await
+    let profiles = outputs::profiles::Profiles::load(paths.displays()).ok();
+    let state = State::load(Registry::builtin(), paths);
+    outputs::workspaces::apply(client, &state, profiles.as_ref()).await
 }
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
@@ -717,20 +717,12 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
             },
             _ => Exit::Ok,
         },
-        Hook::Workspaces => match (
-            session.applier.profiles().cloned(),
-            session.applier.client(),
-        ) {
-            (Some(profiles), Some(client)) => {
-                match outputs::workspaces::apply(client, &profiles).await {
-                    Ok(_) => Exit::Ok,
-                    Err(error) => {
-                        io.error(error_line(&error.text().translated()));
-                        Exit::Failure
-                    }
-                }
+        Hook::Workspaces => match session.applier.place_now().await {
+            Ok(()) => Exit::Ok,
+            Err(error) => {
+                io.error(error_line(&error.text().translated()));
+                Exit::Failure
             }
-            _ => Exit::Ok,
         },
         Hook::Displays => match session.applier.client() {
             Some(client) => match outputs::ensure_one_on(client).await {

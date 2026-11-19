@@ -39,6 +39,7 @@ use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
+    WorkspaceMap,
 };
 use super::{cursor, keyboard};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
@@ -272,11 +273,8 @@ impl PageView {
         for group in groups {
             group.follow(model);
         }
-        if page == Page::MouseTouchpad {
-            sections.push(test_area_section(model, &body));
-        }
-        let displays =
-            arrangement.map(|shown| follow_displays(model, &body, shown, &rows, &mut sections));
+        add_page_parts(model, page, &body, &mut sections);
+        let displays = arrangement.map(|shown| follow_displays(model, shown, &rows));
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
         }
@@ -565,30 +563,34 @@ fn arrangement_section(
     arrangement
 }
 
-/// Lets the Displays page follow its outputs: the picker before the rows, and the
-/// "Workspaces" section after them.
+/// Lets the Displays page follow its outputs: the picker before the rows.
 fn follow_displays(
     model: &Model,
-    body: &gtk::Box,
     arrangement: Arrangement,
     rows: &[SettingRow],
-    sections: &mut Vec<Section>,
 ) -> (displays::OutputPicker, Arrangement) {
     let picker = displays::follow(model, &arrangement, rows);
-    sections.push(workspaces_section(model, body, &picker));
     (picker, arrangement)
 }
 
-/// The "Workspaces" section of Displays: which workspace goes on which display.
-fn workspaces_section(model: &Model, body: &gtk::Box, picker: &displays::OutputPicker) -> Section {
-    let title = msg!("Workspaces");
-    let section = Section::new(model, Page::Displays, title.msgid(), tr(title), false);
-    let map = displays::WorkspaceMap::new(model);
-    section.body.append(map.widget());
-    displays::follow_workspaces(model, &map, picker);
-    body.append(&section.header);
-    body.append(&section.body);
-    section
+/// The parts of `page` beyond its rows: the test area of Mouse & Touchpad, the map of the
+/// displays on Workspaces.
+fn add_page_parts(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec<Section>) {
+    match page {
+        Page::MouseTouchpad => sections.push(test_area_section(model, body)),
+        Page::Workspaces => add_workspace_map(model, sections),
+        _ => {}
+    }
+}
+
+/// The map of the displays with their workspaces, below the rows of the Workspaces page's
+/// "Placement" section.
+fn add_workspace_map(model: &Model, sections: &[Section]) {
+    let placement = msg!("Placement").msgid();
+    let id = ui_state::section_id(placement);
+    if let Some(section) = sections.iter().find(|section| section.id == id) {
+        section.body.append(WorkspaceMap::new(model).widget());
+    }
 }
 
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.

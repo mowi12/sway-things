@@ -17,7 +17,6 @@
 mod canvas;
 mod identify;
 mod mirroring;
-mod workspaces;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -33,8 +32,8 @@ use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
 use sway_things_core::registry::{Scope, Value};
 
 pub use canvas::Canvas;
+pub(crate) use canvas::short_label;
 pub use mirroring::Mirroring;
-pub use workspaces::WorkspaceMap;
 
 use super::SettingRow;
 use crate::i18n::{Msg, msg, tr, trf};
@@ -1045,55 +1044,6 @@ impl RefreshRates {
         }
         self.updating.set(false);
     }
-}
-
-/// Keeps `map` showing the placement of the workspaces for the outputs of `model`, numbered as
-/// `picker` numbers them, until the map is gone.
-pub fn follow_workspaces(model: &Model, map: &WorkspaceMap, picker: &OutputPicker) {
-    let shown = map.clone();
-    follow_section(
-        model,
-        map.widget(),
-        picker,
-        move |model, outputs, number| {
-            shown.update(model, outputs, number);
-        },
-    );
-}
-
-/// Calls `update` with the outputs of `model` and their numbers in `picker` now and whenever
-/// the model changes, until `widget` is gone.
-fn follow_section(
-    model: &Model,
-    widget: &gtk::Box,
-    picker: &OutputPicker,
-    update: impl Fn(&Model, &Outputs, &dyn Fn(&str) -> Option<usize>) + 'static,
-) {
-    let weak_root = widget.downgrade();
-    let weak_picker = picker.downgrade();
-    let refresh = move |model: &Model| {
-        if weak_root.upgrade().is_none() {
-            return;
-        }
-        let Some(outputs) = model.outputs() else {
-            return;
-        };
-        let picker = weak_picker.upgrade();
-        let number =
-            |identifier: &str| picker.as_ref().and_then(|picker| picker.number(identifier));
-        update(model, &outputs, &number);
-    };
-    refresh(model);
-    let handler = RefCell::new(Some(model.connect_changed(refresh)));
-    widget.connect_destroy(glib::clone!(
-        #[weak]
-        model,
-        move |_| {
-            if let Some(handler) = handler.take() {
-                model.disconnect(handler);
-            }
-        }
-    ));
 }
 
 /// The output with the focus, else the first that is on.
