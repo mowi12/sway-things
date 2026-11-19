@@ -86,3 +86,10 @@ path = "packaging/aur/**/.SRCINFO"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "0BSD"
+
+# The public signing key of the OBS project, as OBS publishes it: a test fixture for the install script.
+[[annotations]]
+path = "ci/install/home_mowi12_sway-things.asc"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Sway Things contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

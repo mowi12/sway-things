@@ -45,11 +45,13 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── debian/      # control and rules for Debian 13 and Ubuntu 26.04; changelog and copyright made by make-tarball.sh
 │   └── aur/         # PKGBUILD and .SRCINFO of the AUR packages, copied to the AUR by hand
 ├── ci/              # containers (sway 1.10, sway latest, SwayFX; each builds the IPC tests) and sample configs;
-│                    #   packages/: one container per distribution package (scripts/build-packages.sh)
+│                    #   packages/: one container per distribution package (scripts/build-packages.sh);
+│                    #   install/: the OBS signing key, a fixture of scripts/check-install-from-obs.sh
 ├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like
 │                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh,
-│                    #   build-packages.sh, build-website.sh, and for releases bump-version.sh, verify-release.sh,
-│                    #   release-notes.sh, trigger-obs.sh and update-website-screenshots.sh
+│                    #   build-packages.sh, build-website.sh, install-from-obs.sh (served at sway-things.org/install),
+│                    #   and for releases bump-version.sh, verify-release.sh, release-notes.sh, trigger-obs.sh and
+│                    #   update-website-screenshots.sh
 ├── tools/           # hash-locked versions of the check tools installed with pip or npm
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts

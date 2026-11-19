@@ -1295,7 +1295,11 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 
 ## Security model
 
-**Runs as the user. No privileged code, no daemon, no network**.
+**Runs as the user. No privileged code, no daemon, no network**. These rules are the app's: the CLI, the GUI and what
+they generate. The install script (`scripts/install-from-obs.sh`, served at sway-things.org/install) is distribution
+tooling outside them, as a package manager is: run once by the user, it becomes root (directly, through `sudo` or
+`doas`) to add the repository and install the package, and it downloads from the openSUSE Build Service. Its own row in
+the table says what protects it.
 
 | Threat | Mitigation |
 | --- | --- |
@@ -1305,6 +1309,7 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
 | Parser exploits | `unsafe_code` forbidden in every crate, limits on what a config expands to, files read no further than 8 MiB and only if they are regular files, fuzzing (on every change and daily), never executes during parsing |
+| A tampered install script or repository (the install script runs as root and downloads) | Served from the repository's own site over HTTPS; downloads over HTTPS only, with no fallback; the signing key's fingerprint is pinned in the script and checked before the key is trusted, computed without gpg from the key packet; a key file with a second key or a subkey is refused, since rpm and apt would trust every key in it; the package manager then checks every package against that key; everything runs from the script's last line, so a download cut off halfway runs nothing; `--dry-run` prints every command first |
 | Supply chain | `cargo-deny` (advisories, licenses, sources), lockfile committed, vendored release tarballs, GitHub Actions pinned to commit SHAs with least-privilege permissions, CI tools and dprint plugins pinned with checksums |
 
 ## Platform floor
@@ -1711,6 +1716,40 @@ project's key.
   it. It isn't a required check on pull requests (too slow); `scripts/check-packaging.sh` is, and catches license and
   version drift and a wrong source URL there.
 
+### The install script
+
+`scripts/install-from-obs.sh` installs from OBS with one command, `curl -fsSL https://sway-things.org/install | sh` (the
+website serves it as `/install` and `/install.sh`, see [Website](#website)).
+
+- **Plain POSIX `sh`**, so it runs piped into `sh`, `bash`, `dash`, `zsh` or busybox `sh`; everything runs from the last
+  line, so a download cut off halfway runs nothing. Downloads go over HTTPS only, with `curl` or `wget`.
+- **What it finds:** the distribution from `/etc/os-release` (`ID`, `VERSION_ID`; Fedora Rawhide by
+  `REDHAT_SUPPORT_PRODUCT_VERSION`, Debian unstable by its missing `VERSION_ID`) and the architecture, mapped to the OBS
+  repository. Derivatives aren't mapped to their base (nobody tested them), and Fedora releases count only once OBS has
+  their repository. Anything else changes nothing and points to building from source.
+- **The key:** OBS signs every repository of the project with one key, whose fingerprint is pinned in the script. The
+  script computes the fingerprint of the downloaded key itself (the SHA-1 of the version 4 public-key packet, with
+  `base64`, `od` and `sha1sum`), since minimal Debian and Ubuntu systems have no `gpg`, and stops if it differs. It
+  walks every packet and refuses a file with a second key (in the same block or another one) or a subkey, since rpm and
+  apt would trust every key in the file. A key extended by OBS keeps its fingerprint; a new key needs a new script.
+- **What it does:** imports the checked key into rpm and adds the repository (zypper's `addrepo`; for dnf it writes the
+  `.repo` file as OBS has it, since `dnf config-manager` comes only with a plugin minimal installs lack), or writes the
+  armored key to `/etc/apt/keyrings/sway-things.asc` and a deb822 `sway-things.sources` with `Signed-By` (replacing the
+  `.list` and `.gpg` the README used to have users make, but only if the `.list` is exactly that entry), then installs
+  or updates the package. Without `--yes`, every question goes to `/dev/tty`, since standard input is the script itself:
+  its own (before the package manager installs sway along) and the package manager's; without a terminal it needs
+  `--yes`, and says so. A command that fails stops the script with what failed. `--dry-run` prints every command,
+  `--uninstall` removes the package, the repository and the key (from rpm 6 with `rpmkeys --delete` and the full
+  fingerprint, from rpm 4 as the package `gpg-pubkey-<last eight digits>`).
+- **Tests:** `scripts/check-install-from-obs.sh` (CI job _Check Install Script_) runs dry runs under dash, bash and
+  busybox `sh` in a clean Debian container, for each supported system and for unsupported ones, and checks the
+  fingerprint it computes from `ci/install/home_mowi12_sway-things.asc` (and that a file with two keys is refused), and
+  that without a terminal and `--yes` it stops and says why. With `--container NAME|all`, it installs from the published
+  repository in clean containers of every distribution, piped into `sh` on a terminal (`script`) and answering there as
+  a user would, runs `sway-things --version`, installs again with `--yes` (which must keep the repository: zypper and
+  dnf say it is there already, apt's files stay the same) and uninstalls (after which the package, the repository and
+  the key, by either name, must be gone); `.github/workflows/packages.yml` does that on every push to `main` and weekly.
+
 ### AUR
 
 - `packaging/aur/sway-things-git/` holds the `PKGBUILD`, its `.SRCINFO` and the `LICENSE` of the AUR package
@@ -1744,7 +1783,7 @@ project's key.
 
 The project site at [sway-things.org](https://sway-things.org) lives in `website/`: a static site built with
 [Astro](https://astro.build/) and served by GitHub Pages. It is one page with anchors, the imprint, the privacy notice
-and a 404 page, in English (the imprint in German).
+and a 404 page, in English (the imprint in German), and it serves the install script.
 
 - **No drift from the repository.** The page reads its content at build time instead of repeating it:
   - from `README.md` (`src/lib/readme.mjs`): the principles, the feature groups and their pages, the command line
@@ -1752,7 +1791,8 @@ and a 404 page, in English (the imprint in German).
     sections changes shape, so a README change can't leave the site silently wrong;
   - the app icon from `data/icons/` (inline, and as the favicon), so a new icon reaches the site on its own;
   - the released pages from `src/data/released-pages.json`, which the build checks against the README's feature list,
-    and the version of the latest release from `Cargo.toml`.
+    and the version of the latest release from `Cargo.toml`;
+  - `scripts/install-from-obs.sh`, which `scripts/build-website.sh` copies to `/install` and `/install.sh`.
 - **Imprint and privacy.** The operator's name and address are never in the repository. The imprint page fetches the
   operator's own imprint while building, from the page the repository variable `IMPRINT_URL` names
   (`src/lib/imprint.mjs`), and keeps only its text and a few tags (paragraphs, line breaks, emphasis, headings, lists),
@@ -1779,12 +1819,13 @@ and a 404 page, in English (the imprint in German).
   their updates. `scripts/check-npm-licenses.sh` checks the licenses of the website's and the check tools' packages
   against the allow list of `deny.toml`.
 - **Checks** (CI job _Check Website_): `scripts/check-website.sh` runs the unit tests of `src/lib/` (`node --test`),
-  builds the site and fails on invalid HTML (html-validate) or a broken relative link or anchor (lychee);
-  `scripts/check-website-performance.sh` runs Lighthouse on every page, as a phone and as a desktop, served locally, and
-  requires 95 for performance (best of three runs) and 100 for accessibility, best practices and SEO.
+  builds the site and fails on invalid HTML (html-validate), a broken relative link or anchor (lychee), or a served
+  install script that isn't `scripts/install-from-obs.sh`; `scripts/check-website-performance.sh` runs Lighthouse on
+  every page, as a phone and as a desktop, served locally, and requires 95 for performance (best of three runs) and 100
+  for accessibility, best practices and SEO.
 - **Deploy.** `.github/workflows/website.yml` builds (`scripts/build-website.sh`) and deploys to GitHub Pages on every
-  push to `main` that changes `website/`, `README.md`, the icons or the build script, weekly (for a changed imprint) and
-  by hand. Like the README, the site describes the released state: a release pull request updates the screenshots and
-  the released pages ([Releasing](Releasing.md)).
+  push to `main` that changes `website/`, `README.md`, the icons, the install script or the build script, weekly (for a
+  changed imprint) and by hand. Like the README, the site describes the released state: a release pull request updates
+  the screenshots and the released pages ([Releasing](Releasing.md)).
 
 To work on it: `npm ci --prefix website`, then `npm --prefix website run dev` serves it with live reload.
