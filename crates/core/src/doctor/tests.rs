@@ -14,10 +14,11 @@ use super::{
 };
 use crate::generate::tests::{SWAY_1_10, SWAYFX_0_5, TOUCHPAD};
 use crate::generate::{ConfigError, HEADER, Locations, Outcome, Report, Validate};
+use crate::gsettings::{GSettingsError, GSettingsStore, NoGSettings};
 use crate::i18n::Text;
 use crate::include::{IncludeStatus, WriteAccess};
 use crate::ipc::Compositor;
-use crate::registry::{ConfigFile, Registry};
+use crate::registry::{ConfigFile, GSettingsKey, Registry, Value};
 use crate::state::{Paths, State};
 use crate::sway_config::Disk;
 use crate::version::SwayVersion;
@@ -98,6 +99,7 @@ impl Setup {
             displays: crate::generate::Displays::Sway,
             kanshi: None,
             path: None,
+            gsettings: &NoGSettings,
         }
     }
 
@@ -736,4 +738,50 @@ fn ids_are_stable() {
     assert_eq!(Severity::Problem.id(), "problem");
     assert_eq!(Fix::Overwrite.id(), "overwrite");
     assert!(Severity::Ok < Severity::Warning && Severity::Warning < Severity::Problem);
+}
+
+/// A GSettings store without the schema.
+#[derive(Debug)]
+struct NoSchema;
+
+impl GSettingsStore for NoSchema {
+    fn set(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+    fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+    fn value(&self, _: GSettingsKey) -> Option<Value> {
+        None
+    }
+    fn check(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
+}
+
+#[test]
+fn a_stored_value_gsettings_cant_take_is_reported() {
+    let setup = Setup::new(
+        "version = 1\n\n[cursor]\ntheme = \"Bibata\"\n\n[windows.gaps]\ninner = 8\n",
+        INCLUDE,
+    );
+    none(&setup.diagnose(), Code::SettingNotCopied);
+    let checkup = Checkup {
+        gsettings: &NoSchema,
+        ..setup.checkup()
+    };
+    let diagnosis = block_on(checkup.diagnose());
+    let finding = one(&diagnosis, Code::SettingNotCopied);
+    assert_eq!(finding.severity, Severity::Warning);
+    assert_eq!(
+        finding.message.english(),
+        "cursor.theme: GTK apps keep their own setting: the GSettings schema \
+         org.gnome.desktop.interface isn't installed."
+    );
+    assert!(
+        finding
+            .hint
+            .as_ref()
+            .is_some_and(|hint| hint.english().contains("gsettings-desktop-schemas"))
+    );
 }

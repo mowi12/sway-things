@@ -1570,6 +1570,12 @@ impl GSettingsStore for Refusing {
     fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError> {
         Err(GSettingsError::NoSchema { key })
     }
+    fn value(&self, _: GSettingsKey) -> Option<Value> {
+        None
+    }
+    fn check(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
 }
 
 #[test]

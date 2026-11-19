@@ -42,6 +42,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::conflict::{Known, Report};
+use crate::gsettings::{self, GSettingsStore};
 use crate::i18n::Text;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
@@ -73,6 +74,9 @@ pub enum Source {
     /// Nothing sets it, and sway chose the value itself: an output's preferred mode, its place in
     /// the layout or a scale for its pixel density, as the session runs with it now.
     Session,
+    /// Sway Things stores nothing for a setting that lives only in GSettings (the GTK theme), so
+    /// the value is the one GSettings has now: set with another tool, or the schema's default.
+    Desktop,
 }
 
 /// Why a setting can't be changed.
@@ -123,6 +127,10 @@ pub struct SettingView {
     pub line: Option<String>,
     /// Why it can't be changed, or `None` if it can.
     pub locked: Option<Locked>,
+    /// For a stored setting that lives only in GSettings: what GSettings has now, if another tool
+    /// changed it since. Apps use that until Sway Things writes its value again, at the next login
+    /// or reload of sway.
+    pub changed_elsewhere: Option<Value>,
 }
 
 impl SettingView {
@@ -137,6 +145,43 @@ impl SettingView {
         status: &IncludeStatus,
         compositor: Compositor,
         known: Known<'_>,
+    ) -> Self {
+        Self::build(setting, device, state, status, compositor, known, None)
+    }
+
+    /// What a row shows for `setting` like [`SettingView::of`], with what GSettings has now for a
+    /// setting without a sway directive ([`gsettings::current`]): its value where Sway Things
+    /// stores none (source [`Source::Desktop`]), and where it stores one that another tool changed
+    /// since, that value ([`SettingView::changed_elsewhere`]). The settings another one depends
+    /// on are read the same way.
+    pub fn with_desktop(
+        setting: &'static Setting,
+        device: Option<&str>,
+        state: &State,
+        status: &IncludeStatus,
+        compositor: Compositor,
+        known: Known<'_>,
+        desktop: &dyn GSettingsStore,
+    ) -> Self {
+        Self::build(
+            setting,
+            device,
+            state,
+            status,
+            compositor,
+            known,
+            Some(desktop),
+        )
+    }
+
+    fn build(
+        setting: &'static Setting,
+        device: Option<&str>,
+        state: &State,
+        status: &IncludeStatus,
+        compositor: Compositor,
+        known: Known<'_>,
+        desktop: Option<&dyn GSettingsStore>,
     ) -> Self {
         let registry = state.registry();
         let key = setting.key();
@@ -183,6 +228,16 @@ impl SettingView {
         } else {
             (setting.default_value(), Source::Default)
         };
+        let current = desktop
+            .filter(|_| setting.sway().is_none() && device.is_none())
+            .and_then(|desktop| gsettings::current(desktop, setting));
+        let (value, source, changed_elsewhere) = match (current, source) {
+            (Some(current), Source::Default) => (current, Source::Desktop, None),
+            (Some(current), source @ Source::Stored { .. }) if current != value => {
+                (value, source, Some(current))
+            }
+            (_, source) => (value, source, None),
+        };
 
         let line = setting.sway().and_then(|_| {
             registry
@@ -206,7 +261,9 @@ impl SettingView {
                 .write_access()
                 .err()
                 .map(|read_only| Locked::ReadOnly(read_only.explanation().clone()))
-                .or_else(|| unmet_dependency(setting, device, state, status, compositor, known)),
+                .or_else(|| {
+                    unmet_dependency(setting, device, state, status, compositor, known, desktop)
+                }),
         };
 
         Self {
@@ -214,6 +271,7 @@ impl SettingView {
             source,
             line,
             locked,
+            changed_elsewhere,
         }
     }
 }
@@ -239,10 +297,11 @@ fn unmet_dependency(
     status: &IncludeStatus,
     compositor: Compositor,
     known: Known<'_>,
+    desktop: Option<&dyn GSettingsStore>,
 ) -> Option<Locked> {
     let dependency = setting.dependency()?;
     let other = state.registry().get(dependency.key)?;
-    let value = SettingView::of(other, device, state, status, compositor, known).value;
+    let value = SettingView::build(other, device, state, status, compositor, known, desktop).value;
     if dependency.when.holds(&value) {
         return None;
     }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 13:25+0100\n"
+"POT-Creation-Date: 2026-11-20 16:39+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -329,6 +329,12 @@ msgstr ""
 #. sway chose for the display (its preferred mode, its place, a scale).
 #: crates/cli/src/output.rs
 msgid "chosen by sway"
+msgstr ""
+
+#. TRANSLATORS: Where `sway-things get` found a value: what GSettings has now, set by
+#. another tool or its default.
+#: crates/cli/src/output.rs
+msgid "GSettings"
 msgstr ""
 
 #: crates/cli/src/output.rs
@@ -720,6 +726,11 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 #, rust-format
+msgid "{setting}: {reason}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
 msgid "{file} can't be read: {error}."
 msgstr ""
 
@@ -989,6 +1000,30 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
+msgid ""
+"Install the package gsettings-desktop-schemas, or a newer one. Sway Things "
+"writes the value when sway starts or reloads."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The system's administrator locked the key. Reset the setting, or ask them to "
+"unlock it."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install dconf (the package dconf-service or dconf), then log in again. Sway "
+"Things writes the value when sway starts or reloads."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"The installed schema doesn't take this value; it may be older than Sway "
+"Things expects. Pick another value or reset the setting."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{message} (from {settings})"
 msgstr ""
@@ -1147,6 +1182,11 @@ msgstr ""
 msgid ""
 "GTK apps keep their own setting: GSettings refused the value of {key} in "
 "{schema}"
+msgstr ""
+
+#: crates/core/src/gsettings.rs
+msgid ""
+"GTK apps keep their own setting: nothing keeps GSettings values (no dconf)"
 msgstr ""
 
 #: crates/core/src/include/instructions.rs

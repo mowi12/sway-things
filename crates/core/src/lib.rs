@@ -3,7 +3,7 @@
 
 //! Core of Sway Things: settings registry, state, generators, sway config parser, IPC and backends.
 //!
-//! This crate has no GTK dependency; it uses GIO only to write GSettings. Both the `sway-things` CLI and the `sway-things-gui` app build on it.
+//! This crate has no GTK dependency; it uses GIO only to read and write GSettings. Both the `sway-things` CLI and the `sway-things-gui` app build on it.
 
 #![warn(missing_docs)]
 #![deny(clippy::print_stdout)]

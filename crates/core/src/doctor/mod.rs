@@ -33,6 +33,7 @@ use crate::generate::{
     self, ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Ownership, Report,
     Source, SwayValidator, Validate, WriteError,
 };
+use crate::gsettings::{self, GSettingsError, GSettingsStore};
 use crate::i18n::{Msg, Text};
 use crate::include::{IncludeStatus, Inclusion, MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError};
@@ -161,6 +162,8 @@ pub enum Code {
     /// A stored setting isn't in the generated file: the compositor doesn't support it, or its
     /// value can't be turned into a command.
     SettingSkipped,
+    /// A stored setting can't be copied to GSettings, so apps that read it there don't get it.
+    SettingNotCopied,
     /// A generated file holds what Sway Things generates.
     FileCurrent,
     /// A generated file doesn't exist and isn't needed.
@@ -219,6 +222,7 @@ impl Code {
             Self::KanshiFileForeign => "kanshi_file_foreign",
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
             Self::HookProgram => "hook_program",
+            Self::SettingNotCopied => "setting_not_copied",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
             Self::FileMissing => "file_missing",
@@ -260,7 +264,8 @@ impl Code {
             Self::SettingsLoaded
             | Self::SettingsUnusable
             | Self::SettingsEntry
-            | Self::SettingSkipped => Section::Settings,
+            | Self::SettingSkipped
+            | Self::SettingNotCopied => Section::Settings,
             Self::FileCurrent
             | Self::FileNotNeeded
             | Self::FileMissing
@@ -593,6 +598,8 @@ pub struct Checkup<'a, V> {
     /// The `$PATH` sway and kanshi run `sway-things` from for the hooks; `None` for a checkup
     /// that doesn't look at the machine.
     pub path: Option<std::ffi::OsString>,
+    /// Where settings are copied to GSettings, checked for the stored ones.
+    pub gsettings: &'a dyn GSettingsStore,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -839,6 +846,19 @@ impl<V: Validate> Checkup<'_, V> {
                      effect on a compositor that supports it; reset the setting to remove it."
                 ))
                 .for_setting(key, source.device.as_deref()),
+            );
+        }
+        for (key, error) in gsettings::check_stored(self.state, self.gsettings) {
+            findings.push(
+                Finding::new(
+                    Code::SettingNotCopied,
+                    Severity::Warning,
+                    Text::new(msg!("{setting}: {reason}."))
+                        .arg("setting", key)
+                        .text("reason", error.text()),
+                )
+                .with_hint(gsettings_hint(&error))
+                .for_setting(key, None),
             );
         }
     }
@@ -1476,6 +1496,29 @@ fn place(file: &Path, line: usize) -> String {
 }
 
 /// The settings behind a generated line: `windows.gaps.inner`, with the device if it is for one.
+/// What to do about a value GSettings can't take. Sway Things writes it again when sway starts
+/// or reloads.
+fn gsettings_hint(error: &GSettingsError) -> Msg {
+    match error {
+        GSettingsError::NoSchema { .. } | GSettingsError::NoKey { .. } => msg!(
+            "Install the package gsettings-desktop-schemas, or a newer one. Sway Things writes the \
+             value when sway starts or reloads."
+        ),
+        GSettingsError::NotWritable { .. } => msg!(
+            "The system's administrator locked the key. Reset the setting, or ask them to unlock \
+             it."
+        ),
+        GSettingsError::NotKept { .. } => msg!(
+            "Install dconf (the package dconf-service or dconf), then log in again. Sway Things \
+             writes the value when sway starts or reloads."
+        ),
+        GSettingsError::WrongType { .. } | GSettingsError::Rejected { .. } => msg!(
+            "The installed schema doesn't take this value; it may be older than Sway Things \
+             expects. Pick another value or reset the setting."
+        ),
+    }
+}
+
 fn setting_name(source: &Source) -> Text {
     let keys = source.keys.join(", ");
     match &source.device {

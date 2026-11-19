@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use serde_json::{Value as Json, json};
 use sway_things_core::conflict::{Known, Report};
 use sway_things_core::generate::InvalidLine;
+use sway_things_core::gsettings::GSettingsStore;
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
@@ -34,8 +35,10 @@ impl Shown {
         status: &IncludeStatus,
         compositor: Compositor,
         known: Known<'_>,
+        desktop: &dyn GSettingsStore,
     ) -> Self {
-        let view = SettingView::of(setting, device, state, status, compositor, known);
+        let view =
+            SettingView::with_desktop(setting, device, state, status, compositor, known, desktop);
         let overriding = if matches!(view.source, Source::Stored { .. }) {
             Report::check(status, setting, device, known).and_then(|report| {
                 report
@@ -95,6 +98,9 @@ impl Shown {
             // TRANSLATORS: Where `sway-things get` found a value: nothing sets it, so it is what
             // sway chose for the display (its preferred mode, its place, a scale).
             Source::Session => tr(msg!("chosen by sway")).to_owned(),
+            // TRANSLATORS: Where `sway-things get` found a value: what GSettings has now, set by
+            // another tool or its default.
+            Source::Desktop => tr(msg!("GSettings")).to_owned(),
         }];
         if let Some((file, line)) = &self.overriding {
             notes.push(trf(
@@ -125,6 +131,7 @@ impl Shown {
             }),
             Source::Default => json!({ "kind": "default" }),
             Source::Session => json!({ "kind": "session" }),
+            Source::Desktop => json!({ "kind": "gsettings" }),
         };
         let overridden_by = self
             .overriding
