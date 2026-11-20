@@ -1,0 +1,37 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-wallpaper 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-wallpaper \- Change the picture of a wallpaper collection
+.SH SYNOPSIS
+\fBsway\-things wallpaper\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Change the picture of a wallpaper collection
+.PP
+A display shows a collection when wallpaper.collection names one. The generated sway config runs `wallpaper start` at login; a systemd user timer runs `wallpaper next \-\-due` for collections that change daily or after an interval.
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.SH SUBCOMMANDS
+.TP
+sway\-things\-wallpaper\-start(1)
+Show the next picture of each collection whose time has come, and start their timers
+.TP
+sway\-things\-wallpaper\-next(1)
+Show the next picture of the collection

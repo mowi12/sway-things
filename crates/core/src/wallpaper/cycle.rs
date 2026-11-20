@@ -446,8 +446,9 @@ pub async fn schedule(
         .arg("--")
         .arg(program)
         .args(["wallpaper", "next", "--due"]);
-    if let Some(name) = output {
-        command.args(["--output", name]);
+    // An argument of its own, never a shell's word.
+    if let Some(identifier) = output {
+        command.args(["--device", identifier]);
     }
     let finished = command
         .output()

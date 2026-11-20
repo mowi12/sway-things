@@ -298,6 +298,39 @@ fn a_value_for_one_display_is_set_and_listed_by_display() {
 }
 
 #[test]
+fn the_settings_of_a_collection_are_named_with_collection() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    let ran = setup.run(&[
+        "set",
+        "collection.order",
+        "in_order",
+        "--collection",
+        "Nature",
+    ]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(
+        ran.out,
+        "Set collection.order --collection Nature to in_order.\n"
+    );
+    let ran = setup.run(&["get"]);
+    assert_eq!(
+        ran.out,
+        "\ncollection Nature\n  collection.order = in_order  (settings.toml)\n"
+    );
+
+    // A collection only for the settings of one, and always for them.
+    let ran = setup.run(&["set", "wallpaper.fill", "fit", "--collection", "Nature"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    let ran = setup.run(&["reset", "collection.order"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    assert_eq!(
+        ran.err,
+        "error: collection.order is a setting of a collection; name it with --collection\n"
+    );
+}
+
+#[test]
 fn get_shows_the_users_config_and_where_it_wins() {
     let mut setup = Setup::new(
         "version = 1\n\n[windows.gaps]\ninner = 8\n",
@@ -650,6 +683,7 @@ fn commands_parse_as_documented() {
         Some(Command::Get {
             key: None,
             device: None,
+            collection: None,
             json: true
         })
     );

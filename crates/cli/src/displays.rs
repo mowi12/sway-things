@@ -9,6 +9,7 @@ use sway_things_core::i18n::{tr, trf};
 use sway_things_core::msg;
 use sway_things_core::outputs::{self, Outputs};
 use sway_things_core::registry::{Registry, Scope};
+use sway_things_core::state::StateError;
 
 use super::{Command, Exit, Io, Session, error_line, hook::kanshi_files};
 
@@ -28,9 +29,13 @@ impl Displays {
         io: &mut Io<'_>,
     ) -> Result<Self, Exit> {
         let listed = match (command, session.applier.client()) {
-            (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => {
-                Some(client.outputs().await.map(|found| Outputs::new(&found)))
-            }
+            (
+                Command::Get { .. }
+                | Command::Set { .. }
+                | Command::Reset { .. }
+                | Command::Wallpaper(_),
+                Some(client),
+            ) => Some(client.outputs().await.map(|found| Outputs::new(&found))),
             _ => None,
         };
         if let (
@@ -53,6 +58,32 @@ impl Displays {
     /// given.
     pub(super) fn resolve(&self, key: Option<&str>, device: Option<&str>) -> Option<String> {
         resolve_display(key, device, self.outputs.as_ref())
+    }
+
+    /// What a value of `key` is stored for: `collection` for a setting of a wallpaper collection,
+    /// else `device` as [`Displays::resolve`] makes it.
+    ///
+    /// # Errors
+    ///
+    /// [`StateError::NotPerCollection`] for `collection` with another setting,
+    /// [`StateError::NoCollection`] for a setting of a collection without one.
+    pub(super) fn stored_for(
+        &self,
+        key: &str,
+        device: Option<&str>,
+        collection: Option<&str>,
+    ) -> Result<Option<String>, StateError> {
+        let setting = Registry::builtin().get(key);
+        let of_collection = setting.is_some_and(|setting| setting.scope() == Scope::PerCollection);
+        match (collection, setting) {
+            (Some(collection), _) if of_collection => Ok(Some(collection.to_owned())),
+            (Some(_), Some(setting)) => Err(StateError::NotPerCollection { key: setting.key() }),
+            (None, Some(setting)) if of_collection => {
+                Err(StateError::NoCollection { key: setting.key() })
+            }
+            // An unknown key is reported by the state.
+            _ => Ok(self.resolve(Some(key), device)),
+        }
     }
 }
 

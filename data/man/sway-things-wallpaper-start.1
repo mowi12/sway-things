@@ -1,0 +1,31 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-wallpaper-start 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-wallpaper\-start \- Show the next picture of each collection whose time has come, and start their timers
+.SH SYNOPSIS
+\fBsway\-things wallpaper start\fR [\fB\-\-device\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Show the next picture of each collection whose time has come, and start their timers
+.SH OPTIONS
+.TP
+\fB\-\-device\fR \fI<IDENTIFIER>\fR
+The display, as for `get`; without one, every display that shows a collection
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

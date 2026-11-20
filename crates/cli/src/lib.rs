@@ -15,6 +15,7 @@ mod hook;
 mod output;
 mod prompt;
 mod spinner;
+mod wallpaper;
 
 use std::fmt;
 use std::io::{self, Write};
@@ -24,7 +25,7 @@ use std::process::{ExitCode, Stdio};
 
 use anstream::{AutoStream, ColorChoice};
 
-use change::{Change, Reset, get, reset, set, show_generated};
+use change::{Change, Reset, fail, get, reset, set, show_generated};
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
 use displays::{Displays, follow_combination, note_kanshi};
@@ -46,6 +47,7 @@ use sway_things_core::sound::Sound;
 use sway_things_core::state::{Layer, Paths, State};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
+use wallpaper::{follow_collections, wallpaper};
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
 pub use prompt::{Prompt, Terminal};
@@ -77,6 +79,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Print JSON for scripts
         #[arg(long)]
         json: bool,
@@ -94,6 +99,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Store the value for this machine only, in settings.d/<hostname>.toml
         #[arg(long, conflicts_with = "shared")]
         host: bool,
@@ -116,6 +124,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Reset a setting that can lock you out without asking to keep it
         #[arg(long)]
         yes: bool,
@@ -145,6 +156,42 @@ pub enum Command {
     /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
+    /// Change the picture of a wallpaper collection
+    ///
+    /// A display shows a collection when wallpaper.collection names one. The generated sway
+    /// config runs `wallpaper start` at login; a systemd user timer runs `wallpaper next --due`
+    /// for collections that change daily or after an interval.
+    #[command(subcommand)]
+    Wallpaper(WallpaperCommand),
+}
+
+/// A command of `sway-things wallpaper`.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum WallpaperCommand {
+    /// Show the next picture of each collection whose time has come, and start their timers
+    Start {
+        /// The display, as for `get`; without one, every display that shows a collection
+        #[arg(long, value_name = "IDENTIFIER")]
+        device: Option<String>,
+    },
+    /// Show the next picture of the collection
+    Next {
+        /// The display, as for `get`; without one, the collection of every display
+        #[arg(long, value_name = "IDENTIFIER")]
+        device: Option<String>,
+        /// Only if its time has come; without a sway session, stop the timer instead
+        #[arg(long)]
+        due: bool,
+    },
+}
+
+impl WallpaperCommand {
+    /// The display the command is for, as given.
+    fn device(&self) -> Option<&str> {
+        match self {
+            Self::Start { device } | Self::Next { device, .. } => device.as_deref(),
+        }
+    }
 }
 
 /// A hook of `sway-things hook`.
@@ -384,8 +431,16 @@ pub async fn run<V: Validate>(
     };
     let resolved = |key: Option<&str>, device: Option<&str>| displays.resolve(key, device);
     match command {
-        Command::Get { key, device, json } => {
-            let device = resolved(key.as_deref(), device.as_deref());
+        Command::Get {
+            key,
+            device,
+            collection,
+            json,
+        } => {
+            let device = match collection {
+                Some(collection) => Some(collection.clone()),
+                None => resolved(key.as_deref(), device.as_deref()),
+            };
             let known = Known {
                 devices: None,
                 outputs: displays.outputs.as_ref(),
@@ -403,17 +458,21 @@ pub async fn run<V: Validate>(
             key,
             value,
             device,
+            collection,
             host,
             shared,
             yes,
             overwrite,
         } => {
+            let device = match displays.stored_for(key, device.as_deref(), collection.as_deref()) {
+                Ok(device) => device,
+                Err(error) => return fail(&mut io, &error.into()),
+            };
             let layer = match (host, shared) {
                 (true, _) => Some(Layer::Host),
                 (_, true) => Some(Layer::Shared),
                 _ => None,
             };
-            let device = resolved(Some(key), device.as_deref());
             let change = Change {
                 key,
                 device: device.as_deref(),
@@ -424,15 +483,19 @@ pub async fn run<V: Validate>(
             follow_combination(session, key, &mut io).await;
             let exit = set(session, &change, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, false, &mut io).await;
-            exit
+            follow_collections(session, key, exit, &mut io).await
         }
         Command::Reset {
             key,
             device,
+            collection,
             yes,
             overwrite,
         } => {
-            let device = resolved(Some(key), device.as_deref());
+            let device = match displays.stored_for(key, device.as_deref(), collection.as_deref()) {
+                Ok(device) => device,
+                Err(error) => return fail(&mut io, &error.into()),
+            };
             let reset_of = Reset {
                 key,
                 device: device.as_deref(),
@@ -441,12 +504,13 @@ pub async fn run<V: Validate>(
             follow_combination(session, key, &mut io).await;
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, true, &mut io).await;
-            exit
+            follow_collections(session, key, exit, &mut io).await
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
         Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+        Command::Wallpaper(command) => wallpaper(session, command, &displays, &mut io).await,
     }
 }
 

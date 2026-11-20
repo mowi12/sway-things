@@ -862,6 +862,11 @@ pub enum StateError {
         /// The string.
         device: String,
     },
+    /// A collection is named, but the setting isn't one of a collection.
+    NotPerCollection {
+        /// The key.
+        key: &'static str,
+    },
     /// The setting is one of a collection, and no collection is named.
     NoCollection {
         /// The key.
@@ -934,8 +939,11 @@ impl StateError {
                 "{key} is set for one display at a time; name it with --device"
             ))
             .arg("key", key),
+            Self::NotPerCollection { key } => {
+                Text::new(msg!("{key} isn't a setting of a collection")).arg("key", key)
+            }
             Self::NoCollection { key } => Text::new(msg!(
-                "{key} is a setting of a collection; name the collection"
+                "{key} is a setting of a collection; name it with --collection"
             ))
             .arg("key", key),
             Self::InvalidCollection { collection } => {

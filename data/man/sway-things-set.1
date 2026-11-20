@@ -4,13 +4,16 @@
 .SH NAME
 sway\-things\-set \- Change a setting: live, in the settings files and in the generated sway config
 .SH SYNOPSIS
-\fBsway\-things set\fR [\fB\-\-device\fR] [\fB\-\-host\fR] [\fB\-\-shared\fR] [\fB\-\-yes\fR] [\fB\-\-overwrite\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIKEY\fR> <\fIVALUE\fR> 
+\fBsway\-things set\fR [\fB\-\-device\fR] [\fB\-\-collection\fR] [\fB\-\-host\fR] [\fB\-\-shared\fR] [\fB\-\-yes\fR] [\fB\-\-overwrite\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIKEY\fR> <\fIVALUE\fR> 
 .SH DESCRIPTION
 Change a setting: live, in the settings files and in the generated sway config
 .SH OPTIONS
 .TP
 \fB\-\-device\fR \fI<IDENTIFIER>\fR
 The input device or display: an input device by its identifier as `swaymsg \-t get_inputs` shows it, a display by its make, model and serial as `swaymsg \-t get_outputs` shows them, or in a sway session by its name
+.TP
+\fB\-\-collection\fR \fI<NAME>\fR
+The wallpaper collection, by its name
 .TP
 \fB\-\-host\fR
 Store the value for this machine only, in settings.d/<hostname>.toml

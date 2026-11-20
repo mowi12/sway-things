@@ -291,7 +291,7 @@ msgid "can't start {program}: {error}"
 msgstr ""
 
 #. TRANSLATORS: Why `sway-things doctor` found no sway session.
-#: crates/cli/src/lib.rs
+#: crates/cli/src/lib.rs crates/cli/src/wallpaper.rs
 msgid "not in a sway session"
 msgstr ""
 
@@ -347,6 +347,13 @@ msgstr ""
 #: crates/cli/src/output.rs
 #, rust-format
 msgid "your config wins: {file}:{line}"
+msgstr ""
+
+#. TRANSLATORS: The heading of a wallpaper collection's settings in
+#. `sway-things get`.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "collection {collection}"
 msgstr ""
 
 #. TRANSLATORS: The heading of a display's settings in `sway-things get`.
@@ -5016,7 +5023,12 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{key} is a setting of a collection; name the collection"
+msgid "{key} isn't a setting of a collection"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} is a setting of a collection; name it with --collection"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
