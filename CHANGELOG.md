@@ -2,6 +2,53 @@
 
 All notable changes to Sway Things, written for users. git-cliff drafts each section from the Conventional Commits.
 
+## 0.3.0 (2026-11-20)
+
+Five new pages for the devices and the look of the desktop: Displays, Workspaces, Sound, Cursor & Tablet and Apps Look &
+Feel. And one command installs Sway Things on every supported distribution.
+
+### Pages
+
+- **Displays:** arrange your displays by dragging them, with snapping, and set the resolution, refresh rate, scale and
+  rotation of each, or switch one off. Changes apply live, a new mode or a display switched off reverts after 15 seconds
+  unless you keep it, and the last display can't be switched off. _Identify_ shows each display's number on it. Every
+  combination of displays is remembered on its own as a kanshi profile, without naming or picking profiles, and a
+  display can mirror another with wl-mirror.
+- **Workspaces:** place the numbered workspaces on your displays by a rule (sway's own, round robin, a block per
+  display, all on the built-in one) or by hand on a map of the displays, remembered per combination. A workspace moves
+  to the next display when its own is unplugged, and back when it returns. The settings for new workspaces moved here
+  from Window Behavior.
+- **Sound:** output and input devices, volume and mute, the microphone level with a meter, the volume of each app that
+  plays or records, and device profiles (HDMI, Bluetooth headsets). _Advanced…_ opens pwvucontrol or pavucontrol, and a
+  preference allows volumes up to 150 %.
+- **Cursor & Tablet:** the cursor theme with a preview and its sizes, hiding the cursor while typing or after a while,
+  and mapping a drawing tablet or touchscreen to one display, with absolute or relative mode.
+- **Apps Look & Feel:** the GTK theme, the icon theme with a few of its icons, the interface, document and monospace
+  fonts, dark or light, font rendering and the text size, for GTK apps through GSettings.
+
+### Bluetooth and Network
+
+- Searching for Bluetooth devices and Wi-Fi networks starts with _Search_, or automatically while the page is open, as a
+  preference sets.
+- The Bluetooth adapter can be renamed and made visible to other devices.
+- A placeholder replaces the list while Bluetooth or Wi-Fi is off.
+
+### App
+
+- Every page fits a third of a laptop screen.
+- Lines separate the groups of the sidebar, and the search field and the back button.
+- Every message of the app and the command line is ready for translation.
+
+### Packages
+
+- One command finds your distribution, adds the repository after checking its signing key, and installs Sway Things:
+  `curl -fsSL https://sway-things.org/install | sh`. `--dry-run` shows what it would do, `--uninstall` removes it all
+  again.
+- Same distributions as 0.2: openSUSE Tumbleweed, Fedora 43 and 44, Debian 13 and Ubuntu 26.04 from the openSUSE Build
+  Service; Fedora Rawhide and Debian unstable on a best-effort basis.
+- Now links gtk4-layer-shell and libpulse. The Sound page uses the PulseAudio API (pipewire-pulse or PulseAudio); kanshi
+  and wl-mirror are optional, for display profiles and mirroring.
+
 ## 0.2.1 (2026-11-15)
 
 A packaging fix: the openSUSE Build Service couldn't download the 0.2.0 sources and built no packages. The app is the

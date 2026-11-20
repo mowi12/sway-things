@@ -39,7 +39,7 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: 0.2.1.** It covers the pages listed under [Features](#features); packages are in
+> **Status: 0.3.0.** It covers the pages listed under [Features](#features); packages are in
 > [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
@@ -68,16 +68,17 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 ## Features
 
 Released so far are the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and **Window
-Behavior** (v0.1), **Bluetooth** and **Network** (v0.2), and on About & Maintenance the system details for bug reports,
-the view of the generated config and the app's own preferences. The other pages below are planned.
+Behavior** (v0.1), **Bluetooth** and **Network** (v0.2), **Cursor & Tablet**, **Displays**, **Sound**, **Apps Look &
+Feel** and **Workspaces** (v0.3), and on About & Maintenance the system details for bug reports, the view of the
+generated config and the app's own preferences. The other pages below are planned.
 
 ### Devices
 
 - **Mouse & Touchpad:** speed, acceleration, scrolling, tap to click, per-device settings, a test area
 - **Keyboard:** layouts and variants, layout switching shortcut, Caps Lock and other XKB options, key repeat
-- **Cursor:** cursor theme and size, hiding the cursor
-- **Displays:** drag-and-drop arrangement, resolution, scale, rotation, profiles (kanshi), lid handling
-- **Sound:** output and input devices, volume, per-app volume
+- **Cursor & Tablet:** cursor theme and size, hiding the cursor, mapping a tablet or touchscreen to a display
+- **Displays:** drag-and-drop arrangement, resolution, scale, rotation, mirroring, profiles (kanshi), lid handling
+- **Sound:** output and input devices, volume, per-app volume, device profiles
 - **Bluetooth:** turning it on and off, finding, pairing and connecting devices
 - **Network:** Wi-Fi networks and their passwords, hidden networks, wired and VPN connections
 
@@ -119,9 +120,12 @@ sway-things doctor                        # system details, setup and conflicts
 - GTK ≥ 4.18
 - The Bluetooth page uses BlueZ and the Network page NetworkManager; blueman and nm-connection-editor are optional, for
   what these pages hand over to them.
-- Later pages will use optional companion tools, for example kanshi, swayidle, swaylock, waybar, mako or swaync,
-  gammastep or wlsunset, brightnessctl and PipeWire. Pages for missing tools stay visible and tell you how to install
-  them.
+- The Sound page uses the PulseAudio API, served by PipeWire (pipewire-pulse) or PulseAudio; pwvucontrol or pavucontrol
+  is optional, for its _Advanced…_ button.
+- The Displays page uses kanshi, when installed, to remember each combination of displays, and wl-mirror to mirror a
+  display; both are optional.
+- Later pages will use further optional companion tools, for example swayidle, swaylock, waybar, mako or swaync,
+  gammastep or wlsunset and brightnessctl. Pages for missing tools stay visible and tell you how to install them.
 
 ## Installation
 

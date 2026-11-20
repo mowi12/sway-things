@@ -1834,10 +1834,11 @@ and a 404 page, in English (the imprint in German), and it serves the install sc
   with an empty one; other builds (pull requests, forks, local) say that their copy has none. The privacy notice
   (`src/pages/privacy.astro`) names no one: the controller is whoever the imprint names. Both are linked from the footer
   of every page.
-- **Screenshots** of the released pages, in light and dark, are PNG files in `src/assets/screenshots/`, made by
+- **Screenshots**, in light and dark, are PNG files in `src/assets/screenshots/`, made by
   `scripts/update-website-screenshots.sh`: it runs `scripts/gui-screenshots.sh` (the GUI tests on GTK's Broadway
-  backend, in the C locale) and copies the pages of `released-pages.json`. The build turns them into AVIF and WebP in
-  two widths, and a `<picture>` shows the one of the visitor's color scheme.
+  backend, in the C locale) and copies Mouse & Touchpad, shown at the top, and the released pages marked `"gallery"` in
+  `released-pages.json`, a selection of about six below the sidebar. The build turns them into AVIF and WebP in two
+  widths, and a `<picture>` shows the one of the visitor's color scheme.
 - **Design.** The page is drawn after the app icon: its navy frame around a white pane, the split line between "yours"
   (the user's config) and "ours" (the app and its files), and the teal wave that carries the install section. Colors are
   custom properties in `src/styles/tokens.css`, light and dark, derived from the icon; the wave is
