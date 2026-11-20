@@ -167,13 +167,24 @@ impl Displays {
             return Self::Sway;
         }
         // Started by the user's sway config, or running from elsewhere (a systemd unit, say):
-        // one kanshi is enough. A kanshi our own `exec kanshi` started keeps being started.
+        // one kanshi is enough. A kanshi our own `exec kanshi` started keeps being started,
+        // until one runs as a unit of its own: that one was set up since, and ours would be a
+        // second one beside it.
         let ours_starts = std::fs::read_to_string(locations.path(ConfigFile::Output))
             .is_ok_and(|text| text.lines().any(|line| line.trim() == "exec kanshi"));
         Self::Kanshi {
             start: !kanshi::started_by(status.config(), locations.directory())
+                && !crate::outputs::kanshi_runs_as_unit()
                 && (ours_starts || !crate::outputs::kanshi_runs()),
         }
+    }
+
+    /// This, or sway if the remembered displays aren't `readable` (`displays.toml` can't be
+    /// read): kanshi would get nothing of what is set, so sway keeps setting the displays up
+    /// from our lines. The app, the command line and `doctor` all decide by this.
+    #[must_use]
+    pub fn with_profiles(self, readable: bool) -> Self {
+        if readable { self } else { Self::Sway }
     }
 
     /// Whether kanshi sets up the displays.

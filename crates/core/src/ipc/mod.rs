@@ -165,6 +165,47 @@ impl Client {
         }
     }
 
+    /// Runs `commands` as one message, so sway runs them one after the other with nothing of
+    /// another client's in between: a workspace that is focused and then moved is the one moved,
+    /// whoever else places workspaces at the same moment. Nothing is sent for no commands.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Client::run`], with the first command that failed. sway stops at a command it
+    /// can't make sense of (an output that is gone, say), so what follows it isn't done to the
+    /// wrong thing; after one that merely failed, it runs the rest.
+    pub async fn run_together(&mut self, commands: &[SwayCmd]) -> Result<(), IpcError> {
+        if commands.is_empty() {
+            return Ok(());
+        }
+        let mut rendered = Vec::with_capacity(commands.len());
+        for command in commands {
+            let text = command.render(Target::Ipc).map_err(IpcError::Render)?;
+            if let Err(unmet) = self.compositor.supports(command) {
+                return Err(IpcError::CommandUnsupported {
+                    command: text,
+                    unmet,
+                });
+            }
+            rendered.push(text);
+        }
+        let message = rendered.join("; ");
+        let outcomes: Vec<Outcome> = self
+            .query(wire::RUN_COMMAND, message.as_bytes(), "RUN_COMMAND")
+            .await?;
+        if outcomes.is_empty() {
+            return Err(IpcError::Protocol("sway sent no result for a command"));
+        }
+        match outcomes.into_iter().find(|outcome| !outcome.success) {
+            None => Ok(()),
+            Some(failed) => Err(IpcError::CommandFailed {
+                command: message,
+                message: failed.error.unwrap_or_default(),
+                parse_error: failed.parse_error,
+            }),
+        }
+    }
+
     /// Runs `commands` in order, also after one failed, and returns the result of each.
     pub async fn run_all(&mut self, commands: &[SwayCmd]) -> Vec<Result<(), IpcError>> {
         let mut results = Vec::with_capacity(commands.len());

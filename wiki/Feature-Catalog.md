@@ -98,6 +98,8 @@ kanshi, static `output` lines in our include (no profiles).
       generated into our kanshi include (`~/.config/kanshi/sway-things.conf`)
 - [x] 🟢 A profile that switches on any one display alone, so no combination stays dark
 - [x] 🟢 `kanshictl reload` after saving
+- [x] 🟢 Our include goes above the user's own kanshi profiles, so the arrangement made here comes first; a warning with
+      the command to move it while one of theirs wins for the displays connected
 - [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
 
 Workspace placement: see [Workspaces](#workspaces).

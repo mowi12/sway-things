@@ -18,7 +18,7 @@ mod canvas;
 mod identify;
 mod mirroring;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gtk::glib;
@@ -121,25 +121,7 @@ impl Arrangement {
             move |_| canvas.arrange_side_by_side()
         ));
 
-        let note = gtk::Label::new(None);
-        note.set_wrap(true);
-        note.set_xalign(0.0);
-        note.set_hexpand(true);
-        note.set_selectable(true);
-        let copy = gtk::Button::with_label(tr(msg!("Copy Command")));
-        copy.set_valign(gtk::Align::Center);
-        copy.set_visible(false);
-        copy.connect_clicked(|button| {
-            if let Some(line) = button.tooltip_text() {
-                button.clipboard().set_text(&line);
-            }
-        });
-        let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        kanshi.add_css_class("st-display-warning");
-        kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
-        kanshi.append(&note);
-        kanshi.append(&copy);
-        kanshi.set_visible(false);
+        let kanshi = kanshi_note();
 
         let root = gtk::Box::new(gtk::Orientation::Vertical, 12);
         root.add_css_class("st-display-arrangement");
@@ -193,65 +175,46 @@ impl Arrangement {
     }
 
     /// Says how the arrangement is remembered: by kanshi per combination of displays, or what
-    /// it takes for that (the include line for kanshi's config, or kanshi itself).
-    fn show_kanshi(&self, known: bool, displays: generate::Displays) {
+    /// it takes for that (the include line for kanshi's config, above the user's own profiles,
+    /// or kanshi itself). `outputs` are the displays connected now.
+    fn show_kanshi(&self, model: &Model, known: bool, outputs: &Outputs) {
         let mut parts = std::iter::successors(self.kanshi.first_child(), WidgetExt::next_sibling);
-        let (Some(_), Some(note), Some(copy)) = (parts.next(), parts.next(), parts.next()) else {
+        let (Some(icon), Some(said), Some(copy)) = (parts.next(), parts.next(), parts.next())
+        else {
             return;
         };
-        let (Ok(note), Ok(copy)) = (
+        let lines = (said.first_child(), said.last_child());
+        let (Some(note), Some(shown)) = lines else {
+            return;
+        };
+        let (Ok(icon), Ok(note), Ok(shown), Ok(copy)) = (
+            icon.downcast::<gtk::Image>(),
             note.downcast::<gtk::Label>(),
+            shown.downcast::<gtk::Label>(),
             copy.downcast::<gtk::Button>(),
         ) else {
             return;
         };
-        let files = kanshi::KanshiFiles::from_env();
-        let text = match (displays, &files) {
-            (generate::Displays::Kanshi { start }, _) => {
-                copy.set_visible(false);
-                let text = if start && !sway_things_core::outputs::kanshi_runs() {
-                    msg!(
-                        "Each combination of displays is remembered: kanshi brings this \
-                         arrangement back whenever these displays are connected together. kanshi \
-                         starts with your next login."
-                    )
-                } else {
-                    msg!(
-                        "Each combination of displays is remembered: kanshi brings this \
-                         arrangement back whenever these displays are connected together."
-                    )
-                };
-                Some(tr(text).to_owned())
-            }
-            (generate::Displays::Sway, Some(files))
-                if kanshi::installed() && files.inclusion() == kanshi::Inclusion::Missing =>
-            {
-                let command = files.append_command();
-                copy.set_tooltip_text(Some(&command));
-                copy.set_visible(true);
-                Some(trf(
-                    msg!(
-                        "So that each combination of displays is remembered, your kanshi config \
-                         needs the line \u{201c}{line}\u{201d} at its end. This command adds it: \
-                         {command}"
-                    ),
-                    &[("line", &files.include_line()), ("command", &command)],
-                ))
-            }
-            (generate::Displays::Sway, _) if !kanshi::installed() => {
-                copy.set_visible(false);
-                Some(
-                    tr(msg!(
-                        "With kanshi installed, each combination of displays is remembered and \
-                         comes back on its own."
-                    ))
-                    .to_owned(),
-                )
-            }
-            (generate::Displays::Sway, _) => None,
-        };
+        let (text, command, warns) = kanshi_says(model, outputs);
+        icon.set_icon_name(Some(if warns {
+            "dialog-warning-symbolic"
+        } else {
+            "dialog-information-symbolic"
+        }));
+        copy.set_tooltip_text(command.as_deref());
+        copy.set_visible(command.is_some());
+        shown.set_text(command.as_deref().unwrap_or_default());
+        shown.set_visible(command.is_some());
         note.set_text(text.as_deref().unwrap_or_default());
         self.kanshi.set_visible(known && text.is_some());
+    }
+
+    /// The note about kanshi, if it is shown: how the arrangement is remembered, or what keeps
+    /// kanshi from bringing it back.
+    pub fn kanshi_note(&self) -> Option<String> {
+        let note = self.kanshi.first_child()?.next_sibling()?.first_child()?;
+        let note = note.downcast::<gtk::Label>().ok()?;
+        self.kanshi.is_visible().then(|| note.text().to_string())
     }
 
     /// Whether the note that kanshi sets up the displays is shown.
@@ -289,7 +252,7 @@ impl Arrangement {
         // Displays come and go with kanshi starting at a login, so look again.
         model.look_for_kanshi();
         // A model made for tests doesn't look at the machine.
-        self.show_kanshi(known && model.looks_for_kanshi(), model.displays_backend());
+        self.show_kanshi(model, known && model.looks_for_kanshi(), outputs);
         self.empty.set_text(message.unwrap_or_default());
         self.empty.set_visible(message.is_some());
         self.canvas.set_visible(message.is_none());
@@ -1053,6 +1016,195 @@ fn focused(outputs: &Outputs) -> Option<String> {
         .find(|output| output.is_focused())
         .or_else(|| outputs.enabled().next())
         .map(|output| output.identifier().to_owned())
+}
+
+/// The note about kanshi above the canvas, hidden: an icon, what is said with the command to
+/// paste on a line of its own under it, and the button that copies the command and says so for
+/// a moment.
+fn kanshi_note() -> gtk::Box {
+    let note = gtk::Label::new(None);
+    note.set_wrap(true);
+    note.set_xalign(0.0);
+    note.set_hexpand(true);
+    note.set_selectable(true);
+    let copy = gtk::Button::with_label(tr(msg!("Copy Command")));
+    copy.set_valign(gtk::Align::Center);
+    copy.set_visible(false);
+    // Each click says "Copied" for a while; only the latest click's timeout restores the label.
+    let clicks = Rc::new(Cell::new(0_u32));
+    copy.connect_clicked(move |button| {
+        let Some(line) = button.tooltip_text() else {
+            return;
+        };
+        button.clipboard().set_text(&line);
+        button.set_label(tr(msg!("Copied")));
+        let click = clicks.get().wrapping_add(1);
+        clicks.set(click);
+        glib::timeout_add_seconds_local_once(
+            2,
+            glib::clone!(
+                #[weak]
+                button,
+                #[strong]
+                clicks,
+                move || {
+                    if clicks.get() == click {
+                        button.set_label(tr(msg!("Copy Command")));
+                    }
+                }
+            ),
+        );
+    });
+    // The command to paste, on a line of its own under what it is for.
+    let command = gtk::Label::new(None);
+    command.set_wrap(true);
+    command.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    command.set_xalign(0.0);
+    command.set_selectable(true);
+    command.add_css_class("monospace");
+    command.add_css_class(style::DIM);
+    let said = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    said.set_hexpand(true);
+    said.append(&note);
+    said.append(&command);
+    let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    kanshi.add_css_class("st-display-warning");
+    kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
+    kanshi.append(&said);
+    kanshi.append(&copy);
+    kanshi.set_visible(false);
+    kanshi
+}
+
+/// What the note says (`said`, with whether something is to do about it) with how to do it:
+/// the command to paste, or the line to move by hand where no command does it.
+fn with_the_way(
+    said: Option<(String, bool)>,
+    look: &crate::model::KanshiLook,
+) -> (Option<String>, Option<String>) {
+    match said {
+        Some((text, true)) => match &look.command {
+            Some(command) => (
+                Some(format!(
+                    "{text} {}",
+                    tr(msg!("This command puts the line at the top:"))
+                )),
+                Some(command.clone()),
+            ),
+            None => (
+                Some(format!(
+                    "{text} {}",
+                    trf(
+                        msg!(
+                            "Put the line \u{201c}{line}\u{201d} at the top by hand, and take \
+                             the line that includes it further down away."
+                        ),
+                        &[("line", &look.include_line)],
+                    )
+                )),
+                None,
+            ),
+        },
+        Some((text, false)) => (Some(text), None),
+        None => (None, None),
+    }
+}
+
+/// What the note about kanshi says for the displays `outputs` connected now, the command to
+/// paste with it, and whether it is a warning. From what the model saw when it last looked:
+/// nothing is read from the machine here.
+fn kanshi_says(model: &Model, outputs: &Outputs) -> (Option<String>, Option<String>, bool) {
+    // What the model saw when it last looked: nothing is read from the machine here.
+    let look = model.kanshi();
+    let displays = model.displays_backend();
+    // A profile of the user's that kanshi applies instead of ours, for these displays.
+    let connected: Vec<&str> = outputs
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(Output::identifier)
+        .collect();
+    let overriding = kanshi::overriding(&look.before_ours, &connected, |criteria| {
+        outputs.find(criteria).map_or_else(
+            || criteria.to_owned(),
+            |output| output.identifier().to_owned(),
+        )
+    });
+    // The line belongs at the very top: any profile above it wins where it matches.
+    let above: Vec<&str> = look
+        .before_ours
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let warns = displays.is_kanshi() && !above.is_empty();
+    // Each name in quotes of its own.
+    let quoted = |names: &[&str]| {
+        names
+            .iter()
+            .map(|name| format!("\u{201c}{name}\u{201d}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let said = match displays {
+        generate::Displays::Kanshi { .. } if warns && overriding.is_empty() => Some((
+            trf(
+                msg!(
+                    "The line of Sway Things isn\u{2019}t at the top of your kanshi config: \
+                     {name} comes before it and wins over the arrangement made here whenever \
+                     its displays are connected."
+                ),
+                &[("name", &quoted(&above))],
+            ),
+            true,
+        )),
+        generate::Displays::Kanshi { .. } if warns => {
+            let names: Vec<&str> = overriding.iter().map(String::as_str).collect();
+            Some((
+                trf(
+                    msg!(
+                        "Changes here don\u{2019}t last: your kanshi profile {name} sets up \
+                         these displays, as it comes before the line of Sway Things in your \
+                         kanshi config."
+                    ),
+                    &[("name", &quoted(&names))],
+                ),
+                true,
+            ))
+        }
+        generate::Displays::Kanshi { start } => {
+            let text = if start && !look.runs {
+                msg!(
+                    "Each combination of displays is remembered: kanshi brings this \
+                     arrangement back whenever these displays are connected together. kanshi \
+                     starts with your next login."
+                )
+            } else {
+                msg!(
+                    "Each combination of displays is remembered: kanshi brings this \
+                     arrangement back whenever these displays are connected together."
+                )
+            };
+            Some((tr(text).to_owned(), false))
+        }
+        generate::Displays::Sway if look.installed && look.include_missing => Some((
+            tr(msg!(
+                "So that each combination of displays is remembered, your kanshi config needs \
+                 the line of Sway Things at its top, above your own profiles."
+            ))
+            .to_owned(),
+            true,
+        )),
+        generate::Displays::Sway if !look.installed => Some((
+            tr(msg!(
+                "With kanshi installed, each combination of displays is remembered and comes \
+                 back on its own."
+            ))
+            .to_owned(),
+            false,
+        )),
+        generate::Displays::Sway => None,
+    };
+    let (text, command) = with_the_way(said, &look);
+    (text, command, warns)
 }
 
 #[cfg(test)]

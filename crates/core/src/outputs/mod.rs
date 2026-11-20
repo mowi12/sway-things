@@ -188,6 +188,20 @@ pub fn kanshi_runs() -> bool {
     !session_processes("kanshi").is_empty()
 }
 
+/// Whether a kanshi of this session runs as a unit of its own (a systemd user service, say):
+/// its control group is named after it. One that sway started stands in the group of the
+/// session. Reads `/proc`; nothing is run.
+pub fn kanshi_runs_as_unit() -> bool {
+    session_processes("kanshi").iter().any(|process| {
+        std::fs::read_to_string(process.join("cgroup")).is_ok_and(|groups| {
+            groups
+                .lines()
+                .filter_map(|line| line.rsplit('/').next())
+                .any(|unit| unit.contains("kanshi"))
+        })
+    })
+}
+
 /// The processes named `name` of this user in this session (the same `XDG_RUNTIME_DIR` and
 /// `WAYLAND_DISPLAY` in their environment, as far as this process has them): their `/proc`
 /// directories. Reads `/proc`; nothing is run.

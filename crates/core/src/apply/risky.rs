@@ -780,7 +780,6 @@ impl<V: Validate> Applier<V> {
             })
     }
 
-    /// The risky setting `key`.
     /// `changes` with a place for the display `device` if they switch it on while it is off and
     /// don't place it themselves: right of the displays that are on, at the top of the one
     /// furthest right. sway would put it at 0,0, over another one. `None` to leave them as they
@@ -818,6 +817,7 @@ impl<V: Validate> Applier<V> {
         Some(with_place)
     }
 
+    /// The risky setting `key`.
     fn risky_setting(&self, key: &str) -> Result<&'static Setting, ApplyError> {
         let setting = self
             .state

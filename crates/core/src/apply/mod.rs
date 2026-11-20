@@ -396,11 +396,7 @@ impl<V: Validate> Applier<V> {
         // Without the remembered displays (a file that can't be read), kanshi would get nothing
         // of what is set here: sway keeps setting them up from our lines.
         let unreadable = self.profiles.is_none() && self.kanshi_files.is_some();
-        self.displays = if displays.is_kanshi() && unreadable {
-            generate::Displays::Sway
-        } else {
-            displays
-        };
+        self.displays = displays.with_profiles(!unreadable);
     }
 
     /// Notes that `setting` changed, so the displays are remembered at the next save if it is
@@ -449,6 +445,7 @@ impl<V: Validate> Applier<V> {
         value: Value,
         access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
+        self.displays_need_session(key)?;
         // While kanshi sets up the displays, each one's values are stored for the combination:
         // a value for every display is one for each display connected now, else their own
         // values would win over it.
@@ -466,6 +463,12 @@ impl<V: Validate> Applier<V> {
                     commands.extend(sent);
                 }
             }
+            // One stored for every display before kanshi set them up would say something else
+            // now: under kanshi a value stands for the displays connected, not for all.
+            if self.state.reset(key, None)? {
+                changed = true;
+                self.unsaved_since = Some(Instant::now());
+            }
             return Ok(Applied {
                 changed,
                 effect: Effect::Live { commands },
@@ -473,6 +476,18 @@ impl<V: Validate> Applier<V> {
             });
         }
         self.set_one(key, device, value, access).await
+    }
+
+    /// Refuses a change of the display setting `key` while kanshi sets up the displays and no
+    /// session runs: it would be stored, but neither sway's lines nor a profile of kanshi's
+    /// would take it, and the next look at the displays would put back what they run with.
+    fn displays_need_session(&self, key: &str) -> Result<(), ApplyError> {
+        let setting = self.setting(key)?;
+        if self.displays.is_kanshi() && setting.scope() == Scope::PerOutput && self.client.is_none()
+        {
+            return Err(ApplyError::DisplaysNeedSession { key: setting.key() });
+        }
+        Ok(())
     }
 
     /// The displays connected now, for a value of the display setting `key` for every display
@@ -544,10 +559,16 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         access: &WriteAccess,
     ) -> Result<Applied, ApplyError> {
+        self.displays_need_session(key)?;
         // As for [`Applier::set`]: under kanshi, the value of every display is each one's.
         if let Some(each) = self.each_display(key, device).await? {
+            // With one stored for every display before kanshi set them up, which goes too.
+            let dropped = self.state.reset(key, None)?;
+            if dropped {
+                self.unsaved_since = Some(Instant::now());
+            }
             let mut applied = Applied {
-                changed: false,
+                changed: dropped,
                 effect: Effect::NotStored,
                 not_copied: Vec::new(),
             };
@@ -1447,8 +1468,6 @@ impl<V: Values> Values for Over<'_, V> {
     }
 }
 
-/// The commands that set the directive of `setting` to its values in `state`, with those in
-/// `over` in place of the state's.
 /// The commands of two effects of one change, sent one after the other.
 fn merged(first: Effect, then: Effect) -> Effect {
     match (first, then) {
@@ -1475,6 +1494,8 @@ fn combination_of(outputs: &Outputs) -> Vec<String> {
     names
 }
 
+/// The commands that set the directive of `setting` to its values in `state`, with those in
+/// `over` in place of the state's.
 fn render(
     state: &State,
     over: &BTreeMap<String, Value>,
@@ -1540,6 +1561,12 @@ pub enum ApplyError {
     /// A risky change waits to be kept or reverted, and another one can't be tried before.
     PendingChange {
         /// The key of the change that waits.
+        key: &'static str,
+    },
+    /// kanshi sets up the displays, which remembers a display's setting for the displays
+    /// connected, and there is no session to say which those are.
+    DisplaysNeedSession {
+        /// The key.
         key: &'static str,
     },
     /// A display can't show another one that is shown elsewhere or shows another itself.
@@ -1620,6 +1647,11 @@ impl ApplyError {
                  elsewhere while it shows another"
             )
             .into(),
+            Self::DisplaysNeedSession { key } => Text::new(msg!(
+                "{key} wasn't changed: kanshi sets up the displays and remembers it for the \
+                 displays connected, so it changes only in a running sway session"
+            ))
+            .arg("key", key),
             Self::NothingPending => msg!("no change waits to be kept or reverted").into(),
             Self::NoSession { key } => Text::new(msg!(
                 "{key} can lock you out, so it is only tried in a running sway session, where it \
@@ -1668,6 +1700,7 @@ impl std::error::Error for ApplyError {
             | Self::NothingPending
             | Self::Mirror
             | Self::NoSession { .. }
+            | Self::DisplaysNeedSession { .. }
             | Self::Lockout { .. }
             | Self::ReloadWithoutSession
             | Self::Unwritten { .. } => None,

@@ -172,8 +172,14 @@ new mode, a rotation and switching an output off go through the safety net.
   changes, the page shows what kanshi set up for it, so the rows and the canvas always show what runs; the rows then
   have no reset button or machine toggle. The first time, kanshi is started at once. A note above the canvas says so
   (and that kanshi starts with the next login, if it can't be started yet). Without the include line in an existing
-  kanshi config, the note shows the line with _Copy Line_; without kanshi, it says that installing kanshi makes this
-  happen. Any one display alone always comes on, so no combination stays dark.
+  kanshi config, the note shows the line and a command that puts it at the top, with _Copy Command_ (which says _Copied_
+  for a moment); without kanshi, it says that installing kanshi makes this happen. The line belongs above the user's own
+  profiles: kanshi applies the first profile that matches, so the arrangement made here comes first and the user's
+  profiles stay for the combinations never arranged here. While anything of the user's comes before the line, the note
+  is a warning with the command that moves the line up (or what to do by hand, where no command does it safely); it
+  names the profile that sets up the displays connected now, since every change on the page is undone by that profile at
+  once. The page follows kanshi's config, so the warning goes as soon as the line is in place. Any one display alone
+  always comes on, so no combination stays dark.
 - **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
@@ -182,9 +188,11 @@ new mode, a rotation and switching an output off go through the safety net.
   runs the hook). Meanwhile the display stands apart from the others, 2000 logical pixels right of them, which the
   pointer doesn't cross, and its tile is parked beside the others like one that is off, saying _Picture of …_ (its
   position isn't offered). The picture has a workspace of its own named after the display, so no workspace number leads
-  there. The workspaces with windows that stood on the display move to the one shown and go back (the first of them
-  shown again, the display at its place again) when it shows its own content again; a display that mirrors takes no
-  workspaces, also not from the placement. Without kanshi or wl-mirror the row says what it needs.
+  there. The workspaces with windows that stood on the display move to the one shown, as does one that lands there later
+  (at the next start, reload or kanshi profile), and go back (the first of them shown again, the display at its place
+  again) when it shows its own content again; a display that mirrors takes no workspaces, also not from the placement.
+  Without kanshi or wl-mirror the row says what it needs, and a remembered picture that can't start (wl-mirror gone)
+  leaves its display and its workspaces as they are.
 
 ### Workspaces
 

@@ -629,7 +629,9 @@ SwayFX.
 - **Commands:** `Client::run` takes a `SwayCmd`, renders it for IPC and sends it in a `RUN_COMMAND` message of its own,
   so the result belongs to that command. A rejected command returns sway's error message and whether it was a parse
   error. A command that needs a newer sway or SwayFX than the running one isn't sent at all: sway doesn't reject every
-  value it doesn't know (`drag_lock enabled_sticky` on sway 1.10 means `disabled`).
+  value it doesn't know (`drag_lock enabled_sticky` on sway 1.10 means `disabled`). `Client::run_together` sends several
+  commands as one message, which sway runs with nothing of another client's in between: moving a workspace is "focus it,
+  then move the focused one", and two placers (a kanshi hook and the app) would otherwise move each other's.
 - **Events:** `Client::subscribe` opens a second connection, so replies and events don't mix, and `Events::next` returns
   them in order. An event that can't be read is an error for that event only, an unknown event type is skipped, and the
   events end when sway closes the connection (after a `shutdown` event, if subscribed).
@@ -710,42 +712,55 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   would leave none on. Switching every output at once isn't offered: it is one at a time.
 - **kanshi (profiles per combination):** `generate::Displays::detect` makes kanshi the display backend when it is
   installed (`kanshi` in `$PATH`) and its config includes ours, or there is none (it is then created with the include
-  line). Nothing is run. With kanshi, per-output settings are stored as always, so a row shows exactly the value set
-  (never a value sway reports back, like a scale of 1.2999999523, which a control would send again) and the canvas flows
-  the layout along with a new size. They stand for the combination connected now: `Applier::follow_combination` (the app
-  runs it whenever sway reports a change of the outputs, the command line before a change of a display) replaces them
-  with the profile of a combination that comes back, or with what the displays run with for one never set up here, and
-  drops the values of displays that aren't connected and that a remembered combination holds (those of a display set up
-  before kanshi did it stay). For ten seconds after the combination came, while kanshi sets it up, and until a setting
-  of the displays changes here, they keep following; a change from elsewhere after that is left as it is. A change made
-  here and not saved yet when the combination changes is remembered for the combination it was made for first. Following
-  never runs while a risky change waits, and isn't saved on its own (a save per dock and undock would push the user's
-  changes out of the history). A value for every display is stored for each one connected. Nothing is sent: kanshi sets
-  the displays up. When the settings are saved after a per-output setting changed (`Applier::touch`) and no risky change
-  waits, `Applier::remember_displays` makes the profile of the connected outputs from the stored values
-  (`outputs::profiles::Profile::stored`, what they run with where nothing is stored) and remembers it for their
-  combination in `displays.toml` next to the settings files (`Profiles`), unless the combination changed since the
-  values were made for it, writes `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per
-  combination named `sway-things-<hash>`, then for each display of them without a remembered combination of its own, one
-  that switches it on when it is the only one connected (a laptop's panel switched off at the dock comes back when the
-  dock goes). There is no profile for any displays (`...output *`): kanshi keeps a profile that still matches when
-  displays are plugged in, so it would never switch to a remembered combination again; a combination with every display
-  off is never remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file
-  changed. If our include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per
-  run of the app), not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places,
-  which is the scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and
-  never the user's config except to create it. `20-output.conf` then has no per-output lines, a comment, the startup
-  guard (always with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`,
-  not counting our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps
-  being started. `displays.toml` starts with our header and a file without it is never written over; one that can't be
-  read isn't either: the displays are set up from our sway lines meanwhile, and the app says why. `hook displays` has
-  kanshi apply its profile again and then makes sure a display is on. The app looks again before each change and when
-  displays come and go (at most every two seconds) and writes the files when the answer changes; `doctor` compares
-  against the same and checks no conflicts of per-output settings meanwhile. With kanshi installed, `doctor` reports a
-  kanshi config without our include (with the command that appends it), a file of someone else's in the place of ours,
-  and a profile of the user's that covers a remembered combination (`kanshi::user_profiles`), since kanshi applies the
-  first that matches. The rows of the displays have no reset button and no machine toggle meanwhile: the values stand
-  for the combination, not for every machine. A model made for tests never looks.
+  line); `Displays::with_profiles` goes back to sway while `displays.toml` can't be read, for the app, the command line
+  and `doctor` alike. Our `exec kanshi` is dropped once a kanshi runs as a unit of its own (its control group is named
+  after it). Nothing is run. The app looks at most every two seconds (`Model::look_for_kanshi`, which keeps what it saw
+  for the page) and watches kanshi's config and ours, so an include line added or moved shows at once, and has kanshi
+  read its config again then. With kanshi, per-output settings are stored as always, so a row shows exactly the value
+  set (never a value sway reports back, like a scale of 1.2999999523, which a control would send again) and the canvas
+  flows the layout along with a new size. They stand for the combination connected now: `Applier::follow_combination`
+  (the app runs it whenever sway reports a change of the outputs, the command line before a change of a display)
+  replaces them with the profile of a combination that comes back, or with what the displays run with for one never set
+  up here, and drops the values of displays that aren't connected and that a remembered combination holds (those of a
+  display set up before kanshi did it stay). For ten seconds after the combination came, while kanshi sets it up, and
+  until a setting of the displays changes here, they keep following; a change from elsewhere after that is left as it
+  is. A change made here and not saved yet when the combination changes is remembered for the combination it was made
+  for first. Following never runs while a risky change waits, and isn't saved on its own (a save per dock and undock
+  would push the user's changes out of the history). A value for every display is stored for each one connected, and one
+  stored for every display before kanshi set them up is dropped then (a profile takes it for a display without its own
+  meanwhile). Without a session, a display's setting isn't changed at all (`ApplyError::DisplaysNeedSession`): it would
+  reach neither sway's lines nor a profile. Nothing is sent: kanshi sets the displays up. When the settings are saved
+  after a per-output setting changed (`Applier::touch`) and no risky change waits, `Applier::remember_displays` makes
+  the profile of the connected outputs from the stored values (`outputs::profiles::Profile::stored`, what they run with
+  where nothing is stored) and remembers it for their combination in `displays.toml` next to the settings files
+  (`Profiles`), unless the combination changed since the values were made for it, writes
+  `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per combination named
+  `sway-things-<hash>`, then for each display of them without a remembered combination of its own, one that switches it
+  on when it is the only one connected (a laptop's panel switched off at the dock comes back when the dock goes). There
+  is no profile for any displays (`...output *`): kanshi keeps a profile that still matches when displays are plugged
+  in, so it would never switch to a remembered combination again; a combination with every display off is never
+  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our
+  include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per run of the app),
+  not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places, which is the
+  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the
+  user's config except to create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always
+  with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`, not counting
+  our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps being started.
+  `displays.toml` starts with our header and a file without it is never written over; one that can't be read isn't
+  either: the displays are set up from our sway lines meanwhile, and the app says why. `hook displays` has kanshi apply
+  its profile again and then makes sure a display is on. The app looks again before each change and when displays come
+  and go (at most every two seconds) and writes the files when the answer changes; `doctor` compares against the same
+  and checks no conflicts of per-output settings meanwhile. With kanshi installed, `doctor` reports a kanshi config
+  without our include or with something before it (with `KanshiFiles::how_to_include`: the `sed` line of
+  `include_command` for the user to run, which puts the include at the top, takes exactly the line that included ours
+  away and follows a symlink, or what to do by hand where no command does it, as when ours is included through a
+  pattern), a file of someone else's in the place of ours, and a profile of the user's before the include that covers a
+  remembered combination (`kanshi::user_profiles`, with `output *` as one more display and `...output *` as any number),
+  since kanshi applies the first that matches. A file included before ours isn't read: it counts as standing above the
+  line. The Displays page and `sway-things set` warn of a profile that wins for the displays connected now
+  (`kanshi::overriding`), and the page of anything above the line. The rows of the displays have no reset button and no
+  machine toggle meanwhile: the values stand for the combination, not for every machine. A model made for tests never
+  looks.
 - **Workspace placement:** `outputs::workspaces` puts workspaces `1` to `workspaces.count` on the displays by the rule
   `workspaces.placement` (`Rule`: sway's own, round robin, blocks, the built-in display, or fixed). Both settings are on
   the Workspaces page and have no sway directive, since the placement depends on the displays connected. `place` gives
@@ -771,16 +786,21 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   doesn't ask for (`kill` with their numbers) and starts only the missing ones
   (`setsid -f wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>`), with argument
   lists and no shell. Once any combination mirrors, every kanshi profile, those of a display alone too, runs
-  `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. A display that mirrors
-  stands apart (`Profile::apart`: right of the others' right edge, worked out from mode, turn and scale, plus `APART` =
-  2000 logical pixels, which the pointer doesn't cross), in the kanshi profile and live, with a workspace of its own for
-  the picture (`mirror::workspace_name`). It takes no workspaces (also not from the placement, which sends them to the
-  display shown): `mirror::gather_workspaces` moves the workspaces with windows on it to the display shown before its
-  mirror starts (not again while one runs) and notes them in the profile (`mirror_workspaces`, with the sway session as
-  `mirror_session`, so a later login gives nothing back), which `give_back_workspaces` moves back, with the display back
-  at its place, when it shows its own content again; the mirror's window doesn't take the focus (`no_focus` by its
-  title, in `20-output.conf` and sent before a mirror starts). The app reads `displays.toml` again before it changes it,
-  since the hook may have noted something meanwhile.
+  `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. Whatever a mirror takes
+  from its display is taken only for a mirror that can start (`mirror::startable`, the one rule for `apply`, the
+  workspaces and the place apart: `wl-mirror` installed, both displays on, no chain or cycle), so a picture that can't
+  start leaves its display as it is; `kanshi_config` leaves the place apart out without `wl-mirror`, and the hook writes
+  kanshi's file again when that changed. A display that mirrors stands apart (`Profile::apart`: right of the others'
+  right edge, worked out from mode, turn and scale, plus `APART` = 2000 logical pixels, which the pointer doesn't
+  cross), in the kanshi profile and live, with a workspace of its own for the picture (`mirror::workspace_name`). It
+  takes no workspaces (also not from the placement, which sends them to the display shown): `mirror::gather_workspaces`
+  moves the workspaces with windows on it to the display shown before its mirror starts, and again each time the hook
+  runs (a workspace the user's config or another tool put there since would hide the picture, out of the pointer's
+  reach), puts the display back apart if something set it among the others, and notes the workspaces in the profile
+  (`mirror_workspaces`, with the sway session as `mirror_session`, so a later login gives nothing back), which
+  `give_back_workspaces` moves back, with the display back at its place, when it shows its own content again; the
+  mirror's window doesn't take the focus (`no_focus` by its title, in `20-output.conf` and sent before a mirror starts).
+  The app reads `displays.toml` again before it changes it, since the hook may have noted something meanwhile.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),

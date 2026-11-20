@@ -2033,6 +2033,55 @@ fn while_kanshi_sets_up_the_displays_their_changes_are_stored_as_always() {
 }
 
 #[test]
+fn while_kanshi_sets_up_the_displays_a_value_for_every_display_replaces_the_stored_one() {
+    let sway = desk();
+    // Stored for every display while sway set them up.
+    let mut setup = Setup::live(&sway, "version = 1\n\n[output]\nscale = 2.0\n");
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    let applied = setup.set(SCALE, Value::Decimal(1.5)).unwrap();
+    assert!(applied.changed);
+    // Each display has its own now, and the old one for all of them no longer says otherwise.
+    assert_eq!(setup.applier.state().get(SCALE, None), None);
+    assert_eq!(
+        setup.applier.state().get(SCALE, Some(PANEL)),
+        Some(&Value::Decimal(1.5))
+    );
+    let mut setup = Setup::live(&sway, "version = 1\n\n[output]\nscale = 2.0\n");
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    assert!(setup.reset(SCALE).unwrap().changed);
+    assert_eq!(setup.applier.state().get(SCALE, None), None);
+}
+
+#[test]
+fn while_kanshi_sets_up_the_displays_they_change_only_in_a_session() {
+    let mut setup = Setup::offline("version = 1\n");
+    setup
+        .applier
+        .set_displays(crate::generate::Displays::Kanshi { start: false });
+    // Stored, it would reach neither sway's lines nor a profile of kanshi's.
+    assert!(matches!(
+        block_on(setup.applier.set(
+            SCALE,
+            Some(PANEL),
+            Value::Decimal(1.5),
+            &setup.access
+        )),
+        Err(ApplyError::DisplaysNeedSession { key }) if key == SCALE
+    ));
+    assert!(matches!(
+        block_on(setup.applier.reset(SCALE, Some(PANEL), &setup.access)),
+        Err(ApplyError::DisplaysNeedSession { .. })
+    ));
+    assert_eq!(setup.applier.state().get(SCALE, Some(PANEL)), None);
+    // Other settings change as always.
+    assert!(setup.set("windows.gaps.inner", Value::Integer(4)).is_ok());
+}
+
+#[test]
 fn the_stored_displays_follow_the_combination_kanshi_set_up() {
     let sway = desk();
     // A value of another combination's display, and one of the panel kanshi changed since.

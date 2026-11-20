@@ -145,6 +145,42 @@ enum Op {
     Overwrite(ConfigFile),
 }
 
+/// What the model saw of kanshi when it last looked, for the note of the Displays page: read
+/// from the machine once, not each time the page draws.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct KanshiLook {
+    /// Whether kanshi is installed.
+    pub installed: bool,
+    /// Whether one runs in this session.
+    pub runs: bool,
+    /// Whether the user's kanshi config is there without the include of ours.
+    pub include_missing: bool,
+    /// The include line of ours.
+    pub include_line: String,
+    /// The command that puts it at the top of the user's kanshi config, if one does.
+    pub command: Option<String>,
+    /// The user's profiles before the include, which kanshi tries before ours.
+    pub before_ours: Vec<(String, Vec<String>)>,
+}
+
+impl KanshiLook {
+    /// Looks at the machine: `$PATH`, `/proc` and the user's kanshi config.
+    fn read() -> Self {
+        use sway_things_core::outputs::kanshi;
+        let Some(files) = kanshi::KanshiFiles::from_env() else {
+            return Self::default();
+        };
+        Self {
+            installed: kanshi::installed(),
+            runs: sway_things_core::outputs::kanshi_runs(),
+            include_missing: files.inclusion() == kanshi::Inclusion::Missing,
+            include_line: files.include_line(),
+            command: files.include_command(),
+            before_ours: files.before_ours(),
+        }
+    }
+}
+
 /// What the model works with once it is loaded.
 #[derive(Debug)]
 struct Core {
@@ -204,6 +240,8 @@ mod imp {
         pub(super) busy: Cell<bool>,
         /// Who set up the displays when last looked.
         pub(super) displays: Cell<sway_things_core::generate::Displays>,
+        /// What was seen of kanshi when last looked.
+        pub(super) kanshi: RefCell<super::KanshiLook>,
         /// When the displays page last looked for kanshi.
         pub(super) kanshi_looked: Cell<Option<std::time::Instant>>,
         /// Whether to look for kanshi at all: not for a model made for tests, so they don't
@@ -279,6 +317,7 @@ impl Model {
                     model.queue(Op::Persist);
                 }
                 model.watch_config(watch);
+                model.watch_kanshi();
                 match state_watch {
                     Ok(watcher) => model.watch_state(watcher),
                     Err(error) => model.emit_problem(&trf(
@@ -453,20 +492,34 @@ impl Model {
         self.imp().displays.get().is_kanshi()
     }
 
+    /// What the model saw of kanshi when it last looked.
+    pub fn kanshi(&self) -> KanshiLook {
+        self.imp().kanshi.borrow().clone()
+    }
+
     /// Looks again whether kanshi sets up the displays, as when displays come and go; says
-    /// whether that changed.
+    /// whether what it saw changed. At most every two seconds: the model changes often while a
+    /// display is dragged, and a look reads `/proc`. kanshi's config and sway's are watched, so
+    /// a change of those is seen at once ([`Model::look_at_kanshi`]).
     pub fn look_for_kanshi(&self) -> bool {
-        // At most every few seconds: the model changes often while a display is dragged.
-        let now = std::time::Instant::now();
-        let recently = self
-            .imp()
+        let recently = self.imp().kanshi_looked.get().is_some_and(|then| {
+            std::time::Instant::now().duration_since(then) < std::time::Duration::from_secs(2)
+        });
+        !recently && self.look_at_kanshi()
+    }
+
+    /// Looks now whether kanshi sets up the displays and what its config says; says whether
+    /// that changed.
+    fn look_at_kanshi(&self) -> bool {
+        self.imp()
             .kanshi_looked
-            .get()
-            .is_some_and(|then| now.duration_since(then) < std::time::Duration::from_secs(2));
-        if recently {
-            return false;
-        }
-        self.imp().kanshi_looked.set(Some(now));
+            .set(Some(std::time::Instant::now()));
+        let look = if self.imp().looks_for_kanshi.get() {
+            KanshiLook::read()
+        } else {
+            KanshiLook::default()
+        };
+        let seen = self.imp().kanshi.replace(look.clone()) != look;
         let displays = self.displays();
         let changed = self.imp().displays.replace(displays) != displays;
         if changed {
@@ -474,7 +527,38 @@ impl Model {
             // the displays go from the generated files or come back.
             self.queue(Op::Persist);
         }
-        changed
+        changed || seen
+    }
+
+    /// Follows the user's kanshi config and ours: the include line that was added, moved or
+    /// removed shows on the Displays page at once, as the one of the sway config does.
+    fn watch_kanshi(&self) {
+        let Some(files) = sway_things_core::outputs::kanshi::KanshiFiles::from_env() else {
+            return;
+        };
+        let Ok(watcher) = sway_things_core::watch::Watcher::new(
+            [files.config.clone(), files.ours],
+            sway_things_core::watch::DEBOUNCE,
+        ) else {
+            return;
+        };
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                while let Some(changed) = watcher.changed().await {
+                    let theirs = changed.contains(&files.config);
+                    if model.look_at_kanshi() {
+                        model.emit_by_name::<()>("changed", &[]);
+                    }
+                    // kanshi doesn't follow its config by itself: the line the user just put
+                    // there counts at once, and the arrangement made here comes back.
+                    if theirs && model.kanshi_runs() {
+                        sway_things_core::outputs::kanshi::reload().await;
+                    }
+                }
+            }
+        ));
     }
 
     /// The input devices: in a session the connected ones, then those that only have stored
@@ -788,6 +872,8 @@ impl Model {
         if let Some(core) = self.imp().core.borrow_mut().as_mut() {
             core.status = status;
         }
+        // The user's sway config may start kanshi now, or no longer.
+        self.look_at_kanshi();
         self.emit_by_name::<()>("changed", &[]);
     }
 
@@ -1356,10 +1442,17 @@ impl Model {
     /// the app opened. When that changed, the files are written again (unless `persisting`
     /// already), so the lines for the displays go or come back.
     fn follow_displays(&self, applier: &mut Applier, persisting: bool) {
-        let displays = self.displays();
+        let before = self.imp().displays.get();
+        // Not before every change: a look reads `/proc` and kanshi's config.
+        self.look_for_kanshi();
+        let displays = self.imp().displays.get();
         applier.set_displays(displays);
-        if self.imp().displays.replace(displays) != displays && !persisting {
-            self.queue(Op::Persist);
+        if displays != before && persisting {
+            // Written with this very change: once is enough.
+            self.imp()
+                .queue
+                .borrow_mut()
+                .retain(|op| !matches!(op, Op::Persist));
         }
     }
 

@@ -74,14 +74,7 @@ pub struct Mirror {
 
 /// Whether `wl-mirror` is installed: an executable of that name in a directory of `$PATH`.
 pub fn installed() -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    let Some(path) = std::env::var_os("PATH") else {
-        return false;
-    };
-    std::env::split_paths(&path).any(|dir| {
-        std::fs::metadata(dir.join("wl-mirror"))
-            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
-    })
+    crate::delegate::find_program("wl-mirror", std::env::var_os("PATH").as_deref()).is_some()
 }
 
 /// Has the mirrors run that the profile of the combination of `outputs` asks for: ends the
@@ -162,30 +155,23 @@ pub async fn gather_workspaces(
     let running = running();
     let mut placement = std::collections::BTreeMap::new();
     let mut gathered: Vec<(String, Vec<String>)> = Vec::new();
-    // Each display that starts showing a picture: its connector and where it goes apart.
-    let mut apart: Vec<(String, Option<(i32, i32)>)> = Vec::new();
-    for (target, setup) in profile.outputs() {
-        let Some(mirror) = &setup.mirror else {
-            continue;
-        };
-        let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
-        let (Some(target), Some(source)) = (on(target), on(&mirror.of)) else {
-            continue;
-        };
-        // A picture that is shown already took them along: what stands there now is its own.
+    // Each display that shows a picture: its connector, where it goes apart, and whether the
+    // picture starts now.
+    let mut apart: Vec<Apart> = Vec::new();
+    for (target, source, _) in startable(profile, &outputs) {
         let shown = running.iter().any(|(_, arguments)| {
             arguments
                 .windows(2)
                 .any(|pair| pair[0] == "--fullscreen-output" && pair[1] == target.name())
         });
-        if shown {
-            continue;
-        }
         // Only workspaces with windows: an empty one (the one sway makes on a display plugged
-        // in) goes away by itself, and its name would stand for other work later.
+        // in) goes away by itself, and its name would stand for other work later. Also one that
+        // came there while the picture is shown (the user's config or another tool put it
+        // there): it would hide the picture, out of the pointer's reach.
+        let own = workspace_name(target.name());
         let moved: Vec<String> = open
             .iter()
-            .filter(|open| open.output == target.name())
+            .filter(|open| open.output == target.name() && open.name != own)
             .filter(|open| {
                 open.representation
                     .as_deref()
@@ -196,8 +182,20 @@ pub async fn gather_workspaces(
         for name in &moved {
             placement.insert(name.clone(), source.identifier().to_owned());
         }
+        // Back apart, if something (a profile of the user's, say) put it among the others.
+        let place = profile.apart(target.identifier());
+        let stands = target.rect().map(|rect| (rect.x, rect.y));
+        // Where it stands isn't known: left where it is.
+        let in_place = place.is_none() || stands.is_none() || place == stands;
+        if shown && moved.is_empty() && in_place {
+            continue;
+        }
         gathered.push((target.identifier().to_owned(), moved));
-        apart.push((target.name().to_owned(), profile.apart(target.identifier())));
+        apart.push(Apart {
+            name: target.name().to_owned(),
+            place: place.filter(|_| !in_place),
+            fresh: !shown,
+        });
     }
     if apart.is_empty() {
         return Ok(0);
@@ -212,48 +210,64 @@ pub async fn gather_workspaces(
         return Ok(0);
     };
     commands.extend(set_apart(&apart, &open).unwrap_or_default());
-    for command in &commands {
-        client.run(command).await?;
-    }
+    // One message: nobody else's command comes between a focus and the move after it.
+    client.run_together(&commands).await?;
     Ok(commands.len())
 }
 
-/// The commands that set each display of `apart` (its connector and place) apart from the others
-/// and give it a workspace of its own for the picture, named after it, so no workspace number
-/// leads there; then the focus goes back to the workspace of `open` that had it (which moves the
-/// pointer off the display, if it was there).
+/// A display that shows another one's picture, for [`set_apart`].
+struct Apart {
+    /// Its connector.
+    name: String,
+    /// Where it goes, if it doesn't stand there already.
+    place: Option<(i32, i32)>,
+    /// Whether the picture starts now: the display gets its workspace for it then.
+    fresh: bool,
+}
+
+/// The commands that set each display of `apart` apart from the others and, where the picture
+/// starts now, give it a workspace of its own for the picture, named after it, so no workspace
+/// number leads there; then the focus goes back to the workspace of `open` that had it (which
+/// moves the pointer off the display, if it was there).
 fn set_apart(
-    apart: &[(String, Option<(i32, i32)>)],
+    apart: &[Apart],
     open: &[crate::ipc::types::Workspace],
 ) -> Result<Vec<SwayCmd>, crate::command::TextError> {
     let mut commands = Vec::new();
-    for (name, place) in apart {
-        if let Some((x, y)) = place {
+    for display in apart {
+        if let Some((x, y)) = display.place {
             commands.push(
                 SwayCmd::new("output")
-                    .text(SwayText::new(name)?)
+                    .text(SwayText::new(&display.name)?)
                     .keyword("pos")
-                    .int(i64::from(*x))
-                    .int(i64::from(*y)),
+                    .int(i64::from(x))
+                    .int(i64::from(y)),
             );
+        }
+        if !display.fresh {
+            continue;
         }
         commands.push(
             SwayCmd::new("focus")
                 .keyword("output")
-                .text(SwayText::new(name)?),
+                .text(SwayText::new(&display.name)?),
         );
         commands.push(
             SwayCmd::new("workspace")
                 .keyword("--no-auto-back-and-forth")
-                .text(SwayText::new(workspace_name(name))?),
+                .text(SwayText::new(workspace_name(&display.name))?),
         );
     }
+    // Not onto the display of a picture: the workspace that had the focus may be one of those
+    // that just left it.
     if let Some(focused) = open.iter().find(|open| open.focused) {
-        commands.push(
-            SwayCmd::new("workspace")
-                .keyword("--no-auto-back-and-forth")
-                .text(SwayText::new(&focused.name)?),
-        );
+        if apart.iter().any(|display| display.fresh) {
+            commands.push(
+                SwayCmd::new("workspace")
+                    .keyword("--no-auto-back-and-forth")
+                    .text(SwayText::new(&focused.name)?),
+            );
+        }
     }
     Ok(commands)
 }
@@ -318,9 +332,8 @@ pub async fn give_back_workspaces(
             );
         }
     }
-    for command in &commands {
-        client.run(command).await?;
-    }
+    // One message: nobody else's command comes between a focus and the move after it.
+    client.run_together(&commands).await?;
     Ok(commands.len())
 }
 
@@ -374,29 +387,10 @@ fn wanted(profiles: &Profiles, outputs: &Outputs) -> Vec<Vec<String>> {
     let Some(profile) = profiles.of(&names) else {
         return Vec::new();
     };
-    if !installed() {
-        return Vec::new();
-    }
-    let mirrored: Vec<&str> = profile
-        .outputs()
-        .filter_map(|(_, setup)| Some(setup.mirror.as_ref()?.of.as_str()))
-        .collect();
-    let mirroring: Vec<&str> = profile
-        .outputs()
-        .filter(|(_, setup)| setup.mirror.is_some())
-        .map(|(name, _)| name)
-        .collect();
-    profile
-        .outputs()
-        .filter_map(|(target, setup)| {
-            let mirror = setup.mirror.as_ref()?;
-            // No chains, no cycles: a display shown elsewhere shows its own content.
-            if mirrored.contains(&target) || mirroring.contains(&mirror.of.as_str()) {
-                return None;
-            }
-            let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
-            let (target, source) = (on(target)?, on(&mirror.of)?);
-            Some(vec![
+    startable(profile, outputs)
+        .into_iter()
+        .map(|(target, source, mirror)| {
+            vec![
                 "--fullscreen-output".to_owned(),
                 target.name().to_owned(),
                 "--scaling".to_owned(),
@@ -404,7 +398,32 @@ fn wanted(profiles: &Profiles, outputs: &Outputs) -> Vec<Vec<String>> {
                 "--title".to_owned(),
                 TITLE.to_owned(),
                 source.name().to_owned(),
-            ])
+            ]
+        })
+        .collect()
+}
+
+/// The mirrors of `profile` that can run on `outputs`: the display that shows the picture, the
+/// one shown, and how. None without `wl-mirror`; not one whose display or source isn't on, nor
+/// one of a chain or a cycle (a display shown elsewhere shows its own content). Whatever a
+/// mirror takes (the workspaces of its display, its place among the others) is taken only for
+/// these, so a picture that can't start leaves its display as it is.
+fn startable<'a>(
+    profile: &'a super::profiles::Profile,
+    outputs: &'a Outputs,
+) -> Vec<(&'a super::Output, &'a super::Output, &'a Mirror)> {
+    if !installed() {
+        return Vec::new();
+    }
+    profile
+        .outputs()
+        .filter_map(|(target, setup)| {
+            let mirror = setup.mirror.as_ref()?;
+            if !profile.mirror_runs(target) {
+                return None;
+            }
+            let on = |name: &str| outputs.find(name).filter(|output| output.is_enabled());
+            Some((on(target)?, on(&mirror.of)?, mirror))
         })
         .collect()
 }
@@ -458,6 +477,47 @@ fn kill(pids: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::Scaling;
+
+    #[test]
+    fn a_display_goes_apart_and_gets_its_workspace_only_when_the_picture_starts() {
+        use crate::command::Target;
+        let open: Vec<crate::ipc::types::Workspace> = serde_json::from_str(
+            r#"[{"id": 1, "num": 3, "name": "3", "layout": "splith", "visible": true,
+                 "focused": true, "urgent": false, "representation": null,
+                 "orientation": "horizontal", "output": "eDP-1",
+                 "rect": {"x": 0, "y": 0, "width": 0, "height": 0}}]"#,
+        )
+        .unwrap();
+        let sent = |apart: &[super::Apart]| -> Vec<String> {
+            super::set_apart(apart, &open)
+                .unwrap()
+                .iter()
+                .map(|command| command.render(Target::Ipc).unwrap())
+                .collect()
+        };
+        let starting = super::Apart {
+            name: "DP-1".to_owned(),
+            place: Some((4000, 0)),
+            fresh: true,
+        };
+        assert_eq!(
+            sent(&[starting]),
+            [
+                r#"output "DP-1" pos 4000 0"#,
+                r#"focus output "DP-1""#,
+                r#"workspace --no-auto-back-and-forth "Mirror DP-1""#,
+                r#"workspace --no-auto-back-and-forth "3""#,
+            ]
+        );
+        // Shown already, but something put the display among the others: only back apart, and
+        // the focus stays where it is.
+        let shown = super::Apart {
+            name: "DP-1".to_owned(),
+            place: Some((4000, 0)),
+            fresh: false,
+        };
+        assert_eq!(sent(&[shown]), [r#"output "DP-1" pos 4000 0"#]);
+    }
 
     #[test]
     fn scalings_have_the_names_wl_mirror_knows() {

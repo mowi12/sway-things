@@ -1012,9 +1012,7 @@ impl<V: Validate> Checkup<'_, V> {
                     ))
                     .arg("file", files.config.display()),
                 )
-                .with_hint(
-                    Text::new(msg!("Run: {command}")).arg("command", files.append_command()),
-                ),
+                .with_hint(files.how_to_include()),
             );
         }
         if let Ok(text) = std::fs::read_to_string(&files.ours) {
@@ -1051,6 +1049,17 @@ impl<V: Validate> Checkup<'_, V> {
                 return;
             }
         };
+        self.kanshi_order(files, &profiles, findings);
+    }
+
+    /// The user's kanshi profiles that come before our include, which kanshi tries first: one
+    /// that covers a remembered combination, and the include not being at the top at all.
+    fn kanshi_order(
+        &self,
+        files: &crate::outputs::kanshi::KanshiFiles,
+        profiles: &crate::outputs::profiles::Profiles,
+        findings: &mut Vec<Finding>,
+    ) {
         let Ok(config) = std::fs::read_to_string(&files.config) else {
             return;
         };
@@ -1064,8 +1073,13 @@ impl<V: Validate> Checkup<'_, V> {
                     |output| output.identifier().to_owned(),
                 )
         };
+        // Those that cover nothing remembered yet still win once their displays are arranged.
+        let mut above: Vec<String> = Vec::new();
         for (name, outputs) in files.profiles_before_ours(&config) {
-            let wildcard = outputs.iter().any(|criteria| criteria == "*");
+            use crate::outputs::kanshi::{ANY, ONE};
+            let wildcard = outputs
+                .iter()
+                .any(|criteria| criteria == ONE || criteria == ANY);
             let mut sorted: Vec<String> = outputs.iter().map(|criteria| named(criteria)).collect();
             sorted.sort_unstable();
             let covers = (wildcard && profiles.iter().next().is_some())
@@ -1089,12 +1103,27 @@ impl<V: Validate> Checkup<'_, V> {
                         .arg("name", name)
                         .arg("file", files.config.display()),
                     )
-                    .with_hint(msg!(
-                        "Remove it, or move the include line above it, so the arrangement made on \
-                         the Displays page comes back."
-                    )),
+                    .with_hint(files.how_to_include()),
                 );
+            } else {
+                above.push(name);
             }
+        }
+        if !above.is_empty() {
+            findings.push(
+                Finding::new(
+                    Code::KanshiProfileOverlap,
+                    Severity::Warning,
+                    Text::new(msg!(
+                        "The include of Sway Things isn't at the top of {file}: {name} comes \
+                         before it and wins for its displays, whatever is arranged for them on \
+                         the Displays page."
+                    ))
+                    .arg("name", above.join(", "))
+                    .arg("file", files.config.display()),
+                )
+                .with_hint(files.how_to_include()),
+            );
         }
     }
 

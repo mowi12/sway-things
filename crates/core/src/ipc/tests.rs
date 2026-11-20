@@ -124,6 +124,34 @@ fn commands_are_sent_one_by_one_as_rendered_for_ipc() {
 }
 
 #[test]
+fn commands_run_together_go_as_one_message() {
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, payload| {
+        let reply = if payload.contains("gaps") {
+            r#"[{"success": true}, {"success": false, "parse_error": false, "error": "No workspaces"}]"#
+        } else {
+            r#"[{"success": true}, {"success": true}]"#
+        };
+        message(kind, reply)
+    });
+    let mut client = sway.connect();
+    let commands = [behavior::tiling_drag(true), behavior::tiling_drag(false)];
+    block_on(client.run_together(&commands)).unwrap();
+    // One message: nothing of another client's comes between the two.
+    assert_eq!(sway.commands(), ["tiling_drag enable; tiling_drag disable"]);
+    // Nothing to run: nothing sent.
+    block_on(client.run_together(&[])).unwrap();
+    assert_eq!(sway.commands().len(), 1);
+    let failing = [
+        behavior::tiling_drag(true),
+        window::gaps_runtime(window::Gaps::Inner, window::GapsScope::All, 8).unwrap(),
+    ];
+    assert!(matches!(
+        block_on(client.run_together(&failing)),
+        Err(IpcError::CommandFailed { message, .. }) if message == "No workspaces"
+    ));
+}
+
+#[test]
 fn a_failed_command_carries_sways_message() {
     let sway = FakeSway::with_version(SWAY_1_10, |kind, payload| {
         let reply = match payload {

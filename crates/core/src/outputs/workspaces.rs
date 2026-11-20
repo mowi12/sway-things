@@ -340,9 +340,8 @@ pub async fn apply(
     let Ok(commands) = placing(&lists, &outputs, &open) else {
         return Ok(0);
     };
-    for command in &commands {
-        client.run(command).await?;
-    }
+    // One message: nobody else's command comes between a focus and the move after it.
+    client.run_together(&commands).await?;
     Ok(commands.len())
 }
 

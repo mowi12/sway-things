@@ -324,14 +324,26 @@ fn resolve_display(
 
 /// After a change (or a `reset`) of a display's setting that went through while kanshi sets up
 /// the displays: says what that means.
-fn note_kanshi<V: Validate>(
-    session: &Session<V>,
+async fn note_kanshi<V: Validate>(
+    session: &mut Session<V>,
     key: &str,
     exit: Exit,
     reset: bool,
     io: &mut Io<'_>,
 ) {
     if exit != Exit::Ok || !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
+        return;
+    }
+    // A profile of the user's own that kanshi applies before ours: the change didn't last.
+    if let Some((names, how)) = overriding_profiles(session).await {
+        io.warn(trf(
+            msg!(
+                "the change doesn't last: a kanshi profile of your own ({name}) sets up these \
+                 displays, as kanshi takes the first profile that matches and it comes before \
+                 the include of Sway Things. {how}"
+            ),
+            &[("name", &names), ("how", &how)],
+        ));
         return;
     }
     if reset {
@@ -345,6 +357,25 @@ fn note_kanshi<V: Validate>(
              now, and kanshi brings it back whenever they are."
         )));
     }
+}
+
+/// The user's kanshi profiles that kanshi applies instead of ours for the displays connected
+/// now, by name, and how to put our include first. `None` if none does.
+async fn overriding_profiles<V: Validate>(session: &mut Session<V>) -> Option<(String, String)> {
+    let files = kanshi_files()?;
+    let found = Outputs::new(&session.applier.client()?.outputs().await.ok()?);
+    let connected: Vec<&str> = found
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(outputs::Output::identifier)
+        .collect();
+    let names = outputs::kanshi::overriding(&files.before_ours(), &connected, |criteria| {
+        found.find(criteria).map_or_else(
+            || criteria.to_owned(),
+            |output| output.identifier().to_owned(),
+        )
+    });
+    (!names.is_empty()).then(|| (names.join(", "), files.how_to_include().translated()))
 }
 
 /// Before a change of a display's setting while kanshi sets up the displays: has the stored
@@ -506,13 +537,49 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     }
     // The workspaces of a display that shows another one's picture go to that one first, noted
     // so they come back when it shows its own content again.
-    if outputs::mirror::gather_workspaces(client, &mut profiles).await? > 0 {
-        let _ = profiles.save();
+    // Noted also when a command failed: the workspaces that did move find their way back.
+    match outputs::mirror::gather_workspaces(client, &mut profiles).await {
+        Ok(0) => {}
+        Ok(_) => {
+            let _ = profiles.save();
+        }
+        Err(error) => {
+            let _ = profiles.save();
+            return Err(error);
+        }
     }
     let found = Outputs::new(&client.outputs().await?);
     // A picture that starts doesn't take the focus.
     let _ = client.run(&outputs::mirror::no_focus_command()).await;
-    Ok(outputs::mirror::apply(&profiles, &found))
+    let started = outputs::mirror::apply(&profiles, &found);
+    // Last: kanshi runs this hook again after reading its file, and finds everything noted.
+    refresh_kanshi(&profiles).await;
+    Ok(started)
+}
+
+/// Writes kanshi's file of ours again if it says something else than `profiles` do now, and has
+/// kanshi read it: `wl-mirror` came or went since it was written, so a display stands apart for
+/// a picture or no longer does. Only a file that is there already, and ours. kanshi runs the hook
+/// again after reading it, which then finds the file as it wrote it and stops there.
+async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) {
+    let Some(files) = kanshi_files() else {
+        return;
+    };
+    if !files.ours.is_file() {
+        return;
+    }
+    // With the hook for the workspaces while a rule places them, as the app writes it.
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return;
+    };
+    let state = State::load(Registry::builtin(), paths);
+    let places = outputs::workspaces::Rule::of(&state).places();
+    if matches!(
+        files.write(&outputs::profiles::kanshi_config(profiles, places)),
+        Ok(true)
+    ) {
+        outputs::kanshi::reload().await;
+    }
 }
 
 /// Puts the workspaces where the Workspaces page says, as [`outputs::workspaces::apply`], with
@@ -575,7 +642,8 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         status: &status,
         validator: &validator,
         outputs: outputs.as_ref(),
-        displays: generate::Displays::detect(&status, &locations),
+        displays: generate::Displays::detect(&status, &locations)
+            .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
         kanshi: kanshi_files(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
@@ -669,7 +737,7 @@ pub async fn run<V: Validate>(
             };
             follow_combination(session, key, &mut io).await;
             let exit = set(session, &change, *overwrite, prompt, &mut io).await;
-            note_kanshi(session, key, exit, false, &mut io);
+            note_kanshi(session, key, exit, false, &mut io).await;
             exit
         }
         Command::Reset {
@@ -686,7 +754,7 @@ pub async fn run<V: Validate>(
             };
             follow_combination(session, key, &mut io).await;
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
-            note_kanshi(session, key, exit, true, &mut io);
+            note_kanshi(session, key, exit, true, &mut io).await;
             exit
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
