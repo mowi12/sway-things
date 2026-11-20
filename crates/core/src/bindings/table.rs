@@ -31,6 +31,9 @@ pub enum Origin {
     Placeholder(usize),
     /// Sway Things: a binding of a group of media keys, by the key of its switch.
     Group(&'static str),
+    /// Sway Things: the binding of the terminal or the launcher of the Apps & Autostart page, by
+    /// the key of its command's setting.
+    App(&'static str),
 }
 
 impl Origin {

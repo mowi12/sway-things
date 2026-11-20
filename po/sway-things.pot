@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 20:13+0100\n"
+"POT-Creation-Date: 2026-11-20 22:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -62,6 +62,10 @@ msgstr ""
 
 #: crates/cli/src/doctor.rs
 msgid "Comparing your config with the stored settings…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking the default apps and what starts at login…"
 msgstr ""
 
 #: crates/cli/src/doctor.rs
@@ -172,6 +176,10 @@ msgstr ""
 #: crates/cli/src/lib.rs
 #, rust-format
 msgid "No display was on, so {display} was switched on."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "HOME isn't set"
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -447,6 +455,114 @@ msgstr ""
 #: crates/core/src/apply/mod.rs
 #, rust-format
 msgid "{files} couldn't be written, so sway wouldn't read the changes"
+msgstr ""
+
+#: crates/core/src/apps/autostart.rs
+msgid "Nothing (your session or config may)"
+msgstr ""
+
+#: crates/core/src/apps/autostart.rs
+msgid "systemd (xdg-desktop-autostart.target)"
+msgstr ""
+
+#: crates/core/src/apps/autostart.rs crates/core/src/registry/apps.rs
+msgid "dex"
+msgstr ""
+
+#: crates/core/src/apps/files.rs
+#, rust-format
+msgid ""
+"{file} is your own file: Sway Things doesn't change it, so its choice there "
+"doesn't take effect"
+msgstr ""
+
+#: crates/core/src/apps/files.rs
+#, rust-format
+msgid ""
+"{file} was changed outside Sway Things and is left as it is; delete it to "
+"have Sway Things write it again"
+msgstr ""
+
+#: crates/core/src/apps/files.rs
+#, rust-format
+msgid "{file} can't be written: {error}"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+#, rust-format
+msgid "No installed app has the ID {id}"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+#, rust-format
+msgid "The app {id} is switched off (Hidden=true)"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+#, rust-format
+msgid "The app isn't installed: its program {program} (TryExec) is missing"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+#, rust-format
+msgid ""
+"The app has no command line and couldn't be started through D-Bus: {error}"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+msgid "The app's command line (Exec) can't be read"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+msgid ""
+"The app runs in a terminal, and none is installed (xdg-terminal-exec, foot, "
+"…)"
+msgstr ""
+
+#: crates/core/src/apps/launch.rs
+#, rust-format
+msgid "The app can't be started: {error}"
+msgstr ""
+
+#: crates/core/src/apps/launchers.rs crates/core/src/apps/mime.rs
+#: crates/core/src/registry/apps.rs
+msgid "Terminal"
+msgstr ""
+
+#: crates/core/src/apps/launchers.rs crates/core/src/registry/apps.rs
+msgid "Launcher"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Web browser"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "File manager"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Mail"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Image viewer"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "PDF viewer"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Video player"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Music player"
+msgstr ""
+
+#: crates/core/src/apps/mime.rs
+msgid "Text editor"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
@@ -1032,6 +1148,115 @@ msgstr ""
 msgid "this would turn off the last display that is on"
 msgstr ""
 
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid ""
+"XDG_CURRENT_DESKTOP is {desktop}: apps read the default apps chosen in Sway "
+"Things (sway-mimeapps.list)."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid "XDG_CURRENT_DESKTOP isn't set"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "XDG_CURRENT_DESKTOP is {desktop}"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid ""
+"{desktop}, so apps don't read sway-mimeapps.list: the default apps chosen in "
+"Sway Things don't apply."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"Set XDG_CURRENT_DESKTOP=sway before sway starts: in the line that starts it "
+"(XDG_CURRENT_DESKTOP=sway sway), or with DesktopNames=sway in the session "
+"file of your login manager (sway 1.11 and newer ship it)."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "XDG autostart: {name} ({file})"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Sway Things: {command}"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "{place}: {command}"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"systemd's target still runs from before the runner was changed; the change "
+"applies at the next login."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"systemd starts the XDG autostart entries (xdg-desktop-autostart.target is "
+"active)."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Your config starts the XDG autostart entries at {place}."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Sway Things starts the XDG autostart entries at login ({command})."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"Nothing starts the XDG autostart entries, and none would start in this "
+"session."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Have Sway Things start them with systemd: sway-things set {key} systemd"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Have Sway Things start them with dex: sway-things set {key} dex"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"Install dex, then have Sway Things start them on the Apps & Autostart page."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"Nothing starts the XDG autostart entries in this session: sway doesn't start "
+"them itself, so these never start."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid "systemd: xdg-desktop-autostart.target is active"
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+msgid ""
+"More than one thing starts the XDG autostart entries, so each may start "
+"twice."
+msgstr ""
+
+#: crates/core/src/doctor/apps.rs
+#, rust-format
+msgid "Keep one: remove the line from your config, or set {key} to none."
+msgstr ""
+
 #. TRANSLATORS: A label of the system details: the running or installed sway.
 #: crates/core/src/doctor/mod.rs crates/core/src/system.rs
 msgid "Compositor"
@@ -1051,6 +1276,10 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Conflicts"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs crates/core/src/registry/page.rs
+msgid "Apps & Autostart"
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -2108,6 +2337,247 @@ msgstr ""
 
 #: crates/core/src/registry/app.rs
 msgid "wireless"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "default browser"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "web"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "links"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "firefox"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "chromium"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "folders"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "files"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "directory"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "email"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "mailto"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "pictures"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "photos"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "images"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "documents"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "pdf"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "movies"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "videos"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs crates/core/src/registry/shortcuts.rs
+msgid "audio"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "songs"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs crates/core/src/registry/shortcuts.rs
+msgid "music"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "text files"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "notes"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "xdg-terminal-exec"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "console"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Default apps"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Not chosen here"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Terminal and launcher"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid ""
+"What its keys open. Your config's $term only reaches its own lines, so Sway "
+"Things binds the keys itself once you choose"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "As your config binds it"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "$term"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "terminal emulator"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "shell"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Keys of the terminal"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "$mod is the main modifier of Keyboard Shortcuts"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "shortcut"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs crates/core/src/registry/shortcuts.rs
+msgid "bindsym"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid ""
+"The app menu its keys open. Your config's $menu only reaches its own lines"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "$menu"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "app menu"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "run dialog"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "fuzzel"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "wofi"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "rofi"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Keys of the launcher"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Autostart"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Start XDG autostart entries with"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid ""
+"sway doesn't start the entries of ~/.config/autostart and /etc/xdg/autostart "
+"itself. Takes effect at the next login"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "xdg-desktop-autostart.target"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "startup"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "login"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Autostart entries"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid ""
+"What Sway Things starts at login: exec and a command line, or app and a "
+"desktop file ID; # in front switches one off"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "exec"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "start automatically"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Switched-off XDG autostart entries"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid ""
+"System autostart entries Sway Things switches off with its own file in "
+"~/.config/autostart"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "Hidden"
+msgstr ""
+
+#: crates/core/src/registry/apps.rs
+msgid "disable autostart"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
@@ -4267,10 +4737,6 @@ msgid "Notifications"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Apps & Autostart"
-msgstr ""
-
-#: crates/core/src/registry/page.rs
 msgid "Screenshots & Clipboard"
 msgstr ""
 
@@ -4447,10 +4913,6 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "bindsym"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid "key binding"
 msgstr ""
 
@@ -4481,10 +4943,6 @@ msgid "speaker"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "audio"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid ""
 "Screen brightness up and down with brightnessctl, also on the lock screen"
 msgstr ""
@@ -4508,10 +4966,6 @@ msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
 msgid "pause"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
-msgid "music"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
@@ -4618,6 +5072,22 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "must be a font and size like \"Adwaita Sans 11\", without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "keys that type a character need Super, Ctrl or Alt"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"must be a desktop file ID like org.mozilla.firefox.desktop: letters, digits, "
+"-, _ and . ending in .desktop"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"must be exec and a command line, or app and a desktop file ID; # in front "
+"switches it off"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -7096,6 +7566,11 @@ msgid "a shortcut of Sway Things"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "the {app} binding of Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
 msgid "also on the lock screen"
 msgstr ""
 
@@ -7154,6 +7629,11 @@ msgstr ""
 #: crates/gui/src/widgets/shortcuts/mod.rs
 #, rust-format
 msgid "{group}, switched on below"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "{app}, chosen on Apps & Autostart"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs

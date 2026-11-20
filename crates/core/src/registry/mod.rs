@@ -33,6 +33,7 @@
 //! ```
 
 mod app;
+mod apps;
 mod behavior;
 mod cursor;
 mod effects;
@@ -89,6 +90,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());
     settings.extend(shortcuts::settings());
+    settings.extend(apps::settings());
     settings.extend(app::settings());
     Registry { settings }
 });

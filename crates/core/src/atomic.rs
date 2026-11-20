@@ -52,3 +52,45 @@ pub(crate) fn write(path: &Path, text: &str) -> io::Result<()> {
     }
     Ok(())
 }
+
+/// Creates the file `path` with `text`, only if nothing is there: no file, and no symbolic
+/// link, not even a dangling one. The text is written to a temporary file next to it, which is
+/// then linked into place, an operation that fails if `path` appeared meanwhile, so nothing is
+/// ever replaced. Missing parent directories are created.
+///
+/// # Errors
+///
+/// `AlreadyExists` if something is at `path`, and any I/O error.
+pub(crate) fn create_new(path: &Path, text: &str) -> io::Result<()> {
+    if fs::symlink_metadata(path).is_ok() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "something is there already",
+        ));
+    }
+    let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "not a file path");
+    let directory = path.parent().ok_or_else(invalid)?;
+    let name = path.file_name().ok_or_else(invalid)?;
+    fs::create_dir_all(directory)?;
+    let mut temporary_name = std::ffi::OsString::from(".");
+    temporary_name.push(name);
+    temporary_name.push(format!(".{}.new", std::process::id()));
+    let temporary = directory.join(temporary_name);
+    let written = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        file.write_all(text.as_bytes())?;
+        file.sync_all()?;
+        // `link` fails with `AlreadyExists` where `rename` would replace.
+        fs::hard_link(&temporary, path)
+    })();
+    // Best effort: the temporary name goes either way.
+    let _ = fs::remove_file(&temporary);
+    written?;
+    if let Ok(directory) = File::open(directory) {
+        let _ = directory.sync_all();
+    }
+    Ok(())
+}

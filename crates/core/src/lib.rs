@@ -9,6 +9,7 @@
 #![deny(clippy::print_stdout)]
 
 pub mod apply;
+pub mod apps;
 mod atomic;
 pub mod bindings;
 pub mod bluetooth;

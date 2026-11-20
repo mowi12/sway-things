@@ -100,6 +100,7 @@ impl Setup {
             kanshi: None,
             path: None,
             gsettings: &NoGSettings,
+            apps: None,
         }
     }
 
@@ -186,6 +187,7 @@ fn a_setup_that_works_is_fine() {
             Code::FileNotNeeded,
             Code::FileCurrent,
             Code::FileValid,
+            Code::FileNotNeeded,
             Code::FileNotNeeded,
             Code::FileNotNeeded,
             Code::FileNotNeeded,
@@ -785,4 +787,94 @@ fn a_stored_value_gsettings_cant_take_is_reported() {
             .as_ref()
             .is_some_and(|hint| hint.english().contains("gsettings-desktop-schemas"))
     );
+}
+
+#[test]
+fn the_default_apps_and_the_autostart_runner_are_checked() {
+    use super::apps::AppsCheck;
+    use crate::apps::Dirs;
+    use crate::apps::autostart::Systemd;
+
+    let setup = Setup::new(
+        "version = 1\n\n[apps.default]\nbrowser = \"firefox.desktop\"\n",
+        &format!("{INCLUDE}exec dex -a\n"),
+    );
+    let root = setup.dir.path();
+    let autostart = root.join("etc/xdg/autostart");
+    fs::create_dir_all(&autostart).unwrap();
+    fs::write(
+        autostart.join("sh.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Shell\nExec=sh -c true\n",
+    )
+    .unwrap();
+    let dirs = |desktops: &[&str]| Dirs {
+        config_home: root.join("config"),
+        config_dirs: vec![root.join("etc/xdg")],
+        data_home: root.join("share"),
+        data_dirs: Vec::new(),
+        desktops: desktops.iter().map(|name| (*name).to_owned()).collect(),
+        path: Some("/bin:/usr/bin".into()),
+        languages: Vec::new(),
+    };
+    let diagnose = |check: &AppsCheck, setup: &Setup| {
+        block_on(
+            Checkup {
+                apps: Some(check),
+                ..setup.checkup()
+            }
+            .diagnose(),
+        )
+    };
+    let check = AppsCheck {
+        dirs: dirs(&["GNOME"]),
+        systemd: Systemd::default(),
+    };
+    let diagnosis = diagnose(&check, &setup);
+    let desktop = one(&diagnosis, Code::DesktopNotSway);
+    assert_eq!(desktop.severity, Severity::Warning);
+    assert_eq!(desktop.section(), Section::Apps);
+    let runner = one(&diagnosis, Code::AutostartRunner);
+    assert!(
+        runner
+            .message
+            .english()
+            .starts_with("Your config starts the XDG autostart entries at ")
+    );
+    assert!(
+        runner
+            .details
+            .iter()
+            .any(|line| line.english().starts_with("XDG autostart: Shell"))
+    );
+
+    // Without the user's line and with systemd's target there, systemd is offered.
+    let without = Setup::new("version = 1\n", INCLUDE);
+    let check = AppsCheck {
+        dirs: dirs(&["sway"]),
+        systemd: Systemd {
+            available: true,
+            active: false,
+            ours_active: false,
+        },
+    };
+    let diagnosis = diagnose(&check, &without);
+    none(&diagnosis, Code::DesktopSway);
+    let missing = one(&diagnosis, Code::AutostartNoRunner);
+    assert!(
+        missing
+            .hint
+            .as_ref()
+            .is_some_and(|hint| hint.english().ends_with("autostart.runner systemd"))
+    );
+    // Both the session and Sway Things' dex: twice.
+    let twice = Setup::new("version = 1\n\n[autostart]\nrunner = \"dex\"\n", INCLUDE);
+    let check = AppsCheck {
+        dirs: dirs(&["sway"]),
+        systemd: Systemd {
+            available: true,
+            active: true,
+            ours_active: false,
+        },
+    };
+    one(&diagnose(&check, &twice), Code::AutostartTwice);
 }

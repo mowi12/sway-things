@@ -77,6 +77,10 @@ tap = true
 
 [shortcuts]
 bindings = ["bindsym $mod+Return exec \"foot\""]
+
+[autostart]
+runner = "dex"
+entries = ["exec nm-applet --indicator; echo \"$HOME\"", "# exec off", "app org.example.App.desktop"]
 "##,
         &format!(
             r#"version = 1
@@ -167,6 +171,17 @@ workspace_layout tabbed
         text(&files, ConfigFile::Bindings),
         format!("{HEADER}bindsym Mod4+Return exec \"foot\"\n")
     );
+    // One quoted argument each, which sway runs without its quotes; switched off is left out.
+    assert_eq!(
+        text(&files, ConfigFile::Autostart),
+        format!(
+            "{HEADER}\
+exec \"dex --autostart --environment sway\"
+exec 'nm-applet --indicator; echo \"$$HOME\"'
+exec \"sway-things hook launch org.example.App.desktop\"
+"
+        )
+    );
     assert_eq!(
         text(&files, ConfigFile::Hooks),
         format!("{HEADER}exec_always sway-things hook gsettings\n")
@@ -221,7 +236,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
         text(&files, ConfigFile::Effects),
         format!("{HEADER}# effects.corner_radius: requires SwayFX 0.5 or newer\n")
     );
-    let effects = &files[6];
+    let effects = &files[7];
     assert!(!effects.is_empty());
     assert_eq!(
         effects.lines()[0].skipped.as_deref(),
@@ -229,7 +244,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
     );
     // The other files are the same on sway and SwayFX.
     let on_swayfx = generate(Registry::builtin(), &state, SWAYFX_0_5);
-    assert_eq!(files[..6], on_swayfx[..6]);
+    assert_eq!(files[..7], on_swayfx[..7]);
 }
 
 #[test]
@@ -372,12 +387,13 @@ impl Written {
     }
 }
 
-const ALL_FILES: [&str; 7] = [
+const ALL_FILES: [&str; 8] = [
     "10-input.conf",
     "20-output.conf",
     "30-appearance.conf",
     "40-behavior.conf",
     "50-bindings.conf",
+    "70-autostart.conf",
     "80-hooks.conf",
     "90-effects.conf",
 ];
@@ -388,7 +404,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Written }; 7]
+        [const { Outcome::Written }; 8]
     );
     assert_eq!(written.names(), ALL_FILES);
     for file in &written.files {
@@ -398,7 +414,7 @@ fn files_are_validated_then_written_and_recorded() {
     }
     // Each file was staged under a name the include `*.conf` doesn't match, with its content.
     let staged = validator.staged.borrow();
-    assert_eq!(staged.len(), 7);
+    assert_eq!(staged.len(), 8);
     for ((name, content), file) in staged.iter().zip(&written.files) {
         assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
         assert!(name.ends_with(".staged"), "{name}");
@@ -410,7 +426,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Unchanged }; 7]
+        [const { Outcome::Unchanged }; 8]
     );
     assert!(validator.staged.borrow().is_empty());
 }
@@ -486,7 +502,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
 
     let outcomes = written.write(&FakeValidator::default(), &[]);
     assert_eq!(outcomes[0], Outcome::EditedOutside);
-    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 6]);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 7]);
     assert!(
         fs::read_to_string(&input)
             .unwrap()
@@ -501,7 +517,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
     assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
-        [const { Outcome::Unchanged }; 7]
+        [const { Outcome::Unchanged }; 8]
     );
 }
 
@@ -527,6 +543,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Foreign,
             Outcome::Written,
             Outcome::Written,
+            Outcome::Written,
             Outcome::Written
         ]
     );
@@ -543,6 +560,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Unchanged,
             Outcome::Written,
             Outcome::Foreign,
+            Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Unchanged
@@ -566,6 +584,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
             not_created.clone(),
             not_created.clone(),
             Outcome::Written,
+            not_created.clone(),
             not_created.clone(),
             not_created.clone(),
             not_created.clone(),
@@ -687,14 +706,14 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert!(before.iter().all(|file| file.content.is_none()));
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 7]
+        [const { Ok(super::Ownership::Absent) }; 8]
     );
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 7]
+        [const { Ok(super::Ownership::Current) }; 8]
     );
 
     let input = written.path(ConfigFile::Input);

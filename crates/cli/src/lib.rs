@@ -146,7 +146,7 @@ pub enum Command {
 }
 
 /// A hook of `sway-things hook`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
@@ -162,6 +162,16 @@ pub enum Hook {
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
     /// the mirrors of other combinations: run by kanshi when it applied a profile
     Mirror,
+    /// Start an installed app by its desktop file ID, as its desktop entry says (in a terminal
+    /// if it asks for one): the autostart entries of Sway Things that are apps run this
+    Launch {
+        /// The desktop file ID, e.g. `org.mozilla.firefox.desktop`
+        id: String,
+    },
+    /// Hand the session's variables to the systemd user session and start the XDG autostart
+    /// entries through it (xdg-desktop-autostart.target): run at login while Sway Things starts
+    /// them with systemd
+    Autostart,
 }
 
 /// The binary of the app.
@@ -241,6 +251,8 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
         Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
+        Command::Hook(Hook::Launch { id }) => return hook_launch(id, &mut err).await,
+        Command::Hook(Hook::Autostart) => return hook_autostart(&mut err).await,
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -494,6 +506,33 @@ fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
     outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
 }
 
+/// `hook launch <ID>`: starts the installed app `id` as its desktop entry says, and returns at
+/// once.
+async fn hook_launch(id: &str, err: &mut dyn Write) -> Exit {
+    let Some(dirs) = sway_things_core::apps::Dirs::from_env() else {
+        let _ = writeln!(err, "{}", error_line(&tr(msg!("HOME isn't set"))));
+        return Exit::Failure;
+    };
+    match sway_things_core::apps::launch::launch(&dirs, id).await {
+        Ok(()) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            Exit::Failure
+        }
+    }
+}
+
+/// `hook autostart`: starts the XDG autostart entries through the systemd user session.
+async fn hook_autostart(err: &mut dyn Write) -> Exit {
+    match sway_things_core::apps::autostart::start_with_systemd().await {
+        Ok(()) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+            Exit::Failure
+        }
+    }
+}
+
 /// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
 /// connected now, if they are placed.
 async fn hook_workspaces(err: &mut dyn Write) -> Exit {
@@ -671,6 +710,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
     look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
+    let apps_check = sway_things_core::doctor::apps::AppsCheck::for_user().await;
     let outputs = match Client::connect().await {
         Ok(mut client) => client
             .outputs()
@@ -691,6 +731,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         kanshi: kanshi_files(),
         path: std::env::var_os("PATH"),
         gsettings: &Gio,
+        apps: apps_check.as_ref(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -731,7 +772,13 @@ pub async fn run<V: Validate>(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+            | Command::Hook(
+                Hook::Displays
+                    | Hook::Workspaces
+                    | Hook::Mirror
+                    | Hook::Launch { .. }
+                    | Hook::Autostart
+            )
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -807,7 +854,7 @@ pub async fn run<V: Validate>(
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
-        Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+        Command::Hook(hook) => run_hook(hook.clone(), session, &mut io).await,
     }
 }
 
@@ -849,6 +896,8 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
             },
             None => Exit::Ok,
         },
+        Hook::Launch { id } => hook_launch(&id, io.err).await,
+        Hook::Autostart => hook_autostart(io.err).await,
     }
 }
 
@@ -965,6 +1014,7 @@ async fn doctor_in<V: Validate>(
         kanshi: applier.kanshi_files().cloned(),
         path: None,
         gsettings: desktop.as_ref(),
+        apps: None,
     };
     doctor(&checkup, None, args, out).await
 }
@@ -1436,6 +1486,11 @@ async fn persist<V: Validate>(
                 exit = Exit::Failure;
             }
         }
+    }
+    // The files of other programs (default apps, autostart overrides) are only ever Sway
+    // Things' own; one of someone else's is left alone, which is worth a warning, not a failure.
+    for problem in &persisted.apps {
+        io.warn(problem.text().translated());
     }
     exit
 }

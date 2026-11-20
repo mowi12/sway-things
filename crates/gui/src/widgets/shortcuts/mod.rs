@@ -479,7 +479,18 @@ fn place(source: &Source) -> String {
         Origin::Item(_) | Origin::Placeholder(_) => {
             tr(msg!("a shortcut of Sway Things")).to_owned()
         }
+        Origin::App(key) => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("the {app} binding of Sway Things"),
+                &[("app", &tr(title).to_lowercase())],
+            )
+        }),
     }
+}
+
+/// What the binding of the Apps & Autostart page with the setting `key` opens.
+fn app_title(key: &str) -> Option<Msg> {
+    sway_things_core::apps::launchers::Binding::of(key).map(|binding| binding.title)
 }
 
 /// The options of a binding in words.
@@ -552,6 +563,12 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
             trf(
                 msg!("{group}, switched on below"),
                 &[("group", &tr(group.title))],
+            )
+        }),
+        RowKind::App { key } => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("{app}, chosen on Apps & Autostart"),
+                &[("app", &tr(title))],
             )
         }),
     });
