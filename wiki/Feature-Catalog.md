@@ -190,11 +190,11 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 
 ### Wallpaper
 
-- [ ] 🟢 Image per output or for all outputs (`output * bg`)
-- [ ] 🟢 Fill mode: fill / fit / stretch / center / tile
-- [ ] 🟢 Solid color background
-- [ ] 🟢 Folder browser with thumbnails
-- [ ] 🟢 "Managed externally" detection when a custom wallpaper script runs (handover)
+- [x] 🟢 Image per output or for all outputs (`output * bg`)
+- [x] 🟢 Fill mode: fill / fit / stretch / center / tile
+- [x] 🟢 Solid color background
+- [x] 🟢 Folder browser with thumbnails
+- [x] 🟢 "Managed externally" detection when a custom wallpaper script runs (handover)
 - **Maybe:** 🟡 slideshow (with no daemon this needs a tool like swww plus a timer)
 
 ### Apps Look & Feel
