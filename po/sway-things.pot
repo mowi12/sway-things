@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:21+0100\n"
+"POT-Creation-Date: 2026-11-20 23:25+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6530,12 +6530,12 @@ msgstr ""
 msgid "Volume"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/mod.rs crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "The volume wasn’t changed: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/mod.rs crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "The mute wasn’t changed: {error}"
 msgstr ""
@@ -6552,39 +6552,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
 msgid "Sound can’t be read"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid ""
-"No output device. Plug in speakers or headphones; this page updates by "
-"itself."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid ""
-"No input device. Plug in a microphone or headset; this page updates by "
-"itself."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Another device"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "No app is playing or recording sound."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "App volume"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-#, rust-format
-msgid "Profile of {card}"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Connectors and sound quality"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
@@ -6607,27 +6574,60 @@ msgstr ""
 msgid "{tool} can’t be started: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "Volume of {app}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "Mute {app}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 msgid "Recording"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 msgid "Playing"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "{what} · on {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid ""
+"No output device. Plug in speakers or headphones; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid ""
+"No input device. Plug in a microphone or headset; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "Another device"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "No app is playing or recording sound."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "App volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+#, rust-format
+msgid "Profile of {card}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "Connectors and sound quality"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/volume.rs
