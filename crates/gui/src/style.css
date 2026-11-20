@@ -375,3 +375,15 @@ button.st-shortcut-capture {
   padding: 10px;
   font-weight: bold;
 }
+
+.st-capture-note {
+  padding: 0 12px 10px 12px;
+}
+
+.st-capture-note image {
+  margin-top: 2px;
+}
+
+button.st-capture-keys {
+  font-weight: bold;
+}

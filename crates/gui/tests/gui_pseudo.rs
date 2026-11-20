@@ -76,6 +76,9 @@ const PRODUCTS: &[&str] = &[
     "satty",
     "wf-recorder",
     "wl-screenrec",
+    "wl-paste",
+    "wl-clipboard",
+    "fuzzel",
     "PipeWire",
     "PulseAudio",
     "Blueman",
@@ -322,6 +325,21 @@ fn data() -> Vec<String> {
             data.push((*default).to_owned());
         }
     }
+    // The next file names of Screenshots & Clipboard: their default patterns up to the date.
+    for setting in Registry::builtin()
+        .iter()
+        .filter(|setting| setting.page() == Page::ScreenshotsClipboard)
+    {
+        if let Kind::Text { default } = setting.kind() {
+            if let Some(words) = default
+                .split('%')
+                .next()
+                .filter(|words| !words.trim().is_empty())
+            {
+                data.push(words.trim().to_owned());
+            }
+        }
+    }
     // The system details About shows: the distribution and the kernel of this machine.
     let system = async_io::block_on(Details::read(None, None, None, None));
     data.extend(system.distribution);
@@ -355,8 +373,8 @@ fn english_in(screen: &str, root: &gtk::Widget, data: &[String]) -> String {
     problems
 }
 
-/// Whether `word` is data by its form: a path, a link, a color, a generated file, or a
-/// placeholder a text names on purpose (`{file}`).
+/// Whether `word` is data by its form: a path, a link, a color, a generated file, a picture or a
+/// video, or a placeholder a text names on purpose (`{file}`).
 fn is_data(word: &str) -> bool {
     let word = word.trim_matches(|c: char| ",.:;()⟦⟧`“”".contains(c));
     word.starts_with('/')
@@ -365,7 +383,12 @@ fn is_data(word: &str) -> bool {
         || word.starts_with('#')
         || std::path::Path::new(word)
             .extension()
-            .is_some_and(|extension| extension == "conf")
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                // Generated files, and the next screenshot or recording of Screenshots &
+                // Clipboard.
+                ["conf", "png", "jpg", "jpeg", "ppm", "mp4", "mkv"].contains(&extension)
+            })
         || (word.starts_with('{') && word.ends_with('}'))
 }
 

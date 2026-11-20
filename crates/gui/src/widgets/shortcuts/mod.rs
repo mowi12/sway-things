@@ -32,6 +32,7 @@ use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
+pub(crate) use editor::first_level;
 pub use editor::{Captured, Editor, capture};
 
 /// The keymap of the app's keyboard, from GDK: which keycode gives a keysym on its first level
@@ -585,7 +586,7 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
 }
 
 /// The line that says how a binding clashes with another, with a warning sign.
-fn clash_line(clash: &Clash) -> gtk::Box {
+pub(crate) fn clash_line(clash: &Clash) -> gtk::Box {
     let place = place(&clash.source);
     let command = clash.command.as_deref().unwrap_or_default();
     let args: &[(&str, &dyn std::fmt::Display)] = &[("place", &place), ("command", &command)];
