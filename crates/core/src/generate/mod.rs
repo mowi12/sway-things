@@ -238,6 +238,12 @@ pub fn generate_for(
             }
         }
     }
+    if let Some(file) = files
+        .iter_mut()
+        .find(|file| file.file == ConfigFile::Bindings)
+    {
+        file.lines.extend(bindings(state));
+    }
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
     }
@@ -329,6 +335,49 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
         }
     }
     lines
+}
+
+/// The lines of `50-bindings.conf`: the bindings of the Keyboard Shortcuts page
+/// ([`crate::bindings::ours::file_lines`]). An item that can't be written becomes a comment.
+fn bindings(state: &State) -> Vec<Line> {
+    let items = crate::bindings::ours::items(state);
+    crate::bindings::ours::file_lines(state)
+        .into_iter()
+        .map(|file_line| {
+            // An item that can't be written is named, so the comment and `doctor` say which.
+            let item = match file_line.origin {
+                crate::bindings::Origin::Item(index) => items.get(index),
+                _ => None,
+            };
+            let source = Source {
+                keys: vec![file_line.key()],
+                device: None,
+            };
+            let text = file_line
+                .command()
+                .map_err(|error| match item {
+                    Some(item) => format!("{item}: {}", error.text().english()),
+                    None => error.text().english(),
+                })
+                .and_then(|command| {
+                    command
+                        .render(Target::Config)
+                        .map_err(|error| error.to_string())
+                });
+            match text {
+                Ok(text) => Line {
+                    text,
+                    source,
+                    skipped: None,
+                },
+                Err(reason) => Line {
+                    text: format!("# {}: {reason}", source.keys.join(", ")),
+                    source,
+                    skipped: Some(reason),
+                },
+            }
+        })
+        .collect()
 }
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
