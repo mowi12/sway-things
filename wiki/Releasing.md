@@ -1,8 +1,7 @@
 # Releasing
 
 How a version of Sway Things gets from `main` to the GitHub release page and the openSUSE Build Service (OBS). The
-mechanics behind it (tarball, specs, Debian packaging, package CI) are in
-[Architecture → Packaging](Architecture.md#packaging).
+mechanics behind it (tarball, specs, Debian packaging, package CI) are in [Architecture → Packaging](Packaging.md).
 
 ## Overview
 

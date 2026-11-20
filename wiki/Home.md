@@ -15,7 +15,16 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 | Page | What it covers |
 | --- | --- |
 | [Vision & Scope](Vision-and-Scope.md) | Problem, target users, goals, non-goals, prior art |
-| [Architecture](Architecture.md) | Crates, settings registry, state files, generators, command builders, parser, conflicts, backends, CLI, security, testing, packaging, website |
+| [Architecture](Architecture.md) | Overview: crates and modules, settings registry, state files, generated files, version gating, security model; links to the topic pages below |
+| ↳ [Applying Settings](Applying-Settings.md) | Data flow of a change, safety net, apply modes, typed sway command builders |
+| ↳ [Reading Sway](Reading-Sway.md) | IPC, input devices, themes, XKB rules, config parser, include and conflict detection |
+| ↳ [Outputs](Outputs.md) | Displays, kanshi profiles, workspace placement, mirroring |
+| ↳ [Backends](Backends.md) | BlueZ, NetworkManager, the sound server, GSettings |
+| ↳ [Command Line](Command-Line.md) | Commands, doctor, hooks |
+| ↳ [UI Architecture](UI-Architecture.md) | The GTK app and translations |
+| ↳ [Testing](Testing.md) | Which tests exist and where they run |
+| ↳ [Packaging](Packaging.md) | Tarball, packages, OBS, install script, AUR |
+| ↳ [Website](Website.md) | sway-things.org |
 | [Sway Reference](Sway-Reference.md) | Verified facts about sway, SwayFX, the companion tools and the distributions, with sources |
 | [UX Concept](UX-Concept.md) | Window layout, navigation, search, apply model, indicators, first run, theming |
 | [Roadmap](Roadmap.md) | How work continues after v0.1, v1.0 criteria, the v0.1 scope |

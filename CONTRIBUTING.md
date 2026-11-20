@@ -238,8 +238,8 @@ template also holds the texts of the desktop entry and the AppStream metainfo, f
 `data/*.metainfo.xml.in`. After adding, changing or removing a string, in the Rust sources or in those files, run
 `scripts/update-pot.sh` to update `po/sway-things.pot`; `scripts/check-pot.sh` and a core test fail while it is out of
 date. Both scripts need `xgettext` 0.24 or newer, the first version that reads Rust. Tests that need a string that is
-not extracted use `Msg::new`. See [wiki/Architecture.md](wiki/Architecture.md#internationalization) for how translations
-are found.
+not extracted use `Msg::new`. See [wiki/UI-Architecture.md](wiki/UI-Architecture.md#internationalization) for how
+translations are found.
 
 ## Man pages and completions
 
@@ -257,13 +257,13 @@ and committed. After changing a command, an argument or a help text in `crates/c
   sway integration containers (`scripts/check-integration.sh --container all`). `scripts/gui-screenshots.sh` runs them
   on a private display instead and keeps a PNG of every page in `target/screenshots/`.
 
-See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structure.
+See [wiki/UI-Architecture.md](wiki/UI-Architecture.md) for the structure.
 
 ## Working on the website
 
 The project site in `website/` is built with Astro: `npm ci --prefix website`, then `just website` serves it with live
 reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the build says when one
-doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
+doesn't fit. See [wiki/Website.md](wiki/Website.md).
 
 ## Documentation
 

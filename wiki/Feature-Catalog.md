@@ -122,7 +122,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟡 Per-application volume, for apps that play and apps that record
 - [x] 🟡 Device profiles (HDMI, A2DP/HFP for Bluetooth headsets)
 - [ ] 🟡 Alert sound volume / event sounds: waits for `libpulse-binding`'s stream-restore write, which passes Rust
-      structs to libpulse (see [Architecture → Backends](Architecture.md#backends))
+      structs to libpulse (see [Architecture → Backends](Backends.md))
 - [x] 🟢 "Advanced…" → pwvucontrol, else pavucontrol
 - [x] 🟢 Volume above 100 % (up to 150 %) as an app preference
 

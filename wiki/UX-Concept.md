@@ -267,7 +267,7 @@ Things, so it has no reset, no indicators and no generated file. Every change ap
 - **Not available:** without a sound server, a placeholder says how to start PipeWire's
   (`systemctl --user start pipewire-pulse`); the page looks again every three seconds and comes back by itself, also
   after the server restarts.
-- The volume of alert sounds isn't offered: see [Architecture → Backends](Architecture.md#backends).
+- The volume of alert sounds isn't offered: see [Architecture → Backends](Backends.md).
 
 ### Bluetooth
 
