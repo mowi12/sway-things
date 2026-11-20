@@ -68,6 +68,9 @@ const PRODUCTS: &[&str] = &[
     "blueman-manager",
     "pwvucontrol",
     "pavucontrol",
+    "system-config-printer",
+    "CUPS",
+    "cups-pk-helper",
     "PipeWire",
     "PulseAudio",
     "Blueman",
@@ -315,7 +318,7 @@ fn data() -> Vec<String> {
         }
     }
     // The system details About shows: the distribution and the kernel of this machine.
-    let system = async_io::block_on(Details::read(None, None, None, None));
+    let system = async_io::block_on(Details::read(None, None, None, None, None));
     data.extend(system.distribution);
     data.extend(system.kernel);
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));

@@ -311,7 +311,13 @@ fn strings(json: &serde_json::Value, found: &mut Vec<String>) {
 }
 
 /// The names of programs in the system details, which stay as they are.
-const PRODUCTS: &[&str] = &["Sway Things", "GTK", "NetworkManager"];
+const PRODUCTS: &[&str] = &[
+    "Sway Things",
+    "GTK",
+    "NetworkManager",
+    "CUPS",
+    "cups-pk-helper",
+];
 
 /// The line to add to the config of a home, as the instructions show it.
 const INCLUDE_LINE: &str = "include ~/config/sway/sway-things/*.conf";

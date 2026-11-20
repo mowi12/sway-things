@@ -29,6 +29,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs;
+use sway_things_core::printers::{Cups, Endpoint};
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
 use sway_things_core::sound::Sound;
 use sway_things_core::system::{self, Details, Value};
@@ -39,8 +40,8 @@ use super::device_selector::none_connected;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
-    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
-    TestArea, WorkspaceMap,
+    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, PrintService, SettingRow,
+    SoundServer, TestArea, WorkspaceMap,
 };
 use super::{cursor, keyboard, look};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
@@ -637,7 +638,8 @@ fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
 }
 
 /// The "About" section of About & Maintenance: a row per line of the system details (Sway
-/// Things, the compositor, GTK, the distribution, NetworkManager, the kernel and the tools the
+/// Things, the compositor, GTK, the distribution, NetworkManager, the sound server, CUPS,
+/// cups-pk-helper, the kernel and the tools the
 /// pages delegate to), a button that copies them for a bug report, then the project's links,
 /// which open in the default browser. The details are read again each time the section shows.
 fn about_section(model: &Model, body: &gtk::Box) -> Section {
@@ -657,6 +659,8 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
         distribution: None,
         network_manager: None,
         sound_server: None,
+        cups: None,
+        cups_pk_helper: false,
         kernel: None,
         tools: system::TOOLS.iter().map(|tool| (*tool, false)).collect(),
     }
@@ -684,6 +688,9 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
             let server = window
                 .as_ref()
                 .map_or(SoundServer::Off, crate::window::Window::sound_server);
+            let print_service = window
+                .as_ref()
+                .map_or(PrintService::Off, crate::window::Window::print_service);
             let values = values.clone();
             let details = details.clone();
             glib::spawn_future_local(glib::clone!(
@@ -702,11 +709,19 @@ fn about_section(model: &Model, body: &gtk::Box) -> Section {
                         SoundServer::Address(address) => Sound::connect_to(Some(address)).ok(),
                         SoundServer::Off => None,
                     };
+                    let cups = match &print_service {
+                        PrintService::System => Cups::local().ok(),
+                        PrintService::At { socket, .. } => {
+                            Some(Cups::at(Endpoint::Socket(socket.clone())))
+                        }
+                        PrintService::Off => None,
+                    };
                     let read = Details::read(
                         compositor,
                         Some(crate::app::gtk_version()),
                         nm.as_ref(),
                         sound.as_ref(),
+                        cups.as_ref(),
                     )
                     .await;
                     for (label, (_, value)) in values.iter().zip(read.lines()) {
