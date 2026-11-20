@@ -238,6 +238,66 @@ fn get_without_a_key_lists_every_stored_value_by_device() {
 }
 
 #[test]
+fn a_value_for_one_display_is_set_and_listed_by_display() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    let ran = setup.run(&["set", "wallpaper.color", "#285577"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let ran = setup.run(&[
+        "set",
+        "wallpaper.image",
+        "~/Pictures/lake.jpg",
+        "--device",
+        "eDP-1",
+    ]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(
+        ran.out,
+        "Set wallpaper.image --device eDP-1 to ~/Pictures/lake.jpg.\n"
+    );
+    assert_eq!(
+        sway.commands(),
+        [
+            "output * bg #285577 solid_color",
+            "output \"eDP-1\" bg \"~/'Pictures/lake.jpg'\" fill #285577"
+        ]
+    );
+    assert_eq!(
+        setup
+            .generated("20-output.conf")
+            .lines()
+            .skip(2)
+            .collect::<Vec<_>>(),
+        [
+            "output * bg #285577 solid_color",
+            "output \"eDP-1\" bg \"~/'Pictures/lake.jpg'\" fill #285577"
+        ]
+    );
+
+    let ran = setup.run(&["get"]);
+    assert_eq!(
+        ran.out,
+        "wallpaper.color = #285577  (settings.toml)\n\
+         \n\
+         display eDP-1\n  \
+         wallpaper.image = ~/Pictures/lake.jpg  (settings.d/laptop.toml)\n"
+    );
+    let ran = setup.run(&["get", "wallpaper.color", "--device", "eDP-1"]);
+    assert_eq!(
+        ran.out,
+        "wallpaper.color --device eDP-1 = #285577  (settings.toml, for every display)\n"
+    );
+    let ran = setup.run(&["get", "--device", "eDP-1", "--json"]);
+    let json: serde_json::Value = serde_json::from_str(&ran.out).unwrap();
+    assert_eq!(json.as_array().unwrap().len(), 1);
+    assert_eq!(json[0]["device"], "eDP-1");
+
+    // `*` stands for every display, not for one.
+    let ran = setup.run(&["reset", "wallpaper.image", "--device", "*"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+}
+
+#[test]
 fn get_shows_the_users_config_and_where_it_wins() {
     let mut setup = Setup::new(
         "version = 1\n\n[windows.gaps]\ninner = 8\n",

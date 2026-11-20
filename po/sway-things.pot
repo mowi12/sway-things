@@ -308,6 +308,13 @@ msgid "Nothing was sent: it {requirement}."
 msgstr ""
 
 #. TRANSLATORS: Where `sway-things get` found a value: a settings file, with
+#. the value for every display.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "{file}, for every display"
+msgstr ""
+
+#. TRANSLATORS: Where `sway-things get` found a value: a settings file, with
 #. the value for every device of the input type.
 #: crates/cli/src/output.rs
 #, rust-format
@@ -334,6 +341,12 @@ msgstr ""
 #: crates/cli/src/output.rs
 #, rust-format
 msgid "your config wins: {file}:{line}"
+msgstr ""
+
+#. TRANSLATORS: The heading of a display's settings in `sway-things get`.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "display {display}"
 msgstr ""
 
 #. TRANSLATORS: The heading of a device's settings in `sway-things get`.

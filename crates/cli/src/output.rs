@@ -13,7 +13,7 @@ use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
-use sway_things_core::registry::{Setting, Value};
+use sway_things_core::registry::{Registry, Scope, Setting, Value};
 use sway_things_core::state::{Layer, Paths, State};
 use sway_things_core::view::{Locked, SettingView, Source};
 
@@ -77,7 +77,11 @@ impl Shown {
         let mut notes = vec![match &self.view.source {
             Source::Stored { layer, for_type } => {
                 let file = paths.relative(*layer).display().to_string();
-                if *for_type {
+                if *for_type && for_displays(self.key) {
+                    // TRANSLATORS: Where `sway-things get` found a value: a settings file, with
+                    // the value for every display.
+                    trf(msg!("{file}, for every display"), &[("file", &file)])
+                } else if *for_type {
                     // TRANSLATORS: Where `sway-things get` found a value: a settings file, with
                     // the value for every device of the input type.
                     trf(msg!("{file}, for the input type"), &[("file", &file)])
@@ -153,8 +157,13 @@ pub(crate) fn list(all: &[Shown], paths: &Paths, out: &mut dyn Write) {
         if shown.device != device {
             device.clone_from(&shown.device);
             if let Some(device) = &device {
-                // TRANSLATORS: The heading of a device's settings in `sway-things get`.
-                let heading = trf(msg!("device {device}"), &[("device", device)]);
+                let heading = if for_displays(shown.key) {
+                    // TRANSLATORS: The heading of a display's settings in `sway-things get`.
+                    trf(msg!("display {display}"), &[("display", device)])
+                } else {
+                    // TRANSLATORS: The heading of a device's settings in `sway-things get`.
+                    trf(msg!("device {device}"), &[("device", device)])
+                };
                 let _ = writeln!(out, "\n{heading}");
             }
         }
@@ -172,6 +181,14 @@ pub(crate) fn name(key: &str, device: Option<&str>) -> String {
         Some(device) => format!("{key} --device {device}"),
         None => key.to_owned(),
     }
+}
+
+/// Whether the setting `key` is set per display, so its values for one are a display's, not an
+/// input device's.
+fn for_displays(key: &str) -> bool {
+    Registry::builtin()
+        .get(key)
+        .is_some_and(|setting| setting.scope() == Scope::PerOutput)
 }
 
 /// A line of a generated file that sway rejected, with the settings it comes from.
