@@ -20,58 +20,7 @@ use crate::include::WriteAccess;
 use crate::ipc::Compositor;
 use crate::msg;
 use crate::registry::ConfigFile;
-use crate::state::{PathsError, xdg_dir};
-
-/// Where the generated sway config files and their manifest are.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Locations {
-    directory: PathBuf,
-    manifest: PathBuf,
-}
-
-impl Locations {
-    /// The generated files in `directory` (normally `$XDG_CONFIG_HOME/sway/sway-things`), with
-    /// the manifest `manifest.toml` in `state_dir` (normally `$XDG_STATE_HOME/sway-things`).
-    pub fn new(directory: &Path, state_dir: &Path) -> Self {
-        Self {
-            directory: directory.to_owned(),
-            manifest: state_dir.join("manifest.toml"),
-        }
-    }
-
-    /// The locations of this user: `$XDG_CONFIG_HOME/sway/sway-things` and
-    /// `$XDG_STATE_HOME/sway-things/manifest.toml`, with the usual fallbacks in `$HOME`.
-    ///
-    /// # Errors
-    ///
-    /// [`PathsError::NoConfigDir`] if neither the variables nor `HOME` give the directories.
-    pub fn from_env() -> Result<Self, PathsError> {
-        let home = || std::env::var_os("HOME");
-        let config_home = xdg_dir(std::env::var_os("XDG_CONFIG_HOME"), home(), ".config")
-            .ok_or(PathsError::NoConfigDir)?;
-        let state_home = xdg_dir(std::env::var_os("XDG_STATE_HOME"), home(), ".local/state")
-            .ok_or(PathsError::NoConfigDir)?;
-        Ok(Self::new(
-            &config_home.join("sway").join("sway-things"),
-            &state_home.join("sway-things"),
-        ))
-    }
-
-    /// The directory of the generated files, which the user's sway config includes.
-    pub fn directory(&self) -> &Path {
-        &self.directory
-    }
-
-    /// The path of `file`.
-    pub fn path(&self, file: ConfigFile) -> PathBuf {
-        self.directory.join(file.file_name())
-    }
-
-    /// The path of the manifest.
-    pub fn manifest(&self) -> &Path {
-        &self.manifest
-    }
-}
+pub use crate::state::Locations;
 
 /// An error sway found in a config file.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -58,9 +58,9 @@ use instructions::tilde;
 use overlay::Overlay;
 pub use watch::{IncludeWatch, MainConfig};
 
-use crate::generate::Locations;
 use crate::i18n::Text;
 use crate::registry::ConfigFile;
+use crate::state::Locations;
 use crate::sway_config::{
     Diagnostic, DiagnosticKind, Directive, Files, Include, SwayConfig, parse,
 };

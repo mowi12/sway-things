@@ -51,16 +51,7 @@ use crate::ipc::{Client, Events, IpcError};
 use crate::registry::{Scope, Value};
 use crate::state::State;
 
-/// The key of the mode setting.
-pub const MODE: &str = "output.mode";
-/// The key of the position setting.
-pub const POSITION: &str = "output.position";
-/// The key of the scale setting.
-pub const SCALE: &str = "output.scale";
-/// The key of the rotation setting.
-pub const TRANSFORM: &str = "output.transform";
-/// The key of the setting that switches an output on or off.
-pub const ENABLED: &str = "output.enabled";
+pub use crate::registry::output::{ENABLED, MODE, POSITION, SCALE, TRANSFORM};
 
 /// The command the generated config runs at every start and reload of sway while Sway Things
 /// stores anything for an output: `exec_always sway-things hook displays` ([`ensure_one_on`]).

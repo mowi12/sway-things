@@ -42,8 +42,7 @@ use crate::msg;
 use crate::registry::{GSettingsKey, Kind, Setting, Value};
 use crate::state::State;
 
-/// The schema of the keys GTK apps read for their look: cursor, theme, icons, fonts, style.
-pub const INTERFACE: &str = "org.gnome.desktop.interface";
+pub use crate::registry::look::INTERFACE;
 
 /// Where settings are copied to.
 pub trait GSettingsStore: fmt::Debug {

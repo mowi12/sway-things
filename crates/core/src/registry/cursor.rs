@@ -6,15 +6,21 @@
 //!
 //! The theme and size are also copied to GSettings, which GTK apps read instead of asking sway.
 
+use super::look::INTERFACE;
 use super::read::{self, ReadError};
 use super::{ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Unit, Value, When};
 use crate::command::input::{InputType, MapTo, ToolMode};
 use crate::command::{SwayCmd, SwayText, Target, seat};
-use crate::cursor::{DEFAULT_SIZE, DEFAULT_THEME};
-use crate::gsettings::INTERFACE;
 use crate::i18n::Text;
 use crate::msg;
 use crate::registry::{Choice, ValueError};
+
+/// The cursor size sway uses unless told otherwise.
+pub const DEFAULT_SIZE: u32 = 24;
+
+/// The name of sway's own default theme: with no `xcursor_theme`, wlroots loads the theme called
+/// `default` (often a link to the distribution's theme), and falls back to its built-in cursor.
+pub const DEFAULT_THEME: &str = "default";
 
 const THEME: &str = "cursor.theme";
 const SIZE: &str = "cursor.size";

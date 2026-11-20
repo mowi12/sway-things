@@ -239,6 +239,11 @@ may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-eff
 settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
 and in one section.
 
+The registry is the bottom layer of the core: it imports none of the modules that use it (outputs, GSettings, the
+editor, cursors). Keys and defaults other modules share with it are defined in the registry and re-exported there:
+`outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY` is
+`registry::app::EDITOR_COMMAND`, and the editor command's word splitting is `registry::words`.
+
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
 (Bluetooth, Network, Sound); the bindings editor and the bar layout editor are planned. They still read and write
 settings through the registry.

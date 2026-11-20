@@ -7,8 +7,8 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::Msg;
+use super::words::SplitError;
 use crate::command::{Color, TextError};
-use crate::editor::SplitError;
 use crate::i18n::Text;
 use crate::msg;
 

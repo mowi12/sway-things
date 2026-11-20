@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 16:39+0100\n"
+"POT-Creation-Date: 2026-11-20 20:46+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1106,14 +1106,6 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{place}: the config is too big; the rest wasn't read."
-msgstr ""
-
-#: crates/core/src/editor.rs
-msgid "has a quote that isn't closed"
-msgstr ""
-
-#: crates/core/src/editor.rs
-msgid "ends in a backslash that escapes nothing"
 msgstr ""
 
 #: crates/core/src/generate/write.rs
@@ -4470,6 +4462,14 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "height"
+msgstr ""
+
+#: crates/core/src/registry/words.rs
+msgid "has a quote that isn't closed"
+msgstr ""
+
+#: crates/core/src/registry/words.rs
+msgid "ends in a backslash that escapes nothing"
 msgstr ""
 
 #: crates/core/src/registry/workspaces.rs

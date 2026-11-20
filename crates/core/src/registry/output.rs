@@ -19,7 +19,17 @@ use crate::command::SwayCmd;
 use crate::command::output::{self as cmd, MAX_SCALE, MIN_SCALE, Mode, Transform};
 use crate::i18n::{Msg, Text};
 use crate::msg;
-use crate::outputs::{ENABLED, MODE, POSITION, SCALE, TRANSFORM};
+
+/// The key of the mode setting.
+pub const MODE: &str = "output.mode";
+/// The key of the position setting.
+pub const POSITION: &str = "output.position";
+/// The key of the scale setting.
+pub const SCALE: &str = "output.scale";
+/// The key of the rotation setting.
+pub const TRANSFORM: &str = "output.transform";
+/// The key of the setting that switches an output on or off.
+pub const ENABLED: &str = "output.enabled";
 
 const TRANSFORMS: &[Choice] = &[
     Choice::new("normal", msg!("None")),
