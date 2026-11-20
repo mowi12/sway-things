@@ -136,6 +136,21 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | Device state reasons: 7 no secrets, 8 supplicant disconnected, 53 SSID not found; active connection state reasons: 9 no secrets, 10 login failed. | `libnm-core-public/nm-dbus-interface.h` |
 | GNOME Settings asks for a Wi-Fi scan every 15 s while its Wi-Fi panel is shown. | `panels/network/net-device-wifi.c` (`PERIODIC_WIFI_SCAN_TIMEOUT`) |
 
+## CUPS, cups-pk-helper and Avahi
+
+| Fact | Source |
+| --- | --- |
+| CUPS listens on `/run/cups/cups.sock` (`cups.socket`); libcups uses its default socket when it can read it, else `localhost`. | `cups.socket` on Arch (CUPS 2.4.20) and Debian 13 (2.4.10); `cups/usersys.c` (`CUPS_DEFAULT_DOMAINSOCKET`), 2.4.10 |
+| `SystemGroup` is `root lpadmin` on Debian 13 and `sys root wheel` on Arch; `cups-files.conf` is readable by everyone on Debian, by root and the group `cups` on Arch. `WebInterface` is on in both. | `/etc/cups/cups-files.conf` and `cupsd.conf` in the containers |
+| Over the domain socket, cupsd answers an administrative request without credentials with `401` and `WWW-Authenticate: Basic realm="CUPS", PeerCred, Local trc="y"`; sent again with `Authorization: PeerCred <user>`, it checks the socket's peer and lets members of `SystemGroup` change printers, without a password. It needs a `<Location>` that applies to the request. | `scheduler/client.c` (`, PeerCred`), `cups/auth.c` (`cups_local_auth`), 2.4.10; cupsd's log in the containers |
+| `CUPS-Add-Modify-Printer` with `ppd-name=everywhere` makes cupsd build the driver in a background thread from the printer's `Get-Printer-Attributes` before it answers; a device URI with `._tcp` in it is resolved through DNS-SD first. | `scheduler/ipp.c` (`add_printer`, `create_local_bg_thread`), 2.4.10 |
+| When that fails, CUPS 2.4.10 keeps the new queue; 2.4.20 removes it. | `crates/core/tests/printers_cups.rs` in the containers |
+| A queue without a driver reports the model `Local Raw Printer`, whatever `printers.conf` says. `marker-*` attributes and reasons kept in `printers.conf` come back from `CUPS-Get-Printers`. | The containers |
+| `cupsd` is installed for root only (mode 0700) on Arch and Void, for everyone on Debian. `ippeveprinter` (Arch's CUPS 2.4.20) aborts without avahi-daemon, so the tests use a printer of their own. | The containers |
+| `CUPS-Get-Printers` and `CUPS-Get-Default` answer `client-error-not-found` when there is no printer or no default. | The containers |
+| cups-pk-helper's methods answer an error text (empty when it worked): `PrinterAdd(name, uri, ppd, info, location)`, `PrinterDelete`, `PrinterSetDefault`, `PrinterSetEnabled(name, enabled)`, `PrinterSetAcceptJobs(name, enabled, reason)`, `PrinterSetInfo`, `PrinterSetLocation`, `PrinterSetShared`, `JobCancelPurge(id, purge)`. | `src/cups-pk-helper-mechanism.xml` (gitlab.freedesktop.org/cups-pk-helper) |
+| Avahi's `ServiceBrowserNew(interface, protocol, type, domain, flags)` creates a browser that reports `ItemNew` and `ItemRemove(interface, protocol, name, type, domain, flags)` right away, so a client subscribes to the signals first (`ServiceBrowserPrepare` of the `Server2` interface avoids the race, but only on newer Avahi); `ResolveService(…, aprotocol, flags)` with `AVAHI_LOOKUP_NO_ADDRESS` (8) skips the address lookup and gives the TXT record; the result flag 8 (`AVAHI_LOOKUP_RESULT_LOCAL`) marks a service announced by this computer. | `avahi-daemon/org.freedesktop.Avahi.Server.xml`, `avahi-common/defs.h` (avahi master, 2026-11-20) |
+
 ## Distributions
 
 | Fact | Source |

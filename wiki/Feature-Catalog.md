@@ -156,6 +156,30 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [ ] 🟡 Ask for VPN passwords through the VPN plugin's dialog
 - **Not planned:** a full network editor (delegate)
 
+### Printers
+
+CUPS owns the state: nothing is stored in `settings.toml` and nothing is generated. Printer names, models and job titles
+are attacker-controlled data.
+
+- [x] 🟡 Printers with their state (Ready, Printing, Paused, Out of paper, Toner low, Offline, …), model and location
+      (IPP to the local CUPS)
+- [x] 🟡 Ink and toner levels as bars in their colors (`marker-*`)
+- [x] 🟢 Default printer: marked, and set (`CUPS-Set-Default`); the user's own default from `lpoptions -d` shown
+- [x] 🟢 Pause and resume a printer
+- [x] 🟡 The print queue: title, owner, state and time of each job; cancel a job, cancel all jobs of a printer
+- [x] 🔴 Add a driverless printer found by Avahi (network and IPP over USB) or typed as an address, with the
+      `everywhere` model
+- [x] 🟢 Remove a printer, asking first
+- [x] 🟢 Print a test page
+- [x] 🟢 Change the description and location, share on the network
+- [x] 🟡 Changes as a member of CUPS's administrator group, else through cups-pk-helper (polkit); without either, say
+      what to install or which group to join
+- [x] 🟢 "Advanced…" → `system-config-printer`, else CUPS's web interface (printers that need a driver)
+- [ ] 🟡 Default options: paper size, two-sided, color or grayscale, from what the printer supports
+- [ ] 🟢 Live updates through a CUPS subscription instead of reading every 2 s
+- **Maybe:** 🟡 choosing drivers natively (system-config-printer's D-Bus service), classes, CUPS's server settings
+- **Not planned:** a driver editor (delegate)
+
 ---
 
 ## Appearance
@@ -327,7 +351,7 @@ swaybar via our sway include.
 
 - [ ] 🟡 Time zone, NTP on/off (timedated D-Bus, polkit)
 - [ ] 🟡 System language and formats (localed; `LANG`/`LC_*` in our `environment.d` file)
-- [ ] 🟢 Printers: launch `system-config-printer` (delegate)
+- ~~🟢 Printers: launch `system-config-printer` (delegate)~~: the Printers page does it, under Devices
 - **Maybe:** 🟡 user avatar, full name, password (AccountsService)
 
 ### Accessibility
