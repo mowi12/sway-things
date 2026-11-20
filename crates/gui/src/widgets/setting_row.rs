@@ -572,7 +572,7 @@ impl SettingRow {
         // only for this machine.
         let layer = model
             .stored_in(setting, device)
-            .filter(|_| !(model.kanshi_runs() && setting.scope() == Scope::PerOutput));
+            .filter(|_| !(model.kanshi_runs() && setting.sets_up_display()));
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
         imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
@@ -813,8 +813,7 @@ impl SettingRow {
     /// pointer is on, and the button could be let go elsewhere, leaving the step button
     /// repeating.
     fn defers(&self) -> bool {
-        self.setting()
-            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+        self.setting().is_some_and(Setting::sets_up_display)
     }
 
     /// Sends `value` from the number control: at once, or for a control that defers
@@ -992,7 +991,7 @@ impl SettingRow {
         imp.note.set_visible(!note.is_empty());
         // While a display's change waits to be kept or reverted, the others' settings wait too:
         // Revert puts back only that change.
-        let waits_for_other = setting.scope() == Scope::PerOutput
+        let waits_for_other = setting.sets_up_display()
             && model
                 .pending_change()
                 .is_some_and(|pending| pending.device() != device.as_deref());
@@ -1224,9 +1223,9 @@ fn control(setting: &'static Setting) -> Option<Control> {
                 ids: choices.iter().map(|choice| choice.id).collect(),
             }
         }
-        Kind::Color { .. } => {
+        Kind::Color { alpha, .. } => {
             let dialog = gtk::ColorDialog::new();
-            dialog.set_with_alpha(true);
+            dialog.set_with_alpha(*alpha);
             let button = gtk::ColorDialogButton::new(Some(dialog));
             button.set_valign(gtk::Align::Center);
             Control::Color(button)

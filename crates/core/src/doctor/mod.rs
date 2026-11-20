@@ -36,7 +36,7 @@ use crate::generate::{
 use crate::i18n::{Msg, Text};
 use crate::include::{IncludeStatus, Inclusion, MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError};
-use crate::registry::{ConfigFile, Scope, SwayMapping};
+use crate::registry::{ConfigFile, SwayMapping};
 use crate::state::{ProblemKind, State};
 use crate::sway_config::{Diagnostic, DiagnosticKind};
 use crate::version::{SwayFxVersion, SwayVersion};
@@ -1261,7 +1261,7 @@ impl<V: Validate> Checkup<'_, V> {
         let before = findings.len();
         for entry in self.state.entries() {
             // kanshi sets up the displays: no line of ours competes with the user's.
-            if self.displays.is_kanshi() && entry.setting.scope() == Scope::PerOutput {
+            if self.displays.is_kanshi() && entry.setting.sets_up_display() {
                 continue;
             }
             let Some(report) = conflict::Report::check(

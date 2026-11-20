@@ -402,7 +402,7 @@ impl<V: Validate> Applier<V> {
     /// Notes that `setting` changed, so the displays are remembered at the next save if it is
     /// one of theirs.
     pub(crate) fn touch(&mut self, setting: &Setting) {
-        if setting.scope() == Scope::PerOutput {
+        if setting.sets_up_display() {
             self.displays_touched = true;
         }
     }
@@ -483,8 +483,7 @@ impl<V: Validate> Applier<V> {
     /// would take it, and the next look at the displays would put back what they run with.
     fn displays_need_session(&self, key: &str) -> Result<(), ApplyError> {
         let setting = self.setting(key)?;
-        if self.displays.is_kanshi() && setting.scope() == Scope::PerOutput && self.client.is_none()
-        {
+        if self.displays.is_kanshi() && setting.sets_up_display() && self.client.is_none() {
             return Err(ApplyError::DisplaysNeedSession { key: setting.key() });
         }
         Ok(())
@@ -501,7 +500,7 @@ impl<V: Validate> Applier<V> {
         // A position, a mode or switching off is for one display at a time anyway.
         let for_each = device.is_none()
             && self.displays.is_kanshi()
-            && setting.scope() == Scope::PerOutput
+            && setting.sets_up_display()
             && !setting.is_one_at_a_time();
         let Some(client) = self.client.as_mut().filter(|_| for_each) else {
             return Ok(None);
@@ -806,7 +805,7 @@ impl<V: Validate> Applier<V> {
             Apply::Relogin => return Ok(Effect::AfterRelogin),
         }
         let commands = render(&self.state, over, setting, device, Target::Ipc)?;
-        if commands.is_empty() && setting.scope() == Scope::PerOutput {
+        if commands.is_empty() && setting.sets_up_display() {
             // sway has no command that hands an output's mode, position or scale back to its own
             // choice: that happens when it reads its config again.
             return Ok(Effect::AfterReload);
@@ -1033,7 +1032,7 @@ impl<V: Validate> Applier<V> {
             .state
             .entries()
             .into_iter()
-            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter(|entry| entry.setting.sets_up_display())
             .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
             .filter(|(_, device)| !combination.contains(device))
             // Only what a remembered combination holds: it comes back with it. The values of a
@@ -1310,7 +1309,7 @@ impl<V: Validate> Applier<V> {
             .state
             .entries()
             .into_iter()
-            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter(|entry| entry.setting.sets_up_display())
             .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
             .filter(|(_, device)| connected.contains(device))
             .collect();

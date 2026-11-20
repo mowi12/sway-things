@@ -55,7 +55,7 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::outputs::profiles::Profiles;
 use sway_things_core::outputs::{OutputWatch, Outputs};
-use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value, Values};
+use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value, Values};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
@@ -451,7 +451,7 @@ impl Model {
                 view.value = place.clone();
             }
         }
-        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
+        if self.kanshi_runs() && setting.sets_up_display() {
             // kanshi sets up the displays: no line of ours is in the sway config meanwhile.
             view.line = None;
             // A value for every display is stored for each one: the row shows the one they
@@ -729,7 +729,7 @@ impl Model {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
         // kanshi sets up the displays: no line of ours competes with the user's.
-        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
+        if self.kanshi_runs() && setting.sets_up_display() {
             return None;
         }
         Report::check(&core.status, setting, device, core.known())

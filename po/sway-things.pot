@@ -2535,7 +2535,7 @@ msgstr ""
 msgid "depth"
 msgstr ""
 
-#: crates/core/src/registry/effects.rs
+#: crates/core/src/registry/effects.rs crates/core/src/registry/wallpaper.rs
 msgid "Color"
 msgstr ""
 
@@ -3524,7 +3524,7 @@ msgstr ""
 msgid "Windows"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/core/src/registry/wallpaper.rs
 msgid "Wallpaper"
 msgstr ""
 
@@ -3760,6 +3760,10 @@ msgid "must be a color like #rrggbb or #rrggbbaa"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
+msgid "must be an opaque color like #rrggbb"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
 msgid "must be true or false"
 msgstr ""
 
@@ -3827,6 +3831,135 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "table"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Fill the screen, cut off what doesn’t fit"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Fit inside the screen"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Stretch to the screen"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Center at its own size"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Tile at its own size"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Background"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "background"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "desktop picture"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "swaybg"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Image"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid ""
+"An absolute path, or one in your home folder (~/…). Without one, the color "
+"fills the screen"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "No image"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Fit"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "How the image covers the screen"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "fill"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "fit"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "stretch"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs crates/core/src/registry/windows.rs
+msgid "center"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "tile"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "scale"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid ""
+"Fills the screen without an image, and the space around an image that "
+"doesn’t cover it"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "solid color"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "fallback"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "expected an image and a fill mode, or a color and solid_color"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "colors must look like #rrggbb"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "the fill mode is missing"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "the image is missing"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "the path of the image uses a variable or a command"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "the path of the image uses ~ for another user"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "a quote in the path isn't closed"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "the path of the image is relative to the config file"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -4125,10 +4258,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "title"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "center"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -4441,6 +4570,11 @@ msgstr ""
 #: crates/core/src/view.rs
 #, rust-format
 msgid "Only with {title} above {limit}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
+msgid "Only with {title} set"
 msgstr ""
 
 #: crates/core/src/watch.rs
@@ -5120,10 +5254,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/displays/mirroring.rs
 msgid "What the display shows"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mirroring.rs
-msgid "Fit"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mirroring.rs

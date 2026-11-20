@@ -100,8 +100,8 @@ impl Layer {
             return Self::Host;
         }
         match (setting.scope(), device) {
-            (Scope::Global, _) | (Scope::PerDevice(_), None) => Self::Shared,
-            (Scope::PerHost | Scope::PerOutput, _) | (Scope::PerDevice(_), Some(_)) => Self::Host,
+            (Scope::Global, _) | (Scope::PerDevice(_) | Scope::PerOutput, None) => Self::Shared,
+            (Scope::PerHost, _) | (Scope::PerDevice(_) | Scope::PerOutput, Some(_)) => Self::Host,
         }
     }
 }

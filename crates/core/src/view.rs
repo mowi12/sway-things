@@ -46,7 +46,7 @@ use crate::i18n::Text;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
 use crate::msg;
-use crate::registry::{Kind, Scope, Setting, Value, Values, When};
+use crate::registry::{Kind, Setting, Value, Values, When};
 use crate::state::{Layer, State};
 
 /// Where the value a row shows comes from.
@@ -221,7 +221,7 @@ impl SettingView {
 /// What the output `device` runs with for `setting`, if it is a setting of outputs and the
 /// output is known.
 fn session_value(setting: &Setting, device: Option<&str>, known: Known<'_>) -> Option<Value> {
-    if setting.scope() != Scope::PerOutput {
+    if !setting.sets_up_display() {
         return None;
     }
     known
@@ -279,6 +279,7 @@ fn unmet_dependency(
         When::Above(limit) => Text::new(msg!("Only with {title} above {limit}"))
             .text("title", title)
             .arg("limit", limit),
+        When::Set => Text::new(msg!("Only with {title} set")).text("title", title),
     };
     Some(Locked::Needs(text))
 }

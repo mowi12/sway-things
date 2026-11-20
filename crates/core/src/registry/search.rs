@@ -346,16 +346,16 @@ mod tests {
             assert!(first.setting().is_none(), "{page:?}");
             assert_eq!(first.field(), Field::Title);
         }
-        // Wallpaper has no settings yet.
+        // Notifications has no settings yet.
         assert!(
             Registry::builtin()
                 .iter()
-                .all(|s| s.page() != Page::Wallpaper)
+                .all(|s| s.page() != Page::Notifications)
         );
-        let hits = index.search("wallpaper");
+        let hits = index.search("notifications");
         assert!(
             hits.iter()
-                .any(|hit| hit.page() == Page::Wallpaper && hit.setting().is_none())
+                .any(|hit| hit.page() == Page::Notifications && hit.setting().is_none())
         );
         // The description counts too, after the titles.
         let hits = index.search("vpn");

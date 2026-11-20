@@ -48,6 +48,7 @@ mod sway;
 #[cfg(test)]
 mod tests;
 mod value;
+mod wallpaper;
 mod windows;
 pub mod workspaces;
 
@@ -82,6 +83,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(output::settings());
     settings.extend(windows::settings());
     settings.extend(effects::settings());
+    settings.extend(wallpaper::settings());
     settings.extend(behavior::settings());
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());
@@ -154,7 +156,7 @@ impl Registry {
         let Some(mapping) = setting.sway() else {
             return Err(RenderError::NotASwaySetting { key: setting.key() });
         };
-        if device.is_some() && !matches!(setting.scope(), Scope::PerDevice(_) | Scope::PerOutput) {
+        if device.is_some() && !setting.scope().has_instances() {
             return Err(RenderError::NotPerDevice);
         }
         (mapping.render)(&Context {

@@ -59,8 +59,17 @@ pub enum Scope {
     /// Every input device of a type, or one device. The value for the type is stored in the shared
     /// file by default, a value for one device in the host overlay.
     PerDevice(InputType),
-    /// One output. Stored in the host overlay by default.
+    /// Every output, or one output. The value for all outputs is stored in the shared file by
+    /// default, a value for one output in the host overlay.
     PerOutput,
+}
+
+impl Scope {
+    /// Whether a value can be stored for one input device or output, besides the value for all
+    /// of them.
+    pub const fn has_instances(self) -> bool {
+        matches!(self, Self::PerDevice(_) | Self::PerOutput)
+    }
 }
 
 /// How a changed value takes effect.
@@ -130,6 +139,8 @@ pub enum When {
     NoneOf(&'static [&'static str]),
     /// A number is above this.
     Above(f64),
+    /// A text isn't empty.
+    Set,
 }
 
 impl When {
@@ -145,6 +156,7 @@ impl When {
             )]
             (Self::Above(limit), Value::Integer(number)) => *number as f64 > limit,
             (Self::Above(limit), Value::Decimal(number)) => *number > limit,
+            (Self::Set, Value::Text(text)) => !text.is_empty(),
             _ => false,
         }
     }
@@ -214,6 +226,7 @@ pub struct Setting {
     gsettings: Option<GSettingsKey>,
     unit: Option<Unit>,
     one_at_a_time: bool,
+    sets_up_display: bool,
 }
 
 impl Setting {
@@ -244,6 +257,7 @@ impl Setting {
             gsettings: None,
             unit: None,
             one_at_a_time: false,
+            sets_up_display: false,
         })
     }
 
@@ -284,9 +298,28 @@ impl Setting {
         Self::builder(key, Kind::Choice { default, choices }, page)
     }
 
-    /// A color.
+    /// A color, translucent or not.
     pub fn color(key: &'static str, page: Page, default: Color) -> SettingBuilder {
-        Self::builder(key, Kind::Color { default }, page)
+        Self::builder(
+            key,
+            Kind::Color {
+                default,
+                alpha: true,
+            },
+            page,
+        )
+    }
+
+    /// An opaque color (`#rrggbb`; `#rrggbbff` is the same color).
+    pub fn opaque_color(key: &'static str, page: Page, default: Color) -> SettingBuilder {
+        Self::builder(
+            key,
+            Kind::Color {
+                default,
+                alpha: false,
+            },
+            page,
+        )
     }
 
     /// Free text.
@@ -419,6 +452,14 @@ impl Setting {
     /// a position in the layout would put every output on the same spot.
     pub fn is_one_at_a_time(&self) -> bool {
         self.one_at_a_time
+    }
+
+    /// Whether the setting sets a display up: its mode, position, scale, rotation, or whether it
+    /// is on. kanshi takes these over while it runs, they are remembered per combination of
+    /// displays, and a stored one brings the display guard. Other settings of outputs, like the
+    /// wallpaper, don't.
+    pub fn sets_up_display(&self) -> bool {
+        self.sets_up_display
     }
 
     /// The table of a settings file that holds values for one device or output: `device` or
@@ -629,6 +670,14 @@ impl SettingBuilder {
     /// [`Setting::is_one_at_a_time`]).
     pub fn one_at_a_time(mut self) -> Self {
         self.0.one_at_a_time = true;
+        self
+    }
+
+    /// Makes the setting one of outputs that sets a display up: [`Scope::PerOutput`] and
+    /// [`Setting::sets_up_display`].
+    pub fn sets_up_display(mut self) -> Self {
+        self.0.scope = Scope::PerOutput;
+        self.0.sets_up_display = true;
         self
     }
 
