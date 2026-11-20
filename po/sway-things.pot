@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 21:08+0100\n"
+"POT-Creation-Date: 2026-11-20 22:58+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,121 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "{setting} is now {value}. It is reverted unless you keep it."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "Reverted {setting}."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "{error}; the old value comes back when sway reloads its config"
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid ""
+"{setting} can lock you out, so it is only changed after you keep it in a "
+"terminal; pass --yes to change it without asking"
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "{setting} isn't stored by Sway Things; nothing to reset."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "Reset {setting}."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "Reset {setting} to its default."
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid "No settings are stored, so every generated file is empty."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "sway rejected the new {file}, so the old one stays:"
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid ""
+"The settings are saved. Run the command again with --overwrite to replace "
+"the file."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "Set {setting} to {value}."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "{setting} is already {value}."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "{first} {second}"
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid "sway isn't running; it takes effect when sway starts."
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid "It takes effect when sway reloads its config (swaymsg reload)."
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid "It takes effect when the tool behind it reloads its config."
+msgstr ""
+
+#: crates/cli/src/change.rs
+msgid "It takes effect at the next login."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid "Nothing was sent: it {requirement}."
+msgstr ""
+
+#: crates/cli/src/displays.rs
+#, rust-format
+msgid ""
+"the change isn't remembered: {file} wasn't made by Sway Things, so it is "
+"left alone and kanshi never sees what is set. Move that file away."
+msgstr ""
+
+#: crates/cli/src/displays.rs
+#, rust-format
+msgid ""
+"the change doesn't last: a kanshi profile of your own ({name}) sets up these "
+"displays, as kanshi takes the first profile that matches and it comes before "
+"the include of Sway Things. {how}"
+msgstr ""
+
+#: crates/cli/src/displays.rs
+msgid ""
+"kanshi sets up the displays: what the display runs with now is remembered "
+"for the displays connected now."
+msgstr ""
+
+#: crates/cli/src/displays.rs
+msgid ""
+"kanshi sets up the displays: the change is remembered for the displays "
+"connected now, and kanshi brings it back whenever they are."
+msgstr ""
 
 #: crates/cli/src/doctor.rs
 msgid ""
@@ -140,36 +255,9 @@ msgstr ""
 msgid "Fix: {command} (your changes to the file are lost)"
 msgstr ""
 
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid ""
-"the change isn't remembered: {file} wasn't made by Sway Things, so it is "
-"left alone and kanshi never sees what is set. Move that file away."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid ""
-"the change doesn't last: a kanshi profile of your own ({name}) sets up these "
-"displays, as kanshi takes the first profile that matches and it comes before "
-"the include of Sway Things. {how}"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid ""
-"kanshi sets up the displays: what the display runs with now is remembered "
-"for the displays connected now."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid ""
-"kanshi sets up the displays: the change is remembered for the displays "
-"connected now, and kanshi brings it back whenever they are."
-msgstr ""
-
 #. TRANSLATORS: `sway-things hook displays` switched on a display because no
 #. other one was on.
-#: crates/cli/src/lib.rs
+#: crates/cli/src/hook.rs
 #, rust-format
 msgid "No display was on, so {display} was switched on."
 msgstr ""
@@ -217,94 +305,6 @@ msgstr ""
 #: crates/cli/src/lib.rs crates/gui/src/app.rs
 #, rust-format
 msgid "error: {message}"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "{setting} is now {value}. It is reverted unless you keep it."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "Reverted {setting}."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "{error}; the old value comes back when sway reloads its config"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid ""
-"{setting} can lock you out, so it is only changed after you keep it in a "
-"terminal; pass --yes to change it without asking"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "{setting} isn't stored by Sway Things; nothing to reset."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "Reset {setting}."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "Reset {setting} to its default."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid "No settings are stored, so every generated file is empty."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "sway rejected the new {file}, so the old one stays:"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid ""
-"The settings are saved. Run the command again with --overwrite to replace "
-"the file."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "Set {setting} to {value}."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "{setting} is already {value}."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "{first} {second}"
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid "sway isn't running; it takes effect when sway starts."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid "It takes effect when sway reloads its config (swaymsg reload)."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid "It takes effect when the tool behind it reloads its config."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-msgid "It takes effect at the next login."
-msgstr ""
-
-#: crates/cli/src/lib.rs
-#, rust-format
-msgid "Nothing was sent: it {requirement}."
 msgstr ""
 
 #. TRANSLATORS: Where `sway-things get` found a value: a settings file, with
