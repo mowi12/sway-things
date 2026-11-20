@@ -183,6 +183,15 @@ new mode, a rotation and switching an output off go through the safety net.
   connected (their profile with its pictures and placement, and their stored values): what set them up before, a kanshi
   profile of the user's own or sway, applies again. Our file for kanshi shows per combination where each display stands
   and, in comment lines, which workspaces go on it. Any one display alone always comes on, so no combination stays dark.
+- **The user's own kanshi profiles:** displays that a profile of the user's sets up stay theirs, and the workspaces are
+  still placed (and pictures mirrored) on them. While a rule places workspaces or a display mirrors another, our file
+  holds a copy of each of the user's profiles, kept current with their config: their display lines as they wrote them,
+  without the lines that place workspaces, and with the hook that places them as the Workspaces page says. The note
+  above the canvas says so ("These displays are set up by your kanshi profile Desk, and Sway Things places the
+  workspaces on them. Change something here to arrange them here instead."). A workspace moved on the map is remembered
+  for the combination without taking over its displays. `sway-things doctor` warns of a line in one of their profiles
+  that may move workspaces too (a script of theirs), and of profiles in a file they include after ours, which can't be
+  copied.
 - **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
