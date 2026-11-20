@@ -43,6 +43,10 @@ pub(super) fn note(view: &SettingView, setting: &Setting, device: Option<&str>) 
         (Source::Stored { for_type: true, .. }, Scope::PerOutput, Some(_)) => {
             parts.push(tr(msg!("Same as all displays")).to_owned());
         }
+        // Nothing stored for every display or this one: the default of every display.
+        (Source::Default, Scope::PerOutput, Some(_)) if !setting.sets_up_display() => {
+            parts.push(tr(msg!("Same as all displays")).to_owned());
+        }
         // Where sway picks a value itself: the mode, the place and the scale of an output.
         (Source::Session, _, _)
             if matches!(

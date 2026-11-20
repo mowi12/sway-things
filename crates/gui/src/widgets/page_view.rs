@@ -29,6 +29,7 @@ use sway_things_core::ui_state;
 
 use self::about::{about_section, generated_section};
 use self::device_group::DeviceGroup;
+use super::device_selector::Instances;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{Clamp, GroupRow, PageHeader, Placeholder, SettingRow, TestArea, WorkspaceMap};
@@ -202,7 +203,9 @@ impl PageView {
                 files.insert(mapping.file());
             }
             let kind = match setting.scope() {
-                Scope::PerDevice(kind) => Some(kind),
+                Scope::PerDevice(kind) => Some(Instances::Devices(kind)),
+                // The Displays page picks its output on the arrangement.
+                Scope::PerOutput if !setting.sets_up_display() => Some(Instances::Outputs),
                 Scope::Global | Scope::PerHost | Scope::PerOutput => None,
             };
             let list = match &section {
@@ -251,9 +254,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in parts::below(model, &row) {
-                list.append(&list_row(&widget));
-            }
+            grouping.add_below(model, &row, &list);
             rows.push(row);
         }
         grouping.close(model, &mut groups);
@@ -572,9 +573,14 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
 /// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].
 #[derive(Default)]
 struct Grouping {
-    /// The group being built, its members and their list: the members of a group are next to
-    /// each other, in one section.
-    open: Option<(SettingGroup, Vec<SettingRow>, gtk::ListBox)>,
+    /// The group being built, its members, their list and the widgets that go below the group:
+    /// the members of a group are next to each other, in one section.
+    open: Option<(
+        SettingGroup,
+        Vec<SettingRow>,
+        gtk::ListBox,
+        Vec<gtk::Widget>,
+    )>,
     /// The rows of the groups built.
     rows: Vec<GroupRow>,
 }
@@ -590,12 +596,12 @@ impl Grouping {
         devices: &mut [DeviceGroup],
     ) {
         match (setting.group(), &mut self.open) {
-            (Some(group), Some((open, members, _))) if *open == group => {
+            (Some(group), Some((open, members, ..))) if *open == group => {
                 members.push(row.clone());
             }
             (Some(group), _) => {
                 self.close(model, devices);
-                self.open = Some((group, vec![row.clone()], list.clone()));
+                self.open = Some((group, vec![row.clone()], list.clone(), Vec::new()));
             }
             (None, _) => {
                 self.close(model, devices);
@@ -604,15 +610,29 @@ impl Grouping {
         }
     }
 
+    /// Adds the page's own widgets below `row` ([`parts::below`]) to `list`, or below the group
+    /// being built, whose rows go into the list when it is complete.
+    fn add_below(&mut self, model: &Model, row: &SettingRow, list: &gtk::ListBox) {
+        for widget in parts::below(model, row) {
+            match &mut self.open {
+                Some((.., after)) => after.push(widget),
+                None => list.append(&list_row(&widget)),
+            }
+        }
+    }
+
     /// Puts the group being built into its list. Its row follows the device picked for its
     /// members.
     fn close(&mut self, model: &Model, devices: &mut [DeviceGroup]) {
-        let Some((group, members, list)) = self.open.take() else {
+        let Some((group, members, list, after)) = self.open.take() else {
             return;
         };
         let row = GroupRow::new(model, group, members);
         for item in row.items() {
             list.append(&item);
+        }
+        for widget in after {
+            list.append(&list_row(&widget));
         }
         if let Some(device_group) = devices.last_mut().filter(|device_group| {
             row.members()

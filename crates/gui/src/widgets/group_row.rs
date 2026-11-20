@@ -15,6 +15,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 use sway_things_core::registry::{Kind, Setting, SettingGroup, Value};
+use sway_things_core::view::Locked;
 
 use super::SettingRow;
 use super::setting_row::shows_directives;
@@ -323,9 +324,13 @@ impl GroupRow {
         imp.line
             .set_visible(line.is_some() && shows_directives(model));
 
+        // A member that doesn't matter now (a fill mode without an image) or has no value (no
+        // image) adds nothing.
         let texts: Vec<String> = views
             .iter()
+            .filter(|(_, view)| !matches!(view.locked, Some(Locked::Needs(_))))
             .map(|(setting, view)| value_text(setting, &view.value))
+            .filter(|text| !text.is_empty())
             .collect();
         imp.summary_text.set_text(&texts.join(" · "));
         let named: Vec<String> = views

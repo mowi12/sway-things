@@ -1,23 +1,23 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! A run of sections of per-device settings of one input type, with the selector for the device
-//! their rows are for, and the hint in their place while no device of the type is there.
+//! A run of sections of per-device settings of one input type, or of per-output settings, with
+//! the selector for the device or output their rows are for, and the hint in their place while
+//! no device of the type is there.
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::command::input::InputType;
 use sway_things_core::view::Source;
 
 use crate::model::Model;
 use crate::style;
-use crate::widgets::device_selector::none_connected;
+use crate::widgets::device_selector::{Instances, none_connected_of};
 use crate::widgets::list::list_row;
 use crate::widgets::{DeviceSelector, GroupRow, SettingRow};
 
-/// A run of sections of per-device settings of one input type, with the selector for the device
-/// their rows are for.
+/// A run of sections of per-device settings of one input type, or of per-output settings, with
+/// the selector for the device or output their rows are for.
 pub(super) struct DeviceGroup {
-    pub(super) kind: InputType,
+    pub(super) kind: Instances,
     pub(super) selector: DeviceSelector,
     /// Shown in place of the rows while there is nothing to set.
     pub(super) hint: gtk::Label,
@@ -33,10 +33,10 @@ pub(super) struct DeviceGroup {
 impl DeviceGroup {
     /// A group of type `kind` that starts with the section of `heading` and `list`. The selector
     /// becomes the first row of the list.
-    pub(super) fn new(kind: InputType, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
-        let selector = DeviceSelector::new(kind);
+    pub(super) fn new(kind: Instances, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
+        let selector = DeviceSelector::of(kind);
         list.append(&list_row(&selector));
-        let hint = gtk::Label::new(Some(none_connected(kind)));
+        let hint = gtk::Label::new(Some(none_connected_of(kind)));
         hint.set_xalign(0.0);
         hint.set_wrap(true);
         hint.add_css_class("st-section-hint");
@@ -84,11 +84,23 @@ impl DeviceGroup {
             #[weak(rename_to = hint)]
             self.hint,
             move |model: &Model| {
-                let Some(devices) = model.devices() else {
-                    return;
+                let connected = match kind {
+                    Instances::Devices(kind) => {
+                        let Some(devices) = model.devices() else {
+                            return;
+                        };
+                        selector.update(&devices);
+                        devices.of_type(kind).next().is_some()
+                    }
+                    // The value for every output also applies to screens plugged in later.
+                    Instances::Outputs => {
+                        let Some(outputs) = model.outputs() else {
+                            return;
+                        };
+                        selector.update_outputs(&outputs);
+                        true
+                    }
                 };
-                selector.update(&devices);
-                let connected = devices.of_type(kind).next().is_some();
                 let stored = rows
                     .iter()
                     .filter_map(glib::WeakRef::upgrade)

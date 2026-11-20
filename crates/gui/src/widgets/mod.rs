@@ -27,6 +27,7 @@ mod setting_row;
 mod sidebar;
 mod sound;
 mod test_area;
+mod wallpaper;
 mod welcome;
 mod workspaces;
 mod xkb_options;

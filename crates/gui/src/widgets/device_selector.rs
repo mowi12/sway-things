@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The row that picks which input devices the per-device rows below it are for: all devices of
-//! one type, or one of them. Devices that aren't connected but have stored values are listed
-//! with "(not connected)" after their name, so those values stay reachable.
+//! The row that picks which input devices or outputs the rows below it are for: all devices of
+//! one type or all outputs, or one of them. Devices and outputs that aren't connected but have
+//! stored values are listed with "(not connected)" after their name, so those values stay
+//! reachable.
 //!
-//! Device names are external strings: they are only shown as plain text in the drop-down.
+//! Device names and the make and model of a screen are external strings: they are only shown as
+//! plain text in the drop-down.
 
 use crate::i18n::{msg, tr, trf};
 use gtk::glib;
@@ -14,6 +16,16 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
 use sway_things_core::devices::Devices;
+use sway_things_core::outputs::Outputs;
+
+/// What a selector picks from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instances {
+    /// The input devices of one type.
+    Devices(InputType),
+    /// The outputs.
+    Outputs,
+}
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -23,15 +35,17 @@ mod imp {
     use gtk::glib::subclass::Signal;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use sway_things_core::command::input::InputType;
+
+    use super::Instances;
 
     #[derive(Debug, Default)]
     pub struct DeviceSelector {
-        pub(super) kind: OnceCell<InputType>,
+        pub(super) kind: OnceCell<Instances>,
         pub(super) title: gtk::Label,
         pub(super) dropdown: gtk::DropDown,
         pub(super) labels: gtk::StringList,
-        /// The device of each entry of the drop-down after the first, which is all of them.
+        /// The device or output of each entry of the drop-down after the first, which is all of
+        /// them.
         pub(super) identifiers: RefCell<Vec<String>>,
         /// Set while the list is rebuilt, so that isn't reported as a choice.
         pub(super) updating: Cell<bool>,
@@ -73,7 +87,7 @@ mod imp {
 }
 
 glib::wrapper! {
-    /// Picks all input devices of one type, or one of them.
+    /// Picks all input devices of one type or all outputs, or one of them.
     pub struct DeviceSelector(ObjectSubclass<imp::DeviceSelector>)
         @extends gtk::Widget,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
@@ -82,6 +96,11 @@ glib::wrapper! {
 impl DeviceSelector {
     /// A selector for the devices of type `kind`, set to all of them.
     pub fn new(kind: InputType) -> Self {
+        Self::of(Instances::Devices(kind))
+    }
+
+    /// A selector for `instances`, set to all of them.
+    pub fn of(kind: Instances) -> Self {
         let selector: Self = glib::Object::new();
         let imp = selector.imp();
         let _ = imp.kind.set(kind);
@@ -95,7 +114,10 @@ impl DeviceSelector {
         imp.title.add_css_class("st-row-title");
         imp.title.set_parent(&selector);
 
-        imp.labels.append(all_of_type_start(kind));
+        imp.labels.append(match kind {
+            Instances::Devices(kind) => all_of_type_start(kind),
+            Instances::Outputs => tr(msg!("All displays")),
+        });
         imp.dropdown.set_model(Some(&imp.labels));
         imp.dropdown.set_valign(gtk::Align::Center);
         imp.dropdown
@@ -113,9 +135,12 @@ impl DeviceSelector {
         selector
     }
 
-    /// The input type the selector is for.
+    /// The input type the selector is for, if it is for input devices.
     pub fn kind(&self) -> Option<InputType> {
-        self.imp().kind.get().copied()
+        match self.imp().kind.get() {
+            Some(Instances::Devices(kind)) => Some(*kind),
+            Some(Instances::Outputs) | None => None,
+        }
     }
 
     /// The drop-down.
@@ -159,7 +184,6 @@ impl DeviceSelector {
     /// Lists the devices of the type in `devices`. The device picked stays picked; if it is no
     /// longer listed, all devices are picked again and that is reported.
     pub fn update(&self, devices: &Devices) {
-        let imp = self.imp();
         let Some(kind) = self.kind() else { return };
         let listed: Vec<(String, String)> = devices
             .of_type(kind)
@@ -175,6 +199,38 @@ impl DeviceSelector {
                 (device.identifier().to_owned(), label)
             })
             .collect();
+        self.list(listed);
+    }
+
+    /// Lists the outputs in `outputs`, by identifier, shown by name and model. The output picked
+    /// stays picked; if it is no longer listed, all outputs are picked again and that is
+    /// reported.
+    pub fn update_outputs(&self, outputs: &Outputs) {
+        let listed: Vec<(String, String)> = outputs
+            .iter()
+            .map(|output| {
+                let model = output.label();
+                let label = if !output.is_connected() {
+                    trf(msg!("{device} (not connected)"), &[("device", &model)])
+                } else if model == output.name() {
+                    model
+                } else {
+                    // TRANSLATORS: A display by its name and the make and model of the screen,
+                    // e.g. "DP-3 · Dell Inc. DELL U2415".
+                    trf(
+                        msg!("{output} · {model}"),
+                        &[("output", &output.name()), ("model", &model)],
+                    )
+                };
+                (output.identifier().to_owned(), label)
+            })
+            .collect();
+        self.list(listed);
+    }
+
+    /// Lists the devices or outputs of `listed`, by identifier or name and label.
+    fn list(&self, listed: Vec<(String, String)>) {
+        let imp = self.imp();
         let labels: Vec<String> = listed.iter().map(|(_, label)| label.clone()).collect();
         let same_devices = imp
             .identifiers
@@ -273,6 +329,17 @@ pub(crate) fn none_connected(kind: InputType) -> &'static str {
         }
         InputType::Switch => msg!("No switch is connected. Its settings show up once one is."),
     })
+}
+
+/// What a page says in place of the rows of `instances` while none of them is connected and
+/// nothing is stored for them.
+pub(crate) fn none_connected_of(instances: Instances) -> &'static str {
+    match instances {
+        Instances::Devices(kind) => none_connected(kind),
+        Instances::Outputs => tr(msg!(
+            "No display is connected. Its settings show up once one is."
+        )),
+    }
 }
 
 #[cfg(test)]
