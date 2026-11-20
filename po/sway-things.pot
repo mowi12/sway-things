@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:20+0100\n"
+"POT-Creation-Date: 2026-11-20 23:21+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4833,43 +4833,43 @@ msgstr ""
 msgid "The workspaces weren’t placed: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "{error}. The old value comes back when sway reloads its config."
-msgstr ""
-
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "Sway wasn’t reloaded: {error}."
-msgstr ""
-
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The layout can't be switched: {error}"
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 msgid "The layout can only be switched in a running sway session."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The display wasn’t mirrored: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The other displays weren’t moved along: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The settings of the displays weren’t updated: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The displays weren’t reset: {error}."
+msgstr ""
+
+#: crates/gui/src/model/queue.rs
+#, rust-format
+msgid "{error}. The old value comes back when sway reloads its config."
+msgstr ""
+
+#: crates/gui/src/model/queue.rs
+#, rust-format
+msgid "Sway wasn’t reloaded: {error}."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/actions.rs

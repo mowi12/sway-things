@@ -117,9 +117,10 @@
   picked theme ships, of the screens a tablet or touchscreen can map to (following the outputs), of the installed GTK
   themes and of the icon themes (each with a few of its icons); and notes at the top of Apps Look & Feel when GSettings
   has no `org.gnome.desktop.interface` or no Settings portal reports the style ([GSettings](Backends.md#gsettings)).
-- **Model** (`crates/gui/src/model.rs`): owns the core's `Applier`, the include status and the watchers of the user's
-  config and the settings files. In a session it also runs a `DeviceWatch` on a connection of its own, and lists the
-  devices with stored values after every change (`Devices::set_stored`); without one only those are listed, and
+- **Model** (`crates/gui/src/model.rs`; its queue of operations in `model/queue.rs`, the watchers in `model/watch.rs`,
+  what it sees of kanshi in `model/kanshi.rs`): owns the core's `Applier`, the include status and the watchers of the
+  user's config and the settings files. In a session it also runs a `DeviceWatch` on a connection of its own, and lists
+  the devices with stored values after every change (`Devices::set_stored`); without one only those are listed, and
   `devices_known` is false. Rows read from a copy of the state, so they never wait for a change in progress. A change is
   queued and sent one at a time; a setting that changes again before its turn sends only its newest value (a slider
   being dragged). The files are saved `SAVE_DELAY` after the last change. The model reports `changed` (rows read again;
