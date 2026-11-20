@@ -3,7 +3,7 @@
 > Part of the [architecture](Architecture.md). Which tests exist and where they run.
 
 `just test` (`cargo test --workspace`) runs the unit, golden-file and in-process tests on any machine; it skips the
-tests that need a running sway, a display or the stand-ins for D-Bus services and the sound server. Those run with
+tests that need a running sway, a display or the stand-ins for D-Bus services, the sound server and CUPS. Those run with
 `scripts/check-integration.sh`, in the containers of `ci/containers/`, never on the host. `just check` and
 `just check-all` run every check ([CONTRIBUTING](../CONTRIBUTING.md#checks)).
 
@@ -50,6 +50,11 @@ tests that need a running sway, a display or the stand-ins for D-Bus services an
   others may write), the auth dialog's arguments and input, a VPN's request from its settings, and the key file of
   external UI mode; openconnect's arguments from a profile, its stderr split into lines and prompts, secret fields and
   choices, progress lines, and its result read as nmcli reads it
+- Printers: the IPP encoding (requests as RFC 8010 shows them, several values and groups, collections, text with a
+  language, broken messages, nesting too deep; round trips and arbitrary or cut-off bytes as property tests), HTTP
+  answers (a length, chunked, interim, cut off, garbage), where CUPS is found (local only), printers and jobs from their
+  attributes (reasons, supplies, colors, names cleaned), state in words, queue names made from a model, addresses typed
+  by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest
 
 ## Golden files
 
@@ -132,6 +137,16 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,
   switching them, volume with its balance and mute, the apps and their volume, the level meter (also on an input nothing
   records from), and the server going away and coming back
+- The printers backend against the distribution's `cupsd` run as the user with a configuration in a temporary directory
+  (its own socket, no port, the default policies of CUPS, `SystemGroup` the user's group or `root`'s, printers seeded
+  through `printers.conf`), a fake IPP Everywhere printer on the loopback address (`FakePrinter`, answering
+  `Get-Printer-Attributes` and taking jobs) and stand-ins for Avahi and cups-pk-helper made with python-dbusmock on a
+  private bus (`crates/core/tests/printers_cups.rs`, stand-ins in `printers::stand_in`, `test-support`): an empty CUPS
+  and its version, a printer's state, reasons and supplies, adding a driverless printer with `everywhere`, making it the
+  default, renaming, moving and sharing it, a test page waiting in a paused queue and canceled, one reaching the printer
+  after resuming, removing it, a printer that isn't there failing without leaving a queue, a user canceling their own
+  job but not resuming a printer, cups-pk-helper making the changes CUPS refuses (and polkit's refusal, and its
+  absence), CUPS not running, and Avahi's printers found, made secure and gone
 
 ## GUI
 
@@ -235,9 +250,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   slider, the slider goes to 150 % only with `app.sound_above_100`, a server that goes away gives way to the placeholder
   and comes back, and without one the page says how to start it.
 - About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the
-  distribution, NetworkManager as not running, the kernel and the delegated tools), _Copy System Details_ copies them as
-  the block `doctor` starts with and says _Copied_ for a moment, and the links go to the website, the repository and its
-  issues.
+  distribution, NetworkManager and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
+  delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment,
+  and the links go to the website, the repository and its issues.
 - Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same
   window, it follows a change, About & Maintenance opens it, it closes with the main window; a file changed outside has
   its banner, its content on disk on request and is replaced by Overwrite; a foreign file and, without the include line,
@@ -267,6 +282,12 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   password, the server's TOTP question) in one dialog, switches the cable and the VPN on, shows an unplugged cable
   without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows
   reach no NetworkManager but the stand-in.
+- Printers: the page against CUPS's stand-in with two printers shows them by title with model, location, state (_Paused
+  · Toner low_), supplies (_Black Toner: 7 %, low_), the default and _Resume_ only where it belongs, and the test page
+  waiting in the queue; _Cancel_ empties the queue, _Resume_, _Pause_, _Print Test Page_ and _Set as Default_ reach
+  CUPS; without rights and without cups-pk-helper, the error names cups-pk-helper and the group; _Add Printer…_ checks
+  the address and adds the fake printer by it; _Add Printer…_ and _Details…_ close by their button, Escape and the
+  window's close request and open again with their content; without CUPS the page shows its placeholder.
 
 The window works on settings files in a temporary directory and a sway config in memory, without a session or in the
 session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a

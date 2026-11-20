@@ -1,12 +1,12 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server and GSettings, the tools of Screenshots & Clipboard, the desktop entries, default
-> apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
+> NetworkManager, the sound server, CUPS and GSettings, the tools of Screenshots & Clipboard, the desktop entries,
+> default apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the only companion tool Sway
-Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)); Bluetooth, the network and
-sound are services with no competing stack and use no trait (below).
+Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)); Bluetooth, the network, sound
+and printers are services with no competing stack and use no trait (below).
 
 ```rust
 // planned
@@ -18,7 +18,7 @@ trait Backend {
 }
 ```
 
-| Area | Backends (reference first); only display profiles, audio, Bluetooth and the network are built |
+| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network and printers are built |
 | --- | --- |
 | Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
@@ -35,6 +35,7 @@ trait Backend {
 | Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection (systemd's `xdg-desktop-autostart.target`, dex), see [Apps and autostart](#apps-and-autostart) |
 | Bluetooth | BlueZ (D-Bus) |
 | Network | NetworkManager (D-Bus) |
+| Printers | CUPS (IPP over its domain socket); cups-pk-helper (D-Bus, polkit); Avahi (D-Bus) |
 | Power | power-profiles-daemon / tuned-ppd, UPower (D-Bus) |
 | Brightness | logind `Session.SetBrightness` (no root needed) / brightnessctl; ddcutil for external monitors |
 | Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
@@ -128,6 +129,55 @@ callback (on libpulse's thread) share an `Rc<RefCell<…>>`, sound only because 
 lock held. The volume of alert sounds is left out: `libpulse-binding`'s stream-restore write hands libpulse a Rust array
 where it expects C structs, and a fix would need unsafe code. The page shows volumes up to 100 %, or 150 % with
 `app.sound_above_100`; `delegate` starts pwvucontrol, else pavucontrol, for the rest.
+
+Printers are no `Backend` either: CUPS owns the queues, the default printer and the jobs, and keeps them.
+`crates/core/src/printers/` talks IPP to the local CUPS. Neither the `ipp` crate (its client is built on reqwest and
+tokio) nor libcups (FFI needs `unsafe`) fits, and the output of `lpstat` depends on the locale, so the module has an IPP
+encoder and decoder of its own (`printers::ipp`, RFC 8010: groups, every value tag, collections nested at most 16 deep,
+strings that aren't UTF-8 kept lossy, at most 100,000 values a message, never a panic, property-tested on arbitrary and
+cut-off bytes) and the bit of HTTP/1.1 it needs (`printers::http`: one `POST` per connection with `Connection: close`,
+answers with a length or chunked, read as the bytes come with the header taken apart once, at most 8 interim answers, a
+body of at most 4 MiB (the answers of a CUPS with 20 printers are about 20 KiB), two different `Content-Length`s
+refused, a timeout per request), on async-io like the rest of the core. `Cups::local` finds CUPS as libcups does:
+`CUPS_SERVER`, the `ServerName` of `~/.cups/client.conf` or `/etc/cups/client.conf`, the domain socket
+(`/run/cups/cups.sock`), else `localhost:631` (`127.0.0.1` and `[::1]` as given); a server on another host is an error
+the page shows, since Sway Things only manages this computer's CUPS and makes no network requests. A snapshot is three
+reads: `CUPS-Get-Printers` (name, description, location, model, device URI, state, reasons, message, accepting, shared,
+temporary, type, `marker-*`), `CUPS-Get-Default` and `Get-Jobs` (not completed, of every user); the user's own default
+comes from the `Default` line of `~/.cups/lpoptions`, which is only read, when the page comes on screen rather than with
+every snapshot. Every string from CUPS is cleaned of control characters; reasons become words with their severity
+(`media-empty-error` → _Out of paper_, `offline-report` → _Offline_). The actions are `Pause-Printer`, `Resume-Printer`
+with `CUPS-Accept-Jobs`, `CUPS-Set-Default`, `CUPS-Delete-Printer`, `CUPS-Add-Modify-Printer` (a new driverless printer
+with `ppd-name=everywhere`, which makes CUPS ask the printer for its attributes and build the driver; or the
+description, location and sharing), `Cancel-Job` and `Print-Job` of a test page (CUPS's `testprint`, else cups-filters'
+`default-testpage.pdf`, else a one-page PDF of our own; a document CUPS has no filter for moves on to the next). `add`
+reads the queues first: a name taken since the page chose it gets a free one like it, since `CUPS-Add-Modify-Printer`
+would change the queue that has it. CUPS 2.4.10 keeps the queue of a printer it couldn't add; `add` removes it again,
+which only ever is the queue it made. Every request names the user (`requesting-user-name`, without control characters
+or spaces). **Authorization:** when CUPS answers `401` over its domain socket and offers `PeerCred`, the request goes
+again with `Authorization: PeerCred <user>`: CUPS checks the socket's peer credentials, so members of its `SystemGroup`
+change printers without a password and owners cancel their jobs. When CUPS still refuses (`401`, `403`, or IPP's
+`client-error-forbidden`, `-not-authenticated`, `-not-authorized`), a change goes to cups-pk-helper
+(`org.opensuse.CupsPkHelper.Mechanism` on the system bus) with `ALLOW_INTERACTIVE_AUTH`, so the user's polkit agent asks
+for an administrator's password: `PrinterSetEnabled`, `PrinterSetAcceptJobs`, `PrinterSetDefault`, `PrinterDelete`,
+`PrinterAdd` (then enabled and accepting, as GNOME Settings does), `PrinterSetInfo`, `PrinterSetLocation`,
+`PrinterSetShared` and `JobCancelPurge`. Without cups-pk-helper the error names it and the group to join (`lpadmin`,
+`wheel` or `sys`, whichever `/etc/group` has); a refusal of polkit says that no agent may be running. Sway Things never
+asks for, sends or keeps a password. **Discovery:** `Discovery` has its own connection to the system bus, subscribed to
+Avahi's `ServiceBrowser` signals before it creates the browsers for `_ipps._tcp` and `_ipp._tcp`, so none is missed on
+any Avahi version; it resolves only the TXT record of a new service (`AVAHI_LOOKUP_NO_ADDRESS`; `ty` is the model,
+`note` the location, `rp` and the host name tell whether it is set up already), several side by side, so one that
+doesn't answer within 5 s holds up none and shows by its name, merges the announcements of one printer (both types,
+every interface and protocol; the secure one wins) and leaves out the queues our own CUPS shares (announced from this
+computer with `printer-type`, or from this computer without an answer), which would print to themselves. It keeps track
+of at most 200 printers, and leaves out services whose domain isn't a host name (`[A-Za-z0-9.-]`). A printer found
+becomes a device URI of its service name (`ipps://Name._ipps._tcp.local/`), which CUPS resolves through Avahi itself
+when it adds the printer; Sway Things never contacts a printer. Dropping the `Discovery` closes its connection, and
+Avahi frees its browsers. **Live:** the page reads a snapshot every 2 s while it is on screen, not while its window is
+suspended on a hidden workspace (three small reads over the socket, which CUPS doesn't log at its default
+`AccessLogLevel`), at once when it comes on screen, and after every action; a CUPS subscription would save the reads
+(Feature Catalog). `delegate` starts system-config-printer for printers that need a driver; without it, the page opens
+CUPS's web interface at the port it reaches CUPS on.
 
 ## Screenshots, clipboard and recording
 
