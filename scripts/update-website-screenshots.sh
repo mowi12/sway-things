@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Takes fresh screenshots of the app (scripts/gui-screenshots.sh, on GTK's Broadway backend: no window opens and no
-# compositor starts) and copies those of the released pages, listed in website/src/data/released-pages.json, in light
-# and dark into website/src/assets/screenshots/. Part of a release pull request (wiki/Releasing.md).
+# compositor starts) and copies those the website shows, in light and dark, into website/src/assets/screenshots/: the
+# released pages marked "gallery" in website/src/data/released-pages.json, and Mouse & Touchpad, the one at the top of
+# the page. Part of a release pull request (wiki/Releasing.md).
 #
 # Usage: scripts/update-website-screenshots.sh
 #
@@ -27,7 +28,8 @@ LC_ALL=C.UTF-8 LANG=C.UTF-8 LANGUAGE=en_US scripts/gui-screenshots.sh "$shots"
 
 mapfile -t ids < <(node -e '
   const pages = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-  for (const page of pages) console.log(page.id);
+  console.log("mouse-touchpad");
+  for (const page of pages) if (page.gallery) console.log(page.id);
 ' website/src/data/released-pages.json)
 
 target=website/src/assets/screenshots

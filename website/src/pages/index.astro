@@ -12,8 +12,10 @@ import { cliExample, featureGroups, installation, principles, requirements } fro
 import { shortVersion as version } from '../lib/version.mjs';
 
 // The pages the latest release has, from src/data/released-pages.json: updated in the release pull request, like the
-// README, and the list scripts/update-website-screenshots.sh takes screenshots of.
+// README. Those marked "gallery" are shown below the sidebar; scripts/update-website-screenshots.sh takes their
+// screenshots, and that of Mouse & Touchpad at the top.
 const released = releasedPages.map((page) => page.name);
+const gallery = releasedPages.filter((page) => page.gallery);
 
 const groups = featureGroups();
 const known = groups.flatMap((group) => group.pages);
@@ -110,7 +112,7 @@ const includeLine = 'include ~/.config/sway/sway-things/*.conf';
         <span class="key"><span class="dot"></span>Planned</span>
       </p>
       <div class="gallery">
-        {releasedPages.map(({ id, name }) => (
+        {gallery.map(({ id, name }) => (
           <figure>
             <div class="shot">
               <Screenshot

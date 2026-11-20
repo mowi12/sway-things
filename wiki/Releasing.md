@@ -36,9 +36,10 @@ tag pushed again.
      every line break there.
    - README, wiki and roadmap describe the released state. Commit: `docs: describe the X.Y.Z release`.
    - The website describes the released state too: list the pages the release has in
-     `website/src/data/released-pages.json`, then `scripts/update-website-screenshots.sh` takes their screenshots in
-     light and dark (on GTK's Broadway backend; no compositor starts). Commit:
-     `docs(website): describe the X.Y.Z release`. The site deploys once the pull request is merged.
+     `website/src/data/released-pages.json` and mark about six of the most telling ones `"gallery": true`, then
+     `scripts/update-website-screenshots.sh` takes their screenshots in light and dark (on GTK's Broadway backend; no
+     compositor starts). Commit: `docs(website): describe the X.Y.Z release`. The site deploys once the pull request is
+     merged.
    - `scripts/check-packaging.sh` (in CI) checks that all versions agree.
 3. **Merge** the pull request.
 4. **Tag** the merge commit and push the tag:
