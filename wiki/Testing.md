@@ -184,6 +184,10 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
 - Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is
   gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options
   through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them.
+- Keyboard Shortcuts (`shortcuts.rs`): every binding of the config and of Sway Things is listed and found by keys and
+  command, the dialog adds a binding and changes one of the user's through the items of `shortcuts.bindings`, refuses a
+  bare letter and a sway command sway doesn't know, warns of keys in use and refuses keys of a line after the include
+  line or of the volume keys, and the page and the dialog are checked for contrast in light and dark.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

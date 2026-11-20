@@ -17,7 +17,7 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 | [Vision & Scope](Vision-and-Scope.md) | Problem, target users, goals, non-goals, prior art |
 | [Architecture](Architecture.md) | Overview: crates and modules, settings registry, state files, generated files, version gating, security model; links to the topic pages below |
 | ↳ [Applying Settings](Applying-Settings.md) | Data flow of a change, safety net, apply modes, typed sway command builders |
-| ↳ [Reading Sway](Reading-Sway.md) | IPC, input devices, themes, XKB rules, config parser, include and conflict detection |
+| ↳ [Reading Sway](Reading-Sway.md) | IPC, input devices, themes, XKB rules, config parser, include and conflict detection, key bindings |
 | ↳ [Outputs](Outputs.md) | Displays, kanshi profiles, workspace placement, mirroring |
 | ↳ [Backends](Backends.md) | BlueZ, NetworkManager, the sound server, GSettings |
 | ↳ [Command Line](Command-Line.md) | Commands, doctor, hooks |

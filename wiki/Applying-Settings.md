@@ -200,6 +200,8 @@ on numbers taken from sway's and SwayFX's own checks:
   thickness and a thickness above the vertical padding, so the order of those two commands matters.
 - `command::effects` builds the SwayFX effects with the names and ranges of SwayFX 0.5; `animation_duration_ms` needs
   SwayFX 0.6. `corner_radius` raises the horizontal title bar padding to at least the radius.
+- `SwayCmd::binding` renders a binding line of [Key bindings](Reading-Sway.md#key-bindings): keys and device as plain
+  words, the command as the binding keeps it (`$` doubled in a config line, quoted as one argument over IPC).
 - `command::behavior` builds focus, layout, floating, dragging, popup, Xwayland and idle inhibition settings.
   `floating_minimum_size` and `floating_maximum_size` take each dimension as no limit (`-1`), sway's automatic value
   (`0`) or pixels. `inhibit_idle`, like `opacity`, is wrapped in `for_window` or leading criteria for per-app rules.

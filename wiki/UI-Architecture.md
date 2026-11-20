@@ -29,9 +29,10 @@
   bordered list per section, and the generated files the page writes to at the bottom. Every page with settings is built
   this way; custom pages can mix these rows with their own widgets.
 - **Page parts** (`crates/gui/src/widgets/page_view/parts.rs`): what a page adds to its rows, in one place, so
-  `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, Apps
-  Look & Feel's note, the Displays arrangement), below them (the test area, the workspace map), the choices of a row and
-  what it follows, and the widgets below a row (the Keyboard page's layouts and options). About's sections are
+  `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, the list
+  of bindings on Keyboard Shortcuts, Apps Look & Feel's note, the Displays arrangement), below them (the test area, the
+  workspace map), the choices of a row and what it follows (a Keyboard Shortcuts setting may have no row), and the
+  widgets below a row (the Keyboard page's layouts and options, what a media key switch replaces). About's sections are
   `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
@@ -92,6 +93,17 @@
   variants as one change (`Model::try_risky_all`). _Active layout_ lists the layouts sway reports for the keyboard (for
   all keyboards, the first usable one) and switches them (`Model::switch_layout`, only in a session). The keyboard model
   is a drop-down of the rules' models, and _Try it_ is a field to type in at the end of the section.
+- **Keyboard Shortcuts page** (`crates/gui/src/widgets/shortcuts/`): `PageView` starts the page with a `ShortcutList`
+  section: a search field, _Add Shortcut…_, and a list per category and per mode of the rows of `Model::bindings` (the
+  core's `Listing` for the model's status and state, with a `GdkKeymap` from `gdk::Display::map_keycode`), rebuilt when
+  the model changes. A row has the keys as keycaps, the description and command, its options and origin, its clashes
+  with a warning sign, and a ⋮ popover (_Change…_, _Remove_, _Back to Your Config's Binding_, _Open in Editor_), whose
+  changes store the list `bindings::edit` makes (`Model::set` of `shortcuts.bindings`). The `Editor` dialog is a modal
+  `gtk::Window`; its key field listens with an `EventControllerKey` in the capture phase and asks for every key
+  (`gdk::Toplevel::inhibit_system_shortcuts`) while it does, taking the keysym of the key's first level in the event's
+  layout, so Shift+1 is `Shift+1` as sway's raw keysyms see it. The apps it offers are `gio::AppInfo::all()` with the
+  field codes of their command lines left out. The list item has no row; a media key switch has one only while its
+  program is installed or it is stored, with what its keys clash with below it.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that

@@ -85,6 +85,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
+| core | `bindings` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent ([Key bindings](Reading-Sway.md#key-bindings)) |
 | core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
@@ -246,11 +247,13 @@ The registry is the bottom layer of the core: it imports none of the modules tha
 editor, cursors). Keys and defaults other modules share with it are defined in the registry and re-exported there:
 `outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY` is
 `registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
-the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`.
+the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`. The keys of Keyboard Shortcuts are
+`registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
+reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
-(Bluetooth, Network, Sound); the bindings editor and the bar layout editor are planned. They still read and write
-settings through the registry.
+(Bluetooth, Network, Sound) and the list of bindings on Keyboard Shortcuts with its dialog; the bar layout editor is
+planned. They still read and write settings through the registry.
 
 ## State
 
@@ -388,7 +391,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 20-output.conf         # the wallpapers; the displays' lines only while kanshi doesn't run
 ├── 30-appearance.conf
 ├── 40-behavior.conf
-├── 50-bindings.conf       # planned
+├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf      # planned
 ├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
@@ -404,9 +407,10 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 ```
 
 `crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `20-output.conf`, `30-appearance.conf`,
-`40-behavior.conf`, `80-hooks.conf` and `90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to
-`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line (`20-output.conf` ends with the one
-that keeps a display on), see [No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
+`40-behavior.conf`, `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)), `80-hooks.conf` and
+`90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that
+run hooks of the command line (`20-output.conf` ends with the one that keeps a display on), see
+[No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
   _Generated config_ and `sway-things show-generated` display; `on_disk` reads the files as they are, with their

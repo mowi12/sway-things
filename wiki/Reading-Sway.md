@@ -1,8 +1,9 @@
 # Reading Sway
 
 > Part of the [architecture](Architecture.md). How Sway Things learns what sway runs and what the user's config says,
-> without ever writing it: IPC, input devices, themes, XKB rules, the config parser, include and conflict detection, and
-> opening the config in an editor. The outputs have a page of their own, [Outputs](Outputs.md).
+> without ever writing it: IPC, input devices, themes, XKB rules, the config parser, include and conflict detection, the
+> key bindings (and the file of those Sway Things writes), and opening the config in an editor. The outputs have a page
+> of their own, [Outputs](Outputs.md).
 
 - **IPC:** `GET_VERSION`, `GET_INPUTS`, `GET_OUTPUTS`, `GET_SEATS`, `GET_BINDING_MODES`, `GET_BINDING_STATE`,
   `GET_TREE`, `GET_CONFIG`. Event subscriptions for `input`, `output`, `mode`, `workspace`, `shutdown`, `tick`, so
@@ -235,8 +236,8 @@ the config or the settings files changed on disk.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
   wins. The **user's value** is that of the last line that decides the setting: pages show it while Sway Things stores
   nothing ("from ~/.config/sway/config:120").
-- **Not yet:** `exec` (accumulates) and `bindsym` (a duplicate overrides with a warning) get their semantics with their
-  first settings, on the Autostart and Keyboard Shortcuts pages.
+- **Not yet:** `exec` (accumulates) gets its semantics with its first settings, on the Autostart page. Bindings have
+  their own conflict detection, see [Key bindings](#key-bindings).
 
 Actions on a conflict: **Open in editor at line** (see [Editor](#editor)), **Copy line**, **Let my config win**.
 `Applier::let_config_win` removes the stored values of the setting's directive (every setting of a group, since the
@@ -244,8 +245,88 @@ user's line sets all of them) and sends the user's value from the report, so not
 user's, sway's default. If a value of the group can't be read from the line, nothing is sent and the caller reloads
 sway, which reads the line itself.
 
-Planned with the Keyboard Shortcuts page: bindings defined in the user's config can still be changed from the app, since
-our include comes later, so it can `unbindsym` and re-bind without touching their file.
+Bindings defined in the user's config can still be changed from the app: our include comes later, so it can `unbindsym`
+and re-bind without touching their file.
+
+## Key bindings
+
+`crates/core/src/bindings/` reads every binding the way sway does and writes those of the Keyboard Shortcuts page. The
+facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
+
+- **Keys** (`keys`): a combination is split at `+` (empty parts dropped); parts that name a modifier (`Shift`, `Lock`,
+  `Control`/`Ctrl`, `Mod1`/`Alt`, `Mod2`, `Mod3`, `Mod4`/`Super`, `Mod5`, without regard to case) make a bit mask, the
+  others are keys, sorted. A keysym compares in lowercase with its aliases resolved (`E` is `e`, `Page_Up` is `Prior`,
+  `quoteleft` is `grave`), as xkbcommon's case-insensitive lookup prefers the lowercase keysym; a numeric name (`0x60`,
+  `U0060`) compares as the printable ASCII keysym it stands for. `leaves_typing` says whether a combination leaves its
+  keys usable for typing: with Super, Ctrl, Alt or `Mod3`, or on keys nobody types with (F1 to F35, `XF86…`, Print,
+  Pause, Scroll Lock, Menu); Shift and AltGr (`Mod5`) alone type other characters. `button1` to `button9` and `BTN_…`
+  names, and `bindcode` numbers that are button event codes, make a mouse binding, as do `--whole-window`, `--border`
+  and `--exclude-titlebar`; `Group1` to `Group4` (and `Mode_switch`) limit a binding to a layout. Labels are what people
+  read: modifiers first (Super, Ctrl, Alt, Shift), letters upper case, `Enter`, `Volume Up`, `Keypad 1`.
+- **Lines** (`Line`): `bindsym`, `bindcode`, `unbindsym` and `unbindcode` with their options (read until a word isn't
+  one, like sway), keys and command; at the top, in a `mode` block (with `--pango_markup`) or as
+  `mode <name> bindsym …`. `$mod` and other variables are already replaced by the [parser](#sway-config-parser) as sway
+  does when it reads the line, so a line that uses `$mod` before its `set` is rejected, like in sway. The **identity**
+  is what sway compares (`binding_key_compare`): mode, input device, kind of keys (keysym, keycode, mouse; a `--to-code`
+  binding counts as keycodes when a keymap translates its keys), `--release`, `--locked`, `--inhibited`, the window
+  region of a mouse binding, layout group, modifiers and keys. `--no-repeat` and `--no-warn` aren't part of it.
+- **Table** (`Table`): the lines in the order sway reads them; a binding with the identity of one before takes its place
+  (`Replaced`), an unbind removes one (`Removed`) or fails (sway reports an error).
+- **Listing** (`Listing`): the user's lines before the generated files, ours, the user's after them, as rows for the
+  page, each with what it is (_hand-written_, _added_, _changed_, _removed_, a media key group), whether sway has it,
+  and its **clashes**: replaces or is replaced by another line (both rows), removed by an unbind of the user's, a keysym
+  and a keycode binding of one key (sway looks at keycode bindings first, so the keycode one wins; needs the keymap,
+  which the app takes from GDK: the keycode whose first level in the first layout gives the keysym, as sway translates
+  `--to-code`), and a `--locked` binding next to one without it with another command (sway runs the one without unless
+  the screen is locked). `users_of` lists what a new binding would clash with; the Workspaces page can use it for its
+  keys. A row can be changed here only in the default mode, read before the generated files, with keys and command that
+  can be written back.
+- **Commands** (`BindCommand`): sway keeps the rest of the line after the keys as one string and runs it like an IPC
+  message when the keys are pressed (split at `;` and `,`, variables replaced again, quotes removed except for `exec`).
+  So a command is kept exactly as sway keeps it (one space between words outside quotes) and rendered so sway keeps
+  exactly it: in a config line with every `$` doubled, over IPC as one quoted argument (`SwayText`'s IPC quoting). A
+  command can't have a control character, a backslash (escapes are read once more and can't be written back reliably),
+  an unclosed quote or `[`, or end with a brace. A property test runs both renderings through the port of sway's parser.
+  `Action` is what the editor offers instead of free text: `exec` with the command line as one quoted argument (sway
+  runs a single quoted argument of `exec` without its quotes, so the shell gets the line as typed), `focus`/`move` in a
+  direction, `workspace number N`, `move container to workspace number N`, `kill`, `fullscreen toggle`,
+  `floating toggle`, or a sway command whose first word must be a command sway 1.12 knows. `describe` and `Category` say
+  what common commands do, for the rows.
+- **Settings** (`registry/shortcuts.rs`, `bindings::ours`, `bindings::item`): `shortcuts.bindings` is a list of lines in
+  sway's syntax, as people write them (`bindsym $mod+Return exec foot`, `unbindsym Mod4+d`), each checked by
+  `ours::parse` (keys and device without quotes, a command that can be written back, no `mode` prefix). A command whose
+  first word sway (or SwayFX) doesn't know passes that check, so one typo in `settings.toml` doesn't drop every binding,
+  but `parse_strict` refuses it for the generated file (its item becomes a comment that names it, which `doctor`
+  reports), for `sway-things set` and in the app. `$mod` stands for `shortcuts.modifier` (`super` → `Mod4`, `alt` →
+  `Mod1`); it is never written as a variable, since the user's `$mod` may mean something else. A binding of the user's
+  is removed with an `unbindsym` item, and changed with a change item: the unbind, `=>` and the binding that takes its
+  place (`unbindsym Mod4+d => bindsym $mod+p exec menu`; an unbind has no command, so the separator can't be part of
+  one). Only a change item makes a row _Changed here_; an unbind next to an unrelated binding stays a removal and an
+  addition. `shortcuts.media.volume`, `….brightness` and `….player` bind fixed keys with `--locked` (`wpctl`,
+  `brightnessctl`, `playerctl`; each switch needs its program). None of these settings has a sway directive. The keys
+  and the check of the items are defined in the registry and re-exported by `bindings::ours`; the check reads an item
+  with `bindings::item`, which imports neither the registry nor the state, so the registry stays the bottom layer.
+- **`50-bindings.conf`** (`ours::file_lines`): first every unbind, each after a placeholder of the same identity
+  (`bindsym --no-warn Mod4+d nop`, then `unbindsym Mod4+d`). sway rejects an unbind of a binding it doesn't have, and
+  the file is validated on its own (with nothing bound), so a bare unbind would never pass `sway --validate`, and would
+  turn into an error at login once the user's line is gone; the placeholder quietly replaces the user's binding if it is
+  there and makes the unbind always succeed. Then the media keys with `--no-warn`, as switching them on means taking
+  those keys; then the bindings of the items, without `--no-warn`, so sway still warns about a duplicate nobody asked
+  for. An item that can't be written becomes a comment. `SwayCmd::binding` renders a line for both targets.
+- **Applied live** (`bindings::live`, `Applier::apply_bindings`): the table of the whole config is worked out with the
+  bindings before and after the change, and only the difference in the default mode is sent: a binding that is gone is
+  unbound (after a placeholder), a new or changed one is bound with `--no-warn`. So undoing a change binds the user's
+  line again with its command from their config. The applier knows the user's config through `Applier::set_user_config`
+  (the app before each change, the command line once); without it, or for a binding that can't be sent exactly (a user's
+  command with a backslash), the change waits for a reload. A command sway rejects (an unknown key) undoes what was sent
+  and keeps nothing. A binding whose options changed is bound again (every option counts but `--no-warn`); one whose
+  `--to-code` changed is unbound first, since sway may keep it in another list. The commands follow the order of the
+  table, so where several bindings change at once, a binding sent later replaces an earlier one of the same keys, as in
+  the file; the list sway ends up with is the same, though its order (which decides between two bindings that clash
+  without being the same) can differ from that after a reload.
+- **Editing** (`bindings::edit`): the page's changes as new lists of items: `add` (a binding of the user's on the same
+  keys becomes a change item; one of Sway Things' is replaced, a change on the same keys keeps only its unbind),
+  `change`, `remove` (a change keeps its unbind) and `restore`, which takes only the item of its row.
 
 ## Editor
 
