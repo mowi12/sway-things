@@ -138,3 +138,8 @@ goes to a string key (an enum key takes the choice's id), a whole number to an i
 Planned with the trait: if an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh`
 line), `detect()` reports **managed externally by file:line**. The page explains this and offers a handover. It never
 fights the script.
+
+For wallpapers, `wallpaper::starters` lists the `exec` and `exec_always` lines of the user's config that start a known
+wallpaper tool (swaybg, swww, wpaperd, hyprpaper, mpvpaper, waypaper, azote, …) or a program whose name contains
+"wallpaper", also inside a shell command. Such a tool draws a layer of its own over or under the background of
+`output … bg`, so the Wallpaper page names each line, with a button that opens it in the editor.

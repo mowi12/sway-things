@@ -53,6 +53,18 @@
   the type is listed (connected or with stored values) and nothing is stored for the type, the run shows its first
   heading and a hint instead of the lists. The Mouse & Touchpad page ends with a `TestArea` (a pad that names the last
   click, a strip to scroll).
+- **Per-output sections:** a run of sections of per-output settings that don't set a display up starts with the same
+  selector for the outputs (`DeviceSelector::of(Instances::Outputs)`: all displays, or one of `Model::outputs` by its
+  identifier, shown by name and model), and a row for one output notes that it uses the value of all displays. The
+  Displays page picks its output on the arrangement instead. The value for all displays applies to screens plugged in
+  later, so these sections never give way to a hint.
+- **Wallpaper page** (`crates/gui/src/widgets/wallpaper.rs`): below the group of the image, fill mode and color, a
+  notice for each line of the user's config that starts a wallpaper tool, _Choose Image…_ (a `gtk::FileDialog`), and the
+  pictures of `app.wallpaper_folder` (else `~/Pictures/Wallpapers`, else `/usr/share/backgrounds`) as a `FlowBox` of
+  thumbnails with _Change Folder…_. The folder is listed and each thumbnail decoded and scaled off the main loop
+  (`gio::spawn_blocking`; a pixbuf can't leave its thread, so its pixels become a `gdk::MemoryTexture`). A picked image
+  is stored with `~/` for the home folder and set for the output the image row is for; the thumbnail of the image in use
+  is selected. Widgets a page adds below a member of a group go below the whole group.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the

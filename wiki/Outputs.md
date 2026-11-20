@@ -3,8 +3,9 @@
 > Part of the [architecture](Architecture.md). Displays: reading the outputs, the arrangement, display profiles with
 > kanshi, workspace placement and mirroring.
 
-`crates/core/src/outputs/` is the list of outputs for the Displays page, per-output settings and the lockout protection.
-The Cursor & Tablet page offers its connected outputs as the screens a drawing tablet or a touchscreen can map to.
+`crates/core/src/outputs/` is the list of outputs for the Displays page, the display selector of the Wallpaper page,
+per-output settings and the lockout protection. The Cursor & Tablet page offers its connected outputs as the screens a
+drawing tablet or a touchscreen can map to.
 
 ## The output list
 
