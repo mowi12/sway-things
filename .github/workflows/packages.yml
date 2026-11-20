@@ -76,6 +76,28 @@ jobs:
           tarball=("$RUNNER_TEMP"/dist/sway-things-*.tar.xz)
           scripts/build-packages.sh --container "$NAME" --tarball "${tarball[0]}"
 
+  # The install script behind sway-things.org/install, against the packages published on OBS: not the ones built
+  # above, so a break in the script or on OBS shows up here, and in the weekly run.
+  install:
+    name: Install From OBS (${{ matrix.name }})
+    if: inputs.artifact == ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [opensuse-tumbleweed, fedora, debian-13, ubuntu-26.04]
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install From OBS
+        env:
+          NAME: ${{ matrix.name }}
+        run: scripts/check-install-from-obs.sh --container "$NAME"
+
   aur:
     name: Build Package (arch-git)
     if: inputs.artifact == ''

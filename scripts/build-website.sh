@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Builds the website (website/, Astro) into website/dist. The site reads README.md and the app icon, so it is built
-# from the whole repository.
+# from the whole repository. scripts/install-from-obs.sh goes next to the pages as /install and /install.sh, so that
+# `curl -fsSL https://sway-things.org/install | sh` runs the script on main.
+#
+# The imprint is fetched from IMPRINT_URL while building (website/src/lib/imprint.mjs); without it, the imprint page
+# says that this copy has none, and with IMPRINT_REQUIRED set the build fails instead.
 #
 # Usage: scripts/build-website.sh
 #
@@ -21,3 +25,7 @@ fi
 # Astro collects anonymous usage data unless told not to.
 export ASTRO_TELEMETRY_DISABLED=1
 node_modules/.bin/astro build
+
+for name in install install.sh; do
+  install -m 644 ../scripts/install-from-obs.sh "dist/$name"
+done

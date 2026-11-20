@@ -63,8 +63,9 @@ tag pushed again.
 7. **Publish** the draft. _Trigger OBS_ runs; `osc results` in the OBS checkout shows the builds, which take about half
    an hour. A repository that fails only on a flaky test is rebuilt with
    `osc rebuild home:mowi12:sway-things sway-things <repository> <arch>`.
-8. **Afterwards:** install from OBS on at least one distribution, close the milestone, and pick the next priorities
-   ([Roadmap](Roadmap.md)).
+8. **Afterwards:** install from OBS on at least one distribution (`curl -fsSL https://sway-things.org/install | sh`; the
+   script needs nothing per release, as it installs the newest package, and the Packages workflow tests it), close the
+   milestone, and pick the next priorities ([Roadmap](Roadmap.md)).
 
 ## Dry run
 

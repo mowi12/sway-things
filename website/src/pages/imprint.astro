@@ -1,0 +1,27 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// The imprint, fetched at build time from the operator's own site (src/lib/imprint.mjs), so that their name and
+// address are never in this repository. It is German, as the law that asks for it.
+import { repo } from '../data/links.mjs';
+import Legal from '../layouts/Legal.astro';
+import { loadImprint } from '../lib/imprint.mjs';
+
+const imprint = await loadImprint();
+---
+
+<Legal
+  title="Impressum · Sway Things"
+  description="Impressum von sway-things.org: wer die Website betreibt."
+  heading="Impressum"
+  lang="de"
+>
+  {imprint ? <Fragment set:html={imprint.html} /> : (
+     <p lang="en">
+       This copy of the site was built without an imprint. sway-things.org fetches it from its operator's site when it
+       is built; whoever publishes a copy of their own (from a fork) needs an imprint of their own and sets the
+       repository variable <code>IMPRINT_URL</code> to it. The project is on <a href={repo}>GitHub</a>.
+     </p>
+   )}
+</Legal>

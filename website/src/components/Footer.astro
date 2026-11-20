@@ -10,11 +10,18 @@ const project = [
   { href: `${repo}/issues`, label: 'Issues' },
   { href: `${repo}/releases`, label: 'Releases' },
 ];
+const legal = [
+  { href: '/imprint', label: 'Imprint' },
+  { href: '/privacy', label: 'Privacy' },
+];
 ---
 
 <footer>
   <nav aria-label="Project">
     <ul>{project.map(({ href, label }) => <li><a href={href}>{label}</a></li>)}</ul>
+  </nav>
+  <nav aria-label="Legal">
+    <ul>{legal.map(({ href, label }) => <li><a href={href}>{label}</a></li>)}</ul>
   </nav>
   <p>
     Sway Things is free software under the <a href={`${repo}/blob/main/LICENSE`}>GPL-3.0-or-later</a>. This site sets no

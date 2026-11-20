@@ -118,6 +118,19 @@ jobs:
       - name: Lint Shell Scripts
         run: scripts/check-shell.sh
 
+  install-script:
+    name: Check Install Script
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check Install Script
+        run: scripts/check-install-from-obs.sh
+
   metadata:
     name: Validate Metadata
     runs-on: ubuntu-24.04

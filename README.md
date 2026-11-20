@@ -130,6 +130,25 @@ Packages for openSUSE Tumbleweed (x86_64), Fedora, Debian 13 and Ubuntu 26.04 (x
 unstable are built too, on a best-effort basis: their packages may lag behind when those distributions change under
 them. The AUR for Arch Linux is planned.
 
+### One command
+
+On any of these distributions, one command finds yours, adds the repository with its signing key (after checking the
+key's fingerprint) and installs the package. It asks before it installs sway along with it, and with
+`sh -s -- --dry-run` it only prints what it would do; `sh -s -- --uninstall` removes it all again:
+
+```sh
+curl -fsSL https://sway-things.org/install | sh
+```
+
+To read the script before running it:
+
+```sh
+curl -fsSLO https://sway-things.org/install.sh
+sh install.sh
+```
+
+To set it up by hand instead, follow your distribution below.
+
 ### openSUSE Tumbleweed
 
 ```sh
@@ -155,8 +174,10 @@ Both ask you to trust the repository's signing key on first use.
 ```sh
 distribution=Debian_13 # or Debian_Unstable, xUbuntu_26.04
 repo=https://download.opensuse.org/repositories/home:/mowi12:/sway-things/$distribution
-curl -fsSL "$repo/Release.key" | gpg --dearmor | sudo tee /etc/apt/keyrings/sway-things.gpg >/dev/null
-echo "deb [signed-by=/etc/apt/keyrings/sway-things.gpg] $repo/ /" | sudo tee /etc/apt/sources.list.d/sway-things.list
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL "$repo/Release.key" | sudo tee /etc/apt/keyrings/sway-things.asc >/dev/null
+printf 'Types: deb\nURIs: %s/\nSuites: /\nSigned-By: /etc/apt/keyrings/sway-things.asc\n' "$repo" |
+  sudo tee /etc/apt/sources.list.d/sway-things.sources
 sudo apt update
 sudo apt install sway-things
 ```

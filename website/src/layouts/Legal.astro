@@ -1,0 +1,56 @@
+---
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// A page of text: the imprint and the privacy notice.
+import Header from '../components/Header.astro';
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  heading: string;
+  // The language of the text, where it isn't English (the imprint is German, as the law asks).
+  lang?: string;
+}
+
+const { title, description, heading, lang } = Astro.props;
+---
+
+<Base title={title} description={description}>
+  <Header />
+  <main lang={lang}>
+    <h1>{heading}</h1>
+    <slot />
+  </main>
+</Base>
+
+<style>
+main {
+  flex: 1;
+  width: 100%;
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  padding: clamp(24px, 5vw, 56px) var(--gutter) 64px;
+}
+
+h1 {
+  margin-bottom: 24px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+main :global(h2) {
+  margin: 32px 0 8px;
+  font-size: 1.3rem;
+}
+
+main :global(p),
+main :global(ul) {
+  margin: 0 0 12px;
+}
+
+main :global(a) {
+  font-weight: 600;
+  color: var(--heading);
+}
+</style>
