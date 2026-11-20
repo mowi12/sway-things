@@ -163,6 +163,10 @@ pub enum Hook {
     /// the mirrors of other combinations: run by kanshi when it applied a profile, and from a key
     /// binding of yours to bring back a picture that went
     Mirror,
+    /// Ask once whether a display plugged in to a combination set up on the Displays page shows
+    /// the same picture or extends the desktop, and remember the answer: run by kanshi when one
+    /// display more than such a combination is connected
+    NewDisplay,
 }
 
 /// The binary of the app.
@@ -242,6 +246,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
         Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
+        Command::Hook(Hook::NewDisplay) => return hook_new_display(&mut err).await,
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -566,6 +571,155 @@ async fn hook_mirror(err: &mut dyn Write) -> Exit {
     }
 }
 
+/// `hook new-display`: once the displays stand, asks about a display plugged in to a
+/// combination set up here ([`outputs::new_display::decide`]), remembers the answer for the new
+/// combination and sets it up. Without an answer, nothing changes: the display extends the
+/// desktop.
+async fn hook_new_display(err: &mut dyn Write) -> Exit {
+    use outputs::new_display::{Asked, Decision, decide};
+    let mut client = match connect_for_hook().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            return Exit::Failure;
+        }
+    };
+    // A dock brings its displays one after the other: what is new is read once they all came.
+    let Ok(found) = settled_outputs(&mut client).await else {
+        return Exit::Failure;
+    };
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return Exit::Ok;
+    };
+    let Ok(profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
+        return Exit::Ok;
+    };
+    let now = Outputs::new(&found);
+    // A profile of the user's own sets these displays up: theirs to decide.
+    if kanshi_files().is_some_and(|files| files.sets_up(&now)) {
+        return Exit::Ok;
+    }
+    let profile = match decide(&profiles, &now) {
+        Decision::Nothing => return Exit::Ok,
+        Decision::Repeat(profile) => profile,
+        Decision::Ask(question) => {
+            // Asked once per plug-in: kanshi applies the profile again whenever it reads its
+            // config.
+            let id = now.get(&question.display).and_then(|output| {
+                found
+                    .iter()
+                    .find(|found| found.name == output.name())
+                    .and_then(|found| found.id)
+            });
+            let session = client.socket().display().to_string();
+            // Plugged in again while the first question waits: that one counts.
+            let Some(_asking) = outputs::new_display::asking(&session, &question.display) else {
+                return Exit::Ok;
+            };
+            if id.is_none_or(|id| outputs::new_display::note_asked(&session, id)) {
+                return Exit::Ok;
+            }
+            let answer = match outputs::new_display::ask(&question, outputs::new_display::WAIT)
+                .await
+            {
+                Ok(Asked::Answer(answer)) => answer,
+                Ok(Asked::Nothing) => return Exit::Ok,
+                // Nothing is wrong with the displays: one line for kanshi's log.
+                Ok(Asked::NoActions) => {
+                    let _ = writeln!(
+                        err,
+                        "{}",
+                        tr(msg!(
+                            "The new display wasn\u{2019}t asked about: the notification server shows no buttons."
+                        ))
+                    );
+                    return Exit::Ok;
+                }
+                Err(error) => {
+                    let _ = writeln!(
+                        err,
+                        "{}",
+                        trf(
+                            msg!(
+                                "The new display wasn\u{2019}t asked about: no notification server ({error})."
+                            ),
+                            &[("error", &error.to_string())]
+                        )
+                    );
+                    return Exit::Ok;
+                }
+            };
+            question.profile(answer)
+        }
+    };
+    remember_new_combination(&mut client, profile, paths.displays()).await
+}
+
+/// Remembers `profile` for its combination in the profiles at `path` and sets it up: kanshi
+/// reads its file with the new profile and applies it, and the pictures start. Not if the
+/// displays changed meanwhile, or the combination was set up elsewhere meanwhile (the app).
+async fn remember_new_combination(
+    client: &mut Client,
+    profile: outputs::profiles::Profile,
+    path: &std::path::Path,
+) -> Exit {
+    let Ok(found) = client.outputs().await else {
+        return Exit::Failure;
+    };
+    let now = Outputs::new(&found);
+    let mut connected: Vec<&str> = now
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(outputs::Output::identifier)
+        .collect();
+    connected.sort_unstable();
+    if profile.combination() != connected {
+        return Exit::Ok;
+    }
+    let Ok(mut profiles) = outputs::profiles::Profiles::load(path) else {
+        return Exit::Failure;
+    };
+    if profiles.of(&connected).is_some() {
+        return Exit::Ok;
+    }
+    profiles.remember(profile);
+    if profiles.save().is_err() {
+        return Exit::Failure;
+    }
+    // kanshi applies the new profile, which runs the hooks of the workspaces and the pictures;
+    // the pictures start here too, in case kanshi doesn't run its hooks (or isn't there).
+    let _ = refresh_kanshi(&profiles).await;
+    match outputs::mirror::start(client, &mut profiles).await {
+        Ok(_) => Exit::Ok,
+        Err(_) => Exit::Failure,
+    }
+}
+
+/// The outputs once they stand: unchanged for 1.5 seconds, at most ten seconds.
+async fn settled_outputs(
+    client: &mut Client,
+) -> Result<Vec<sway_things_core::ipc::types::Output>, sway_things_core::ipc::IpcError> {
+    let names = |found: &[sway_things_core::ipc::types::Output]| {
+        let mut names: Vec<String> = found.iter().map(|output| output.name.clone()).collect();
+        names.sort_unstable();
+        names
+    };
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let mut found = client.outputs().await?;
+    let mut since = std::time::Instant::now();
+    while std::time::Instant::now() < until
+        && since.elapsed() < std::time::Duration::from_millis(1500)
+    {
+        async_io::Timer::after(std::time::Duration::from_millis(250)).await;
+        let again = client.outputs().await?;
+        if names(&again) != names(&found) {
+            since = std::time::Instant::now();
+        }
+        found = again;
+    }
+    Ok(found)
+}
+
 /// Ends the mirrors Sway Things started and starts those of the displays connected now, as
 /// [`outputs::mirror::apply`]. Without remembered profiles, nothing happens.
 async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
@@ -723,7 +877,7 @@ pub async fn run<V: Validate>(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::NewDisplay)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -824,6 +978,8 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
             },
             _ => Exit::Ok,
         },
+        // Asks the user through the notification server: only for the user's session.
+        Hook::NewDisplay => Exit::Ok,
         Hook::Workspaces => match session.applier.place_now().await {
             Ok(()) => Exit::Ok,
             Err(error) => {

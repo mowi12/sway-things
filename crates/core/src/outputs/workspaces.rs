@@ -111,7 +111,7 @@ pub fn targets<'a>(outputs: &'a Outputs, mirrors: &[String]) -> Vec<&'a Output> 
 }
 
 /// Whether `output` is a laptop's or tablet's own panel, by its connector.
-fn is_built_in(output: &Output) -> bool {
+pub(crate) fn is_built_in(output: &Output) -> bool {
     ["eDP-", "LVDS-", "DSI-"]
         .iter()
         .any(|prefix| output.name().starts_with(prefix))

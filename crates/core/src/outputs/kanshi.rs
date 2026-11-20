@@ -259,20 +259,19 @@ impl KanshiFiles {
     /// The text of the file of ours for kanshi: the remembered combinations `profiles`, with
     /// the workspaces placed by `placing`, and, while that places them or a combination shows a
     /// picture, a copy of each of the user's profiles after the include of ours, whose display
-    /// setup stays theirs ([`super::profiles::kanshi_config`]).
+    /// setup stays theirs ([`super::profiles::kanshi_config`]). Where a display can show another
+    /// one's picture (`wl-mirror` is installed), a display plugged in to a remembered
+    /// combination is asked about, unless a profile of the user's may set it up: also not while
+    /// the user's config includes a file after ours whose profiles aren't read.
     pub fn config_for(
         &self,
         profiles: &super::profiles::Profiles,
         placing: Option<super::workspaces::Placing>,
     ) -> String {
-        let adopting = placing.is_some() || profiles.iter().any(super::profiles::Profile::mirrors);
-        let theirs = if adopting {
-            self.after_ours()
-        } else {
-            Vec::new()
-        };
+        let theirs = self.after_ours();
+        let ask = super::mirror::installed() && self.includes_after_ours().is_empty();
         let from = Self::shown(&self.config);
-        super::profiles::kanshi_config_with(profiles, placing, &theirs, &from)
+        super::profiles::kanshi_config_with(profiles, placing, &theirs, &from, ask)
     }
 
     /// `path` as people write it: with `~` for the home directory.
