@@ -1,0 +1,411 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The Printers page against CUPS's stand-in.
+
+use super::*;
+
+/// Two printers CUPS knows from before: "Front Desk", paused and low on toner, and "Office", the
+/// default.
+pub(crate) const PRINTERS_CONF: &str = "\
+<DefaultPrinter Office>
+Info Office
+DeviceURI ipp://127.0.0.1:9/ipp/print
+State Idle
+Type 4
+Accepting Yes
+Shared No
+</DefaultPrinter>
+<Printer Seeded>
+Info Front Desk
+Location Hall
+DeviceURI ipp://127.0.0.1:9/ipp/print
+State Stopped
+StateMessage Paused by the test
+Reason paused
+Reason toner-low-warning
+Type 4
+Accepting Yes
+Shared No
+Attribute marker-colors \\#000000,\\#00FFFF\\#FF00FF\\#FFFF00
+Attribute marker-levels 7,55
+Attribute marker-low-levels 10,10
+Attribute marker-high-levels 100,100
+Attribute marker-names Black Toner,Color Toner
+Attribute marker-types toner,toner
+</Printer>
+";
+
+/// A CUPS of its own with [`PRINTERS_CONF`]; the user may change printers if `admin`. A test page
+/// waits on "Front Desk".
+pub(crate) fn printers_stand_in(admin: bool) -> Result<CupsStandIn, String> {
+    let stand_in = CupsStandIn::start_with(admin, PRINTERS_CONF)
+        .map_err(|error| format!("  CUPS's stand-in: {error}"))?;
+    async_io::block_on(stand_in.cups().print_test_page("Seeded"))
+        .map_err(|error| format!("  a test page on the stand-in: {error}"))?;
+    Ok(stand_in)
+}
+
+/// Where the Printers page finds `stand_in`.
+pub(crate) fn print_service(stand_in: &CupsStandIn) -> PrintService {
+    PrintService::At {
+        socket: stand_in.socket().to_owned(),
+        bus: None,
+    }
+}
+
+/// `page` in a window of its own, once it shows `rows` printers.
+pub(crate) fn printers_window(page: &PrintersPage, rows: usize) -> Result<gtk::Window, String> {
+    let window = gtk::Window::new();
+    window.set_default_size(720, 900);
+    window.set_child(Some(page));
+    window.present();
+    settle(&window)?;
+    ensure(
+        run_until(Duration::from_secs(10), || page.rows().len() == rows),
+        &format!(
+            "  the printers didn't show: {:?} {:?}",
+            page.rows(),
+            page.placeholder()
+        ),
+    )?;
+    Ok(window)
+}
+
+pub(crate) fn check_printers_pages() -> Vec<(String, Outcome)> {
+    vec![
+        (
+            "printers: states, supplies, the default and the queue".to_owned(),
+            check_printers(),
+        ),
+        (
+            "printers: resume, pause, test page and cancel".to_owned(),
+            check_printers_actions(),
+        ),
+        (
+            "printers: a change that needs an administrator".to_owned(),
+            check_printers_not_allowed(),
+        ),
+        (
+            "printers: adding a printer by its address".to_owned(),
+            check_printers_add(),
+        ),
+        (
+            "printers: without CUPS".to_owned(),
+            check_printers_missing(),
+        ),
+        (
+            "printers: the dialogs close every way and open again".to_owned(),
+            check_printers_dialogs(),
+        ),
+    ]
+}
+
+/// The rows of the Printers page: the printers by title with their model, location, state and
+/// supplies, the default marked, and the test page waiting in the queue.
+pub(crate) fn check_printers() -> Outcome {
+    let stand_in = printers_stand_in(true)?;
+    let page = PrintersPage::new(&print_service(&stand_in));
+    let window = printers_window(&page, 2)?;
+    let rows = page.rows();
+    let row = |name: &str, title: &str, subtitle: &str, status: &str| {
+        (
+            name.to_owned(),
+            title.to_owned(),
+            subtitle.to_owned(),
+            status.to_owned(),
+        )
+    };
+    ensure(
+        rows == [
+            row(
+                "Seeded",
+                "Front Desk",
+                // CUPS names every queue without a driver so.
+                "Local Raw Printer \u{b7} Hall",
+                "Paused \u{b7} Toner low",
+            ),
+            row(
+                "Office",
+                "Office",
+                "Default printer \u{b7} Local Raw Printer",
+                "Ready",
+            ),
+        ],
+        &format!("  rows: {rows:?}"),
+    )?;
+    let supplies = page.supplies("Seeded");
+    ensure(
+        supplies == ["Black Toner: 7 %, low", "Color Toner: 55 %"],
+        &format!("  supplies: {supplies:?}"),
+    )?;
+    ensure(
+        page.resume_button("Seeded").is_some_and(|b| b.is_visible())
+            && page
+                .resume_button("Office")
+                .is_some_and(|b| !b.is_visible()),
+        "  Resume shows on the wrong printers",
+    )?;
+    let jobs = page.job_rows();
+    ensure(
+        jobs.len() == 1 && jobs[0].1 == "Test Page" && jobs[0].2.starts_with("Front Desk \u{b7} "),
+        &format!("  jobs: {jobs:?}"),
+    )?;
+    // In the menu, which isn't open: shown as soon as it opens.
+    let shown = |name: &str| {
+        page.menu_item(name, "Set as Default")
+            .map(|item| item.get_visible())
+    };
+    ensure(
+        shown("Office") == Some(false) && shown("Seeded") == Some(true),
+        &format!(
+            "  Set as Default on Office and Front Desk: {:?} {:?}",
+            shown("Office"),
+            shown("Seeded")
+        ),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Resume, Pause, Print Test Page and Cancel on the page, against CUPS.
+pub(crate) fn check_printers_actions() -> Outcome {
+    let stand_in = printers_stand_in(true)?;
+    let page = PrintersPage::new(&print_service(&stand_in));
+    let window = printers_window(&page, 2)?;
+    let status = |name: &str| {
+        page.rows()
+            .into_iter()
+            .find(|row| row.0 == name)
+            .map(|row| row.3)
+            .unwrap_or_default()
+    };
+    // Its queue is canceled first, so resuming doesn't send it to a printer that isn't there.
+    let id = page.job_rows().first().map(|job| job.0).ok_or("  no job")?;
+    page.cancel_button(id).ok_or("  no Cancel")?.emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || page.job_rows().is_empty()),
+        &format!("  the job wasn't canceled: {}", page.error_text()),
+    )?;
+    page.resume_button("Seeded")
+        .ok_or("  no Resume")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            status("Seeded") == "Ready \u{b7} Toner low"
+        }),
+        &format!(
+            "  Front Desk didn't resume: {}; error: {}",
+            status("Seeded"),
+            page.error_text()
+        ),
+    )?;
+    page.menu_item("Office", "Pause")
+        .ok_or("  no Pause")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || status("Office") == "Paused"),
+        &format!("  Office didn't pause: {}", status("Office")),
+    )?;
+    page.menu_item("Office", "Print Test Page")
+        .ok_or("  no Print Test Page")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            page.job_rows()
+                .iter()
+                .any(|job| job.2.starts_with("Office \u{b7} "))
+        }),
+        &format!(
+            "  no test page: {:?} {}",
+            page.job_rows(),
+            page.error_text()
+        ),
+    )?;
+    page.menu_item("Seeded", "Set as Default")
+        .ok_or("  no Set as Default")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            page.rows()
+                .iter()
+                .any(|row| row.0 == "Seeded" && row.2.starts_with("Default printer"))
+        }),
+        &format!("  Front Desk isn't the default: {:?}", page.rows()),
+    )?;
+    ensure(page.error_text().is_empty(), &page.error_text())?;
+    window.destroy();
+    Ok(())
+}
+
+/// A change CUPS refuses, without cups-pk-helper: the error says what to install or join.
+pub(crate) fn check_printers_not_allowed() -> Outcome {
+    let stand_in = printers_stand_in(false)?;
+    let page = PrintersPage::new(&print_service(&stand_in));
+    let window = printers_window(&page, 2)?;
+    page.resume_button("Seeded")
+        .ok_or("  no Resume")?
+        .emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(10), || !page.error_text().is_empty()),
+        "  no error",
+    )?;
+    let error = page.error_text();
+    ensure(
+        error
+            .starts_with("Couldn't resume “Front Desk”: Changing printers needs an administrator.")
+            && error.contains("cups-pk-helper")
+            && error.contains("group “"),
+        &format!("  error: {error}"),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// _Add Printer…_ with an address: the printer is added as CUPS makes it, named by its host.
+pub(crate) fn check_printers_add() -> Outcome {
+    let stand_in = printers_stand_in(true)?;
+    let fake = FakePrinter::start("Acme Color 500").map_err(|error| format!("  {error}"))?;
+    let page = PrintersPage::new(&print_service(&stand_in));
+    let window = printers_window(&page, 2)?;
+    page.add_button().emit_clicked();
+    let dialog = page.add_dialog().ok_or("  no dialog")?;
+    ensure(
+        !dialog.add_address.is_sensitive(),
+        "  Add without an address",
+    )?;
+    dialog.address.set_text("not a printer");
+    ensure(
+        !dialog.add_address.is_sensitive(),
+        "  Add with a bad address",
+    )?;
+    dialog.address.set_text(fake.uri());
+    ensure(
+        dialog.add_address.is_sensitive(),
+        "  no Add for a good address",
+    )?;
+    dialog.add_address.emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(30), || page.add_dialog().is_none()),
+        &format!("  the dialog stayed: {}", dialog.status.text()),
+    )?;
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            page.rows()
+                .iter()
+                .any(|row| row.0 == "127_0_0_1" && row.1 == "127.0.0.1")
+        }),
+        &format!("  not added: {:?}", page.rows()),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Without CUPS, the page says so instead of an empty list.
+pub(crate) fn check_printers_missing() -> Outcome {
+    let page = PrintersPage::new(&PrintService::Off);
+    let window = gtk::Window::new();
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let texts = page.placeholder().ok_or("  no placeholder")?;
+    ensure(
+        texts.first().map(String::as_str) == Some("CUPS isn't running")
+            && texts
+                .get(1)
+                .is_some_and(|text| text.contains("cups.socket")),
+        &format!("  placeholder: {texts:?}"),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// Presses Escape in `window`: runs the action of its shortcut for Escape.
+pub(crate) fn press_escape(window: &gtk::Window) -> Outcome {
+    let controllers = window.observe_controllers();
+    for i in 0..controllers.n_items() {
+        let Some(controller) = controllers
+            .item(i)
+            .and_downcast::<gtk::ShortcutController>()
+        else {
+            continue;
+        };
+        for j in 0..controller.n_items() {
+            let Some(shortcut) = controller.item(j).and_downcast::<gtk::Shortcut>() else {
+                continue;
+            };
+            let escape = shortcut
+                .trigger()
+                .is_some_and(|trigger| trigger.to_str() == "Escape");
+            if let (true, Some(action)) = (escape, shortcut.action()) {
+                action.activate(gtk::ShortcutActionFlags::empty(), window, None);
+                return Ok(());
+            }
+        }
+    }
+    Err("  the dialog has no shortcut for Escape".to_owned())
+}
+
+/// The button labeled `label` in `widget`.
+pub(crate) fn button_in(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
+    all::<gtk::Button>(widget)
+        .into_iter()
+        .find(|button| button.label().is_some_and(|text| text == label))
+}
+
+/// Closes `dialog` the way `how` says: its button `button`, Escape, or the window's close
+/// request (the compositor's close, `swaymsg kill`).
+pub(crate) fn close_dialog(dialog: &gtk::Window, how: &str, button: &str) -> Outcome {
+    match how {
+        "button" => button_in(dialog.upcast_ref(), button)
+            .ok_or_else(|| format!("  no {button} button"))?
+            .emit_clicked(),
+        "escape" => press_escape(dialog)?,
+        _ => dialog.close(),
+    }
+    Ok(())
+}
+
+/// _Add Printer…_ and _Details…_ open their dialog with its content, every way of closing one
+/// closes it, and it opens again with its content: never an empty window that can't be closed.
+pub(crate) fn check_printers_dialogs() -> Outcome {
+    let stand_in = printers_stand_in(true)?;
+    let page = PrintersPage::new(&print_service(&stand_in));
+    let window = printers_window(&page, 2)?;
+    for how in ["button", "escape", "close-request", "button"] {
+        page.add_button().emit_clicked();
+        let dialog = page.add_dialog().ok_or("  no dialog")?;
+        ensure(
+            run_until(Duration::from_secs(5), || dialog.window.is_visible())
+                && button_in(dialog.window.upcast_ref(), "Close").is_some(),
+            &format!("  Add Printer opened without its content (before closing by {how})"),
+        )?;
+        close_dialog(&dialog.window, how, "Close")?;
+        ensure(
+            run_until(Duration::from_secs(5), || {
+                page.add_dialog().is_none() && !dialog.window.is_visible()
+            }),
+            &format!("  Add Printer didn't close by {how}"),
+        )?;
+    }
+    for how in ["button", "escape", "close-request", "button"] {
+        page.menu_item("Office", "Details…")
+            .ok_or("  no Details…")?
+            .emit_clicked();
+        let dialog = page.details_dialog().ok_or("  no details dialog")?;
+        ensure(
+            run_until(Duration::from_secs(5), || dialog.is_visible())
+                && button_in(dialog.upcast_ref(), "Cancel").is_some(),
+            &format!("  Details opened without its content (before closing by {how})"),
+        )?;
+        close_dialog(&dialog, how, "Cancel")?;
+        ensure(
+            run_until(Duration::from_secs(5), || {
+                page.details_dialog().is_none() && !dialog.is_visible()
+            }),
+            &format!("  Details didn't close by {how}"),
+        )?;
+    }
+    window.destroy();
+    Ok(())
+}

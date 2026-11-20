@@ -15,7 +15,7 @@
 //! - `generated`, `about`, `welcome`: the Generated config window, About & Maintenance, the welcome
 //!   screen and the read-only banner.
 //! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`,
-//!   `network`: the pages with parts of their own, the live ones against their stand-ins.
+//!   `network`, `printers`: the pages with parts of their own, the live ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
@@ -44,6 +44,7 @@ mod keyboard;
 mod look;
 mod network;
 mod place;
+mod printers;
 mod reload;
 mod rows;
 mod safety_net;
@@ -73,6 +74,7 @@ use sway_things_core::ipc::stand_in::{
     FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs, with_outputs,
 };
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
+use sway_things_core::printers::stand_in::{FakePrinter, StandIn as CupsStandIn};
 use sway_things_core::registry::{ConfigFile, GSettingsKey, Link, Page, Registry, Value};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::Layer;
@@ -86,8 +88,8 @@ use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GdkKeymap, GroupRow,
-    LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, SettingRow,
-    ShortcutEditor, SoundPage, SoundServer, TestArea,
+    LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, PrintService,
+    PrintersPage, SettingRow, ShortcutEditor, SoundPage, SoundServer, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -105,6 +107,7 @@ use self::keyboard::*;
 use self::look::*;
 use self::network::*;
 use self::place::*;
+use self::printers::*;
 use self::reload::*;
 use self::rows::*;
 use self::safety_net::*;
@@ -151,6 +154,8 @@ fn main() -> ExitCode {
     // Likewise the Network page and NetworkManager, and the Sound page and the sound server.
     let network = network_stand_in().map(|(stand_in, _)| stand_in);
     let sound = sound_stand_in();
+    // Likewise the Printers page and CUPS.
+    let printers = printers_stand_in(true);
     let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
@@ -168,6 +173,9 @@ fn main() -> ExitCode {
         }
         if let Ok(sound) = &sound {
             window.use_sound_server(SoundServer::Address(sound.server()));
+        }
+        if let Ok(printers) = &printers {
+            window.use_print_service(print_service(printers));
         }
         window.present();
         for page in Page::ALL {
@@ -202,6 +210,7 @@ fn main() -> ExitCode {
     results.extend(check_bluetooth_pages());
     results.extend(check_sound_pages());
     results.extend(check_network_pages());
+    results.extend(check_printers_pages());
     results.extend(check_keyboard());
     results.extend(check_indicators());
     results.extend(check_look());
