@@ -14,7 +14,8 @@ use std::time::Duration;
 use async_io::{Timer, block_on};
 use futures_lite::future;
 use sway_things_core::command::input::{DragLock, Input, InputSelector, InputType};
-use sway_things_core::command::{SwayCmd, SwayText, behavior, effects, window};
+use sway_things_core::command::output::{Fill, Output, OutputSelector};
+use sway_things_core::command::{Color, SwayCmd, SwayText, behavior, effects, window};
 use sway_things_core::devices::{Device, DeviceWatch};
 use sway_things_core::ipc::types::{Event, EventType, NodeType};
 use sway_things_core::ipc::{Client, Compositor, IpcError, Unmet};
@@ -269,6 +270,42 @@ fn the_device_watch_starts_on_a_session_without_devices() -> Result<()> {
                 .devices()
                 .is_last_enabled_keyboard("1:1:AT_Translated_Set_2_keyboard")
         );
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs a running sway; run scripts/check-integration.sh"]
+fn image_files_reach_sway_unchanged() -> Result<()> {
+    run(async {
+        // sway 1.10 rejects an image it can't find; later versions show the fallback color
+        // instead. So on sway 1.10 each command only succeeds if `wordexp` found this very file,
+        // which rules out expanding a variable or running a command in its name.
+        let dir = tempfile::tempdir()?;
+        let names = [
+            "plain.png",
+            "with space.png",
+            "single'quote.png",
+            r#"double"quote.png"#,
+            "dollar $HOME.png",
+            "$(touch ran).png",
+            "`touch ran`.png",
+            "semi;colon,comma.png",
+            "#hash {brace} [bracket] *star?.png",
+            "~tilde.png",
+            "ünïcödé ✓.png",
+        ];
+        let all = Output::new(OutputSelector::All);
+        let mut sway = Client::connect().await?;
+        for name in names {
+            let path = dir.path().join(name);
+            std::fs::write(&path, b"")?;
+            let command = all.background_image(&path, Fill::Fill, Color::rgb(0, 0, 0))?;
+            if let Err(error) = sway.run(&command).await {
+                return Err(format!("{name}: {error}").into());
+            }
+        }
+        sway.run(&all.background_color(Color::rgb(0, 0, 0))).await?;
         Ok(())
     })
 }
