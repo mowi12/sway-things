@@ -88,13 +88,13 @@ pub struct Known<'a> {
     pub outputs: Option<&'a Outputs>,
 }
 
-/// Which devices a user's `input` line covers, of those the report is for.
+/// Which devices or outputs a user's `input` or `output` line covers, of those the report is for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Reach {
-    /// All of them: a top-level line, `input *`, the setting's `type:`, or the identifier of the
-    /// device the report is for.
+    /// All of them: a top-level line, `input *`, the setting's `type:`, `output *`, or the
+    /// identifier or name of the device or output the report is for.
     All,
-    /// Only this device, in a report for a whole input type.
+    /// Only this device or output, in a report for a whole input type or for every output.
     Device(String),
 }
 

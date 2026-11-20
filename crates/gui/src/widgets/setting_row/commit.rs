@@ -6,7 +6,7 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::registry::{Scope, Value};
+use sway_things_core::registry::{Setting, Value};
 
 use super::SettingRow;
 use super::controls::COMMIT_DELAY;
@@ -32,8 +32,7 @@ impl SettingRow {
     /// pointer is on, and the button could be let go elsewhere, leaving the step button
     /// repeating.
     pub(super) fn defers(&self) -> bool {
-        self.setting()
-            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+        self.setting().is_some_and(Setting::sets_up_display)
     }
 
     /// Sends `value` from the number control: at once, or for a control that defers

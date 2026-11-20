@@ -117,6 +117,9 @@ pub enum Kind {
     Color {
         /// The default.
         default: Color,
+        /// Whether the color may be translucent (`#rrggbbaa`). sway's `output … bg` only takes
+        /// `#rrggbb`.
+        alpha: bool,
     },
     /// Free text.
     Text {
@@ -138,7 +141,7 @@ impl Kind {
             Self::Integer { default, .. } => Value::Integer(*default),
             Self::Decimal { default, .. } => Value::Decimal(*default),
             Self::Choice { default, .. } => Value::Choice((*default).to_owned()),
-            Self::Color { default } => Value::Color(*default),
+            Self::Color { default, .. } => Value::Color(*default),
             Self::Text { default } => Value::Text((*default).to_owned()),
             Self::List { default } => {
                 Value::List(default.iter().map(|item| (*item).to_owned()).collect())
@@ -209,6 +212,11 @@ impl Kind {
     /// A [`ValueError`] that says what is wrong with the value.
     pub fn check(&self, value: &Value) -> Result<(), ValueError> {
         match (self, value) {
+            (Self::Color { alpha: false, .. }, Value::Color(color))
+                if color.alpha().is_some_and(|alpha| alpha != u8::MAX) =>
+            {
+                Err(ValueError::Translucent)
+            }
             (Self::Bool { .. }, Value::Bool(_))
             | (Self::Color { .. }, Value::Color(_))
             | (Self::Text { .. }, Value::Text(_))
@@ -275,6 +283,8 @@ pub enum ValueError {
     },
     /// The text isn't a color in `#rrggbb` or `#rrggbbaa` notation.
     NotAColor,
+    /// The color is translucent, but the setting only takes opaque colors.
+    Translucent,
     /// The text can't be read as a value of the setting's type.
     Unparsable {
         /// The type the setting takes.
@@ -320,6 +330,7 @@ impl ValueError {
                     .arg("max", max)
             }
             Self::NotAColor => msg!("must be a color like #rrggbb or #rrggbbaa").into(),
+            Self::Translucent => msg!("must be an opaque color like #rrggbb").into(),
             Self::Unparsable {
                 expected: "boolean",
             } => msg!("must be true or false").into(),

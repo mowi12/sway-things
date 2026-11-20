@@ -32,7 +32,7 @@ use sway_things_core::outputs::modes;
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
-use sway_things_core::registry::{Scope, Value};
+use sway_things_core::registry::{Setting, Value};
 
 pub use canvas::Canvas;
 pub(crate) use canvas::short_label;
@@ -570,10 +570,7 @@ fn insert_picker(
 ) -> Vec<glib::WeakRef<SettingRow>> {
     let rows: Vec<&SettingRow> = rows
         .iter()
-        .filter(|row| {
-            row.setting()
-                .is_some_and(|setting| setting.scope() == Scope::PerOutput)
-        })
+        .filter(|row| row.setting().is_some_and(Setting::sets_up_display))
         .collect();
     let list = rows
         .first()

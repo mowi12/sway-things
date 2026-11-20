@@ -48,7 +48,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::outputs;
-use sway_things_core::registry::{Font, Scope, Setting, Value};
+use sway_things_core::registry::{Font, Setting, Value};
 use sway_things_core::state::Layer;
 
 use super::RowLayout;
@@ -611,7 +611,7 @@ impl SettingRow {
         imp.note.set_visible(!note.is_empty());
         // While a display's change waits to be kept or reverted, the others' settings wait too:
         // Revert puts back only that change.
-        let waits_for_other = setting.scope() == Scope::PerOutput
+        let waits_for_other = setting.sets_up_display()
             && model
                 .pending_change()
                 .is_some_and(|pending| pending.device() != device.as_deref());

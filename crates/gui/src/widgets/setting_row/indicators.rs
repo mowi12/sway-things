@@ -138,7 +138,7 @@ impl SettingRow {
         // only for this machine.
         let layer = model
             .stored_in(setting, device)
-            .filter(|_| !(model.kanshi_runs() && setting.scope() == Scope::PerOutput));
+            .filter(|_| !(model.kanshi_runs() && setting.sets_up_display()));
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
         imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
