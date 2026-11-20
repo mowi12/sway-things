@@ -1,8 +1,13 @@
 [
-  { "id": "mouse-touchpad", "name": "Mouse & Touchpad", "gallery": true },
-  { "id": "keyboard", "name": "Keyboard", "gallery": true },
+  { "id": "mouse-touchpad", "name": "Mouse & Touchpad" },
+  { "id": "keyboard", "name": "Keyboard" },
+  { "id": "cursor-tablet", "name": "Cursor & Tablet" },
+  { "id": "displays", "name": "Displays", "gallery": true },
+  { "id": "sound", "name": "Sound", "gallery": true },
   { "id": "bluetooth", "name": "Bluetooth", "gallery": true },
   { "id": "network", "name": "Network", "gallery": true },
   { "id": "windows", "name": "Windows", "gallery": true },
-  { "id": "window-behavior", "name": "Window Behavior", "gallery": true }
+  { "id": "apps-look-feel", "name": "Apps Look & Feel", "gallery": true },
+  { "id": "window-behavior", "name": "Window Behavior" },
+  { "id": "workspaces", "name": "Workspaces" }
 ]
