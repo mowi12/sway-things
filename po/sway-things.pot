@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 16:39+0100\n"
+"POT-Creation-Date: 2026-11-20 20:36+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1455,6 +1455,207 @@ msgstr ""
 
 #: crates/core/src/outputs/profiles.rs
 msgid "the remembered displays aren't in a form Sway Things knows"
+msgstr ""
+
+#: crates/core/src/printers/admin.rs
+#, rust-format
+msgid "cups-pk-helper failed: {error}"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+msgid "Test Page"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+msgid "CUPS gave the job no number"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+msgid "No test page to print"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+msgid "The printer doesn't exist (anymore)"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+#, rust-format
+msgid "nothing listens at {endpoint}"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+#, rust-format
+msgid "no access to {endpoint}"
+msgstr ""
+
+#: crates/core/src/printers/cups.rs
+#, rust-format
+msgid "{endpoint}: {error}"
+msgstr ""
+
+#: crates/core/src/printers/discovery.rs
+#, rust-format
+msgid "Avahi isn't running ({error})"
+msgstr ""
+
+#: crates/core/src/printers/discovery.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/network/mod.rs
+msgid "no bus"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Paused"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Out of paper"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Paper low"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Paper jam"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Load paper"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Toner low"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Out of toner"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Ink low"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Out of ink"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Waste container almost full"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Waste container full"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Door open"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Offline"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Connecting"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Output tray full"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Tray missing"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "A filter for this printer is missing"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Turned off"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid "Printer problem: {reason}"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Ready"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Printing"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Stopped"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid "Stopped: {message}"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Rejects new jobs"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Waiting"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Held"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Canceled"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Failed"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Printed"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid "CUPS isn't available: {reason}"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid ""
+"CUPS is set up to use the print server {server}. Sway Things only manages "
+"the printers of this computer."
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid ""
+"Changing printers needs an administrator. Install cups-pk-helper, which asks "
+"for an administrator's password, or ask to be added to the group “{group}”."
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+#, rust-format
+msgid ""
+"Not allowed: {reason}. If no password dialog showed up, no polkit agent is "
+"running: start one with sway, such as lxqt-policykit-agent or polkit-gnome."
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid "Type the address of the printer"
+msgstr ""
+
+#: crates/core/src/printers/mod.rs
+msgid ""
+"Type a host name, an IP address, or an address starting with ipp:// or "
+"ipps://"
 msgstr ""
 
 #: crates/core/src/registry/app.rs
@@ -4992,11 +5193,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 msgid "Copy the command"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
-msgid "no bus"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs

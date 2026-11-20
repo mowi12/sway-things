@@ -26,6 +26,7 @@ pub mod ipc;
 pub mod look;
 pub mod network;
 pub mod outputs;
+pub mod printers;
 pub mod registry;
 pub mod sound;
 pub mod state;
