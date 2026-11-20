@@ -322,9 +322,10 @@ position = "1920,0"
 - **Saving needs the include line:** `State::save` takes the write permission that only an active
   [include status](Reading-Sway.md#include-detection) hands out. Loading, changing values in memory and reading need
   none.
-- **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it. If the file is a
-  symbolic link (into a dotfiles repository), the link stays and its target is replaced. File access is synchronous
-  (`std::fs`): the files are small, and only loading and saving touch the disk.
+- **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it (`atomic`). If the file
+  is a symbolic link (into a dotfiles repository), the link stays and its target is replaced. The temporary name carries
+  the process id; a file of that name left by a crashed process is removed first, so it never blocks a save. File access
+  is synchronous (`std::fs`): the files are small, and only loading and saving touch the disk.
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
 - **Export / import (planned):** `settings.toml` (plus overlays) _is_ the export format.
@@ -410,7 +411,8 @@ that keeps a display on), see [No daemon](Command-Line.md#no-daemon-the-cli-as-a
   asked over IPC; without a session it is the installed one, read from `sway --version`.
 - **Validation:** a file whose content changed is staged next to its place, under a hidden name that `*.conf` doesn't
   match, and checked with `sway --validate --config <staged file>` as a main config of its own. sway runs through
-  `async-process` with an argument array. Only a valid file replaces the old one, atomically; a symbolic link stays one.
+  `async-process` with an argument array. Only a valid file replaces the old one: the staged file itself is renamed into
+  place, so exactly the bytes sway checked land there, and only then is the manifest updated; a symbolic link stays one.
   If sway rejects the file, the old one stays, and each error carries the line and the settings behind it. If sway can't
   be run, nothing is replaced.
 - **Manifest:** `manifest.toml` records the SHA-256 hash of each generated file by absolute path (the value `sha256sum`

@@ -5,9 +5,9 @@
 
 use std::ffi::OsString;
 use std::fmt;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::future::Future;
-use std::io::{self, Write as _};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
@@ -322,7 +322,12 @@ async fn write_file(
         Ownership::Absent | Ownership::Ours | Ownership::Edited => {}
     }
 
-    let errors = stage_and_validate(&path, &text, validator).await?;
+    // Hidden and not `*.conf`: the include in the user's config never matches the staged file.
+    let staged = atomic::stage(&path, &text, "staged").map_err(io_error)?;
+    let errors = validator
+        .validate(staged.path())
+        .await
+        .map_err(WriteError::Validator)?;
     if !errors.is_empty() {
         let invalid = errors
             .into_iter()
@@ -334,46 +339,10 @@ async fn write_file(
             .collect();
         return Ok(Outcome::Invalid(invalid));
     }
-    atomic::write(&path, &text).map_err(io_error)?;
+    // Exactly the bytes sway checked replace the old file; only then are they recorded.
+    staged.commit().map_err(io_error)?;
     manifest.record(&path, &text).map_err(io_error)?;
     Ok(Outcome::Written)
-}
-
-/// Writes `text` to a temporary file next to `path`, has it validated and removes it again.
-async fn stage_and_validate(
-    path: &Path,
-    text: &str,
-    validator: &impl Validate,
-) -> Result<Vec<ConfigError>, WriteError> {
-    let io_error = |source| WriteError::Io {
-        path: path.to_owned(),
-        source,
-    };
-    let directory = path
-        .parent()
-        .ok_or_else(|| io_error(io::ErrorKind::InvalidInput.into()))?;
-    fs::create_dir_all(directory).map_err(io_error)?;
-    // Hidden and not `*.conf`: the include in the user's config never matches it.
-    let mut name = OsString::from(".");
-    name.push(path.file_name().unwrap_or_default());
-    name.push(format!(".{}.staged", std::process::id()));
-    let staged = directory.join(name);
-
-    let created = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&staged)
-        .and_then(|mut file| file.write_all(text.as_bytes()));
-    let result = match created {
-        Ok(()) => validator
-            .validate(&staged)
-            .await
-            .map_err(WriteError::Validator),
-        Err(source) => Err(io_error(source)),
-    };
-    // Best effort: the result of the validation is what counts.
-    let _ = fs::remove_file(&staged);
-    result
 }
 
 /// Why the generated files couldn't be written.

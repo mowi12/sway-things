@@ -757,3 +757,40 @@ fn with_kanshi_the_displays_get_no_output_lines() {
     // Everything else is generated as always.
     assert!(text(&files, ConfigFile::Appearance).contains("gaps inner 8"));
 }
+
+/// Accepts every file, but puts a directory with a file in it where `taken` is to go while it
+/// validates, so the rename after the validation fails.
+struct TakesThePlace {
+    taken: PathBuf,
+}
+
+impl Validate for TakesThePlace {
+    fn validate(&self, _staged: &Path) -> impl Future<Output = io::Result<Vec<ConfigError>>> {
+        fs::create_dir_all(&self.taken).unwrap();
+        fs::write(self.taken.join("inside"), "").unwrap();
+        std::future::ready(Ok(Vec::new()))
+    }
+}
+
+#[test]
+fn a_file_sway_accepted_but_that_cant_be_put_in_place_isnt_recorded() {
+    let written = Written::new();
+    let input = written.path(ConfigFile::Input);
+    let validator = TakesThePlace {
+        taken: input.clone(),
+    };
+    let error = block_on(write(
+        &written.files,
+        &written.locations,
+        &validator,
+        &[],
+        &WriteAccess::for_tests(),
+    ))
+    .unwrap_err();
+    assert!(matches!(&error, WriteError::Io { path, .. } if *path == input));
+    // The manifest doesn't claim a file that isn't there, and no staged file is left.
+    let manifest = fs::read_to_string(written.locations.manifest()).unwrap_or_default();
+    assert!(!manifest.contains("10-input.conf"), "{manifest}");
+    assert_eq!(written.names(), ["10-input.conf"]);
+    assert!(input.is_dir());
+}
