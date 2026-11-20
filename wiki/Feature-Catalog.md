@@ -78,30 +78,31 @@ kanshi, static `output` lines in our include (no profiles).
 
 #### Layout editor
 
-- [ ] 🟡 Drag-and-drop arrangement on a canvas, with smart snapping (guide lines, edge/corner/center alignment, a magnet
+- [x] 🟡 Drag-and-drop arrangement on a canvas, with smart snapping (guide lines, edge/corner/center alignment, a magnet
       that backs off)
-- [ ] 🟢 Resolution and refresh rate (**risky → safety net**)
-- [ ] 🟢 Scale and rotation per output
-- [ ] 🟢 Enable / disable outputs (**risky**). The last enabled output is protected
-- [ ] 🟢 Live apply over IPC, 15 s safety net for risky changes
-- [ ] 🟢 Hotplug awareness (output events)
-- [ ] 🟢 Identify displays (numbers flashed on each screen)
-- [ ] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode
+- [x] 🟢 Resolution and refresh rate (**risky → safety net**)
+- [x] 🟢 Scale and rotation per output
+- [x] 🟢 Enable / disable outputs (**risky**). The last enabled output is protected
+- [x] 🟢 Live apply over IPC, 15 s safety net for risky changes
+- [x] 🟢 Hotplug awareness (output events)
+- [x] 🟡 Outputs stored by make, model and serial instead of connector (stable across docks and ports); those without a
+      serial by connector
+- [x] 🟢 Never without a display: while Sway Things stores anything for a display, a hook at every start and reload of
+      sway switches one on if none is
+- [x] 🟢 Identify displays (numbers flashed on each screen)
+- [x] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode, remembered per combination
 
 #### Profiles (kanshi backend)
 
-- [ ] 🟡 Create, rename, delete profiles; generated into our kanshi include
+- [x] 🟡 Each combination of displays remembered on its own as a kanshi profile, without naming or picking profiles;
+      generated into our kanshi include (`~/.config/kanshi/sway-things.conf`)
+- [x] 🟢 A profile that switches on any one display alone, so no combination stays dark
+- [x] 🟢 `kanshictl reload` after saving
+- [x] 🟢 Our include goes above the user's own kanshi profiles, so the arrangement made here comes first; a warning with
+      the command to move it while one of theirs wins for the displays connected
+- [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
 
-- [ ] 🟢 One-click profile switching
-- [ ] 🟡 First run: detect the current layout and suggest a profile name
-- [ ] 🟢 Flicker-free reload (`kanshictl reload` → `SIGHUP` → restart kanshi only as a last resort)
-- [ ] 🟢 Generate `exec kanshi` / `exec_always kanshictl reload` into **our** sway include when kanshi isn't started yet
-
-#### Workspace placement (opt-in)
-
-- [ ] 🟡 Visual map of the screens with workspace numbers: drag a number to another screen
-- [ ] 🟢 Presets: left-to-right, one block per screen, current placement, custom
-- [ ] 🟡 Apply at profile switch via the CLI hook `sway-things hook workspaces --profile <name>`
+Workspace placement: see [Workspaces](#workspaces).
 
 #### Laptop lid (opt-in)
 
@@ -109,8 +110,8 @@ kanshi, static `output` lines in our include (no profiles).
       `bindswitch` lines in our include call `sway-things hook lid closed|open`
 
 **Maybe:** 🟡 adaptive sync / VRR per output · 🟡 sway-only output options (allow tearing, 10-bit, subpixel, scale
-filter, ICC profile) · 🟡 custom modes / modelines · 🟡 match outputs by make/model/serial instead of connector (stable
-across docks) · 🟡 show which profile is active and why · 🟡 per-profile custom `exec` commands · 🟡 shikane backend
+filter, ICC profile) · 🟡 custom modes / modelines · 🟡 show which profile is active and why · 🟡 per-profile custom
+`exec` commands · 🟡 shikane backend
 
 ### Sound
 
@@ -230,21 +231,31 @@ swaybar via our sway include.
 - [x] 🟢 Mouse warping (`mouse_warping`)
 - [x] 🟢 Focus wrapping (`focus_wrapping`)
 - [x] 🟢 Focus on window activation (`focus_on_window_activation`)
-- [x] 🟢 Default layout for new workspaces (`workspace_layout`)
-- [x] 🟢 Default split orientation (`default_orientation`)
+- [x] 🟢 Default layout for new workspaces (`workspace_layout`): on Workspaces
+- [x] 🟢 Default split orientation (`default_orientation`): on Workspaces
 - [x] 🟢 Floating modifier and drag behavior (`floating_modifier`)
 - [x] 🟢 Floating min/max size (`floating_minimum_size`, `floating_maximum_size`)
 - [x] 🟢 Tiling drag and threshold (`tiling_drag`, `tiling_drag_threshold`)
 - [x] 🟢 Popups during fullscreen (`popup_during_fullscreen`)
-- [x] 🟢 Workspace back-and-forth (`workspace_auto_back_and_forth`)
+- [x] 🟢 Workspace back-and-forth (`workspace_auto_back_and_forth`): on Workspaces
 - [x] 🟢 XWayland on/off (`xwayland`)
 - [x] 🟢 Inhibit idle for fullscreen apps (`for_window [...] inhibit_idle fullscreen`)
 
 ### Workspaces
 
+- [x] 🟡 Placement on the displays by a rule worked out for the displays connected: sway's own, round robin from left to
+      right, a block per display, all on the built-in display
+- [x] 🟡 Fixed placement remembered per combination of displays: a map of the displays with the workspace numbers; click
+      a number to send it to the next display, drag it to another
+- [x] 🟢 Fallback displays: each workspace lists the other displays after its own, so it moves away when its display is
+      unplugged and back when it returns
+- [x] 🟢 Number of workspaces placed (1–20)
+- [x] 🟡 Applied at every start and reload of sway and each kanshi profile (`sway-things hook workspaces`), and at once
+      from the page
+- [x] 🟢 Layout, split and back-and-forth of new workspaces (moved from Window Behavior)
+- [ ] 🟡 Keys for workspaces 11–20 and to move a workspace to another display, with conflict detection for the user's
+      own bindings (→ shares the binding parser with Keyboard Shortcuts)
 - [ ] 🟢 Workspace names / icons
-- [ ] 🟢 Number of workspaces with generated default bindings
-- Workspace-to-output placement: see [Displays](#displays)
 
 ### Keyboard Shortcuts
 

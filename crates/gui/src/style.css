@@ -243,3 +243,95 @@ st-placeholder > image {
 .st-dialog .st-passkey-typed {
   text-decoration: underline;
 }
+
+/* The arrangement of the displays: the outputs as tiles on a canvas */
+st-display-canvas {
+  background-color: alpha(currentColor, 0.04);
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+st-display-canvas > button.st-display-tile {
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+st-display-canvas .st-display-number {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+st-display-canvas .st-display-name,
+st-display-canvas .st-display-details {
+  font-size: 0.85em;
+}
+
+/* The grip in the corner of a tile that scales its display: two short lines, like a corner */
+st-display-canvas > .st-display-grip {
+  min-width: 0;
+  min-height: 0;
+  border-right: 2px solid alpha(currentColor, 0.55);
+  border-bottom: 2px solid alpha(currentColor, 0.55);
+  border-bottom-right-radius: 4px;
+}
+
+st-display-canvas > .st-display-grip:hover {
+  border-color: @theme_selected_bg_color;
+}
+
+/* The map of the Workspaces page, below the placement rows */
+.st-workspace-map {
+  margin-top: 12px;
+}
+
+/* A display's card on the Workspaces page, with the numbers of its workspaces */
+.st-workspace-card {
+  padding: 10px;
+  border: 1px solid @borders;
+  border-radius: 8px;
+  background-color: alpha(currentColor, 0.04);
+}
+
+.st-workspace-card > flowbox > flowboxchild > button {
+  min-width: 32px;
+}
+
+/* The warning about displays that overlap or don't touch */
+.st-display-warning {
+  padding: 10px 12px;
+  border: 1px solid @borders;
+  border-radius: 8px;
+}
+
+/* The guide lines while a display is dragged: the accent, like a selection */
+st-display-canvas > .st-display-guide {
+  background-color: @theme_selected_bg_color;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* While the numbers are shown on the displays, the tiles are outlined in the accent */
+st-display-canvas.st-identifying > button.st-display-tile {
+  box-shadow: inset 0 0 0 3px @theme_selected_bg_color;
+}
+
+/* The number shown on a display by "Identify": a window of its own on the overlay layer */
+window.st-identify {
+  border-radius: 18px;
+  padding: 24px 48px;
+}
+
+window.st-identify .st-identify-number {
+  font-size: 96px;
+  font-weight: bold;
+}
+
+window.st-identify .st-identify-name {
+  font-size: 1.2em;
+}
+
+st-display-canvas.st-identifying > button.st-display-tile.st-off:not(:checked) {
+  box-shadow: inset 0 0 0 3px @theme_selected_bg_color;
+}

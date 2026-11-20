@@ -64,6 +64,8 @@ pub enum Lockout {
     Keyboard,
     /// No mouse, trackpoint or touchpad to point with.
     PointingDevice,
+    /// No output that is on, so nothing to see.
+    Display,
 }
 
 impl Lockout {
@@ -98,6 +100,7 @@ impl Lockout {
                 "this would turn off the last mouse, trackpoint or touchpad you can point with"
             )
             .into(),
+            Self::Display => msg!("this would turn off the last display that is on").into(),
         }
     }
 }

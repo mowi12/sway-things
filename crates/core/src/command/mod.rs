@@ -16,6 +16,7 @@ pub mod effects;
 pub mod input;
 #[cfg(test)]
 pub(crate) mod model;
+pub mod output;
 pub mod seat;
 #[cfg(test)]
 mod tests;
@@ -99,6 +100,9 @@ const KEEPS_QUOTES: &[&str] = &[
 #[derive(Debug, Clone, PartialEq)]
 enum Part {
     Keyword(&'static str),
+    /// A word built from checked values, e.g. the mode `2560x1440@59.951Hz`: like a keyword, and
+    /// `@`.
+    Word(String),
     Int(i64),
     Float(f64),
     Color(Color),
@@ -138,6 +142,17 @@ impl SwayCmd {
     pub fn new(name: &'static str) -> Self {
         Self {
             parts: vec![Part::Keyword(name)],
+            availability: Availability::Anywhere,
+            min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
+            criteria: None,
+        }
+    }
+
+    /// `no_focus <criteria>`: a new window that matches `criteria` doesn't take the focus.
+    pub fn no_focus(criteria: Criteria) -> Self {
+        Self {
+            parts: vec![Part::Keyword("no_focus"), Part::Criteria(criteria)],
             availability: Availability::Anywhere,
             min_sway: SwayVersion::OLDEST_SUPPORTED,
             min_swayfx: None,
@@ -213,6 +228,15 @@ impl SwayCmd {
     #[must_use]
     pub fn keyword(mut self, keyword: &'static str) -> Self {
         self.parts.push(Part::Keyword(keyword));
+        self
+    }
+
+    /// Appends a word that a builder made from checked values, e.g. an output mode
+    /// `2560x1440@59.951Hz`. Like a keyword, only ASCII letters, digits and `_ . : * + - @` are
+    /// allowed; rendering fails otherwise. External strings never go here, they are text.
+    #[must_use]
+    pub(crate) fn word(mut self, word: String) -> Self {
+        self.parts.push(Part::Word(word));
         self
     }
 
@@ -383,6 +407,12 @@ impl SwayCmd {
                     }
                     (*keyword).to_owned()
                 }
+                Part::Word(word) => {
+                    if !is_word(word) {
+                        return Err(CommandError::InvalidWord);
+                    }
+                    word.clone()
+                }
                 Part::Int(value) => value.to_string(),
                 Part::Float(value) => {
                     if !value.is_finite() {
@@ -453,6 +483,14 @@ fn is_keyword(keyword: &str) -> bool {
         })
 }
 
+/// Whether `word` can be a [`Part::Word`]: a keyword, which may also contain `@`.
+fn is_word(word: &str) -> bool {
+    !word.is_empty()
+        && word
+            .split('@')
+            .all(|part| part.is_empty() || is_keyword(part))
+}
+
 /// Why a command can't be built or rendered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandError {
@@ -466,6 +504,9 @@ pub enum CommandError {
         /// The keyword.
         keyword: &'static str,
     },
+    /// A word a builder made contains a character outside ASCII letters, digits and
+    /// `_ . : * + - @`.
+    InvalidWord,
     /// A decimal number is infinite or NaN.
     NotFinite,
     /// Criteria have no match.
@@ -492,6 +533,7 @@ impl CommandError {
             Self::InvalidKeyword { keyword } => {
                 Text::new(msg!("invalid keyword {keyword}")).arg("keyword", format!("{keyword:?}"))
             }
+            Self::InvalidWord => msg!("invalid word in a command").into(),
             Self::NotFinite => msg!("number is not finite").into(),
             Self::EmptyCriteria => msg!("criteria have no match").into(),
             Self::NestedCriteria => {

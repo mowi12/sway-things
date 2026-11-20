@@ -63,7 +63,10 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   from 200 to 120 px first. On a narrower row the controls move below the text, aligned to the end, so the text never
   gets squeezed. Each row decides for itself: a switch stays beside its text where a slider has already moved below.
 - **Sliders** mark the setting's default on their track and snap to it while dragged with the pointer (within 2 % of the
-  range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact.
+  range), so the default is easy to hit. Arrow keys, Page Up/Down and the number field stay exact. A display's scale is
+  sent only once the pointer is let go and the control stood still for 0.6 s, so steps in a row are one change: the
+  display (often the one the app is on) changes size under the pointer with each one, and a change while the button is
+  down would move what the pointer is on.
 - **Grouped rows:** settings that are values of one directive (the five colors of `client.focused`) share one row with
   the group's title (_Focused window_), a compact summary of their values (a swatch per color, else the values), the
   directive once in monospace (while _Show sway directives_ is on) and a chevron. It starts collapsed; a click, `Enter`
@@ -96,6 +99,137 @@ Settings of input devices (Mouse & Touchpad, Keyboard) apply to all devices of a
 - **Mouse & Touchpad test area:** below the sections, a pad that names the last click (_Left click_, _Double-click_,
   _Right click_, …) to try tapping, the button maps and left-handed mode, and a strip of lines to scroll to feel scroll
   speed and natural scrolling.
+
+### Displays
+
+The Displays page arranges the outputs and sets each one up. Every change is live, except that going back to what sway
+chooses (a mode, a position or a scale no longer stored) waits for a reload of sway, since sway has no command for it; a
+new mode, a rotation and switching an output off go through the safety net.
+
+- **Arrangement:** a canvas shows the outputs that are on as tiles at their places, scaled to fit with room around them
+  for half of the smallest output on every side, each with its number, a short name (_Built-in_ for a laptop's panel,
+  else the brand, like _Samsung_) and its mode (with the scale and turn when they aren't the plain ones); a tile shows
+  only the lines that fit it (the picked one, too small for all, its scale instead of its name, so a change of it
+  shows), and the whole name in its tooltip. Outputs that are off stand right of them with a thin grey outline and no
+  fill (picked: the outline in the accent) and say _Off_; picked, only _Use this display_ shows below, since nothing
+  else applies to a display that is off. Switched on, a display goes to the place stored for it, else right of the
+  others in the same trial, never at 0,0 over another one. Below it a hint: _Drag the displays to where they stand on
+  your desk. Pick one to change its settings below._ Without a session the canvas gives way to a hint.
+- **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
+  the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
+  rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where
+  the tile fits in): dropped there, it goes in between, and the outputs behind it in that row, with whatever stands on
+  them, make room; taken from that same row, it is a reorder, and what stands below doesn't move. While the bar shows,
+  the other tiles slide aside to where the drop puts them, and back once it goes; they move only when the bar comes,
+  goes or moves to another edge, never with each motion of the pointer, and the bar holds a little beyond its zone, so
+  nothing flickers. Dropped on another output or apart from all of them, it moves to the nearest place next to an edge,
+  sharing at least a quarter of it, so the pointer can always cross. Moved away from where it stood (not just nudged),
+  the gap it leaves closes: what stood behind it in its row (or column) moves up, it stays next to the output it was
+  dropped at, and other gaps stay as they are. After a drop the tiles slide to their places (unless animations are off).
+  The whole layout then starts at 0,0 and every output that is on gets its position stored, so it comes back as
+  arranged. Ctrl+Z goes back to the arrangement before.
+- **Identify:** _Identify_ next to the hint shows each display's number and make and model big in the middle of that
+  display for three seconds, and outlines the tiles meanwhile, so it is clear which tile is which screen. A display
+  plugged in or out meanwhile takes the numbers away, since they may be wrong then.
+- **Scaling:** the picked tile has a grip in its bottom right corner. Dragging it along the tile's diagonal scales the
+  output, the tile keeping its proportions and showing the scale; it catches at 100, 125, 150, 175 and 200 % and else
+  moves in steps of 5 %, from 50 to 300 %. While it is dragged, the other tiles already stand where the new size puts
+  them; released, the scale is stored, and once sway reports the new size the layout flows along as for a scale set in
+  the row.
+- **While a risky change waits** (a new mode, a rotation, a display switched off), another value of the same setting for
+  the same display takes its place (still with the safety net, even if it is the value from before), and Revert still
+  goes back to what was before the first. _Automatic_ meanwhile puts back what was before and is stored for the next
+  reload of sway, as it is when nothing waits, since sway can't try it live. Meanwhile the tiles can be picked but not
+  moved or scaled, and the settings of the other displays and every display's _Show_ wait (their controls say why), so
+  Revert puts everything back. A new mode or rotation that changes the display's size moves the others along already
+  during the trial, and a display switched off has the gap it leaves closed, so nothing overlaps and nothing floats
+  apart while the user decides; Revert puts them back, Keep stores them with the change.
+- **Keyboard:** Tab reaches the tiles, Space picks one, the arrow keys move it by 10 logical pixels (100 with Shift),
+  settled the same way.
+- **Overlaps and gaps:** when outputs overlap or don't touch (a config written by hand, a scale changed elsewhere), a
+  warning says the pointer can't reach every display and offers _Arrange Side by Side_.
+- **Sizes:** when the scale, rotation or mode of outputs changes through Sway Things (one output, or the scale of all of
+  them), the layout flows so that what touched still touches, without overlaps and gaps. A change from elsewhere
+  (`swaymsg`) is left as it is.
+- **Positions are absolute:** a display plugged in later with other displays (another dock) comes back where it stood;
+  if it doesn't touch the others then, the warning and _Arrange Side by Side_ help. Arrangements per set of displays
+  come with display profiles.
+- **The output's settings:** the _Display_ section starts with _Settings for_: _All displays_ and each output, numbered
+  as on the canvas, with "(off)" or "(not connected)". A click on a tile picks it there, and the other way round; at
+  first the output with the focus is picked. The rows: _Use this display_, _Resolution and refresh rate_ (two choices:
+  the resolution, _Automatic_ and then the output's sizes from the largest down, and beside it the refresh rates of that
+  size, like _59.951 Hz_, exactly as sway reports them; a new resolution takes its highest rate), _Scale_, _Rotation_
+  and _Position_. Where nothing sets the mode, the scale or the position, the row shows what sway chose with the note
+  _Chosen by sway_. _All displays_ offers only the scale: a mode, a rotation, a position or switching off is for one
+  display at a time. A new mode, a rotation and switching a display off are tried with the safety net. _Use this
+  display_ says what happens to a display that is off when sway starts: if no other is on then, Sway Things switches it
+  on again (also at a reload, so `$mod+Shift+c` brings a display back after undocking). A display that is on although it
+  is stored as off says _On for now: no other display was on_.
+- **Hotplug:** outputs appear and disappear live; the output picked stays picked while it is connected.
+- **Remembered per combination:** with kanshi installed, every combination of displays is remembered on its own: what is
+  set on the page when it saves is kanshi's profile for that combination, and kanshi brings it back whenever those
+  displays are connected together, also without the app. Nothing is named or picked by hand. When the combination
+  changes, the page shows what kanshi set up for it, so the rows and the canvas always show what runs; the rows then
+  have no reset button or machine toggle. The first time, kanshi is started at once. A note above the canvas says so
+  (and that kanshi starts with the next login, if it can't be started yet). Without the include line in an existing
+  kanshi config, the note shows the line and a command that puts it at the top, with _Copy Command_ (which says _Copied_
+  for a moment); without kanshi, it says that installing kanshi makes this happen. The line belongs above the user's own
+  profiles: kanshi applies the first profile that matches, so the arrangement made here comes first and the user's
+  profiles stay for the combinations never arranged here. While anything of the user's comes before the line, the note
+  is a warning with the command that moves the line up (or what to do by hand, where no command does it safely); it
+  names the profile that sets up the displays connected now, since every change on the page is undone by that profile at
+  once. The page follows kanshi's config, so the warning goes as soon as the line is in place. _Reset page_ forgets what
+  was set here for the displays connected (their profile with its pictures and placement, and their stored values): what
+  set them up before, a kanshi profile of the user's own or sway, applies again. Our file for kanshi shows per
+  combination where each display stands and, in comment lines, which workspaces go on it. Any one display alone always
+  comes on, so no combination stays dark.
+- **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
+- **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
+  content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
+  there for a display that is on while another one is. The picture starts at once as a fullscreen `wl-mirror` window on
+  that display, without taking the focus, and comes back whenever kanshi brings the combination back (no daemon: kanshi
+  runs the hook). Meanwhile the display stands apart from the others, 2000 logical pixels right of them, which the
+  pointer doesn't cross, and its tile is parked beside the others like one that is off, saying _Picture of …_ (its
+  position isn't offered). The picture has a workspace of its own named after the display, so no workspace number leads
+  there. The workspaces with windows that stood on the display move to the one shown, as does one that lands there later
+  (at the next start, reload or kanshi profile), and go back (the first of them shown again, the display at its place
+  again) when it shows its own content again; a display that mirrors takes no workspaces, also not from the placement.
+  Without kanshi or wl-mirror the row says what it needs, and a remembered picture that can't start (wl-mirror gone)
+  leaves its display and its workspaces as they are.
+
+### Workspaces
+
+The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are.
+
+- **Place workspaces:** a choice for the whole page.
+  - _Off (sway decides)_, the default: sway's own behavior, a new workspace on the display with the focus. Nothing is
+    placed, and the map is hidden.
+  - _Round robin, left to right_: 1 on the first display, 2 on the second, … (1 3 5 · 2 4 6 with two).
+  - _A block per display_: 1–5 on the first of two displays, 6–10 on the second.
+  - _All on one display (the laptop's, or the leftmost)_.
+  - _Fixed, as you arrange them_: remembered for each combination of displays; one seen for the first time starts round
+    robin.
+
+  A rule is worked out again for whatever displays are connected, so it fits at home, at the office and on the laptop
+  alone without any setup per combination. A display that shows another one's picture takes no workspaces: while a rule
+  places them, starting or ending a picture places them anew and reloads sway at once, without asking (sway keeps the
+  displays it was told for each workspace until it reloads, and a number that still led onto the picture would hide it),
+  so no number leads onto the picture and every number is back on its display when the picture ends. After placing,
+  every display shows one of its own workspaces, so the number of another display's workspace never leads there.
+- **Workspaces placed:** how many, from 1 (default 10, up to 20). sway's own keys reach 1 to 10; keys for more come with
+  Keyboard Shortcuts.
+- **The map:** below the rows, a card per display from left to right (two displays of one brand with their connector)
+  with the numbers it holds. A click on a number sends it to the next display, dragging puts it on another card; either
+  makes the placement _Fixed_, starting from what the rule gave. With one display there is nothing to arrange, and the
+  map says so.
+- **Applied:** open workspaces move at once. sway only adds to the displays it knows for a workspace, so the ones that
+  aren't open follow with the next reload: the change waits for it like other settings, with the reload banner.
+- **When displays come and go:** every workspace gets the other displays after its own, from left to right
+  (`workspace 3 output DP-1 eDP-1`). Unplugging a display moves its workspaces to the next one; plugging it back in
+  moves them back. With kanshi, each combination places the workspaces again as the rule says; every start and reload of
+  sway does too. Without kanshi, a combination seen for the first time is placed at the next start or reload.
+- **New workspaces:** _Layout of new workspaces_, _Split of new workspaces_ and _Back and forth_, which were on Window
+  Behavior.
 
 ### Bluetooth
 

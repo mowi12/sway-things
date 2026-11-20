@@ -158,6 +158,33 @@ pub fn with_inputs(inputs: &'static [&'static str]) -> FakeSway {
     })
 }
 
+/// A sway 1.10.1 that answers each `GET_OUTPUTS` with the next of `outputs` (the last one again
+/// after that), and sends one output event per reply after the first to a subscriber, whose
+/// connection stays open like sway's. Every command succeeds, except those that contain `fail`.
+pub fn with_outputs(outputs: &[&str]) -> FakeSway {
+    let outputs: Vec<String> = outputs.iter().map(|&output| output.to_owned()).collect();
+    let asked = std::sync::atomic::AtomicUsize::new(0);
+    FakeSway::with_version(SWAY_1_10, move |kind, payload| match kind {
+        wire::SUBSCRIBE => {
+            let mut answer = message(kind, r#"{"success": true}"#);
+            for _ in outputs.iter().skip(1) {
+                answer.extend(message(wire::EVENT | 0x01, r#"{"change": "unspecified"}"#));
+            }
+            answer
+        }
+        wire::GET_OUTPUTS => {
+            let index = asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            message(kind, &outputs[index.min(outputs.len() - 1)])
+        }
+        wire::GET_INPUTS => message(kind, "[]"),
+        _ if payload.contains("fail") => message(
+            kind,
+            r#"[{"success": false, "parse_error": true, "error": "Unknown/invalid command 'fail'"}]"#,
+        ),
+        _ => message(kind, r#"[{"success": true}]"#),
+    })
+}
+
 /// A sway on which every command succeeds, except those that contain `fail`, and that has no
 /// input devices.
 pub fn obedient(version: impl Into<String>) -> FakeSway {
@@ -165,12 +192,13 @@ pub fn obedient(version: impl Into<String>) -> FakeSway {
 }
 
 /// A sway on which every command succeeds, except those that contain `fail`, and that answers
-/// `GET_INPUTS` with `inputs`. A subscription succeeds and gets no events.
+/// `GET_INPUTS` with `inputs` and has no outputs. A subscription succeeds and gets no events.
 pub fn obedient_with_inputs(version: impl Into<String>, inputs: impl Into<String>) -> FakeSway {
     let inputs = inputs.into();
     FakeSway::with_version(version, move |kind, payload| {
         match kind {
             wire::GET_INPUTS => return message(kind, &inputs),
+            wire::GET_OUTPUTS => return message(kind, "[]"),
             wire::SUBSCRIBE => return message(kind, r#"{"success": true}"#),
             _ => {}
         }

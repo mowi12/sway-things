@@ -12,7 +12,8 @@
 //! Every file starts with the [`HEADER`]. Below it, each line is one command as the
 //! [command builders](crate::command) render it for a config file, in the order of the registry,
 //! first for the whole session and the input types, then per input device. `80-hooks.conf` holds
-//! the lines that run hooks of the command line. The same state gives the same bytes.
+//! the lines that run hooks of the command line; `20-output.conf` ends with the one that keeps a
+//! display on, next to the outputs it guards. The same state gives the same bytes.
 //!
 //! ```
 //! use sway_things_core::generate::generate;
@@ -44,10 +45,10 @@ use write::parse_error;
 
 use std::collections::BTreeSet;
 
-use crate::command::input::InputSelector;
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
-use crate::registry::{ConfigFile, Registry, Setting};
+use crate::outputs;
+use crate::registry::{ConfigFile, Registry, Scope, Setting};
 use crate::state::State;
 
 pub use manifest::{Manifest, Ownership};
@@ -134,6 +135,71 @@ impl GeneratedFile {
 /// stays stored and comes back when the compositor supports it. The same happens to a value the
 /// command builders reject, such as a font description with a backslash.
 pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> Vec<GeneratedFile> {
+    generate_for(registry, state, compositor, Displays::Sway)
+}
+
+/// Who sets up the displays: what decides whether the generated sway config has `output` lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Displays {
+    /// sway, from the `output` lines Sway Things generates.
+    #[default]
+    Sway,
+    /// kanshi, from the profiles Sway Things remembers per combination of displays
+    /// ([`crate::outputs::profiles`]): kanshi applies them whenever displays come and go, so
+    /// the sway config has no `output` lines that would contradict them at a reload. With
+    /// `start`, the user's config doesn't start kanshi, so ours does.
+    Kanshi {
+        /// Whether the generated config starts kanshi.
+        start: bool,
+    },
+}
+
+impl Displays {
+    /// kanshi if it is installed and its config includes ours (or there is none, so it is
+    /// created with the include), else sway. `status` is the user's sway config, which may start
+    /// kanshi itself; `locations` are our files in it. Reads files; nothing is run.
+    pub fn detect(status: &crate::include::IncludeStatus, locations: &Locations) -> Self {
+        use crate::outputs::kanshi;
+        let Some(files) = kanshi::KanshiFiles::from_env() else {
+            return Self::Sway;
+        };
+        if !kanshi::installed() || files.inclusion() == kanshi::Inclusion::Missing {
+            return Self::Sway;
+        }
+        // Started by the user's sway config, or running from elsewhere (a systemd unit, say):
+        // one kanshi is enough. A kanshi our own `exec kanshi` started keeps being started,
+        // until one runs as a unit of its own: that one was set up since, and ours would be a
+        // second one beside it.
+        let ours_starts = std::fs::read_to_string(locations.path(ConfigFile::Output))
+            .is_ok_and(|text| text.lines().any(|line| line.trim() == "exec kanshi"));
+        Self::Kanshi {
+            start: !kanshi::started_by(status.config(), locations.directory())
+                && !crate::outputs::kanshi_runs_as_unit()
+                && (ours_starts || !crate::outputs::kanshi_runs()),
+        }
+    }
+
+    /// This, or sway if the remembered displays aren't `readable` (`displays.toml` can't be
+    /// read): kanshi would get nothing of what is set, so sway keeps setting the displays up
+    /// from our lines. The app, the command line and `doctor` all decide by this.
+    #[must_use]
+    pub fn with_profiles(self, readable: bool) -> Self {
+        if readable { self } else { Self::Sway }
+    }
+
+    /// Whether kanshi sets up the displays.
+    pub fn is_kanshi(self) -> bool {
+        matches!(self, Self::Kanshi { .. })
+    }
+}
+
+/// [`generate`] with `displays` set up by sway or by kanshi.
+pub fn generate_for(
+    registry: &Registry,
+    state: &State,
+    compositor: Compositor,
+    displays: Displays,
+) -> Vec<GeneratedFile> {
     let mut files = ConfigFile::ALL.map(|file| GeneratedFile {
         file,
         lines: Vec::new(),
@@ -146,6 +212,9 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
             let Some(mapping) = setting.sway() else {
                 continue;
             };
+            if displays.is_kanshi() && setting.scope() == Scope::PerOutput {
+                continue;
+            }
             // The settings of one directive make one command, at the place of the first one.
             let group: Vec<&Setting> = registry.group(setting).collect();
             if group.first().map(|first| first.key()) != Some(setting.key()) {
@@ -172,35 +241,144 @@ pub fn generate(registry: &Registry, state: &State, compositor: Compositor) -> V
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
     }
+    if let Some(file) = files
+        .iter_mut()
+        .find(|file| file.file == ConfigFile::Output)
+    {
+        file.lines.extend(output_tail(state, displays));
+    }
     files.into()
+}
+
+/// The lines at the end of `20-output.conf`, after the settings of the outputs: with kanshi, what
+/// starts and serves it, and the display guard.
+fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
+    let mut lines = Vec::new();
+    let for_displays = state
+        .entries()
+        .iter()
+        .any(|entry| entry.setting.scope() == Scope::PerOutput);
+    if displays.is_kanshi() && for_displays {
+        lines.push(Line {
+            text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
+                .to_owned(),
+            source: Source {
+                keys: Vec::new(),
+                device: None,
+            },
+            skipped: None,
+        });
+    }
+    if displays == (Displays::Kanshi { start: true }) {
+        if let Ok(text) = crate::command::SwayCmd::new("exec")
+            .keyword("kanshi")
+            .render(Target::Config)
+        {
+            lines.push(Line {
+                text,
+                source: Source {
+                    keys: Vec::new(),
+                    device: None,
+                },
+                skipped: None,
+            });
+        }
+    }
+    // The picture of another display doesn't take the focus when it starts.
+    if displays.is_kanshi() {
+        if let Ok(text) = crate::outputs::mirror::no_focus_command().render(Target::Config) {
+            lines.push(Line {
+                text,
+                source: Source {
+                    keys: Vec::new(),
+                    device: None,
+                },
+                skipped: None,
+            });
+        }
+    }
+    // With kanshi, the hook also has kanshi apply its profile again and places the
+    // workspaces after every reload, whatever is stored.
+    let guard = display_guard(state).or_else(|| {
+        displays.is_kanshi().then(|| {
+            outputs::guard_command()
+                .render(Target::Config)
+                .ok()
+                .map(|text| Line {
+                    text,
+                    source: Source {
+                        keys: Vec::new(),
+                        device: None,
+                    },
+                    skipped: None,
+                })
+        })?
+    });
+    lines.extend(guard);
+    lines
 }
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
 /// is stored, so its value reaches GSettings at login and after each reload, also when the
-/// settings file came from another machine.
+/// settings file came from another machine; and `sway-things hook workspaces` while the
+/// workspaces are placed, since sway forgets their displays at a reload.
 fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
+    let mut lines = Vec::new();
     let keys: Vec<&'static str> = registry
         .iter()
         .filter(|setting| setting.gsettings().is_some())
         .map(Setting::key)
         .filter(|key| state.get(key, None).is_some())
         .collect();
-    if keys.is_empty() {
-        return Vec::new();
+    if !keys.is_empty() {
+        lines.push(hook_line("gsettings", keys));
     }
+    if outputs::workspaces::Rule::of(state).places() {
+        lines.push(hook_line(
+            "workspaces",
+            vec![crate::registry::workspaces::PLACEMENT],
+        ));
+    }
+    lines
+}
+
+/// The line that runs `sway-things hook <name>`, for the settings `keys`.
+fn hook_line(name: &'static str, keys: Vec<&'static str>) -> Line {
     let source = Source { keys, device: None };
-    match command::hook("gsettings").render(Target::Config) {
-        Ok(text) => vec![Line {
+    match command::hook(name).render(Target::Config) {
+        Ok(text) => Line {
             text,
             source,
             skipped: None,
-        }],
-        Err(error) => vec![Line {
+        },
+        Err(error) => Line {
             text: format!("# {}: {error}", source.keys.join(", ")),
             source,
             skipped: Some(error.to_string()),
-        }],
+        },
     }
+}
+
+/// While Sway Things stores anything for an output, the line that runs `sway-things hook
+/// displays` whenever sway starts or reloads: it switches an output on if none is on, so an
+/// output that stays off never leaves the user without a display (a laptop's panel, switched off
+/// at the dock, when sway starts without the dock), even where a line of the user's switches off
+/// what is stored as on; and while kanshi runs, it has kanshi apply its profile again over the
+/// lines sway just read.
+fn display_guard(state: &State) -> Option<Line> {
+    let entries = state.entries();
+    let first = entries
+        .iter()
+        .find(|entry| entry.setting.scope() == Scope::PerOutput)?;
+    let text = outputs::guard_command().render(Target::Config).ok()?;
+    Some(Line {
+        text,
+        source: Source {
+            keys: vec![first.setting.key()],
+            device: first.device.map(ToOwned::to_owned),
+        },
+        skipped: None,
+    })
 }
 
 /// The lines for the directive of `setting`: its commands, or one comment if they are left out.
@@ -227,17 +405,7 @@ fn lines(
         return skipped(unmet.to_string());
     }
     let device = source.device.as_deref();
-    let selector = match device.map(InputSelector::device) {
-        Some(Ok(selector)) => Some(selector),
-        Some(Err(error)) => return skipped(error.to_string()),
-        None => None,
-    };
-    let commands = match registry.render(
-        setting,
-        &state.values(device),
-        selector.as_ref(),
-        Target::Config,
-    ) {
+    let commands = match registry.render(setting, &state.values(device), device, Target::Config) {
         Ok(commands) => commands,
         Err(error) => return skipped(error.to_string()),
     };

@@ -42,6 +42,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::Color;
 use sway_things_core::conflict::{Report, UserLine};
+use sway_things_core::outputs;
 use sway_things_core::registry::{Apply, Kind, Registry, Scope, Setting, Value};
 use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
@@ -108,7 +109,7 @@ mod imp {
     use gtk::glib;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use sway_things_core::registry::Setting;
+    use sway_things_core::registry::{Setting, Value};
 
     use crate::model::Model;
 
@@ -124,6 +125,14 @@ mod imp {
         pub(super) control: OnceCell<super::Control>,
         /// Set while the row writes a value into its control, so that isn't sent as a change.
         pub(super) updating: Cell<bool>,
+        /// Set while a pointer button is down on a number control whose changes wait for it
+        /// ([`super::SettingRow::defers`]).
+        pub(super) held: Cell<bool>,
+        /// Set while that is a finger, which has no button the seat could report.
+        pub(super) touched: Cell<bool>,
+        /// The value of such a control that waits to be sent, and the timer that sends it.
+        pub(super) unsent: RefCell<Option<Value>>,
+        pub(super) commit: RefCell<Option<glib::SourceId>>,
         /// Set for a member of a group, whose row shows the line of the sway config instead.
         pub(super) grouped: Cell<bool>,
         pub(super) title: gtk::Label,
@@ -133,6 +142,8 @@ mod imp {
         pub(super) error: gtk::Label,
         pub(super) badges: gtk::Box,
         pub(super) controls: gtk::Box,
+        /// Controls a page added after the first ([`super::SettingRow::add_control`]).
+        pub(super) added: RefCell<Vec<gtk::Widget>>,
         pub(super) reset: gtk::Button,
         pub(super) machine: gtk::ToggleButton,
         pub(super) conflict: gtk::MenuButton,
@@ -164,6 +175,9 @@ mod imp {
         }
 
         fn dispose(&self) {
+            // A value of the number control that waits is sent before the row goes: the control
+            // showed it.
+            self.obj().flush_unsent();
             while let Some(child) = self.obj().first_child() {
                 child.unparent();
             }
@@ -553,7 +567,12 @@ impl SettingRow {
     ) {
         let imp = self.imp();
         let Some(model) = imp.model.get() else { return };
-        let layer = model.stored_in(setting, device);
+        // While kanshi sets up the displays, each of their values is remembered for the
+        // combination as it is: there is no value of all displays to go back to, and nothing
+        // only for this machine.
+        let layer = model
+            .stored_in(setting, device)
+            .filter(|_| !(model.kanshi_runs() && setting.scope() == Scope::PerOutput));
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
         imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
@@ -563,6 +582,7 @@ impl SettingRow {
                     msg!("Use the value of {devices}"),
                     &[("devices", &all_of_type(kind))],
                 ),
+                (Scope::PerOutput, Some(_)) => tr(msg!("Use the value of all displays")).to_owned(),
                 _ => tr(msg!("Reset to default")).to_owned(),
             }));
         imp.machine.set_child_visible(layer.is_some());
@@ -658,11 +678,17 @@ impl SettingRow {
 
     /// The widgets that change the value.
     pub fn controls(&self) -> Vec<gtk::Widget> {
-        self.imp()
+        let mut widgets: Vec<gtk::Widget> = self
+            .imp()
             .control
             .get()
             .map(Control::widgets)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // And those a page added ([`SettingRow::add_control`]), after the first.
+        let added = self.imp().added.borrow().clone();
+        let at = 1.min(widgets.len());
+        widgets.splice(at..at, added);
+        widgets
     }
 
     /// The text under the title: the error of the last change, if it failed.
@@ -678,10 +704,21 @@ impl SettingRow {
         if imp.device.borrow().as_deref() == device {
             return;
         }
+        // A value that waits belongs to the display shown so far.
+        self.flush_unsent();
         imp.device.replace(device.map(str::to_owned));
         self.show_error(None);
         self.refresh();
         self.emit_by_name::<()>("device-changed", &[]);
+    }
+
+    /// Adds `widget` after the row's own control, for a page that splits one value over two
+    /// controls (a mode's resolution and refresh rate).
+    pub fn add_control(&self, widget: &impl IsA<gtk::Widget>) {
+        let imp = self.imp();
+        imp.controls
+            .insert_child_after(widget, imp.controls.first_child().as_ref());
+        imp.added.borrow_mut().push(widget.clone().upcast());
     }
 
     /// Calls `callback` when the row is pointed at another device ([`SettingRow::set_device`]).
@@ -769,6 +806,150 @@ impl SettingRow {
         model.set(setting.key(), imp.device.borrow().as_deref(), value);
     }
 
+    /// Whether the changes of the row's number control wait until the pointer is let go and
+    /// the control stayed still for a moment: for a display's scale. A display that changes its
+    /// scale changes the size of every window on it, the app's too, under the pointer: a change
+    /// sent while a button is down (a slider dragged, a step button held) would move what the
+    /// pointer is on, and the button could be let go elsewhere, leaving the step button
+    /// repeating.
+    fn defers(&self) -> bool {
+        self.setting()
+            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+    }
+
+    /// Sends `value` from the number control: at once, or for a control that defers
+    /// ([`SettingRow::defers`]) once the pointer is let go and the control stayed still.
+    fn send_number(&self, value: Value) {
+        if self.imp().updating.get() {
+            return;
+        }
+        if !self.defers() {
+            self.send(value);
+            return;
+        }
+        self.imp().unsent.replace(Some(value));
+        self.plan_commit();
+    }
+
+    /// Sends the value that waits after [`COMMIT_DELAY`], unless a button is down then.
+    fn plan_commit(&self) {
+        let imp = self.imp();
+        if let Some(planned) = imp.commit.take() {
+            planned.remove();
+        }
+        let planned = glib::timeout_add_local_once(
+            COMMIT_DELAY,
+            glib::clone!(
+                #[weak(rename_to = row)]
+                self,
+                move || {
+                    let imp = row.imp();
+                    // It fired: nothing to remove any more.
+                    imp.commit.replace(None);
+                    // Sent when the button is let go; if that never reached the control (the
+                    // window lost the pointer meanwhile), once no button is down any more.
+                    if imp.held.get() {
+                        if imp.touched.get() || row.button_down() {
+                            row.plan_commit();
+                            return;
+                        }
+                        imp.held.set(false);
+                    }
+                    if let Some(value) = imp.unsent.take() {
+                        row.send(value);
+                    }
+                }
+            ),
+        );
+        imp.commit.replace(Some(planned));
+    }
+
+    /// Sends the value of the number control that waits now, for the display shown, unless that
+    /// went (which is why another one is shown, or the row goes).
+    fn flush_unsent(&self) {
+        let imp = self.imp();
+        if let Some(planned) = imp.commit.take() {
+            planned.remove();
+        }
+        imp.held.set(false);
+        imp.touched.set(false);
+        let Some(value) = imp.unsent.take() else {
+            return;
+        };
+        let shown = imp.device.borrow().clone();
+        let still_there = shown.as_deref().is_none_or(|shown| {
+            imp.model.get().is_some_and(|model| {
+                model.outputs().is_some_and(|outputs| {
+                    outputs
+                        .get(shown)
+                        .is_some_and(sway_things_core::outputs::Output::is_connected)
+                })
+            })
+        });
+        if still_there {
+            self.send(value);
+        }
+    }
+
+    /// Whether a pointer button is down on the pointer of the row's seat, as the window's
+    /// surface last heard of it.
+    fn button_down(&self) -> bool {
+        let buttons = gtk::gdk::ModifierType::BUTTON1_MASK
+            | gtk::gdk::ModifierType::BUTTON2_MASK
+            | gtk::gdk::ModifierType::BUTTON3_MASK;
+        let Some(pointer) = self
+            .display()
+            .default_seat()
+            .and_then(|seat| seat.pointer())
+        else {
+            return false;
+        };
+        self.native()
+            .and_then(|native| native.surface())
+            .and_then(|surface| surface.device_position(&pointer))
+            .is_some_and(|(_, _, state)| state.intersects(buttons))
+    }
+
+    /// Follows whether a pointer button is down on `widget`, a part of a number control that
+    /// defers: the value waits while it is, and is sent a moment after it is let go.
+    fn follow_presses(&self, widget: &gtk::Widget) {
+        let presses = gtk::EventControllerLegacy::new();
+        presses.set_propagation_phase(gtk::PropagationPhase::Capture);
+        presses.connect_event(glib::clone!(
+            #[weak(rename_to = row)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, event| {
+                match event.event_type() {
+                    gtk::gdk::EventType::ButtonPress => row.imp().held.set(true),
+                    gtk::gdk::EventType::TouchBegin => {
+                        row.imp().held.set(true);
+                        row.imp().touched.set(true);
+                    }
+                    gtk::gdk::EventType::ButtonRelease
+                    | gtk::gdk::EventType::TouchEnd
+                    | gtk::gdk::EventType::TouchCancel => {
+                        row.imp().held.set(false);
+                        row.imp().touched.set(false);
+                        if row.imp().unsent.borrow().is_some() {
+                            row.plan_commit();
+                        }
+                    }
+                    _ => {}
+                }
+                glib::Propagation::Proceed
+            }
+        ));
+        widget.add_controller(presses);
+    }
+
+    /// Whether the number control shows a value that isn't sent yet.
+    fn holds_unsent(&self) -> bool {
+        let imp = self.imp();
+        imp.held.get() || imp.unsent.borrow().is_some()
+    }
+
     /// Shows the value in effect and whether it can be changed.
     fn refresh(&self) {
         let imp = self.imp();
@@ -782,7 +963,7 @@ impl SettingRow {
             return;
         };
         // While a newer value is on its way, the control already shows it.
-        if !model.is_pending(setting.key(), device.as_deref()) {
+        if !model.is_pending(setting.key(), device.as_deref()) && !self.holds_unsent() {
             imp.updating.set(true);
             show_value(control, setting, &view.value);
             imp.updating.set(false);
@@ -791,13 +972,46 @@ impl SettingRow {
         imp.line
             .set_visible(view.line.is_some() && !imp.grouped.get() && shows_directives(model));
         self.refresh_indicators(setting, device.as_deref(), &view);
-        let note = note(&view, setting, device.as_deref());
+        let mut note = note(&view, setting, device.as_deref());
+        // A display stored as off that the start of sway switched on: no other one was on.
+        let on_anyway = setting.key() == outputs::ENABLED
+            && view.value == Value::Bool(false)
+            && device.as_deref().is_some_and(|device| {
+                model
+                    .outputs()
+                    .and_then(|outputs| outputs.get(device).map(outputs::Output::is_enabled))
+                    .unwrap_or(false)
+            });
+        if on_anyway {
+            if !note.is_empty() {
+                note.push_str(" \u{b7} ");
+            }
+            note.push_str(tr(msg!("On for now: no other display was on")));
+        }
         imp.note.set_text(&note);
         imp.note.set_visible(!note.is_empty());
+        // While a display's change waits to be kept or reverted, the others' settings wait too:
+        // Revert puts back only that change.
+        let waits_for_other = setting.scope() == Scope::PerOutput
+            && model
+                .pending_change()
+                .is_some_and(|pending| pending.device() != device.as_deref());
         let reason = view
             .locked
             .as_ref()
-            .map(|locked| locked.text().translated());
+            .map(|locked| locked.text().translated())
+            .or_else(|| {
+                waits_for_other.then(|| {
+                    tr(msg!("Keep or revert the change of the other display first")).to_owned()
+                })
+            });
+        // Controls a page added are locked with the row; the page opens them as it sees fit.
+        if let Some(reason) = &reason {
+            for widget in imp.added.borrow().iter() {
+                widget.set_sensitive(false);
+                widget.set_tooltip_text(Some(reason));
+            }
+        }
         for widget in control.widgets() {
             widget.set_sensitive(reason.is_none());
             widget.set_tooltip_text(reason.as_deref());
@@ -839,7 +1053,7 @@ impl SettingRow {
                         row.imp().updating.set(true);
                         spin.set_value(value);
                         row.imp().updating.set(false);
-                        row.send(number(value, whole));
+                        row.send_number(number(value, whole));
                     }
                 ));
                 spin.connect_value_changed(glib::clone!(
@@ -855,9 +1069,13 @@ impl SettingRow {
                         row.imp().updating.set(true);
                         scale.set_value(value);
                         row.imp().updating.set(false);
-                        row.send(number(value, whole));
+                        row.send_number(number(value, whole));
                     }
                 ));
+                if self.defers() {
+                    self.follow_presses(scale.upcast_ref());
+                    self.follow_presses(spin.upcast_ref());
+                }
             }
             Control::Choice { dropdown, ids } => {
                 let ids = ids.clone();
@@ -925,9 +1143,10 @@ impl SettingRow {
         ));
     }
 
-    /// Replaces the choices of a row made [with choices](SettingRow::with_choices), e.g. when
-    /// the outputs or the sizes of the picked theme change, and shows the value in effect again.
-    /// Nothing is sent.
+    /// Replaces the choices of a row made [with choices](SettingRow::with_choices), each a value
+    /// and its label, e.g. when the outputs or the sizes of the picked theme change, or for the
+    /// modes of another output, and shows the value in effect again; a value that isn't among
+    /// them is shown at the end. Nothing is sent.
     pub fn set_choices(&self, choices: &[(String, String)]) {
         let imp = self.imp();
         let Some(Control::Pick { labels, values, .. }) = imp.control.get() else {
@@ -1029,6 +1248,10 @@ fn control(setting: &'static Setting) -> Option<Control> {
         Kind::List { .. } => Control::None,
     })
 }
+
+/// How long a number control whose changes wait ([`SettingRow::defers`]) stays still before its
+/// value is sent: clicks on its buttons in a row become one change.
+const COMMIT_DELAY: std::time::Duration = std::time::Duration::from_millis(600);
 
 /// The share of a slider's range around the default in which dragging locks to the default.
 const SNAP_ZONE: f64 = 0.02;
@@ -1154,6 +1377,12 @@ fn show_value(control: &Control, setting: &Setting, value: &Value) {
         (Control::Text(entry), Value::Text(text)) => {
             if entry.text() != *text {
                 entry.set_text(text);
+                // GTK's GPU renderers can leave a few pixels of a longer text before (seen with a
+                // position after picking another display): the whole field is drawn again.
+                entry.queue_draw();
+                if let Some(inner) = entry.first_child() {
+                    inner.queue_draw();
+                }
             }
         }
         (
@@ -1238,6 +1467,18 @@ fn note(view: &SettingView, setting: &Setting, device: Option<&str>) -> String {
                 msg!("Same as {devices}"),
                 &[("devices", &all_of_type(kind))],
             ));
+        }
+        (Source::Stored { for_type: true, .. }, Scope::PerOutput, Some(_)) => {
+            parts.push(tr(msg!("Same as all displays")).to_owned());
+        }
+        // Where sway picks a value itself: the mode, the place and the scale of an output.
+        (Source::Session, _, _)
+            if matches!(
+                setting.key(),
+                outputs::MODE | outputs::POSITION | outputs::SCALE
+            ) =>
+        {
+            parts.push(tr(msg!("Chosen by sway")).to_owned());
         }
         _ => {}
     }

@@ -23,16 +23,22 @@ use anstream::{AutoStream, ColorChoice};
 
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
-use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial};
+use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial, Tried};
 use sway_things_core::command::input::InputSelector;
+use sway_things_core::command::output::OutputSelector;
+use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
-use sway_things_core::generate::{Locations, Outcome, SwayValidator, Validate};
+use sway_things_core::generate::{self, Locations, Outcome, SwayValidator, Validate};
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
+use sway_things_core::ipc::Client;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
-use sway_things_core::registry::{Apply, ConfigFile, Link, Registry, Scope, Setting, Value};
+use sway_things_core::outputs::{self, Outputs};
+use sway_things_core::registry::{
+    Apply, ConfigFile, DeviceError, Link, Registry, Scope, Setting, Value,
+};
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
@@ -62,7 +68,9 @@ pub enum Command {
     Get {
         /// The setting, e.g. windows.gaps.inner
         key: Option<String>,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Print JSON for scripts
@@ -77,7 +85,9 @@ pub enum Command {
         /// as items separated by commas (us,de)
         #[arg(allow_hyphen_values = true)]
         value: String,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Store the value for this machine only, in settings.d/<hostname>.toml
@@ -97,7 +107,9 @@ pub enum Command {
     Reset {
         /// The setting, e.g. windows.gaps.inner
         key: String,
-        /// The input device, by its identifier as `swaymsg -t get_inputs` shows it
+        /// The input device or display: an input device by its identifier as `swaymsg -t
+        /// get_inputs` shows it, a display by its make, model and serial as `swaymsg -t
+        /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
         /// Reset a setting that can lock you out without asking to keep it
@@ -126,7 +138,7 @@ pub enum Command {
         /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
         link: Option<String>,
     },
-    /// Run a hook; the generated sway config runs these, in 80-hooks.conf
+    /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
 }
@@ -137,6 +149,17 @@ pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
     Gsettings,
+    /// Switch a display on if none is on (and have kanshi apply its profile again, if it runs):
+    /// run at every start and reload of sway while Sway Things stores anything for a display, so
+    /// it never leaves you without one
+    Displays,
+    /// Put the workspaces on the displays connected now as the Workspaces page says: run at
+    /// every start and reload of sway while a rule places them, and by kanshi when it applied a
+    /// profile
+    Workspaces,
+    /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
+    /// the mirrors of other combinations: run by kanshi when it applied a profile
+    Mirror,
 }
 
 /// The binary of the app.
@@ -213,9 +236,12 @@ pub async fn run_for_user(command: &Command) -> Exit {
     match command {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
+        Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
+        Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
+        Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
         _ => {}
     }
-    let (applier, main) = match Applier::open().await {
+    let (mut applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
             let _ = writeln!(err, "{}", error_line(&error.text().translated()));
@@ -223,6 +249,8 @@ pub async fn run_for_user(command: &Command) -> Exit {
         }
     };
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
+    // While kanshi sets up the displays, no output lines of ours contradict it.
+    applier.set_displays(generate::Displays::detect(&status, applier.locations()));
     let mut session = Session { applier, status };
     run(
         command,
@@ -232,6 +260,378 @@ pub async fn run_for_user(command: &Command) -> Exit {
         &mut err,
     )
     .await
+}
+
+/// What the command line needs to know of the displays to find the device a command names.
+struct Displays {
+    /// The outputs of the session, if there is one and the command reads or writes settings.
+    outputs: Option<Outputs>,
+}
+
+impl Displays {
+    /// The displays for `command`. A display named by its name can't be told apart from one
+    /// stored by that name if sway can't list its displays: a command that writes for one then
+    /// fails, with the error on `io`.
+    async fn of<V: Validate>(
+        command: &Command,
+        session: &mut Session<V>,
+        io: &mut Io<'_>,
+    ) -> Result<Self, Exit> {
+        let listed = match (command, session.applier.client()) {
+            (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => {
+                Some(client.outputs().await.map(|found| Outputs::new(&found)))
+            }
+            _ => None,
+        };
+        if let (
+            Some(Err(error)),
+            Command::Set { key, device, .. } | Command::Reset { key, device, .. },
+        ) = (&listed, command)
+        {
+            if device.is_some() && is_for_displays(Some(key)) {
+                io.error(error_line(&error.text().translated()));
+                return Err(Exit::Failure);
+            }
+        }
+        Ok(Self {
+            outputs: listed.and_then(Result::ok),
+        })
+    }
+
+    /// `device` as settings are stored for it ([`resolve_display`]): a connected display named
+    /// by its name is that display; anything else, such as a value stored by a name, stays as
+    /// given.
+    fn resolve(&self, key: Option<&str>, device: Option<&str>) -> Option<String> {
+        resolve_display(key, device, self.outputs.as_ref())
+    }
+}
+
+/// `device` as settings are stored for it: for a setting of displays (or without a key), a
+/// connected display named by its name (`DP-4`) is its identifier (make, model and serial).
+/// Anything else stays as given.
+fn resolve_display(
+    key: Option<&str>,
+    device: Option<&str>,
+    outputs: Option<&Outputs>,
+) -> Option<String> {
+    let device = device?;
+    let identifier = outputs
+        .filter(|_| is_for_displays(key))
+        .and_then(|outputs| outputs.find(device))
+        .map(|output| output.identifier().to_owned());
+    Some(identifier.unwrap_or_else(|| device.to_owned()))
+}
+
+/// After a change (or a `reset`) of a display's setting that went through while kanshi sets up
+/// the displays: says what that means.
+async fn note_kanshi<V: Validate>(
+    session: &mut Session<V>,
+    key: &str,
+    exit: Exit,
+    reset: bool,
+    io: &mut Io<'_>,
+) {
+    if exit != Exit::Ok || !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
+        return;
+    }
+    // Someone else's file in the place of ours: nothing reaches kanshi.
+    if let Some(files) = kanshi_files().filter(outputs::kanshi::KanshiFiles::ours_is_foreign) {
+        io.warn(trf(
+            msg!(
+                "the change isn't remembered: {file} wasn't made by Sway Things, so it is left \
+                 alone and kanshi never sees what is set. Move that file away."
+            ),
+            &[("file", &files.ours.display())],
+        ));
+        return;
+    }
+    // A profile of the user's own that kanshi applies before ours: the change didn't last.
+    if let Some((names, how)) = overriding_profiles(session).await {
+        io.warn(trf(
+            msg!(
+                "the change doesn't last: a kanshi profile of your own ({name}) sets up these \
+                 displays, as kanshi takes the first profile that matches and it comes before \
+                 the include of Sway Things. {how}"
+            ),
+            &[("name", &names), ("how", &how)],
+        ));
+        return;
+    }
+    if reset {
+        io.note(tr(msg!(
+            "kanshi sets up the displays: what the display runs with now is remembered for the \
+             displays connected now."
+        )));
+    } else {
+        io.note(tr(msg!(
+            "kanshi sets up the displays: the change is remembered for the displays connected \
+             now, and kanshi brings it back whenever they are."
+        )));
+    }
+}
+
+/// The user's kanshi profiles that kanshi applies instead of ours for the displays connected
+/// now, by name, and how to put our include first. `None` if none does.
+async fn overriding_profiles<V: Validate>(session: &mut Session<V>) -> Option<(String, String)> {
+    let files = kanshi_files()?;
+    let found = Outputs::new(&session.applier.client()?.outputs().await.ok()?);
+    let connected: Vec<&str> = found
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(outputs::Output::identifier)
+        .collect();
+    let names = outputs::kanshi::overriding(&files.before_ours(), &connected, |criteria| {
+        found.find(criteria).map_or_else(
+            || criteria.to_owned(),
+            |output| output.identifier().to_owned(),
+        )
+    });
+    (!names.is_empty()).then(|| (names.join(", "), files.how_to_include().translated()))
+}
+
+/// Before a change of a display's setting while kanshi sets up the displays: has the stored
+/// values of the displays follow the combination connected now, so the change is remembered for
+/// it with the rest as kanshi set it up. Best effort: says on stderr what went wrong.
+async fn follow_combination<V: Validate>(session: &mut Session<V>, key: &str, io: &mut Io<'_>) {
+    if !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
+        return;
+    }
+    if let Err(error) = session.applier.follow_combination().await {
+        io.note(error_line(&error.text().translated()));
+    }
+}
+
+/// Whether `key` is a setting of displays, or no key is given (every setting of a device).
+fn is_for_displays(key: Option<&str>) -> bool {
+    key.is_none_or(|key| {
+        Registry::builtin()
+            .get(key)
+            .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+    })
+}
+
+/// `hook displays`: switches a display on if none is on. Quiet when there is nothing to do; it
+/// says on stderr which display it switched on, for sway's log.
+async fn hook_displays(err: &mut dyn Write) -> Exit {
+    let mut client = match Client::connect().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            return Exit::Failure;
+        }
+    };
+    // The file of ours for kanshi is there before anything else: kanshi rejects its whole config
+    // over an include it can't find, and then sets up nothing at all. Where it was missing (or
+    // emptied) and kanshi gave up over it, kanshi is started now that it can read its config.
+    if let Some(profiles) = sway_things_core::state::Paths::from_env()
+        .ok()
+        .and_then(|paths| outputs::profiles::Profiles::load(paths.displays()).ok())
+    {
+        if refresh_kanshi(&profiles).await {
+            async_io::Timer::after(std::time::Duration::from_millis(500)).await;
+            if !outputs::kanshi_runs() {
+                let _ = client
+                    .run(&sway_things_core::command::SwayCmd::new("exec").keyword("kanshi"))
+                    .await;
+                async_io::Timer::after(std::time::Duration::from_millis(500)).await;
+            }
+        }
+    }
+    // Then, sway having just read its config: kanshi applies its profile again over whatever
+    // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
+    if outputs::kanshi_runs() {
+        let child = std::process::Command::new("kanshictl")
+            .arg("reload")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        // A kanshictl that hangs doesn't keep the hook: it gets five seconds.
+        if let Ok(mut child) = child {
+            let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while matches!(child.try_wait(), Ok(None)) && std::time::Instant::now() < until {
+                async_io::Timer::after(std::time::Duration::from_millis(50)).await;
+            }
+            if matches!(child.try_wait(), Ok(None)) {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+    // A display is on in the end, whatever kanshi did.
+    let ensured = outputs::ensure_one_on(&mut client).await;
+    // The mirrors may be gone: started again (nothing changes where kanshi's profile did it
+    // already). The workspaces are placed by `hook workspaces`, which runs at the same time.
+    let _ = start_mirrors(&mut client).await;
+    match ensured {
+        Ok(Some(name)) => {
+            let _ = writeln!(
+                err,
+                "{}",
+                trf(
+                    // TRANSLATORS: `sway-things hook displays` switched on a display because no
+                    // other one was on.
+                    msg!("No display was on, so {display} was switched on."),
+                    &[("display", &name)]
+                )
+            );
+            Exit::Ok
+        }
+        Ok(None) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            Exit::Failure
+        }
+    }
+}
+
+/// kanshi's files for `doctor`, if kanshi is installed.
+fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
+    outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
+}
+
+/// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
+/// connected now, if they are placed.
+async fn hook_workspaces(err: &mut dyn Write) -> Exit {
+    let mut client = match connect_for_hook().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            return Exit::Failure;
+        }
+    };
+    match place_workspaces(&mut client).await {
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            Exit::Failure
+        }
+    }
+}
+
+/// The session for a hook kanshi runs: `$SWAYSOCK`, or where kanshi was started without it
+/// (a systemd unit, say), sway's newest socket in `$XDG_RUNTIME_DIR`.
+async fn connect_for_hook() -> Result<Client, sway_things_core::ipc::IpcError> {
+    if std::env::var_os("SWAYSOCK").is_some() {
+        return Client::connect().await;
+    }
+    let found = std::env::var_os("XDG_RUNTIME_DIR").and_then(|dir| {
+        std::fs::read_dir(dir)
+            .ok()?
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with("sway-ipc.") && name.ends_with(".sock")
+            })
+            .max_by_key(|entry| entry.metadata().and_then(|meta| meta.modified()).ok())
+            .map(|entry| entry.path())
+    });
+    match found {
+        Some(socket) => Client::connect_to(socket).await,
+        None => Client::connect().await,
+    }
+}
+
+/// `hook mirror`: shows displays on others as remembered for the displays connected now.
+async fn hook_mirror(err: &mut dyn Write) -> Exit {
+    let mut client = match connect_for_hook().await {
+        Ok(client) => client,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            return Exit::Failure;
+        }
+    };
+    match start_mirrors(&mut client).await {
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            Exit::Failure
+        }
+    }
+}
+
+/// Ends the mirrors Sway Things started and starts those of the displays connected now, as
+/// [`outputs::mirror::apply`]. Without remembered profiles, nothing happens.
+async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return Ok(0);
+    };
+    let Ok(mut profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
+        return Ok(0);
+    };
+    if !profiles.iter().any(outputs::profiles::Profile::mirrors) {
+        return Ok(0);
+    }
+    // The workspaces of a display that shows another one's picture go to that one first, noted
+    // so they come back when it shows its own content again.
+    // Noted also when a command failed: the workspaces that did move find their way back.
+    match outputs::mirror::gather_workspaces(client, &mut profiles).await {
+        Ok(0) => {}
+        Ok(_) => {
+            let _ = profiles.save();
+        }
+        Err(error) => {
+            let _ = profiles.save();
+            return Err(error);
+        }
+    }
+    let found = Outputs::new(&client.outputs().await?);
+    // A picture that starts doesn't take the focus.
+    let _ = client.run(&outputs::mirror::no_focus_command()).await;
+    let started = outputs::mirror::apply(&profiles, &found);
+    // A picture that ended leaves no workspace of its own behind on its display.
+    let _ = outputs::mirror::leave_ended(client, &profiles).await;
+    // Last: kanshi runs this hook again after reading its file, and finds everything noted.
+    let _ = refresh_kanshi(&profiles).await;
+    Ok(started)
+}
+
+/// Writes kanshi's file of ours again if it says something else than `profiles` do now, and has
+/// kanshi read it: `wl-mirror` came or went since it was written, so a display stands apart for
+/// a picture or no longer does, or the file was missing or emptied. Only a file of ours, where it
+/// is there already or the user's kanshi config includes it. kanshi runs the hook
+/// again after reading it, which then finds the file as it wrote it and stops there.
+async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) -> bool {
+    let Some(files) = kanshi_files() else {
+        return false;
+    };
+    // Where the user's config includes ours, the file must be there: kanshi rejects its whole
+    // config over an include it can't find.
+    if !files.ours.is_file() && files.inclusion() != outputs::kanshi::Inclusion::Included {
+        return false;
+    }
+    // With the hook for the workspaces while a rule places them, as the app writes it.
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return false;
+    };
+    let state = State::load(Registry::builtin(), paths);
+    let places = outputs::workspaces::Placing::of(&state);
+    let wrote = matches!(
+        files.write(&outputs::profiles::kanshi_config(profiles, places)),
+        Ok(true)
+    );
+    if wrote {
+        outputs::kanshi::reload().await;
+    }
+    wrote
+}
+
+/// Puts the workspaces where the Workspaces page says, as [`outputs::workspaces::apply`], with
+/// the settings and the remembered profiles of the user. Without settings paths nothing happens;
+/// profiles that can't be read count as none.
+async fn place_workspaces(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
+    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
+        return Ok(0);
+    };
+    let profiles = outputs::profiles::Profiles::load(paths.displays()).ok();
+    let state = State::load(Registry::builtin(), paths);
+    // After a start or reload of sway, kanshi puts the displays in place a moment later: what
+    // is left and right is read once they stand.
+    if outputs::workspaces::Rule::of(&state).places() && outputs::kanshi_runs() {
+        outputs::workspaces::settled(client, profiles.as_ref()).await?;
+    }
+    outputs::workspaces::apply(client, &state, profiles.as_ref()).await
 }
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
@@ -267,12 +667,25 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
     look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
+    let outputs = match Client::connect().await {
+        Ok(mut client) => client
+            .outputs()
+            .await
+            .ok()
+            .map(|found| Outputs::new(&found)),
+        Err(_) => None,
+    };
     let checkup = Checkup {
         found: &found,
         state: &state,
         locations: &locations,
         status: &status,
         validator: &validator,
+        outputs: outputs.as_ref(),
+        displays: generate::Displays::detect(&status, &locations)
+            .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
+        kanshi: kanshi_files(),
+        path: std::env::var_os("PATH"),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -308,14 +721,38 @@ pub async fn run<V: Validate>(
 ) -> Exit {
     let mut io = Io { out, err };
     // The doctor reports the problems of the settings files itself; `open` doesn't read them.
-    if !matches!(command, Command::Doctor(_) | Command::Open { .. }) {
+    if !matches!(
+        command,
+        Command::Doctor(_)
+            | Command::Open { .. }
+            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+    ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
         }
     }
+    // The outputs of the session: what they run with, for the values that nothing sets, and
+    // the identifier of a display named by its name.
+    let displays = match Displays::of(command, session, &mut io).await {
+        Ok(displays) => displays,
+        Err(exit) => return exit,
+    };
+    let resolved = |key: Option<&str>, device: Option<&str>| displays.resolve(key, device);
     match command {
         Command::Get { key, device, json } => {
-            get(session, key.as_deref(), device.as_deref(), *json, &mut io)
+            let device = resolved(key.as_deref(), device.as_deref());
+            let known = Known {
+                devices: None,
+                outputs: displays.outputs.as_ref(),
+            };
+            get(
+                session,
+                key.as_deref(),
+                device.as_deref(),
+                known,
+                *json,
+                &mut io,
+            )
         }
         Command::Set {
             key,
@@ -331,6 +768,7 @@ pub async fn run<V: Validate>(
                 (_, true) => Some(Layer::Shared),
                 _ => None,
             };
+            let device = resolved(Some(key), device.as_deref());
             let change = Change {
                 key,
                 device: device.as_deref(),
@@ -338,7 +776,10 @@ pub async fn run<V: Validate>(
                 layer,
                 yes: *yes,
             };
-            set(session, &change, *overwrite, prompt, &mut io).await
+            follow_combination(session, key, &mut io).await;
+            let exit = set(session, &change, *overwrite, prompt, &mut io).await;
+            note_kanshi(session, key, exit, false, &mut io).await;
+            exit
         }
         Command::Reset {
             key,
@@ -346,17 +787,62 @@ pub async fn run<V: Validate>(
             yes,
             overwrite,
         } => {
+            let device = resolved(Some(key), device.as_deref());
             let reset_of = Reset {
                 key,
                 device: device.as_deref(),
                 yes: *yes,
             };
-            reset(session, &reset_of, *overwrite, prompt, &mut io).await
+            follow_combination(session, key, &mut io).await;
+            let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
+            note_kanshi(session, key, exit, true, &mut io).await;
+            exit
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
-        Command::Hook(Hook::Gsettings) => hook_gsettings(session, &mut io),
+        Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+    }
+}
+
+/// A hook in a session that runs already (as the tests do; for the user, `run_for_user` runs
+/// them without loading the settings).
+async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
+    match hook {
+        Hook::Gsettings => hook_gsettings(session, io),
+        Hook::Mirror => match (
+            session.applier.profiles().cloned(),
+            session.applier.client(),
+        ) {
+            (Some(profiles), Some(client)) => match client.outputs().await {
+                Ok(found) => {
+                    outputs::mirror::apply(&profiles, &Outputs::new(&found));
+                    Exit::Ok
+                }
+                Err(error) => {
+                    io.error(error_line(&error.text().translated()));
+                    Exit::Failure
+                }
+            },
+            _ => Exit::Ok,
+        },
+        Hook::Workspaces => match session.applier.place_now().await {
+            Ok(()) => Exit::Ok,
+            Err(error) => {
+                io.error(error_line(&error.text().translated()));
+                Exit::Failure
+            }
+        },
+        Hook::Displays => match session.applier.client() {
+            Some(client) => match outputs::ensure_one_on(client).await {
+                Ok(_) => Exit::Ok,
+                Err(error) => {
+                    io.error(error_line(&error.text().translated()));
+                    Exit::Failure
+                }
+            },
+            None => Exit::Ok,
+        },
     }
 }
 
@@ -452,6 +938,14 @@ async fn doctor_in<V: Validate>(
             installed: Installed::Version(compositor),
         }
     };
+    let outputs = match session.applier.client() {
+        Some(client) => client
+            .outputs()
+            .await
+            .ok()
+            .map(|found| Outputs::new(&found)),
+        None => None,
+    };
     let applier = &session.applier;
     let checkup = Checkup {
         found: &found,
@@ -459,6 +953,10 @@ async fn doctor_in<V: Validate>(
         locations: applier.locations(),
         status: &session.status,
         validator: applier.validator(),
+        outputs: outputs.as_ref(),
+        displays: applier.displays(),
+        kanshi: applier.kanshi_files().cloned(),
+        path: None,
     };
     doctor(&checkup, None, args, out).await
 }
@@ -501,6 +999,7 @@ fn get<V: Validate>(
     session: &Session<V>,
     key: Option<&str>,
     device: Option<&str>,
+    known: Known<'_>,
     json: bool,
     io: &mut Io<'_>,
 ) -> Exit {
@@ -512,6 +1011,7 @@ fn get<V: Validate>(
             state,
             &session.status,
             session.applier.compositor(),
+            known,
         )
     };
     let paths = state.paths();
@@ -529,7 +1029,7 @@ fn get<V: Validate>(
         return Exit::Ok;
     }
     if let Some(device) = device {
-        if InputSelector::device(device).is_err() {
+        if InputSelector::device(device).is_err() && OutputSelector::output(device).is_err() {
             let error = StateError::InvalidDevice {
                 device: device.to_owned(),
             };
@@ -568,13 +1068,16 @@ fn lookup<V: Validate>(
                 key: key.to_owned(),
             })?;
     if let Some(device) = device {
-        if !matches!(setting.scope(), Scope::PerDevice(_)) {
-            return Err(StateError::NotPerDevice { key: setting.key() });
-        }
-        if InputSelector::device(device).is_err() {
-            return Err(StateError::InvalidDevice {
-                device: device.to_owned(),
-            });
+        match setting.check_device(device) {
+            Ok(()) => {}
+            Err(DeviceError::NotPerDevice) => {
+                return Err(StateError::NotPerDevice { key: setting.key() });
+            }
+            Err(DeviceError::Invalid) => {
+                return Err(StateError::InvalidDevice {
+                    device: device.to_owned(),
+                });
+            }
         }
     }
     Ok(setting)
@@ -665,7 +1168,7 @@ async fn try_risky<V: Validate>(
     prompt: &mut impl Prompt,
     io: &mut Io<'_>,
 ) -> Result<Result<Applied, ApplyError>, Exit> {
-    let trial = session
+    let tried = session
         .applier
         .try_risky(
             setting.key(),
@@ -676,7 +1179,18 @@ async fn try_risky<V: Validate>(
         )
         .await
         .map_err(|error| fail(io, &error))?;
-    keep_or_revert(session, setting, device, trial, access, prompt, io).await
+    match tried {
+        Tried::Waits(trial) => {
+            keep_or_revert(session, setting, device, trial, access, prompt, io).await
+        }
+        // Nothing to keep: there was no safety net to try it with.
+        Tried::Stored(applied) => Ok(Ok(applied)),
+        Tried::Unchanged => Ok(Ok(Applied {
+            changed: false,
+            effect: Effect::NotStored,
+            not_copied: Vec::new(),
+        })),
+    }
 }
 
 /// Asks whether to keep the risky change that `trial` sent: keeps it, or reverts it.
@@ -771,13 +1285,14 @@ async fn reset<V: Validate>(
             .try_risky_reset(key, device, &session.status, &access)
             .await
         {
-            Ok(Some(trial)) => {
+            Ok(Tried::Waits(trial)) => {
                 match keep_or_revert(session, setting, device, trial, &access, prompt, io).await {
                     Ok(applied) => applied,
                     Err(exit) => return exit,
                 }
             }
-            Ok(None) => Ok(Applied {
+            Ok(Tried::Stored(applied)) => Ok(applied),
+            Ok(Tried::Unchanged) => Ok(Applied {
                 changed: false,
                 effect: Effect::NotStored,
                 not_copied: Vec::new(),
@@ -963,7 +1478,8 @@ fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
             StateError::UnknownKey { .. }
             | StateError::InvalidValue { .. }
             | StateError::NotPerDevice { .. }
-            | StateError::InvalidDevice { .. },
+            | StateError::InvalidDevice { .. }
+            | StateError::OneAtATime { .. },
         )
         | ApplyError::Render(_) => Exit::Usage,
         ApplyError::Unsupported { .. }
@@ -981,5 +1497,41 @@ mod tests {
     fn all_lists_every_exit_code_once_in_order() {
         let codes: Vec<u8> = Exit::ALL.iter().map(|exit| exit.code()).collect();
         assert_eq!(codes, [0, 1, 2, 3, 4, 5]);
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::resolve_display;
+    use sway_things_core::outputs::Outputs;
+
+    #[test]
+    fn a_display_named_by_its_name_is_stored_by_its_identifier() {
+        let json = r#"[{"name": "DP-4", "active": true, "primary": false, "make": "Dell",
+            "model": "U2723QE", "serial": "ABC", "modes": []}]"#;
+        let outputs = Outputs::new(&serde_json::from_str::<Vec<_>>(json).unwrap());
+        let resolve = |key, device| resolve_display(key, device, Some(&outputs));
+        assert_eq!(
+            resolve(Some("output.scale"), Some("DP-4")).as_deref(),
+            Some("Dell U2723QE ABC")
+        );
+        assert_eq!(
+            resolve(None, Some("DP-4")).as_deref(),
+            Some("Dell U2723QE ABC")
+        );
+        // Not connected, or not a setting of displays: as given.
+        assert_eq!(
+            resolve(Some("output.scale"), Some("DP-9")).as_deref(),
+            Some("DP-9")
+        );
+        assert_eq!(
+            resolve(Some("input.touchpad.tap"), Some("DP-4")).as_deref(),
+            Some("DP-4")
+        );
+        assert_eq!(
+            resolve_display(Some("output.scale"), Some("DP-4"), None).as_deref(),
+            Some("DP-4")
+        );
+        assert_eq!(resolve(Some("output.scale"), None), None);
     }
 }

@@ -18,13 +18,15 @@ use std::time::{Duration, Instant};
 use super::{Applied, Applier, ApplyError, Effect, render};
 use crate::command::input::InputType;
 use crate::command::{SwayCmd, Target};
+use crate::conflict::Known;
 use crate::devices::{Devices, Lockout, Sending};
 use crate::generate::Validate;
 use crate::include::{IncludeStatus, WriteAccess};
 use crate::ipc::{Client, Compositor};
+use crate::outputs::Outputs;
 use crate::registry::{Apply, Block, Scope, Setting, Value};
 use crate::state::{State, StateError};
-use crate::view::SettingView;
+use crate::view::{SettingView, Source};
 
 /// The preference that says how long a risky change waits to be kept.
 const TIMEOUT: &str = "app.safety_net_timeout";
@@ -64,6 +66,30 @@ pub struct TriedValue {
     pub reset: bool,
 }
 
+/// What [`Applier::try_risky`] and its relatives did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Tried {
+    /// The change was sent and waits to be [kept](Applier::keep) or
+    /// [reverted](Applier::revert).
+    Waits(Trial),
+    /// The change needed no safety net and was stored at once: it sends nothing (a value sway is
+    /// to choose again, which it does at its next reload), or nothing could bring back what was
+    /// before (the mode of an output that is off).
+    Stored(Applied),
+    /// Nothing changes: only resets of settings without a stored value. Nothing was sent.
+    Unchanged,
+}
+
+impl Tried {
+    /// The trial, if the change waits to be kept or reverted.
+    pub fn trial(self) -> Option<Trial> {
+        match self {
+            Self::Waits(trial) => Some(trial),
+            Self::Stored(_) | Self::Unchanged => None,
+        }
+    }
+}
+
 /// A risky change that was sent and waits to be kept or reverted. It changes one setting, or
 /// several of one device at once ([`Applier::try_risky_all`]).
 #[derive(Debug, Clone)]
@@ -74,6 +100,9 @@ pub struct Pending {
     sent: Vec<String>,
     undo: Vec<SwayCmd>,
     countdown: Countdown,
+    /// The places the other displays got so the layout keeps together with the display's new
+    /// size ([`Applier::move_along`]), by display: stored with the change, put back with it.
+    along: Vec<(String, Value)>,
 }
 
 impl Pending {
@@ -108,6 +137,14 @@ impl Pending {
     pub fn countdown(&self) -> Countdown {
         self.countdown
     }
+
+    /// The place a display got along with the change ([`Applier::move_along`]), if it got one.
+    pub fn along(&self, device: &str) -> Option<&Value> {
+        self.along
+            .iter()
+            .find(|(moved, _)| moved == device)
+            .map(|(_, place)| place)
+    }
 }
 
 /// What [`Applier::try_risky`] did.
@@ -137,8 +174,8 @@ impl<V: Validate> Applier<V> {
     /// [`ApplyError::NotRisky`] for a setting without the safety net (use [`Applier::set`]),
     /// [`ApplyError::PendingChange`] while another change waits to be kept or reverted,
     /// [`ApplyError::NoSession`] without a session to try it in, [`ApplyError::Lockout`] if it
-    /// would leave no keyboard or no pointing device, and the errors of [`Applier::set`]. If a
-    /// command fails, the commands sent before it are undone.
+    /// would leave no keyboard, no pointing device or no output that is on, and the errors of
+    /// [`Applier::set`]. If a command fails, the commands sent before it are undone.
     pub async fn try_risky(
         &mut self,
         key: &str,
@@ -146,18 +183,16 @@ impl<V: Validate> Applier<V> {
         value: Value,
         status: &IncludeStatus,
         access: &WriteAccess,
-    ) -> Result<Trial, ApplyError> {
-        // A new value always changes something, so there is a trial.
+    ) -> Result<Tried, ApplyError> {
         self.try_risky_all(device, &[(key, Some(value))], status, access)
-            .await?
-            .ok_or(ApplyError::NothingPending)
+            .await
     }
 
     /// Tries removing the stored value of the risky setting `key`, for the whole session or input
     /// type, or for one input `device`: sends the value in effect without it, as a row would show
     /// it then (what the user's config sets, else the default; for one device, the value of its
     /// type), and returns when it is reverted unless [kept](Applier::keep). Keeping removes the
-    /// stored value. `None` if no value is stored: nothing was sent then.
+    /// stored value. [`Tried::Unchanged`] if no value is stored: nothing was sent then.
     ///
     /// # Errors
     ///
@@ -168,7 +203,7 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         status: &IncludeStatus,
         access: &WriteAccess,
-    ) -> Result<Option<Trial>, ApplyError> {
+    ) -> Result<Tried, ApplyError> {
         self.try_risky_all(device, &[(key, None)], status, access)
             .await
     }
@@ -189,14 +224,208 @@ impl<V: Validate> Applier<V> {
         device: Option<&str>,
         changes: &[(&str, Option<Value>)],
         status: &IncludeStatus,
+        access: &WriteAccess,
+    ) -> Result<Tried, ApplyError> {
+        let placed = self.placed_when_on(device, changes).await;
+        let changes = placed.as_deref().unwrap_or(changes);
+        let Some(earlier) = self.pending.take() else {
+            return self.try_fresh(device, changes, status, access, false).await;
+        };
+        // Another value for what waits (a second mode or rotation before keeping the first):
+        // tried in its place, and a revert still brings back what was before the first.
+        let same_keys = earlier.device.as_deref() == device
+            && changes.iter().all(|(key, _)| {
+                *key == crate::outputs::POSITION || earlier.values().any(|tried| tried.key == *key)
+            })
+            // The place a display switched on got along with it isn't asked for again.
+            && earlier.values().all(|tried| {
+                tried.key == crate::outputs::POSITION
+                    || changes.iter().any(|(key, _)| tried.key == *key)
+            });
+        if !same_keys {
+            let key = earlier.key();
+            self.pending = Some(earlier);
+            return Err(ApplyError::PendingChange { key });
+        }
+        let again = changes.iter().all(|(key, change)| {
+            earlier.values().any(|tried| {
+                tried.key == *key
+                    && match change {
+                        Some(value) => !tried.reset && *value == tried.value,
+                        None => tried.reset,
+                    }
+            })
+        });
+        if again {
+            let trial = Trial {
+                commands: earlier.sent.clone(),
+                countdown: earlier.countdown,
+            };
+            self.pending = Some(earlier);
+            return Ok(Tried::Waits(trial));
+        }
+        let before = (self.state.clone(), self.waiting.clone(), self.unsaved_since);
+        match self.try_fresh(device, changes, status, access, true).await {
+            Ok(Tried::Waits(trial)) => {
+                if let Some(pending) = &mut self.pending {
+                    pending.undo = earlier.undo;
+                    pending.along = earlier.along;
+                }
+                Ok(Tried::Waits(trial))
+            }
+            Ok(other) => {
+                // Stored without a trial, or nothing to change: what was tried before goes back
+                // first. If sway can't take it back, nothing is stored and the trial still waits.
+                self.pending = Some(earlier);
+                let waiting = self.pending.clone();
+                if let Err(error) = self.revert().await {
+                    (self.state, self.waiting, self.unsaved_since) = before;
+                    self.pending = waiting;
+                    return Err(error);
+                }
+                Ok(other)
+            }
+            Err(error) => {
+                self.pending = Some(earlier);
+                Err(error)
+            }
+        }
+    }
+
+    /// [`Applier::try_risky_all`] while nothing waits, or `replacing` the change that waited: then
+    /// a value the output runs with already (the one tried before) is still a trial, since a
+    /// revert has to bring back what was before the first.
+    async fn try_fresh(
+        &mut self,
+        device: Option<&str>,
+        changes: &[(&str, Option<Value>)],
+        status: &IncludeStatus,
         _access: &WriteAccess,
-    ) -> Result<Option<Trial>, ApplyError> {
-        self.nothing_pending()?;
-        // The state as it would be, which also checks the keys, the device and the values.
+        replacing: bool,
+    ) -> Result<Tried, ApplyError> {
+        let (tried, settings_changed) = self.as_tried(device, changes)?;
+        for (setting, _) in &settings_changed {
+            self.touch(setting);
+        }
+        if settings_changed.is_empty() {
+            return Ok(Tried::Unchanged);
+        }
+        for (setting, _) in &settings_changed {
+            self.check_supported(setting)?;
+        }
+        let settings: Vec<&'static Setting> = settings_changed
+            .iter()
+            .map(|(setting, _)| *setting)
+            .collect();
+        let key = settings.first().map_or("", |setting| setting.key());
+        let outputs = self.live_outputs(key, &settings).await?;
+        let known = Known {
+            devices: None,
+            outputs: outputs.as_ref(),
+        };
+        let (values, over) = targets(
+            &settings_changed,
+            device,
+            &tried,
+            status,
+            self.compositor,
+            known,
+        );
+        let (session, runs_as_tried) =
+            as_running(&self.state, &settings_changed, device, outputs.as_ref());
+        let snapshot = snapshot(&settings, device, &session, status, self.compositor, known);
+        let now = (&session, &snapshot);
+        let then = (&tried, &over);
+        let commands = sequence(now, then, &settings, device)?;
+        let undo = sequence(then, now, &settings, device)?;
+        let runs_as_tried = runs_as_tried && !replacing;
+        if runs_as_tried || commands.is_empty() {
+            // Nothing to try: the output runs with the new values already, or nothing changes
+            // in the session (a mode sway chose is no longer stored), which then takes effect
+            // after a reload of sway. The change is stored.
+            let effect = if runs_as_tried {
+                Effect::Live {
+                    commands: Vec::new(),
+                }
+            } else {
+                Effect::AfterReload
+            };
+            self.store_untried(tried, &settings_changed, device, &effect);
+            return Ok(Tried::Stored(Applied {
+                changed: true,
+                effect,
+                not_copied: Vec::new(),
+            }));
+        }
+        let switches = settings_changed.iter().find_map(|(setting, _)| {
+            let value = values.iter().find(|value| value.key == setting.key())?;
+            switches(setting, &value.value)
+        });
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession { key });
+        };
+        let sent = send_guarded(client, key, device, switches, &commands, &undo).await?;
+        if undo.is_empty() {
+            // Nothing can bring back what was before (the mode of an output that is off, which
+            // sway doesn't report): there is nothing to revert to, and nothing the change could
+            // lock the user out of. It is stored at once.
+            let effect = Effect::Live { commands: sent };
+            self.store_untried(tried, &settings_changed, device, &effect);
+            return Ok(Tried::Stored(Applied {
+                changed: true,
+                effect,
+                not_copied: Vec::new(),
+            }));
+        }
+
+        let countdown = Countdown {
+            deadline: Instant::now() + self.timeout(),
+        };
+        let mut values = values.into_iter();
+        let Some(first) = values.next() else {
+            return Ok(Tried::Unchanged);
+        };
+        self.pending = Some(Pending {
+            device: device.map(str::to_owned),
+            first,
+            more: values.collect(),
+            sent: sent.clone(),
+            undo,
+            countdown,
+            along: Vec::new(),
+        });
+        Ok(Tried::Waits(Trial {
+            commands: sent,
+            countdown,
+        }))
+    }
+
+    /// The state as it would be with `changes`, which also checks the keys, the device and the
+    /// values, and the settings that change.
+    #[allow(
+        clippy::type_complexity,
+        reason = "a state and the changes that make it, used once"
+    )]
+    fn as_tried(
+        &self,
+        device: Option<&str>,
+        changes: &[(&str, Option<Value>)],
+    ) -> Result<(State, Vec<(&'static Setting, Option<Value>)>), ApplyError> {
         let mut tried = self.state.clone();
-        let mut settings_changed: Vec<(&'static Setting, Option<Value>)> = Vec::new();
-        for (key, change) in changes {
-            let setting = self.risky_setting(key)?;
+        let mut settings_changed = Vec::new();
+        for (index, (key, change)) in changes.iter().enumerate() {
+            // The first is risky; a position can come along with it (a display switched on gets
+            // its place in the same trial).
+            let setting = if index > 0 && *key == crate::outputs::POSITION {
+                self.state
+                    .registry()
+                    .get(key)
+                    .ok_or_else(|| StateError::UnknownKey {
+                        key: (*key).to_owned(),
+                    })?
+            } else {
+                self.risky_setting(key)?
+            };
             match change {
                 Some(value) => {
                     tried.set(key, device, value.clone(), None)?;
@@ -209,78 +438,52 @@ impl<V: Validate> Applier<V> {
                 }
             }
         }
-        if settings_changed.is_empty() {
+        Ok((tried, settings_changed))
+    }
+
+    /// The outputs of the session, if one of `settings` is a setting of outputs: a value of an
+    /// output that nothing sets is what the output runs with. `None` for other settings.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NoSession`] without a session, [`ApplyError::Ipc`] if sway can't list its
+    /// outputs.
+    async fn live_outputs(
+        &mut self,
+        key: &'static str,
+        settings: &[&'static Setting],
+    ) -> Result<Option<Outputs>, ApplyError> {
+        if !settings
+            .iter()
+            .any(|setting| setting.scope() == Scope::PerOutput)
+        {
             return Ok(None);
         }
-        for (setting, _) in &settings_changed {
-            self.check_supported(setting)?;
-        }
-        // A removed value is replaced by the one in effect without it.
-        let mut over = BTreeMap::new();
-        let mut values = Vec::with_capacity(settings_changed.len());
-        for (setting, change) in &settings_changed {
-            let value = if let Some(value) = change {
-                value.clone()
-            } else {
-                let effect = in_effect(setting, device, &tried, status, self.compositor);
-                let value = effect
-                    .get(setting.key())
-                    .cloned()
-                    .unwrap_or_else(|| setting.default_value());
-                over.extend(effect);
-                value
-            };
-            values.push(TriedValue {
-                key: setting.key(),
-                value,
-                reset: change.is_none(),
-            });
-        }
-        let settings: Vec<&'static Setting> = settings_changed
-            .iter()
-            .map(|(setting, _)| *setting)
-            .collect();
-        // What is in effect now, for every setting of the directives.
-        let snapshot: BTreeMap<String, Value> = settings
-            .iter()
-            .flat_map(|setting| in_effect(setting, device, &self.state, status, self.compositor))
-            .collect();
-        let now = (&self.state, &snapshot);
-        let then = (&tried, &over);
-        let commands = sequence(now, then, &settings, device)?;
-        let undo = sequence(then, now, &settings, device)?;
-
         let Some(client) = &mut self.client else {
-            return Err(ApplyError::NoSession {
-                key: settings.first().map_or("", |setting| setting.key()),
-            });
+            return Err(ApplyError::NoSession { key });
         };
-        let switches = settings_changed.iter().find_map(|(setting, _)| {
-            let value = values.iter().find(|value| value.key == setting.key())?;
-            switches_devices(setting, &value.value)
-        });
-        let key = settings.first().map_or("", |setting| setting.key());
-        let sent = send_guarded(client, key, device, switches, &commands, &undo).await?;
+        let found = client.outputs().await.map_err(ApplyError::Ipc)?;
+        Ok(Some(Outputs::new(&found)))
+    }
 
-        let countdown = Countdown {
-            deadline: Instant::now() + self.timeout(),
-        };
-        let mut values = values.into_iter();
-        let Some(first) = values.next() else {
-            return Ok(None);
-        };
-        self.pending = Some(Pending {
-            device: device.map(str::to_owned),
-            first,
-            more: values.collect(),
-            sent: sent.clone(),
-            undo,
-            countdown,
-        });
-        Ok(Some(Trial {
-            commands: sent,
-            countdown,
-        }))
+    /// Stores a risky change that needs no safety net, as [`Applier::keep`] would, and notes how
+    /// it takes `effect`: there is nothing to keep or revert.
+    fn store_untried(
+        &mut self,
+        tried: State,
+        changed: &[(&'static Setting, Option<Value>)],
+        device: Option<&str>,
+        effect: &Effect,
+    ) {
+        let before = std::mem::replace(&mut self.state, tried);
+        self.unsaved_since = Some(Instant::now());
+        for (setting, _) in changed {
+            let was = before.get(setting.key(), device).cloned();
+            if effect != &Effect::AfterReload {
+                self.waiting.forget(setting.key(), device);
+            }
+            self.note(setting, device, effect, was);
+        }
     }
 
     /// Keeps the pending risky change: stores its value (or for a reset, removes the stored one)
@@ -302,12 +505,21 @@ impl<V: Validate> Applier<V> {
                 state.set(tried.key, device, tried.value.clone(), None)
             }
         });
+        let stored = stored.and_then(|()| {
+            pending.along.iter().try_for_each(|(moved, place)| {
+                state.set(crate::outputs::POSITION, Some(moved), place.clone(), None)
+            })
+        });
         if let Err(error) = stored {
             self.pending = Some(pending);
             return Err(error.into());
         }
         self.state = state;
         self.unsaved_since = Some(Instant::now());
+        // The kept value is in effect now, whatever waited for a reload before.
+        for tried in pending.values() {
+            self.waiting.forget(tried.key, device);
+        }
         Ok(Applied {
             changed: true,
             effect: Effect::Live {
@@ -315,6 +527,76 @@ impl<V: Validate> Applier<V> {
             },
             not_copied: Vec::new(),
         })
+    }
+
+    /// Moves other displays along with the risky change of a display's size that waits (a mode
+    /// or a rotation), to `places` ("x,y" by display), so the layout keeps together while the
+    /// user decides: sent now, stored when the change is kept, put back when it is reverted.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::NothingPending`] if no change waits, [`ApplyError::NoSession`] without a
+    /// session, and the errors of rendering and sending the commands.
+    pub async fn move_along(&mut self, places: &[(String, Value)]) -> Result<(), ApplyError> {
+        let mut pending = self.pending.take().ok_or(ApplyError::NothingPending)?;
+        let moved = self.send_along(&mut pending, places).await;
+        self.pending = Some(pending);
+        moved
+    }
+
+    async fn send_along(
+        &mut self,
+        pending: &mut Pending,
+        places: &[(String, Value)],
+    ) -> Result<(), ApplyError> {
+        use crate::outputs::POSITION;
+        let position =
+            self.state
+                .registry()
+                .get(POSITION)
+                .ok_or_else(|| StateError::UnknownKey {
+                    key: POSITION.to_owned(),
+                })?;
+        let Some(client) = &mut self.client else {
+            return Err(ApplyError::NoSession { key: POSITION });
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        for (device, place) in places {
+            let mut moved = self.state.clone();
+            moved.set(POSITION, Some(device), place.clone(), None)?;
+            let commands = render(
+                &moved,
+                &BTreeMap::new(),
+                position,
+                Some(device),
+                Target::Ipc,
+            )?;
+            // The first move of a display: Revert puts it back where it ran.
+            let first = pending.along.iter().all(|(known, _)| known != device);
+            let was = outputs
+                .find(device)
+                .and_then(|output| output.session_value(POSITION));
+            if let (true, Some(was)) = (first, was) {
+                let mut before = self.state.clone();
+                before.set(POSITION, Some(device), was, None)?;
+                pending.undo.extend(render(
+                    &before,
+                    &BTreeMap::new(),
+                    position,
+                    Some(device),
+                    Target::Ipc,
+                )?);
+            }
+            for command in &commands {
+                client.run(command).await.map_err(ApplyError::Ipc)?;
+                pending
+                    .sent
+                    .push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+            }
+            pending.along.retain(|(known, _)| known != device);
+            pending.along.push((device.clone(), place.clone()));
+        }
+        Ok(())
     }
 
     /// Reverts the pending risky change: sends the value that was in effect before it again.
@@ -336,6 +618,11 @@ impl<V: Validate> Applier<V> {
         for command in &pending.undo {
             client.run(command).await.map_err(ApplyError::Ipc)?;
             sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+        }
+        // The trial marked the displays as changed here, which keeps their values from following
+        // the combination until they are remembered: the next save does that (to what it was).
+        if self.displays_touched {
+            self.unsaved_since.get_or_insert_with(Instant::now);
         }
         Ok(Effect::Live { commands: sent })
     }
@@ -359,6 +646,7 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
+        self.touch(setting);
         let mut changed = self.state.clone();
         changed.set(key, device, value.clone(), None)?;
         self.check_supported(setting)?;
@@ -366,13 +654,13 @@ impl<V: Validate> Applier<V> {
         let effect = self
             .send_unchecked(setting, device, &value, &commands)
             .await?;
-        let stored = self.state.get(key, device) != Some(&value);
-        self.state = changed;
-        if stored {
+        let differs = self.state.get(key, device) != Some(&value);
+        if differs {
+            self.state = changed;
             self.unsaved_since = Some(Instant::now());
         }
         Ok(Applied {
-            changed: stored,
+            changed: differs,
             effect,
             not_copied: Vec::new(),
         })
@@ -396,6 +684,7 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         self.nothing_pending()?;
         let setting = self.risky_setting(key)?;
+        self.touch(setting);
         let mut changed = self.state.clone();
         if !changed.reset(key, device)? {
             return Ok(Applied {
@@ -408,7 +697,23 @@ impl<V: Validate> Applier<V> {
             if let Err(ApplyError::Unsupported { unmet, .. }) = self.check_supported(setting) {
                 Effect::Unsupported(unmet)
             } else {
-                let over = in_effect(setting, device, &changed, status, self.compositor);
+                let outputs = match self.client {
+                    Some(_) => self.live_outputs(setting.key(), &[setting]).await?,
+                    None => None,
+                };
+                let known = Known {
+                    devices: None,
+                    outputs: outputs.as_ref(),
+                };
+                let over = in_effect(
+                    setting,
+                    device,
+                    &changed,
+                    status,
+                    self.compositor,
+                    known,
+                    Session::Ignored,
+                );
                 let value = over
                     .get(setting.key())
                     .cloned()
@@ -435,11 +740,9 @@ impl<V: Validate> Applier<V> {
         value: &Value,
         commands: &[SwayCmd],
     ) -> Result<Effect, ApplyError> {
-        let switches = switches_devices(setting, value);
+        let switches = switches(setting, value);
         let Some(client) = &mut self.client else {
-            if let Some(lockout) =
-                switches.and_then(|(kind, sending)| Lockout::without_devices(kind, device, sending))
-            {
+            if let Some(lockout) = switches.and_then(|switch| switch.lockout_unknown(device)) {
                 return Err(ApplyError::Lockout {
                     key: setting.key(),
                     lockout,
@@ -449,6 +752,11 @@ impl<V: Validate> Applier<V> {
         };
         let undo =
             render(&self.state, &BTreeMap::new(), setting, device, Target::Ipc).unwrap_or_default();
+        if commands.is_empty() {
+            // Nothing sway has a command for, such as a mode it is to choose again: the change
+            // takes effect at the next reload.
+            return Ok(Effect::AfterReload);
+        }
         let sent = send_guarded(client, setting.key(), device, switches, commands, &undo).await?;
         Ok(Effect::Live { commands: sent })
     }
@@ -470,6 +778,43 @@ impl<V: Validate> Applier<V> {
                 key: setting.key(),
                 unmet,
             })
+    }
+
+    /// `changes` with a place for the display `device` if they switch it on while it is off and
+    /// don't place it themselves: right of the displays that are on, at the top of the one
+    /// furthest right. sway would put it at 0,0, over another one. `None` to leave them as they
+    /// are, also without a session.
+    async fn placed_when_on<'a>(
+        &mut self,
+        device: Option<&str>,
+        changes: &[(&'a str, Option<Value>)],
+    ) -> Option<Vec<(&'a str, Option<Value>)>> {
+        use crate::outputs::{ENABLED, POSITION};
+        let device = device?;
+        let switches_on = changes
+            .iter()
+            .any(|(key, value)| *key == ENABLED && *value == Some(Value::Bool(true)));
+        // A place it has (in the settings, or in the change) is where it goes.
+        let places = changes.iter().any(|(key, _)| *key == POSITION)
+            || self.state.get(POSITION, Some(device)).is_some();
+        if !switches_on || places {
+            return None;
+        }
+        let client = self.client.as_mut()?;
+        let outputs = Outputs::new(&client.outputs().await.ok()?);
+        if outputs.find(device)?.is_enabled() {
+            return None;
+        }
+        let furthest = outputs
+            .enabled()
+            .filter_map(crate::outputs::Output::rect)
+            .max_by_key(|rect| (rect.right(), std::cmp::Reverse(rect.y)))?;
+        let mut with_place = changes.to_vec();
+        with_place.push((
+            POSITION,
+            Some(Value::Text(format!("{},{}", furthest.right(), furthest.y))),
+        ));
+        Some(with_place)
     }
 
     /// The risky setting `key`.
@@ -505,6 +850,112 @@ impl<V: Validate> Applier<V> {
     }
 }
 
+/// What is in effect now for every setting of the directives of `settings`, which a revert
+/// restores. Where nothing sets an output's value, that is what the output runs with (the mode
+/// sway chose).
+fn snapshot(
+    settings: &[&'static Setting],
+    device: Option<&str>,
+    state: &State,
+    status: &IncludeStatus,
+    compositor: Compositor,
+    known: Known<'_>,
+) -> BTreeMap<String, Value> {
+    settings
+        .iter()
+        .flat_map(|setting| {
+            in_effect(
+                setting,
+                device,
+                state,
+                status,
+                compositor,
+                known,
+                Session::Counts,
+            )
+        })
+        .collect()
+}
+
+/// `state` as the session runs: where an output runs with something else than what is stored
+/// (an output stored as off that `hook displays` switched on), what it runs with, so a revert
+/// brings that back and never the stored value. And whether the output runs with every value of
+/// `changed` already.
+fn as_running(
+    state: &State,
+    changed: &[(&'static Setting, Option<Value>)],
+    device: Option<&str>,
+    outputs: Option<&Outputs>,
+) -> (State, bool) {
+    let mut session = state.clone();
+    let mut runs_as_tried = true;
+    for (setting, change) in changed {
+        let live = device
+            .and_then(|device| outputs?.find(device))
+            .and_then(|output| output.session_value(setting.key()));
+        if let (Some(live), Some(stored)) = (&live, session.get(setting.key(), device)) {
+            // A value sway reports that the state can't hold is left out: the stored one stays.
+            if live != stored {
+                let _ = session.set(setting.key(), device, live.clone(), None);
+            }
+        }
+        runs_as_tried &= live.is_some() && live.as_ref() == change.as_ref();
+    }
+    (session, runs_as_tried)
+}
+
+/// The value each setting of a risky change is tried with, and the values in effect of the
+/// directives of the settings whose stored value is removed: what the user's config sets, else
+/// the default. Without the stored value, sway chooses again at its next reload, so what an output
+/// runs with now doesn't count.
+fn targets(
+    changed: &[(&'static Setting, Option<Value>)],
+    device: Option<&str>,
+    tried: &State,
+    status: &IncludeStatus,
+    compositor: Compositor,
+    known: Known<'_>,
+) -> (Vec<TriedValue>, BTreeMap<String, Value>) {
+    let mut over = BTreeMap::new();
+    let mut values = Vec::with_capacity(changed.len());
+    for (setting, change) in changed {
+        let value = if let Some(value) = change {
+            value.clone()
+        } else {
+            let effect = in_effect(
+                setting,
+                device,
+                tried,
+                status,
+                compositor,
+                known,
+                Session::Ignored,
+            );
+            let value = effect
+                .get(setting.key())
+                .cloned()
+                .unwrap_or_else(|| setting.default_value());
+            over.extend(effect);
+            value
+        };
+        values.push(TriedValue {
+            key: setting.key(),
+            value,
+            reset: change.is_none(),
+        });
+    }
+    (values, over)
+}
+
+/// Whether what an output runs with now counts as the value in effect where nothing sets it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Session {
+    /// It does: the value to go back to.
+    Counts,
+    /// It doesn't: the value without a stored one, which sway chooses again at its next reload.
+    Ignored,
+}
+
 /// The value in effect for each setting of the directive of `setting` in `state`, as a row shows
 /// it ([`SettingView`]).
 fn in_effect(
@@ -513,13 +964,20 @@ fn in_effect(
     state: &State,
     status: &IncludeStatus,
     compositor: Compositor,
+    known: Known<'_>,
+    session: Session,
 ) -> BTreeMap<String, Value> {
     state
         .registry()
         .group(setting)
         .map(|member| {
-            let view = SettingView::of(member, device, state, status, compositor);
-            (member.key().to_owned(), view.value)
+            let view = SettingView::of(member, device, state, status, compositor, known);
+            let value = if session == Session::Ignored && view.source == Source::Session {
+                member.default_value()
+            } else {
+                view.value
+            };
+            (member.key().to_owned(), value)
         })
         .collect()
 }
@@ -563,22 +1021,30 @@ fn sequence(
     Ok(commands)
 }
 
-/// Refuses a change that `switches` devices if it would leave the session without a keyboard or
-/// a pointing device, then sends `commands`. After a command failed, `undo` restores what was
+/// Refuses a change that `switches` devices or outputs if it would leave the session without a
+/// keyboard, a pointing device or an output that is on, then sends `commands`. After a command failed, `undo` restores what was
 /// sent before it, as far as sway allows. Returns the commands as sent.
 async fn send_guarded(
     client: &mut Client,
     key: &'static str,
     device: Option<&str>,
-    switches: Option<(InputType, Sending)>,
+    switches: Option<Switch>,
     commands: &[SwayCmd],
     undo: &[SwayCmd],
 ) -> Result<Vec<String>, ApplyError> {
-    if let Some((kind, sending)) = switches {
-        let devices = Devices::new(&client.inputs().await.map_err(ApplyError::Ipc)?);
-        if let Some(lockout) = devices.lockout(kind, device, sending) {
-            return Err(ApplyError::Lockout { key, lockout });
+    let lockout = match switches {
+        Some(Switch::Inputs(kind, sending)) => {
+            let devices = Devices::new(&client.inputs().await.map_err(ApplyError::Ipc)?);
+            devices.lockout(kind, device, sending)
         }
+        Some(Switch::Outputs(enabled)) => {
+            let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+            outputs.lockout(device, enabled)
+        }
+        None => None,
+    };
+    if let Some(lockout) = lockout {
+        return Err(ApplyError::Lockout { key, lockout });
     }
     let mut sent = Vec::with_capacity(commands.len());
     for command in commands {
@@ -594,11 +1060,37 @@ async fn send_guarded(
     Ok(sent)
 }
 
-/// The input type and the sending mode, if `value` of `setting` switches input devices on or off
-/// (sway's `events` option).
-fn switches_devices(setting: &Setting, value: &Value) -> Option<(InputType, Sending)> {
+/// What a change switches on or off, for the lockout protection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Switch {
+    /// Input devices of a type, to a sending mode (sway's `events` option).
+    Inputs(InputType, Sending),
+    /// Outputs, on or off.
+    Outputs(bool),
+}
+
+impl Switch {
+    /// What the change could leave the user without when the session's devices and outputs
+    /// aren't known.
+    fn lockout_unknown(self, device: Option<&str>) -> Option<Lockout> {
+        match self {
+            Self::Inputs(kind, sending) => Lockout::without_devices(kind, device, sending),
+            Self::Outputs(enabled) => Outputs::lockout_unknown(device, enabled),
+        }
+    }
+}
+
+/// What `value` of `setting` switches on or off: input devices (sway's `events` option) or
+/// outputs (`enable`, `disable`).
+fn switches(setting: &Setting, value: &Value) -> Option<Switch> {
     let mapping = setting.sway()?;
     let directive = mapping.directive();
+    if directive.block == Block::Output && directive.name == "enable" {
+        return match value {
+            Value::Bool(enabled) => Some(Switch::Outputs(*enabled)),
+            _ => None,
+        };
+    }
     if directive.block != Block::Input || directive.name != "events" {
         return None;
     }
@@ -615,7 +1107,7 @@ fn switches_devices(setting: &Setting, value: &Value) -> Option<(InputType, Send
         },
         _ => return None,
     };
-    Some((kind, sending))
+    Some(Switch::Inputs(kind, sending))
 }
 
 #[cfg(test)]

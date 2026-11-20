@@ -19,6 +19,7 @@ use crate::state::{Paths, State};
 use crate::version::{SwayFxVersion, SwayVersion};
 
 pub(crate) const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
+pub(crate) const DELL: &str = "Dell Inc. DELL U2723QE ABC";
 
 pub(crate) const SWAY_1_10: Compositor = Compositor::Sway {
     version: SwayVersion::new(1, 10, 1),
@@ -41,7 +42,8 @@ pub(crate) fn state(shared: &str, host: &str) -> (tempfile::TempDir, State) {
     (dir, state)
 }
 
-/// A setting of every generated file, one directive with several values, and a device.
+/// A setting of every generated file, one directive with several values, a device and an
+/// output.
 pub(super) fn sample() -> (tempfile::TempDir, State) {
     state(
         r##"version = 1
@@ -81,6 +83,10 @@ pointer_accel = 0.3
 
 [device."{TOUCHPAD}".input.touchpad]
 tap = false
+
+[display."{DELL}".output]
+scale = 1.5
+position = "1920,0"
 "#
         ),
     )
@@ -97,13 +103,7 @@ fn an_empty_state_generates_only_headers() {
     let files = generate(Registry::builtin(), &state, SWAY_1_10);
     assert_eq!(
         files.iter().map(GeneratedFile::file).collect::<Vec<_>>(),
-        [
-            ConfigFile::Input,
-            ConfigFile::Appearance,
-            ConfigFile::Behavior,
-            ConfigFile::Hooks,
-            ConfigFile::Effects
-        ]
+        ConfigFile::ALL
     );
     for file in files {
         assert!(file.is_empty());
@@ -131,6 +131,16 @@ input \"{TOUCHPAD}\" tap disabled
         )
     );
     // One line for the two stored colors of `client.focused`, the others at their defaults.
+    assert_eq!(
+        text(&files, ConfigFile::Output),
+        format!(
+            "{HEADER}\
+output \"{DELL}\" scale 1.5
+output \"{DELL}\" pos 1920 0
+exec_always sway-things hook displays
+"
+        )
+    );
     assert_eq!(
         text(&files, ConfigFile::Appearance),
         format!(
@@ -168,6 +178,24 @@ workspace_layout tabbed
 }
 
 #[test]
+fn the_workspaces_hook_runs_while_a_rule_places_them() {
+    let (_dir, placing) = state(
+        "version = 1\n\n[workspaces]\nplacement = \"round_robin\"\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &placing, SWAY_1_10);
+    assert!(
+        text(&files, ConfigFile::Hooks).contains("exec_always sway-things hook workspaces\n"),
+        "{}",
+        text(&files, ConfigFile::Hooks)
+    );
+    // sway's own placement: no hook.
+    let (_other, sway) = state("version = 1\n\n[workspaces]\nplacement = \"sway\"\n", "");
+    let files = generate(Registry::builtin(), &sway, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Hooks).contains("hook workspaces"));
+}
+
+#[test]
 fn the_same_state_generates_the_same_bytes() {
     let (_dir, first) = sample();
     let (_dir, second) = sample();
@@ -186,7 +214,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
         text(&files, ConfigFile::Effects),
         format!("{HEADER}# effects.corner_radius: requires SwayFX 0.5 or newer\n")
     );
-    let effects = &files[4];
+    let effects = &files[5];
     assert!(!effects.is_empty());
     assert_eq!(
         effects.lines()[0].skipped.as_deref(),
@@ -194,7 +222,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
     );
     // The other files are the same on sway and SwayFX.
     let on_swayfx = generate(Registry::builtin(), &state, SWAYFX_0_5);
-    assert_eq!(files[..4], on_swayfx[..4]);
+    assert_eq!(files[..5], on_swayfx[..5]);
 }
 
 #[test]
@@ -251,7 +279,14 @@ fn a_line_number_leads_back_to_its_settings() {
     assert_eq!(source(0, 9), None);
     // Only the stored values of the directive, in the order of the registry.
     assert_eq!(
-        source(1, 3),
+        source(1, 4),
+        Some(Source {
+            keys: vec!["output.position"],
+            device: Some(DELL.to_owned())
+        })
+    );
+    assert_eq!(
+        source(2, 3),
         global(&["windows.focused.text", "windows.focused.child_border"])
     );
 }
@@ -330,8 +365,9 @@ impl Written {
     }
 }
 
-const ALL_FILES: [&str; 5] = [
+const ALL_FILES: [&str; 6] = [
     "10-input.conf",
+    "20-output.conf",
     "30-appearance.conf",
     "40-behavior.conf",
     "80-hooks.conf",
@@ -344,7 +380,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Written }; 5]
+        [const { Outcome::Written }; 6]
     );
     assert_eq!(written.names(), ALL_FILES);
     for file in &written.files {
@@ -354,7 +390,7 @@ fn files_are_validated_then_written_and_recorded() {
     }
     // Each file was staged under a name the include `*.conf` doesn't match, with its content.
     let staged = validator.staged.borrow();
-    assert_eq!(staged.len(), 5);
+    assert_eq!(staged.len(), 6);
     for ((name, content), file) in staged.iter().zip(&written.files) {
         assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
         assert!(name.ends_with(".staged"), "{name}");
@@ -366,7 +402,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Unchanged }; 5]
+        [const { Outcome::Unchanged }; 6]
     );
     assert!(validator.staged.borrow().is_empty());
 }
@@ -442,7 +478,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
 
     let outcomes = written.write(&FakeValidator::default(), &[]);
     assert_eq!(outcomes[0], Outcome::EditedOutside);
-    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 4]);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 5]);
     assert!(
         fs::read_to_string(&input)
             .unwrap()
@@ -457,7 +493,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
     assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
-        [const { Outcome::Unchanged }; 5]
+        [const { Outcome::Unchanged }; 6]
     );
 }
 
@@ -473,17 +509,12 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
     fs::write(&different, format!("{HEADER}gaps inner 2\n")).unwrap();
     fs::write(&foreign, "focus_follows_mouse no\n").unwrap();
 
-    let all = [
-        ConfigFile::Input,
-        ConfigFile::Appearance,
-        ConfigFile::Behavior,
-        ConfigFile::Hooks,
-        ConfigFile::Effects,
-    ];
+    let all = ConfigFile::ALL;
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
         [
             Outcome::Unchanged,
+            Outcome::Written,
             Outcome::EditedOutside,
             Outcome::Foreign,
             Outcome::Written,
@@ -499,6 +530,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
     assert_eq!(
         written.write(&FakeValidator::default(), &all),
         [
+            Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Written,
             Outcome::Foreign,
@@ -522,6 +554,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
         written.write(&FakeValidator::default(), &[]),
         [
             not_created.clone(),
+            not_created.clone(),
             Outcome::Written,
             not_created.clone(),
             not_created.clone(),
@@ -534,7 +567,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
     let (_dir, empty) = state("", "");
     written.files = generate(Registry::builtin(), &empty, SWAY_1_10);
     assert_eq!(
-        written.write(&FakeValidator::default(), &[])[1],
+        written.write(&FakeValidator::default(), &[])[2],
         Outcome::Written
     );
     assert_eq!(
@@ -643,14 +676,14 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert!(before.iter().all(|file| file.content.is_none()));
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 5]
+        [const { Ok(super::Ownership::Absent) }; 6]
     );
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 5]
+        [const { Ok(super::Ownership::Current) }; 6]
     );
 
     let input = written.path(ConfigFile::Input);
@@ -666,5 +699,61 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert_eq!(files[0].ownership, Ok(super::Ownership::Edited));
     assert_eq!(files[0].content.as_deref(), Some(edited.as_str()));
     // Recorded, so changed outside even without the header.
-    assert_eq!(files[2].ownership, Ok(super::Ownership::Edited));
+    assert_eq!(files[3].ownership, Ok(super::Ownership::Edited));
+}
+
+#[test]
+fn a_display_stored_as_off_or_on_brings_the_guard() {
+    let (_dir, off) = state(
+        "",
+        "[display.\"A B C\".output]\nenabled = false\n\n[display.\"D E F\".output]\nenabled = false\n",
+    );
+    let files = generate(Registry::builtin(), &off, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Output),
+        format!(
+            "{HEADER}\
+output \"A B C\" disable
+output \"D E F\" disable
+exec_always sway-things hook displays
+"
+        )
+    );
+    // Stored as on: still the guard, since a line of the user's may switch it off.
+    let (_dir, on) = state("", "[display.\"A B C\".output]\nenabled = true\n");
+    let files = generate(Registry::builtin(), &on, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // Anything stored for a display: the guard too.
+    let (_dir, scaled) = state("", "[display.\"A B C\".output]\nscale = 2.0\n");
+    let files = generate(Registry::builtin(), &scaled, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // A scale for every display: the guard too.
+    let (_dir, every) = state("[output]\nscale = 2.0\n", "");
+    let files = generate(Registry::builtin(), &every, SWAY_1_10);
+    assert!(text(&files, ConfigFile::Output).contains("hook displays"));
+    // Nothing stored for a display: no guard.
+    let (_dir, none) = state("[windows.gaps]\ninner = 8\n", "");
+    let files = generate(Registry::builtin(), &none, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Output).contains("hook"));
+}
+
+#[test]
+fn with_kanshi_the_displays_get_no_output_lines() {
+    let (_dir, stored) = state(
+        "[windows.gaps]\ninner = 8\n",
+        "[display.\"A B C\".output]\nscale = 2.0\nenabled = false\n",
+    );
+    let files = super::generate_for(
+        Registry::builtin(),
+        &stored,
+        SWAY_1_10,
+        super::Displays::Kanshi { start: false },
+    );
+    let output = text(&files, ConfigFile::Output);
+    assert!(!output.contains("output \""), "{output}");
+    assert!(output.contains("# kanshi sets up the displays"), "{output}");
+    // The guard stays: kanshi switches nothing on for a combination without a profile.
+    assert!(output.contains("hook displays"), "{output}");
+    // Everything else is generated as always.
+    assert!(text(&files, ConfigFile::Appearance).contains("gaps inner 8"));
 }

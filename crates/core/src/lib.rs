@@ -24,6 +24,7 @@ pub mod i18n;
 pub mod include;
 pub mod ipc;
 pub mod network;
+pub mod outputs;
 pub mod registry;
 pub mod state;
 pub mod sway_config;

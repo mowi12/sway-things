@@ -11,6 +11,7 @@ use super::read::ReadFn;
 use super::setting::Scope;
 use super::value::{Kind, Value, ValueError};
 use crate::command::input::{Input, InputError, InputSelector};
+use crate::command::output::{Output, OutputError, OutputSelector};
 use crate::command::window::WindowError;
 use crate::command::{Color, CommandError, OutOfRange, SwayCmd, Target};
 use crate::i18n::Text;
@@ -28,6 +29,9 @@ pub enum Block {
     /// In a `seat <name> { … }` block, or after `seat <name>` on one line. Sway Things writes
     /// `seat *`; `*` and the default seat, `seat0`, count.
     Seat,
+    /// After `output <name>`, in a block or on one line. sway reads several settings from one
+    /// line (`output DP-4 mode 2560x1440 pos 0 0`); each is a directive of its own here.
+    Output,
 }
 
 /// The sway directive a setting maps to. Conflict detection looks for it in the user's config, and
@@ -77,6 +81,16 @@ impl Directive {
         }
     }
 
+    /// A setting of `output` commands, e.g. `scale`.
+    pub const fn output(name: &'static str) -> Self {
+        Self {
+            block: Block::Output,
+            name,
+            arguments: &[],
+            except: &[],
+        }
+    }
+
     /// Narrows the directive to those that start with these arguments.
     #[must_use]
     pub const fn arguments(mut self, arguments: &'static [&'static str]) -> Self {
@@ -98,6 +112,8 @@ impl Directive {
 pub enum ConfigFile {
     /// `10-input.conf`
     Input,
+    /// `20-output.conf`
+    Output,
     /// `30-appearance.conf`
     Appearance,
     /// `40-behavior.conf`
@@ -110,8 +126,9 @@ pub enum ConfigFile {
 
 impl ConfigFile {
     /// Every generated file, in the order of their names, which is the order sway reads them in.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Input,
+        Self::Output,
         Self::Appearance,
         Self::Behavior,
         Self::Hooks,
@@ -122,6 +139,7 @@ impl ConfigFile {
     pub const fn file_name(self) -> &'static str {
         match self {
             Self::Input => "10-input.conf",
+            Self::Output => "20-output.conf",
             Self::Appearance => "30-appearance.conf",
             Self::Behavior => "40-behavior.conf",
             Self::Hooks => "80-hooks.conf",
@@ -155,21 +173,15 @@ impl SwayMapping {
 
     /// Whether a directive of the user's config is this setting's directive, and if so, the
     /// arguments its value is read from: those after the leading arguments the directive names.
-    /// Like sway, names, the `input` and `seat` blocks and the leading arguments match without
-    /// regard to case.
-    /// Which `input` identifiers and seat names count is up to the caller.
+    /// Like sway, names, the `input`, `seat` and `output` blocks and the leading arguments match
+    /// without regard to case.
+    /// Which `input` identifiers, seat names and output names count is up to the caller.
     pub fn matches<'a>(&self, directive: &'a sway_config::Directive) -> Option<&'a [String]> {
-        let in_block = |name: &str| {
-            directive.block.len() == 2
-                && directive
-                    .block
-                    .first()
-                    .is_some_and(|word| word.eq_ignore_ascii_case(name))
-        };
         let block = match self.directive.block {
             Block::Top => directive.block.is_empty(),
-            Block::Input => in_block("input"),
-            Block::Seat => in_block("seat"),
+            Block::Input => is_block(directive, "input"),
+            Block::Seat => is_block(directive, "seat"),
+            Block::Output => is_block(directive, "output"),
         };
         if !block || !directive.name.eq_ignore_ascii_case(self.directive.name) {
             return None;
@@ -189,6 +201,15 @@ impl SwayMapping {
                 .all(|(expected, arg)| arg.eq_ignore_ascii_case(expected)))
         .then_some(rest)
     }
+}
+
+/// Whether `directive` is in an `<kind> <identifier>` block, e.g. `input type:touchpad`.
+fn is_block(directive: &sway_config::Directive, kind: &str) -> bool {
+    directive.block.len() == 2
+        && directive
+            .block
+            .first()
+            .is_some_and(|word| word.eq_ignore_ascii_case(kind))
 }
 
 /// The stored values a setting is rendered from. A key that isn't stored renders with its default.
@@ -219,7 +240,8 @@ pub struct Context<'a> {
     pub(super) registry: &'a Registry,
     pub(super) values: &'a dyn Values,
     pub(super) scope: Scope,
-    pub(super) device: Option<&'a InputSelector>,
+    /// The input device or output, by its identifier; already checked against the scope.
+    pub(super) device: Option<&'a str>,
     pub(super) target: Target,
 }
 
@@ -239,11 +261,34 @@ impl Context<'_> {
         let Scope::PerDevice(input_type) = self.scope else {
             return Err(RenderError::NotPerDevice);
         };
-        Ok(Input::new(
-            self.device
-                .cloned()
-                .unwrap_or(InputSelector::Type(input_type)),
-        ))
+        let selector = match self.device {
+            Some(device) => InputSelector::device(device)?,
+            None => InputSelector::Type(input_type),
+        };
+        Ok(Input::new(selector))
+    }
+
+    /// The `output` command builder for the outputs the setting is rendered for: the selected
+    /// output, or every output (`*`).
+    ///
+    /// # Errors
+    ///
+    /// [`RenderError::NotPerDevice`] if the setting's scope isn't [`Scope::PerOutput`].
+    pub fn output(&self) -> Result<Output, RenderError> {
+        if self.scope != Scope::PerOutput {
+            return Err(RenderError::NotPerDevice);
+        }
+        let selector = match self.device {
+            Some(output) => OutputSelector::output(output)?,
+            None => OutputSelector::All,
+        };
+        Ok(Output::new(selector))
+    }
+
+    /// Whether a value is stored for `key`, rather than its default used. A setting whose default
+    /// means "sway decides" (an output's automatic position) renders no command then.
+    pub fn is_stored(&self, key: &str) -> bool {
+        self.values.get(key).is_some()
     }
 
     /// The checked value of `key`: the stored one, or the default.
@@ -408,8 +453,10 @@ pub enum RenderError {
         /// What is wrong with the value.
         error: ValueError,
     },
-    /// The `input` command builder rejected a value.
+    /// The `input` command builder rejected a value, or the device isn't an input device.
     Input(InputError),
+    /// The `output` command builder rejected a value, or the output's name.
+    Output(OutputError),
     /// A window command builder rejected a value.
     Window(WindowError),
     /// A command builder rejected a number.
@@ -433,6 +480,12 @@ impl From<InputError> for RenderError {
     }
 }
 
+impl From<OutputError> for RenderError {
+    fn from(error: OutputError) -> Self {
+        Self::Output(error)
+    }
+}
+
 impl From<WindowError> for RenderError {
     fn from(error: WindowError) -> Self {
         Self::Window(error)
@@ -453,11 +506,14 @@ impl RenderError {
             Self::NotASwaySetting { key } => {
                 Text::new(msg!("{key} is not a sway setting")).arg("key", key)
             }
-            Self::NotPerDevice => msg!("the setting can't be set for a single device").into(),
+            Self::NotPerDevice => {
+                msg!("the setting can't be set for a single device or output").into()
+            }
             Self::InvalidValue { key, error } => Text::new(msg!("{key}: {error}"))
                 .arg("key", key)
                 .text("error", error.text()),
             Self::Input(error) => error.text(),
+            Self::Output(error) => error.text(),
             Self::Window(error) => error.text(),
             Self::OutOfRange(error) => error.text(),
             Self::Command(error) => error.text(),
@@ -487,6 +543,7 @@ impl std::error::Error for RenderError {
         match self {
             Self::InvalidValue { error, .. } => Some(error),
             Self::Input(error) => Some(error),
+            Self::Output(error) => Some(error),
             Self::Window(error) => Some(error),
             Self::OutOfRange(error) => Some(error),
             Self::Command(error) => Some(error),

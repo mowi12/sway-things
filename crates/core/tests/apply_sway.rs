@@ -109,9 +109,10 @@ fn a_changed_setting_survives_a_reload() -> Result<()> {
                 applier.set(GAPS, None, Value::Integer(px), &access).await?;
                 let persisted = applier.persist(&[], &access).await?;
                 assert!(persisted.saved, "{persisted:?}");
-                assert_eq!(
-                    persisted.files[1],
-                    (ConfigFile::Appearance, Outcome::Written),
+                assert!(
+                    persisted
+                        .files
+                        .contains(&(ConfigFile::Appearance, Outcome::Written)),
                     "{persisted:?}"
                 );
                 // sway reloads right after it answered, before it reads the next request.

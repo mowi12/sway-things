@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use serde_json::{Value as Json, json};
-use sway_things_core::conflict::Report;
+use sway_things_core::conflict::{Known, Report};
 use sway_things_core::generate::InvalidLine;
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
@@ -33,10 +33,11 @@ impl Shown {
         state: &State,
         status: &IncludeStatus,
         compositor: Compositor,
+        known: Known<'_>,
     ) -> Self {
-        let view = SettingView::of(setting, device, state, status, compositor);
+        let view = SettingView::of(setting, device, state, status, compositor, known);
         let overriding = if matches!(view.source, Source::Stored { .. }) {
-            Report::check(status, setting, device, None).and_then(|report| {
+            Report::check(status, setting, device, known).and_then(|report| {
                 report
                     .overriding()
                     .map(|line| (line.file().to_owned(), line.line()))
@@ -91,6 +92,9 @@ impl Shown {
             ),
             // TRANSLATORS: Where `sway-things get` found a value: nowhere, it is the default.
             Source::Default => tr(msg!("default")).to_owned(),
+            // TRANSLATORS: Where `sway-things get` found a value: nothing sets it, so it is what
+            // sway chose for the display (its preferred mode, its place, a scale).
+            Source::Session => tr(msg!("chosen by sway")).to_owned(),
         }];
         if let Some((file, line)) = &self.overriding {
             notes.push(trf(
@@ -120,6 +124,7 @@ impl Shown {
                 "line": line,
             }),
             Source::Default => json!({ "kind": "default" }),
+            Source::Session => json!({ "kind": "session" }),
         };
         let overridden_by = self
             .overriding

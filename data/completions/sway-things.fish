@@ -35,15 +35,15 @@ complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "reset" -d '
 complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "show-generated" -d 'Print the generated sway config files as they would be written, without writing them'
 complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "doctor" -d 'Check why settings might not take effect: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win'
 complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "open" -d 'Start the app, or bring its window up if it runs, at a page or a setting'
-complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "hook" -d 'Run a hook; the generated sway config runs these, in 80-hooks.conf'
+complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "hook" -d 'Run a hook; the generated sway config runs these'
 complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sway-things -n "__fish_sway_things_using_subcommand get" -l device -d 'The input device, by its identifier as `swaymsg -t get_inputs` shows it' -r
+complete -c sway-things -n "__fish_sway_things_using_subcommand get" -l device -d 'The input device or display: an input device by its identifier as `swaymsg -t get_inputs` shows it, a display by its make, model and serial as `swaymsg -t get_outputs` shows them, or in a sway session by its name' -r
 complete -c sway-things -n "__fish_sway_things_using_subcommand get" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
 complete -c sway-things -n "__fish_sway_things_using_subcommand get" -l json -d 'Print JSON for scripts'
 complete -c sway-things -n "__fish_sway_things_using_subcommand get" -s h -l help -d 'Print help'
-complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l device -d 'The input device, by its identifier as `swaymsg -t get_inputs` shows it' -r
+complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l device -d 'The input device or display: an input device by its identifier as `swaymsg -t get_inputs` shows it, a display by its make, model and serial as `swaymsg -t get_outputs` shows them, or in a sway session by its name' -r
 complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
@@ -52,7 +52,7 @@ complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l shared -
 complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l yes -d 'Change a setting that can lock you out without asking to keep it'
 complete -c sway-things -n "__fish_sway_things_using_subcommand set" -l overwrite -d 'Replace generated files that were changed outside Sway Things'
 complete -c sway-things -n "__fish_sway_things_using_subcommand set" -s h -l help -d 'Print help'
-complete -c sway-things -n "__fish_sway_things_using_subcommand reset" -l device -d 'The input device, by its identifier as `swaymsg -t get_inputs` shows it' -r
+complete -c sway-things -n "__fish_sway_things_using_subcommand reset" -l device -d 'The input device or display: an input device by its identifier as `swaymsg -t get_inputs` shows it, a display by its make, model and serial as `swaymsg -t get_outputs` shows them, or in a sway session by its name' -r
 complete -c sway-things -n "__fish_sway_things_using_subcommand reset" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
@@ -74,17 +74,35 @@ complete -c sway-things -n "__fish_sway_things_using_subcommand open" -l color -
 always\t''
 never\t''"
 complete -c sway-things -n "__fish_sway_things_using_subcommand open" -s h -l help -d 'Print help'
-complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings help" -l color -d 'Controls when to use color' -r -f -a "auto\t''
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
-complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings help" -s h -l help -d 'Print help'
-complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings help" -f -a "gsettings" -d 'Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway'
-complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -s h -l help -d 'Print help'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -f -a "gsettings" -d 'Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -f -a "displays" -d 'Switch a display on if none is on (and have kanshi apply its profile again, if it runs): run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -f -a "workspaces" -d 'Put the workspaces on the displays connected now as the Workspaces page says: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -f -a "mirror" -d 'Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations: run by kanshi when it applied a profile'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and not __fish_seen_subcommand_from gsettings displays workspaces mirror help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from gsettings" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
 complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from gsettings" -s h -l help -d 'Print help'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from displays" -l color -d 'Controls when to use color' -r -f -a "auto\t''
+always\t''
+never\t''"
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from displays" -s h -l help -d 'Print help'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from workspaces" -l color -d 'Controls when to use color' -r -f -a "auto\t''
+always\t''
+never\t''"
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from workspaces" -s h -l help -d 'Print help'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from mirror" -l color -d 'Controls when to use color' -r -f -a "auto\t''
+always\t''
+never\t''"
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from mirror" -s h -l help -d 'Print help'
 complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from help" -f -a "gsettings" -d 'Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from help" -f -a "displays" -d 'Switch a display on if none is on (and have kanshi apply its profile again, if it runs): run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from help" -f -a "workspaces" -d 'Put the workspaces on the displays connected now as the Workspaces page says: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile'
+complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from help" -f -a "mirror" -d 'Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations: run by kanshi when it applied a profile'
 complete -c sway-things -n "__fish_sway_things_using_subcommand hook; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "get" -d 'Show the value in effect and where it comes from; without a key, every stored setting'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "set" -d 'Change a setting: live, in the settings files and in the generated sway config'
@@ -92,6 +110,9 @@ complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "show-generated" -d 'Print the generated sway config files as they would be written, without writing them'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "doctor" -d 'Check why settings might not take effect: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "open" -d 'Start the app, or bring its window up if it runs, at a page or a setting'
-complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "hook" -d 'Run a hook; the generated sway config runs these, in 80-hooks.conf'
+complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "hook" -d 'Run a hook; the generated sway config runs these'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and not __fish_seen_subcommand_from get set reset show-generated doctor open hook help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c sway-things -n "__fish_sway_things_using_subcommand help; and __fish_seen_subcommand_from hook" -f -a "gsettings" -d 'Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway'
+complete -c sway-things -n "__fish_sway_things_using_subcommand help; and __fish_seen_subcommand_from hook" -f -a "displays" -d 'Switch a display on if none is on (and have kanshi apply its profile again, if it runs): run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one'
+complete -c sway-things -n "__fish_sway_things_using_subcommand help; and __fish_seen_subcommand_from hook" -f -a "workspaces" -d 'Put the workspaces on the displays connected now as the Workspaces page says: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile'
+complete -c sway-things -n "__fish_sway_things_using_subcommand help; and __fish_seen_subcommand_from hook" -f -a "mirror" -d 'Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations: run by kanshi when it applied a profile'

@@ -28,15 +28,18 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::command::input::InputType;
 use sway_things_core::network::NetworkManager;
+use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
 use sway_things_core::system::{self, Details, Value};
 use sway_things_core::ui_state;
 use sway_things_core::view::Source;
 
 use super::device_selector::none_connected;
+use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, TestArea,
+    WorkspaceMap,
 };
 use super::{cursor, keyboard};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
@@ -78,6 +81,8 @@ mod imp {
         pub highlight: RefCell<Option<(gtk::Widget, glib::SourceId)>>,
         /// The collapsible sections of the page.
         pub(super) sections: RefCell<Vec<super::Section>>,
+        /// On the Displays page, the arrangement and the picker of the output.
+        pub(super) displays: RefCell<Option<(super::OutputPicker, super::Arrangement)>>,
     }
 
     #[glib::object_subclass]
@@ -195,16 +200,13 @@ impl PageView {
         let mut files = BTreeSet::new();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
+        let arrangement = (page == Page::Displays)
+            .then(|| arrangement_section(model, &body, std::mem::take(&mut first), &mut sections));
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
         {
-            let choices = keyboard::choices(setting).or_else(|| cursor::choices(model, setting));
-            let row = match choices {
-                Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
-                None => SettingRow::new(model, setting, None),
-            };
-            let Some(row) = row else {
+            let Some(row) = setting_row(model, setting) else {
                 continue;
             };
             cursor::follow(model, &row);
@@ -271,9 +273,8 @@ impl PageView {
         for group in groups {
             group.follow(model);
         }
-        if page == Page::MouseTouchpad {
-            sections.push(test_area_section(model, &body));
-        }
+        add_page_parts(model, page, &body, &mut sections);
+        let displays = arrangement.map(|shown| follow_displays(model, shown, &rows));
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
         }
@@ -281,6 +282,7 @@ impl PageView {
         view.imp().rows.replace(rows);
         view.imp().groups.replace(grouping.rows);
         view.imp().sections.replace(sections);
+        view.imp().displays.replace(displays);
         view.add_page_reset(model, page);
         Some(view)
     }
@@ -308,6 +310,24 @@ impl PageView {
             header.set_end(&button);
         }
         let _ = self.imp().reset.set(button);
+    }
+
+    /// The arrangement of the displays, on the Displays page.
+    pub fn arrangement(&self) -> Option<Arrangement> {
+        self.imp()
+            .displays
+            .borrow()
+            .as_ref()
+            .map(|(_, arrangement)| arrangement.clone())
+    }
+
+    /// The picker of the output the rows are for, on the Displays page.
+    pub fn output_picker(&self) -> Option<OutputPicker> {
+        self.imp()
+            .displays
+            .borrow()
+            .as_ref()
+            .map(|(picker, _)| picker.clone())
     }
 
     /// The "Reset page…" button, on a page built from the registry.
@@ -509,6 +529,68 @@ fn footer(model: &Model, files: BTreeSet<ConfigFile>) -> Option<gtk::Box> {
         footer.append(&line);
     }
     Some(footer)
+}
+
+/// The row of `setting` for the whole session or input type: a drop-down of known values for
+/// the keyboard model and an output's mode.
+fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
+    if setting.key() == outputs::MODE {
+        return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
+    }
+    match keyboard::choices(setting).or_else(|| cursor::choices(model, setting)) {
+        Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
+        None => SettingRow::new(model, setting, None),
+    }
+}
+
+/// The "Arrangement" section of Displays, the first on the page if `first`, added to `body` and
+/// `sections`. The page starts with it; its rows follow the output picked there.
+fn arrangement_section(
+    model: &Model,
+    body: &gtk::Box,
+    first: bool,
+    sections: &mut Vec<Section>,
+) -> Arrangement {
+    let arrangement = Arrangement::new(model);
+    let title = msg!("Arrangement");
+    let section = Section::new(model, Page::Displays, title.msgid(), tr(title), first);
+    section.body.append(arrangement.widget());
+    // Ctrl+Z goes back to the arrangement before, wherever the focus is on the page.
+    body.add_controller(arrangement.canvas().undo_shortcut());
+    body.append(&section.header);
+    body.append(&section.body);
+    sections.push(section);
+    arrangement
+}
+
+/// Lets the Displays page follow its outputs: the picker before the rows.
+fn follow_displays(
+    model: &Model,
+    arrangement: Arrangement,
+    rows: &[SettingRow],
+) -> (displays::OutputPicker, Arrangement) {
+    let picker = displays::follow(model, &arrangement, rows);
+    (picker, arrangement)
+}
+
+/// The parts of `page` beyond its rows: the test area of Mouse & Touchpad, the map of the
+/// displays on Workspaces.
+fn add_page_parts(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec<Section>) {
+    match page {
+        Page::MouseTouchpad => sections.push(test_area_section(model, body)),
+        Page::Workspaces => add_workspace_map(model, sections),
+        _ => {}
+    }
+}
+
+/// The map of the displays with their workspaces, below the rows of the Workspaces page's
+/// "Placement" section.
+fn add_workspace_map(model: &Model, sections: &[Section]) {
+    let placement = msg!("Placement").msgid();
+    let id = ui_state::section_id(placement);
+    if let Some(section) = sections.iter().find(|section| section.id == id) {
+        section.body.append(WorkspaceMap::new(model).widget());
+    }
 }
 
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.

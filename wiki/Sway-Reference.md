@@ -41,6 +41,19 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | `hide_cursor <ms>` raises a timeout between 1 and 99 ms to 100; 0 never hides. `hide_cursor when-typing enable\|disable` is a separate option. | `sway/commands/seat/hide_cursor.c` 1.10 |
 | GTK apps take the cursor theme and size from GSettings (`org.gnome.desktop.interface` `cursor-theme`, `cursor-size`), not from sway. | The `translations` table in `gdk/wayland/gdkdisplay-wayland.c` (GTK 4), which maps these keys to `gtk-cursor-theme-name` and `gtk-cursor-theme-size`. |
 
+## Outputs
+
+| Fact | Source |
+| --- | --- |
+| `output` reads its subcommands one after the other, each taking the words it needs (`mode` one or two, `pos` one or two, `transform` one plus an optional `clockwise`/`anticlockwise`, `enable`/`disable`/`toggle` none, `bg` up to its mode word and an optional `#fallback`, `modeline` the remaining eleven). An unknown subcommand or an invalid value rejects the whole line. Aliases: `res`/`resolution` for `mode`, `position` for `pos`, `background` for `bg`. | `sway/commands/output.c` and `sway/commands/output/*.c` in SwayFX 0.6 (sway 1.12) |
+| An output's identifier is `<make> <model> <serial>` with `Unknown` for what wlroots doesn't know, written into a 128-byte buffer (longer ones are cut off). `GET_OUTPUTS` reports make, model and serial the same way. | `output_get_identifier` in `sway/config/output.c`, `ipc_json_describe_wlr_output` in `sway/ipc-json.c` 1.12 |
+| For one output, sway merges the stored configs for `*`, then its name, then its identifier. Storing a config for a name supersedes the identifier's values only while that output is connected; one for `*` supersedes all others. | `find_output_config_from_list`, `store_output_config` in `sway/config/output.c` 1.12 |
+| `mode` takes the mode of that size with the refresh rate nearest to `roundf(rate * 1000)` millihertz; without a rate the highest. There is no command back to the preferred mode, the automatic position or the automatic scale: only a config without them does that. | `set_mode` in `sway/config/output.c`, `sway/commands/output/mode.c` 1.12 |
+| sway has no protection against having no output on: an `output X disable` from the config applies also when X is the only output connected. `exec_always` runs at the start and at every reload, after the outputs of the backend are there. | `sway/config/output.c`, `run_deferred_commands` in `sway/config.c` 1.12; checked with SwayFX 0.6 headless |
+| A relative `transform … clockwise` is rejected in a config file. `scale` takes any number; one of 0 or less means "pick one". | `sway/commands/output/transform.c`, `apply_output_config` 1.12 |
+| `GET_OUTPUTS` lists disabled outputs with `active` false, no scale or transform and a zero rect, and non-desktop outputs (VR headsets) with `non_desktop` true. The rect is in logical pixels: the mode turned by the transform and divided by the scale, rounded down (`wlr_output_effective_resolution`). | `sway/ipc-json.c`, `sway/ipc-server.c` 1.12 |
+| A headless sway (`WLR_BACKENDS=headless`) has one output, `HEADLESS-1`, with make, model and serial `Unknown` and no modes; `create_output` adds another. Commands for outputs that aren't connected succeed: sway stores them. | Checked with SwayFX 0.6 (sway 1.12) |
+
 ## Windows, borders, gaps and title bars
 
 | Fact | Source |
@@ -77,6 +90,12 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | Fact | Source |
 | --- | --- |
 | kanshi supports `include` with wordexp. | `man 5 kanshi` |
+| kanshi applies the first profile whose displays are all connected and that covers every connected display; `output *` matches one display, `...output *` any number. A directive it doesn't know makes it reject the whole config. | `man 5 kanshi` of kanshi 1.9.0 (checked); older versions not checked |
+| While its profile still matches, kanshi keeps it when displays are plugged in or out: with `...output * enable` active, plugging in a display of a remembered combination doesn't switch to that profile; without such a profile it does. | Tried on headless sway with kanshi 1.9.0 (`swaymsg create_output`, `output … unplug`) and seen on a docked laptop |
+| `kanshictl reload` has kanshi read its config again; `exec` lines of a profile run (through a shell) when it was applied. | `man 1 kanshictl`, `man 5 kanshi` of kanshi 1.9.0 |
+| sway's `workspace N output X` adds to the list of outputs of workspace N and never clears it; a new workspace goes to the first connected output of the list. A reload of sway clears the lists. | sway `commands/workspace.c`, `tree/workspace.c` (`workspace_get_initial_output`) |
+| `workspace N output A B C` lists several outputs: the first one available is used, and a workspace placed on an output further down moves to a higher one once that one is there again. | `man 5 sway` (`workspace <name> output <outputs...>`), 1.12 |
+| `wl-mirror --fullscreen-output O --scaling fit\|cover\|exact --title T <source>` shows `<source>` fullscreen on `O`. | `wl-mirror --help` |
 | waybar's `include`: the first definition of a key wins. | `man 5 waybar` (0.15) |
 | mako supports `include=` with an absolute or `~/` path. | mako `doc/mako.5.scd` |
 | swaync has no include, but takes its config and style with `-c` and `-s`. | `swaync --help` (0.12.6) |

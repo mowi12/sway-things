@@ -56,7 +56,7 @@ fn generated_files_pass_sway_and_are_written() -> Result<()> {
         let files = generate(Registry::builtin(), &state, compositor);
         let effects = files
             .iter()
-            .find(|file| file.file() == ConfigFile::Effects)
+            .find(|generated| generated.file() == ConfigFile::Effects)
             .ok_or("no effects file")?;
         assert_eq!(
             effects.lines()[0].skipped.is_none(),
@@ -145,12 +145,9 @@ fn a_file_sway_rejects_keeps_its_old_content() -> Result<()> {
             &access(&locations)?,
         )
         .await?;
-        let position = ConfigFile::ALL
-            .iter()
-            .position(|file| *file == ConfigFile::Effects)
-            .ok_or("no effects file")?;
-        match &report[position] {
-            (ConfigFile::Effects, Outcome::Invalid(lines)) => {
+        let outcome = report.iter().find(|(file, _)| *file == ConfigFile::Effects);
+        match outcome {
+            Some((_, Outcome::Invalid(lines))) => {
                 // Every effect line is rejected, each with the settings behind it.
                 let effects = invalid
                     .iter()
@@ -172,9 +169,11 @@ fn a_file_sway_rejects_keeps_its_old_content() -> Result<()> {
         }
         assert_eq!(fs::read_to_string(&effects)?, old);
         assert!(
-            report[..position]
+            report
                 .iter()
-                .all(|(_, outcome)| *outcome == Outcome::Unchanged)
+                .filter(|(file, _)| *file != ConfigFile::Effects)
+                .all(|(_, outcome)| *outcome == Outcome::Unchanged),
+            "{report:?}"
         );
         Ok(())
     })

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-18 10:42+0100\n"
+"POT-Creation-Date: 2026-11-20 11:10+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -138,6 +138,40 @@ msgstr ""
 #: crates/cli/src/doctor.rs
 #, rust-format
 msgid "Fix: {command} (your changes to the file are lost)"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid ""
+"the change isn't remembered: {file} wasn't made by Sway Things, so it is "
+"left alone and kanshi never sees what is set. Move that file away."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid ""
+"the change doesn't last: a kanshi profile of your own ({name}) sets up these "
+"displays, as kanshi takes the first profile that matches and it comes before "
+"the include of Sway Things. {how}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid ""
+"kanshi sets up the displays: what the display runs with now is remembered "
+"for the displays connected now."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid ""
+"kanshi sets up the displays: the change is remembered for the displays "
+"connected now, and kanshi brings it back whenever they are."
+msgstr ""
+
+#. TRANSLATORS: `sway-things hook displays` switched on a display because no
+#. other one was on.
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "No display was on, so {display} was switched on."
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -291,6 +325,12 @@ msgstr ""
 msgid "default"
 msgstr ""
 
+#. TRANSLATORS: Where `sway-things get` found a value: nothing sets it, so it is what
+#. sway chose for the display (its preferred mode, its place, a scale).
+#: crates/cli/src/output.rs
+msgid "chosen by sway"
+msgstr ""
+
 #: crates/cli/src/output.rs
 #, rust-format
 msgid "your config wins: {file}:{line}"
@@ -327,6 +367,17 @@ msgstr ""
 
 #: crates/core/src/apply/mod.rs
 #, rust-format
+msgid ""
+"{error} ({file}); the displays are set up from the sway config meanwhile"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid "the displays can't be remembered in {file}: {error}"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
 msgid "{key} can only be changed with the safety net"
 msgstr ""
 
@@ -352,6 +403,19 @@ msgstr ""
 #: crates/core/src/apply/mod.rs
 #, rust-format
 msgid "keep or revert the change of {key} first"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+msgid ""
+"a display can't show one that shows another display itself, or be shown "
+"elsewhere while it shows another"
+msgstr ""
+
+#: crates/core/src/apply/mod.rs
+#, rust-format
+msgid ""
+"{key} wasn't changed: kanshi sets up the displays and remembers it for the "
+"displays connected, so it changes only in a running sway session"
 msgstr ""
 
 #: crates/core/src/apply/mod.rs
@@ -453,6 +517,10 @@ msgid "invalid keyword {keyword}"
 msgstr ""
 
 #: crates/core/src/command/mod.rs
+msgid "invalid word in a command"
+msgstr ""
+
+#: crates/core/src/command/mod.rs
 msgid "number is not finite"
 msgstr ""
 
@@ -472,6 +540,18 @@ msgstr ""
 #: crates/core/src/command/mod.rs
 #, rust-format
 msgid "{option} must be between {min} and {max}"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "*, - and -- don't name an output"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "expected a mode like 2560x1440 or 2560x1440@59.951Hz"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "expected a position like 1920,0"
 msgstr ""
 
 #: crates/core/src/command/text.rs
@@ -503,6 +583,10 @@ msgstr ""
 #: crates/core/src/devices/mod.rs
 msgid ""
 "this would turn off the last mouse, trackpoint or touchpad you can point with"
+msgstr ""
+
+#: crates/core/src/devices/mod.rs
+msgid "this would turn off the last display that is on"
 msgstr ""
 
 #. TRANSLATORS: A label of the system details: the running or installed sway.
@@ -713,6 +797,94 @@ msgstr ""
 msgid ""
 "Move it out of {directory}: the include line reads every *.conf file there, "
 "and Sway Things needs the name."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"sway and kanshi can't run sway-things: it isn't in a directory of $PATH. The "
+"hooks in the generated config do nothing, so workspaces aren't placed, "
+"pictures don't start and no display is switched on when none is."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install Sway Things, or put the directory of sway-things into $PATH before "
+"sway starts."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"sway and kanshi run {found} for the hooks, not this build ({this}). An older "
+"one doesn't know every hook, so workspaces may not be placed and pictures "
+"may not start after a reload."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install this build, or put its directory first in $PATH before sway starts."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} doesn't include the profiles of Sway Things, so combinations of "
+"displays aren't remembered."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} wasn't made by Sway Things, so nothing is written there and kanshi "
+"never sees what is set in the app."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Move it away, so Sway Things can write its profiles there."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid "{file} can't be used: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid "Fix or move it; meanwhile the displays are set up from the sway config."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things remembers for the "
+"displays, so kanshi sets them up as before."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is missing, and kanshi rejects its whole config over an include it "
+"can't find: no display is set up by kanshi."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Run: sway-things hook displays (it writes the file again and has kanshi read "
+"it)"
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The profile {name} in {file} comes before the include and covers displays "
+"Sway Things remembers; kanshi applies the first profile that matches."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"The include of Sway Things isn't at the top of {file}: {name} comes before "
+"it and wins for its displays, whatever is arranged for them on the Displays "
+"page."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs crates/core/src/state/mod.rs
@@ -1214,6 +1386,37 @@ msgstr ""
 msgid "NetworkManager isn't running"
 msgstr ""
 
+#: crates/core/src/outputs/kanshi.rs
+#, rust-format
+msgid "Run: {command}"
+msgstr ""
+
+#: crates/core/src/outputs/kanshi.rs
+#, rust-format
+msgid ""
+"Put the line {line} at the top of {file}, above your profiles, and take the "
+"line that includes it further down away."
+msgstr ""
+
+#: crates/core/src/outputs/kanshi.rs
+#, rust-format
+msgid "{file} wasn't written by Sway Things, so it is left alone"
+msgstr ""
+
+#: crates/core/src/outputs/kanshi.rs
+#, rust-format
+msgid "the profiles for kanshi can't be written: {error}"
+msgstr ""
+
+#: crates/core/src/outputs/profiles.rs
+#, rust-format
+msgid "the remembered displays can't be read: {error}"
+msgstr ""
+
+#: crates/core/src/outputs/profiles.rs
+msgid "the remembered displays aren't in a form Sway Things knows"
+msgstr ""
+
 #: crates/core/src/registry/app.rs
 msgid "Sway’s focus color"
 msgstr ""
@@ -1223,6 +1426,7 @@ msgid "The GTK theme’s accent"
 msgstr ""
 
 #: crates/core/src/registry/app.rs crates/gui/src/widgets/cursor.rs
+#: crates/gui/src/widgets/displays/mod.rs
 msgid "Automatic"
 msgstr ""
 
@@ -1479,8 +1683,10 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
-#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/group_row.rs
-#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
 msgstr ""
 
@@ -1605,8 +1811,8 @@ msgstr ""
 msgid "not a whole number: {text}"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/read.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/read.rs crates/core/src/registry/windows.rs
 #, rust-format
 msgid "too large: {text}"
 msgstr ""
@@ -1740,66 +1946,6 @@ msgstr ""
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/effects.rs
 #: crates/core/src/registry/windows.rs
 msgid "attention"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/page.rs
-msgid "Workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Layout of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "tabs"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "stack"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
-msgid "tiling"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Split of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "How the windows of a new workspace are arranged"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "default orientation"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "horizontal"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "vertical"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Back and forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Switching to the current workspace again goes back to the previous one"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "workspace_auto_back_and_forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "previous workspace"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "toggle"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
@@ -1951,6 +2097,66 @@ msgstr ""
 msgid "legacy"
 msgstr ""
 
+#: crates/core/src/registry/behavior.rs
+msgid "New workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Layout of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tabs"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "stack"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "tiling"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Split of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "How the windows of a new workspace are arranged"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "default orientation"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "horizontal"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "vertical"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Back and forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Switching to the current workspace again goes back to the previous one"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "workspace_auto_back_and_forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "previous workspace"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "toggle"
+msgstr ""
+
 #: crates/core/src/registry/cursor.rs
 msgid "Like a pen on paper"
 msgstr ""
@@ -2093,7 +2299,8 @@ msgstr ""
 msgid "map to output"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/workspaces.rs
 msgid "monitor"
 msgstr ""
 
@@ -2429,7 +2636,8 @@ msgstr ""
 
 #. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
-#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
@@ -2536,7 +2744,7 @@ msgstr ""
 msgid "trackpoint"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
 msgid "disable"
 msgstr ""
 
@@ -2576,7 +2784,7 @@ msgstr ""
 msgid "sensitivity"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/output.rs
 msgid "dpi"
 msgstr ""
 
@@ -3039,6 +3247,197 @@ msgstr ""
 msgid "unknown setting {key}; the settings that start with {prefix} are {keys}"
 msgstr ""
 
+#: crates/core/src/registry/output.rs
+msgid "90° clockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "180°"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "90° counterclockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+msgid "Flipped"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped, 90° clockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+msgid "Flipped, 180°"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Flipped, 90° counterclockwise"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Display"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Use this display"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid ""
+"A display that is off gives its workspaces and windows to the others. If no "
+"other display is on when sway starts or reloads, Sway Things switches it on "
+"again"
+msgstr ""
+
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "off"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Resolution and refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Unless set, the display's preferred mode"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "resolution"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "hz"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "mode"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Scale"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid ""
+"How big everything is on this display. Unless set, sway picks a scale for "
+"the pixel density"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "zoom"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "hidpi"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "size"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Rotation"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "transform"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "orientation"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "portrait"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "Position"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid ""
+"The top left corner in the layout, in logical pixels. Unless set, sway "
+"places the display right of the others"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "arrange"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "layout"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "left"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "right"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "{word} depends on whether the display is on at the time"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "a custom mode the display doesn't offer"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode width"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "missing mode height"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode height"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid mode refresh rate"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "a mode the setting can't hold: {mode}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "missing position argument (y)"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "invalid position x"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "a scale outside {min} … {max}: {scale}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+#, rust-format
+msgid "invalid output transform: {transform}"
+msgstr ""
+
+#: crates/core/src/registry/output.rs
+msgid "relative transforms can't be used in a config file"
+msgstr ""
+
 #: crates/core/src/registry/page.rs
 msgid "Devices"
 msgstr ""
@@ -3097,6 +3496,10 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "Window Behavior"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "Workspaces"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -3188,7 +3591,7 @@ msgid "How focus, floating and tiling behave"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Names, icons and the number of workspaces"
+msgid "Which display each workspace is on, and how new ones start"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -3284,7 +3687,7 @@ msgid "{key} is not a sway setting"
 msgstr ""
 
 #: crates/core/src/registry/sway.rs
-msgid "the setting can't be set for a single device"
+msgid "the setting can't be set for a single device or output"
 msgstr ""
 
 #: crates/core/src/registry/sway.rs crates/core/src/state/mod.rs
@@ -3334,6 +3737,14 @@ msgstr ""
 #: crates/core/src/registry/value.rs
 #, rust-format
 msgid "must be one of: {choices}"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a mode like 2560x1440 or 2560x1440@59.951Hz, or empty"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a position like 1920,0, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -3707,6 +4118,79 @@ msgstr ""
 msgid "height"
 msgstr ""
 
+#: crates/core/src/registry/workspaces.rs
+msgid "Off (sway decides)"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Round robin, left to right"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "A block per display"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "All on one display (the laptop's, or the leftmost)"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Fixed, as you arrange them"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs crates/gui/src/widgets/page_view.rs
+msgid "Placement"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Place workspaces"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid ""
+"Which display each number goes to. Open workspaces move at once, the others "
+"with the reload; worked out again when sway starts, and with kanshi whenever "
+"displays come and go"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "workspace output"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "display"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "assign"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "pin"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "round robin"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Workspaces placed"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid ""
+"Workspaces 1 to this number. The default keys ($mod+1 to $mod+0) reach 1 to "
+"10"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "number of workspaces"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "how many"
+msgstr ""
+
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "{file}: {problem}"
@@ -3750,12 +4234,27 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{key} can't be set for a single device"
+msgid "{key} is only set for one display, below display.\"<name>\""
 msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
-msgid "{device} is not a device identifier"
+msgid "display.{output} is not a table for a display"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} can't be set for a single display (display {output})"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} can't be set for a single device or display"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{device} is not a device identifier or display name"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
@@ -3771,6 +4270,11 @@ msgstr ""
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "there is no snapshot {id}"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} is set for one display at a time; name it with --device"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
@@ -3859,6 +4363,11 @@ msgstr ""
 
 #: crates/core/src/view.rs
 #, rust-format
+msgid "Only when {title} isn't {choices}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
 msgid "Only with {title}: {choices}"
 msgstr ""
 
@@ -3918,12 +4427,27 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "Displays can't be listed: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "Changes to the settings files from outside won't show: {error}"
 msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "{product} ({output})"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "Collapsed sections can’t be remembered: {error}"
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The workspaces weren’t placed: {error}."
 msgstr ""
 
 #: crates/gui/src/model.rs
@@ -3938,16 +4462,31 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
-msgid "{product} ({output})"
-msgstr ""
-
-#: crates/gui/src/model.rs
-#, rust-format
 msgid "The layout can't be switched: {error}"
 msgstr ""
 
 #: crates/gui/src/model.rs
 msgid "The layout can only be switched in a running sway session."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The display wasn’t mirrored: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The other displays weren’t moved along: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The settings of the displays weren’t updated: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The displays weren’t reset: {error}."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
@@ -4362,6 +4901,7 @@ msgid "All screens"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
+#: crates/gui/src/widgets/displays/mod.rs
 msgid "Settings for"
 msgstr ""
 
@@ -4454,6 +4994,241 @@ msgstr ""
 msgid "No switch is connected. Its settings show up once one is."
 msgstr ""
 
+#. TRANSLATORS: A display's scale as a percentage, such as 150 %.
+#: crates/gui/src/widgets/displays/canvas.rs
+#, rust-format
+msgid "{percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Flipped, 90°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Flipped, 270°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Arrangement of the displays"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Vertical guide"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Horizontal guide"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Drag to scale"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+msgid "Built-in"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+#, rust-format
+msgid "Display {number}, {label}, off"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas.rs
+#, rust-format
+msgid "Display {number}, {label}, {details}, at {x}, {y}"
+msgstr ""
+
+#. TRANSLATORS: The title of the row that picks what a display shows: its own content
+#. or another display's picture.
+#: crates/gui/src/widgets/displays/mirroring.rs
+#: crates/gui/src/widgets/page_view.rs
+msgid "Show"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid ""
+"Its own content, or the picture of another display, like a projector showing "
+"the laptop's screen"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "What the display shows"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Fit"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Cover"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Exact Multiples"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "How the picture fits the display"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "How the picture fits"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Its own content"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid "Picture of {name}"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Keep or revert the change first"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Needs kanshi, which remembers each combination of displays (see above)"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Needs wl-mirror, which shows one display on another"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mirroring.rs
+msgid "Shown on another display, so it shows its own content"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "All displays"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"Drag the displays to where they stand on your desk. Pick one to change its "
+"settings below."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Identify"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Show each display’s number on it"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"Numbers on the displays need a compositor with wlr-layer-shell, like sway"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"Some displays overlap or don’t touch, so the pointer can’t reach every one."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Arrange Side by Side"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Displays can be arranged while Sway Things runs in a sway session."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "No display is on."
+msgstr ""
+
+#. TRANSLATORS: A display in the drop-down of displays: its number and name.
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid "{number}  {label} (not connected)"
+msgstr ""
+
+#. TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid "{number}  {label} · {name} (off)"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Any rate"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Refresh rate"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "Copy Command"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/page_view.rs crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "This command puts the line at the top:"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"Put the line “{line}” at the top by hand, and take the line that includes it "
+"further down away."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
+"left alone and kanshi never sees the arrangement. Move that file away, then "
+"change something here."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"The line of Sway Things isn’t at the top of your kanshi config: {name} comes "
+"before it and wins over the arrangement made here whenever its displays are "
+"connected."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"Changes here don’t last: your kanshi profile {name} sets up these displays, "
+"as it comes before the line of Sway Things in your kanshi config."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together. kanshi starts with your "
+"next login."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"So that each combination of displays is remembered, your kanshi config needs "
+"the line of Sway Things at its top, above your own profiles."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"With kanshi installed, each combination of displays is remembered and comes "
+"back on its own."
+msgstr ""
+
 #: crates/gui/src/widgets/generated.rs
 msgid "Copy contents"
 msgstr ""
@@ -4473,11 +5248,6 @@ msgstr ""
 #: crates/gui/src/widgets/generated.rs
 #, rust-format
 msgid "Copy the contents of {file}"
-msgstr ""
-
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
-#: crates/gui/src/widgets/welcome.rs
-msgid "Copied"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
@@ -5027,10 +5797,6 @@ msgid "Written to {path}"
 msgstr ""
 
 #: crates/gui/src/widgets/page_view.rs
-msgid "Show"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
 #, rust-format
 msgid "Show what Sway Things writes to {file}"
 msgstr ""
@@ -5038,6 +5804,10 @@ msgstr ""
 #: crates/gui/src/widgets/page_view.rs
 #, rust-format
 msgid "Show {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view.rs
+msgid "Arrangement"
 msgstr ""
 
 #: crates/gui/src/widgets/page_view.rs
@@ -5179,6 +5949,10 @@ msgid "Use the value of {devices}"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
+msgid "Use the value of all displays"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
 msgid "Reset to default"
 msgstr ""
 
@@ -5212,6 +5986,14 @@ msgid "Applies after re-login"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
+msgid "On for now: no other display was on"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Keep or revert the change of the other display first"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""
@@ -5219,6 +6001,14 @@ msgstr ""
 #: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "Same as {devices}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Same as all displays"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Chosen by sway"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
@@ -5341,6 +6131,32 @@ msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
 msgid "Sway Things isn't enabled yet"
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid "The displays show here while Sway Things runs in a sway session."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid ""
+"With one display, every workspace is on it. Connect another one to arrange "
+"them."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid ""
+"Click a number to send it to the next display, or drag it to another one. "
+"That makes the placement fixed: remembered for these displays, while other "
+"combinations start round robin."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid "Click to send it to the next display, or drag it"
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+#, rust-format
+msgid "Workspace {name}, on {display}"
 msgstr ""
 
 #. TRANSLATORS: What the Caps Lock key does: what it says on it.

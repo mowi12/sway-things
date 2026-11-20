@@ -6,7 +6,8 @@
 //! `settings.toml` holds the values shared between machines, `settings.d/<hostname>.toml` the
 //! overlay of this machine, which wins key by key. Both are sparse: a key that isn't stored isn't
 //! managed by Sway Things. Values for one input device are stored below `device."<identifier>"`,
-//! at the same key as the value for all devices of the type:
+//! at the same key as the value for all devices of the type; values for one output below
+//! `display."<identifier>"`, at the same key as the value for every output:
 //!
 //! ```toml
 //! version = 1
@@ -16,6 +17,10 @@
 //!
 //! [device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
 //! tap = false
+//!
+//! [display."Dell Inc. DELL U2723QE ABC123".output]
+//! scale = 1.5
+//! position = "1920,0"
 //! ```
 //!
 //! The files may be edited by hand. Loading reports what doesn't fit the registry as
@@ -65,11 +70,10 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::atomic;
-use crate::command::input::InputSelector;
 use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::msg;
-use crate::registry::{Registry, Scope, Setting, Value, ValueError, Values};
+use crate::registry::{DeviceError, Registry, Scope, Setting, Value, ValueError, Values};
 use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
 
@@ -189,6 +193,23 @@ pub enum ProblemKind {
         /// The device.
         device: String,
     },
+    /// A setting that is only stored for one device or output stands outside their tables.
+    OneAtATime {
+        /// The key.
+        key: &'static str,
+    },
+    /// An entry of the `display` table isn't a table named after an output.
+    InvalidOutput {
+        /// The name of the entry.
+        output: String,
+    },
+    /// An output table holds a setting that can't be set per output.
+    NotPerOutput {
+        /// The key.
+        key: &'static str,
+        /// The output.
+        output: String,
+    },
 }
 
 impl ProblemKind {
@@ -227,6 +248,19 @@ impl ProblemKind {
             ))
             .arg("key", key)
             .arg("device", device),
+            Self::OneAtATime { key } => Text::new(msg!(
+                "{key} is only set for one display, below display.\"<name>\""
+            ))
+            .arg("key", key),
+            Self::InvalidOutput { output } => {
+                Text::new(msg!("display.{output} is not a table for a display"))
+                    .arg("output", format!("{output:?}"))
+            }
+            Self::NotPerOutput { key, output } => Text::new(msg!(
+                "{key} can't be set for a single display (display {output})"
+            ))
+            .arg("key", key)
+            .arg("output", output),
         }
     }
 }
@@ -521,14 +555,20 @@ impl State {
             .ok_or_else(|| StateError::UnknownKey {
                 key: key.to_owned(),
             })?;
+        if device.is_none() && setting.is_one_at_a_time() {
+            return Err(StateError::OneAtATime { key: setting.key() });
+        }
         if let Some(device) = device {
-            if !matches!(setting.scope(), Scope::PerDevice(_)) {
-                return Err(StateError::NotPerDevice { key: setting.key() });
-            }
-            if InputSelector::device(device).is_err() {
-                return Err(StateError::InvalidDevice {
-                    device: device.to_owned(),
-                });
+            match setting.check_device(device) {
+                Ok(()) => {}
+                Err(DeviceError::NotPerDevice) => {
+                    return Err(StateError::NotPerDevice { key: setting.key() });
+                }
+                Err(DeviceError::Invalid) => {
+                    return Err(StateError::InvalidDevice {
+                        device: device.to_owned(),
+                    });
+                }
             }
         }
         Ok(setting)
@@ -565,7 +605,7 @@ impl State {
             .or_else(|| self.layer(key, device))
             .unwrap_or_else(|| Layer::default_for(setting, device));
         self.file_mut(layer)
-            .set(key, device, value)
+            .set(setting, device, value)
             .map_err(|error| match error {
                 FileError::Unusable => self.unusable(layer),
                 FileError::NotATable => StateError::NotATable {
@@ -574,7 +614,7 @@ impl State {
                 },
             })?;
         if layer == Layer::Shared {
-            self.host.remove(key, device);
+            self.host.remove(setting, device);
         }
         Ok(())
     }
@@ -607,7 +647,7 @@ impl State {
             Layer::Host => Layer::Shared,
         };
         self.set(key, device, value, Some(layer))?;
-        self.file_mut(other).remove(key, device);
+        self.file_mut(other).remove(setting, device);
         Ok(true)
     }
 
@@ -619,9 +659,9 @@ impl State {
     /// [`StateError::UnknownKey`], [`StateError::NotPerDevice`] or [`StateError::InvalidDevice`]
     /// if the arguments don't fit the registry.
     pub fn reset(&mut self, key: &str, device: Option<&str>) -> Result<bool, StateError> {
-        let key = self.setting(key, device)?.key();
-        let shared = self.shared.remove(key, device);
-        let host = self.host.remove(key, device);
+        let setting = self.setting(key, device)?;
+        let shared = self.shared.remove(setting, device);
+        let host = self.host.remove(setting, device);
         Ok(shared || host)
     }
 
@@ -777,12 +817,17 @@ pub enum StateError {
         /// What is wrong with the value.
         error: ValueError,
     },
-    /// The setting can't be set for a single device.
+    /// The setting can't be set for a single device or output.
     NotPerDevice {
         /// The key.
         key: &'static str,
     },
-    /// The string isn't a device identifier.
+    /// The setting is stored for one device or output at a time, but none was named.
+    OneAtATime {
+        /// The key.
+        key: &'static str,
+    },
+    /// The string isn't an input device's identifier or an output's name, as the setting needs.
     InvalidDevice {
         /// The string.
         device: String,
@@ -827,10 +872,10 @@ impl StateError {
                 .arg("key", key)
                 .text("error", error.text()),
             Self::NotPerDevice { key } => {
-                Text::new(msg!("{key} can't be set for a single device")).arg("key", key)
+                Text::new(msg!("{key} can't be set for a single device or display")).arg("key", key)
             }
             Self::InvalidDevice { device } => {
-                Text::new(msg!("{device} is not a device identifier"))
+                Text::new(msg!("{device} is not a device identifier or display name"))
                     .arg("device", format!("{device:?}"))
             }
             Self::Unusable { path } => {
@@ -845,6 +890,10 @@ impl StateError {
             Self::UnknownSnapshot { id } => {
                 Text::new(msg!("there is no snapshot {id}")).arg("id", id)
             }
+            Self::OneAtATime { key } => Text::new(msg!(
+                "{key} is set for one display at a time; name it with --device"
+            ))
+            .arg("key", key),
             Self::UnusableSnapshot { id } => {
                 Text::new(msg!("snapshot {id} holds a file that can't be loaded")).arg("id", id)
             }

@@ -564,68 +564,6 @@ pub(super) fn settings() -> Vec<Setting> {
         )
         .build(),
         Setting::choice(
-            WORKSPACE_LAYOUT,
-            Page::WindowBehavior,
-            "default",
-            WORKSPACE_LAYOUT_CHOICES,
-        )
-        .section(msg!("Workspaces"))
-        .title(msg!("Layout of new workspaces"))
-        .keywords(&[msg!("tabs"), msg!("stack"), msg!("tiling")])
-        .apply(Apply::Reload)
-        .sway(
-            Directive::top("workspace_layout"),
-            ConfigFile::Behavior,
-            workspace_layout,
-            |args| read::choice(read::one(args)?, &["default", "stacking", "tabbed"], false),
-        )
-        .build(),
-        Setting::choice(
-            DEFAULT_ORIENTATION,
-            Page::WindowBehavior,
-            "auto",
-            DEFAULT_ORIENTATION_CHOICES,
-        )
-        .section(msg!("Workspaces"))
-        .title(msg!("Split of new workspaces"))
-        .subtitle(msg!("How the windows of a new workspace are arranged"))
-        .keywords(&[
-            msg!("default orientation"),
-            msg!("horizontal"),
-            msg!("vertical"),
-            msg!("tiling"),
-        ])
-        .apply(Apply::Reload)
-        .sway(
-            Directive::top("default_orientation"),
-            ConfigFile::Behavior,
-            default_orientation,
-            |args| read::choice(read::one(args)?, &["horizontal", "vertical", "auto"], false),
-        )
-        .build(),
-        Setting::toggle(BACK_AND_FORTH, Page::WindowBehavior, false)
-            .section(msg!("Workspaces"))
-            .title(msg!("Back and forth"))
-            .subtitle(msg!(
-                "Switching to the current workspace again goes back to the previous one"
-            ))
-            .keywords(&[
-                msg!("workspace_auto_back_and_forth"),
-                msg!("previous workspace"),
-                msg!("toggle"),
-            ])
-            .sway(
-                Directive::top("workspace_auto_back_and_forth"),
-                ConfigFile::Behavior,
-                |ctx| {
-                    Ok(vec![behavior::workspace_auto_back_and_forth(
-                        ctx.bool(BACK_AND_FORTH)?,
-                    )])
-                },
-                |args| Ok(Value::Bool(read::boolean(read::one(args)?, false))),
-            )
-            .build(),
-        Setting::choice(
             MODIFIER_KEY,
             Page::WindowBehavior,
             "none",
@@ -789,4 +727,74 @@ pub(super) fn settings() -> Vec<Setting> {
             .build(),
     ]);
     settings
+}
+
+/// The settings of new workspaces, on the Workspaces page after the placement: their layout, how
+/// their windows are split, and going back and forth. Their keys stay `behavior.*`, as they were
+/// on Window Behavior.
+pub(super) fn new_workspaces() -> Vec<Setting> {
+    vec![
+        Setting::choice(
+            WORKSPACE_LAYOUT,
+            Page::Workspaces,
+            "default",
+            WORKSPACE_LAYOUT_CHOICES,
+        )
+        .section(msg!("New workspaces"))
+        .title(msg!("Layout of new workspaces"))
+        .keywords(&[msg!("tabs"), msg!("stack"), msg!("tiling")])
+        .apply(Apply::Reload)
+        .sway(
+            Directive::top("workspace_layout"),
+            ConfigFile::Behavior,
+            workspace_layout,
+            |args| read::choice(read::one(args)?, &["default", "stacking", "tabbed"], false),
+        )
+        .build(),
+        Setting::choice(
+            DEFAULT_ORIENTATION,
+            Page::Workspaces,
+            "auto",
+            DEFAULT_ORIENTATION_CHOICES,
+        )
+        .section(msg!("New workspaces"))
+        .title(msg!("Split of new workspaces"))
+        .subtitle(msg!("How the windows of a new workspace are arranged"))
+        .keywords(&[
+            msg!("default orientation"),
+            msg!("horizontal"),
+            msg!("vertical"),
+            msg!("tiling"),
+        ])
+        .apply(Apply::Reload)
+        .sway(
+            Directive::top("default_orientation"),
+            ConfigFile::Behavior,
+            default_orientation,
+            |args| read::choice(read::one(args)?, &["horizontal", "vertical", "auto"], false),
+        )
+        .build(),
+        Setting::toggle(BACK_AND_FORTH, Page::Workspaces, false)
+            .section(msg!("New workspaces"))
+            .title(msg!("Back and forth"))
+            .subtitle(msg!(
+                "Switching to the current workspace again goes back to the previous one"
+            ))
+            .keywords(&[
+                msg!("workspace_auto_back_and_forth"),
+                msg!("previous workspace"),
+                msg!("toggle"),
+            ])
+            .sway(
+                Directive::top("workspace_auto_back_and_forth"),
+                ConfigFile::Behavior,
+                |ctx| {
+                    Ok(vec![behavior::workspace_auto_back_and_forth(
+                        ctx.bool(BACK_AND_FORTH)?,
+                    )])
+                },
+                |args| Ok(Value::Bool(read::boolean(read::one(args)?, false))),
+            )
+            .build(),
+    ]
 }

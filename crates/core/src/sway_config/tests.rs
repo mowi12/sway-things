@@ -765,7 +765,7 @@ fn the_default_config_is_found_in_sways_order() {
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
-    for (main, expected_files) in [("sway.conf", 15), ("swayfx.conf", 18)] {
+    for (main, expected_files) in [("sway.conf", 16), ("swayfx.conf", 19)] {
         let config = parse(&integration.join(main), &Disk);
         // parser.conf includes one file twice and one that doesn't exist, on purpose. The last
         // two includes of sway.conf (lines 42 and 45) only match while the integration tests run.
@@ -799,14 +799,19 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 60);
+    assert_eq!(generated.len(), 66);
     assert_eq!(
         find(&["seat", "*"], "xcursor_theme").as_deref(),
         Some("Adwaita 32")
     );
+    let hooks: Vec<String> = generated
+        .iter()
+        .filter(|directive| directive.is(&[], "exec_always"))
+        .map(|directive| directive.args.join(" "))
+        .collect();
     assert_eq!(
-        find(&[], "exec_always").as_deref(),
-        Some("sway-things hook gsettings")
+        hooks,
+        ["sway-things hook displays", "sway-things hook gsettings"]
     );
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),
@@ -857,6 +862,12 @@ fn the_sample_and_generated_configs_parse() {
         find(&[], "floating_maximum_size").as_deref(),
         Some("1600 x 900")
     );
+    // An output by its identifier, which has a comma that the quotes keep in one argument.
+    assert_eq!(
+        find(&["output", "Fake Make Co.,Ltd Model 0x1"], "mode").as_deref(),
+        Some("2560x1440@59.951Hz")
+    );
+    assert_eq!(find(&["output", "DP-99"], "disable").as_deref(), Some(""));
 }
 
 proptest! {

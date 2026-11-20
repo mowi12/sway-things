@@ -119,6 +119,22 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   title the app shows the group's row with. A setting alone in its group names none.
 - **Per-device settings** have `Scope::PerDevice(<input type>)`. Without a selected device they render for the type
   (`input type:touchpad tap enabled`), with one for that device's identifier.
+- **One at a time:** a setting built with `.one_at_a_time()` is only stored for one device or output, never for all of
+  them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's position
+  for every output would stack them all on one spot, and a mode, a rotation or switching off for every output couldn't
+  be tried and reverted safely. The Displays page offers only the scale for _All displays_.
+- **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
+  output (`output * scale 2`), with one for that output's identifier (make, model and serial; see [Outputs](#outputs)).
+  `Setting::check_device` says whether a string can select a device or an output for a setting. Where sway decides by
+  itself while nothing is set (the preferred mode, the position next to the other outputs, a scale for the pixel
+  density), the default means "nothing set": an empty mode or position (`""`) and a scale that isn't stored render no
+  command. sway has no command that hands such a value back to its own choice, so a reset of one takes effect after a
+  reload of sway, live and through the safety net alike.
+- **`output` lines with several settings:** sway reads `output DP-4 mode 2560x1440 pos 0 0 scale 1` subcommand by
+  subcommand, each taking the words it needs (`registry/output_line.rs`, after `cmd_output` and its handlers in sway's
+  `commands/output/`). `Setting::read` splits such a line and reads its own subcommand; aliases count as the registry's
+  name (`res` and `resolution` as `mode`, `position` as `pos`, `disable` and `toggle` as `enable`). A line with an
+  unknown subcommand or a missing argument sets nothing, as in sway.
 - **Lists that line up:** layouts and variants are two settings, each with its own directive
   (`input.keyboard.xkb_layout = ["us", "de"]`, `input.keyboard.xkb_variant = ["", "nodeadkeys"]` → `xkb_layout "us,de"`,
   `xkb_variant ",nodeadkeys"`). The variants render with the number of layouts in effect: a shorter list is padded with
@@ -167,11 +183,12 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   whole range, in steps of 1 for whole numbers and a hundredth of the range for decimals.
 - **Config line:** `Registry::config_line(setting, values, device)` is the line of the generated file for a value, as
   the app shows it under the title: an `input` option without its `input <selector>` (`pointer_accel 0.3`).
-- **What a row shows** (`crates/core/src/view.rs`): `SettingView::of(setting, device, state, status, compositor)` gives
-  the value in effect and its source: the stored value (for a device without one of its own, its type's), else what the
-  user's config sets (the last line that decides it, with file and line), else sway's default. With one value of a group
-  stored, Sway Things writes the whole line, so the others show its defaults. It also has the config line and why the
-  setting is locked: no include line, or a compositor that doesn't support it.
+- **What a row shows** (`crates/core/src/view.rs`): `SettingView::of(setting, device, state, status, compositor, known)`
+  gives the value in effect and its source: the stored value (for a device without one of its own, its type's), else
+  what the user's config sets (the last line that decides it, with file and line), else for an output what it runs with
+  now (`known` has the outputs), else sway's default. With one value of a group stored, Sway Things writes the whole
+  line, so the others show its defaults. It also has the config line and why the setting is locked: no include line, or
+  a compositor that doesn't support it.
 
 Tests check the invariants over every entry: keys are unique and valid TOML paths, defaults fit their type, every
 setting renders for the config and every live one for IPC, at the limits of its range and for every choice, config-only
@@ -220,6 +237,10 @@ version = 1
 
 [device."1267:12377:ELAN1300:00_04F3:3059_Touchpad".input.touchpad]
 tap = false
+
+[display."Dell Inc. DELL U2723QE ABC123".output]
+scale = 1.5
+position = "1920,0"
 ```
 
 - **Sparse:** only settings the user changed are stored. A missing key means _not managed by Sway Things_: the user's
@@ -234,14 +255,17 @@ tap = false
   file removes the one in the overlay, which would hide it otherwise.
 - **Per-device values** are stored below `device."<identifier>"` (the identifier from `GET_INPUTS`) at the same key as
   the value for all devices of the type. A device without a value of its own uses the value of its type.
+- **Per-output values** are stored below `display."<identifier>"` at the same key as the value for every output
+  (`[output] scale = 2`, which is why the table isn't called `output`). An output without a value of its own uses the
+  value for every output.
 - **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
   whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
   settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
-  range, entries of `device` that aren't device identifiers, and settings in a device table that can't be set per
-  device. The lines stay in the file. A save only changes the lines of the settings that changed; comments, order,
-  formatting and unknown keys survive.
+  range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
+  device or display table that can't be set per device. The lines stay in the file. A save only changes the lines of the
+  settings that changed; comments, order, formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
@@ -299,13 +323,13 @@ lines that come after the include and set the same thing win, and conflict detec
 ```text
 $XDG_CONFIG_HOME/sway/sway-things/
 ├── 10-input.conf
-├── 20-output.conf         # only when kanshi is not the display backend
+├── 20-output.conf         # output lines only while kanshi doesn't run
 ├── 30-appearance.conf
 ├── 40-behavior.conf
 ├── 50-bindings.conf
 ├── 60-idle.conf           # swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf
-├── 80-hooks.conf          # bindswitch lid → sway-things hook lid …
+├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 
@@ -317,10 +341,10 @@ input type:touchpad pointer_accel 0.3
 input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 ```
 
-`crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `30-appearance.conf`,
+`crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `20-output.conf`, `30-appearance.conf`,
 `40-behavior.conf`, `80-hooks.conf` and `90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to
-`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line, see
-[No daemon](#no-daemon-the-cli-as-a-hook).
+`10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line (`20-output.conf` ends with the one
+that keeps a display on), see [No daemon](#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
   "Show generated config" and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
@@ -438,8 +462,8 @@ Display mode, disabling an output or input device, changes of the keyboard layou
 1. Snapshot the current value and apply live.
 2. Show the _Keep / Revert_ banner with a 15 s countdown.
 3. **Nothing is persisted until the user presses _Keep_.** Revert or timeout re-applies the snapshot over IPC.
-4. Lockout protection: the last enabled keyboard and the last enabled pointing device can't be switched off (outputs
-   come with the Displays page).
+4. Lockout protection: the last enabled keyboard, the last enabled pointing device and the last output that is on can't
+   be switched off.
 
 `crates/core/src/apply/risky.rs` is this flow in the core; the GUI banner and the CLI prompt build on it.
 
@@ -464,9 +488,28 @@ Display mode, disabling an output or input device, changes of the keyboard layou
   `set_risky_unchecked` and `reset_risky_unchecked` (for `sway-things set --yes` and `reset --yes`) send the value if
   there is a session and store or remove it at once.
 - **Lockout protection:** a change of `events` asks sway for the devices and is refused if it would leave no usable
-  keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. A session that has
-  none to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off
-  a whole type of keyboards or pointing devices is refused, one device is allowed.
+  keyboard or pointing device ([Input devices](#input-devices)), for one device as for a whole type. Switching off an
+  output asks sway for the outputs and is refused if none would stay on ([Outputs](#outputs)). A session that has none
+  to begin with (a headless sway) has nothing to lose. Without a session the devices aren't known, so switching off a
+  whole type of keyboards or pointing devices, or every output, is refused; one device or output is allowed.
+- **Another value while one waits:** `try_risky_all` for the same settings of the same device while a change waits tries
+  the new value in its place and keeps the first one's undo, so a revert goes back to what was before the first; the
+  same value again returns the waiting trial and sends nothing; a value the output runs with already (the one from
+  before) is still tried rather than stored at once. A change that sends nothing (a mode back to what sway chooses)
+  reverts the waiting one and is stored for the next reload, as without one. The refresh rates of the mode row lock with
+  the row. Any other risky change still gets `PendingChange`.
+- **What a trial returns:** `Tried::Waits` with the `Trial` while the change waits to be kept or reverted,
+  `Tried::Stored` for a change that needed no safety net and was stored at once, and `Tried::Unchanged` for a reset of a
+  setting without a stored value.
+- **Outputs:** where nothing sets an output's value, the snapshot is what the output runs with (`GET_OUTPUTS`, which
+  also matches the user's lines that name the output by its connector), so a revert of a new mode goes back to the mode
+  sway chose. A change that sends nothing (an empty mode, or removing a mode sway is to choose again; what the output
+  runs with doesn't count for that, sway chooses anew) needs no safety net: it is stored at once (`Tried::Stored`) and
+  waits for a reload of sway. So does a change that nothing could revert, such as the mode of an output that is off,
+  which sway doesn't report. Keeping a change drops what waited for a reload for the same setting. Where an output runs
+  with something else than what is stored (an output stored as off that `hook displays` switched on, a mode set with
+  `swaymsg`), a revert brings back what it runs with (`as_running`), and a value it already runs with is stored at once
+  without a trial.
 - **If the app or the command line ends** while a change waits, nothing was stored: the session keeps the tried value
   until the next reload of sway (or login), which brings back the old one.
 
@@ -540,6 +583,11 @@ on numbers taken from sway's and SwayFX's own checks:
   by its `GET_INPUTS` identifier. `drag_lock enabled_sticky` needs sway 1.11, and a sway built against a libinput that
   supports it; otherwise sway reads it as `disabled` without an error. The XKB lists are joined with commas, so an item
   can't contain one; `xkb_layout` needs at least one layout, the variants, options and model can be empty.
+- `command::output` builds `output <name> …` for every output (`*`) or one by its name or identifier (text, never `*`,
+  `-` or `--`, which sway reads as every output or the focused one): `mode` (`2560x1440@59.951Hz`, the refresh rate in
+  hertz with up to three decimals since sway counts millihertz and takes the mode nearest to it), `pos`, `scale` (0.25
+  to 10; sway takes any scale above 0), `transform` and `enable`/`disable`. A mode is a word the builder makes from
+  numbers, so it isn't quoted.
 - `command::window` builds colors (`client.*`; sway ignores `client.background` and `client.placeholder`, so they have
   no builder), borders, gaps, the title bar and `opacity`. `gaps <which> <px>` only changes the default for new
   workspaces, and `gaps <which> all|current set <px>` (runtime-only) only open workspaces, including those with gaps of
@@ -581,7 +629,9 @@ SwayFX.
 - **Commands:** `Client::run` takes a `SwayCmd`, renders it for IPC and sends it in a `RUN_COMMAND` message of its own,
   so the result belongs to that command. A rejected command returns sway's error message and whether it was a parse
   error. A command that needs a newer sway or SwayFX than the running one isn't sent at all: sway doesn't reject every
-  value it doesn't know (`drag_lock enabled_sticky` on sway 1.10 means `disabled`).
+  value it doesn't know (`drag_lock enabled_sticky` on sway 1.10 means `disabled`). `Client::run_together` sends several
+  commands as one message, which sway runs with nothing of another client's in between: moving a workspace is "focus it,
+  then move the focused one", and two placers (a kanshi hook and the app) would otherwise move each other's.
 - **Events:** `Client::subscribe` opens a second connection, so replies and events don't mix, and `Events::next` returns
   them in order. An event that can't be read is an error for that event only, an unknown event type is skipped, and the
   events end when sway closes the connection (after a `shutdown` event, if subscribed).
@@ -632,10 +682,164 @@ the lockout protection.
 
 ### Outputs
 
-The page lists the connected outputs as the screens a drawing tablet or a touchscreen can map to. `OutputWatch`
-subscribes to sway's `output` events on a connection of its own and reads `GET_OUTPUTS` again after each one. If the
-outputs can't be read, the list stays empty; the choices still offer the automatic mapping, all screens and the stored
-value.
+`crates/core/src/outputs/` is the list of outputs for the Displays page, per-output settings and the lockout protection.
+The Cursor & Tablet page offers its connected outputs as the screens a drawing tablet or a touchscreen can map to.
+
+- **From sway:** each output has its name (the connector, `DP-4`), make, model and serial, whether it is on, the modes
+  it offers, and while it is on the mode, the place and size in the layout (logical pixels), the scale and the
+  transform. Outputs that aren't desktops (VR headsets) are left out. All of these strings are external.
+- **Identifier:** settings are stored for an output by make, model and serial as sway joins them for `output` commands
+  (`<make> <model> <serial>`, `Unknown` for what the output doesn't report), which stays the same when a dock or another
+  port gives the output another name. An output without a serial (`Unknown`, like a headless output or many laptop
+  panels) is stored by its name instead: two monitors of one model would share the identifier, and which one is plugged
+  in would decide what it stands for. So is an output whose identifier another connected output reports too (a broken
+  serial; once one of them is gone, the other goes back to the identifier) or that is longer than the 127 bytes sway
+  keeps; values stored by such an identifier stay listed as an output that isn't connected, where they can be removed.
+  Values stored by a name stay with the port: a monitor without a serial moved to another port starts without them. The
+  command line takes a display by its name too: in a session, `--device DP-4` stands for that display's identifier; a
+  value stored by a name is reachable by it while nothing is connected on that port.
+- **Positions are absolute:** a drop stores the position of every output that is on, so an output plugged in later with
+  other outputs (another dock) comes back where it stood and may not touch them; the page then offers _Arrange Side by
+  Side_. Arrangements per combination of outputs are for display profiles (kanshi).
+- **Hotplug without polling:** `OutputWatch` subscribes to sway's `output` events on a connection of its own and reads
+  `GET_OUTPUTS` again after each one. sway sends an event without details for every change of the layout, so only real
+  changes are reported (added, removed, changed).
+- **Stored but not connected:** an output with values in the settings files stays listed as disconnected, by its
+  identifier.
+- **What sway chose:** `Output::session_value(key)` is what the output runs with for a Displays setting, as the setting
+  stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
+- **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
+  would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **kanshi (profiles per combination):** `generate::Displays::detect` makes kanshi the display backend when it is
+  installed (`kanshi` in `$PATH`) and its config includes ours, or there is none (it is then created with the include
+  line); `Displays::with_profiles` goes back to sway while `displays.toml` can't be read, for the app, the command line
+  and `doctor` alike. Our `exec kanshi` is dropped once a kanshi runs as a unit of its own (its control group is named
+  after it). Nothing is run. The app looks at most every two seconds (`Model::look_for_kanshi`, which keeps what it saw
+  for the page) and watches kanshi's config and ours, so an include line added or moved shows at once, and has kanshi
+  read its config again then. With kanshi, per-output settings are stored as always, so a row shows exactly the value
+  set (never a value sway reports back, like a scale of 1.2999999523, which a control would send again) and the canvas
+  flows the layout along with a new size. They stand for the combination connected now: `Applier::follow_combination`
+  (the app runs it whenever sway reports a change of the outputs, the command line before a change of a display)
+  replaces them with the profile of a combination that comes back, or with what the displays run with for one never set
+  up here, and drops the values of displays that aren't connected and that a remembered combination holds (those of a
+  display set up before kanshi did it stay). For ten seconds after the combination came, while kanshi sets it up, and
+  until a setting of the displays changes here, they keep following; a change from elsewhere after that is left as it
+  is. A change made here and not saved yet when the combination changes is remembered for the combination it was made
+  for first. Following never runs while a risky change waits, and isn't saved on its own (a save per dock and undock
+  would push the user's changes out of the history). A value for every display is stored for each one connected, and one
+  stored for every display before kanshi set them up is dropped then (a profile takes it for a display without its own
+  meanwhile). Without a session, a display's setting isn't changed at all (`ApplyError::DisplaysNeedSession`): it would
+  reach neither sway's lines nor a profile. Nothing is sent: kanshi sets the displays up. When the settings are saved
+  after a per-output setting changed (`Applier::touch`) and no risky change waits, `Applier::remember_displays` makes
+  the profile of the connected outputs from the stored values (`outputs::profiles::Profile::stored`, what they run with
+  where nothing is stored) and remembers it for their combination in `displays.toml` next to the settings files
+  (`Profiles`), unless the combination changed since the values were made for it, writes
+  `~/.config/kanshi/sway-things.conf` from all of them (`kanshi_config`: a profile per combination named
+  `sway-things-<hash>`, then for each display of them without a remembered combination of its own, one that switches it
+  on when it is the only one connected (a laptop's panel switched off at the dock comes back when the dock goes). There
+  is no profile for any displays (`...output *`): kanshi keeps a profile that still matches when displays are plugged
+  in, so it would never switch to a remembered combination again; a combination with every display off is never
+  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our
+  include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per run of the app),
+  not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places, which is the
+  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header or is empty (people
+  make an empty one so kanshi starts), and never the user's config except to create it. kanshi rejects its whole config
+  over an include it can't find, so the file is kept there and current at every save (`Applier::keep_kanshi_file`), also
+  when no display was ever set up, and `hook displays` writes it at every start and reload of sway and starts kanshi if
+  it gave up over it. Each profile says in comment lines which workspaces go on which display by the rule
+  (`Profile::placement_lines`, from `workspaces::place_on`, the same placement the hook makes), above the command that
+  places them, so the file shows what is set. `Applier::forget_displays` (the page's reset, while kanshi sets up the
+  displays) drops the profile of the displays connected with their stored values, pictures and placement and has kanshi
+  read the file again, so what set them up before applies again: a profile of the user's own, or what they run with.
+  `doctor` also checks that `sway-things` is in `$PATH` and is this build (`hook_program`), since sway and kanshi run
+  the hooks by that name. `doctor` reports the file missing, out of date or someone else's; the Displays page and
+  `sway-things set` say when it is someone else's, since nothing set reaches kanshi then. `20-output.conf` then has no
+  per-output lines, a comment, the startup guard (always with kanshi), and `exec kanshi` when the user's sway config
+  doesn't start kanshi (`kanshi::started_by`, not counting our files) and no kanshi started elsewhere (a systemd unit)
+  runs; a kanshi our own line started keeps being started. `displays.toml` starts with our header and a file without it
+  is never written over; one that can't be read isn't either: the displays are set up from our sway lines meanwhile, and
+  the app says why. `hook displays` has kanshi apply its profile again and then makes sure a display is on. The app
+  looks again before each change and when displays come and go (at most every two seconds) and writes the files when the
+  answer changes; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. With
+  kanshi installed, `doctor` reports a kanshi config without our include or with something before it (with
+  `KanshiFiles::how_to_include`: the `sed` line of `include_command` for the user to run, which puts the include at the
+  top, takes exactly the line that included ours away and follows a symlink, or what to do by hand where no command does
+  it, as when ours is included through a pattern), a file of someone else's in the place of ours, and a profile of the
+  user's before the include that covers a remembered combination (`kanshi::user_profiles`, with `output *` as one more
+  display and `...output *` as any number), since kanshi applies the first that matches. A file included before ours
+  isn't read: it counts as standing above the line. The Displays page and `sway-things set` warn of a profile that wins
+  for the displays connected now (`kanshi::overriding`), and the page of anything above the line. The rows of the
+  displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for every
+  machine. A model made for tests never looks.
+- **Workspace placement:** `outputs::workspaces` puts workspaces `1` to `workspaces.count` on the displays by the rule
+  `workspaces.placement` (`Rule`: sway's own, round robin, blocks, the built-in display, or fixed). Both settings are on
+  the Workspaces page and have no sway directive, since the placement depends on the displays connected. `place` gives
+  each workspace its display (by its name in the settings), leaving out displays that show another one's picture; a
+  fixed placement is remembered per combination in `displays.toml` (`[[profile]] workspaces`), and what it misses is
+  placed round robin. `with_fallbacks` adds the other displays from left to right, and `placing` declares
+  `workspace N output A B C` with the connected ones, so a workspace whose display goes away moves to the next one and
+  back when it returns. It also moves an open workspace that stands elsewhere (`workspace --no-auto-back-and-forth N`,
+  `move workspace to output A`), since sway's declaration only appends to a list that is never cleared, then gives the
+  focus back. `apply` does all that for the session; it runs from `sway-things hook workspaces`, which every kanshi
+  profile runs while a rule places (kanshi's file is written again when the rule changes) and `80-hooks.conf` runs at
+  every start and reload of sway while a rule places (sway forgets the declarations then), and from the applier after a
+  change of either setting. The hook first waits for the displays to stand (`workspaces::settled`: where our profile of
+  the combination puts them, or still for 0.7 seconds, at most four seconds), since after a start or reload kanshi puts
+  them in place a moment later and "left to right" read before that would be another placement, which sway then keeps.
+  After placing, `showing_own` has each display show a workspace of its own: sway gives a display whose workspace moved
+  away the next free number, which may be another display's, and that number would then lead there; a display with none
+  of its own (all on one display) shows the first number after the placed ones. A click or drag on the map sends one
+  move (`Applier::fix_placement`): it is made on the placement as it is then, so fast moves all count, remembered for
+  the combination, and makes the rule fixed, so the workspaces are placed once. Both settings apply after a reload
+  (`Apply::Reload`, which a setting without a sway directive honors with `Effect::AfterReload`, and so does a move on
+  the map): sway keeps a session's declarations in order, so open workspaces move at once, but one closed and opened
+  again goes to its old display until sway reloads.
+- **Mirroring:** `outputs::mirror` keeps, per display of a combination, which display it shows instead of its own
+  content and how it fits (`mirror`, `mirror_scaling` in `displays.toml`); `Profile::set_mirror` refuses chains and
+  cycles (a source that shows another display, a target shown elsewhere), and so does the page. `apply` is idempotent:
+  it reads the `wl-mirror` processes Sway Things started in this session (found in `/proc` by the window title _Sway
+  Things mirror_ and the session's `XDG_RUNTIME_DIR`/`WAYLAND_DISPLAY`), ends those the combination connected now
+  doesn't ask for (`kill` with their numbers) and starts only the missing ones
+  (`setsid -f wl-mirror --fullscreen-output <display> --scaling <fit|cover|exact> --title … <source>`), with argument
+  lists and no shell. Once any combination mirrors, every kanshi profile, those of a display alone too, runs
+  `exec sway-things hook mirror`, and `hook displays` runs it after a start or reload of sway. Whatever a mirror takes
+  from its display is taken only for a mirror that can start (`mirror::startable`, the one rule for `apply`, the
+  workspaces and the place apart: `wl-mirror` installed, both displays on, no chain or cycle), so a picture that can't
+  start leaves its display as it is; `kanshi_config` leaves the place apart out without `wl-mirror`, and the hook writes
+  kanshi's file again when that changed. A display that mirrors stands apart (`Profile::apart`: right of the others'
+  right edge, worked out from mode, turn and scale, plus `APART` = 2000 logical pixels, which the pointer doesn't
+  cross), in the kanshi profile and live, with a workspace of its own for the picture (`mirror::workspace_name`). It
+  takes no workspaces (also not from the placement, which sends them to the display shown): `mirror::gather_workspaces`
+  moves the workspaces with windows on it to the display shown before its mirror starts, and again each time the hook
+  runs (a workspace the user's config or another tool put there since would hide the picture, out of the pointer's
+  reach), puts the display back apart if something set it among the others, and notes the workspaces in the profile
+  (`mirror_workspaces`, with the sway session as `mirror_session`, so a later login gives nothing back), which
+  `give_back_workspaces` moves back, with the display back at its place, when it shows its own content again;
+  `mirror::leave_ended` has a display whose picture ended show a workspace like any other again, so none named after a
+  picture stays behind; the mirror's window doesn't take the focus (`no_focus` by its title, in `20-output.conf` and
+  sent before a mirror starts). The app reads `displays.toml` again before it changes it, since the hook may have noted
+  something meanwhile.
+- **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
+  connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
+  of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
+  `20-output.conf` ends with `exec_always sway-things hook displays`, and at every start and reload
+  `outputs::ensure_one_on` switches the first connected output on if none is on (for the session only). While none is
+  on, it waits until sway has reported no change of its outputs for three seconds (at a login at the dock, the panel
+  comes before the dock's monitors), but no longer than a minute: while sway reports no output at all, it then gives up,
+  and while sway keeps reporting changes, it switches one on anyway. The row of a display stored as off that the hook
+  switched on says _On for now: no other display was on_. Without a session the outputs aren't known, so switching one
+  off is allowed there; the hook catches what that leaves. Undocking in a running session isn't covered: sway has no
+  config hook for an output that goes; display profiles (kanshi) are the place for that.
+- **Arranging:** `outputs::layout` is the geometry of the Displays canvas, without GTK. `logical_size` is an output's
+  size in the layout (the mode turned by the transform, divided by the scale and rounded down, as wlroots does). While
+  an output is dragged, `snap` pulls its edges and centers to those of the others within a threshold and lets go beyond
+  it. When it is dropped, `settle` moves it to the nearest place where it overlaps no other output and shares at least a
+  quarter of an edge with one, since sway only moves the pointer between outputs that share an edge, preferring places
+  where the whole layout hangs together. `reflow` keeps a layout together when outputs change their size. `slot_at`
+  finds the edge two touching outputs share that a dragged one points at (with some hysteresis, so the marker doesn't
+  flicker), and `insert` puts it there, moving what stands behind in that row (with what is stacked on it) by its size.
+  `place` is a drop: into a slot, else `settle`; moved away from where it stood, `close_gap` first closes the gap it
+  left in its row or column, and no other. `normalize` moves the layout to start at 0,0.
 
 ### XKB rules
 
@@ -755,11 +959,11 @@ Sway evaluates config top to bottom, and for most settings the last definition w
 | after our include | the user's value wins, ours is dead | "Your config line N overrides this setting" |
 | our include missing, partial or unknown | nothing we generate is reliably active | app-wide **read-only** mode with the include instructions |
 
-`crates/core/src/conflict/` finds these lines. `Report::check(status, setting, device, devices)` lists every user line
+`crates/core/src/conflict/` finds these lines. `Report::check(status, setting, device, known)` lists every user line
 that sets a setting, in the order sway runs them, each with file, line, text, the value read from it, and whether it
 runs before or after the generated file of the setting. The search is linear in the length of the config, so it runs
-again for one setting after it changed, and for all of them (`check_all`, also for every known device) after the config
-or the settings files changed on disk.
+again for one setting after it changed, and for all of them (`check_all`, also for every known device and output) after
+the config or the settings files changed on disk.
 
 - **Top-level directives** match by name and, where the registry names them, leading arguments (`gaps inner`). Names
   compare without regard to case, as in sway.
@@ -770,6 +974,13 @@ or the settings files changed on disk.
   out.
 - **`seat` options** count for `seat *` and the default seat, `seat0`: Sway Things sets every seat with `seat *`, and
   sway takes the cursor of the default seat for `XCURSOR_THEME`. Lines for other seats are left out.
+- **`output` settings** merge per output the same way: for one output, the last line wins among those for `*`, for its
+  name and for its identifier (`Known::outputs` matches a line by name with the output stored by its identifier; without
+  the outputs only lines for `*` and the identifier count). sway's own merging depends on whether the output is
+  connected while it reads the line (`store_output_config` in `sway/config/output.c`): at a reload it is, and the last
+  line wins as reported; at a login it usually isn't yet, and a line by the identifier (as Sway Things writes it) wins
+  over one by the name wherever it stands. The report follows the reload, which is when a change made in the app meets
+  the user's lines.
 - **One line, several settings:** a `client.*` line sets all five colors, so every setting of the group reports it, and
   storing one color makes the user's line dead for all of them.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
@@ -822,7 +1033,7 @@ trait Backend {
 
 | Area | Backends (reference first) |
 | --- | --- |
-| Display profiles | kanshi; fallback without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
+| Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
 | Notifications | swaync, mako, dunst (Do Not Disturb first) |
@@ -1004,24 +1215,31 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 Sway Things keeps nothing running. Behavior that has to happen without the window goes to existing tools, and where glue
 is needed, generated config calls the CLI briefly:
 
+- **`hook displays`**: switches an output on if none is on ([Outputs](#outputs)); the generated `20-output.conf` runs it
+  with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply its
+  profile again (`kanshictl reload`, given five seconds), since sway just read its config, then makes sure a display is
+  on and places the workspaces and starts the mirrors again.
+
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
-profile office {
-    output eDP-1 disable
-    output "Dell Inc. DELL U2723QE <serial>" mode 3840x2160@60Hz scale 1.5
-    exec sway-things hook workspaces --profile office
+profile sway-things-1a2b3c4d {
+    output "Dell Inc. DELL U2723QE <serial>" enable mode 3840x2160@60Hz position 0,0 scale 1.5 transform normal
+    output "eDP-1" disable
+    exec sway-things hook workspaces
+}
+
+profile sway-things-5e6f7a8b {
+    output "eDP-1" enable
 }
 
 # ~/.config/sway/sway-things/80-hooks.conf (generated)
 exec_always sway-things hook gsettings
-bindswitch --reload --locked lid:on  exec sway-things hook lid closed
-bindswitch --reload --locked lid:off exec sway-things hook lid open
 ```
 
-`hook gsettings` exists so far (see [GSettings](#gsettings)); the lid and workspace hooks come with the Displays page.
+`hook gsettings` (see [GSettings](#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there.
 
-Our generated files can also contain the `exec kanshi` / `exec_always kanshictl reload` lines. They're our files, so
-that needs no edit of the user's config.
+Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
+They're our files, so that needs no edit of the user's config.
 
 **SwayFX switching edge case:** `90-effects.conf` is only regenerated when the app or CLI runs. On most distros the
 `swayfx` and `sway` packages conflict, so switching means reinstalling. After switching to vanilla sway, sway reports
@@ -1059,6 +1277,7 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
 | --- | --- | --- |
 | sway | 1.10 | Debian 13 (trixie) ships 1.10.1 |
 | GTK | 4.18 | Debian 13 ships 4.18.6 |
+| gtk4-layer-shell | 1.0 | Debian 13 ships 1.0.4; the crate (0.7, for gtk4 0.10) is used without the features of 1.3 |
 | Rust (MSRV) | 1.85 | Debian 13 ships 1.85.1. Raised only on demand, at most to trixie-backports (currently 1.96) |
 
 ## UI architecture
@@ -1116,6 +1335,33 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   variants as one change (`Model::try_risky_all`). _Active layout_ lists the layouts sway reports for the keyboard (for
   all keyboards, the first usable one) and switches them (`Model::switch_layout`, only in a session). The keyboard model
   is a drop-down of the rules' models, and _Try it_ is a field to type in at the end of the section.
+- **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
+  `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
+  drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
+  moves becomes a drag instead of a click. Snapping, settling, the slot between two outputs (`slot_at`, `insert`) and
+  moving the layout to 0,0 come from `outputs::layout`; after a drop the tiles slide to their places in a tick callback
+  (200 ms, eased; not with `gtk-enable-animations` off), and so do the others when a dragged tile comes over a slot or
+  leaves it (the drag keeps where `place` would put them, worked out only when the slot changes). The picked tile has a
+  grip in its corner: dragging it projects the movement onto the tile's diagonal, so the tile keeps its proportions, and
+  stores the scale on release; a drop stores the position of every output that is on (`Model::set`), shows the dropped
+  layout until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page).
+  While a risky change waits, the tiles can be picked but not moved (`Canvas::set_locked`), and a trial that changes a
+  display's size has the others follow it at once: the canvas works out the flowed layout against the one before the
+  trial and sends their new places with `Applier::move_along`, which records how to put them back in the trial's undo
+  and stores them on Keep (`Pending::along`); `Applier::try_risky_all` gives a display that is switched on a place right
+  of the others in the same trial. Revert puts back everything that changed. When outputs' sizes change with what is
+  stored for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or
+  several, like a scale for all of them); the layout to compare with is held while the model is busy or a risky change
+  waits, and for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere
+  (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
+  (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the output: the resolutions
+  (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that resolution
+  (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps an
+  `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
+  sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the overlay layer of
+  `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
+  no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't
+  be pressed and says why.
 - **XKB options** (`crates/gui/src/widgets/xkb_options.rs`): below the options row, drop-downs for what Caps Lock does
   (`ctrl:nocaps`, `caps:escape`, `caps:swapescape`, `caps:none`), the Compose key (`compose:`) and the layout switching
   shortcut (`grp:`), a switch for `ctrl:swap_lalt_lctl`, and the `OptionBrowser`: every option of the rules by group,
@@ -1146,6 +1392,8 @@ rejected by `sway --validate`, also without a session, and `sway-things doctor -
   shows a `Placeholder`.
 - Our own CSS (`crates/gui/src/style.css`) covers structure only. Colors come from the GTK theme. Secondary text uses
   `.st-dim` (opacity 0.75) instead of the theme's `.dim-label` (0.55), which stays below 4.5:1 in GTK's own theme.
+- States that carry meaning (a display that is off on the canvas) are in `crates/gui/src/style-states.css`, loaded above
+  the user's own `gtk.css` (`STYLE_PROVIDER_PRIORITY_USER + 1`), which otherwise styles every button alike.
 - Icons the themes don't have (the globe, code brackets and bug of the project links) are Lucide's, as symbolic SVGs in
   `crates/gui/resources/` that GTK recolors with the text color. `build.rs` compiles them into a GResource bundle in the
   binary, which `icons::register` adds to the icon theme at startup, so nothing extra is installed.
@@ -1247,7 +1495,7 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | the sway config parser with `cargo-fuzz` (`fuzz/`, `scripts/fuzz.sh`), on the stable toolchain without a sanitizer (the parser has no unsafe code): an input is a main config, and a line `#=> PATH` in it starts a file it can include and a line `#=\| PATH` puts something there that isn't a regular file, all in `MemoryFiles`, so the fuzzer never touches the file system. The target checks that the parser ends without a panic, in less than 10 s and 2 GB, and within its limits (directives, text), that no file is read twice, that nothing but a regular file is read and that every directive and diagnostic belongs to a file that was read. It starts from the seeds in `fuzz/seeds/` (includes, globs, cycles, variables, blocks, hostile includes) and the sample configs of `ci/integration/` bundled with their includes, with a dictionary of the words the parser treats specially. CI lints the fuzz crate and fuzzes each change for 60 s from the seeds; `.github/workflows/fuzz.yml` fuzzes daily for 15 minutes with the corpus kept in the Actions cache and minimized, uploads what it finds, and opens a Bug issue per crash signature (where it panicked, or timeout or out of memory) with the minimized input as base64 and hex, or comments on the open issue with that title. The report job alone may write issues, and the input reaches the issue only as base64 and hex |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting set and reset with `--yes`, and `doctor` validating the generated files and replacing a `90-effects.conf` with a SwayFX directive (which only SwayFX accepts) with `--fix --overwrite` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged; the BlueZ backend against python-dbusmock's `bluez5` template on a private bus (`crates/core/tests/bluetooth_bluez.rs`, stand-in in `bluetooth::stand_in`, `test-support`): snapshot, BlueZ stopping and starting, power, discovery, pair, connect, rename, forget, the change stream without noise, the battery, and the agent's flows (confirm, reject, passkey, PIN, display, cancel) with a `Pair` that calls the agent from BlueZ's own connection, and a stranger's call rejected; the NetworkManager backend against python-dbusmock's `networkmanager` template (`crates/core/tests/network_nm.rs`, stand-in in `network::stand_in`, extended by an agent manager, a device's `Disconnect`, `ActivateConnection` with "/", a `DeactivateConnection` that only touches its own devices and an `AddAndActivateConnection` that keeps the settings it was sent): snapshot, NetworkManager stopping and starting (a new owner), Wi-Fi and networking on and off, scans and `LastScan` moving on after one, a new network with its password, a saved one connected, disconnected and forgotten, a hidden one, a failed connection's reason, a VPN without its password, wired and VPN connections, addresses, the change stream without noise, and the secret agent asking again, being canceled, leaving other questions to others and rejecting a stranger |
-| GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open (config lines shown, groups expanded), drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's controls beside its text (measured from each row's width beside, since a tiled window can't be resized) and the window can get narrower; every page fits 544 px (a third of a laptop screen) and scrolls sideways when narrower; a slider row shrinks its slider first, then moves its controls below its text and gets higher; narrow (the tests move the threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows it with the back button and the focus in it, Esc and the back button show the sidebar at the open page, switching keeps the page, the pane with the focus and the focus, a search on the page shows the sidebar with the results and the focused field, a result and a deep link show their page and focus their row, and Esc goes back to the result. Deep links: a link opens its page, a link to a setting tints its row, focuses its control and the tint goes again, one to a member of a collapsed group expands the group first, and one to a row hidden for want of devices only opens the page. Welcome: without the include line the window opens on the welcome screen with the line, _Look around first_ and opening a page lead to the pages with the banner, whose button leads back, its spinner turns again after coming back (compared on the drawn pixels, with animations on: a spinner's animation doesn't restart by itself, so the screen puts in a new one each time it is shown), the welcome screen and the banner go away once the line is there, and a banner tells about lines after the include until dismissed; the welcome screen and a read-only page are checked for contrast in light and dark. Text inside insensitive widgets is left out of the contrast check: WCAG exempts inactive controls, and GTK draws their text faint on purpose. Animations are off, so screens are checked as they end up. Sections: a header collapses its section with a click or Enter and expands it again, `ui.toml` follows, a section collapsed in the file starts collapsed, with the preference off none does and nothing is written, and a deep link into a collapsed section expands it without storing that. Rows: every page shows a row per setting in registry order, each control takes the focus, a change reaches the settings, a slider dragged near its default lands exactly on it while one outside the zone and a key step don't, a slider keeps its place when the reset buttons appear, a SwayFX setting on sway is locked and says why, a setting that applies after a reload has that badge and one that applies after a re-login its own, a change without the include line shows its error, and the config line shows only while `app.show_directives` is on, in rows of every page, and follows a switch at once. Groups: the colors of `client.focused` are the members of one collapsed group row, which shows a swatch per color and the line once (not in the members), follows a change, and expands and collapses with `Enter` and `Space`. Safety net: switching pointers off shows the banner with _Revert_ focused and the tried value in the row, _Keep_ stores it, _Revert_, the countdown and closing the window put the old value back, the only pointer can't be switched off, and the page with the banner is checked for contrast in light and dark. Indicators: a stored value has a reset button and a machine toggle (which moves it to the host overlay; the reset removes it), a line before the include shows _Overridden_ and one after it _Your config wins_, both with the ⋮ menu showing file:line and the line, _Let my config win_ hands the setting back to the config, a risky reset shows the safety-net banner and is removed on Keep, a device's own value resets to the value of all mice, a page reset removes all but risky values, an unsupported setting shows its requirement as a badge, and the page with the indicators is checked for contrast in light and dark. Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them. Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows back, a touchpad that is plugged in and a mouse that is unplugged (the stand-in sends `input` events) change the page live, and the test area names a click and scrolls. About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the distribution, NetworkManager as not running, the kernel and the delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment, and the links go to the website, the repository and its issues. Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same window, it follows a change, About & Maintenance opens it, it closes with the main window; a file changed outside has its banner, its content on disk on request and is replaced by Overwrite; a foreign file and, without the include line, an edited one can't be overwritten; the window with a banner is checked for contrast in light and dark. Reload: a change of a setting for the config only shows the reload banner with the count, a change for the next login doesn't add to it, and the reload saves the generated file, sends `reload` and hides the banner; the page with the banner is checked for contrast in light and dark. Theme: the accent stylesheet carries the stored focus color, follows a change of it and is empty once `app.accent_source` asks for the theme's accent. Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the welcome screen, until an open works. The window works on settings files in a temporary directory and a sway config in memory, without a session or in the session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a reload are validated with `true`, so nothing runs sway. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Logic stays in `core`, so the GUI stays thin Bluetooth: the page against the BlueZ stand-in shows the paired and the other devices with their state and battery, the adapter choice for two adapters, looks for devices while shown, connects, pairs through the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices again, and it stops looking once the radio is off; test windows reach no Bluetooth but the stand-in. Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does after it, which ends with the new list, and switching back to automatic hides the button and scans again, connects to a saved network, asks for the password of a new one (refusing a short one) and sends it, answers the agent's "Wrong password" question, switches the cable and the VPN on, shows an unplugged cable without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows reach no NetworkManager but the stand-in |
+| GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open (config lines shown, groups expanded), drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's controls beside its text (measured from each row's width beside, since a tiled window can't be resized) and the window can get narrower; every page fits 544 px (a third of a laptop screen) and scrolls sideways when narrower; a slider row shrinks its slider first, then moves its controls below its text and gets higher; narrow (the tests move the threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows it with the back button and the focus in it, Esc and the back button show the sidebar at the open page, switching keeps the page, the pane with the focus and the focus, a search on the page shows the sidebar with the results and the focused field, a result and a deep link show their page and focus their row, and Esc goes back to the result. Deep links: a link opens its page, a link to a setting tints its row, focuses its control and the tint goes again, one to a member of a collapsed group expands the group first, and one to a row hidden for want of devices only opens the page. Welcome: without the include line the window opens on the welcome screen with the line, _Look around first_ and opening a page lead to the pages with the banner, whose button leads back, its spinner turns again after coming back (compared on the drawn pixels, with animations on: a spinner's animation doesn't restart by itself, so the screen puts in a new one each time it is shown), the welcome screen and the banner go away once the line is there, and a banner tells about lines after the include until dismissed; the welcome screen and a read-only page are checked for contrast in light and dark. Text inside insensitive widgets is left out of the contrast check: WCAG exempts inactive controls, and GTK draws their text faint on purpose. Animations are off, so screens are checked as they end up. Sections: a header collapses its section with a click or Enter and expands it again, `ui.toml` follows, a section collapsed in the file starts collapsed, with the preference off none does and nothing is written, and a deep link into a collapsed section expands it without storing that. Rows: every page shows a row per setting in registry order, each control takes the focus, a change reaches the settings, a slider dragged near its default lands exactly on it while one outside the zone and a key step don't, a slider keeps its place when the reset buttons appear, a SwayFX setting on sway is locked and says why, a setting that applies after a reload has that badge and one that applies after a re-login its own, a change without the include line shows its error, and the config line shows only while `app.show_directives` is on, in rows of every page, and follows a switch at once. Groups: the colors of `client.focused` are the members of one collapsed group row, which shows a swatch per color and the line once (not in the members), follows a change, and expands and collapses with `Enter` and `Space`. Safety net: switching pointers off shows the banner with _Revert_ focused and the tried value in the row, _Keep_ stores it, _Revert_, the countdown and closing the window put the old value back, the only pointer can't be switched off, and the page with the banner is checked for contrast in light and dark. Indicators: a stored value has a reset button and a machine toggle (which moves it to the host overlay; the reset removes it), a line before the include shows _Overridden_ and one after it _Your config wins_, both with the ⋮ menu showing file:line and the line, _Let my config win_ hands the setting back to the config, a risky reset shows the safety-net banner and is removed on Keep, a device's own value resets to the value of all mice, a page reset removes all but risky values, an unsupported setting shows its requirement as a badge, and the page with the indicators is checked for contrast in light and dark. Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them. Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows back, a touchpad that is plugged in and a mouse that is unplugged (the stand-in sends `input` events) change the page live, and the test area names a click and scrolls. Displays (against a stand-in that reports outputs): the canvas shows the outputs that are on at their places and the one that is off, the picker lists them all with the one with the focus picked, a tile clicked picks its output for the rows and the mode row offers its modes, _All displays_ stays picked through a change, an output moved onto another is settled next to it with every position stored and sent and Ctrl+Z puts it back, a gap is reported and _Arrange Side by Side_ closes it, a monitor plugged in shows up, the last output that is on can't be switched off, without a session the canvas gives way to a hint, _Identify_ (the stand-in's output named like the headless sway's own) shows one window with the number on the overlay layer and takes it away after three seconds, and the page with the canvas is checked for contrast in light and dark. About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the distribution, NetworkManager as not running, the kernel and the delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment, and the links go to the website, the repository and its issues. Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same window, it follows a change, About & Maintenance opens it, it closes with the main window; a file changed outside has its banner, its content on disk on request and is replaced by Overwrite; a foreign file and, without the include line, an edited one can't be overwritten; the window with a banner is checked for contrast in light and dark. Reload: a change of a setting for the config only shows the reload banner with the count, a change for the next login doesn't add to it, and the reload saves the generated file, sends `reload` and hides the banner; the page with the banner is checked for contrast in light and dark. Theme: the accent stylesheet carries the stored focus color, follows a change of it and is empty once `app.accent_source` asks for the theme's accent. Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the welcome screen, until an open works. The window works on settings files in a temporary directory and a sway config in memory, without a session or in the session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a reload are validated with `true`, so nothing runs sway. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Logic stays in `core`, so the GUI stays thin Bluetooth: the page against the BlueZ stand-in shows the paired and the other devices with their state and battery, the adapter choice for two adapters, looks for devices while shown, connects, pairs through the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices again, and it stops looking once the radio is off; test windows reach no Bluetooth but the stand-in. Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does after it, which ends with the new list, and switching back to automatic hides the button and scans again, connects to a saved network, asks for the password of a new one (refusing a short one) and sends it, answers the agent's "Wrong password" question, switches the cable and the VPN on, shows an unplugged cable without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows reach no NetworkManager but the stand-in |
 
 ## Packaging
 

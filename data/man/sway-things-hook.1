@@ -2,11 +2,11 @@
 .el .ds Aq '
 .TH sway-things-hook 1 "" "Sway Things 0.2.1" "Sway Things Manual"
 .SH NAME
-sway\-things\-hook \- Run a hook; the generated sway config runs these, in 80\-hooks.conf
+sway\-things\-hook \- Run a hook; the generated sway config runs these
 .SH SYNOPSIS
 \fBsway\-things hook\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
 .SH DESCRIPTION
-Run a hook; the generated sway config runs these, in 80\-hooks.conf
+Run a hook; the generated sway config runs these
 .SH OPTIONS
 .TP
 \fB\-\-color\fR \fI<WHEN>\fR [default: auto]
@@ -30,3 +30,12 @@ Print help
 .TP
 sway\-things\-hook\-gsettings(1)
 Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to GSettings; run at login and at each reload of sway
+.TP
+sway\-things\-hook\-displays(1)
+Switch a display on if none is on (and have kanshi apply its profile again, if it runs): run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one
+.TP
+sway\-things\-hook\-workspaces(1)
+Put the workspaces on the displays connected now as the Workspaces page says: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile
+.TP
+sway\-things\-hook\-mirror(1)
+Show displays on others as remembered for the displays connected now (wl\-mirror), and end the mirrors of other combinations: run by kanshi when it applied a profile

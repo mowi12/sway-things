@@ -3,12 +3,14 @@
 
 //! The definition of one setting.
 
+use super::output_line;
 use super::page::Page;
 use super::read::{ReadError, ReadFn};
 use super::sway::{ConfigFile, Directive, RenderFn, SwayMapping};
 use super::value::{Choice, Kind, Value, ValueError};
 use crate::command::Color;
-use crate::command::input::InputType;
+use crate::command::input::{InputSelector, InputType};
+use crate::command::output::OutputSelector;
 pub use crate::i18n::Msg;
 use crate::msg;
 use crate::version::{SwayFxVersion, SwayVersion};
@@ -32,6 +34,17 @@ impl SettingGroup {
     pub const fn title(self) -> Msg {
         self.title
     }
+}
+
+/// Why a value of a setting can't be stored for a device or output
+/// ([`Setting::check_device`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceError {
+    /// The setting applies to the whole session.
+    NotPerDevice,
+    /// The text isn't an input device's identifier (for a per-device setting) or an output's
+    /// identifier or name (for a per-output setting).
+    Invalid,
 }
 
 /// What a setting applies to. The scope also decides where a value is stored by default: in the
@@ -113,6 +126,8 @@ pub enum When {
     On,
     /// A choice is one of these ids.
     OneOf(&'static [&'static str]),
+    /// A choice is none of these ids.
+    NoneOf(&'static [&'static str]),
     /// A number is above this.
     Above(f64),
 }
@@ -123,6 +138,7 @@ impl When {
         match (self, value) {
             (Self::On, Value::Bool(on)) => *on,
             (Self::OneOf(ids), Value::Choice(id)) => ids.contains(&id.as_str()),
+            (Self::NoneOf(ids), Value::Choice(id)) => !ids.contains(&id.as_str()),
             #[expect(
                 clippy::cast_precision_loss,
                 reason = "the ranges of whole-number settings are far below 2^52"
@@ -197,6 +213,7 @@ pub struct Setting {
     host_by_default: bool,
     gsettings: Option<GSettingsKey>,
     unit: Option<Unit>,
+    one_at_a_time: bool,
 }
 
 impl Setting {
@@ -226,6 +243,7 @@ impl Setting {
             host_by_default: false,
             gsettings: None,
             unit: None,
+            one_at_a_time: false,
         })
     }
 
@@ -376,6 +394,43 @@ impl Setting {
         self.scope
     }
 
+    /// Checks that a value of the setting can be stored for `device`: the identifier of an input
+    /// device for a setting with [`Scope::PerDevice`], the identifier or name of an output for
+    /// one with [`Scope::PerOutput`].
+    ///
+    /// # Errors
+    ///
+    /// [`DeviceError::NotPerDevice`] for a setting of another scope, [`DeviceError::Invalid`] if
+    /// `device` can't select a device or output.
+    pub fn check_device(&self, device: &str) -> Result<(), DeviceError> {
+        let fits = match self.scope {
+            Scope::PerDevice(_) => InputSelector::device(device).is_ok(),
+            Scope::PerOutput => OutputSelector::output(device).is_ok(),
+            Scope::Global | Scope::PerHost => return Err(DeviceError::NotPerDevice),
+        };
+        if fits {
+            Ok(())
+        } else {
+            Err(DeviceError::Invalid)
+        }
+    }
+
+    /// Whether a value is only stored for one device or output at a time, never for all of them:
+    /// a position in the layout would put every output on the same spot.
+    pub fn is_one_at_a_time(&self) -> bool {
+        self.one_at_a_time
+    }
+
+    /// The table of a settings file that holds values for one device or output: `device` or
+    /// `display` (`output` is taken by the values for every output, `output.scale`). `None` for a setting that isn't stored per device.
+    pub fn device_table(&self) -> Option<&'static str> {
+        match self.scope {
+            Scope::PerDevice(_) => Some("device"),
+            Scope::PerOutput => Some("display"),
+            Scope::Global | Scope::PerHost => None,
+        }
+    }
+
     /// How a change takes effect.
     pub fn apply(&self) -> Apply {
         self.apply
@@ -430,12 +485,21 @@ impl Setting {
         directive: &crate::sway_config::Directive,
     ) -> Option<Result<Value, ReadError>> {
         let mapping = self.sway.as_ref()?;
-        let args = mapping.matches(directive)?;
-        Some((mapping.read)(args).and_then(|value| {
+        let check = |value: Value| {
             self.check(&value)
                 .map(|()| value)
                 .map_err(|error| ReadError::Unsupported(error.text()))
-        }))
+        };
+        if mapping.directive().block == super::Block::Output && output_line::is_output(directive) {
+            // One line can set several values of an output; the last one of this setting counts.
+            return output_line::split(directive)?
+                .iter()
+                .rev()
+                .find_map(|part| mapping.matches(part).map(|args| (mapping.read)(args)))
+                .map(|read| read.and_then(check));
+        }
+        let args = mapping.matches(directive)?;
+        Some((mapping.read)(args).and_then(check))
     }
 }
 
@@ -558,6 +622,13 @@ impl SettingBuilder {
     /// Sets the hint an empty text field shows (translatable).
     pub fn placeholder(mut self, placeholder: Msg) -> Self {
         self.0.placeholder = Some(placeholder);
+        self
+    }
+
+    /// Stores a value only for one device or output at a time (see
+    /// [`Setting::is_one_at_a_time`]).
+    pub fn one_at_a_time(mut self) -> Self {
+        self.0.one_at_a_time = true;
         self
     }
 

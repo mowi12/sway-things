@@ -13,7 +13,9 @@ use crate::command::input::{DragLock, Input, InputSelector, InputType};
 use crate::command::{CommandError, Target, behavior, effects, window};
 use crate::version::{SwayFxVersion, SwayVersion};
 
-pub(crate) use super::stand_in::{FakeSway, HANG_UP, SWAY_1_10, message, obedient, with_inputs};
+pub(crate) use super::stand_in::{
+    FakeSway, HANG_UP, SWAY_1_10, message, obedient, with_inputs, with_outputs,
+};
 
 const SWAYFX_0_5: &str = r#"{"human_readable": "0.5.3", "sway_original_version": "1.11.0",
     "variant": "sway", "major": 0, "minor": 5, "patch": 3,
@@ -119,6 +121,34 @@ fn commands_are_sent_one_by_one_as_rendered_for_ipc() {
             (wire::RUN_COMMAND, font.render(Target::Ipc).unwrap()),
         ]
     );
+}
+
+#[test]
+fn commands_run_together_go_as_one_message() {
+    let sway = FakeSway::with_version(SWAY_1_10, |kind, payload| {
+        let reply = if payload.contains("gaps") {
+            r#"[{"success": true}, {"success": false, "parse_error": false, "error": "No workspaces"}]"#
+        } else {
+            r#"[{"success": true}, {"success": true}]"#
+        };
+        message(kind, reply)
+    });
+    let mut client = sway.connect();
+    let commands = [behavior::tiling_drag(true), behavior::tiling_drag(false)];
+    block_on(client.run_together(&commands)).unwrap();
+    // One message: nothing of another client's comes between the two.
+    assert_eq!(sway.commands(), ["tiling_drag enable; tiling_drag disable"]);
+    // Nothing to run: nothing sent.
+    block_on(client.run_together(&[])).unwrap();
+    assert_eq!(sway.commands().len(), 1);
+    let failing = [
+        behavior::tiling_drag(true),
+        window::gaps_runtime(window::Gaps::Inner, window::GapsScope::All, 8).unwrap(),
+    ];
+    assert!(matches!(
+        block_on(client.run_together(&failing)),
+        Err(IpcError::CommandFailed { message, .. }) if message == "No workspaces"
+    ));
 }
 
 #[test]

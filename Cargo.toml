@@ -44,6 +44,8 @@ futures-lite = { version = "2", default-features = false, features = ["std"] }
 gio = { version = "0.21", features = ["v2_80"] }
 glib-build-tools = "0.21"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_18"] }
+# 0.7 is the line for gtk4 0.10; without its v1_3 feature it takes gtk4-layer-shell 1.0 (Debian 13).
+gtk4-layer-shell = "0.7"
 indicatif = { version = "0.18", default-features = false, features = ["unicode-width"] }
 notify = { version = "8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }

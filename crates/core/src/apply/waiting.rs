@@ -90,6 +90,12 @@ impl Waiting {
         }
     }
 
+    /// Drops the change of `key` for `device`: it is in effect now.
+    pub(super) fn forget(&mut self, key: &str, device: Option<&str>) {
+        self.changes
+            .retain(|change| change.key != key || change.device.as_deref() != device);
+    }
+
     /// Drops the changes whose stored value in `state` is back at what sway runs with.
     pub(super) fn settle(&mut self, state: &State) {
         self.changes.retain(|change| {

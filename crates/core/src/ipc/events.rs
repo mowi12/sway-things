@@ -132,53 +132,6 @@ impl Reloads {
     }
 }
 
-/// The outputs of a session, read again after each of sway's `output` events: for the choice of
-/// the screen a drawing tablet or touchscreen maps to.
-#[derive(Debug)]
-pub struct OutputWatch {
-    events: Events,
-    /// A connection of its own, to read the outputs after each event.
-    client: Client,
-}
-
-impl OutputWatch {
-    /// Subscribes to the `output` events of the session of `client`, on connections of its own.
-    ///
-    /// # Errors
-    ///
-    /// The errors of [`Client::connect_to`] and [`Client::subscribe`].
-    pub async fn start(client: &Client) -> Result<Self, IpcError> {
-        let client = Client::connect_to(client.socket()).await?;
-        // First the subscription, so an output that is plugged in meanwhile isn't missed.
-        let events = client.subscribe(&[EventType::Output]).await?;
-        Ok(Self { events, client })
-    }
-
-    /// The outputs now.
-    ///
-    /// # Errors
-    ///
-    /// The errors of [`Client::outputs`].
-    pub async fn outputs(&mut self) -> Result<Vec<super::types::Output>, IpcError> {
-        self.client.outputs().await
-    }
-
-    /// Waits until an output changed. `None` once sway closed the connection.
-    ///
-    /// # Errors
-    ///
-    /// Those of [`Events::next`].
-    pub async fn changed(&mut self) -> Option<Result<(), IpcError>> {
-        loop {
-            match self.events.next().await? {
-                Ok(Event::Output(_)) => return Some(Ok(())),
-                Ok(_) => {}
-                Err(error) => return Some(Err(error)),
-            }
-        }
-    }
-}
-
 /// Reads the event with the number `kind` (`man 7 sway-ipc`, "EVENTS").
 fn decode(kind: u32, payload: &[u8]) -> Option<serde_json::Result<Event>> {
     fn read<'a, T: Deserialize<'a>>(payload: &'a [u8]) -> serde_json::Result<T> {

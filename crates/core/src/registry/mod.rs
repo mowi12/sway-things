@@ -38,6 +38,8 @@ mod cursor;
 mod effects;
 mod input;
 mod link;
+mod output;
+mod output_line;
 mod page;
 mod read;
 mod search;
@@ -47,10 +49,10 @@ mod sway;
 mod tests;
 mod value;
 mod windows;
+pub mod workspaces;
 
 use std::sync::LazyLock;
 
-use crate::command::input::InputSelector;
 use crate::command::{SwayCmd, Target};
 
 pub use cursor::{MAP_AUTOMATIC, MAP_DESKTOP};
@@ -59,8 +61,8 @@ pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
 pub use search::{Field, Hit, SearchIndex};
 pub use setting::{
-    Apply, Dependency, GSettingsKey, Msg, Requirements, Scope, Setting, SettingBuilder,
-    SettingGroup, Slider, TextCheck, Unit, When,
+    Apply, Dependency, DeviceError, GSettingsKey, Msg, Requirements, Scope, Setting,
+    SettingBuilder, SettingGroup, Slider, TextCheck, Unit, When,
 };
 pub use sway::{
     Block, ConfigFile, Context, Defaults, Directive, RenderError, RenderFn, SwayMapping, Values,
@@ -77,9 +79,12 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     let mut settings = Vec::new();
     settings.extend(input::settings());
     settings.extend(cursor::settings());
+    settings.extend(output::settings());
     settings.extend(windows::settings());
     settings.extend(effects::settings());
     settings.extend(behavior::settings());
+    settings.extend(workspaces::settings());
+    settings.extend(behavior::new_workspaces());
     settings.extend(app::settings());
     Registry { settings }
 });
@@ -123,8 +128,10 @@ impl Registry {
     /// [group](Registry::group) to their values in `values`, or to their defaults where nothing is
     /// stored.
     ///
-    /// `device` selects one input device for a setting with [`Scope::PerDevice`]; `None` renders
-    /// for every device of the setting's type. `values` then holds the values for that device.
+    /// `device` selects one input device by its identifier for a setting with
+    /// [`Scope::PerDevice`], or one output by its identifier or name for a setting with
+    /// [`Scope::PerOutput`]; `None` renders for every device of the setting's type, or every
+    /// output. `values` then holds the values for that device or output.
     ///
     /// For [`Target::Ipc`] the commands change the running session, for [`Target::Config`] they
     /// are the lines of the generated file; render each command for the same target. The two can
@@ -134,19 +141,20 @@ impl Registry {
     ///
     /// [`RenderError::NotASwaySetting`] for a preference of Sway Things itself,
     /// [`RenderError::NotPerDevice`] if `device` is given for another scope,
+    /// [`RenderError::Input`] or [`RenderError::Output`] if it isn't a device or output,
     /// [`RenderError::InvalidValue`] for a stored value that doesn't fit its setting, and the
     /// error of a command builder that rejects a value.
     pub fn render(
         &self,
         setting: &Setting,
         values: &dyn Values,
-        device: Option<&InputSelector>,
+        device: Option<&str>,
         target: Target,
     ) -> Result<Vec<SwayCmd>, RenderError> {
         let Some(mapping) = setting.sway() else {
             return Err(RenderError::NotASwaySetting { key: setting.key() });
         };
-        if device.is_some() && !matches!(setting.scope(), Scope::PerDevice(_)) {
+        if device.is_some() && !matches!(setting.scope(), Scope::PerDevice(_) | Scope::PerOutput) {
             return Err(RenderError::NotPerDevice);
         }
         (mapping.render)(&Context {
@@ -160,8 +168,8 @@ impl Registry {
 
     /// The line of the generated file that sets `setting` to its value in `values`, for showing
     /// it in the app: what [`Registry::render`] builds for the config, without the
-    /// `input <selector>` or `seat <name>` an option of an `input` or `seat` block starts with
-    /// (`pointer_accel 0.3`).
+    /// `input <selector>`, `seat <name>` or `output <name>` an option of an `input`, `seat` or
+    /// `output` block starts with (`pointer_accel 0.3`).
     ///
     /// # Errors
     ///
@@ -171,10 +179,10 @@ impl Registry {
         &self,
         setting: &Setting,
         values: &dyn Values,
-        device: Option<&InputSelector>,
+        device: Option<&str>,
     ) -> Result<String, RenderError> {
         let skip = match setting.sway().map(|mapping| mapping.directive().block) {
-            Some(Block::Input | Block::Seat) => 2,
+            Some(Block::Input | Block::Seat | Block::Output) => 2,
             Some(Block::Top) | None => 0,
         };
         let lines = self
