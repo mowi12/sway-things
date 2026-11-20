@@ -26,6 +26,24 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | `seat <name> …` in the config doesn't create a seat that has no devices; over IPC it does. | The containers. |
 | One-line `bar <id> …` commands reuse the current bar while the config is read; only a `bar {` block starts a new one. | `sway/commands/bar.c`, `read_config` |
 
+## Key bindings
+
+| Fact | Source |
+| --- | --- |
+| A binding takes the place of an earlier one with the same mode, input device, kind of keys, `--release`, `--locked`, `--inhibited`, window region, layout group, modifiers and set of keys; `--no-repeat` and `--no-warn` don't count. It logs "Overwriting binding" and shows a swaynag warning unless the new one has `--no-warn`. | `binding_key_compare`, `binding_upsert`, `binding_add` in `sway/commands/bind.c`, 1.10 and 1.12; `Super+F` after `$mod+f` reproduced with sway 1.12 and SwayFX 0.6. |
+| Modifier names are compared without regard to case: `Shift`, `Lock`, `Control`, `Ctrl`, `Mod1`, `Alt`, `Mod2`, `Mod3`, `Mod4`, `Super`, `Mod5`. The keys are sorted, so their order doesn't matter. | `get_modifier_mask_by_name` in `sway/input/keyboard.c`; `list_qsort` in `bind.c`, 1.12. |
+| A keysym is looked up with `XKB_KEYSYM_CASE_INSENSITIVE`, which prefers the lowercase keysym: `Mod4+E` and `Mod4+e` are one binding, as are `Prior` and `Page_Up`. An unknown name is an error ("Unknown key or button"). | `identify_key` in `bind.c`; `sway --validate -d` with sway 1.12. |
+| An unbind of a binding sway doesn't have fails: "Could not find binding … for the given flags", which `sway --validate` reports as an error. | `binding_remove` in `bind.c`; `sway --validate` with sway 1.12. |
+| `--to-code` translates the keysyms to the keycodes of the first layout of the keysym translation keymap; a keysym on no key or on several stays a keysym binding. `--to-code` is ignored for `bindcode`. | `translate_binding`, `get_keycode_for_keysym` in `bind.c`, 1.12. |
+| On a key press sway looks at keycode bindings, then raw keysyms, then translated keysyms; of two matching bindings with the same input, lock and inhibit state the first found wins, so a keycode binding wins over a keysym binding of the same key. Without a lock, a binding without `--locked` wins over one with it. | `get_active_binding` and `handle_key_event` in `sway/input/keyboard.c`, 1.12. |
+| The rest of a binding line after the keys is kept as one string (`join_args`) and run through `execute_command` when the keys are pressed: split at `;` and `,`, quotes removed except for `exec`, variables replaced again. Over IPC, `bindsym`'s arguments are unquoted (only `exec`, `exec_always` and `mode` keep quotes). | `cmd_bindsym_or_bindcode`, `seat_execute_command` in `bind.c`; `execute_command` in `sway/commands.c`, 1.12. |
+| `exec` with a single quoted argument runs it without the quotes; otherwise it joins the arguments. The command runs with `sh -c`. | `cmd_exec_process` in `sway/commands/exec_always.c`, 1.10 and 1.12. |
+| `mode <name> bindsym …` on one line binds in that mode; `mode` strips the quotes of the name itself. | `cmd_mode` in `sway/commands/mode.c`, 1.12. |
+| `grave` and `quoteleft`, `apostrophe` and `quoteright` are one keysym; `U0060`, `u0060` and `0x60` are `grave`, `0x0027` is `apostrophe`. `Tab` and `ISO_Left_Tab`, `U20AC` and `EuroSign` are different keysyms. | `sway --validate -d` ("Overwriting binding") with SwayFX 0.6 (sway 1.12). |
+| `$$` in a config line becomes `$` when the line is read, and again when a binding's command runs: `exec "echo $$HOME $$$$$$$$"` in the generated file, and `exec "echo $HOME $$$$"` quoted as one argument over IPC, both make the shell see `echo $HOME $$`, so it prints the home directory and its own process number. | A headless SwayFX 0.6 (sway 1.12), the binding pressed with `wtype`, from the generated file after a reload and sent live. |
+| GTK 4 reports no modifier mask for `Mod3` or `Mod5`; a key pressed with AltGr shows as its third shift level. | `GdkModifierType` and `gdk_key_event_get_level` in GTK 4.18. |
+| Bindings sent over IPC take effect at once, and keys of a virtual keyboard (`wtype`) run them. | A headless SwayFX 0.6 (sway 1.12) with `swaymsg -t subscribe '["binding"]'`. |
+
 ## Input
 
 | Fact | Source |
