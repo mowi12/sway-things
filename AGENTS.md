@@ -59,7 +59,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── labels.yml   # label taxonomy, synced to GitHub
 │   ├── dependabot.yml
 │   └── pull_request_template.md
-├── justfile         # convenience wrapper around scripts/ (`just check`)
+├── justfile         # convenience wrapper around cargo, npm and scripts/ (`just` lists the recipes)
 ├── Cargo.toml       # workspace: shared package metadata and lints; Cargo.lock is committed
 ├── clippy.toml      # lets tests use unwrap/expect/panic
 ├── REUSE.toml, dprint.json, .markdownlint-cli2.yaml, _typos.toml, lychee.toml, deny.toml, cliff.toml, .editorconfig
@@ -88,10 +88,12 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Commits: Conventional Commits with the types from `.conventional-commit-types.json`, scope = page id or area
   (`feat(keyboard): …`, `fix(core): …`). PRs land as **merge commits** and every PR commit stays in the history, so each
   one must be conventional and meaningful on its own. Update branches by rebasing, never by merging `main` in.
-- Branches: `<type>/<issue>-<slug>` (`feat/23-keyboard-repeat-rate`), type = the PR's main purpose.
-- Pull requests: required for every change, 1 approving review, all checks green. Fill in the PR template checklist.
-  Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR. Don't hard-wrap PR descriptions,
-  issue bodies or comments: GitHub renders every line break there.
+- Branches: `<type>/<issue>-<slug>` (`feat/84-window-behavior-page`), type = the PR's main purpose, slug = the issue's
+  full title in kebab case.
+- Pull requests: required for every change, 1 approving review, all checks green. Fill in the PR template checklist. The
+  PR title is the issue's title; assign yourself to the issue when you start it and to the PR when you open it; open a
+  draft PR for work in progress. Link the issue with `Closes #N`; labels and milestones go on the issue, not the PR.
+  Don't hard-wrap PR descriptions, issue bodies or comments: GitHub renders every line break there.
 - Language: American English everywhere (code, UI strings, docs, commits).
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header
   (`SPDX-FileCopyrightText: 2026 Sway Things contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`). Everything

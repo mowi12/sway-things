@@ -24,15 +24,19 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
   `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview, and
   `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
 - **Milestones** are releases.
-- **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
-  large.
+- **No fixed ownership.** Anyone may pick any issue: assign yourself when you start working on it, and talk in the issue
+  before starting something large.
 
 ## Pull requests
 
 - **Trunk-based.** `main` is the only long-lived branch and is always green.
-- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose:
-  `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`. The purpose shows in branch lists, and the issue number
-  gives the context.
+- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose and
+  the slug is the issue's full title in kebab case, as GitHub's "Create a branch" makes it: `chore/2-add-issue-forms`,
+  `feat/84-window-behavior-page`. The purpose shows in branch lists, and the issue number gives the context.
+- **PR titles** are the title of the linked issue, without a type prefix: the type already shows in the branch name and
+  the commits.
+- **Assign yourself** to the PR you open, as to its issue.
+- **Draft PRs** are welcome for work in progress: open one early and mark it ready for review when it's done.
 - **Every change goes through a pull request**:
   - all required CI checks must pass, and **nobody can bypass them**;
   - **one approving review** is required, four eyes on code that writes `exec` lines and config (the repository owner
@@ -118,10 +122,14 @@ runs and CI can't drift. CI calls the scripts directly; the `justfile` just wrap
 hooks. Run checks yourself before pushing:
 
 ```sh
+just test               # run the tests of the workspace
+just lint               # run the fast offline checks: no tests, no sway, no network
 just check              # run every check, like CI
 scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
+
+`just` without a recipe lists every development command.
 
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
@@ -229,8 +237,8 @@ and committed. After changing a command, an argument or a help text in `crates/c
 
 ## Working on the GUI
 
-- `cargo run -p sway-things-gui` starts the app. `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore
-  the widget tree and try CSS live.
+- `just gui` starts the app from source, and `just cli ARGS` runs the command line (`just cli doctor`).
+  `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore the widget tree and try CSS live.
 - The GUI tests check the window with every page for contrast in light and dark, the keyboard navigation, and the
   setting rows (one per setting, a change, a locked setting, a failed change). They need a display, so they run in the
   sway integration containers (`scripts/check-integration.sh --container all`). `scripts/gui-screenshots.sh` runs them
@@ -240,9 +248,9 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Working on the website
 
-The project site in `website/` is built with Astro: `npm ci --prefix website`, then `npm --prefix website run dev`
-serves it with live reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the
-build says when one doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
+The project site in `website/` is built with Astro: `npm ci --prefix website`, then `just website` serves it with live
+reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the build says when one
+doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
 
 ## Documentation
 
