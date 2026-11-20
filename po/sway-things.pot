@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:11+0100\n"
+"POT-Creation-Date: 2026-11-20 23:13+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1746,7 +1746,7 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
-#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/displays/canvas.rs
 #: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
@@ -4870,6 +4870,24 @@ msgstr ""
 msgid "The displays weren’t reset: {error}."
 msgstr ""
 
+#: crates/gui/src/widgets/bluetooth/actions.rs
+msgid "Leave it empty to use the adapter's own name."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+#, rust-format
+msgid "Couldn't make the computer visible: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+#, rust-format
+msgid "Couldn't hide the computer: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+msgid "Leave it empty to use the name the device announces."
+msgstr ""
+
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
@@ -4977,10 +4995,12 @@ msgid "Visible to other devices"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
 msgid "Rename…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/network/rows.rs
 msgid "More actions"
 msgstr ""
@@ -5006,113 +5026,12 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #, rust-format
-msgid "Visible as “{name}” · {address}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "No paired devices yet. Pick one under Other devices to connect it."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"No other devices found yet. Put the device you want to connect into pairing "
-"mode."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"It's turned off by a hardware switch or key. Use it to turn Bluetooth back "
-"on."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"It's blocked by software, e.g. airplane mode. Turning it on with the switch "
-"above lifts the block."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"Turn it on with the switch above to connect your devices and find new ones."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth is off"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "No Bluetooth adapter"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"Plug in a Bluetooth adapter or turn it on in the firmware settings; this "
-"page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth isn't available"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"The Bluetooth service isn't running. Start it with `systemctl start "
-"bluetooth`; this page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth can't be read"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/rows.rs
-msgid "Forget…"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Leave it empty to use the adapter's own name."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't make the computer visible: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't hide the computer: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Leave it empty to use the name the device announces."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
 msgid "Couldn't turn Bluetooth on: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #, rust-format
 msgid "Couldn't turn Bluetooth off: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Stop looking for devices"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Look for devices nearby for 30 seconds"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't look for devices: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Blueman can't be started: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
@@ -5259,6 +5178,89 @@ msgid "Stays visible for {count} minute"
 msgid_plural "Stays visible for {count} minutes"
 msgstr[0] ""
 msgstr[1] ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#, rust-format
+msgid "Visible as “{name}” · {address}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "No paired devices yet. Pick one under Other devices to connect it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"No other devices found yet. Put the device you want to connect into pairing "
+"mode."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"It's turned off by a hardware switch or key. Use it to turn Bluetooth back "
+"on."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"It's blocked by software, e.g. airplane mode. Turning it on with the switch "
+"above lifts the block."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"Turn it on with the switch above to connect your devices and find new ones."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth is off"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "No Bluetooth adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"Plug in a Bluetooth adapter or turn it on in the firmware settings; this "
+"page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth isn't available"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"The Bluetooth service isn't running. Start it with `systemctl start "
+"bluetooth`; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth can't be read"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Forget…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+msgid "Stop looking for devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+msgid "Look for devices nearby for 30 seconds"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+#, rust-format
+msgid "Couldn't look for devices: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+#, rust-format
+msgid "Blueman can't be started: {error}"
+msgstr ""
 
 #: crates/gui/src/widgets/cursor.rs
 msgid "Default"
