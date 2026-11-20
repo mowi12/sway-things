@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:06+0100\n"
+"POT-Creation-Date: 2026-11-20 23:11+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1748,7 +1748,7 @@ msgstr ""
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/displays/canvas.rs
-#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
 msgstr ""
@@ -2704,7 +2704,7 @@ msgstr ""
 #: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
 #: crates/core/src/registry/output.rs crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
+#: crates/gui/src/widgets/network/text.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
 msgstr ""
 
@@ -3443,7 +3443,7 @@ msgstr ""
 msgid "Fonts"
 msgstr ""
 
-#: crates/core/src/registry/look.rs crates/gui/src/widgets/network/mod.rs
+#: crates/core/src/registry/look.rs crates/gui/src/widgets/network/text.rs
 msgid "Interface"
 msgstr ""
 
@@ -4896,17 +4896,19 @@ msgid "Pairing…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connecting…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Disconnecting…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
 msgid "Forgetting…"
 msgstr ""
 
@@ -4979,7 +4981,7 @@ msgid "Rename…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "More actions"
 msgstr ""
 
@@ -5063,7 +5065,7 @@ msgid "Bluetooth can't be read"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Forget…"
 msgstr ""
 
@@ -5183,12 +5185,12 @@ msgid "Type this code on “{device}”, then press Enter on it."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connected"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Not connected"
 msgstr ""
 
@@ -5206,13 +5208,13 @@ msgid "{state} · Battery {percent} %"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Disconnect"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connect"
 msgstr ""
 
@@ -5766,12 +5768,103 @@ msgid ""
 "desktop-portal-gtk, then log in again."
 msgstr ""
 
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect from “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Connect to “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/prompts.rs
+msgid "Enter the password of the Wi-Fi network."
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect to “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect the cable: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect the cable: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect “{vpn}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect “{vpn}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't forget “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "This connection can't be opened in nm-connection-editor"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Signal"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "{quality} ({percent} %)"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Frequency"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/dialogs.rs
+msgid "Security"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/network/rows.rs
+msgid "Wired"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Type"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn Wi-Fi on: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn Wi-Fi off: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn networking on: {error}"
+msgstr ""
+
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "WPA & WPA2 Personal"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA3 Personal"
 msgstr ""
 
@@ -5789,11 +5882,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "Network name"
-msgstr ""
-
-#: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Security"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
@@ -5840,10 +5928,6 @@ msgid "Other networks"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
-msgid "Wired"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
 msgid "VPN"
 msgstr ""
 
@@ -5871,191 +5955,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
 msgid "The network can't be read"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Networking is turned off"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid ""
-"NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No network adapter"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Plug in a network adapter; this page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connected to “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connecting to “{network}”…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No saved networks yet. Pick one under Other networks to connect to it."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No other networks found yet."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Wired ({interface})"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Details…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Edit…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Saved"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "needs nm-connection-editor"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Set Up…"
-msgstr ""
-
-#. TRANSLATORS: The button of a network for screen readers: "Connect Home".
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{action} {network}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Not in range"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Cable unplugged"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Couldn't connect"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{speed} Mb/s"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect from “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connect to “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Enter the password of the Wi-Fi network."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect to “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect the cable: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect the cable: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect “{vpn}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect “{vpn}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't forget “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "This connection can't be opened in nm-connection-editor"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Signal"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{quality} ({percent} %)"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Frequency"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Type"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn Wi-Fi on: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn Wi-Fi off: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn networking on: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Wrong password for “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "The password didn't work, or it has changed."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Password for “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Stop waiting for the scan"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Look for networks nearby now"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
@@ -6090,95 +5989,201 @@ msgstr ""
 msgid "More actions for {network}"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Wrong password for “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+msgid "The password didn't work, or it has changed."
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Password for “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Networking is turned off"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid ""
+"NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No network adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Plug in a network adapter; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Connected to “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Connecting to “{network}”…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No saved networks yet. Pick one under Other networks to connect to it."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No other networks found yet."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Wired ({interface})"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Details…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Edit…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Saved"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "needs nm-connection-editor"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Set Up…"
+msgstr ""
+
+#. TRANSLATORS: The button of a network for screen readers: "Connect Home".
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "{action} {network}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Not in range"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Cable unplugged"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Couldn't connect"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#: crates/gui/src/widgets/network/text.rs
+#, rust-format
+msgid "{speed} Mb/s"
+msgstr ""
+
+#: crates/gui/src/widgets/network/scan.rs
+msgid "Stop waiting for the scan"
+msgstr ""
+
+#: crates/gui/src/widgets/network/scan.rs
+msgid "Look for networks nearby now"
+msgstr ""
+
+#: crates/gui/src/widgets/network/text.rs
 msgid "Link speed"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Hardware address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "IPv4 address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "IPv6 address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Gateway"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "DNS"
 msgstr ""
 
 #. TRANSLATORS: How good the signal of a Wi-Fi network is: the best of four levels.
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Excellent"
 msgstr ""
 
 #. TRANSLATORS: How good the signal of a Wi-Fi network is.
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Good"
 msgstr ""
 
 #. TRANSLATORS: How good the signal of a Wi-Fi network is.
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "OK"
 msgstr ""
 
 #. TRANSLATORS: How good the signal of a Wi-Fi network is.
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Weak"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal excellent"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal good"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal ok"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal weak"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal none"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Open, not encrypted"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enhanced Open"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WEP, insecure"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enterprise (802.1X)"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enhanced Open (OWE)"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA2 Personal"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA Enterprise (802.1X)"
 msgstr ""
 
