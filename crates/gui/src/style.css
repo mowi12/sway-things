@@ -477,3 +477,43 @@ window.st-identify .st-identify-name {
 st-display-canvas.st-identifying > button.st-display-tile.st-off:not(:checked) {
   box-shadow: inset 0 0 0 3px @theme_selected_bg_color;
 }
+
+/* Keyboard Shortcuts: the bar above the list, the keys as keycaps, the warnings of a row. */
+.st-shortcuts {
+  margin-bottom: 6px;
+}
+
+.st-shortcuts .st-shortcut-heading {
+  margin: 14px 0 6px 2px;
+}
+
+.st-shortcut-row {
+  padding: 10px 12px;
+}
+
+.st-keycaps {
+  margin-bottom: 2px;
+}
+
+.st-keycap {
+  padding: 1px 7px;
+  border: 1px solid alpha(currentColor, 0.35);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.st-shortcut-clash > image,
+.st-shortcut-group-clashes image {
+  margin-top: 2px;
+}
+
+.st-shortcut-group-clashes {
+  padding: 0 12px 10px 12px;
+}
+
+button.st-shortcut-capture {
+  padding: 10px;
+  font-weight: bold;
+}

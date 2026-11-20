@@ -202,6 +202,13 @@ pub(crate) fn check_rows() -> Outcome {
             .iter()
             .filter(|setting| setting.page() == page)
             .map(sway_things_core::registry::Setting::key)
+            // The list of bindings is the page's own list; a switch of media keys shows while
+            // its program is installed.
+            .filter(|key| {
+                *key != sway_things_core::bindings::ours::BINDINGS
+                    && sway_things_core::bindings::ours::Group::of(key)
+                        .is_none_or(sway_things_core::bindings::ours::Group::installed)
+            })
             .collect();
         let content = window
             .content()

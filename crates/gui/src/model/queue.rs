@@ -338,6 +338,8 @@ impl Model {
             (applier, core.status.clone())
         };
         let mut applier = applier;
+        // A change of the bindings is worked out against the user's config as last read.
+        applier.set_user_config(&status);
         self.follow_displays(&mut applier, matches!(op, Op::Persist));
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {

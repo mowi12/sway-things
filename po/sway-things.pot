@@ -533,14 +533,17 @@ msgid "Run {command}"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close the window"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Toggle fullscreen"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Toggle floating"
 msgstr ""
 
@@ -799,19 +802,21 @@ msgstr ""
 
 #: crates/core/src/bindings/keys.rs crates/core/src/registry/input.rs
 #: crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Left"
 msgstr ""
 
 #: crates/core/src/bindings/keys.rs crates/core/src/registry/input.rs
 #: crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Right"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Up"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Down"
 msgstr ""
 
@@ -4586,7 +4591,7 @@ msgstr ""
 msgid "Super (the logo key)"
 msgstr ""
 
-#: crates/core/src/registry/shortcuts.rs
+#: crates/core/src/registry/shortcuts.rs crates/gui/src/widgets/page_view.rs
 msgid "Shortcuts"
 msgstr ""
 
@@ -5858,6 +5863,7 @@ msgstr ""
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
 #: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
 msgid "Cancel"
@@ -7424,6 +7430,271 @@ msgstr ""
 
 #: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Copy line"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Open an app"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Run a command"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Focus a window"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Move the window"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Go to a workspace"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Move the window to a workspace"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Sway command"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Shortcut"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Also on the lock screen"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "The same key in every keyboard layout"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Keys"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "What it does"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Add Shortcut"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Change Shortcut"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Press the keys of the shortcut."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Pick an app."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid ""
+"Add a modifier like Super or Ctrl: bound alone, this key would no longer "
+"type in any app. Only keys like F1, Print or the media keys work alone."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Press the shortcut… (Esc stops, Backspace clears)"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Click, then press the shortcut"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid "Keys: {keys}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "The shortcut changed in the meantime. Close this and try again."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid ""
+"Taken by {what} ({place}), which can't be replaced here. Pick other keys."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid "In use by {what} ({place}). Saving puts this in its place."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid "Also on these keys: {what} ({place})."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Search keys and commands"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Search shortcuts"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Add Shortcut…"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid ""
+"Changes go to Sway Things' own file: a binding of your config is removed "
+"there with unbindsym and bound again, your file stays as it is."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Neither your config nor Sway Things binds any keys yet."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "No shortcut matches the search."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Mode {mode}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Change…"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Remove"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Back to Your Config's Binding"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Open in Editor"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Change, remove or restore"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Shortcut actions"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "the {group} of Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "a shortcut of Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "also on the lock screen"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "the same key in every layout"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "by keycode"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "on release"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "no repeat"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "also while an app inhibits shortcuts"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "over a window"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "{place}, read after Sway Things' file: change it there"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "{place}; bindings of modes are changed in your config for now"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Added here"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Changed here; your config binds {was} to {command} at {place}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Removed here; your config binds it at {place}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Removed here, but your config no longer binds these keys"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "{group}, switched on below"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Takes the place of {command} at {place}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Not in effect: {place} binds the same keys later, to {command}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Not in effect: {place} unbinds it"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid ""
+"Not in effect: the keycode binding at {place} is on the same key, to "
+"{command}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Wins over the binding of the same key at {place}, to {command}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid ""
+"Only on the lock screen: {place} binds the same keys otherwise, to {command}"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
