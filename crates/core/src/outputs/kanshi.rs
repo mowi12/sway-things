@@ -14,6 +14,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use super::profiles::{Profiles, kanshi_config};
+use super::workspaces::Placing;
 use crate::atomic;
 use crate::i18n::Text;
 use crate::msg;
@@ -214,6 +216,25 @@ impl KanshiFiles {
             expanded == self.ours.to_string_lossy()
                 || matches(&expanded, &self.ours.to_string_lossy())
         })
+    }
+
+    /// Writes the profiles of `profiles` as our file ([`kanshi_config`], with the placement of the
+    /// workspaces) and has kanshi read it again ([`reload`]) if that changed it. Returns whether
+    /// it wrote.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`KanshiFiles::write`].
+    pub async fn refresh(
+        &self,
+        profiles: &Profiles,
+        places: Option<Placing>,
+    ) -> Result<bool, KanshiError> {
+        let wrote = self.write(&kanshi_config(profiles, places))?;
+        if wrote {
+            reload().await;
+        }
+        Ok(wrote)
     }
 
     /// Writes `text` (from [`super::profiles::kanshi_config`]) to ours, unless it holds that

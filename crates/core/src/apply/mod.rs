@@ -63,7 +63,7 @@ use crate::include::{MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::msg;
 use crate::outputs::kanshi::{self, KanshiFiles};
-use crate::outputs::profiles::{Profile, Profiles, kanshi_config};
+use crate::outputs::profiles::{Profile, Profiles};
 use crate::outputs::{ENABLED, MODE, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::registry::{
     Apply, ConfigFile, Registry, RenderError, Scope, Setting, SwayMapping, Value, Values,
@@ -1130,15 +1130,11 @@ impl<V: Validate> Applier<V> {
         profiles: &Profiles,
         places: Option<crate::outputs::workspaces::Placing>,
     ) -> Option<Text> {
-        let files = files?;
-        match files.write(&kanshi_config(profiles, places)) {
-            Ok(true) => {
-                kanshi::reload().await;
-                None
-            }
-            Ok(false) => None,
-            Err(error) => Some(error.text()),
-        }
+        files?
+            .refresh(profiles, places)
+            .await
+            .err()
+            .map(|error| error.text())
     }
 
     /// Has the display `target` (by its name in the settings) show another one instead of its

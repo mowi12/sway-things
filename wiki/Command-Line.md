@@ -121,7 +121,16 @@ is needed, generated config calls the CLI briefly:
 - **`hook displays`**: switches an output on if none is on ([Outputs](Outputs.md)); the generated `20-output.conf` runs
   it with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply
   its profile again (`kanshictl reload`, given five seconds), since sway just read its config, then makes sure a display
-  is on and places the workspaces and starts the mirrors again.
+  is on and starts the mirrors again.
+- **`hook workspaces`**: puts the workspaces on the displays by the rule of the Workspaces page
+  ([Workspace placement](Outputs.md#workspace-placement)); `20-output.conf` and each kanshi profile run it.
+- **`hook mirror`**: ends the mirrors Sway Things started and starts those of the displays connected now
+  ([Mirroring](Outputs.md#mirroring)); kanshi runs it after setting up a profile.
+
+These three are `outputs::hooks` in the core (`displays`, `workspaces`, `mirror`, with a `HookEnv` of the settings files
+and kanshi's files). The CLI only connects (`hooks::connect`: `$SWAYSOCK`, or for a hook kanshi runs without it, sway's
+newest socket) and prints, so the user's run and the in-process tests go through the same code. A `HookEnv` without
+kanshi's files leaves kanshi out, also one that runs, so tests never reach the machine's.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

@@ -36,6 +36,7 @@ use sway_things_core::ipc::Client;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
+use sway_things_core::outputs::hooks::{self, HookEnv};
 use sway_things_core::outputs::{self, Outputs};
 use sway_things_core::registry::{
     Apply, ConfigFile, DeviceError, Link, Registry, Scope, Setting, Value,
@@ -238,16 +239,15 @@ pub async fn run_for_user(command: &Command) -> Exit {
     match command {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
-        Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
-        Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
-        Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
+        Command::Hook(hook @ (Hook::Displays | Hook::Workspaces | Hook::Mirror)) => {
+            return hook_for_user(*hook, &mut err).await;
+        }
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            return Exit::Failure;
+            return fail_with(&mut err, &error.text());
         }
     };
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
@@ -412,60 +412,10 @@ fn is_for_displays(key: Option<&str>) -> bool {
     })
 }
 
-/// `hook displays`: switches a display on if none is on. Quiet when there is nothing to do; it
-/// says on stderr which display it switched on, for sway's log.
-async fn hook_displays(err: &mut dyn Write) -> Exit {
-    let mut client = match Client::connect().await {
-        Ok(client) => client,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            return Exit::Failure;
-        }
-    };
-    // The file of ours for kanshi is there before anything else: kanshi rejects its whole config
-    // over an include it can't find, and then sets up nothing at all. Where it was missing (or
-    // emptied) and kanshi gave up over it, kanshi is started now that it can read its config.
-    if let Some(profiles) = sway_things_core::state::Paths::from_env()
-        .ok()
-        .and_then(|paths| outputs::profiles::Profiles::load(paths.displays()).ok())
-    {
-        if refresh_kanshi(&profiles).await {
-            async_io::Timer::after(std::time::Duration::from_millis(500)).await;
-            if !outputs::kanshi_runs() {
-                let _ = client
-                    .run(&sway_things_core::command::SwayCmd::new("exec").keyword("kanshi"))
-                    .await;
-                async_io::Timer::after(std::time::Duration::from_millis(500)).await;
-            }
-        }
-    }
-    // Then, sway having just read its config: kanshi applies its profile again over whatever
-    // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
-    if outputs::kanshi_runs() {
-        let child = std::process::Command::new("kanshictl")
-            .arg("reload")
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn();
-        // A kanshictl that hangs doesn't keep the hook: it gets five seconds.
-        if let Ok(mut child) = child {
-            let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
-            while matches!(child.try_wait(), Ok(None)) && std::time::Instant::now() < until {
-                async_io::Timer::after(std::time::Duration::from_millis(50)).await;
-            }
-            if matches!(child.try_wait(), Ok(None)) {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
-        }
-    }
-    // A display is on in the end, whatever kanshi did.
-    let ensured = outputs::ensure_one_on(&mut client).await;
-    // The mirrors may be gone: started again (nothing changes where kanshi's profile did it
-    // already). The workspaces are placed by `hook workspaces`, which runs at the same time.
-    let _ = start_mirrors(&mut client).await;
-    match ensured {
+/// `hook displays`: switches a display on if none is on ([`hooks::displays`]). Quiet when there
+/// is nothing to do; it says on stderr which display it switched on, for sway's log.
+async fn hook_displays(client: &mut Client, env: &HookEnv, err: &mut dyn Write) -> Exit {
+    match hooks::displays(client, env).await {
         Ok(Some(name)) => {
             let _ = writeln!(
                 err,
@@ -480,10 +430,7 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             Exit::Ok
         }
         Ok(None) => Exit::Ok,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            Exit::Failure
-        }
+        Err(error) => fail_with(err, &error.text()),
     }
 }
 
@@ -492,148 +439,40 @@ fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
     outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
 }
 
-/// `hook workspaces`: puts the workspaces on the displays as remembered for the displays
-/// connected now, if they are placed.
-async fn hook_workspaces(err: &mut dyn Write) -> Exit {
-    let mut client = match connect_for_hook().await {
+/// A hook of the displays for the user who runs `sway-things`: their settings files, and the
+/// session of `$SWAYSOCK` or, for a hook kanshi runs, sway's newest socket ([`hooks::connect`]).
+async fn hook_for_user(hook: Hook, err: &mut dyn Write) -> Exit {
+    let mut client = match hooks::connect().await {
         Ok(client) => client,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            return Exit::Failure;
-        }
+        Err(error) => return fail_with(err, &error.text()),
     };
-    match place_workspaces(&mut client).await {
+    run_display_hook(hook, &mut client, &HookEnv::from_env(), err).await
+}
+
+/// A hook of the displays (`displays`, `workspaces`, `mirror`) on `client` with the files of
+/// `env`, as [`outputs::hooks`] runs it.
+async fn run_display_hook(
+    hook: Hook,
+    client: &mut Client,
+    env: &HookEnv,
+    err: &mut dyn Write,
+) -> Exit {
+    let done = match hook {
+        Hook::Displays => return hook_displays(client, env, err).await,
+        Hook::Workspaces => hooks::workspaces(client, env).await,
+        Hook::Mirror => hooks::mirror(client, env).await,
+        Hook::Gsettings => return Exit::Ok,
+    };
+    match done {
         Ok(_) => Exit::Ok,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            Exit::Failure
-        }
+        Err(error) => fail_with(err, &error.text()),
     }
 }
 
-/// The session for a hook kanshi runs: `$SWAYSOCK`, or where kanshi was started without it
-/// (a systemd unit, say), sway's newest socket in `$XDG_RUNTIME_DIR`.
-async fn connect_for_hook() -> Result<Client, sway_things_core::ipc::IpcError> {
-    if std::env::var_os("SWAYSOCK").is_some() {
-        return Client::connect().await;
-    }
-    let found = std::env::var_os("XDG_RUNTIME_DIR").and_then(|dir| {
-        std::fs::read_dir(dir)
-            .ok()?
-            .filter_map(Result::ok)
-            .filter(|entry| {
-                let name = entry.file_name();
-                let name = name.to_string_lossy();
-                name.starts_with("sway-ipc.") && name.ends_with(".sock")
-            })
-            .max_by_key(|entry| entry.metadata().and_then(|meta| meta.modified()).ok())
-            .map(|entry| entry.path())
-    });
-    match found {
-        Some(socket) => Client::connect_to(socket).await,
-        None => Client::connect().await,
-    }
-}
-
-/// `hook mirror`: shows displays on others as remembered for the displays connected now.
-async fn hook_mirror(err: &mut dyn Write) -> Exit {
-    let mut client = match connect_for_hook().await {
-        Ok(client) => client,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            return Exit::Failure;
-        }
-    };
-    match start_mirrors(&mut client).await {
-        Ok(_) => Exit::Ok,
-        Err(error) => {
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            Exit::Failure
-        }
-    }
-}
-
-/// Ends the mirrors Sway Things started and starts those of the displays connected now, as
-/// [`outputs::mirror::apply`]. Without remembered profiles, nothing happens.
-async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
-    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
-        return Ok(0);
-    };
-    let Ok(mut profiles) = outputs::profiles::Profiles::load(paths.displays()) else {
-        return Ok(0);
-    };
-    if !profiles.iter().any(outputs::profiles::Profile::mirrors) {
-        return Ok(0);
-    }
-    // The workspaces of a display that shows another one's picture go to that one first, noted
-    // so they come back when it shows its own content again.
-    // Noted also when a command failed: the workspaces that did move find their way back.
-    match outputs::mirror::gather_workspaces(client, &mut profiles).await {
-        Ok(0) => {}
-        Ok(_) => {
-            let _ = profiles.save();
-        }
-        Err(error) => {
-            let _ = profiles.save();
-            return Err(error);
-        }
-    }
-    let found = Outputs::new(&client.outputs().await?);
-    // A picture that starts doesn't take the focus.
-    let _ = client.run(&outputs::mirror::no_focus_command()).await;
-    let started = outputs::mirror::apply(&profiles, &found);
-    // A picture that ended leaves no workspace of its own behind on its display.
-    let _ = outputs::mirror::leave_ended(client, &profiles).await;
-    // Last: kanshi runs this hook again after reading its file, and finds everything noted.
-    let _ = refresh_kanshi(&profiles).await;
-    Ok(started)
-}
-
-/// Writes kanshi's file of ours again if it says something else than `profiles` do now, and has
-/// kanshi read it: `wl-mirror` came or went since it was written, so a display stands apart for
-/// a picture or no longer does, or the file was missing or emptied. Only a file of ours, where it
-/// is there already or the user's kanshi config includes it. kanshi runs the hook
-/// again after reading it, which then finds the file as it wrote it and stops there.
-async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) -> bool {
-    let Some(files) = kanshi_files() else {
-        return false;
-    };
-    // Where the user's config includes ours, the file must be there: kanshi rejects its whole
-    // config over an include it can't find.
-    if !files.ours.is_file() && files.inclusion() != outputs::kanshi::Inclusion::Included {
-        return false;
-    }
-    // With the hook for the workspaces while a rule places them, as the app writes it.
-    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
-        return false;
-    };
-    let state = State::load(Registry::builtin(), paths);
-    let places = outputs::workspaces::Placing::of(&state);
-    let wrote = matches!(
-        files.write(&outputs::profiles::kanshi_config(profiles, places)),
-        Ok(true)
-    );
-    if wrote {
-        outputs::kanshi::reload().await;
-    }
-    wrote
-}
-
-/// Puts the workspaces where the Workspaces page says, as [`outputs::workspaces::apply`], with
-/// the settings and the remembered profiles of the user. Without settings paths nothing happens;
-/// profiles that can't be read count as none.
-async fn place_workspaces(client: &mut Client) -> Result<usize, sway_things_core::ipc::IpcError> {
-    let Ok(paths) = sway_things_core::state::Paths::from_env() else {
-        return Ok(0);
-    };
-    let profiles = outputs::profiles::Profiles::load(paths.displays()).ok();
-    let state = State::load(Registry::builtin(), paths);
-    // After a start or reload of sway, kanshi puts the displays in place a moment later: what
-    // is left and right is read once they stand.
-    if outputs::workspaces::Rule::of(&state).places() && outputs::kanshi_runs() {
-        outputs::workspaces::settled(client, profiles.as_ref()).await?;
-    }
-    outputs::workspaces::apply(client, &state, profiles.as_ref()).await
+/// Prints `text` as an error line on `err` and returns [`Exit::Failure`].
+fn fail_with(err: &mut dyn Write, text: &sway_things_core::i18n::Text) -> Exit {
+    let _ = writeln!(err, "{}", error_line(&text.translated()));
+    Exit::Failure
 }
 
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
@@ -656,8 +495,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         Ok(found) => found,
         Err(error) => {
             look.spinner.clear();
-            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            return Exit::Failure;
+            return fail_with(err, &error.text());
         }
     };
     look.spinner.say(tr(msg!("Loading the settings files…")));
@@ -812,41 +650,16 @@ pub async fn run<V: Validate>(
 /// A hook in a session that runs already (as the tests do; for the user, `run_for_user` runs
 /// them without loading the settings).
 async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
-    match hook {
-        Hook::Gsettings => hook_gsettings(session, io),
-        Hook::Mirror => match (
-            session.applier.profiles().cloned(),
-            session.applier.client(),
-        ) {
-            (Some(profiles), Some(client)) => match client.outputs().await {
-                Ok(found) => {
-                    outputs::mirror::apply(&profiles, &Outputs::new(&found));
-                    Exit::Ok
-                }
-                Err(error) => {
-                    io.error(error_line(&error.text().translated()));
-                    Exit::Failure
-                }
-            },
-            _ => Exit::Ok,
-        },
-        Hook::Workspaces => match session.applier.place_now().await {
-            Ok(()) => Exit::Ok,
-            Err(error) => {
-                io.error(error_line(&error.text().translated()));
-                Exit::Failure
-            }
-        },
-        Hook::Displays => match session.applier.client() {
-            Some(client) => match outputs::ensure_one_on(client).await {
-                Ok(_) => Exit::Ok,
-                Err(error) => {
-                    io.error(error_line(&error.text().translated()));
-                    Exit::Failure
-                }
-            },
-            None => Exit::Ok,
-        },
+    if hook == Hook::Gsettings {
+        return hook_gsettings(session, io);
+    }
+    let env = HookEnv {
+        paths: Some(session.applier.state().paths().clone()),
+        kanshi: session.applier.kanshi_files().cloned(),
+    };
+    match session.applier.client() {
+        Some(client) => run_display_hook(hook, client, &env, io.err).await,
+        None => Exit::Ok,
     }
 }
 

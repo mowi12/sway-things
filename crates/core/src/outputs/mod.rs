@@ -33,6 +33,7 @@
 //! # }
 //! ```
 
+pub mod hooks;
 pub mod kanshi;
 pub mod layout;
 pub mod mirror;
