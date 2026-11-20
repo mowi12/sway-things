@@ -12,6 +12,7 @@ pkgbase = sway-things-git
 	depends = glibc
 	depends = graphene
 	depends = gtk4
+	depends = gtk4-layer-shell
 	depends = libgcc
 	depends = pango
 	depends = sway
