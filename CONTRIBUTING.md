@@ -1,8 +1,8 @@
 # Contributing to Sway Things
 
-Thanks for your interest! Sway Things 0.1.0 is out, the first release; the design of everything after it is written down
-in the wiki and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues
-privately as described in [SECURITY.md](SECURITY.md), never in public issues.
+Thanks for your interest! Sway Things is released (see the [changelog](CHANGELOG.md)); the design of everything still to
+come is written down in the wiki and open for discussion. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md), and
+report security issues privately as described in [SECURITY.md](SECURITY.md), never in public issues.
 
 ## Read first
 

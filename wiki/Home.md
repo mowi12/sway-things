@@ -2,7 +2,7 @@
 
 **Sway Things** is a settings app for the sway Wayland compositor and its companion tools: a searchable sidebar of
 pages, instant apply with a safety net, and a strict promise never to edit files it didn't create. Written in Rust with
-GTK4. Linux only. Supports sway ≥ 1.10 and SwayFX.
+GTK4. Linux only. Supports sway ≥ 1.10 and SwayFX ≥ 0.5.
 
 This wiki is for developers, human and AI. The user-facing overview is the [README](../README.md) and the website
 [sway-things.org](https://sway-things.org).
@@ -19,7 +19,7 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 | [Sway Reference](Sway-Reference.md) | Verified facts about sway, SwayFX, the companion tools and the distributions, with sources |
 | [UX Concept](UX-Concept.md) | Window layout, navigation, search, apply model, indicators, first run, theming |
 | [Roadmap](Roadmap.md) | How work continues after v0.1, v1.0 criteria, the v0.1 scope |
-| [Releasing](Releasing.md) | The release steps, the dry run and snapshots between releases |
+| [Releasing](Releasing.md) | The release steps and the dry run |
 | [Feature Catalog](Feature-Catalog.md) | The complete feature scope, per page, unordered, with the status of every item |
 
 ## Status

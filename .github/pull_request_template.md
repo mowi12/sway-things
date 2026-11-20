@@ -17,7 +17,11 @@ Either tick an item or cross it out (`~~like this~~`) and give a reason why it d
 - [ ] Every commit is a meaningful [Conventional Commit](https://github.com/mowi12/sway-things/blob/main/CONTRIBUTING.md#commit-messages), because each one lands on `main`
 - [ ] I have added tests (unit, golden files, integration) that prove my fix works or my feature behaves as intended
 - [ ] I have manually tested my changes on sway and/or SwayFX
-- [ ] I have updated the docs: `wiki/`, `README.md` for user-facing changes, and `AGENTS.md` if structure, tooling or conventions changed, and ticked or struck through the item in `wiki/Feature-Catalog.md`
+- [ ] I have updated `wiki/` to describe the new state
+- [ ] I have updated `README.md` for user-facing changes
+- [ ] I have updated `AGENTS.md` if the structure, tooling or conventions changed
+- [ ] I have ticked or struck through the item in `wiki/Feature-Catalog.md`
+- [ ] I have run `scripts/update-pot.sh` after changing UI strings and `scripts/update-cli-docs.sh` after changing the CLI
 
 ### Reviewer
 

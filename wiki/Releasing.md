@@ -71,15 +71,7 @@ tag pushed again.
 
 ## Dry run
 
-To test the workflow without releasing (after changing it, or before the first release): tag the current `main` with
-`vX.Y.Z-rc.N`, where `X.Y.Z` is the version in `Cargo.toml` (e.g. `v0.0.0-rc.1` before 0.1.0). The workflow runs as for
-a release, without the changelog and metainfo checks, and creates a draft **pre-release** with a fixed note; publishing
-a pre-release never triggers OBS. Delete the draft and the tag afterwards.
-
-## Snapshots between releases
-
-OBS also builds snapshots of `main` for testing, uploaded by hand: `scripts/make-tarball.sh` in an up-to-date `main`
-checkout, then in the OBS checkout delete the old tarball, copy the tarball, both specs, `sway-things.dsc` and
-`debian.tar.gz` from `target/dist/`, and `osc addremove && osc commit`. A snapshot's version is
-`<version>+git<commit count>.g<short hash>`, which sorts before the next release. Once the `_service` is in place,
-snapshots are no longer uploaded, so that the repositories carry releases only.
+To test the workflow without releasing (after changing it): tag the current `main` with `vX.Y.Z-rc.N`, where `X.Y.Z` is
+the version in `Cargo.toml`. The workflow runs as for a release, without the changelog and metainfo checks, and creates
+a draft **pre-release** with a fixed note; publishing a pre-release never triggers OBS. Delete the draft and the tag
+afterwards.
