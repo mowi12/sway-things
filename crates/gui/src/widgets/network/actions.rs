@@ -7,31 +7,16 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
-use sway_things_core::network::ActiveState;
-use sway_things_core::network::Device;
-use sway_things_core::network::DeviceState;
-use sway_things_core::network::Network;
-use sway_things_core::network::NetworkManager;
-use sway_things_core::network::band;
-use sway_things_core::network::signal_level;
+use sway_things_core::network::{
+    ActiveState, Device, DeviceState, Network, NetworkManager, band, signal_level,
+};
 
-use super::HIDDEN;
-use super::NetworkPage;
-use super::Target;
-use super::dialogs;
 use super::dialogs::PasswordSpec;
-use super::refresh;
-use super::set_running;
-use super::text::device_details;
-use super::text::failed;
-use super::text::hex;
-use super::text::ip_details;
-use super::text::security_name;
-use super::text::signal_quality;
-use super::text::vpn_kind;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::text::{
+    device_details, failed, hex, ip_details, security_name, signal_quality, vpn_kind,
+};
+use super::{HIDDEN, NetworkPage, Target, dialogs, refresh, set_running};
+use crate::i18n::{msg, tr, trf};
 
 impl NetworkPage {
     /// What the row with `key` stands for now.

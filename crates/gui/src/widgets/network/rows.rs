@@ -6,35 +6,16 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::network::ActiveConnection;
-use sway_things_core::network::ActiveState;
-use sway_things_core::network::Connection;
-use sway_things_core::network::Connectivity;
-use sway_things_core::network::Device;
-use sway_things_core::network::DeviceState;
-use sway_things_core::network::Network;
-use sway_things_core::network::SavedNetwork;
-use sway_things_core::network::Snapshot;
-use sway_things_core::network::signal_level;
+use sway_things_core::network::{
+    ActiveConnection, ActiveState, Connection, Connectivity, Device, DeviceState, Network,
+    SavedNetwork, Snapshot, signal_level,
+};
 
-use super::NetRow;
-use super::NetworkPage;
-use super::text::first_address;
-use super::text::hex;
-use super::text::security_text;
-use super::text::signal_icon;
-use super::text::signal_label;
-use super::text::vpn_kind;
-use super::update_menu;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::text::{first_address, hex, security_text, signal_icon, signal_label, vpn_kind};
+use super::{NetRow, NetworkPage, update_menu};
+use crate::i18n::{msg, tr, trf};
 use crate::style;
-use crate::widgets::list::arrange;
-use crate::widgets::list::list_row;
-use crate::widgets::list::remove_row;
-use crate::widgets::list::row;
-use crate::widgets::list::set_hint;
+use crate::widgets::list::{arrange, list_row, remove_row, row, set_hint};
 
 impl NetworkPage {
     /// Shows the snapshot: the sections and their rows.

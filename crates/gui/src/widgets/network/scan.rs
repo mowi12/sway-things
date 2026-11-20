@@ -10,12 +10,8 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
 use super::super::search_button;
-use super::NetworkPage;
-use super::SCAN_EVERY;
-use super::SCAN_POLL;
-use super::SCAN_TIMEOUT;
-use crate::i18n::msg;
-use crate::i18n::tr;
+use super::{NetworkPage, SCAN_EVERY, SCAN_POLL, SCAN_TIMEOUT};
+use crate::i18n::{msg, tr};
 
 impl NetworkPage {
     /// Whether the page asks for scans only after _Search_ (`true`) or also every

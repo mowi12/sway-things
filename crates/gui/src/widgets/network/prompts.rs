@@ -6,15 +6,11 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::network::SecretPrompt;
-use sway_things_core::network::Security;
+use sway_things_core::network::{SecretPrompt, Security};
 
-use super::NetworkPage;
-use super::dialogs;
 use super::dialogs::PasswordSpec;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::{NetworkPage, dialogs};
+use crate::i18n::{msg, tr, trf};
 
 impl NetworkPage {
     /// Shows the agent's `prompt` as a dialog.

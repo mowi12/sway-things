@@ -6,26 +6,14 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::bluetooth::Device;
-use sway_things_core::bluetooth::Error;
+use sway_things_core::bluetooth::{Device, Error};
 use sway_things_core::i18n::Text;
 
 use super::super::Placeholder;
-use super::Action;
-use super::BluetoothPage;
-use super::DeviceRow;
-use super::update_row;
-use super::visible_text;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::{Action, BluetoothPage, DeviceRow, update_row, visible_text};
+use crate::i18n::{msg, tr, trf};
 use crate::style;
-use crate::widgets::list::arrange;
-use crate::widgets::list::labels_in;
-use crate::widgets::list::list_row;
-use crate::widgets::list::remove_row;
-use crate::widgets::list::row;
-use crate::widgets::list::set_hint;
+use crate::widgets::list::{arrange, labels_in, list_row, remove_row, row, set_hint};
 
 impl BluetoothPage {
     /// Shows the selected adapter, its devices and the rfkill block.

@@ -6,19 +6,11 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::bluetooth::Bluez;
-use sway_things_core::bluetooth::Device;
+use sway_things_core::bluetooth::{Bluez, Device};
 
-use super::Action;
-use super::BluetoothPage;
-use super::dialogs;
 use super::dialogs::Dialog;
-use super::refresh;
-use super::rename_spec;
-use super::set_running;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::{Action, BluetoothPage, dialogs, refresh, rename_spec, set_running};
+use crate::i18n::{msg, tr, trf};
 
 impl BluetoothPage {
     /// The device at `path`, as last read.

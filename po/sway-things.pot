@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:13+0100\n"
+"POT-Creation-Date: 2026-11-20 23:16+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1747,7 +1747,7 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
 #: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
@@ -3611,7 +3611,8 @@ msgstr ""
 msgid "90° counterclockwise"
 msgstr ""
 
-#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+#: crates/core/src/registry/output.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
 msgid "Flipped"
 msgstr ""
 
@@ -3619,7 +3620,8 @@ msgstr ""
 msgid "Flipped, 90° clockwise"
 msgstr ""
 
-#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+#: crates/core/src/registry/output.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
 msgid "Flipped, 180°"
 msgstr ""
 
@@ -5374,20 +5376,6 @@ msgstr ""
 msgid "No switch is connected. Its settings show up once one is."
 msgstr ""
 
-#. TRANSLATORS: A display's scale as a percentage, such as 150 %.
-#: crates/gui/src/widgets/displays/canvas.rs
-#, rust-format
-msgid "{percent} %"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/canvas.rs
-msgid "Flipped, 90°"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/canvas.rs
-msgid "Flipped, 270°"
-msgstr ""
-
 #: crates/gui/src/widgets/displays/canvas.rs
 msgid "Arrangement of the displays"
 msgstr ""
@@ -5400,20 +5388,34 @@ msgstr ""
 msgid "Horizontal guide"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/drag.rs
 msgid "Drag to scale"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#. TRANSLATORS: A display's scale as a percentage, such as 150 %.
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+#, rust-format
+msgid "{percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+msgid "Flipped, 90°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+msgid "Flipped, 270°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 msgid "Built-in"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 #, rust-format
 msgid "Display {number}, {label}, off"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 #, rust-format
 msgid "Display {number}, {label}, {details}, at {x}, {y}"
 msgstr ""

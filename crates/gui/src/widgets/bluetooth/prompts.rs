@@ -5,14 +5,10 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::bluetooth::Answer;
-use sway_things_core::bluetooth::Prompt;
-use sway_things_core::bluetooth::Request;
-use sway_things_core::bluetooth::parse_passkey;
+use sway_things_core::bluetooth::{Answer, Prompt, Request, parse_passkey};
 
-use super::BluetoothPage;
 use super::dialogs::Dialog;
-use super::prompt_spec;
+use super::{BluetoothPage, prompt_spec};
 
 impl BluetoothPage {
     /// Shows the agent's `prompt` as a dialog, or updates the open one.

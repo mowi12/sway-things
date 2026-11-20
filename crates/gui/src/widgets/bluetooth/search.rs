@@ -9,11 +9,8 @@ use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
 
 use super::super::search_button;
-use super::BluetoothPage;
-use super::SEARCH_FOR;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use super::{BluetoothPage, SEARCH_FOR};
+use crate::i18n::{msg, tr, trf};
 
 impl BluetoothPage {
     /// Whether a turning spinner shows, next to the heading or in the Search button; for

@@ -5,16 +5,9 @@
 //! the security of a network, the kind of a VPN.
 
 use std::fmt::Write as _;
-use sway_things_core::network::ConnectionKind;
-use sway_things_core::network::Device;
-use sway_things_core::network::Error;
-use sway_things_core::network::IpConfig;
-use sway_things_core::network::Security;
+use sway_things_core::network::{ConnectionKind, Device, Error, IpConfig, Security};
 
-use crate::i18n::Msg;
-use crate::i18n::msg;
-use crate::i18n::tr;
-use crate::i18n::trf;
+use crate::i18n::{Msg, msg, tr, trf};
 
 /// The details of `device`: its speed, addresses and hardware address.
 pub(super) fn device_details(device: &Device) -> Vec<(&'static str, String)> {
