@@ -114,7 +114,8 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
     current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum, written
     once in `tools/binaries.txt` and installed by `scripts/install-tool.sh`; packages from Ubuntu's or Debian's signed
     repositories need no pin; container images are pinned to a digest. Give every workflow job only the `permissions` it
-    needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
+    needs. Workflow, job and step names use Title Case (`Preview Label Changes`); tool names keep their own spelling
+    (`Install cargo-deny`).
 
 ## Checks
 

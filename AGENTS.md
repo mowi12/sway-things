@@ -119,7 +119,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Workflows: pin every action to a full commit SHA with a version comment (`@<sha> # v7.0.1`), set `permissions: {}` at
   the top and grant each job only what it needs. Downloaded tools are pinned to a version and verified against their
   SHA-256 checksum; packages from Ubuntu's or Debian's signed repositories need no pin; container images are pinned to a
-  digest. Every workflow, job and step `name` is in Title Case (`Preview Label Changes`, `Check Out Repository`).
+  digest. Every workflow, job and step `name` is in Title Case (`Preview Label Changes`, `Check Out Repository`); tool
+  names keep their own spelling (`Install cargo-deny`).
 - Labels: edit `.github/labels.yml`, never labels on github.com (the sync deletes unknown labels).
 - Issues: the issue type (Bug, Feature, Maintenance, Docs, Security) says what sort of work it is and the Effort field
   (Easy, Medium, Hard) how big it is. Neither is a label, and titles carry no `[Type]:` prefix.
