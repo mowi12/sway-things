@@ -24,24 +24,16 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 cd "$(dirname "$0")/.."
 
 script=scripts/install-from-obs.sh
 fingerprint=$(sed -n 's/^KEY_FINGERPRINT=//p' "$script")
 
-engine=${CONTAINER_ENGINE:-}
-if [[ -z $engine ]]; then
-  for candidate in docker podman; do
-    if command -v "$candidate" >/dev/null; then
-      engine=$candidate
-      break
-    fi
-  done
-fi
-[[ -n $engine ]] || {
-  echo "error: needs docker or podman" >&2
-  exit 1
-}
+engine=$(container_engine)
 
 # Clean images of the distributions, pinned to a digest. The Fedora image is the newest release with packages on OBS.
 declare -A images=(

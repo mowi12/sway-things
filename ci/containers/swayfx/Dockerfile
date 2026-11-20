@@ -16,7 +16,7 @@ RUN xbps-install -Syu xbps \
 
 ENV WLR_RENDERER=gles2 WLR_RENDERER_ALLOW_SOFTWARE=1 LIBGL_ALWAYS_SOFTWARE=1 GBM_ALWAYS_SOFTWARE=1
 
-COPY --chown=tester scripts/check-integration.sh /work/scripts/
+COPY --chown=tester scripts/check-integration.sh scripts/lib.sh /work/scripts/
 COPY --chown=tester ci/integration/ /work/ci/integration/
 COPY --chown=tester Cargo.toml Cargo.lock /work/
 COPY --chown=tester crates/ /work/crates/

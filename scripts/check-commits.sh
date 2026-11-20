@@ -13,6 +13,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 if (($# > 1)); then
   echo "usage: $0 [BASE]" >&2
   exit 2
@@ -21,10 +25,7 @@ base=${1:-origin/main}
 
 cd "$(dirname "$0")/.."
 
-if ! command -v jq >/dev/null; then
-  echo "error: needs jq" >&2
-  exit 1
-fi
+require jq
 if ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
   echo "error: unknown base: $base" >&2
   exit 1

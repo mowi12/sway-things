@@ -11,7 +11,7 @@ RUN apt-get update \
   && useradd --create-home tester \
   && install -d -o tester /work
 
-COPY --chown=tester scripts/check-integration.sh /work/scripts/
+COPY --chown=tester scripts/check-integration.sh scripts/lib.sh /work/scripts/
 COPY --chown=tester ci/integration/ /work/ci/integration/
 COPY --chown=tester Cargo.toml Cargo.lock /work/
 COPY --chown=tester crates/ /work/crates/

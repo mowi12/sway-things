@@ -15,6 +15,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 dry_run=false
 if [[ ${1-} == --dry-run ]]; then
   dry_run=true

@@ -34,6 +34,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 usage() {
   echo "usage: $0 --container NAME|all [--tarball FILE] [--local]" >&2
   exit 2
@@ -229,11 +233,7 @@ fi
 if [[ -z $container ]]; then
   usage
 fi
-engine=${CONTAINER_ENGINE:-$(command -v docker || command -v podman || true)}
-if [[ -z $engine ]]; then
-  echo "error: needs docker or podman" >&2
-  exit 1
-fi
+engine=$(container_engine)
 if [[ $container == all ]]; then
   names=(ci/packages/*/)
   names=("${names[@]#ci/packages/}")
@@ -271,7 +271,7 @@ for name in "${names[@]}"; do
   # Only the files the image needs go into the build context.
   context=$(mktemp -d)
   trap 'rm -rf "$context"' EXIT
-  files=("ci/packages/$name/Dockerfile" scripts/build-packages.sh)
+  files=("ci/packages/$name/Dockerfile" scripts/build-packages.sh scripts/lib.sh)
   network=(--network none)
   case $name in
     opensuse-tumbleweed)

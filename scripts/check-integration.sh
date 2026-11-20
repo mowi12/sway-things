@@ -33,6 +33,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 usage() {
   echo "usage: $0 [--container NAME|all | --host | --build]" >&2
   exit 2
@@ -75,11 +79,7 @@ if $build; then
 fi
 
 if [[ -n $container ]]; then
-  engine=${CONTAINER_ENGINE:-$(command -v docker || command -v podman || true)}
-  if [[ -z $engine ]]; then
-    echo "error: needs docker or podman" >&2
-    exit 1
-  fi
+  engine=$(container_engine)
   if [[ $container == all ]]; then
     names=(ci/containers/*/)
     names=("${names[@]#ci/containers/}")
@@ -100,8 +100,8 @@ if [[ -n $container ]]; then
     echo "==> $name"
     # Only the files the image needs go into the build context.
     context=$(mktemp -d)
-    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh Cargo.toml Cargo.lock crates \
-      po/sway-things.pot | tar -x -C "$context"
+    tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh scripts/lib.sh Cargo.toml \
+      Cargo.lock crates po/sway-things.pot | tar -x -C "$context"
     "$engine" build --quiet --tag "sway-things-ci:$name" --file "$context/ci/containers/$name/Dockerfile" "$context" \
       >/dev/null
     rm -rf "$context"
@@ -110,12 +110,7 @@ if [[ -n $container ]]; then
   exit
 fi
 
-for tool in sway swaymsg cargo; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require sway swaymsg cargo
 
 sway --version
 # An absolute path: sway 1.10 resolves a relative include against the directory of a relative config path twice and

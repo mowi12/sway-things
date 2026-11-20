@@ -29,8 +29,12 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 usage() {
-  echo "usage: scripts/make-tarball.sh [--ref REF] [--out DIR] [--check]" >&2
+  echo "usage: $0 [--ref REF] [--out DIR] [--check]" >&2
   exit 2
 }
 
@@ -71,12 +75,7 @@ if $check; then
   exit
 fi
 
-for tool in git cargo jq tar xz gzip sha256sum; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require git cargo jq tar xz gzip sha256sum
 
 commit=$(git rev-parse --verify --quiet "$ref^{commit}") || {
   echo "error: not a commit: $ref" >&2

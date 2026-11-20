@@ -136,6 +136,9 @@ just fmt                # format Rust, Markdown, TOML, YAML and JSON
 only in containers: `scripts/check-integration.sh` builds and runs every one of `ci/containers/`; `--host` would start
 the sway on `PATH` instead and is only for the containers themselves.
 
+Every script prints its header with `-h` or `--help` and refuses arguments it doesn't know. The helpers they share
+(`require`, `container_engine`, `repo_files`, the help) are in `scripts/lib.sh`, which each script sources.
+
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
 environment with `pip install --require-hashes -r tools/requirements.txt`.

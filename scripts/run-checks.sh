@@ -20,6 +20,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 usage() {
   echo "usage: $0 lint|host|all|--list" >&2
   exit 2
@@ -30,10 +34,6 @@ case "${1-}" in
   host) wanted=(lint host) ;;
   all) wanted=(lint host network container) ;;
   --list) wanted=() ;;
-  -h | --help)
-    sed -n '5,/^$/s/^# \{0,1\}//p' "$0"
-    exit 0
-    ;;
   *) usage ;;
 esac
 [[ $# -le 1 ]] || usage

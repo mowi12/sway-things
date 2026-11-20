@@ -21,20 +21,19 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/verify-release.sh TAG" >&2
+  echo "usage: $0 TAG" >&2
   exit 2
 fi
 tag=$1
 
 cd "$(dirname "$0")/.."
 
-for tool in git gh; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require git gh
 
 status=0
 fail() {

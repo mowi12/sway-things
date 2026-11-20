@@ -19,8 +19,12 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 if [[ $# -lt 1 || $# -gt 2 || ! $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "usage: scripts/bump-version.sh X.Y.Z [YYYY-MM-DD]" >&2
+  echo "usage: $0 X.Y.Z [YYYY-MM-DD]" >&2
   exit 2
 fi
 version=$1
@@ -32,10 +36,7 @@ fi
 
 cd "$(dirname "$0")/.."
 
-if ! command -v cargo >/dev/null; then
-  echo "error: needs cargo" >&2
-  exit 1
-fi
+require cargo
 
 metainfo=data/io.github.mowi12.SwayThings.metainfo.xml.in
 if grep -q "<release version=\"$version\"" "$metainfo"; then

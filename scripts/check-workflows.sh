@@ -13,11 +13,12 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v actionlint >/dev/null; then
-  echo "error: needs actionlint" >&2
-  exit 1
-fi
+require actionlint
 
 actionlint

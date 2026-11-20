@@ -12,6 +12,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 readonly config=".github/labels.yml"
 
 dry_run=false

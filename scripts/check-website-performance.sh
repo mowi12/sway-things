@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
 scripts/build-website.sh

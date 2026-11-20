@@ -14,7 +14,7 @@ RUN pacman-key --init \
   && printf 'builder ALL=(root) NOPASSWD: /usr/bin/pacman\n' >/etc/sudoers.d/builder \
   && chmod 440 /etc/sudoers.d/builder
 
-COPY --chown=builder scripts/build-packages.sh /work/scripts/
+COPY --chown=builder scripts/build-packages.sh scripts/lib.sh /work/scripts/
 COPY --chown=builder packaging/aur/sway-things-git/ /work/packaging/aur/sway-things-git/
 COPY --chown=builder local/ /work/local/
 USER builder

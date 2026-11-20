@@ -16,15 +16,15 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
 PATH="$PWD/tools/node_modules/.bin:$PATH"
-for tool in html-validate lychee; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool (html-validate: npm ci --prefix tools)" >&2
-    exit 1
-  fi
-done
+require_hint html-validate "npm ci --prefix tools"
+require lychee
 
 node --test website/src/lib/*.test.mjs
 

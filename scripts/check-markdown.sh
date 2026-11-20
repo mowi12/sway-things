@@ -13,14 +13,15 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
 PATH="$PWD/tools/node_modules/.bin:$PATH"
-if ! command -v markdownlint-cli2 >/dev/null; then
-  echo "error: needs markdownlint-cli2 (npm ci --prefix tools)" >&2
-  exit 1
-fi
+require_hint markdownlint-cli2 "npm ci --prefix tools"
 
 # Tracked and new files, but none that git ignores.
-mapfile -t files < <(git ls-files --cached --others --exclude-standard -- '*.md')
+mapfile -t files < <(repo_files '*.md')
 markdownlint-cli2 "${files[@]}"

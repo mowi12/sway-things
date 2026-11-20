@@ -14,7 +14,7 @@ RUN dnf --assumeyes --setopt=install_weak_deps=False install rpm-build rpmlint s
   && printf 'builder ALL=(root) NOPASSWD: /usr/bin/rpm\n' >/etc/sudoers.d/builder \
   && chmod 440 /etc/sudoers.d/builder
 
-COPY --chown=builder scripts/build-packages.sh /work/scripts/
+COPY --chown=builder scripts/build-packages.sh scripts/lib.sh /work/scripts/
 COPY --chown=builder input/ /work/input/
 USER builder
 WORKDIR /work

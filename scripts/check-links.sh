@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 external=false
 case "${1-}" in
   "") ;;
@@ -26,13 +30,10 @@ esac
 
 cd "$(dirname "$0")/.."
 
-if ! command -v lychee >/dev/null; then
-  echo "error: needs lychee" >&2
-  exit 1
-fi
+require lychee
 
 # Tracked and new files, but none that git ignores.
-mapfile -t files < <(git ls-files --cached --others --exclude-standard -- '*.md')
+mapfile -t files < <(repo_files '*.md')
 
 if "$external"; then
   lychee --format markdown "${files[@]}"

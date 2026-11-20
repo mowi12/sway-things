@@ -14,14 +14,13 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-for tool in msgfmt desktop-file-validate appstreamcli; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require msgfmt desktop-file-validate appstreamcli
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT

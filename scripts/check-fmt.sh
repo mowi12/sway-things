@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 fix=false
 case "${1-}" in
   "") ;;
@@ -26,12 +30,7 @@ esac
 
 cd "$(dirname "$0")/.."
 
-for tool in cargo dprint; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require cargo dprint
 
 if "$fix"; then
   cargo fmt --all
