@@ -317,7 +317,7 @@ impl Model {
                 model.start(applier, watch.status().clone(), true);
                 // kanshi started or stopped since the files were written: the lines for the
                 // displays go or come back. Only a file as Sway Things wrote it is replaced.
-                let outdated = model.generated().is_some_and(|files| {
+                let outdated = model.generated().await.is_some_and(|files| {
                     files.iter().any(|(file, on_disk)| {
                         on_disk.file == ConfigFile::Output
                             && on_disk.ownership == Ok(generate::Ownership::Ours)
@@ -488,29 +488,49 @@ impl Model {
         self.imp().kanshi.borrow().clone()
     }
 
-    /// Looks again whether kanshi sets up the displays, as when displays come and go; says
-    /// whether what it saw changed. At most every two seconds: the model changes often while a
-    /// display is dragged, and a look reads `/proc`. kanshi's config and sway's are watched, so
-    /// a change of those is seen at once ([`Model::look_at_kanshi`]).
-    pub fn look_for_kanshi(&self) -> bool {
+    /// Looks again whether kanshi sets up the displays, as when displays come and go. At most
+    /// every two seconds: the model changes often while a display is dragged, and a look reads
+    /// `/proc`. kanshi's config and sway's are watched, so a change of those is seen at once
+    /// ([`Model::look_at_kanshi`]).
+    pub fn look_for_kanshi(&self) {
         let recently = self.imp().kanshi_looked.get().is_some_and(|then| {
             std::time::Instant::now().duration_since(then) < std::time::Duration::from_secs(2)
         });
-        !recently && self.look_at_kanshi()
+        if !recently {
+            self.look_at_kanshi();
+        }
     }
 
-    /// Looks now whether kanshi sets up the displays and what its config says; says whether
-    /// that changed.
-    fn look_at_kanshi(&self) -> bool {
+    /// Looks now whether kanshi sets up the displays and what its config says: on a thread of
+    /// its own, since that reads `/proc` and kanshi's config. Once it knows, the model takes
+    /// what it saw and says `changed` if anything did. A model made for tests never looks.
+    fn look_at_kanshi(&self) {
         self.imp()
             .kanshi_looked
             .set(Some(std::time::Instant::now()));
-        let look = if self.imp().looks_for_kanshi.get() {
-            KanshiLook::read()
-        } else {
-            KanshiLook::default()
-        };
-        let seen = self.imp().kanshi.replace(look.clone()) != look;
+        if !self.imp().looks_for_kanshi.get() {
+            self.saw_kanshi(KanshiLook::default());
+            return;
+        }
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                let look = gtk::gio::spawn_blocking(KanshiLook::read)
+                    .await
+                    .unwrap_or_default();
+                if model.saw_kanshi(look) {
+                    model.emit_by_name::<()>("changed", &[]);
+                }
+            }
+        ));
+    }
+
+    /// Takes `look` as what the model sees of kanshi; says whether that changed what it saw or
+    /// who sets up the displays.
+    fn saw_kanshi(&self, look: KanshiLook) -> bool {
+        let seen = *self.imp().kanshi.borrow() != look;
+        self.imp().kanshi.replace(look);
         let displays = self.displays();
         let changed = self.imp().displays.replace(displays) != displays;
         if changed {
@@ -539,9 +559,7 @@ impl Model {
             async move {
                 while let Some(changed) = watcher.changed().await {
                     let theirs = changed.contains(&files.config);
-                    if model.look_at_kanshi() {
-                        model.emit_by_name::<()>("changed", &[]);
-                    }
+                    model.look_at_kanshi();
                     // kanshi doesn't follow its config by itself: the line the user just put
                     // there counts at once, and the arrangement made here comes back.
                     if theirs && model.kanshi_runs() {
@@ -642,18 +660,29 @@ impl Model {
         self.queue(Op::ReloadSway);
     }
 
-    /// What Sway Things writes to each generated file for the current settings, and the file as
-    /// it is on disk, read now. Nothing is written. `None` if the settings couldn't be loaded.
-    pub fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
+    /// What Sway Things writes to each generated file for the current settings. Nothing is
+    /// read or written. `None` if the settings couldn't be loaded.
+    pub fn generated_files(&self) -> Option<Vec<GeneratedFile>> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let files = generate::generate_for(
+        Some(generate::generate_for(
             core.state.registry(),
             &core.state,
             core.compositor,
             self.imp().displays.get(),
-        );
-        let on_disk = generate::on_disk(&files, &core.locations);
+        ))
+    }
+
+    /// What Sway Things writes to each generated file for the current settings, and the file as
+    /// it is on disk, read now on a thread of its own, so the window never waits for the disk.
+    /// Nothing is written. `None` if the settings couldn't be loaded.
+    pub async fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
+        let files = self.generated_files()?;
+        let locations = self.imp().core.borrow().as_ref()?.locations.clone();
+        let read = files.clone();
+        let on_disk = gtk::gio::spawn_blocking(move || generate::on_disk(&read, &locations))
+            .await
+            .ok()?;
         Some(files.into_iter().zip(on_disk).collect())
     }
 

@@ -46,9 +46,9 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
 includes ours, or there is none (it is then created with the include line); `Displays::with_profiles` goes back to sway
 while `displays.toml` can't be read, for the app, the command line and `doctor` alike. Our `exec kanshi` is dropped once
 a kanshi runs as a unit of its own (its control group is named after it). Nothing is run. The app looks at most every
-two seconds (`Model::look_for_kanshi`, which keeps what it saw for the page) and watches kanshi's config and ours, so an
-include line added or moved shows at once, and has kanshi read its config again then. A model made for tests never
-looks.
+two seconds (`Model::look_for_kanshi`, which reads `/proc` and kanshi's config on a thread of its own and keeps what it
+saw for the page) and watches kanshi's config and ours, so an include line added or moved shows at once, and has kanshi
+read its config again then. A model made for tests never looks.
 
 ### Following the connected displays
 
