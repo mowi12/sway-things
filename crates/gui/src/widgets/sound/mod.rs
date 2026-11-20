@@ -16,7 +16,6 @@ use std::future::Future;
 use std::time::Duration;
 
 use futures_lite::StreamExt;
-use futures_lite::future::poll_once;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -29,6 +28,7 @@ use super::Placeholder;
 use crate::i18n::{msg, tr, trf};
 use crate::style;
 use crate::widgets::list::{heading, hint, list_row, plain_row, row, section, set_hint};
+use crate::widgets::live::follow_changes;
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(100);
@@ -518,17 +518,11 @@ impl SoundPage {
         let weak = self.downgrade();
         let follow = sound.clone();
         let task = glib::spawn_future_local(async move {
-            let mut changes = follow.changes();
+            let changes = follow.changes();
             if !refresh(&weak, &follow).await {
                 return;
             }
-            while changes.next().await.is_some() {
-                glib::timeout_future(THROTTLE).await;
-                while let Some(Some(())) = poll_once(changes.next()).await {}
-                if !refresh(&weak, &follow).await {
-                    return;
-                }
-            }
+            follow_changes(changes, THROTTLE, || refresh(&weak, &follow)).await;
         });
         self.imp().tasks.borrow_mut().push(task);
         let weak = self.downgrade();

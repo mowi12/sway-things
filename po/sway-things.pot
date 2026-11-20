@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 22:59+0100\n"
+"POT-Creation-Date: 2026-11-20 23:03+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4871,7 +4871,7 @@ msgid "The displays weren’t reset: {error}."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs crates/gui/src/window.rs
 msgid "Cancel"
@@ -4889,11 +4889,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 msgid "The pairing is removed. To use the device again, pair it again."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/network/dialogs.rs
-msgid "Forget"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
@@ -5745,6 +5740,10 @@ msgstr ""
 #. TRANSLATORS: The variant of a keyboard layout that is no variant.
 #: crates/gui/src/widgets/layout_list.rs
 msgid "Standard"
+msgstr ""
+
+#: crates/gui/src/widgets/live.rs
+msgid "Forget"
 msgstr ""
 
 #: crates/gui/src/widgets/look.rs

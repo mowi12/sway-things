@@ -18,8 +18,6 @@ mod dialogs;
 use std::fmt::Write as _;
 use std::time::Duration;
 
-use futures_lite::StreamExt;
-use futures_lite::future::poll_once;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -38,6 +36,7 @@ use crate::widgets::list::{
     arrange, heading, hint, labels_in, list_row, plain_row, remove_row, row, section, set_hint,
     style_heading,
 };
+use crate::widgets::live::follow_changes;
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
@@ -630,7 +629,7 @@ impl NetworkPage {
             if !refresh(&weak, &nm).await {
                 return;
             }
-            let mut changes = match changes {
+            let changes = match changes {
                 Ok(changes) => changes,
                 Err(error) => {
                     if let Some(page) = weak.upgrade() {
@@ -642,13 +641,7 @@ impl NetworkPage {
                     return;
                 }
             };
-            while changes.next().await.is_some() {
-                glib::timeout_future(THROTTLE).await;
-                while let Some(Some(())) = poll_once(changes.next()).await {}
-                if !refresh(&weak, &nm).await {
-                    return;
-                }
-            }
+            follow_changes(changes, THROTTLE, || refresh(&weak, &nm)).await;
         });
         self.imp().tasks.borrow_mut().push(task);
     }
