@@ -9,7 +9,6 @@
 //! containers have; the tests that use it are ignored by a plain `cargo test`.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
@@ -51,31 +50,12 @@ impl StandIn {
     /// If `dbus-daemon` or python-dbusmock is missing, or the stand-in doesn't come up within ten
     /// seconds.
     pub async fn start() -> Result<Self, Error> {
-        let dir = tempfile::tempdir()?;
-        let socket = dir.path().join("bus");
-        let mut daemon = Command::new("dbus-daemon")
-            .arg("--session")
-            .arg("--nofork")
-            .arg("--nopidfile")
-            .arg(format!("--address=unix:path={}", socket.display()))
-            .arg("--print-address")
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|error| format!("can't start dbus-daemon: {error}"))?;
-        let mut address = String::new();
-        if let Some(stdout) = daemon.stdout.take() {
-            BufReader::new(stdout).read_line(&mut address)?;
-        }
-        let address = address.trim().to_owned();
-        if address.is_empty() {
-            let _ = daemon.kill();
-            return Err("dbus-daemon printed no address".into());
-        }
-        let connection = zbus::connection::Builder::address(address.as_str())?
-            .build()
-            .await?;
+        let crate::dbus::TestBus {
+            dir,
+            address,
+            daemon,
+            connection,
+        } = crate::dbus::TestBus::start().await?;
         let mut stand_in = Self {
             address,
             connection,

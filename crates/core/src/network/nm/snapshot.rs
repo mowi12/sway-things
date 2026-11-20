@@ -13,6 +13,7 @@ use super::super::{
     Device, DeviceKind, DeviceState, IpConfig, Security, Snapshot, clean,
 };
 use super::{ACCESS_POINT, ACTIVE, DEVICE, IP4, IP6, NONE, Objects, Properties, WIRED, WIRELESS};
+pub(super) use crate::dbus::{flag, number, text};
 use zbus::zvariant::{ObjectPath, OwnedValue, Value};
 
 /// The snapshot of NetworkManager's `manager` properties, its `objects` and the `settings` of
@@ -273,27 +274,4 @@ pub(super) fn paths(properties: &Properties, name: &str) -> Vec<String> {
 pub(super) fn object_ref(properties: &Properties, name: &str) -> Option<String> {
     let path = <&ObjectPath<'_>>::try_from(properties.get(name)?).ok()?;
     (path.as_str() != NONE).then(|| path.to_string())
-}
-
-/// The string property `name`, cleaned of control characters; `None` if missing or empty.
-pub(super) fn text(properties: &Properties, name: &str) -> Option<String> {
-    let value = properties.get(name)?;
-    let text = clean(<&str>::try_from(value).ok()?);
-    (!text.is_empty()).then_some(text)
-}
-
-/// The number property `name`; 0 if missing.
-pub(super) fn number(properties: &Properties, name: &str) -> u32 {
-    properties
-        .get(name)
-        .and_then(|value| u32::try_from(value).ok())
-        .unwrap_or(0)
-}
-
-/// The boolean property `name`; false if missing.
-pub(super) fn flag(properties: &Properties, name: &str) -> bool {
-    properties
-        .get(name)
-        .and_then(|value| bool::try_from(value).ok())
-        .unwrap_or(false)
 }

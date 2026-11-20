@@ -708,15 +708,12 @@ fn failure(error: zbus::Error) -> Error {
 
 /// The error for the D-Bus error `name` with its `description`.
 fn method_error(name: &str, description: Option<&str>) -> Error {
-    if matches!(
-        name,
-        "org.freedesktop.DBus.Error.ServiceUnknown" | "org.freedesktop.DBus.Error.NameHasNoOwner"
-    ) {
+    if crate::dbus::is_gone(name) {
         return Error::Unavailable(msg!("NetworkManager isn't running").into());
     }
     let description = description.map(clean).unwrap_or_default();
     // `org.freedesktop.NetworkManager.PermissionDenied` → `PermissionDenied`
-    let short = name.rsplit('.').next().unwrap_or(name);
+    let short = crate::dbus::short_name(name);
     if matches!(short, "PermissionDenied" | "AccessDenied" | "NotAuthorized") {
         return Error::Denied(description);
     }
