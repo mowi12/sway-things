@@ -5798,13 +5798,22 @@ fn check_display_no_session() -> Outcome {
 
 /// "Identify" shows the number of an output on the display GDK knows by its name, on the overlay
 /// layer, and takes it away again; the tiles are outlined meanwhile. The stand-in names its output
-/// like the headless sway's own, so GDK has a monitor for it.
+/// like the headless sway's own, so GDK has a monitor for it. Without the layer shell (GTK's
+/// Broadway backend of the screenshots), the button can't be pressed.
 fn check_display_identify() -> Outcome {
     let headless = DESK_OUTPUTS.replacen(r#""name": "DP-4""#, r#""name": "HEADLESS-1""#, 1);
     let sway = with_outputs(&[&headless]);
     let fixture = displays_fixture(&sway, "version = 1\n")?;
     let window = open(&fixture, Page::Displays)?;
     let (arrangement, _) = displays(&window)?;
+    if !gtk4_layer_shell::is_supported() {
+        ensure(
+            !arrangement.identify_button().is_sensitive(),
+            "Identify can be pressed without the layer shell",
+        )?;
+        window.destroy();
+        return Ok(());
+    }
     ensure(
         arrangement.identify_button().is_sensitive(),
         "Identify can't be pressed on sway",
