@@ -154,6 +154,7 @@ tools of `tools/binaries.txt` from their GitHub releases (into `target/tools`, u
 | Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` and those of `data/*.in` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
+| Container images | every image is pinned to a digest, the same one everywhere an image:tag appears, and the workflows' images are in `ci/images/Dockerfile`, where Dependabot updates them (`scripts/check-images.sh`) |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | npm licenses | `license-checker-rseidelsohn`: the packages of `website/` and `tools/` against the allow list of `deny.toml`, with a few reasoned exceptions for build-only packages (`scripts/check-npm-licenses.sh`) |
 | Website | `scripts/check-website.sh`: the unit tests of `website/src/lib/`, builds the site, then `html-validate` and `lychee --offline` on the built pages and checks the served install script; `scripts/check-website-performance.sh`: Lighthouse on every page, as a phone and as a desktop (performance ≥ 95, accessibility, best practices and SEO 100) |

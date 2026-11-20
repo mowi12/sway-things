@@ -87,3 +87,22 @@ updates:
       prefix: ci
       include: scope
     labels: ["area:ci"]
+
+  # The images of the workflows and of scripts/check-install-from-obs.sh, whose versions are chosen by hand: Fedora is
+  # the newest release with packages on OBS, so only its digest is updated.
+  - package-ecosystem: docker
+    directory: /ci/images
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: fedora
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker-images:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: ["area:ci"]

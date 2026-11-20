@@ -89,6 +89,8 @@ jobs:
         run: scripts/install-tool.sh actionlint
       - name: Lint Workflows
         run: scripts/check-workflows.sh
+      - name: Check Container Images
+        run: scripts/check-images.sh
 
   shell:
     name: Lint Shell Scripts
