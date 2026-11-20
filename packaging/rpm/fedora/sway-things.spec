@@ -5,7 +5,7 @@
 # the crates in vendor/. Follows the Fedora Rust packaging guidelines for vendored dependencies.
 
 Name:           sway-things
-Version:        0.2.1
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Settings app for the sway Wayland compositor and SwayFX
 # The whole tarball: our files (LICENSES/) and every crate in vendor/. scripts/check-packaging.sh keeps it current.
