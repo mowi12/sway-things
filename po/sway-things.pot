@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 12:17+0100\n"
+"POT-Creation-Date: 2026-11-21 12:23+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1445,6 +1445,16 @@ msgstr ""
 msgid "NetworkManager isn't running"
 msgstr ""
 
+#: crates/core/src/outputs/hooks.rs
+msgid ""
+"The new display wasn’t asked about: the notification server shows no buttons."
+msgstr ""
+
+#: crates/core/src/outputs/hooks.rs
+#, rust-format
+msgid "The new display wasn’t asked about: no notification server ({error})."
+msgstr ""
+
 #: crates/core/src/outputs/kanshi.rs
 #, rust-format
 msgid ""
@@ -1465,6 +1475,27 @@ msgstr ""
 #: crates/core/src/outputs/kanshi.rs
 #, rust-format
 msgid "the profiles for kanshi can't be written: {error}"
+msgstr ""
+
+#: crates/core/src/outputs/new_display.rs
+#, rust-format
+msgid "New display: {display}"
+msgstr ""
+
+#: crates/core/src/outputs/new_display.rs
+#, rust-format
+msgid ""
+"Mirror shows the same picture as {source} on it, and so does a click on this "
+"notification; Extend makes it part of the desktop. Sway Things remembers "
+"your choice for these displays."
+msgstr ""
+
+#: crates/core/src/outputs/new_display.rs
+msgid "Mirror"
+msgstr ""
+
+#: crates/core/src/outputs/new_display.rs
+msgid "Extend"
 msgstr ""
 
 #: crates/core/src/outputs/profiles.rs

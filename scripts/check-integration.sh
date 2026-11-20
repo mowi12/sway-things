@@ -49,7 +49,7 @@ cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway)
 # The tests that need stand-ins for services, but no sway: dbus-daemon and python-dbusmock (BlueZ and
 # NetworkManager), PipeWire, WirePlumber and pipewire-pulse with pactl and pacat (the sound server).
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
-  --test network_nm --test sound_pulse)
+  --test network_nm --test sound_pulse --test notifications_dbus)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The hooks that generated config runs, so nothing of Sway Things has to keep running:
-//! `sway-things hook displays`, `hook workspaces` and `hook mirror`. The command line only
+//! `sway-things hook displays`, `hook workspaces`, `hook mirror` and `hook new-display`. The command line only
 //! connects and prints; what each hook does is here, so the user's run and the tests run the same
 //! code.
 //!
@@ -15,10 +15,13 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::command::SwayCmd;
+use crate::i18n::Text;
 use crate::ipc::{Client, IpcError};
+use crate::msg;
 use crate::outputs::kanshi::{self, Inclusion, KanshiFiles};
+use crate::outputs::new_display::{self, Asked, Decision};
 use crate::outputs::profiles::{Profile, Profiles};
-use crate::outputs::{self, mirror, workspaces};
+use crate::outputs::{self, Outputs, mirror, workspaces};
 use crate::registry::Registry;
 use crate::state::{Paths, State};
 
@@ -141,6 +144,139 @@ pub async fn mirror(client: &mut Client, env: &HookEnv) -> Result<usize, IpcErro
     // Last: kanshi runs this hook again after reading its file, and finds everything noted.
     let _ = refresh_kanshi(env, &profiles).await;
     Ok(started)
+}
+
+/// What `hook new-display` did, for the command line to say.
+#[derive(Debug)]
+pub enum NewDisplay {
+    /// Nothing to ask about, or no answer: nothing changed, the display extends the desktop.
+    Nothing,
+    /// The combination with the new display is remembered and set up.
+    Remembered,
+    /// The new display wasn't asked about, for this reason: one line for kanshi's log, as
+    /// nothing is wrong with the displays.
+    NotAsked(Text),
+    /// The answer couldn't be remembered: `displays.toml` can't be read or written.
+    NotRemembered,
+}
+
+/// `hook new-display`, run by kanshi when one display more than a combination set up here is
+/// connected: once the displays stand, asks about the new display
+/// ([`new_display::decide`]), remembers the answer for the new combination and sets it up.
+/// Not where a profile of the user's own sets these displays up.
+///
+/// # Errors
+///
+/// The IPC errors of reading the outputs and of starting the pictures.
+pub async fn new_display(client: &mut Client, env: &HookEnv) -> Result<NewDisplay, IpcError> {
+    // A dock brings its displays one after the other: what is new is read once they all came.
+    let found = settled_outputs(client).await?;
+    let (Some(paths), Some(profiles)) = (&env.paths, env.profiles()) else {
+        return Ok(NewDisplay::Nothing);
+    };
+    let now = Outputs::new(&found);
+    // A profile of the user's own sets these displays up: theirs to decide.
+    if env.kanshi.as_ref().is_some_and(|files| files.sets_up(&now)) {
+        return Ok(NewDisplay::Nothing);
+    }
+    let profile = match new_display::decide(&profiles, &now) {
+        Decision::Nothing => return Ok(NewDisplay::Nothing),
+        Decision::Repeat(profile) => profile,
+        Decision::Ask(question) => {
+            // Asked once per plug-in: kanshi applies the profile again whenever it reads its
+            // config.
+            let id = now.get(&question.display).and_then(|output| {
+                found
+                    .iter()
+                    .find(|found| found.name == output.name())
+                    .and_then(|found| found.id)
+            });
+            let session = client.socket().display().to_string();
+            // Plugged in again while the first question waits: that one counts.
+            let Some(_asking) = new_display::asking(&session, &question.display) else {
+                return Ok(NewDisplay::Nothing);
+            };
+            if id.is_none_or(|id| new_display::note_asked(&session, id)) {
+                return Ok(NewDisplay::Nothing);
+            }
+            let answer = match new_display::ask(&question, new_display::WAIT).await {
+                Ok(Asked::Answer(answer)) => answer,
+                Ok(Asked::Nothing) => return Ok(NewDisplay::Nothing),
+                Ok(Asked::NoActions) => {
+                    return Ok(NewDisplay::NotAsked(Text::new(msg!(
+                        "The new display wasn\u{2019}t asked about: the notification server shows no buttons."
+                    ))));
+                }
+                Err(error) => {
+                    return Ok(NewDisplay::NotAsked(
+                        Text::new(msg!(
+                            "The new display wasn\u{2019}t asked about: no notification server ({error})."
+                        ))
+                        .arg("error", error),
+                    ));
+                }
+            };
+            question.profile(answer)
+        }
+    };
+    remember_new_combination(client, env, profile, paths.displays()).await
+}
+
+/// Remembers `profile` for its combination in the profiles at `path` and sets it up: kanshi
+/// reads its file with the new profile and applies it, and the pictures start. Not if the
+/// displays changed meanwhile, or the combination was set up elsewhere meanwhile (the app).
+async fn remember_new_combination(
+    client: &mut Client,
+    env: &HookEnv,
+    profile: Profile,
+    path: &std::path::Path,
+) -> Result<NewDisplay, IpcError> {
+    let now = Outputs::new(&client.outputs().await?);
+    let mut connected: Vec<&str> = now
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(outputs::Output::identifier)
+        .collect();
+    connected.sort_unstable();
+    if profile.combination() != connected {
+        return Ok(NewDisplay::Nothing);
+    }
+    let Ok(mut profiles) = Profiles::load(path) else {
+        return Ok(NewDisplay::NotRemembered);
+    };
+    if profiles.of(&connected).is_some() {
+        return Ok(NewDisplay::Nothing);
+    }
+    profiles.remember(profile);
+    if profiles.save().is_err() {
+        return Ok(NewDisplay::NotRemembered);
+    }
+    // kanshi applies the new profile, which runs the hooks of the workspaces and the pictures;
+    // the pictures start here too, in case kanshi doesn't run its hooks (or isn't there).
+    let _ = refresh_kanshi(env, &profiles).await;
+    mirror::start(client, &mut profiles).await?;
+    Ok(NewDisplay::Remembered)
+}
+
+/// The outputs once they stand: unchanged for 1.5 seconds, at most ten seconds.
+async fn settled_outputs(client: &mut Client) -> Result<Vec<crate::ipc::types::Output>, IpcError> {
+    let names = |found: &[crate::ipc::types::Output]| {
+        let mut names: Vec<String> = found.iter().map(|output| output.name.clone()).collect();
+        names.sort_unstable();
+        names
+    };
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    let mut found = client.outputs().await?;
+    let mut since = std::time::Instant::now();
+    while std::time::Instant::now() < until && since.elapsed() < Duration::from_millis(1500) {
+        async_io::Timer::after(Duration::from_millis(250)).await;
+        let again = client.outputs().await?;
+        if names(&again) != names(&found) {
+            since = std::time::Instant::now();
+        }
+        found = again;
+    }
+    Ok(found)
 }
 
 /// Writes kanshi's file of ours again if it says something else than `profiles` do now, and has
