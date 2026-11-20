@@ -35,6 +35,9 @@ use self::dialogs::{Dialog, Field, Spec};
 use super::{Placeholder, search_button};
 use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::style;
+use crate::widgets::list::{
+    arrange, heading, hint, labels_in, list_row, plain_row, remove_row, row, section_list, set_hint,
+};
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
@@ -435,13 +438,13 @@ impl BluetoothPage {
         imp.devices.set_orientation(gtk::Orientation::Vertical);
         imp.controls.append(&imp.devices);
         imp.devices.append(&heading(tr(msg!("My devices")), false));
-        device_list(&imp.mine, tr(msg!("My devices")));
+        crate::widgets::list::section(&imp.mine, tr(msg!("My devices")));
         imp.devices.append(&imp.mine);
         hint(&imp.mine_hint);
         imp.devices.append(&imp.mine_hint);
 
         self.build_others_heading();
-        device_list(&imp.others, tr(msg!("Other devices")));
+        crate::widgets::list::section(&imp.others, tr(msg!("Other devices")));
         imp.devices.append(&imp.others);
         hint(&imp.others_hint);
         imp.devices.append(&imp.others_hint);
@@ -821,8 +824,10 @@ impl BluetoothPage {
             .filter(|device| !device.paired)
             .filter_map(|device| rows.get(&device.path))
             .collect();
-        arrange(&imp.mine, &mine);
-        arrange(&imp.others, &others);
+        let rows_of =
+            |rows: &[&DeviceRow]| rows.iter().map(|row| row.row.clone()).collect::<Vec<_>>();
+        arrange(&imp.mine, &rows_of(&mine));
+        arrange(&imp.others, &rows_of(&others));
         let (mine, others) = (mine.len(), others.len());
         drop(rows);
 
@@ -1671,44 +1676,6 @@ fn update_row(row: &mut DeviceRow, device: &Device, running: Option<Action>, pow
         ))]);
 }
 
-/// Puts `rows` into `list` in this order, moving only what is out of place, so a row with the
-/// focus keeps it unless it moves.
-fn arrange(list: &gtk::ListBox, rows: &[&DeviceRow]) {
-    let current: Vec<gtk::Widget> = {
-        let mut out = Vec::new();
-        let mut child = list.first_child();
-        while let Some(widget) = child {
-            child = widget.next_sibling();
-            out.push(widget);
-        }
-        out
-    };
-    let wanted: Vec<gtk::Widget> = rows.iter().map(|row| row.row.clone().upcast()).collect();
-    if current == wanted {
-        return;
-    }
-    let focus = list
-        .root()
-        .and_then(|root| root.focus())
-        .filter(|focus| rows.iter().any(|row| focus.is_ancestor(&row.row)));
-    for row in rows {
-        remove_row(&row.row);
-    }
-    for row in rows {
-        list.append(&row.row);
-    }
-    if let Some(focus) = focus {
-        focus.grab_focus();
-    }
-}
-
-/// Takes `row` out of the list it is in.
-fn remove_row(row: &gtk::ListBoxRow) {
-    if let Some(list) = row.parent().and_downcast::<gtk::ListBox>() {
-        list.remove(row);
-    }
-}
-
 /// Marks what runs on the device at `path` and shows it.
 fn set_running(page: &glib::WeakRef<BluetoothPage>, path: &str, action: Option<Action>) {
     let Some(page) = page.upgrade() else {
@@ -1752,78 +1719,6 @@ fn icon_name(icon: Option<&str>) -> String {
     }
 }
 
-/// A section heading as on the pages built from the registry; `first` has no space above it.
-/// The texts of the labels in `widget`, in order.
-fn labels_in(widget: &gtk::Widget) -> Vec<String> {
-    let mut texts = Vec::new();
-    let mut child = widget.first_child();
-    while let Some(current) = child {
-        if let Some(label) = current.downcast_ref::<gtk::Label>() {
-            texts.push(label.text().to_string());
-        }
-        texts.extend(labels_in(&current));
-        child = current.next_sibling();
-    }
-    texts
-}
-
-fn heading(title: &str, first: bool) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(title.to_uppercase())
-        .xalign(0.0)
-        .margin_start(4)
-        .margin_bottom(8)
-        .margin_top(if first { 0 } else { 24 })
-        .accessible_role(gtk::AccessibleRole::Heading)
-        .build();
-    label.add_css_class("st-section-heading");
-    label.add_css_class(style::DIM);
-    label
-}
-
-/// A bordered list for the rows of a section.
-fn section_list(title: &str) -> gtk::ListBox {
-    let list = gtk::ListBox::new();
-    device_list(&list, title);
-    list
-}
-
-/// Makes `list` a bordered list of a section named `title`.
-fn device_list(list: &gtk::ListBox, title: &str) {
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(title)]);
-}
-
-/// Styles `label` as the hint shown in place of an empty list.
-fn hint(label: &gtk::Label) {
-    label.set_xalign(0.0);
-    label.set_wrap(true);
-    label.add_css_class(style::DIM);
-    label.add_css_class("st-section-hint");
-    label.set_visible(false);
-}
-
-/// Shows `text` in `label`, or hides it.
-fn set_hint(label: &gtk::Label, text: Option<&str>) {
-    label.set_text(text.unwrap_or_default());
-    label.set_visible(text.is_some());
-}
-
-/// `child` as a row of a section list. The row itself takes no focus; its controls do.
-fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
-    let item = gtk::ListBoxRow::new();
-    item.set_child(Some(child));
-    plain_row(&item);
-    item
-}
-
-/// Makes `row` a row that takes no focus and can't be activated; its controls can.
-fn plain_row(row: &gtk::ListBoxRow) {
-    row.set_activatable(false);
-    row.set_focusable(false);
-}
-
 /// The dialog that asks for a new name instead of `name`, with `note` under the field.
 fn rename_spec(name: &str, note: &str) -> Spec {
     Spec {
@@ -1864,24 +1759,6 @@ fn visible_text(timeout: u32) -> String {
             timeout / 60,
         ),
     }
-}
-
-/// A row with `title` above `subtitle` on the left and `controls` on the right.
-fn row(title: &gtk::Label, subtitle: &gtk::Label, controls: &[&gtk::Widget]) -> gtk::Box {
-    for label in [title, subtitle] {
-        label.set_xalign(0.0);
-        label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    }
-    let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    text.set_hexpand(true);
-    text.append(title);
-    text.append(subtitle);
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    line.append(&text);
-    for control in controls {
-        line.append(*control);
-    }
-    line
 }
 
 #[cfg(test)]

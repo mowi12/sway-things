@@ -28,6 +28,7 @@ use self::volume::{Kind, VolumeControl};
 use super::Placeholder;
 use crate::i18n::{msg, tr, trf};
 use crate::style;
+use crate::widgets::list::{heading, hint, list_row, plain_row, row, section, set_hint};
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(100);
@@ -1179,75 +1180,6 @@ fn shorten_names(choice: &gtk::DropDown) {
     };
     choice.set_factory(Some(&factory(true)));
     choice.set_list_factory(Some(&factory(false)));
-}
-
-/// A section heading.
-fn heading(title: &str, first: bool) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(title.to_uppercase())
-        .xalign(0.0)
-        .margin_start(4)
-        .margin_bottom(8)
-        .margin_top(if first { 0 } else { 24 })
-        .accessible_role(gtk::AccessibleRole::Heading)
-        .build();
-    label.add_css_class("st-section-heading");
-    label.add_css_class(style::DIM);
-    label
-}
-
-/// Makes `list` a bordered list of a section named `title`.
-fn section(list: &gtk::ListBox, title: &str) {
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(title)]);
-}
-
-/// Styles `label` as the hint shown in place of an empty list.
-fn hint(label: &gtk::Label) {
-    label.set_xalign(0.0);
-    label.set_wrap(true);
-    label.add_css_class(style::DIM);
-    label.add_css_class("st-section-hint");
-    label.set_visible(false);
-}
-
-/// Shows `text` in `label`, or hides it.
-fn set_hint(label: &gtk::Label, text: Option<&str>) {
-    label.set_text(text.unwrap_or_default());
-    label.set_visible(text.is_some());
-}
-
-/// `child` as a row of a section list. The row itself takes no focus; its controls do.
-fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
-    let item = gtk::ListBoxRow::new();
-    item.set_child(Some(child));
-    plain_row(&item);
-    item
-}
-
-/// Makes `row` a row that takes no focus and can't be activated; its controls can.
-fn plain_row(row: &gtk::ListBoxRow) {
-    row.set_activatable(false);
-    row.set_focusable(false);
-}
-
-/// A row with `title` above `subtitle` on the left and `controls` on the right.
-fn row(title: &gtk::Label, subtitle: &gtk::Label, controls: &[&gtk::Widget]) -> gtk::Box {
-    for label in [title, subtitle] {
-        label.set_xalign(0.0);
-        label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    }
-    let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    text.set_hexpand(true);
-    text.append(title);
-    text.append(subtitle);
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    line.append(&text);
-    for control in controls {
-        line.append(*control);
-    }
-    line
 }
 
 #[cfg(test)]

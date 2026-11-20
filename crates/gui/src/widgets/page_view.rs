@@ -47,6 +47,7 @@ use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
 use crate::style;
+use crate::widgets::list::{list_row, section_list};
 
 /// The widest a page's content gets, in pixels, with its margins.
 pub const MAXIMUM_WIDTH: i32 = 760;
@@ -231,7 +232,7 @@ impl PageView {
                         std::mem::take(&mut first),
                     );
                     let heading = new.header.clone().upcast::<gtk::Widget>();
-                    let list = section_list(setting.section());
+                    let list = section_list(tr(setting.section()));
                     body.append(&new.header);
                     body.append(&new.body);
                     let open = groups
@@ -1060,24 +1061,6 @@ impl Section {
         self.header
             .update_state(&[gtk::accessible::State::Expanded(Some(expanded))]);
     }
-}
-
-/// The list for the rows of a section titled `title`.
-fn section_list(title: Msg) -> gtk::ListBox {
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
-    list
-}
-
-/// `child` as a row of a section list. The row itself takes no focus; its controls do.
-fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
-    let item = gtk::ListBoxRow::new();
-    item.set_activatable(false);
-    item.set_focusable(false);
-    item.set_child(Some(child));
-    item
 }
 
 /// A run of sections of per-device settings of one input type, with the selector for the device
