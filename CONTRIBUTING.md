@@ -83,8 +83,8 @@ users, in American English. American English is the language of the whole projec
 
 ## Engineering rules (non-negotiable)
 
-Rules 1–7 protect users' systems; rules 8–10 keep the code base consistent and the supply chain safe. Details and
-reasons are in [wiki/Architecture.md](wiki/Architecture.md).
+Rules 1–7 protect users' systems; rules 8–12 keep the code base consistent and the supply chain safe. Details and
+reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
 
 1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
    (gsettings/dconf, D-Bus services). The user's sway config is never touched.
@@ -94,7 +94,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 4. **No `unsafe`.** The root `Cargo.toml` forbids `unsafe_code` for every crate.
 5. **No panics in non-test code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by clippy. Handle errors:
    a panic must not end a hook at login or leave a change half applied.
-6. **No privileged code.** System changes only go through existing polkit-guarded D-Bus services.
+6. **No privileged code, no daemon.** System changes only go through existing polkit-guarded D-Bus services. Nothing
+   keeps running: what has to happen without the window runs as a short CLI hook from generated config
+   ([No daemon](wiki/Command-Line.md#no-daemon-the-cli-as-a-hook)).
 7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
    Writes are atomic. **No network access, no telemetry.**
 8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop, so UI updates run
@@ -116,6 +118,11 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
     repositories need no pin; container images are pinned to a digest. Give every workflow job only the `permissions` it
     needs. Workflow, job and step names use Title Case (`Preview Label Changes`); tool names keep their own spelling
     (`Install cargo-deny`).
+11. **New settings start in the registry** (`crates/core/src/registry/`). The rows, search, CLI keys, defaults,
+    generated lines and conflict detection all derive from that one definition
+    ([Settings registry](wiki/Architecture.md#settings-registry)).
+12. **Check commands live only in `scripts/`.** Workflows and the `justfile` call the scripts, never repeat a command
+    (see [Checks](#checks)).
 
 ## Checks
 
