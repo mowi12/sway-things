@@ -24,15 +24,19 @@ privately as described in [SECURITY.md](SECURITY.md), never in public issues.
   `good first issue` and `help wanted`. To change a label, edit the file. The PR shows a preview, and
   `scripts/sync-labels.sh` applies it after merge. Labels created on github.com get deleted.
 - **Milestones** are releases.
-- **No fixed ownership.** Anyone may pick any issue: assign yourself, and talk in the issue before starting something
-  large.
+- **No fixed ownership.** Anyone may pick any issue: assign yourself when you start working on it, and talk in the issue
+  before starting something large.
 
 ## Pull requests
 
 - **Trunk-based.** `main` is the only long-lived branch and is always green.
-- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose:
-  `chore/2-add-issue-forms`, `feat/23-keyboard-repeat-rate`. The purpose shows in branch lists, and the issue number
-  gives the context.
+- **Branch names:** `<type>/<issue>-<slug>`, where the type is the conventional commit type of the PR's main purpose and
+  the slug is the issue's full title in kebab case, as GitHub's "Create a branch" makes it: `chore/2-add-issue-forms`,
+  `feat/84-window-behavior-page`. The purpose shows in branch lists, and the issue number gives the context.
+- **PR titles** are the title of the linked issue, without a type prefix: the type already shows in the branch name and
+  the commits.
+- **Assign yourself** to the PR you open, as to its issue.
+- **Draft PRs** are welcome for work in progress: open one early and mark it ready for review when it's done.
 - **Every change goes through a pull request**:
   - all required CI checks must pass, and **nobody can bypass them**;
   - **one approving review** is required, four eyes on code that writes `exec` lines and config (the repository owner
