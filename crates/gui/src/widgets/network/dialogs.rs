@@ -46,7 +46,7 @@ impl<T> Clone for Dialog<T> {
 
 impl<T: 'static> Dialog<T> {
     /// A dialog window titled `title` over `parent`, which calls `done` once.
-    fn new(
+    pub(crate) fn new(
         parent: Option<&gtk::Window>,
         title: &str,
         done: impl FnOnce(Option<T>) + 'static,
@@ -100,7 +100,7 @@ impl<T: 'static> Dialog<T> {
 
     /// Cancel and, if `accept` is given, the button that accepts, at the end of `content`.
     /// Returns the accept button.
-    fn buttons(&self, content: &gtk::Box, accept: Option<&str>) -> Option<gtk::Button> {
+    pub(crate) fn buttons(&self, content: &gtk::Box, accept: Option<&str>) -> Option<gtk::Button> {
         let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         buttons.set_homogeneous(true);
         buttons.set_margin_top(8);
@@ -137,7 +137,7 @@ impl<T: 'static> Dialog<T> {
     }
 
     /// Answers once and closes.
-    fn finish(&self, answer: Option<T>) {
+    pub(crate) fn finish(&self, answer: Option<T>) {
         if let Some(done) = self.done.borrow_mut().take() {
             done(answer);
         }

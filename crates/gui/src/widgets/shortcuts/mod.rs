@@ -440,7 +440,7 @@ fn labels(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Vec<Stri
 }
 
 /// The keys as keycaps: a framed label per key.
-fn keycaps(labels: &[String]) -> gtk::Box {
+pub(crate) fn keycaps(labels: &[String]) -> gtk::Box {
     let keys = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     keys.add_css_class("st-keycaps");
     for (index, text) in labels.iter().enumerate() {
@@ -467,7 +467,7 @@ fn label(text: &str, classes: &[&str]) -> gtk::Label {
 }
 
 /// Where a binding is, to show: the user's file and line, or what of Sway Things it is.
-fn place(source: &Source) -> String {
+pub(crate) fn place(source: &Source) -> String {
     match source.origin {
         Origin::User => format!("{}:{}", tilde(&source.file), source.line),
         Origin::Group(key) => Group::of(key).map_or_else(String::new, |group| {
@@ -576,7 +576,7 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
 }
 
 /// The line that says how a binding clashes with another, with a warning sign.
-fn clash_line(clash: &Clash) -> gtk::Box {
+pub(crate) fn clash_line(clash: &Clash) -> gtk::Box {
     let place = place(&clash.source);
     let command = clash.command.as_deref().unwrap_or_default();
     let args: &[(&str, &dyn std::fmt::Display)] = &[("place", &place), ("command", &command)];

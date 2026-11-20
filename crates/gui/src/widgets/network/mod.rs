@@ -13,7 +13,7 @@
 //!
 //! SSIDs and connection names are untrusted and only ever set as plain label text.
 
-mod dialogs;
+pub(crate) mod dialogs;
 
 use std::fmt::Write as _;
 use std::time::Duration;
