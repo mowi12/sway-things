@@ -52,5 +52,9 @@ name = "network_nm"
 required-features = ["test-support"]
 
 [[test]]
+name = "printers_cups"
+required-features = ["test-support"]
+
+[[test]]
 name = "sound_pulse"
 required-features = ["test-support"]
