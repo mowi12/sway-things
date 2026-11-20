@@ -6,6 +6,8 @@
 # Markdown, TOML, YAML, JSON, the JavaScript, CSS and Astro files of the website (dprint, configured in dprint.json).
 # With --fix, formats the files instead.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-fmt.sh [--fix]
 #
 # Needs cargo with rustfmt and dprint (https://dprint.dev/install/).

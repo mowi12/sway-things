@@ -4,6 +4,8 @@
 #
 # Lints all shell scripts and the PKGBUILDs with shellcheck.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-shell.sh
 #
 # Needs shellcheck (https://www.shellcheck.net/).

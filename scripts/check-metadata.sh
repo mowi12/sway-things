@@ -6,6 +6,8 @@
 # metainfo (scripts/merge-metadata.sh), then checks the desktop entry with desktop-file-validate and the metainfo with
 # appstreamcli.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-metadata.sh
 #
 # Needs msgfmt (GNU gettext), desktop-file-validate (desktop-file-utils) and appstreamcli (AppStream).

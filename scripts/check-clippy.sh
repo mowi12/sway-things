@@ -4,6 +4,8 @@
 #
 # Lints the Rust code with clippy and the workspace lints from Cargo.toml. Warnings fail the check.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-clippy.sh
 #
 # Needs cargo with clippy.

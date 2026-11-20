@@ -122,14 +122,19 @@ runs and CI can't drift. CI calls the scripts directly; the `justfile` just wrap
 hooks. Run checks yourself before pushing:
 
 ```sh
-just test               # run the tests of the workspace
+just test               # run the tests of the workspace (the ones that need sway are skipped)
 just lint               # run the fast offline checks: no tests, no sway, no network
-just check              # run every check, like CI
+just check              # run every check that is safe on this machine: offline, never starts sway
+just check-all          # run every check, like CI: also network and containers (sway runs only in containers)
+just checks             # list every check with its level
 scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
 
-`just` without a recipe lists every development command.
+`just` without a recipe lists every development command. Each check script names its level (`lint`, `host`, `network` or
+`container`) in its header, and `scripts/run-checks.sh` runs the checks of a level. The tests against a real sway run
+only in containers: `scripts/check-integration.sh` builds and runs every one of `ci/containers/`; `--host` would start
+the sway on `PATH` instead and is only for the containers themselves.
 
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual

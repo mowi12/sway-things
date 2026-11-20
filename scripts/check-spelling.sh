@@ -4,6 +4,8 @@
 #
 # Checks the spelling of all files in American English with typos, configured in _typos.toml.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-spelling.sh
 #
 # Needs typos (https://github.com/crate-ci/typos).

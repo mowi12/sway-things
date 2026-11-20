@@ -17,13 +17,16 @@
 # Last, the GUI tests (crates/gui/tests/gui.rs: contrast in light and dark, keyboard navigation) open their windows on
 # the headless sway (not on SwayFX, see below).
 #
-# Without options, tests the sway (or SwayFX) on PATH, in a private session that doesn't touch a running desktop. With
-# --container NAME, builds ci/containers/NAME/Dockerfile and runs this script inside it; NAME=all runs every container.
+# Without options, runs every container: --container NAME builds ci/containers/NAME/Dockerfile and runs this script
+# inside it, NAME=all (the default) every one. --host tests the sway (or SwayFX) on PATH instead, in a private session;
+# the containers run it so, and it is never the default, because it starts sway on the machine it runs on.
 # The host's DRM render nodes are passed into the containers, because SwayFX needs one even to validate a config (CI
 # loads the vgem module for a virtual one). The images hold a Rust toolchain and build the tests that need sway with
 # --build when the image is built, so the tests are built on the system they run on.
 #
-# Usage: scripts/check-integration.sh [--container NAME|all | --build]
+# Check level: container (see scripts/run-checks.sh)
+#
+# Usage: scripts/check-integration.sh [--container NAME|all | --host | --build]
 #
 # Needs sway, swaymsg, cargo, dbus-daemon, python-dbusmock, pipewire, wireplumber, pipewire-pulse, pactl and pacat; for
 # --container, docker or podman (CONTAINER_ENGINE overrides the choice).
@@ -31,7 +34,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 [--container NAME|all | --build]" >&2
+  echo "usage: $0 [--container NAME|all | --host | --build]" >&2
   exit 2
 }
 
@@ -46,14 +49,20 @@ dbus_tests=(cargo test --locked --package sway-things-core --features test-suppo
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 
-container=""
+container=all
 build=false
 case "${1-}" in
   "") ;;
-  --container) container=${2:-$(usage)} ;;
+  --container)
+    [[ -n ${2-} ]] || usage
+    container=$2
+    shift
+    ;;
+  --host) container="" ;;
   --build) build=true ;;
   *) usage ;;
 esac
+[[ $# -le 1 ]] || usage
 
 cd "$(dirname "$0")/.."
 

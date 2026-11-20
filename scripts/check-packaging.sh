@@ -14,6 +14,8 @@
 # In the specs, License and SourceLicense are written as %{shrink:…} with one expression per line, joined by AND; an
 # expression with more than one license is put in parentheses.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-packaging.sh
 #
 # Needs cargo (with the network, unless the crates are already downloaded).

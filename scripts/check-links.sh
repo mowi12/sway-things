@@ -6,6 +6,8 @@
 # their anchors, which needs no network and is never flaky. With --external, external URLs too, printed as a Markdown
 # report (used by the weekly workflow).
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-links.sh [--external]
 #
 # Needs lychee (https://lychee.cli.rs/). For --external, set GITHUB_TOKEN to avoid GitHub's rate limits.

@@ -22,32 +22,19 @@ test:
 
 # Run the fast offline checks: no tests, no sway, no network
 lint:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    failed=()
-    for check in fmt clippy spelling markdown shell licenses workflows metadata pot commits; do
-        script=scripts/check-$check.sh
-        echo "==> $script"
-        "$script" || failed+=("$script")
-    done
-    if ((${#failed[@]})); then
-        printf 'failed: %s\n' "${failed[@]}" >&2
-        exit 1
-    fi
+    scripts/run-checks.sh lint
 
-# Run every check, like CI
+# Run every check that is safe on this machine: lint, tests, install, packaging, website; offline, never starts sway
 check:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    failed=()
-    for script in scripts/check-*.sh; do
-        echo "==> $script"
-        "$script" || failed+=("$script")
-    done
-    if ((${#failed[@]})); then
-        printf 'failed: %s\n' "${failed[@]}" >&2
-        exit 1
-    fi
+    scripts/run-checks.sh host
+
+# Run every check, like CI: also the ones that need the network or containers (sway runs only in containers)
+check-all:
+    scripts/run-checks.sh all
+
+# List every check with its level
+checks:
+    scripts/run-checks.sh --list
 
 # Format Rust, Markdown, TOML, YAML and JSON files
 fmt:

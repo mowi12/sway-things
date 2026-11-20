@@ -5,6 +5,8 @@
 # Runs all tests of the workspace (unit, integration and doc tests) with the current toolchain. CI runs it on the MSRV
 # and on stable.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-tests.sh
 #
 # Needs cargo.

@@ -7,6 +7,8 @@
 # (lychee, offline), and the install script served next to the pages. The build itself fails when README.md no longer
 # has the sections the site reads.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-website.sh
 #
 # Needs Node.js 22.12 or newer, the website's packages (`npm ci --prefix website`), html-validate (`npm ci --prefix

@@ -5,6 +5,8 @@
 # Checks the dependencies with cargo-deny, configured in deny.toml: security advisories, licenses compatible with
 # GPL-3.0-or-later, banned or duplicate crates, and crates.io as the only source.
 #
+# Check level: network (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-deps.sh
 #
 # Needs cargo-deny (https://github.com/EmbarkStudios/cargo-deny). Fetches the RustSec advisory database.

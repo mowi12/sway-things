@@ -5,6 +5,8 @@
 # Checks that every commit since BASE is a Conventional Commit with a type from .conventional-commit-types.json:
 # `type(optional-scope)!: description`. Merge commits are skipped.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-commits.sh [BASE]   (default: origin/main)
 #
 # Needs git and jq.

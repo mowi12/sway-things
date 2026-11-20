@@ -16,6 +16,8 @@
 # --version` must run, a second run must keep the repository, and --uninstall must remove the package, the repository
 # and the key. Run by .github/workflows/packages.yml, since it needs the network and the published packages.
 #
+# Check level: container (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-install-from-obs.sh [--container NAME|all]
 #
 # Needs docker or podman (CONTAINER_ENGINE overrides the choice).

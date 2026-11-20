@@ -26,4 +26,4 @@ USER tester
 WORKDIR /work
 # The tests that need sway are built on the system they run on.
 RUN scripts/check-integration.sh --build
-CMD ["scripts/check-integration.sh"]
+CMD ["scripts/check-integration.sh", "--host"]

@@ -5,6 +5,8 @@
 # Checks that the gettext template po/sway-things.pot holds exactly the strings marked with msg!("…"), as
 # scripts/update-pot.sh extracts them. The creation date doesn't count.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-pot.sh
 #
 # Needs xgettext 0.24 or newer (GNU gettext), the first version that reads Rust, and diff (GNU diffutils).

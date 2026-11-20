@@ -4,6 +4,8 @@
 #
 # Lints all Markdown files with markdownlint-cli2, configured in .markdownlint-cli2.yaml. dprint owns the formatting.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-markdown.sh
 #
 # Needs markdownlint-cli2 (https://github.com/DavidAnson/markdownlint-cli2). `npm ci --prefix tools` installs the pinned

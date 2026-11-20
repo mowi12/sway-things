@@ -5,6 +5,8 @@
 # Lints the GitHub Actions workflows with actionlint. If shellcheck is installed, actionlint also checks the shell code
 # in `run:` steps.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-workflows.sh
 #
 # Needs actionlint (https://github.com/rhysd/actionlint); shellcheck is optional.

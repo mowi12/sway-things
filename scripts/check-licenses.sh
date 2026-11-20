@@ -5,6 +5,8 @@
 # Checks that every file declares its copyright and license, following the REUSE specification (SPDX headers and
 # REUSE.toml).
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-licenses.sh
 #
 # Needs reuse (https://reuse.software/).

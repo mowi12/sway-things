@@ -9,6 +9,8 @@
 # syntax check of their shell. Then uninstalls and checks that no file is left. Finally checks that installing for
 # another PREFIX than the build's is refused.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-install.sh
 #
 # Needs cargo, the GTK 4 development files, msgfmt (GNU gettext), desktop-file-validate (desktop-file-utils),
