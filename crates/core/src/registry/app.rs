@@ -17,7 +17,18 @@ const SEARCH_MODES: &[Choice] = &[
     Choice::new("manual", msg!("Manual")),
 ];
 
+/// The folder whose pictures the Wallpaper page shows; empty for `~/Pictures/Wallpapers`, or
+/// the system's backgrounds without that folder.
+pub const WALLPAPER_FOLDER: &str = "app.wallpaper_folder";
+
 pub(super) fn settings() -> Vec<Setting> {
+    let mut all = general();
+    all.extend(page_preferences());
+    all
+}
+
+/// The preferences that apply to the whole app.
+fn general() -> Vec<Setting> {
     vec![
         Setting::integer("app.safety_net_timeout", Page::About, 15, 5, 120)
             .section(msg!("Sway Things"))
@@ -76,6 +87,12 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("sections"),
             ])
             .build(),
+    ]
+}
+
+/// The preferences of single pages.
+fn page_preferences() -> Vec<Setting> {
+    vec![
         Setting::toggle("app.sound_above_100", Page::About, false)
             .section(msg!("Sway Things"))
             .title(msg!("Allow volume above 100 %"))
@@ -112,6 +129,13 @@ pub(super) fn settings() -> Vec<Setting> {
                  press Search"
             ))
             .keywords(&[msg!("scan"), msg!("wifi"), msg!("wireless")])
+            .build(),
+        Setting::text(WALLPAPER_FOLDER, Page::About, "")
+            .section(msg!("Sway Things"))
+            .title(msg!("Wallpaper folder"))
+            .subtitle(msg!("The pictures the Wallpaper page offers"))
+            .placeholder(msg!("~/Pictures/Wallpapers or the system’s backgrounds"))
+            .keywords(&[msg!("pictures"), msg!("background"), msg!("folder")])
             .build(),
     ]
 }

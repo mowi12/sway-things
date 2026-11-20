@@ -1657,6 +1657,30 @@ msgstr ""
 msgid "wireless"
 msgstr ""
 
+#: crates/core/src/registry/app.rs
+msgid "Wallpaper folder"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "The pictures the Wallpaper page offers"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "~/Pictures/Wallpapers or the system’s backgrounds"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "pictures"
+msgstr ""
+
+#: crates/core/src/registry/app.rs crates/core/src/registry/wallpaper.rs
+msgid "background"
+msgstr ""
+
+#: crates/core/src/registry/app.rs
+msgid "folder"
+msgstr ""
+
 #: crates/core/src/registry/behavior.rs
 msgid "When the pointer enters a window"
 msgstr ""
@@ -3871,10 +3895,6 @@ msgid "Background"
 msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
-msgid "background"
-msgstr ""
-
-#: crates/core/src/registry/wallpaper.rs
 msgid "desktop picture"
 msgstr ""
 
@@ -5120,8 +5140,18 @@ msgid "Settings for"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
+#: crates/gui/src/widgets/displays/mod.rs
+msgid "All displays"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
 #, rust-format
 msgid "{device} (not connected)"
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+#, rust-format
+msgid "{output} · {model}"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
@@ -5206,6 +5236,10 @@ msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
 msgid "No switch is connected. Its settings show up once one is."
+msgstr ""
+
+#: crates/gui/src/widgets/device_selector.rs
+msgid "No display is connected. Its settings show up once one is."
 msgstr ""
 
 #. TRANSLATORS: A display's scale as a percentage, such as 150 %.
@@ -5309,10 +5343,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/displays/mirroring.rs
 msgid "Shown on another display, so it shows its own content"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid "All displays"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
@@ -6145,7 +6175,8 @@ msgstr ""
 msgid "Let my config win"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/setting_row.rs crates/gui/src/widgets/wallpaper.rs
+#: crates/gui/src/widgets/welcome.rs
 msgid "Open config in editor"
 msgstr ""
 
@@ -6508,6 +6539,47 @@ msgstr ""
 #: crates/gui/src/widgets/test_area.rs
 #, rust-format
 msgid "Button {number} triple-click"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose an Image"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose the Wallpaper Folder"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Images"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "No pictures in {folder}"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid "{folder} can't be read: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+#, rust-format
+msgid ""
+"Your config starts {program} ({place}). It sets a wallpaper of its own, "
+"which may cover the one set here. To use this page, remove that line."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Pictures"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Choose Image…"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper.rs
+msgid "Change Folder…"
 msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs

@@ -26,7 +26,6 @@ use std::time::Duration;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::command::input::InputType;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
@@ -35,9 +34,10 @@ use sway_things_core::system::{self, Details, Value};
 use sway_things_core::ui_state;
 use sway_things_core::view::Source;
 
-use super::device_selector::none_connected;
+use super::device_selector::{Instances, none_connected_of};
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
+use super::wallpaper;
 use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
     TestArea, WorkspaceMap,
@@ -215,7 +215,9 @@ impl PageView {
                 files.insert(mapping.file());
             }
             let kind = match setting.scope() {
-                Scope::PerDevice(kind) => Some(kind),
+                Scope::PerDevice(kind) => Some(Instances::Devices(kind)),
+                // The Displays page picks its output on the arrangement.
+                Scope::PerOutput if !setting.sets_up_display() => Some(Instances::Outputs),
                 Scope::Global | Scope::PerHost | Scope::PerOutput => None,
             };
             let list = match &section {
@@ -264,9 +266,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in keyboard::below(model, &row) {
-                list.append(&list_row(&widget));
-            }
+            grouping.add_below(model, &row, &list);
             rows.push(row);
         }
         grouping.close(model, &mut groups);
@@ -861,9 +861,14 @@ fn generated_section(model: &Model, body: &gtk::Box) -> Section {
 /// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].
 #[derive(Default)]
 struct Grouping {
-    /// The group being built, its members and their list: the members of a group are next to
-    /// each other, in one section.
-    open: Option<(SettingGroup, Vec<SettingRow>, gtk::ListBox)>,
+    /// The group being built, its members, their list and the widgets that go below the group:
+    /// the members of a group are next to each other, in one section.
+    open: Option<(
+        SettingGroup,
+        Vec<SettingRow>,
+        gtk::ListBox,
+        Vec<gtk::Widget>,
+    )>,
     /// The rows of the groups built.
     rows: Vec<GroupRow>,
 }
@@ -879,12 +884,12 @@ impl Grouping {
         devices: &mut [DeviceGroup],
     ) {
         match (setting.group(), &mut self.open) {
-            (Some(group), Some((open, members, _))) if *open == group => {
+            (Some(group), Some((open, members, ..))) if *open == group => {
                 members.push(row.clone());
             }
             (Some(group), _) => {
                 self.close(model, devices);
-                self.open = Some((group, vec![row.clone()], list.clone()));
+                self.open = Some((group, vec![row.clone()], list.clone(), Vec::new()));
             }
             (None, _) => {
                 self.close(model, devices);
@@ -893,15 +898,32 @@ impl Grouping {
         }
     }
 
+    /// Adds the page's own widgets below `row` (the Keyboard and Wallpaper pages have some) to
+    /// `list`, or below the group being built, whose rows go into the list when it is complete.
+    fn add_below(&mut self, model: &Model, row: &SettingRow, list: &gtk::ListBox) {
+        let below = keyboard::below(model, row)
+            .into_iter()
+            .chain(wallpaper::below(model, row));
+        for widget in below {
+            match &mut self.open {
+                Some((.., after)) => after.push(widget),
+                None => list.append(&list_row(&widget)),
+            }
+        }
+    }
+
     /// Puts the group being built into its list. Its row follows the device picked for its
     /// members.
     fn close(&mut self, model: &Model, devices: &mut [DeviceGroup]) {
-        let Some((group, members, list)) = self.open.take() else {
+        let Some((group, members, list, after)) = self.open.take() else {
             return;
         };
         let row = GroupRow::new(model, group, members);
         for item in row.items() {
             list.append(&item);
+        }
+        for widget in after {
+            list.append(&list_row(&widget));
         }
         if let Some(device_group) = devices.last_mut().filter(|device_group| {
             row.members()
@@ -1071,10 +1093,10 @@ fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
     item
 }
 
-/// A run of sections of per-device settings of one input type, with the selector for the device
-/// their rows are for.
+/// A run of sections of per-device settings of one input type, or of per-output settings, with
+/// the selector for the device or output their rows are for.
 struct DeviceGroup {
-    kind: InputType,
+    kind: Instances,
     selector: DeviceSelector,
     /// Shown in place of the rows while there is nothing to set.
     hint: gtk::Label,
@@ -1090,10 +1112,10 @@ struct DeviceGroup {
 impl DeviceGroup {
     /// A group of type `kind` that starts with the section of `heading` and `list`. The selector
     /// becomes the first row of the list.
-    fn new(kind: InputType, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
-        let selector = DeviceSelector::new(kind);
+    fn new(kind: Instances, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
+        let selector = DeviceSelector::of(kind);
         list.append(&list_row(&selector));
-        let hint = gtk::Label::new(Some(none_connected(kind)));
+        let hint = gtk::Label::new(Some(none_connected_of(kind)));
         hint.set_xalign(0.0);
         hint.set_wrap(true);
         hint.add_css_class("st-section-hint");
@@ -1141,11 +1163,23 @@ impl DeviceGroup {
             #[weak(rename_to = hint)]
             self.hint,
             move |model: &Model| {
-                let Some(devices) = model.devices() else {
-                    return;
+                let connected = match kind {
+                    Instances::Devices(kind) => {
+                        let Some(devices) = model.devices() else {
+                            return;
+                        };
+                        selector.update(&devices);
+                        devices.of_type(kind).next().is_some()
+                    }
+                    // The value for every output also applies to screens plugged in later.
+                    Instances::Outputs => {
+                        let Some(outputs) = model.outputs() else {
+                            return;
+                        };
+                        selector.update_outputs(&outputs);
+                        true
+                    }
                 };
-                selector.update(&devices);
-                let connected = devices.of_type(kind).next().is_some();
                 let stored = rows
                     .iter()
                     .filter_map(glib::WeakRef::upgrade)

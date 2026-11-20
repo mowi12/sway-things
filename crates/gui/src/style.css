@@ -127,6 +127,20 @@ st-page .st-section-hint {
   margin: 0 4px;
 }
 
+/* The pictures of the wallpaper folder on the Wallpaper page */
+st-page .st-wallpaper-thumbnail {
+  border-radius: 6px;
+}
+
+st-page .st-wallpaper-picker flowboxchild {
+  padding: 3px;
+  border-radius: 9px;
+}
+
+st-page .st-wallpaper-picker flowboxchild:selected {
+  background-color: @accent_bg_color;
+}
+
 /* Test area of the Mouse & Touchpad page */
 st-test-area {
   border: 1px solid @borders;
