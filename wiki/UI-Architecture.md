@@ -31,10 +31,11 @@
 - **Page parts** (`crates/gui/src/widgets/page_view/parts.rs`): what a page adds to its rows, in one place, so
   `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, the list
   of bindings on Keyboard Shortcuts, Apps Look & Feel's note, the Displays arrangement), below them (the test area, the
-  workspace map), the choices of a row and what it follows (a Keyboard Shortcuts setting may have no row), and the
-  widgets below a row (the Keyboard page's layouts and options, what a media key switch replaces, the notes of
-  Screenshots & Clipboard), and the generated files a page writes to besides those of its directives. About's sections
-  are `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
+  workspace map, the note above the default apps and the list of what starts at login on Apps & Autostart), the choices
+  of a row and what it follows (a Keyboard Shortcuts or Apps & Autostart setting may have no row), and the widgets below
+  a row (the Keyboard page's layouts and options, what a media key switch replaces, what the terminal's and launcher's
+  keys do now, the notes of Screenshots & Clipboard), and the generated files a page writes to besides those of its
+  directives. About's sections are `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
   `app.show_directives` is on, and a chevron. Its list item takes the focus; a click, `Enter` or `Space` expands it, and
@@ -157,6 +158,14 @@
   `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
   no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't
   be pressed and says why.
+- **Apps & Autostart page** (`crates/gui/src/widgets/apps/`): the terminal, launcher and default app rows are drop-downs
+  of the installed apps (with their icons), each with a note below it that follows the model: what the user's config
+  binds to the keys, what opens the type now and from which list, what runs the XDG autostart entries. The
+  `AutostartList` after the rows of the "Autostart" section shows Sway Things' entries, the user's `exec` lines and the
+  XDG autostart entries in three section lists (`widgets::list`), rebuilt when the model changes; its switches and ⋮
+  menus change `autostart.entries` and `autostart.hidden` item by item (`Model::list`, `Model::set`), _Start Now_ sends
+  the entry's `exec` (`Model::run_command`), and _Add App…_ and _Add Command…_ use the Network page's `Dialog`. The two
+  lists have no rows of their own.
 - **XKB options** (`crates/gui/src/widgets/xkb_options.rs`): below the options row, drop-downs for what Caps Lock does
   (`ctrl:nocaps`, `caps:escape`, `caps:swapescape`, `caps:none`), the Compose key (`compose:`) and the layout switching
   shortcut (`grp:`), a switch for `ctrl:swap_lalt_lctl`, and the `OptionBrowser`: every option of the rules by group,

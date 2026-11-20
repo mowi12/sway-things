@@ -348,6 +348,37 @@ click away in the binding's dialog.
   move up). The Workspaces map does the same for the number clicked.
 - **Later:** editing bindings of modes, touchpad gestures (`bindgesture`), a cheat sheet to print.
 
+### Apps & Autostart
+
+Which apps open by keys and by file type, and everything that starts with the session, in one place.
+
+- **Terminal and launcher:** _Terminal_ and _Launcher_ offer the installed ones (foot, Alacritty, kitty, …; fuzzel,
+  wofi, rofi, …) after _As your config binds it_, the default. Below each row, what the user's config binds to the keys
+  now (`exec foot at ~/.config/sway/config:5`) and its `$term` or `$menu`; a choice takes the keys (`$mod+Return` and
+  `$mod+d`, changed in _Keys of the terminal_ and _Keys of the launcher_), and the note then says whose binding it takes
+  the place of, or, for a line of the user's read after Sway Things' file, that that line keeps the keys, with _Open in
+  Editor_. It applies at once, without a reload. On Keyboard Shortcuts the binding has a lock that says _Terminal,
+  chosen on Apps & Autostart_; it can't be changed there, and its dialog has _Open Apps & Autostart_.
+- **Default apps:** a row each for web browser, file manager, mail, image viewer, PDF viewer, video player, music
+  player, text editor and terminal, with the installed apps that open its type and their icons, after _Not chosen here_.
+  Without a choice the row says what opens the type now and where that comes from
+  (`Now Chromium, from ~/.config/mimeapps.list`); with one, a warning if another list wins over it, the app isn't
+  installed or doesn't open the type. While `XDG_CURRENT_DESKTOP` doesn't name sway, a warning above the rows says that
+  no app reads the choices and how to set it.
+- **Autostart:** _Start XDG autostart entries with_ (_Nothing_, _systemd_, _dex_), and below it what runs them in this
+  session: systemd's target, a line of the user's (with _Open in Editor_), or Sway Things with _Start Them Now_. With
+  nothing, a warning and the button that has Sway Things start them (systemd if its target is there, else dex); with
+  two, a warning that each entry may start twice.
+- **What starts at login:** one list in three parts. _Started by Sway Things_: apps (with icon and name) and commands
+  added with _Add App…_ (the apps menus show, searchable) and _Add Command…_, each with a switch and a ⋮ menu with
+  _Start Now_ and _Remove_. _Started by your config_: every `exec` and `exec_always` line with file and line, read only,
+  with _Open in Editor_. _XDG autostart_: the entries of `~/.config/autostart` and `/etc/xdg/autostart` with icon, name
+  and whether they start here (_Starts at login_, _Doesn't start here: only for GNOME_, _Doesn't start: … isn't
+  installed_, _Switched off here_); a system entry that starts has a switch, which switches it off with Sway Things' own
+  file; the user's own entries open in the editor.
+- **Takes effect** at the next login for autostart entries and the runner, at once for the terminal and launcher keys,
+  and when an app is next opened for the default apps.
+
 ### Screenshots & Clipboard
 
 - **Three parts, each with a switch:** _Screenshot keys_, _Clipboard history_ and _Recording key_. Nothing is bound or

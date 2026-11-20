@@ -88,6 +88,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `bindings`, `swayosd` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent; whether SwayOSD, which the media keys can show, is installed and its server runs ([Key bindings](Reading-Sway.md#key-bindings)) |
 | core | `capture` | screenshots, the clipboard history and screen recording: the keys of Screenshots & Clipboard, the tools they run, notifications, the session's processes and locks ([Backends](Backends.md#screenshots-clipboard-and-recording)) |
 | core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
+| core | `apps` | desktop entries, the installed apps, the terminal and launcher, the default apps, the autostart entries and their runners, and the files of other programs they need ([Apps and autostart](Backends.md#apps-and-autostart)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
 | cli | `lib`, `main`, `change`, `hook`, `capture`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; screenshot, record and clipboard; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
@@ -252,7 +253,10 @@ the check of a collection name are `registry::wallpaper`, re-exported by `wallpa
 `registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
 reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state. The keys,
 defaults and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
-`capture::shortcuts`); the check of its keys uses `bindings::keys` the same way.
+`capture::shortcuts`); the check of its keys uses `bindings::keys` the same way. The keys of Apps & Autostart, the kinds
+of default apps, the autostart entries and the checks of their values are `registry::apps` (re-exported by
+`apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and launcher's
+commands and keys use the same binding reader.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
 (Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, and the key buttons and notes
@@ -340,7 +344,9 @@ position = "1920,0"
 - **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it (`atomic`). If the file
   is a symbolic link (into a dotfiles repository), the link stays and its target is replaced. The temporary name carries
   the process id; a file of that name left by a crashed process is removed first, so it never blocks a save. File access
-  is synchronous (`std::fs`): the files are small, and only loading and saving touch the disk.
+  is synchronous (`std::fs`): the files are small, and only loading and saving touch the disk. `atomic::create_new`
+  stages the same way but links the file into place, which fails if something appeared there meanwhile, for the files of
+  other programs that may only be created, never replaced ([Apps and autostart](Backends.md#apps-and-autostart)).
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
 - **Export / import (planned):** `settings.toml` (plus overlays) _is_ the export format.
@@ -396,7 +402,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 40-behavior.conf
 ├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
-├── 70-autostart.conf      # planned
+├── 70-autostart.conf      # the autostart entries and the runner of the XDG autostart entries
 ├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
@@ -410,9 +416,10 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 ```
 
 `crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `20-output.conf`, `30-appearance.conf`,
-`40-behavior.conf`, `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)), `80-hooks.conf` and
-`90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that
-run hooks of the command line (`20-output.conf` ends with the one that keeps a display on), see
+`40-behavior.conf`, `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)), `70-autostart.conf` (see
+[Apps and autostart](Backends.md#apps-and-autostart)), `80-hooks.conf` and `90-effects.conf`. `seat` options
+(`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line
+(`20-output.conf` ends with the one that keeps a display on), see
 [No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
@@ -471,10 +478,10 @@ Only kanshi is built, see [Outputs](Outputs.md); the other rows are the plan for
 | swaync | no, but `-c` / `-s` flags | Handover: our `config.json` + `style.css` in `~/.config/sway-things/swaync/`; the user starts swaync with `-c`/`-s` |
 | gammastep / wlsunset | gammastep has a config file; wlsunset uses arguments | Own config file or our generated `exec` line |
 | environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf` |
-| default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`; the user's `mimeapps.list` is never touched |
+| default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`, and `~/.config/sway-xdg-terminals.list` for `xdg-terminal-exec`; the user's `mimeapps.list` is never touched |
 | GTK look, fonts, dark mode, cursor | dconf database | Written via GIO (official API, allowed); see [GSettings](Backends.md#gsettings) |
 | electron/chromium flags | text files | Create if missing, otherwise handover |
-| XDG autostart | directory of `.desktop` files | Our entries are `exec` lines in `70-autostart.conf`. To disable a system entry we create **our own** override `~/.config/autostart/<name>.desktop` with `Hidden=true` (only if no user file of that name exists). The runner (`xdg-desktop-autostart.target` or `dex -a`) is started from our include |
+| XDG autostart | directory of `.desktop` files | Our entries are `exec` lines in `70-autostart.conf`. To disable a system entry we create **our own** override `~/.config/autostart/<name>.desktop` with `Hidden=true` (only if no user file of that name exists). The runner (`xdg-desktop-autostart.target` through our own user unit `~/.config/systemd/user/sway-things-autostart.target`, or `dex -a`) is started from our include |
 
 **Handover** means we generate our own complete file and the user switches the tool to it once (an instruction with a
 copy button). Alternatively the user deletes or renames their own file, and we create the standard one.
