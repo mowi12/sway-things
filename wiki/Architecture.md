@@ -15,7 +15,7 @@ version gating, the security model and the platform floor. The topics have pages
 | [Command Line](Command-Line.md) | The commands, the doctor, the hooks instead of a daemon |
 | [UI Architecture](UI-Architecture.md) | The GTK app: rows and pages from the registry, the custom pages, the model, translations |
 | [Testing](Testing.md) | Which tests exist and where they run |
-| [Packaging](Packaging.md) | Tarball, RPM and Debian packages, OBS, the install script, the AUR |
+| [Packaging](Packaging.md) | Tarball, RPM and Debian packages, OBS, the install script, the AUR, the wallpaper photos |
 | [Website](Website.md) | sway-things.org, built from the README |
 
 ## Overview
