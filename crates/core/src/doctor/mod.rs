@@ -151,6 +151,9 @@ pub enum Code {
     /// A profile of the user's kanshi config covers a combination Sway Things remembers, and
     /// comes first.
     KanshiProfileOverlap,
+    /// A profile of the user's kanshi config that Sway Things copies to place the workspaces
+    /// keeps a line that may place them too, or is in a file the copies don't reach.
+    KanshiProfileCopy,
     /// sway and kanshi can't run `sway-things` for the hooks, or run another build of it.
     HookProgram,
     /// The settings files load without problems.
@@ -221,6 +224,7 @@ impl Code {
             Self::KanshiIncludeMissing => "kanshi_include_missing",
             Self::KanshiFileForeign => "kanshi_file_foreign",
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
+            Self::KanshiProfileCopy => "kanshi_profile_copy",
             Self::HookProgram => "hook_program",
             Self::SettingNotCopied => "setting_not_copied",
             Self::FileCurrent => "file_current",
@@ -260,6 +264,7 @@ impl Code {
             | Self::KanshiIncludeMissing
             | Self::KanshiFileForeign
             | Self::KanshiProfileOverlap
+            | Self::KanshiProfileCopy
             | Self::HookProgram => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
@@ -1156,6 +1161,69 @@ impl<V: Validate> Checkup<'_, V> {
         };
         self.kanshi_file(files, &profiles, findings);
         self.kanshi_order(files, &profiles, findings);
+        self.kanshi_copies(files, &profiles, findings);
+    }
+
+    /// What the copies of the user's kanshi profiles can't take care of, while they are made
+    /// (the workspaces are placed, or a combination shows a picture): an `exec` line kept in a
+    /// copy that may move workspaces after Sway Things placed them, and an include after ours,
+    /// whose profiles aren't copied, so the workspaces aren't placed while one of them applies.
+    fn kanshi_copies(
+        &self,
+        files: &crate::outputs::kanshi::KanshiFiles,
+        profiles: &crate::outputs::profiles::Profiles,
+        findings: &mut Vec<Finding>,
+    ) {
+        let places = crate::outputs::workspaces::Placing::of(self.state);
+        let adopting = places.is_some()
+            || profiles
+                .iter()
+                .any(crate::outputs::profiles::Profile::mirrors);
+        if !self.displays.is_kanshi() || !adopting || files.ours_is_foreign() {
+            return;
+        }
+        for profile in files.after_ours() {
+            for line in profile.unsure() {
+                findings.push(
+                    Finding::new(
+                        Code::KanshiProfileCopy,
+                        Severity::Warning,
+                        Text::new(msg!(
+                            "Your kanshi profile {name} runs {line}, which may move workspaces \
+                             after Sway Things placed them."
+                        ))
+                        .arg("name", &profile.name)
+                        .arg("line", line),
+                    )
+                    .with_hint(
+                        Text::new(msg!(
+                            "If it places workspaces, remove it from {file}: Sway Things places \
+                             them now."
+                        ))
+                        .arg("file", files.config.display()),
+                    ),
+                );
+            }
+        }
+        for line in files.includes_after_ours() {
+            findings.push(
+                Finding::new(
+                    Code::KanshiProfileCopy,
+                    Severity::Warning,
+                    Text::new(msg!(
+                        "{file} has {line} after the profiles of Sway Things: the profiles in \
+                         that file aren't copied, so while one of them sets up the displays, \
+                         Sway Things neither places the workspaces nor shows pictures there."
+                    ))
+                    .arg("file", files.config.display())
+                    .arg("line", line),
+                )
+                .with_hint(msg!(
+                    "Move those profiles into your kanshi config, after the include of Sway \
+                     Things."
+                )),
+            );
+        }
     }
 
     /// Whether the file of ours for kanshi says what the remembered displays do: one that is
@@ -1171,7 +1239,7 @@ impl<V: Validate> Checkup<'_, V> {
             return;
         }
         let places = crate::outputs::workspaces::Placing::of(self.state);
-        let expected = crate::outputs::profiles::kanshi_config(profiles, places);
+        let expected = files.config_for(profiles, places);
         let finding = match std::fs::read_to_string(&files.ours) {
             Ok(text) if text == expected => return,
             Ok(_) => Finding::new(
@@ -1228,14 +1296,18 @@ impl<V: Validate> Checkup<'_, V> {
                 .any(|criteria| criteria == ONE || criteria == ANY);
             let mut sorted: Vec<String> = outputs.iter().map(|criteria| named(criteria)).collect();
             sorted.sort_unstable();
-            let covers = (wildcard && profiles.iter().next().is_some())
-                || profiles.iter().any(|profile| {
-                    profile
-                        .combination()
-                        .iter()
-                        .copied()
-                        .eq(sorted.iter().map(String::as_str))
-                });
+            let mut arranged = profiles.iter().filter(|profile| profile.is_arranged());
+            let covers = (wildcard && arranged.next().is_some())
+                || profiles
+                    .iter()
+                    .filter(|profile| profile.is_arranged())
+                    .any(|profile| {
+                        profile
+                            .combination()
+                            .iter()
+                            .copied()
+                            .eq(sorted.iter().map(String::as_str))
+                    });
             if covers {
                 findings.push(
                     Finding::new(

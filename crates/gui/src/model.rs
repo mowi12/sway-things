@@ -163,6 +163,9 @@ pub struct KanshiLook {
     pub command: Option<String>,
     /// The user's profiles before the include, which kanshi tries before ours.
     pub before_ours: Vec<(String, Vec<String>)>,
+    /// The user's profiles after the include: what sets up the displays where nothing set them
+    /// up here (as a copy in ours, while Sway Things places the workspaces).
+    pub after_ours: Vec<(String, Vec<String>)>,
     /// The file of ours for kanshi, if someone else's file stands in its place: nothing can be
     /// written there.
     pub foreign: Option<String>,
@@ -182,6 +185,11 @@ impl KanshiLook {
             include_line: files.include_line(),
             command: files.include_command(),
             before_ours: files.before_ours(),
+            after_ours: files
+                .after_ours()
+                .into_iter()
+                .map(|profile| (profile.name, profile.outputs))
+                .collect(),
             foreign: files
                 .ours_is_foreign()
                 .then(|| files.ours.display().to_string()),
@@ -590,8 +598,10 @@ impl Model {
                         model.emit_by_name::<()>("changed", &[]);
                     }
                     // kanshi doesn't follow its config by itself: the line the user just put
-                    // there counts at once, and the arrangement made here comes back.
+                    // there counts at once, and the arrangement made here comes back. Ours is
+                    // written again first: it holds copies of the user's profiles.
                     if theirs && model.kanshi_runs() {
+                        model.queue(Op::Persist);
                         sway_things_core::outputs::kanshi::reload().await;
                     }
                 }
@@ -976,6 +986,35 @@ impl Model {
                         .collect()
                 }),
         )
+    }
+
+    /// Whether the displays connected now were set up here: a remembered combination with its
+    /// displays, not only a placement of its workspaces. `None` if that isn't known.
+    pub fn arranged_here(&self) -> Option<bool> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let profiles = core.profiles.as_ref()?;
+        let names: Vec<&str> = core
+            .outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(sway_things_core::outputs::Output::identifier)
+            .collect();
+        Some(profiles.arranged(&names).is_some())
+    }
+
+    /// Whether the file for kanshi holds copies of the user's own profiles: while Sway Things
+    /// places the workspaces, or a combination shows a picture.
+    pub fn adopts_profiles(&self) -> bool {
+        let core = self.imp().core.borrow();
+        core.as_ref().is_some_and(|core| {
+            sway_things_core::outputs::workspaces::Placing::of(&core.state).is_some()
+                || core.profiles.as_ref().is_some_and(|profiles| {
+                    profiles
+                        .iter()
+                        .any(sway_things_core::outputs::profiles::Profile::mirrors)
+                })
+        })
     }
 
     /// Has the display `target` show `mirror`, or with `None` its own content again.

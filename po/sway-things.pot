@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 16:39+0100\n"
+"POT-Creation-Date: 2026-11-20 17:40+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -861,6 +861,33 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Fix or move it; meanwhile the displays are set up from the sway config."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"Your kanshi profile {name} runs {line}, which may move workspaces after Sway "
+"Things placed them."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"If it places workspaces, remove it from {file}: Sway Things places them now."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} has {line} after the profiles of Sway Things: the profiles in that "
+"file aren't copied, so while one of them sets up the displays, Sway Things "
+"neither places the workspaces nor shows pictures there."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Move those profiles into your kanshi config, after the include of Sway "
+"Things."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -5561,6 +5588,33 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"So that each combination of displays is remembered, your kanshi config needs "
+"the line of Sway Things at its top, above your own profiles."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+msgid ""
+"With kanshi installed, each combination of displays is remembered and comes "
+"back on its own."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"These displays are set up by your kanshi profile {name}, and Sway Things "
+"places the workspaces on them. Change something here to arrange them here "
+"instead."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"These displays are set up by your kanshi profile {name}. Change something "
+"here to arrange them here instead."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
 #, rust-format
 msgid ""
 "Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
@@ -5594,18 +5648,6 @@ msgstr ""
 msgid ""
 "Each combination of displays is remembered: kanshi brings this arrangement "
 "back whenever these displays are connected together."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"So that each combination of displays is remembered, your kanshi config needs "
-"the line of Sway Things at its top, above your own profiles."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"With kanshi installed, each combination of displays is remembered and comes "
-"back on its own."
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs

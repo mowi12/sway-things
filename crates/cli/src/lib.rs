@@ -502,7 +502,17 @@ async fn hook_workspaces(err: &mut dyn Write) -> Exit {
             return Exit::Failure;
         }
     };
-    match place_workspaces(&mut client).await {
+    let placed = place_workspaces(&mut client).await;
+    // kanshi just applied a profile, maybe a copy of the user's own made before they changed
+    // it: the copies are made again, and kanshi reads them if they changed (and runs this hook
+    // once more, which then finds them as they are).
+    if let Some(profiles) = sway_things_core::state::Paths::from_env()
+        .ok()
+        .and_then(|paths| outputs::profiles::Profiles::load(paths.displays()).ok())
+    {
+        let _ = refresh_kanshi(&profiles).await;
+    }
+    match placed {
         Ok(_) => Exit::Ok,
         Err(error) => {
             let _ = writeln!(err, "{}", error_line(&error.text().translated()));
@@ -609,10 +619,7 @@ async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) -> bool {
     };
     let state = State::load(Registry::builtin(), paths);
     let places = outputs::workspaces::Placing::of(&state);
-    let wrote = matches!(
-        files.write(&outputs::profiles::kanshi_config(profiles, places)),
-        Ok(true)
-    );
+    let wrote = matches!(files.write(&files.config_for(profiles, places)), Ok(true));
     if wrote {
         outputs::kanshi::reload().await;
     }
