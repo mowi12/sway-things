@@ -137,6 +137,9 @@ enum Op {
     FollowCombination,
     /// Moves other displays along with the trial of a display's new size, to these places.
     MoveAlong(Vec<(String, Value)>),
+    /// Starts a picture of the combination connected now again that doesn't run
+    /// ([`Applier::heal_mirrors`]).
+    HealMirrors,
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -217,6 +220,8 @@ mod imp {
         /// depend on the machine they run on.
         pub(super) looks_for_kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
+        /// Counts the changes of the outputs, so only the last one has the pictures looked at.
+        pub(super) outputs_seen: Cell<u64>,
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
@@ -902,6 +907,7 @@ impl Model {
             | Op::SwayReloaded
             | Op::FollowCombination
             | Op::MoveAlong(_)
+            | Op::HealMirrors
             | Op::Overwrite(_)
             | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,

@@ -162,7 +162,8 @@ pub enum Hook {
     /// profile
     Workspaces,
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
-    /// the mirrors of other combinations: run by kanshi when it applied a profile
+    /// the mirrors of other combinations: run by kanshi when it applied a profile, and from a key
+    /// binding of yours to bring back a picture that went
     Mirror,
 }
 
