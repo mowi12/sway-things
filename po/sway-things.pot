@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:16+0100\n"
+"POT-Creation-Date: 2026-11-20 23:20+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6318,78 +6318,6 @@ msgid "Stop"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
-msgid "This machine only"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "{title}: this machine only"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Your config sets this too"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "{title}: your config sets this too"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Let my config win"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs crates/gui/src/widgets/welcome.rs
-msgid "Open config in editor"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Copy line"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "Use the value of {devices}"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Use the value of all displays"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Reset to default"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Your config wins"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "This line comes after the include line, so it decides after a reload."
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Overridden"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Overridden in your config"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid ""
-"Sway Things’ value comes later and wins; this line is no longer in effect."
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Applies after reload"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Applies after re-login"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
 msgid "On for now: no other display was on"
 msgstr ""
 
@@ -6401,29 +6329,102 @@ msgstr ""
 msgid "Font"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid "Same as {devices}"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Same as all displays"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Chosen by sway"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid ""
 "Apps use {value} now, set by another tool. Sway Things sets its own again "
 "when sway starts or reloads."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "Use the value of {devices}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Use the value of all displays"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Reset to default"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Your config wins"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "This line comes after the include line, so it decides after a reload."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Overridden"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Overridden in your config"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid ""
+"Sway Things’ value comes later and wins; this line is no longer in effect."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Applies after reload"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Applies after re-login"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "This machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "{title}: this machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "{title}: your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Let my config win"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#: crates/gui/src/widgets/welcome.rs
+msgid "Open config in editor"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Copy line"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
