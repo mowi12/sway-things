@@ -28,6 +28,11 @@
 - **Pages from the registry:** `PageView::for_settings(model, page)` builds a page from the registry: a heading and a
   bordered list per section, and the generated files the page writes to at the bottom. Every page with settings is built
   this way; custom pages can mix these rows with their own widgets.
+- **Page parts** (`crates/gui/src/widgets/page_view/parts.rs`): what a page adds to its rows, in one place, so
+  `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, Apps
+  Look & Feel's note, the Displays arrangement), below them (the test area, the workspace map), the choices of a row and
+  what it follows, and the widgets below a row (the Keyboard page's layouts and options). About's sections are
+  `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
   `app.show_directives` is on, and a chevron. Its list item takes the focus; a click, `Enter` or `Space` expands it, and

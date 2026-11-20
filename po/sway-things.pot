@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:03+0100\n"
+"POT-Creation-Date: 2026-11-20 23:06+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5542,7 +5542,7 @@ msgid "Copy Line"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
-#: crates/gui/src/widgets/page_view.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/page_view/about.rs crates/gui/src/widgets/welcome.rs
 msgid "Copied"
 msgstr ""
 
@@ -5604,7 +5604,8 @@ msgstr ""
 msgid "Copy contents"
 msgstr ""
 
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/page_view/about.rs
 msgid "Generated config"
 msgstr ""
 
@@ -6209,60 +6210,6 @@ msgid "Test area"
 msgstr ""
 
 #: crates/gui/src/widgets/page_view.rs
-msgid "Website"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Source Code (GitHub)"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Report a Bug"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Copy System Details"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "About"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a version that couldn't be found.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Unknown"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a service that isn't running.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Not running"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that is installed.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Installed"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that isn't installed.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Not installed"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid ""
-"What Sway Things writes for your sway config to include, and which files "
-"were changed outside it"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Show…"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Show generated config"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
 msgid ""
 "Sway Things no longer sets it: your config or sway’s defaults decide again."
 msgid_plural ""
@@ -6289,6 +6236,60 @@ msgstr[1] ""
 
 #: crates/gui/src/widgets/page_view.rs
 msgid "Reset"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Website"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Source Code (GitHub)"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Report a Bug"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Copy System Details"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "About"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a version that couldn't be found.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Unknown"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a service that isn't running.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Not running"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Installed"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that isn't installed.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Not installed"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid ""
+"What Sway Things writes for your sway config to include, and which files "
+"were changed outside it"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Show…"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Show generated config"
 msgstr ""
 
 #: crates/gui/src/widgets/placeholder.rs
