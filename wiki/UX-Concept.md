@@ -204,7 +204,25 @@ new mode, a rotation and switching an output off go through the safety net.
   (at the next start, reload or kanshi profile), and go back (the first of them shown again, the display at its place
   again) when it shows its own content again; a display that mirrors takes no workspaces, also not from the placement.
   Without kanshi or wl-mirror the row says what it needs, and a remembered picture that can't start (wl-mirror gone)
-  leaves its display and its workspaces as they are.
+  leaves its display and its workspaces as they are. A picture that went (its window closed, `wl-mirror` crashed) comes
+  back by itself where Sway Things runs anyway: when the app opens and three seconds after displays came or went, when
+  kanshi applies a profile, and at each start and reload of sway. A key can bring it back at once:
+  `bindsym $mod+Shift+p exec sway-things hook mirror` in the user's config. While it starts, the focus stays where the
+  user works.
+- **A new display asks once (with kanshi and wl-mirror):** when exactly one display Sway Things has never seen is
+  plugged in to a combination set up on the page (the projector or the TV at a meeting), a notification asks: _New
+  display: …_ with _Mirror_ (also a click on the notification, as mako has no buttons) and _Extend_. _Mirror_ shows the
+  laptop's own panel on it (else the display with the focus, else the leftmost one), with _Fit_; either answer is
+  remembered for the new combination, so the next time it comes back as answered without a question. A dismissed or
+  ignored notification (it goes after two minutes) changes nothing: the display extends the desktop, as it would anyway,
+  and is asked about again the next time it is plugged in, not before. No question for several displays at once (a dock
+  with two monitors, also when they come one after the other within a moment), for a display alone (a laptop with its
+  lid closed), for a combination a profile of the user's own may set up, or without a notification server that shows
+  actions. A display seen before in another combination shows again the picture it showed there, if that display is
+  connected; one that extended the desktop there does so again. A display is known by its make, model and serial, so a
+  second unit of a model already seen that reports the same serial (some projectors report one for every unit) counts as
+  seen and isn't asked about; plugged in again while its question waits, it isn't asked a second time. Without a
+  notification server, or one without buttons, kanshi's log says why nothing was asked.
 
 ### Workspaces
 
