@@ -1958,51 +1958,16 @@ fn take_slot(drag: &mut Drag, moved: Rect, ids: &[String], others: &[Rect]) -> b
 }
 
 /// The name a tile shows, short and readable: _Built-in_ for a laptop's panel, else the brand of
-/// the make (_Samsung_ for "Samsung Electric Company"), else the model, else the connector. The
-/// number on the tile tells two of a brand apart; the whole name is in the tooltip.
+/// the make ([`Output::brand`]), else the model, else the connector. The number on the tile tells
+/// two of a brand apart; the whole name is in the tooltip.
 pub(crate) fn short_label(output: &Output) -> String {
     if !output.is_connected() {
         return output.label();
     }
-    let built_in = ["eDP", "LVDS", "DSI"]
-        .iter()
-        .any(|kind| output.name().starts_with(kind));
-    if built_in {
+    if output.is_built_in() {
         return tr(msg!("Built-in")).to_owned();
     }
-    let known = |part: &str| !part.is_empty() && part != "Unknown";
-    let make = output.make();
-    if known(make) {
-        return brand(make);
-    }
-    let model = output.model();
-    if known(model) {
-        model.to_owned()
-    } else {
-        output.name().to_owned()
-    }
-}
-
-/// The brand people know a monitor's make by: its first word, or for makes that EDID names
-/// after the company behind the brand, the brand.
-fn brand(make: &str) -> String {
-    let first = make
-        .split(|c: char| c.is_whitespace() || c == ',')
-        .find(|word| !word.is_empty())
-        .unwrap_or(make)
-        .trim_end_matches('.');
-    let known = [
-        ("Goldstar", "LG"),
-        ("Ancor", "ASUS"),
-        ("Hewlett", "HP"),
-        ("Microstep", "MSI"),
-        ("Lenovo", "Lenovo"),
-        ("BenQ", "BenQ"),
-    ];
-    known
-        .iter()
-        .find(|(company, _)| first.eq_ignore_ascii_case(company))
-        .map_or_else(|| first.to_owned(), |(_, brand)| (*brand).to_owned())
+    output.brand().unwrap_or_else(|| output.label())
 }
 
 /// Shows `number`, `label` (`short` on the tile) and `details` on a tile, and says it all to

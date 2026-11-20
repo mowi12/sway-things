@@ -33,6 +33,10 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
   would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **Names and modes:** `Output::label` is make and model, `Output::brand` the brand people know (_LG_ for "Goldstar"),
+  `Output::is_built_in` a laptop's panel by its connector; the canvas, the picker and the workspace rule use them.
+  `outputs::modes` groups the modes as the mode row offers them: a mode per size (`sizes`, the mode in use standing for
+  its size), then the rates of one size (`rates`); the page only adds the labels.
 
 ## Display profiles with kanshi
 

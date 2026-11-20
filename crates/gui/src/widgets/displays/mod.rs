@@ -25,7 +25,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
 use sway_things_core::generate;
-use sway_things_core::outputs::kanshi;
+use sway_things_core::outputs::{kanshi, modes};
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
@@ -619,79 +619,29 @@ pub fn mode_choices(output: Option<&Output>) -> Vec<(String, String)> {
 }
 
 /// The resolutions to choose from for `output`: _Automatic_, then each size it offers, largest
-/// first, each standing for its mode with the highest refresh rate; the size of `current` stands
-/// for `current` itself, so the entry in use is the mode in use.
+/// first ([`modes::sizes`]), labeled with its size.
 fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
-    let modes = known_modes(output, current);
     let current = current.and_then(|text| Mode::parse(text).ok());
-    let mut sizes: Vec<(u32, u32)> = Vec::new();
-    for mode in &modes {
-        if !sizes.contains(&(mode.width(), mode.height())) {
-            sizes.push((mode.width(), mode.height()));
-        }
-    }
     std::iter::once((String::new(), tr(msg!("Automatic")).to_owned()))
-        .chain(sizes.into_iter().filter_map(|(width, height)| {
-            let mode = current
-                .filter(|mode| (mode.width(), mode.height()) == (width, height))
-                .or_else(|| {
-                    modes
-                        .iter()
-                        .copied()
-                        .filter(|mode| (mode.width(), mode.height()) == (width, height))
-                        .max_by_key(|mode| mode.refresh().unwrap_or(0))
-                })?;
-            Some((mode.to_string(), format!("{width} \u{d7} {height}")))
+        .chain(modes::sizes(output, current).into_iter().map(|mode| {
+            (
+                mode.to_string(),
+                format!("{} \u{d7} {}", mode.width(), mode.height()),
+            )
         }))
         .collect()
 }
 
-/// The refresh rates to choose from for the resolution of `current` on `output`, highest first:
-/// each the whole mode, labeled with its rate. Empty for _Automatic_.
+/// The refresh rates to choose from for the resolution of `current` on `output`, highest first
+/// ([`modes::rates`]): each the whole mode, labeled with its rate. Empty for _Automatic_.
 fn refresh_choices(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
     let Some(mode) = current.and_then(|text| Mode::parse(text).ok()) else {
         return Vec::new();
     };
-    let mut rates: Vec<Mode> = Vec::new();
-    for known in known_modes(output, Some(&mode.to_string())) {
-        let same_size = (known.width(), known.height()) == (mode.width(), mode.height());
-        if same_size && !rates.iter().any(|rate| rate.refresh() == known.refresh()) {
-            rates.push(known);
-        }
-    }
-    rates.sort_by_key(|rate| std::cmp::Reverse(rate.refresh().unwrap_or(0)));
-    rates
+    modes::rates(output, mode)
         .into_iter()
         .map(|rate| (rate.to_string(), refresh_label(rate)))
         .collect()
-}
-
-/// The modes of `output`, and `current` and the mode in use if it doesn't list them, largest
-/// and fastest first.
-fn known_modes(output: Option<&Output>, current: Option<&str>) -> Vec<Mode> {
-    let mut modes: Vec<Mode> = output
-        .map(|output| output.modes().to_vec())
-        .unwrap_or_default();
-    let extra = current
-        .and_then(|text| Mode::parse(text).ok())
-        .into_iter()
-        .chain(output.and_then(Output::mode));
-    for mode in extra {
-        let listed = modes
-            .iter()
-            .any(|known| known.to_string() == mode.to_string());
-        if !listed {
-            modes.push(mode);
-        }
-    }
-    modes.sort_by_key(|mode| {
-        std::cmp::Reverse((
-            u64::from(mode.width()) * u64::from(mode.height()),
-            mode.width(),
-            mode.refresh().unwrap_or(0),
-        ))
-    });
-    modes
 }
 
 /// A refresh rate as people read it: `59.951 Hz`, or `Any rate` for a mode without one.

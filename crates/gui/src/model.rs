@@ -603,13 +603,9 @@ impl Model {
             .iter()
             .filter(|output| output.is_connected())
             .map(|output| {
-                let product = [output.make(), output.model()]
-                    .into_iter()
-                    .filter(|part| !part.is_empty() && *part != "Unknown")
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let label = if product.is_empty() {
-                    output.name().to_owned()
+                let product = output.label();
+                let label = if product == output.name() {
+                    product
                 } else {
                     trf(
                         msg!("{product} ({output})"),
@@ -770,24 +766,8 @@ impl Model {
         let Some(core) = core.as_ref() else {
             return (0, Vec::new());
         };
-        let mut removed = 0;
-        let mut kept = Vec::new();
-        for entry in core.state.entries() {
-            if entry.setting.page() != page {
-                continue;
-            }
-            if entry.setting.apply() == Apply::Risky {
-                if !kept
-                    .iter()
-                    .any(|setting: &&Setting| setting.key() == entry.setting.key())
-                {
-                    kept.push(entry.setting);
-                }
-            } else {
-                removed += 1;
-            }
-        }
-        (removed, kept)
+        let plan = sway_things_core::apply::PageReset::plan(&core.state, page);
+        (plan.removed.len(), plan.kept)
     }
 
     /// Puts `workspace` on `display` in the fixed placement and places the workspaces.
@@ -1515,27 +1495,15 @@ impl Model {
 
     /// Removes every stored value of `page`, except those of risky settings.
     async fn reset_page_now(&self, applier: &mut Applier, page: Page, access: &WriteAccess) {
-        let stored: Vec<(&'static str, Option<String>)> = applier
-            .state()
-            .entries()
-            .into_iter()
-            .filter(|entry| entry.setting.page() == page && entry.setting.apply() != Apply::Risky)
-            .map(|entry| (entry.setting.key(), entry.device.map(str::to_owned)))
-            .collect();
-        for (key, device) in stored {
-            if let Err(error) = applier.reset(key, device.as_deref(), access).await {
-                self.emit_failed(key, device.as_deref(), &error.text().translated());
-            }
+        let errors = applier.reset_page(page, access).await;
+        for (key, device, error) in errors.failed {
+            self.emit_failed(key, device.as_deref(), &error.text().translated());
         }
-        // While kanshi sets up the displays, what is set here lives in the profile of the
-        // displays connected: forgotten with it, so what set them up before applies again.
-        if page == Page::Displays && applier.displays().is_kanshi() {
-            if let Err(error) = applier.forget_displays(access).await {
-                self.emit_problem(&trf(
-                    msg!("The displays weren\u{2019}t reset: {error}."),
-                    &[("error", &error.text().translated())],
-                ));
-            }
+        if let Some(error) = errors.displays {
+            self.emit_problem(&trf(
+                msg!("The displays weren\u{2019}t reset: {error}."),
+                &[("error", &error.text().translated())],
+            ));
         }
     }
 

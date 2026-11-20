@@ -29,6 +29,9 @@
   sent are undone with the previous values.
 - **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
   user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
+- **A page reset** (`Applier::reset_page`) resets every stored value of the page, as `PageReset::plan` lists them,
+  except the risky ones, which only the safety net changes; while kanshi sets up the displays, a reset of Displays also
+  forgets the profile of the displays connected. The app's confirmation counts from the same plan.
 - **Refused:** risky settings (they change and reset only through the [safety net](#risky-settings-safety-net)), and a
   `set` of a setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is
   always allowed, so such a value can be removed.

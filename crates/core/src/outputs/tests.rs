@@ -435,3 +435,46 @@ fn the_mirror_hook_does_nothing_without_a_profile_that_mirrors() {
     assert_eq!(started, 0);
     assert_eq!(sway.commands(), [] as [&str; 0]);
 }
+
+#[test]
+fn an_output_has_the_brand_people_know_and_says_whether_it_is_built_in() {
+    let list = desk();
+    let panel = list.find("eDP-1").unwrap();
+    assert!(panel.is_built_in());
+    assert_eq!(panel.brand().as_deref(), Some("InfoVision"));
+    let samsung = list.find("DP-5").unwrap();
+    assert!(!samsung.is_built_in());
+    assert_eq!(samsung.brand().as_deref(), Some("Samsung"));
+    // A make that doesn't say: no brand.
+    assert_eq!(list.find("HDMI-A-1").unwrap().brand(), None);
+    // EDID names some makes after the company behind the brand.
+    let lg = Outputs::new(&outputs(
+        r#"[{"name": "DP-1", "active": true, "primary": false, "make": "Goldstar Company Ltd",
+             "model": "LG ULTRAFINE", "serial": "1", "modes": []}]"#,
+    ));
+    assert_eq!(lg.find("DP-1").unwrap().brand().as_deref(), Some("LG"));
+}
+
+#[test]
+fn modes_are_offered_a_size_at_a_time_then_a_rate_at_a_time() {
+    use super::modes;
+    let list = desk();
+    let samsung = list.find("DP-5");
+    let size = |mode: &Mode| (mode.width(), mode.height(), mode.refresh());
+    // A mode per size, largest first, each the fastest of its size.
+    let sizes: Vec<_> = modes::sizes(samsung, None).iter().map(size).collect();
+    assert_eq!(
+        sizes,
+        [(2560, 1440, Some(59951)), (1920, 1080, Some(60000))]
+    );
+    // The mode in use stands for its size, also when the output doesn't list it.
+    let slow = Mode::parse("1920x1080@50Hz").unwrap();
+    let sizes: Vec<_> = modes::sizes(samsung, Some(slow)).iter().map(size).collect();
+    assert_eq!(sizes[1], (1920, 1080, Some(50000)));
+    // The rates of one size, each once, fastest first.
+    let rates: Vec<_> = modes::rates(samsung, slow).iter().map(size).collect();
+    assert_eq!(
+        rates,
+        [(1920, 1080, Some(60000)), (1920, 1080, Some(50000))]
+    );
+}

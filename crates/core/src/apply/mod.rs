@@ -37,12 +37,14 @@
 //! # }
 //! ```
 
+mod page;
 mod risky;
 #[cfg(test)]
 mod tests;
 mod view;
 mod waiting;
 
+pub use page::{PageReset, PageResetErrors};
 pub use risky::{Countdown, Pending, Trial, Tried, TriedValue};
 pub use view::{InEffect, in_effect};
 pub use waiting::{Until, Waiting, WaitingChange};

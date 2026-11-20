@@ -37,6 +37,7 @@ pub mod hooks;
 pub mod kanshi;
 pub mod layout;
 pub mod mirror;
+pub mod modes;
 pub mod profiles;
 #[cfg(test)]
 mod tests;
@@ -388,6 +389,42 @@ impl Output {
             (false, true) => self.model.clone(),
             (false, false) => self.name.clone(),
         }
+    }
+
+    /// Whether the output is a laptop's or tablet's own panel, by its connector (eDP, LVDS, DSI).
+    pub fn is_built_in(&self) -> bool {
+        ["eDP-", "LVDS-", "DSI-"]
+            .iter()
+            .any(|prefix| self.name.starts_with(prefix))
+    }
+
+    /// The brand people know the make by: its first word (_Samsung_ for "Samsung Electric
+    /// Company"), or for makes that EDID names after the company behind the brand, the brand
+    /// (_LG_ for "Goldstar"). `None` if the output doesn't report its make.
+    pub fn brand(&self) -> Option<String> {
+        if self.make.is_empty() || self.make == "Unknown" {
+            return None;
+        }
+        let first = self
+            .make
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .find(|word| !word.is_empty())
+            .unwrap_or(&self.make)
+            .trim_end_matches('.');
+        let known = [
+            ("Goldstar", "LG"),
+            ("Ancor", "ASUS"),
+            ("Hewlett", "HP"),
+            ("Microstep", "MSI"),
+            ("Lenovo", "Lenovo"),
+            ("BenQ", "BenQ"),
+        ];
+        Some(
+            known
+                .iter()
+                .find(|(company, _)| first.eq_ignore_ascii_case(company))
+                .map_or_else(|| first.to_owned(), |(_, brand)| (*brand).to_owned()),
+        )
     }
 
     /// The make, as sway reports it (`Unknown` if the output doesn't say).
