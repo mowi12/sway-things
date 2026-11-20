@@ -29,6 +29,7 @@ BuildRequires:  cargo >= 1.85
 BuildRequires:  cargo-packaging
 BuildRequires:  pkgconfig(gtk4) >= 4.18
 BuildRequires:  pkgconfig(gtk4-layer-shell-0)
+BuildRequires:  pkgconfig(libpulse)
 # msgfmt, with the ITS rules for the AppStream metainfo
 BuildRequires:  gettext-tools
 BuildRequires:  desktop-file-utils

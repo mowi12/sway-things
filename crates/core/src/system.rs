@@ -5,10 +5,10 @@
 //! `sway-things doctor`.
 //!
 //! Only what helps sorting out a bug and can be read cheaply and reliably: the versions of Sway
-//! Things, the compositor, GTK, the distribution, NetworkManager and the kernel, and whether the
-//! tools the pages delegate to are installed. Not BlueZ (no version on D-Bus, and `bluetoothd`
-//! lives in a different place per distribution) and not wlroots (neither sway's IPC nor
-//! `sway --version` report it).
+//! Things, the compositor, GTK, the distribution, NetworkManager, the sound server and the kernel,
+//! and whether the tools the pages delegate to are installed. Not BlueZ (no version on D-Bus, and
+//! `bluetoothd` lives in a different place per distribution) and not wlroots (neither sway's IPC
+//! nor `sway --version` report it).
 
 use std::fs;
 use std::path::Path;
@@ -18,6 +18,7 @@ use crate::i18n::{Msg, Text};
 use crate::ipc::Compositor;
 use crate::msg;
 use crate::network::{NetworkManager, clean};
+use crate::sound::Sound;
 
 /// The version of Sway Things.
 pub const SWAY_THINGS_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,7 +30,12 @@ const OS_RELEASE: [&str; 2] = ["/etc/os-release", "/usr/lib/os-release"];
 const KERNEL_RELEASE: &str = "/proc/sys/kernel/osrelease";
 
 /// The tools the pages delegate to, in the order they are listed.
-pub const TOOLS: [Tool; 2] = [delegate::NM_CONNECTION_EDITOR, delegate::BLUEMAN];
+pub const TOOLS: [Tool; 4] = [
+    delegate::NM_CONNECTION_EDITOR,
+    delegate::BLUEMAN,
+    delegate::PWVUCONTROL,
+    delegate::PAVUCONTROL,
+];
 
 /// The heading of the details in `doctor`.
 pub fn heading() -> Msg {
@@ -47,6 +53,9 @@ pub struct Details {
     pub distribution: Option<String>,
     /// NetworkManager's version; `None` while it isn't running.
     pub network_manager: Option<String>,
+    /// The sound server's name with its version (`PulseAudio (on PipeWire 1.6.9)`); `None` while
+    /// none runs.
+    pub sound_server: Option<String>,
     /// The kernel release.
     pub kernel: Option<String>,
     /// Whether each of [`TOOLS`] is installed, in that order.
@@ -90,14 +99,20 @@ impl Value {
 
 impl Details {
     /// Reads the details. `compositor` and `gtk` come from the caller, which knows them;
-    /// NetworkManager is asked on `network_manager`'s bus, if there is one.
+    /// NetworkManager is asked on `network_manager`'s bus and the sound server on the `sound`
+    /// connection, if there are those.
     pub async fn read(
         compositor: Option<Compositor>,
         gtk: Option<String>,
         network_manager: Option<&NetworkManager>,
+        sound: Option<&Sound>,
     ) -> Self {
         let network_manager = match network_manager {
             Some(nm) => nm.version().await,
+            None => None,
+        };
+        let sound_server = match sound {
+            Some(sound) => sound.server().await.ok().map(|server| server.label()),
             None => None,
         };
         Self {
@@ -105,6 +120,7 @@ impl Details {
             gtk,
             distribution: distribution(&OS_RELEASE.map(Path::new)),
             network_manager,
+            sound_server,
             kernel: kernel(Path::new(KERNEL_RELEASE)),
             tools: TOOLS
                 .iter()
@@ -138,6 +154,13 @@ impl Details {
             (
                 Text::data("NetworkManager"),
                 self.network_manager
+                    .clone()
+                    .map_or(Value::NotRunning, Value::Text),
+            ),
+            (
+                // TRANSLATORS: A label of the system details: PipeWire's or PulseAudio's server.
+                msg!("Sound server").into(),
+                self.sound_server
                     .clone()
                     .map_or(Value::NotRunning, Value::Text),
             ),
@@ -241,6 +264,7 @@ mod tests {
             gtk: Some("4.18.6".to_owned()),
             distribution: Some("openSUSE Tumbleweed".to_owned()),
             network_manager: Some("1.52.0".to_owned()),
+            sound_server: Some("PulseAudio (on PipeWire 1.6.9)".to_owned()),
             kernel: Some("6.17.7-1-default".to_owned()),
             tools: vec![
                 (delegate::NM_CONNECTION_EDITOR, true),
@@ -259,6 +283,7 @@ mod tests {
                  GTK: 4.18.6\n\
                  Distribution: openSUSE Tumbleweed\n\
                  NetworkManager: 1.52.0\n\
+                 Sound server: PulseAudio (on PipeWire 1.6.9)\n\
                  Kernel: 6.17.7-1-default\n\
                  nm-connection-editor: installed\n\
                  blueman-manager: not installed\n"
@@ -273,6 +298,7 @@ mod tests {
             gtk: None,
             distribution: None,
             network_manager: None,
+            sound_server: None,
             kernel: None,
             ..details()
         };
@@ -284,6 +310,7 @@ mod tests {
                  GTK: unknown\n\
                  Distribution: unknown\n\
                  NetworkManager: not running\n\
+                 Sound server: not running\n\
                  Kernel: unknown\n\
                  nm-connection-editor: installed\n\
                  blueman-manager: not installed\n"

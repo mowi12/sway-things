@@ -15,7 +15,7 @@ use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
 use crate::widgets::{
     BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
-    Placeholder, Sidebar, Welcome,
+    Placeholder, Sidebar, SoundPage, SoundServer, Welcome,
 };
 
 /// The width of the sidebar, in pixels.
@@ -38,7 +38,7 @@ mod imp {
     use sway_things_core::registry::Page;
 
     use crate::model::Model;
-    use crate::widgets::{BluetoothBus, NetworkBus, Panes, Sidebar, Welcome};
+    use crate::widgets::{BluetoothBus, NetworkBus, Panes, Sidebar, SoundServer, Welcome};
 
     #[derive(Debug, Default)]
     pub struct Window {
@@ -69,6 +69,8 @@ mod imp {
         pub bluetooth_bus: RefCell<BluetoothBus>,
         /// Where the Network page finds NetworkManager.
         pub network_bus: RefCell<NetworkBus>,
+        /// Where the Sound page finds the sound server.
+        pub sound_server: RefCell<SoundServer>,
         /// The banner of the safety net: keep or revert the risky change that waits.
         pub safety: gtk::Revealer,
         pub safety_text: gtk::Label,
@@ -120,11 +122,13 @@ impl Window {
     /// A main window for the settings of `model` that belongs to no application, e.g. in tests.
     /// Its Bluetooth and Network pages talk to no bus until
     /// [`use_bluetooth_bus`](Self::use_bluetooth_bus) and
-    /// [`use_network_bus`](Self::use_network_bus).
+    /// [`use_network_bus`](Self::use_network_bus), its Sound page to no server until
+    /// [`use_sound_server`](Self::use_sound_server).
     pub fn with_model(model: &Model) -> Self {
         let window: Self = glib::Object::new();
         window.imp().bluetooth_bus.replace(BluetoothBus::Off);
         window.imp().network_bus.replace(NetworkBus::Off);
+        window.imp().sound_server.replace(SoundServer::Off);
         window.build(model);
         window
     }
@@ -833,12 +837,41 @@ impl Window {
         self.imp().network_bus.replace(bus);
     }
 
+    /// Points the Sound page at another sound server than the session's, for tests. Takes effect
+    /// when the page is built next.
+    pub fn use_sound_server(&self, server: SoundServer) {
+        self.imp().sound_server.replace(server);
+    }
+
+    /// Where the Sound page finds the sound server; the About section asks it there too.
+    pub fn sound_server(&self) -> SoundServer {
+        self.imp().sound_server.borrow().clone()
+    }
+
     /// Where the Network page finds NetworkManager; the About section asks it there too.
     pub fn network_bus(&self) -> NetworkBus {
         self.imp().network_bus.borrow().clone()
     }
 
     fn build_page(&self, page: Page) -> PageView {
+        // Live state from the sound server, not settings; only the preference for volume above
+        // 100 % comes from the model.
+        if page == Page::Sound {
+            let body = SoundPage::new(&self.imp().sound_server.borrow());
+            if let Some(model) = self.imp().model.get() {
+                let weak = body.downgrade();
+                follow_toggle(model, "app.sound_above_100", move |above| {
+                    if let Some(body) = weak.upgrade() {
+                        body.set_above_100(above);
+                    }
+                });
+            }
+            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
+            if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
+                header.set_end(&advanced);
+            }
+            return view;
+        }
         // Live state from BlueZ, not settings; only the preference for searching comes from the
         // model.
         if page == Page::Bluetooth {
@@ -1016,6 +1049,22 @@ fn safety_text(model: &Model, pending: &Pending) -> String {
         msg!("Keep the change to {setting}? Reverting in {seconds} s"),
         &[("setting", &name), ("seconds", &seconds)],
     )
+}
+
+/// Calls `apply` with whether the switch `key` is on, now and whenever the settings change.
+fn follow_toggle(model: &Model, key: &str, apply: impl Fn(bool) + 'static) {
+    let Some(setting) = Registry::builtin().get(key) else {
+        return;
+    };
+    let update = move |model: &Model| {
+        apply(
+            model
+                .view(setting, None)
+                .is_some_and(|view| view.value == Value::Bool(true)),
+        );
+    };
+    update(model);
+    model.connect_changed(update);
 }
 
 /// Calls `apply` with whether the preference `key` asks for searches only on request, now and

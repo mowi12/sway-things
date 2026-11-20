@@ -100,6 +100,18 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | mako supports `include=` with an absolute or `~/` path. | mako `doc/mako.5.scd` |
 | swaync has no include, but takes its config and style with `-c` and `-s`. | `swaync --help` (0.12.6) |
 
+## PipeWire and PulseAudio
+
+| Fact | Source |
+| --- | --- |
+| pipewire-pulse serves the PulseAudio protocol on `$XDG_RUNTIME_DIR/pulse/native`; its server name carries PipeWire's version (`PulseAudio (on PipeWire 1.6.9)`), its protocol version is 15.0.0. | `pactl info` against pipewire-pulse 1.6.9 |
+| When the default sink changes, the streams that follow the default move along (WirePlumber; PulseAudio since 15.0); a stream moved explicitly (`move-sink-input`) gets a target and stays there. | checked with PipeWire 1.6.9 and WirePlumber 0.5.19; PulseAudio 15.0 release notes |
+| `PA_CONTEXT_NOFAIL` only waits for the first connection; a context whose server goes away fails and stays failed. | checked with libpulse 17.0 against a restarted pipewire-pulse |
+| A peak-detect recording stream (`PA_STREAM_PEAK_DETECT`, float32, one channel, 25 Hz, `fragsize` of one sample) gives a level meter. With `PA_STREAM_DONT_INHIBIT_AUTO_SUSPEND` it doesn't keep the device awake, but pipewire-pulse makes such a stream a passive node, which gets no data from an input no app records from (tested on PipeWire 1.6.9), so the meter leaves the flag out. | pavucontrol `src/mainwindow.cc` (`createMonitorStreamForSource`); tested against pipewire-pulse 1.6.9 and the stand-in |
+| `libpulse-binding` 2.30's `StreamRestore::write` passes its `&[&Info]` to `pa_ext_stream_restore_write` as an array of C structs, so the server answers "Invalid argument"; its subscription callback is freed with the `StreamRestore` value. | `libpulse-binding` 2.30.1 `src/context/ext_stream_restore.rs` |
+| pipewire-pulse's `module-null-sink` with `media.class=Audio/Source/Virtual` makes a virtual source; WirePlumber 0.5 leaves the machine's sound cards alone with `monitor.alsa = disabled` (and the Bluetooth and camera monitors) in `wireplumber.profiles`. | PipeWire's `pipewire-pulse-modules`, WirePlumber 0.5 configuration docs |
+| pavucontrol's volume sliders go to `PA_VOLUME_UI_MAX` (about 153 %); GNOME offers going above 100 % as a setting (`org.gnome.desktop.sound allow-volume-above-100-percent`). | pulse `volume.h`, gsettings-desktop-schemas `org.gnome.desktop.sound` |
+
 ## BlueZ and rfkill
 
 | Fact | Source |

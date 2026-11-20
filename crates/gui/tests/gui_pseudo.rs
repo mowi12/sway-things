@@ -28,12 +28,13 @@ use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
 use sway_things_core::registry::{Page, Registry};
+use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::MemoryFiles;
 use sway_things_core::system::Details;
 use sway_things_core::version::{SwayFxVersion, SwayVersion};
 use sway_things_gui::model::Model;
-use sway_things_gui::widgets::{BluetoothBus, NetworkBus};
+use sway_things_gui::widgets::{BluetoothBus, NetworkBus, SoundServer};
 use sway_things_gui::window::Window;
 use sway_things_gui::{icons, style, xkb};
 
@@ -64,6 +65,10 @@ const PRODUCTS: &[&str] = &[
     "NetworkManager",
     "nm-connection-editor",
     "blueman-manager",
+    "pwvucontrol",
+    "pavucontrol",
+    "PipeWire",
+    "PulseAudio",
     "Blueman",
     "BlueZ",
     "XKB",
@@ -82,7 +87,22 @@ const PRODUCTS: &[&str] = &[
 
 /// What the stand-ins call their devices, adapters and networks.
 const STAND_IN_NAMES: &[&str] = &[
-    "Headset", "Speaker", "laptop", "dongle", "hci0", "hci1", "Home", "Office", "Cafe", "wlan0",
+    "Headset",
+    "Speaker",
+    "laptop",
+    "dongle",
+    "hci0",
+    "hci1",
+    "Home",
+    "Office",
+    "Cafe",
+    "wlan0",
+    "Speakers",
+    "HDMI",
+    "Microphone",
+    "Music",
+    "Recorder",
+    "pacat",
 ];
 
 fn main() -> ExitCode {
@@ -156,7 +176,7 @@ fn check() -> Outcome {
     if let Some(settings) = gtk::Settings::default() {
         settings.set_gtk_enable_animations(false);
     }
-    let data = data();
+    let mut data = data();
     let mut problems = String::new();
 
     // Without the include line: the welcome screen, then the pages with the banner.
@@ -171,9 +191,10 @@ fn check() -> Outcome {
     problems.push_str(&english_in("read-only banner", window.upcast_ref(), &data));
     window.destroy();
 
-    // With it: every page, Bluetooth and Network against their stand-ins.
+    // With it: every page, Bluetooth, Network and Sound against their stand-ins.
     let bluetooth = bluetooth_stand_in();
     let network = network_stand_in();
+    let sound = sound_stand_in();
     let fixture = Fixture::new(true)?;
     let window = Window::with_model(&fixture.model);
     match &bluetooth {
@@ -186,12 +207,29 @@ fn check() -> Outcome {
         Ok(stand_in) => window.use_network_bus(NetworkBus::Address(stand_in.address().to_owned())),
         Err(error) => println!("note: Network without its stand-in: {error}"),
     }
+    match &sound {
+        Ok(stand_in) => {
+            window.use_sound_server(SoundServer::Address(stand_in.server()));
+            // The server's name, which About shows, is data.
+            let info = stand_in.pactl(&["info"]).unwrap_or_default();
+            data.extend(
+                info.lines()
+                    .filter_map(|line| line.strip_prefix("Server Name: "))
+                    .map(str::to_owned),
+            );
+            data.sort_by_key(|text| std::cmp::Reverse(text.len()));
+        }
+        Err(error) => println!("note: Sound without its stand-in: {error}"),
+    }
     window.present();
     for page in Page::ALL {
         window.show_page(page);
         settle(&window);
         // The pages that ask D-Bus need a moment longer.
-        if matches!(page, Page::Bluetooth | Page::Network | Page::About) {
+        if matches!(
+            page,
+            Page::Sound | Page::Bluetooth | Page::Network | Page::About
+        ) {
             run_for(Duration::from_secs(2));
         }
         problems.push_str(&english_in(page.id(), window.upcast_ref(), &data));
@@ -259,7 +297,7 @@ fn data() -> Vec<String> {
         data.extend(item.vendor.clone());
     }
     // The system details About shows: the distribution and the kernel of this machine.
-    let system = async_io::block_on(Details::read(None, None, None));
+    let system = async_io::block_on(Details::read(None, None, None, None));
     data.extend(system.distribution);
     data.extend(system.kernel);
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));
@@ -378,6 +416,22 @@ fn bluetooth_stand_in() -> Result<StandIn, String> {
         Ok::<_, sway_things_core::bluetooth::stand_in::Error>(stand_in)
     })
     .map_err(|error| format!("BlueZ's stand-in: {error}"))
+}
+
+/// A sound server with two outputs, a microphone, an app that plays and one that records.
+fn sound_stand_in() -> Result<SoundStandIn, String> {
+    let start = || {
+        let mut stand_in = SoundStandIn::start()?;
+        stand_in.add_output("speakers", "Speakers")?;
+        stand_in.add_output("hdmi", "HDMI")?;
+        stand_in.add_input("mic", "Microphone")?;
+        stand_in.pactl(&["set-default-sink", "speakers"])?;
+        stand_in.pactl(&["set-default-source", "mic"])?;
+        stand_in.play("Music")?;
+        stand_in.record("Recorder")?;
+        Ok::<_, sway_things_core::sound::stand_in::Error>(stand_in)
+    };
+    start().map_err(|error| format!("the sound server's stand-in: {error}"))
 }
 
 /// NetworkManager's stand-in with a Wi-Fi adapter, networks in range and a saved one.

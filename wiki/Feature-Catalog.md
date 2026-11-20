@@ -115,14 +115,16 @@ filter, ICC profile) · 🟡 custom modes / modelines · 🟡 show which profile
 
 ### Sound
 
-Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pulse.
+Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pulse (or PulseAudio).
 
-- [ ] 🟡 Output and input device selection
-- [ ] 🟡 Master volume and mute, microphone level
-- [ ] 🟡 Per-application volume
-- [ ] 🟡 Device profiles (HDMI, A2DP/HFP for Bluetooth headsets)
-- [ ] 🟡 Alert sound volume / event sounds
-- [ ] 🟢 "Advanced…" → pavucontrol (or similar)
+- [x] 🟡 Output and input device selection, with the connector (speakers, headphones)
+- [x] 🟡 Master volume and mute, microphone level, and a level meter for the input
+- [x] 🟡 Per-application volume, for apps that play and apps that record
+- [x] 🟡 Device profiles (HDMI, A2DP/HFP for Bluetooth headsets)
+- [ ] 🟡 Alert sound volume / event sounds: waits for `libpulse-binding`'s stream-restore write, which passes Rust
+      structs to libpulse (see [Architecture → Backends](Architecture.md#backends))
+- [x] 🟢 "Advanced…" → pwvucontrol, else pavucontrol
+- [x] 🟢 Volume above 100 % (up to 150 %) as an app preference
 
 ### Bluetooth
 
