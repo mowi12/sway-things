@@ -24,6 +24,7 @@ mod setting_row;
 mod sidebar;
 mod test_area;
 mod welcome;
+mod workspaces;
 mod xkb_options;
 
 pub use bluetooth::{BluetoothPage, Bus as BluetoothBus};
@@ -44,4 +45,5 @@ pub use setting_row::SettingRow;
 pub use sidebar::Sidebar;
 pub use test_area::TestArea;
 pub use welcome::Welcome;
+pub use workspaces::WorkspaceMap;
 pub use xkb_options::OptionBrowser;

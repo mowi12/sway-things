@@ -249,7 +249,7 @@ fn unmet_dependency(
     let title = other.title();
     let text = match dependency.when {
         When::On => Text::new(msg!("Turn on {title} first")).text("title", title),
-        When::OneOf(ids) => {
+        When::OneOf(ids) | When::NoneOf(ids) => {
             let labels: Vec<Text> = match other.kind() {
                 Kind::Choice { choices, .. } => choices
                     .iter()
@@ -267,7 +267,12 @@ fn unmet_dependency(
                         .text("second", second)
                 })
                 .unwrap_or_else(|| Text::data(""));
-            Text::new(msg!("Only with {title}: {choices}"))
+            let message = if matches!(dependency.when, When::NoneOf(_)) {
+                msg!("Only when {title} isn't {choices}")
+            } else {
+                msg!("Only with {title}: {choices}")
+            };
+            Text::new(message)
                 .text("title", title)
                 .text("choices", choices)
         }
@@ -530,6 +535,18 @@ mod tests {
         );
         let pixel = setup("version = 1\n\n[windows.border]\nstyle = \"pixel\"\n");
         assert_eq!(view(&pixel, width, None, &users).locked, None);
+        // A choice that must not be some: the count of placed workspaces.
+        assert_eq!(
+            view(&empty, "workspaces.count", None, INCLUDE)
+                .locked
+                .map(|locked| locked.text().english()),
+            Some("Only when Place workspaces isn't Off (sway decides)".to_owned())
+        );
+        let placed = setup("version = 1\n\n[workspaces]\nplacement = \"blocks\"\n");
+        assert_eq!(
+            view(&placed, "workspaces.count", None, INCLUDE).locked,
+            None
+        );
         // Being read-only says more.
         assert!(matches!(
             view(&empty, width, None, "default_border none\n").locked,

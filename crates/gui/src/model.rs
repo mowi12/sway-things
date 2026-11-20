@@ -127,9 +127,9 @@ enum Op {
         target: String,
         mirror: Option<sway_things_core::outputs::mirror::Mirror>,
     },
-    /// Places the workspaces on the displays, or not; with a placement for the displays
-    /// connected now, or with the one they have now.
-    PlaceWorkspaces { place: bool, placement: Placement },
+    /// Puts a workspace on a display, by its name in the settings, in the fixed placement for
+    /// the displays connected now, and places them.
+    FixPlacement { workspace: String, display: String },
     /// While kanshi sets up the displays: has the stored values of the displays follow the
     /// combination connected now ([`Applier::follow_combination`]).
     FollowCombination,
@@ -143,17 +143,6 @@ enum Op {
     SwayReloaded,
     /// Writes a generated file that was changed outside Sway Things.
     Overwrite(ConfigFile),
-}
-
-/// Where the workspaces go, for [`Model::place_workspaces`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Placement {
-    /// As remembered for the displays connected now.
-    Kept,
-    /// This placement, by workspace name and display name.
-    Of(std::collections::BTreeMap<String, String>),
-    /// Where the workspaces are now.
-    AsNow,
 }
 
 /// What the model works with once it is loaded.
@@ -726,6 +715,29 @@ impl Model {
         (removed, kept)
     }
 
+    /// Puts `workspace` on `display` in the fixed placement and places the workspaces.
+    async fn fix_placement_now(
+        &self,
+        applier: &mut Applier,
+        workspace: &str,
+        display: &str,
+        access: Result<WriteAccess, ReadOnly>,
+    ) {
+        let placed = match access {
+            Ok(access) => applier
+                .fix_placement(workspace, display, &access)
+                .await
+                .map_err(|error| error.text().translated()),
+            Err(read_only) => Err(explained(&read_only)),
+        };
+        if let Err(error) = placed {
+            self.emit_problem(&trf(
+                msg!("The workspaces weren\u{2019}t placed: {error}."),
+                &[("error", &error)],
+            ));
+        }
+    }
+
     /// Removes every stored value of `page`, except those of settings that can lock the user
     /// out ([`Model::page_reset`]).
     pub fn reset_page(&self, page: Page) {
@@ -798,23 +810,22 @@ impl Model {
             .map(|core| core.locations.clone())
     }
 
-    /// Whether the workspaces are placed on the displays, and where they go for the displays
-    /// connected now. `None` without remembered displays.
-    pub fn placement(&self) -> Option<(bool, std::collections::BTreeMap<String, String>)> {
+    /// Where each workspace goes on the displays connected now, by the Workspaces page's rule,
+    /// count and fixed placement, by display name; empty while sway places them. `None` before
+    /// the settings are loaded.
+    pub fn placement(&self) -> Option<std::collections::BTreeMap<String, String>> {
+        use sway_things_core::outputs::workspaces;
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let profiles = core.profiles.as_ref()?;
-        let names: Vec<&str> = core
-            .outputs
-            .iter()
-            .filter(|output| output.is_connected())
-            .map(sway_things_core::outputs::Output::identifier)
-            .collect();
-        let placement = profiles
-            .of(&names)
-            .map(|profile| profile.workspaces().clone())
-            .unwrap_or_default();
-        Some((profiles.places_workspaces(), placement))
+        let profiles = core.profiles.as_ref();
+        let mirrors = workspaces::mirrored(profiles, &core.outputs);
+        Some(workspaces::place(
+            workspaces::Rule::of(&core.state),
+            &core.outputs,
+            &mirrors,
+            workspaces::count(&core.state),
+            &workspaces::fixed(profiles, &core.outputs),
+        ))
     }
 
     /// The display each display of the connected combination mirrors, by name. `None` without
@@ -855,9 +866,13 @@ impl Model {
         });
     }
 
-    /// Places the workspaces on the displays (`place`) as `placement` says, or not.
-    pub fn place_workspaces(&self, place: bool, placement: Placement) {
-        self.queue(Op::PlaceWorkspaces { place, placement });
+    /// Puts `workspace` on `display` (by its name in the settings) in the fixed placement for
+    /// the displays connected now, and places the workspaces.
+    pub fn fix_placement(&self, workspace: &str, display: &str) {
+        self.queue(Op::FixPlacement {
+            workspace: workspace.to_owned(),
+            display: display.to_owned(),
+        });
     }
 
     /// Whether a change is queued or in progress.
@@ -894,7 +909,7 @@ impl Model {
             | Op::FollowCombination
             | Op::MoveAlong(_)
             | Op::Overwrite(_)
-            | Op::PlaceWorkspaces { .. }
+            | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,
         })
     }
@@ -1047,14 +1062,12 @@ impl Model {
             }
             (Op::ReloadSway, Ok(access)) => self.reload_sway_now(&mut applier, &access).await,
             (Op::SwayReloaded, _) => applier.reloaded(),
-            (
-                op @ (Op::SetMirror { .. }
-                | Op::PlaceWorkspaces { .. }
-                | Op::FollowCombination
-                | Op::MoveAlong(_)),
-                _,
-            ) => {
+            (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
                 self.displays_now(&mut applier, op).await;
+            }
+            (Op::FixPlacement { workspace, display }, access) => {
+                self.fix_placement_now(&mut applier, &workspace, &display, access)
+                    .await;
             }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
@@ -1362,9 +1375,6 @@ impl Model {
                     ));
                 }
             }
-            Op::PlaceWorkspaces { place, placement } => {
-                self.place_workspaces_now(applier, place, placement).await;
-            }
             Op::MoveAlong(places) => {
                 // Nothing waits any more (kept or reverted meanwhile): nothing to move along.
                 match applier.move_along(&places).await {
@@ -1384,25 +1394,6 @@ impl Model {
                 }
             }
             _ => {}
-        }
-    }
-
-    /// Places the workspaces (`place`) as `placement` says, or not.
-    async fn place_workspaces_now(&self, applier: &mut Applier, place: bool, placement: Placement) {
-        let placement = match placement {
-            Placement::Kept => Ok(None),
-            Placement::Of(placement) => Ok(Some(placement)),
-            Placement::AsNow => applier.current_placement().await.map(Some),
-        };
-        let placed = match placement {
-            Ok(placement) => applier.place_workspaces(place, placement).await,
-            Err(error) => Err(error),
-        };
-        if let Err(error) = placed {
-            self.emit_problem(&trf(
-                msg!("The workspaces weren\u{2019}t placed: {error}."),
-                &[("error", &error.text().translated())],
-            ));
         }
     }
 

@@ -309,29 +309,42 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
 /// is stored, so its value reaches GSettings at login and after each reload, also when the
-/// settings file came from another machine.
+/// settings file came from another machine; and `sway-things hook workspaces` while the
+/// workspaces are placed, since sway forgets their displays at a reload.
 fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
+    let mut lines = Vec::new();
     let keys: Vec<&'static str> = registry
         .iter()
         .filter(|setting| setting.gsettings().is_some())
         .map(Setting::key)
         .filter(|key| state.get(key, None).is_some())
         .collect();
-    if keys.is_empty() {
-        return Vec::new();
+    if !keys.is_empty() {
+        lines.push(hook_line("gsettings", keys));
     }
+    if outputs::workspaces::Rule::of(state).places() {
+        lines.push(hook_line(
+            "workspaces",
+            vec![crate::registry::workspaces::PLACEMENT],
+        ));
+    }
+    lines
+}
+
+/// The line that runs `sway-things hook <name>`, for the settings `keys`.
+fn hook_line(name: &'static str, keys: Vec<&'static str>) -> Line {
     let source = Source { keys, device: None };
-    match command::hook("gsettings").render(Target::Config) {
-        Ok(text) => vec![Line {
+    match command::hook(name).render(Target::Config) {
+        Ok(text) => Line {
             text,
             source,
             skipped: None,
-        }],
-        Err(error) => vec![Line {
+        },
+        Err(error) => Line {
             text: format!("# {}: {error}", source.keys.join(", ")),
             source,
             skipped: Some(error.to_string()),
-        }],
+        },
     }
 }
 

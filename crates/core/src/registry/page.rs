@@ -224,7 +224,7 @@ impl Page {
             Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),
             Self::Bar => msg!("Position, modules and style of the bar"),
             Self::WindowBehavior => msg!("How focus, floating and tiling behave"),
-            Self::Workspaces => msg!("Names, icons and the number of workspaces"),
+            Self::Workspaces => msg!("Which display each workspace is on, and how new ones start"),
             Self::KeyboardShortcuts => msg!("All bindings, gestures and media keys"),
             Self::Notifications => msg!("Notification daemon settings"),
             Self::AppsAutostart => {

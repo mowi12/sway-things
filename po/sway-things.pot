@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-19 08:54+0100\n"
+"POT-Creation-Date: 2026-11-19 21:18+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1869,67 +1869,6 @@ msgstr ""
 msgid "attention"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/page.rs
-#: crates/gui/src/widgets/page_view.rs
-msgid "Workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Layout of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "tabs"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "stack"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
-msgid "tiling"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Split of new workspaces"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "How the windows of a new workspace are arranged"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "default orientation"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "horizontal"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "vertical"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Back and forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "Switching to the current workspace again goes back to the previous one"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "workspace_auto_back_and_forth"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "previous workspace"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "toggle"
-msgstr ""
-
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
 msgid "Mouse"
 msgstr ""
@@ -2079,6 +2018,66 @@ msgstr ""
 msgid "legacy"
 msgstr ""
 
+#: crates/core/src/registry/behavior.rs
+msgid "New workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Layout of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "tabs"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "stack"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
+msgid "tiling"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Split of new workspaces"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "How the windows of a new workspace are arranged"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "default orientation"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "horizontal"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "vertical"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Back and forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "Switching to the current workspace again goes back to the previous one"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "workspace_auto_back_and_forth"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "previous workspace"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+msgid "toggle"
+msgstr ""
+
 #: crates/core/src/registry/cursor.rs
 msgid "Like a pen on paper"
 msgstr ""
@@ -2222,6 +2221,7 @@ msgid "map to output"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/workspaces.rs
 msgid "monitor"
 msgstr ""
 
@@ -3211,7 +3211,7 @@ msgid ""
 "again"
 msgstr ""
 
-#: crates/core/src/registry/output.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
 msgid "screen"
 msgstr ""
 
@@ -3420,6 +3420,10 @@ msgid "Window Behavior"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
+msgid "Workspaces"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
 msgid "Keyboard Shortcuts"
 msgstr ""
 
@@ -3508,7 +3512,7 @@ msgid "How focus, floating and tiling behave"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Names, icons and the number of workspaces"
+msgid "Which display each workspace is on, and how new ones start"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -4035,6 +4039,79 @@ msgstr ""
 msgid "height"
 msgstr ""
 
+#: crates/core/src/registry/workspaces.rs
+msgid "Off (sway decides)"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Round robin, left to right"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "A block per display"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "All on one display (the laptop's, or the leftmost)"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Fixed, as you arrange them"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs crates/gui/src/widgets/page_view.rs
+msgid "Placement"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Place workspaces"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid ""
+"Which display each number goes to. Open workspaces move at once, the others "
+"with the reload; worked out again when sway starts, and with kanshi whenever "
+"displays come and go"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "workspace output"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "display"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "assign"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "pin"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "round robin"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "Workspaces placed"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid ""
+"Workspaces 1 to this number. The default keys ($mod+1 to $mod+0) reach 1 to "
+"10"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "number of workspaces"
+msgstr ""
+
+#: crates/core/src/registry/workspaces.rs
+msgid "how many"
+msgstr ""
+
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "{file}: {problem}"
@@ -4207,6 +4284,11 @@ msgstr ""
 
 #: crates/core/src/view.rs
 #, rust-format
+msgid "Only when {title} isn't {choices}"
+msgstr ""
+
+#: crates/core/src/view.rs
+#, rust-format
 msgid "Only with {title}: {choices}"
 msgstr ""
 
@@ -4286,6 +4368,11 @@ msgstr ""
 
 #: crates/gui/src/model.rs
 #, rust-format
+msgid "The workspaces weren’t placed: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
 msgid "{error}. The old value comes back when sway reloads its config."
 msgstr ""
 
@@ -4316,11 +4403,6 @@ msgstr ""
 #: crates/gui/src/model.rs
 #, rust-format
 msgid "The settings of the displays weren’t updated: {error}."
-msgstr ""
-
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "The workspaces weren’t placed: {error}."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
@@ -5023,41 +5105,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
 msgid "Refresh rate"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "Place workspaces on the displays"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid ""
-"Workspaces 1 to 10 go where you put them, remembered for each combination of "
-"displays and placed again whenever it comes back."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "Left to Right"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "A Block per Display"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "As They Are Now"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "Needs kanshi, which remembers each combination of displays (see above)."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-msgid "Click to send it to the next display, or drag it"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/workspaces.rs
-#, rust-format
-msgid "Workspace {name}, on {display}"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
@@ -5967,6 +6014,32 @@ msgstr ""
 
 #: crates/gui/src/widgets/welcome.rs
 msgid "Sway Things isn't enabled yet"
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid "The displays show here while Sway Things runs in a sway session."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid ""
+"With one display, every workspace is on it. Connect another one to arrange "
+"them."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid ""
+"Click a number to send it to the next display, or drag it to another one. "
+"That makes the placement fixed: remembered for these displays, while other "
+"combinations start round robin."
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+msgid "Click to send it to the next display, or drag it"
+msgstr ""
+
+#: crates/gui/src/widgets/workspaces.rs
+#, rust-format
+msgid "Workspace {name}, on {display}"
 msgstr ""
 
 #. TRANSLATORS: What the Caps Lock key does: what it says on it.

@@ -512,6 +512,8 @@ fn check_relogin_badge() -> Outcome {
         xwayland.badges() == ["Applies after re-login"],
         &format!("  Xwayland has the badges {:?}", xwayland.badges()),
     )?;
+    window.destroy();
+    let window = open(&fixture, Page::Workspaces)?;
     let layout = row(&window, WORKSPACE_LAYOUT)?;
     ensure(
         layout.badges() == ["Applies after reload"],
@@ -5141,6 +5143,10 @@ fn displays(window: &Window) -> Result<(Arrangement, OutputPicker), String> {
 fn check_displays() -> Vec<(String, Outcome)> {
     vec![
         (
+            "workspaces: the rule's placement shows, a click makes it fixed".to_owned(),
+            check_workspace_map(),
+        ),
+        (
             "displays: the outputs, the one with the focus picked".to_owned(),
             check_display_outputs(),
         ),
@@ -5557,6 +5563,89 @@ fn check_display_identify() -> Outcome {
     ensure(
         arrangement.identify_button().is_sensitive(),
         "Identify can't be pressed again afterwards",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The numbers on each card of the Workspaces page's map, by the card's title.
+fn workspace_cards(window: &Window) -> Result<Vec<(String, Vec<String>)>, String> {
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    Ok(all::<gtk::Box>(&content)
+        .into_iter()
+        .filter(|card| card.has_css_class("st-workspace-card") && card.is_visible())
+        .map(|card| {
+            let title = card
+                .first_child()
+                .and_downcast::<gtk::Label>()
+                .map(|label| label.text().to_string())
+                .unwrap_or_default();
+            let numbers = all::<gtk::Button>(card.upcast_ref())
+                .into_iter()
+                .filter_map(|button| button.label().map(|label| label.to_string()))
+                .collect();
+            (title, numbers)
+        })
+        .collect())
+}
+
+/// Round robin on the two desk displays (the panel is off): the odd numbers on the left, the
+/// even ones on the right. Clicking 1 sends it to the right and makes the placement fixed; with
+/// sway's own placement there is no map.
+fn check_workspace_map() -> Outcome {
+    let sway = with_outputs(&[DESK_OUTPUTS]);
+    let fixture = displays_fixture(
+        &sway,
+        "version = 1\n\n[workspaces]\nplacement = \"round_robin\"\ncount = 6\n",
+    )?;
+    let window = open(&fixture, Page::Workspaces)?;
+    let numbers = |list: &[&str]| list.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>();
+    let cards = workspace_cards(&window)?;
+    ensure(
+        cards
+            == [
+                ("Samsung \u{b7} DP-4".to_owned(), numbers(&["1", "3", "5"])),
+                ("Samsung \u{b7} DP-5".to_owned(), numbers(&["2", "4", "6"])),
+            ],
+        &format!("  the cards are {cards:?}"),
+    )?;
+    let one = all::<gtk::Button>(window.upcast_ref())
+        .into_iter()
+        .find(|button| {
+            button.label().as_deref() == Some("1")
+                && button
+                    .ancestor(gtk::Box::static_type())
+                    .is_some_and(|parent| parent.is_visible())
+                && button.ancestor(gtk::FlowBox::static_type()).is_some()
+        })
+        .ok_or_else(|| "  no button 1".to_owned())?;
+    one.emit_clicked();
+    wait_for_model(&fixture.model)?;
+    let placement = Registry::builtin()
+        .get("workspaces.placement")
+        .and_then(|setting| fixture.model.view(setting, None))
+        .map(|view| view.value);
+    ensure(
+        placement == Some(Value::Choice("fixed".to_owned())),
+        &format!("  the placement is {placement:?}"),
+    )?;
+    let cards = run_until(Duration::from_secs(5), || {
+        workspace_cards(&window).is_ok_and(|cards| {
+            cards
+                .get(1)
+                .is_some_and(|(_, numbers)| numbers.contains(&"1".to_owned()))
+        })
+    });
+    ensure(cards, "  1 didn't move to the right")?;
+    window.destroy();
+
+    let fixture = displays_fixture(&sway, "version = 1\n")?;
+    let window = open(&fixture, Page::Workspaces)?;
+    ensure(
+        workspace_cards(&window)?.is_empty(),
+        "  a map shows while sway places the workspaces",
     )?;
     window.destroy();
     Ok(())

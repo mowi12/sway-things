@@ -178,6 +178,24 @@ workspace_layout tabbed
 }
 
 #[test]
+fn the_workspaces_hook_runs_while_a_rule_places_them() {
+    let (_dir, placing) = state(
+        "version = 1\n\n[workspaces]\nplacement = \"round_robin\"\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &placing, SWAY_1_10);
+    assert!(
+        text(&files, ConfigFile::Hooks).contains("exec_always sway-things hook workspaces\n"),
+        "{}",
+        text(&files, ConfigFile::Hooks)
+    );
+    // sway's own placement: no hook.
+    let (_other, sway) = state("version = 1\n\n[workspaces]\nplacement = \"sway\"\n", "");
+    let files = generate(Registry::builtin(), &sway, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Hooks).contains("hook workspaces"));
+}
+
+#[test]
 fn the_same_state_generates_the_same_bytes() {
     let (_dir, first) = sample();
     let (_dir, second) = sample();

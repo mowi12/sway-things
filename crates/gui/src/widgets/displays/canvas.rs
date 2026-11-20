@@ -1960,7 +1960,7 @@ fn take_slot(drag: &mut Drag, moved: Rect, ids: &[String], others: &[Rect]) -> b
 /// The name a tile shows, short and readable: _Built-in_ for a laptop's panel, else the brand of
 /// the make (_Samsung_ for "Samsung Electric Company"), else the model, else the connector. The
 /// number on the tile tells two of a brand apart; the whole name is in the tooltip.
-pub(super) fn short_label(output: &Output) -> String {
+pub(crate) fn short_label(output: &Output) -> String {
     if !output.is_connected() {
         return output.label();
     }
