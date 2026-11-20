@@ -251,6 +251,11 @@ impl Context<'_> {
         self.target
     }
 
+    /// The input device, output or collection the setting is rendered for; `None` for all.
+    pub fn instance(&self) -> Option<&str> {
+        self.device
+    }
+
     /// The `input` command builder for the devices the setting is rendered for: the selected
     /// device, or every device of the setting's type.
     ///
@@ -463,6 +468,9 @@ pub enum RenderError {
     OutOfRange(OutOfRange),
     /// A built command can't be written as a config line.
     Command(CommandError),
+    /// The folder for the picture of a collection can't be found: neither `XDG_STATE_HOME` nor
+    /// `HOME` is an absolute path.
+    NoStateDir,
     /// More keyboard variants than layouts: each variant belongs to the layout at its position.
     TooManyVariants {
         /// The key of the variants setting.
@@ -517,6 +525,11 @@ impl RenderError {
             Self::Window(error) => error.text(),
             Self::OutOfRange(error) => error.text(),
             Self::Command(error) => error.text(),
+            Self::NoStateDir => msg!(
+                "the folder for the picture of a collection can't be found: neither XDG_STATE_HOME \
+                 nor HOME is an absolute path"
+            )
+            .into(),
             Self::TooManyVariants {
                 key,
                 variants,
@@ -550,6 +563,7 @@ impl std::error::Error for RenderError {
             Self::UnknownKey { .. }
             | Self::NotASwaySetting { .. }
             | Self::NotPerDevice
+            | Self::NoStateDir
             | Self::TooManyVariants { .. } => None,
         }
     }

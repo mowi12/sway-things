@@ -588,6 +588,18 @@ impl Output {
         self.rect
     }
 
+    /// The width and height of the output in pixels as turned, while it is on: a picture at its
+    /// own size covers this many of them.
+    pub fn pixels(&self) -> Option<(u32, u32)> {
+        let mode = self.mode?;
+        let sideways = self.transform.is_some_and(Transform::is_sideways);
+        Some(if sideways {
+            (mode.height(), mode.width())
+        } else {
+            (mode.width(), mode.height())
+        })
+    }
+
     /// The scale in use, while the output is on.
     pub fn scale(&self) -> Option<f64> {
         self.scale

@@ -26,6 +26,19 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod collection;
+mod cycle;
+
+pub use collection::{
+    CHANGE, COLLECTION, Change, Collection, DAY, EXTENSIONS, INTERVAL, ORDER, Order, PICTURES,
+    expand, home, is_collection_name, is_picture, pictures_in, tilde,
+};
+pub use cycle::{
+    CycleError, Moment, Shown, choose, config_link, current, escape, has_picture, has_timers,
+    is_due, link, link_in, next, point, prepare, program, reschedule, schedule, show, shown,
+    shown_on, start_command, state_dir, unit, unschedule,
+};
+
 use crate::sway_config::{Directive, SwayConfig};
 
 /// Programs that set the wallpaper on wlroots compositors.
@@ -90,6 +103,7 @@ pub fn starters(config: &SwayConfig) -> Vec<External> {
                             || matches!(character, ';' | '&' | '|' | '(' | ')')
                     })
                 })
+                .take_while(|word| !is_own(word))
                 .find_map(starter)?;
             Some(External {
                 directive: directive.clone(),
@@ -97,6 +111,12 @@ pub fn starters(config: &SwayConfig) -> Vec<External> {
             })
         })
         .collect()
+}
+
+/// Whether `word` runs Sway Things, which the generated config does to change the pictures of
+/// a collection: the rest of the line is its arguments, not a wallpaper program.
+fn is_own(word: &str) -> bool {
+    word.rsplit('/').next() == Some("sway-things")
 }
 
 /// What `word` of an `exec` line starts, if it is a wallpaper program.
@@ -156,7 +176,8 @@ mod tests {
                  bindsym $mod+w exec swaybg -c '#000000'\n\
                  output * bg ~/a.png fill\n\
                  mode resize {\n  bindsym w exec wpaperd\n}\n\
-                 exec swaync\n"
+                 exec swaync\n\
+                 exec sway-things wallpaper start --output DP-3\n"
             ),
             []
         );

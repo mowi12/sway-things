@@ -100,7 +100,8 @@ impl Layer {
             return Self::Host;
         }
         match (setting.scope(), device) {
-            (Scope::Global, _) | (Scope::PerDevice(_) | Scope::PerOutput, None) => Self::Shared,
+            (Scope::Global | Scope::PerCollection, _)
+            | (Scope::PerDevice(_) | Scope::PerOutput, None) => Self::Shared,
             (Scope::PerHost, _) | (Scope::PerDevice(_) | Scope::PerOutput, Some(_)) => Self::Host,
         }
     }
@@ -210,6 +211,18 @@ pub enum ProblemKind {
         /// The output.
         output: String,
     },
+    /// An entry of the `collection` table isn't a table named after a collection.
+    InvalidCollection {
+        /// The name of the entry.
+        collection: String,
+    },
+    /// A collection table holds a setting that isn't one of a collection.
+    NotPerCollection {
+        /// The key.
+        key: &'static str,
+        /// The collection.
+        collection: String,
+    },
 }
 
 impl ProblemKind {
@@ -261,6 +274,15 @@ impl ProblemKind {
             ))
             .arg("key", key)
             .arg("output", output),
+            Self::InvalidCollection { collection } => Text::new(msg!(
+                "collection.{collection} is not a table for a collection name"
+            ))
+            .arg("collection", format!("{collection:?}")),
+            Self::NotPerCollection { key, collection } => Text::new(msg!(
+                "{key} isn't a setting of a collection (collection {collection})"
+            ))
+            .arg("key", key)
+            .arg("collection", collection),
         }
     }
 }
@@ -558,11 +580,19 @@ impl State {
         if device.is_none() && setting.is_one_at_a_time() {
             return Err(StateError::OneAtATime { key: setting.key() });
         }
+        if device.is_none() && setting.scope() == Scope::PerCollection {
+            return Err(StateError::NoCollection { key: setting.key() });
+        }
         if let Some(device) = device {
             match setting.check_device(device) {
                 Ok(()) => {}
                 Err(DeviceError::NotPerDevice) => {
                     return Err(StateError::NotPerDevice { key: setting.key() });
+                }
+                Err(DeviceError::Invalid) if setting.scope() == Scope::PerCollection => {
+                    return Err(StateError::InvalidCollection {
+                        collection: device.to_owned(),
+                    });
                 }
                 Err(DeviceError::Invalid) => {
                     return Err(StateError::InvalidDevice {
@@ -832,6 +862,16 @@ pub enum StateError {
         /// The string.
         device: String,
     },
+    /// The setting is one of a collection, and no collection is named.
+    NoCollection {
+        /// The key.
+        key: &'static str,
+    },
+    /// The string can't be the name of a collection.
+    InvalidCollection {
+        /// The string.
+        collection: String,
+    },
     /// The file couldn't be loaded (see [`State::problems`]), so it isn't changed.
     Unusable {
         /// The file.
@@ -894,6 +934,14 @@ impl StateError {
                 "{key} is set for one display at a time; name it with --device"
             ))
             .arg("key", key),
+            Self::NoCollection { key } => Text::new(msg!(
+                "{key} is a setting of a collection; name the collection"
+            ))
+            .arg("key", key),
+            Self::InvalidCollection { collection } => {
+                Text::new(msg!("{collection} can't be the name of a collection"))
+                    .arg("collection", format!("{collection:?}"))
+            }
             Self::UnusableSnapshot { id } => {
                 Text::new(msg!("snapshot {id} holds a file that can't be loaded")).arg("id", id)
             }

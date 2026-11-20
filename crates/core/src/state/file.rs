@@ -12,6 +12,7 @@ use crate::command::Color;
 use crate::command::input::InputSelector;
 use crate::command::output::OutputSelector;
 use crate::registry::{Kind, Registry, Setting, Value, ValueError};
+use crate::wallpaper::is_collection_name;
 
 /// The schema version this build reads and writes.
 pub(super) const VERSION: i64 = 1;
@@ -20,6 +21,10 @@ const VERSION_KEY: &str = "version";
 const DEVICE_TABLE: &str = "device";
 /// The table of the values for one output. `output` holds those for every output.
 const OUTPUT_TABLE: &str = "display";
+/// The table of the values for one wallpaper collection. Its keys leave out the `collection.`
+/// they all start with.
+const COLLECTION_TABLE: &str = "collection";
+const COLLECTION_PREFIX: &str = "collection.";
 
 /// The values of one file, by key.
 pub(super) type Values = BTreeMap<&'static str, Value>;
@@ -86,7 +91,9 @@ impl SettingsFile {
         for (name, item) in document.iter() {
             match name {
                 VERSION_KEY => {}
-                DEVICE_TABLE | OUTPUT_TABLE => file.read_devices(name, item, registry),
+                DEVICE_TABLE | OUTPUT_TABLE | COLLECTION_TABLE => {
+                    file.read_devices(name, item, registry);
+                }
                 _ => file.read(name.to_owned(), item, None, registry),
             }
         }
@@ -94,7 +101,8 @@ impl SettingsFile {
         file
     }
 
-    /// Reads the `device` or `display` table: one table of values per input device or output.
+    /// Reads the `device`, `display` or `collection` table: one table of values per input device,
+    /// output or collection.
     fn read_devices(&mut self, table_name: &str, item: &Item, registry: &'static Registry) {
         let Some(devices) = item.as_table_like() else {
             self.problems.push(ProblemKind::UnknownKey {
@@ -103,24 +111,34 @@ impl SettingsFile {
             });
             return;
         };
-        let is_output = table_name == OUTPUT_TABLE;
         for (device, item) in devices.iter() {
-            let valid = if is_output {
-                OutputSelector::output(device).is_ok()
+            let valid = match table_name {
+                OUTPUT_TABLE => OutputSelector::output(device).is_ok(),
+                COLLECTION_TABLE => is_collection_name(device),
+                _ => InputSelector::device(device).is_ok(),
+            };
+            let prefix = if table_name == COLLECTION_TABLE {
+                COLLECTION_PREFIX
             } else {
-                InputSelector::device(device).is_ok()
+                ""
             };
             match item.as_table_like().filter(|_| valid) {
                 Some(table) => {
                     for (name, item) in table.iter() {
-                        self.read(name.to_owned(), item, Some((table_name, device)), registry);
+                        let key = format!("{prefix}{name}");
+                        self.read(key, item, Some((table_name, device)), registry);
                     }
                 }
-                None if is_output => self.problems.push(ProblemKind::InvalidOutput {
-                    output: device.to_owned(),
-                }),
-                None => self.problems.push(ProblemKind::InvalidDevice {
-                    device: device.to_owned(),
+                None => self.problems.push(match table_name {
+                    OUTPUT_TABLE => ProblemKind::InvalidOutput {
+                        output: device.to_owned(),
+                    },
+                    COLLECTION_TABLE => ProblemKind::InvalidCollection {
+                        collection: device.to_owned(),
+                    },
+                    _ => ProblemKind::InvalidDevice {
+                        device: device.to_owned(),
+                    },
                 }),
             }
         }
@@ -145,16 +163,19 @@ impl SettingsFile {
             }
             if let Some((table, device)) = place {
                 if setting.device_table() != Some(table) {
-                    self.problems.push(if table == OUTPUT_TABLE {
-                        ProblemKind::NotPerOutput {
+                    self.problems.push(match table {
+                        OUTPUT_TABLE => ProblemKind::NotPerOutput {
                             key,
                             output: device.to_owned(),
-                        }
-                    } else {
-                        ProblemKind::NotPerDevice {
+                        },
+                        COLLECTION_TABLE => ProblemKind::NotPerCollection {
+                            key,
+                            collection: device.to_owned(),
+                        },
+                        _ => ProblemKind::NotPerDevice {
                             key,
                             device: device.to_owned(),
-                        }
+                        },
                     });
                     return;
                 }
@@ -327,13 +348,19 @@ pub(super) enum FileError {
 }
 
 /// The path of a setting in the document: the key's segments, for one input device below
-/// `device."<identifier>"`, for one output below `display."<identifier>"`.
+/// `device."<identifier>"`, for one output below `display."<identifier>"`, for one collection
+/// below `collection."<name>"` without the `collection.` of the key.
 fn path<'a>(setting: &'a Setting, device: Option<&'a str>) -> Vec<&'a str> {
     let table = setting.device_table().unwrap_or(DEVICE_TABLE);
+    let key = setting.key();
+    let key = match (table, device) {
+        (COLLECTION_TABLE, Some(_)) => key.strip_prefix(COLLECTION_PREFIX).unwrap_or(key),
+        _ => key,
+    };
     device
         .into_iter()
         .flat_map(|device| [table, device])
-        .chain(setting.key().split('.'))
+        .chain(key.split('.'))
         .collect()
 }
 
