@@ -29,6 +29,7 @@ use sway_things_core::ui_state;
 
 use self::about::{about_section, generated_section};
 use self::device_group::DeviceGroup;
+use super::apps;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
@@ -559,6 +560,23 @@ fn add_workspace_map(model: &Model, sections: &[Section]) {
     let id = ui_state::section_id(placement);
     if let Some(section) = sections.iter().find(|section| section.id == id) {
         section.body.append(WorkspaceMap::new(model).widget());
+    }
+}
+
+/// The note above the default apps while no app reads them, and the list of everything that
+/// starts with the session below the rows of Apps & Autostart's "Autostart" section.
+fn add_apps_parts(model: &Model, sections: &[Section]) {
+    let find = |title: Msg| {
+        let id = ui_state::section_id(title.msgid());
+        sections.iter().find(|section| section.id == id)
+    };
+    if let Some(section) = find(msg!("Default apps")) {
+        section.body.prepend(&apps::desktop_note());
+    }
+    if let Some(section) = find(msg!("Autostart")) {
+        section
+            .body
+            .append(apps::AutostartList::new(model).widget());
     }
 }
 

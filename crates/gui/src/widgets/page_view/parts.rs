@@ -11,12 +11,12 @@ use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Page, Setting};
 
 use super::{
-    Section, about_section, add_workspace_map, arrangement_section, generated_section,
-    shortcuts_section, test_area_section,
+    Section, about_section, add_apps_parts, add_workspace_map, arrangement_section,
+    generated_section, shortcuts_section, test_area_section,
 };
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
-use crate::widgets::{SettingRow, capture, cursor, keyboard, look, shortcuts};
+use crate::widgets::{SettingRow, apps, capture, cursor, keyboard, look, shortcuts};
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
 /// Maintenance, the list of bindings on Keyboard Shortcuts, the note of Apps Look & Feel, the
@@ -55,21 +55,23 @@ pub(super) fn before_rows(
 }
 
 /// The parts of `page` below its rows: the test area of Mouse & Touchpad, the map of the
-/// displays on Workspaces.
+/// displays on Workspaces, the note above the default apps and the list of what starts at login
+/// on Apps & Autostart.
 pub(super) fn after_rows(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec<Section>) {
     match page {
         Page::MouseTouchpad => sections.push(test_area_section(model, body)),
         Page::Workspaces => add_workspace_map(model, sections),
+        Page::AppsAutostart => add_apps_parts(model, sections),
         _ => {}
     }
 }
 
 /// The row of `setting` on its page, for the whole session or input type: a drop-down where the
 /// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
-/// themes, the screens), following what they depend on. A setting of Keyboard Shortcuts may
-/// have no row ([`shortcuts::has_row`]).
+/// themes, the screens, the installed apps), following what they depend on. A setting of Keyboard
+/// Shortcuts or Apps & Autostart may have no row ([`shortcuts::has_row`], [`apps::has_row`]).
 pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
-    if !shortcuts::has_row(model, setting) {
+    if !shortcuts::has_row(model, setting) || !apps::has_row(setting) {
         return None;
     }
     if setting.key() == outputs::MODE {
@@ -77,7 +79,8 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     }
     let choices = keyboard::choices(setting)
         .or_else(|| cursor::choices(model, setting))
-        .or_else(|| look::choices(setting));
+        .or_else(|| look::choices(setting))
+        .or_else(|| apps::choices(setting));
     let row = match choices {
         Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
         None => SettingRow::new(model, setting, None),
@@ -85,15 +88,18 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     cursor::follow(model, &row);
     look::follow(&row);
     capture::follow(model, &row);
+    apps::follow(&row);
     Some(row)
 }
 
 /// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
-/// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, the notes
-/// of Screenshots & Clipboard.
+/// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, what the
+/// keys of the terminal and the launcher do now on Apps & Autostart, the notes of Screenshots &
+/// Clipboard.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let mut widgets = keyboard::below(model, row);
     widgets.extend(shortcuts::below(model, row));
+    widgets.extend(apps::below(model, row));
     widgets.extend(capture::below(model, row));
     widgets
 }

@@ -3,6 +3,7 @@
 
 //! The building blocks of the app.
 
+mod apps;
 mod bluetooth;
 mod capture;
 mod clamp;
@@ -36,6 +37,7 @@ mod welcome;
 mod workspaces;
 mod xkb_options;
 
+pub use apps::AutostartList;
 pub use bluetooth::{BluetoothPage, Bus as BluetoothBus};
 pub use clamp::Clamp;
 pub use device_selector::DeviceSelector;

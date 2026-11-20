@@ -14,7 +14,7 @@
 //! SSIDs and connection names are untrusted and only ever set as plain label text.
 
 mod actions;
-mod dialogs;
+pub(crate) mod dialogs;
 mod prompts;
 mod rows;
 mod scan;
