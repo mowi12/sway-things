@@ -43,6 +43,7 @@ use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs::{self, Outputs};
+use sway_things_core::printers::Cups;
 use sway_things_core::registry::{ConfigFile, Link, Registry};
 use sway_things_core::sound::Sound;
 use sway_things_core::state::{Layer, Paths, State};
@@ -145,9 +146,10 @@ pub enum Command {
     /// line, the settings files, the generated files and the lines of your config that win
     ///
     /// The report starts with the system details for bug reports: the versions of Sway Things,
-    /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager and
-    /// the sound server (while they run) and the kernel, and whether the tools the pages delegate
-    /// to (nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol) and those of
+    /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager, the
+    /// sound server and CUPS (while they run) and the kernel, whether cups-pk-helper is
+    /// installed, and whether the tools the pages delegate to (nm-connection-editor,
+    /// blueman-manager, pwvucontrol, pavucontrol, system-config-printer) and those of
     /// screenshots, the clipboard history and recording (grim, slurp, wl-copy, cliphist, swappy,
     /// satty, wf-recorder, wl-screenrec) are installed.
     Doctor(DoctorArgs),
@@ -444,7 +446,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
 }
 
 /// The system details for `doctor`, with `compositor`. The GTK version is the app's, from
-/// `sway-things-gui --version`; NetworkManager is asked on the system bus.
+/// `sway-things-gui --version`; NetworkManager is asked on the system bus, CUPS on its socket.
 async fn system_details(compositor: Option<Compositor>) -> Details {
     let gtk = find_gui().and_then(|gui| {
         let output = std::process::Command::new(gui)
@@ -461,7 +463,15 @@ async fn system_details(compositor: Option<Compositor>) -> Details {
     });
     let network_manager = NetworkManager::connect().await.ok();
     let sound = Sound::connect().ok();
-    Details::read(compositor, gtk, network_manager.as_ref(), sound.as_ref()).await
+    let cups = Cups::local().ok();
+    Details::read(
+        compositor,
+        gtk,
+        network_manager.as_ref(),
+        sound.as_ref(),
+        cups.as_ref(),
+    )
+    .await
 }
 
 /// Whether `command` warns of the problems of the settings files: the doctor reports them itself,
