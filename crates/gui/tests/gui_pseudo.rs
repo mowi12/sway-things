@@ -26,11 +26,12 @@ use sway_things_core::generate::{Locations, SwayValidator};
 use sway_things_core::i18n::{self, DOMAIN};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
+use sway_things_core::look;
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
-use sway_things_core::registry::{Page, Registry};
+use sway_things_core::registry::{Kind, Page, Registry};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::{Paths, State};
-use sway_things_core::sway_config::MemoryFiles;
+use sway_things_core::sway_config::{Disk, MemoryFiles};
 use sway_things_core::system::Details;
 use sway_things_core::version::{SwayFxVersion, SwayVersion};
 use sway_things_gui::model::Model;
@@ -276,7 +277,7 @@ impl Fixture {
 }
 
 /// The data a text may show untranslated: products, the stand-ins' names, the names of the
-/// XKB rules in English and as shown, longest first.
+/// XKB rules in English and as shown, the themes and fonts of Apps Look & Feel, longest first.
 fn data() -> Vec<String> {
     let rules = xkb::rules();
     let items = rules
@@ -295,6 +296,23 @@ fn data() -> Vec<String> {
         data.push(item.label().to_owned());
         data.push(item.shown().to_owned());
         data.extend(item.vendor.clone());
+    }
+    // The installed GTK and icon themes, and the default theme names and fonts of Apps Look &
+    // Feel: values, not text.
+    for theme in look::gtk_themes(&Disk)
+        .into_iter()
+        .chain(look::icon_themes(&Disk))
+    {
+        data.push(theme.name);
+        data.push(theme.title);
+    }
+    for setting in Registry::builtin()
+        .iter()
+        .filter(|setting| setting.page() == Page::AppsLookFeel)
+    {
+        if let Kind::Text { default } = setting.kind() {
+            data.push((*default).to_owned());
+        }
     }
     // The system details About shows: the distribution and the kernel of this machine.
     let system = async_io::block_on(Details::read(None, None, None, None));

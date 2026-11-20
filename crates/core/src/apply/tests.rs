@@ -1570,6 +1570,12 @@ impl GSettingsStore for Refusing {
     fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError> {
         Err(GSettingsError::NoSchema { key })
     }
+    fn value(&self, _: GSettingsKey) -> Option<Value> {
+        None
+    }
+    fn check(&self, key: GSettingsKey, _: &Value) -> Result<(), GSettingsError> {
+        Err(GSettingsError::NoSchema { key })
+    }
 }
 
 #[test]
@@ -2321,5 +2327,65 @@ fn without_kanshi_the_stored_displays_stay_as_they_are() {
     assert_eq!(
         setup.applier.state().get(SCALE, Some("X Y Z")),
         Some(&Value::Decimal(2.0))
+    );
+}
+
+#[test]
+fn apps_look_and_feel_lives_in_gsettings_only() {
+    use crate::gsettings::MemoryGSettings;
+
+    let store = MemoryGSettings::default();
+    let mut setup = Setup::offline("version = 1\n");
+    setup.applier.set_gsettings(Box::new(store.clone()));
+    let key = |key: &str| store.get("org.gnome.desktop.interface", key);
+
+    // A choice goes to its enum key as its id, a decimal to its double key; nothing is sent to
+    // sway and nothing waits for a reload.
+    let applied = setup
+        .set("look.style", Value::Choice("prefer-dark".to_owned()))
+        .unwrap();
+    assert_eq!(applied.effect, Effect::Preference);
+    assert_eq!(applied.not_copied, []);
+    assert_eq!(
+        key("color-scheme"),
+        Some(Value::Text("prefer-dark".to_owned()))
+    );
+    setup.set("look.text_scale", Value::Decimal(1.25)).unwrap();
+    assert_eq!(key("text-scaling-factor"), Some(Value::Decimal(1.25)));
+    setup
+        .set("look.font", Value::Text("Noto Sans 10".to_owned()))
+        .unwrap();
+    assert_eq!(
+        key("font-name"),
+        Some(Value::Text("Noto Sans 10".to_owned()))
+    );
+    assert_eq!(
+        waiting(&setup.applier, super::Until::Reload),
+        Vec::<&str>::new()
+    );
+    assert_eq!(
+        waiting(&setup.applier, super::Until::Relogin),
+        Vec::<&str>::new()
+    );
+
+    // A reset puts the key back to its schema default.
+    setup.reset("look.style").unwrap();
+    assert_eq!(key("color-scheme"), None);
+    assert_eq!(key("text-scaling-factor"), Some(Value::Decimal(1.25)));
+
+    // The hook writes the stored ones again.
+    store
+        .set(
+            GSettingsKey {
+                schema: "org.gnome.desktop.interface",
+                key: "font-name",
+            },
+            &Value::Text("Cantarell 11".to_owned()),
+        )
+        .unwrap();
+    assert_eq!(setup.applier.copy_stored_to_gsettings(), []);
+    assert_eq!(
+        key("font-name"),
+        Some(Value::Text("Noto Sans 10".to_owned()))
     );
 }

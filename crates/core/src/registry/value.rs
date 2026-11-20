@@ -293,6 +293,11 @@ pub enum ValueError {
     NotAMode,
     /// The text isn't a position in the layout like `1920,0`.
     NotAPosition,
+    /// The text isn't the name of a theme's directory: empty, too long, or with a slash or a
+    /// control character.
+    NotAThemeName,
+    /// The text isn't a font description: empty, too long, or with a control character.
+    NotAFont,
 }
 
 impl ValueError {
@@ -337,6 +342,12 @@ impl ValueError {
                 msg!("must be a mode like 2560x1440 or 2560x1440@59.951Hz, or empty").into()
             }
             Self::NotAPosition => msg!("must be a position like 1920,0, or empty").into(),
+            Self::NotAThemeName => {
+                msg!("must be the name of a theme's folder, without slashes or line breaks").into()
+            }
+            Self::NotAFont => {
+                msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
+            }
         }
     }
 }

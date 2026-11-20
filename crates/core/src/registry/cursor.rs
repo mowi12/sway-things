@@ -11,6 +11,7 @@ use super::{ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, U
 use crate::command::input::{InputType, MapTo, ToolMode};
 use crate::command::{SwayCmd, SwayText, Target, seat};
 use crate::cursor::{DEFAULT_SIZE, DEFAULT_THEME};
+use crate::gsettings::INTERFACE;
 use crate::i18n::Text;
 use crate::msg;
 use crate::registry::{Choice, ValueError};
@@ -23,9 +24,6 @@ const HIDE_WHEN_TYPING: &str = "cursor.hide_when_typing";
 const TABLET_MAP: &str = "input.tablet_tool.map_to_output";
 const TABLET_TOOL_MODE: &str = "input.tablet_tool.tool_mode";
 const TOUCH_MAP: &str = "input.touch.map_to_output";
-
-/// The GSettings schema of the cursor keys GTK reads.
-const INTERFACE: &str = "org.gnome.desktop.interface";
 
 /// The seconds of inactivity before the cursor hides, unless set.
 const DEFAULT_HIDE_AFTER: f64 = 5.0;

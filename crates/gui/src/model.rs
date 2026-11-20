@@ -37,6 +37,7 @@
 //! stored values are listed too. Without a session only those are known.
 
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Instant;
 
 use crate::i18n::{Msg, msg, tr, trf};
@@ -51,6 +52,7 @@ use sway_things_core::command::input::{InputSelector, XkbSwitch};
 use sway_things_core::conflict::{Known, Report};
 use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
+use sway_things_core::gsettings::{GSettingsError, GSettingsStore, INTERFACE};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::outputs::profiles::Profiles;
@@ -216,6 +218,9 @@ struct Core {
     autosave: bool,
     /// Which sections are collapsed, saved while `app.remember_collapsed_sections` is on.
     ui: UiState,
+    /// Where settings are copied to GSettings, read for what a setting that lives only there has
+    /// now.
+    desktop: Rc<dyn GSettingsStore>,
 }
 
 impl Core {
@@ -254,6 +259,9 @@ mod imp {
         /// depend on the machine they run on.
         pub(super) looks_for_kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
+        /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
+        /// other tools.
+        pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
     }
 
     #[glib::object_subclass]
@@ -324,6 +332,7 @@ impl Model {
                 }
                 model.watch_config(watch);
                 model.watch_kanshi();
+                model.watch_desktop();
                 match state_watch {
                     Ok(watcher) => model.watch_state(watcher),
                     Err(error) => model.emit_problem(&trf(
@@ -373,6 +382,7 @@ impl Model {
         } else {
             UiState::empty(ui_path)
         };
+        let desktop = applier.gsettings();
         let core = Core {
             ui,
             profiles: applier.profiles().cloned(),
@@ -388,6 +398,7 @@ impl Model {
             outputs,
             outputs_known: false,
             autosave,
+            desktop,
         };
         self.imp().core.replace(Some(core));
         if let Some(socket) = socket {
@@ -395,6 +406,26 @@ impl Model {
             self.watch_outputs(socket.clone());
             self.watch_reloads(socket);
         }
+    }
+
+    /// Follows `org.gnome.desktop.interface`, so a theme, font or style changed with another tool
+    /// shows at once. Nothing if the schema isn't installed. Not in tests, which never read the
+    /// user's GSettings.
+    fn watch_desktop(&self) {
+        let Some(schema) = gtk::gio::SettingsSchemaSource::default()
+            .and_then(|source| source.lookup(INTERFACE, true))
+        else {
+            return;
+        };
+        let settings =
+            gtk::gio::Settings::new_full(&schema, gtk::gio::SettingsBackend::NONE, None::<&str>);
+        let model = self.downgrade();
+        settings.connect_changed(None, move |_, _| {
+            if let Some(model) = model.upgrade() {
+                model.emit_by_name::<()>("changed", &[]);
+            }
+        });
+        self.imp().desktop_watch.replace(Some(settings));
     }
 
     /// Why the settings couldn't be loaded, if they couldn't.
@@ -407,13 +438,14 @@ impl Model {
     pub fn view(&self, setting: &'static Setting, device: Option<&str>) -> Option<SettingView> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let mut view = SettingView::of(
+        let mut view = SettingView::with_desktop(
             setting,
             device,
             &core.state,
             &core.status,
             core.compositor,
             core.known(),
+            core.desktop.as_ref(),
         );
         // A risky change that waits isn't stored, but it is in effect.
         let pending = core
@@ -1358,13 +1390,14 @@ impl Model {
             applier
                 .try_risky(key, device, value, status, access)
                 .await
-                .map(|_| ())
+                .map(|_| Vec::new())
         } else {
-            applier.set(key, device, value, access).await.map(|_| ())
+            applier
+                .set(key, device, value, access)
+                .await
+                .map(|applied| applied.not_copied)
         };
-        if let Err(error) = result {
-            self.emit_failed(key, device, &error.text().translated());
-        }
+        self.report_change(key, device, result);
     }
 
     /// Removes the stored value of `key` for `device`; a risky setting is tried with the safety
@@ -1381,12 +1414,31 @@ impl Model {
             applier
                 .try_risky_reset(key, device, status, access)
                 .await
-                .map(|_| ())
+                .map(|_| Vec::new())
         } else {
-            applier.reset(key, device, access).await.map(|_| ())
+            applier
+                .reset(key, device, access)
+                .await
+                .map(|applied| applied.not_copied)
         };
-        if let Err(error) = result {
-            self.emit_failed(key, device, &error.text().translated());
+        self.report_change(key, device, result);
+    }
+
+    /// Reports a change of `key` that failed, or that was made but couldn't reach GSettings, so
+    /// the apps that read it there keep their own value.
+    fn report_change(
+        &self,
+        key: &'static str,
+        device: Option<&str>,
+        result: Result<Vec<GSettingsError>, ApplyError>,
+    ) {
+        match result {
+            Err(error) => self.emit_failed(key, device, &error.text().translated()),
+            Ok(not_copied) => {
+                if let Some(error) = not_copied.first() {
+                    self.emit_failed(key, device, &error.text().translated());
+                }
+            }
         }
     }
 

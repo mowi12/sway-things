@@ -29,6 +29,7 @@ use sway_things_core::command::output::OutputSelector;
 use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{self, Locations, Outcome, SwayValidator, Validate};
+use sway_things_core::gsettings::Gio;
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
 use sway_things_core::ipc::Client;
@@ -687,6 +688,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
             .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
         kanshi: kanshi_files(),
         path: std::env::var_os("PATH"),
+        gsettings: &Gio,
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -949,6 +951,7 @@ async fn doctor_in<V: Validate>(
         None => None,
     };
     let applier = &session.applier;
+    let desktop = applier.gsettings();
     let checkup = Checkup {
         found: &found,
         state: applier.state(),
@@ -959,6 +962,7 @@ async fn doctor_in<V: Validate>(
         displays: applier.displays(),
         kanshi: applier.kanshi_files().cloned(),
         path: None,
+        gsettings: desktop.as_ref(),
     };
     doctor(&checkup, None, args, out).await
 }
@@ -1006,6 +1010,7 @@ fn get<V: Validate>(
     io: &mut Io<'_>,
 ) -> Exit {
     let state = session.applier.state();
+    let desktop = session.applier.gsettings();
     let shown = |setting, device| {
         output::Shown::of(
             setting,
@@ -1014,6 +1019,7 @@ fn get<V: Validate>(
             &session.status,
             session.applier.compositor(),
             known,
+            desktop.as_ref(),
         )
     };
     let paths = state.paths();

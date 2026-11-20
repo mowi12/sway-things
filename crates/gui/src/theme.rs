@@ -260,6 +260,13 @@ pub fn follow_color_scheme() {
     });
 }
 
+/// Whether the XDG Settings portal reports a light/dark preference, which is how GTK 4,
+/// libadwaita and the browsers learn it. Without a backend that provides it (such as
+/// xdg-desktop-portal-gtk) they don't, whatever GSettings says.
+pub async fn portal_has_color_scheme() -> bool {
+    portal::current().await.is_some()
+}
+
 /// Whether the portal's `color-scheme` asks for dark: 1 dark, 2 light, otherwise no preference.
 fn prefers_dark(scheme: u32) -> Option<bool> {
     match scheme {
@@ -318,6 +325,21 @@ mod portal {
         Ok(())
     }
 
+    /// The current `color-scheme`, or `None` without a portal or a backend that has it.
+    pub(super) async fn current() -> Option<u32> {
+        let proxy = gio::DBusProxy::for_bus_future(
+            gio::BusType::Session,
+            gio::DBusProxyFlags::DO_NOT_LOAD_PROPERTIES,
+            None,
+            DESTINATION,
+            PATH,
+            INTERFACE,
+        )
+        .await
+        .ok()?;
+        read(&proxy).await
+    }
+
     /// The current `color-scheme`: `ReadOne` (portal version 2), else the older `Read`, which
     /// wraps the value in one more variant. `None` if the portal has none.
     async fn read(proxy: &gio::DBusProxy) -> Option<u32> {
@@ -333,8 +355,11 @@ mod portal {
                 .ok()?,
         };
         let mut value = reply.try_child_value(0)?;
-        // Unwrap `v` until the number.
-        while let Some(inner) = value.as_variant() {
+        // Unwrap `v` until the number. `as_variant` only takes a `v`: GLib warns otherwise.
+        while value.is_type(glib::VariantTy::VARIANT) {
+            let Some(inner) = value.as_variant() else {
+                break;
+            };
             value = inner;
         }
         value.get::<u32>()

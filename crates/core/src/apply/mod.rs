@@ -48,6 +48,7 @@ pub use waiting::{Until, Waiting, WaitingChange};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::io;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use crate::command::{CommandError, SwayCmd, Target};
@@ -172,7 +173,7 @@ pub struct Applier<V = SwayValidator> {
     /// The stored changes that wait for a reload of sway or the next login.
     waiting: Waiting,
     /// Where settings with a GSettings key are copied to.
-    gsettings: Box<dyn GSettingsStore>,
+    gsettings: Rc<dyn GSettingsStore>,
     /// Who sets up the displays: kanshi means no `output` lines are generated.
     displays: generate::Displays,
     /// The setups of the displays per combination, for kanshi. `None` until loaded, or if
@@ -275,7 +276,7 @@ impl<V: Validate> Applier<V> {
             unsaved_since: None,
             pending: None,
             waiting: Waiting::default(),
-            gsettings: Box::new(NoGSettings),
+            gsettings: Rc::new(NoGSettings),
             displays: generate::Displays::Sway,
             profiles: None,
             kanshi_files: None,
@@ -305,7 +306,7 @@ impl<V: Validate> Applier<V> {
             unsaved_since: None,
             pending: None,
             waiting: Waiting::default(),
-            gsettings: Box::new(NoGSettings),
+            gsettings: Rc::new(NoGSettings),
             displays: generate::Displays::Sway,
             profiles: None,
             kanshi_files: None,
@@ -319,7 +320,13 @@ impl<V: Validate> Applier<V> {
 
     /// Copies settings with a GSettings key to `store` from now on.
     pub fn set_gsettings(&mut self, store: Box<dyn GSettingsStore>) {
-        self.gsettings = store;
+        self.gsettings = Rc::from(store);
+    }
+
+    /// Where settings are copied to GSettings, shared, e.g. to read what GSettings has now
+    /// ([`SettingView::with_desktop`](crate::view::SettingView::with_desktop)).
+    pub fn gsettings(&self) -> Rc<dyn GSettingsStore> {
+        Rc::clone(&self.gsettings)
     }
 
     /// Copies the settings of the directive of `setting` that have a GSettings key: the stored

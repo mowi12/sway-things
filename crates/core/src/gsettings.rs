@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Copying settings to GSettings, for the apps that read it instead of asking sway: GTK apps take
-//! their cursor theme and size from `org.gnome.desktop.interface`.
+//! their cursor theme and size, their theme, icons, fonts and light or dark style from
+//! `org.gnome.desktop.interface`.
 //!
 //! A setting with a [`GSettingsKey`] is copied after each change ([`copy`]): a stored value is
 //! written, and once nothing is stored the key is reset to its schema default. At login and at
 //! each reload of sway, `sway-things hook gsettings` writes the stored values again
 //! ([`copy_stored`]), so a `settings.toml` synced from another machine reaches GSettings too.
 //! That one only writes: a key Sway Things doesn't store stays as the user set it elsewhere.
+//! Where nothing is stored for a setting without a sway directive, the app shows the value
+//! GSettings has now ([`current`]), so a theme picked with another tool is what the row says.
 //!
 //! [`Gio`] writes through GIO, so the schema and the backend are those of the desktop (dconf).
 //! It looks the schema up first, so a missing schema is an error instead of an abort.
@@ -36,8 +39,11 @@ use gio::prelude::*;
 
 use crate::i18n::Text;
 use crate::msg;
-use crate::registry::{GSettingsKey, Setting, Value};
+use crate::registry::{GSettingsKey, Kind, Setting, Value};
 use crate::state::State;
+
+/// The schema of the keys GTK apps read for their look: cursor, theme, icons, fonts, style.
+pub const INTERFACE: &str = "org.gnome.desktop.interface";
 
 /// Where settings are copied to.
 pub trait GSettingsStore: fmt::Debug {
@@ -54,6 +60,29 @@ pub trait GSettingsStore: fmt::Debug {
     ///
     /// A [`GSettingsError`] if the key can't be found or written.
     fn reset(&self, key: GSettingsKey) -> Result<(), GSettingsError>;
+
+    /// The value `key` has now, set by anyone or its schema default: a string as a text, an
+    /// integer as a whole number, a double as a decimal. `None` if it can't be read.
+    fn value(&self, key: GSettingsKey) -> Option<Value>;
+
+    /// Checks that `key` can take `value`, without writing it.
+    ///
+    /// # Errors
+    ///
+    /// The [`GSettingsError`] a write would give: no schema, no key, another type, locked, a
+    /// value outside the key's range, or nothing that keeps it.
+    fn check(&self, key: GSettingsKey, value: &Value) -> Result<(), GSettingsError>;
+}
+
+/// The value GSettings has for `setting` now, read as the setting's type: an enum key's string
+/// as a choice. `None` for a setting without a key, or if the store's value doesn't fit the
+/// setting.
+pub fn current(store: &dyn GSettingsStore, setting: &Setting) -> Option<Value> {
+    let value = match (store.value(setting.gsettings()?)?, setting.kind()) {
+        (Value::Text(id), Kind::Choice { .. }) => Value::Choice(id),
+        (value, _) => value,
+    };
+    setting.check(&value).is_ok().then_some(value)
 }
 
 /// Copies the value of `setting` to its GSettings key: `value` if one is stored, the schema
@@ -74,6 +103,22 @@ pub fn copy(
         Some(value) => store.set(key, value),
         None => store.reset(key),
     }
+}
+
+/// The keys of the stored settings GSettings can't take, each with why: what `doctor` reports.
+pub fn check_stored(
+    state: &State,
+    store: &dyn GSettingsStore,
+) -> Vec<(&'static str, GSettingsError)> {
+    state
+        .registry()
+        .iter()
+        .filter_map(|setting| {
+            let value = state.get(setting.key(), None)?;
+            let error = store.check(setting.gsettings()?, value).err()?;
+            Some((setting.key(), error))
+        })
+        .collect()
 }
 
 /// Writes every stored value of a setting with a GSettings key, as `sway-things hook gsettings`
@@ -101,36 +146,65 @@ pub fn copy_stored(
 pub struct Gio;
 
 impl Gio {
-    /// The settings of the schema of `key`, after checking the schema has the key, and the type
-    /// the key holds.
-    fn open(key: GSettingsKey) -> Result<(gio::Settings, gio::glib::VariantType), GSettingsError> {
+    /// The settings of the schema of `key`, after checking the schema has the key, that it can
+    /// be written and that something keeps it, and the key's schema entry.
+    fn open(key: GSettingsKey) -> Result<(gio::Settings, gio::SettingsSchemaKey), GSettingsError> {
         let schema = gio::SettingsSchemaSource::default()
             .and_then(|source| source.lookup(key.schema, true))
             .ok_or(GSettingsError::NoSchema { key })?;
         if !schema.has_key(key.key) {
             return Err(GSettingsError::NoKey { key });
         }
-        let value_type = schema.key(key.key).value_type();
+        if !Self::keeps_values() {
+            return Err(GSettingsError::NotKept { key });
+        }
         let settings = gio::Settings::new_full(&schema, gio::SettingsBackend::NONE, None::<&str>);
         if !settings.is_writable(key.key) {
             return Err(GSettingsError::NotWritable { key });
         }
-        Ok((settings, value_type))
+        Ok((settings, schema.key(key.key)))
     }
-}
 
-impl GSettingsStore for Gio {
-    fn set(&self, key: GSettingsKey, value: &Value) -> Result<(), GSettingsError> {
-        let (settings, value_type) = Self::open(key)?;
+    /// Whether GSettings keeps what is written. Without dconf, GIO falls back to keeping values
+    /// in memory: a write works and is gone when the program ends.
+    pub fn keeps_values() -> bool {
+        gio::SettingsBackend::default().type_().name() != "GMemorySettingsBackend"
+    }
+
+    /// `value` as the variant `key` holds, checked against the key's range (an enum's values).
+    fn variant(
+        key: GSettingsKey,
+        schema_key: &gio::SettingsSchemaKey,
+        value: &Value,
+    ) -> Result<gio::glib::Variant, GSettingsError> {
+        let value_type = schema_key.value_type();
         let variant = match value {
-            Value::Text(text) if value_type == *gio::glib::VariantTy::STRING => text.to_variant(),
+            Value::Text(text) | Value::Choice(text)
+                if value_type == *gio::glib::VariantTy::STRING =>
+            {
+                text.to_variant()
+            }
             Value::Integer(number) if value_type == *gio::glib::VariantTy::INT32 => {
                 i32::try_from(*number)
                     .map_err(|_| GSettingsError::WrongType { key })?
                     .to_variant()
             }
+            Value::Decimal(number) if value_type == *gio::glib::VariantTy::DOUBLE => {
+                number.to_variant()
+            }
             _ => return Err(GSettingsError::WrongType { key }),
         };
+        if !schema_key.range_check(&variant) {
+            return Err(GSettingsError::Rejected { key });
+        }
+        Ok(variant)
+    }
+}
+
+impl GSettingsStore for Gio {
+    fn set(&self, key: GSettingsKey, value: &Value) -> Result<(), GSettingsError> {
+        let (settings, schema_key) = Self::open(key)?;
+        let variant = Self::variant(key, &schema_key, value)?;
         settings
             .set_value(key.key, &variant)
             .map_err(|_| GSettingsError::Rejected { key })?;
@@ -144,6 +218,29 @@ impl GSettingsStore for Gio {
         gio::Settings::sync();
         Ok(())
     }
+
+    fn check(&self, key: GSettingsKey, value: &Value) -> Result<(), GSettingsError> {
+        let (_, schema_key) = Self::open(key)?;
+        Self::variant(key, &schema_key, value).map(|_| ())
+    }
+
+    fn value(&self, key: GSettingsKey) -> Option<Value> {
+        let schema = gio::SettingsSchemaSource::default()?.lookup(key.schema, true)?;
+        if !schema.has_key(key.key) {
+            return None;
+        }
+        let settings = gio::Settings::new_full(&schema, gio::SettingsBackend::NONE, None::<&str>);
+        let variant = settings.value(key.key);
+        variant
+            .str()
+            .map(|text| Value::Text(text.to_owned()))
+            .or_else(|| {
+                variant
+                    .get::<i32>()
+                    .map(|number| Value::Integer(number.into()))
+            })
+            .or_else(|| variant.get::<f64>().map(Value::Decimal))
+    }
 }
 
 /// Writes nothing: for an applier that mustn't touch the user's desktop, as in tests.
@@ -156,6 +253,14 @@ impl GSettingsStore for NoGSettings {
     }
 
     fn reset(&self, _key: GSettingsKey) -> Result<(), GSettingsError> {
+        Ok(())
+    }
+
+    fn value(&self, _key: GSettingsKey) -> Option<Value> {
+        None
+    }
+
+    fn check(&self, _key: GSettingsKey, _value: &Value) -> Result<(), GSettingsError> {
         Ok(())
     }
 }
@@ -178,12 +283,15 @@ impl MemoryGSettings {
 
 impl GSettingsStore for MemoryGSettings {
     fn set(&self, key: GSettingsKey, value: &Value) -> Result<(), GSettingsError> {
-        if !matches!(value, Value::Text(_) | Value::Integer(_)) {
-            return Err(GSettingsError::WrongType { key });
-        }
+        // As GSettings keeps them: a choice is the string of an enum key.
+        let value = match value {
+            Value::Choice(id) => Value::Text(id.clone()),
+            Value::Text(_) | Value::Integer(_) | Value::Decimal(_) => value.clone(),
+            _ => return Err(GSettingsError::WrongType { key }),
+        };
         self.values
             .borrow_mut()
-            .insert((key.schema.to_owned(), key.key.to_owned()), value.clone());
+            .insert((key.schema.to_owned(), key.key.to_owned()), value);
         Ok(())
     }
 
@@ -191,6 +299,14 @@ impl GSettingsStore for MemoryGSettings {
         self.values
             .borrow_mut()
             .remove(&(key.schema.to_owned(), key.key.to_owned()));
+        Ok(())
+    }
+
+    fn value(&self, key: GSettingsKey) -> Option<Value> {
+        self.get(key.schema, key.key)
+    }
+
+    fn check(&self, _key: GSettingsKey, _value: &Value) -> Result<(), GSettingsError> {
         Ok(())
     }
 }
@@ -218,8 +334,13 @@ pub enum GSettingsError {
         /// The key.
         key: GSettingsKey,
     },
-    /// The backend refused the value.
+    /// The value is outside the key's range, or the backend refused it.
     Rejected {
+        /// The key.
+        key: GSettingsKey,
+    },
+    /// Nothing keeps the value: GIO found no backend like dconf and keeps values in memory.
+    NotKept {
         /// The key.
         key: GSettingsKey,
     },
@@ -233,7 +354,8 @@ impl GSettingsError {
             | Self::NoKey { key }
             | Self::WrongType { key }
             | Self::NotWritable { key }
-            | Self::Rejected { key } => *key,
+            | Self::Rejected { key }
+            | Self::NotKept { key } => *key,
         }
     }
 
@@ -259,6 +381,9 @@ impl GSettingsError {
                 msg!(
                     "GTK apps keep their own setting: GSettings refused the value of {key} in {schema}"
                 )
+            }
+            Self::NotKept { .. } => {
+                msg!("GTK apps keep their own setting: nothing keeps GSettings values (no dconf)")
             }
         };
         Text::new(message)

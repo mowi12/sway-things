@@ -23,7 +23,7 @@ use sway_things_core::apply::{Applier, Countdown};
 use sway_things_core::delegate;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
-use sway_things_core::gsettings::MemoryGSettings;
+use sway_things_core::gsettings::{MemoryGSettings, NoGSettings};
 use sway_things_core::i18n::Text;
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
@@ -903,6 +903,7 @@ fn doctor_without_sway_skips_validation() {
         displays: sway_things_core::generate::Displays::Sway,
         kanshi: None,
         path: None,
+        gsettings: &NoGSettings,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor(&checkup, None, &DoctorArgs::default(), &mut out));
@@ -958,6 +959,7 @@ fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, Strin
         displays: sway_things_core::generate::Displays::Sway,
         kanshi: None,
         path: None,
+        gsettings: &NoGSettings,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor_with(&checkup, None, args, &mut out, look));
@@ -1083,6 +1085,7 @@ fn doctor_starts_with_the_system_details() {
         displays: sway_things_core::generate::Displays::Sway,
         kanshi: None,
         path: None,
+        gsettings: &NoGSettings,
     };
     let system = Details {
         compositor: Some(setup.session.applier.compositor()),
