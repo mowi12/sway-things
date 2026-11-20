@@ -453,10 +453,7 @@ impl<V: Validate> Applier<V> {
         key: &'static str,
         settings: &[&'static Setting],
     ) -> Result<Option<Outputs>, ApplyError> {
-        if !settings
-            .iter()
-            .any(|setting| setting.scope() == Scope::PerOutput)
-        {
+        if !settings.iter().any(|setting| setting.sets_up_display()) {
             return Ok(None);
         }
         let Some(client) = &mut self.client else {

@@ -8,7 +8,7 @@
 
 use super::Pending;
 use crate::outputs::{Outputs, POSITION};
-use crate::registry::{Scope, Setting, Value, Values};
+use crate::registry::{Setting, Value, Values};
 use crate::state::State;
 use crate::view::SettingView;
 
@@ -62,7 +62,7 @@ pub fn in_effect(
         }
     }
     if let Some(outputs) = effect.kanshi {
-        if setting.scope() == Scope::PerOutput {
+        if setting.sets_up_display() {
             view.line = None;
             if device.is_none() {
                 let mut each = outputs

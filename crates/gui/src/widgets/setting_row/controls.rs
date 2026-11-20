@@ -40,9 +40,9 @@ pub(super) fn control(setting: &'static Setting) -> Option<Control> {
                 ids: choices.iter().map(|choice| choice.id).collect(),
             }
         }
-        Kind::Color { .. } => {
+        Kind::Color { alpha, .. } => {
             let dialog = gtk::ColorDialog::new();
-            dialog.set_with_alpha(true);
+            dialog.set_with_alpha(*alpha);
             let button = gtk::ColorDialogButton::new(Some(dialog));
             button.set_valign(gtk::Align::Center);
             Control::Color(button)

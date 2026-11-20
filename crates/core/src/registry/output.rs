@@ -12,8 +12,7 @@
 
 use super::read::{self, ReadError};
 use super::{
-    Apply, Choice, ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Value,
-    ValueError,
+    Apply, Choice, ConfigFile, Context, Directive, Page, RenderError, Setting, Value, ValueError,
 };
 use crate::command::SwayCmd;
 use crate::command::output::{self as cmd, MAX_SCALE, MIN_SCALE, Mode, Transform};
@@ -59,7 +58,7 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("disable"),
                 msg!("off"),
             ])
-            .scope(Scope::PerOutput)
+            .sets_up_display()
             .one_at_a_time()
             .apply(Apply::Risky)
             .sway(
@@ -80,7 +79,7 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("mode"),
                 msg!("monitor"),
             ])
-            .scope(Scope::PerOutput)
+            .sets_up_display()
             .one_at_a_time()
             .apply(Apply::Risky)
             .check_text(check_mode)
@@ -100,7 +99,9 @@ pub(super) fn settings() -> Vec<Setting> {
             ))
             .keywords(&[msg!("zoom"), msg!("hidpi"), msg!("size"), msg!("dpi")])
             .slider(0.5, 3.0, 0.05)
-            .scope(Scope::PerOutput)
+            .sets_up_display()
+            // The scale for every display fits this machine's displays, not those of another.
+            .host_by_default()
             .sway(
                 Directive::output("scale"),
                 ConfigFile::Output,
@@ -112,7 +113,7 @@ pub(super) fn settings() -> Vec<Setting> {
             .section(section)
             .title(msg!("Rotation"))
             .keywords(&[msg!("transform"), msg!("orientation"), msg!("portrait")])
-            .scope(Scope::PerOutput)
+            .sets_up_display()
             // A turned screen is hard to point at: tried with the safety net, for one display.
             .apply(Apply::Risky)
             .one_at_a_time()
@@ -131,7 +132,7 @@ pub(super) fn settings() -> Vec<Setting> {
                  the display right of the others"
             ))
             .keywords(&[msg!("arrange"), msg!("layout"), msg!("left"), msg!("right")])
-            .scope(Scope::PerOutput)
+            .sets_up_display()
             .one_at_a_time()
             .check_text(check_position)
             .sway(
