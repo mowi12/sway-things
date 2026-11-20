@@ -153,7 +153,10 @@ pub fn change(
                 items
             }
         }
-        RowKind::Removed { .. } | RowKind::Group { .. } | RowKind::Feature { .. } => {
+        RowKind::Removed { .. }
+        | RowKind::Group { .. }
+        | RowKind::Feature { .. }
+        | RowKind::App { .. } => {
             return items.to_vec();
         }
     };
@@ -186,7 +189,10 @@ pub fn remove(listing: &Listing, items: &[String], index: usize) -> Vec<String> 
                 *slot = item_text(&original.unbinding());
             }
         }
-        RowKind::Removed { .. } | RowKind::Group { .. } | RowKind::Feature { .. } => {}
+        RowKind::Removed { .. }
+        | RowKind::Group { .. }
+        | RowKind::Feature { .. }
+        | RowKind::App { .. } => {}
     }
     items
 }

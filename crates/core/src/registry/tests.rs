@@ -439,6 +439,9 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // Screenshots, the clipboard history and recording: keys in 50-bindings.conf, a hook,
         // and what the command line reads when a key is pressed.
         let is_capture = setting.page() == Page::ScreenshotsClipboard;
+        // The apps' settings are bindings, lines of 70-autostart.conf or files of other
+        // programs.
+        let is_apps = setting.page() == Page::AppsAutostart;
         assert_eq!(
             setting.sway().is_none(),
             is_app
@@ -446,7 +449,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
                 || is_gsettings_only
                 || is_collection
                 || is_binding
-                || is_capture,
+                || is_capture
+                || is_apps,
             "{}",
             setting.key()
         );

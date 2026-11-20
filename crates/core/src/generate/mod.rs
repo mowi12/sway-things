@@ -244,6 +244,12 @@ pub fn generate_for(
     {
         file.lines.extend(bindings(state));
     }
+    if let Some(file) = files
+        .iter_mut()
+        .find(|file| file.file == ConfigFile::Autostart)
+    {
+        file.lines.extend(autostart(state));
+    }
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
     }
@@ -364,6 +370,38 @@ fn bindings(state: &State) -> Vec<Line> {
                         .render(Target::Config)
                         .map_err(|error| error.to_string())
                 });
+            match text {
+                Ok(text) => Line {
+                    text,
+                    source,
+                    skipped: None,
+                },
+                Err(reason) => Line {
+                    text: format!("# {}: {reason}", source.keys.join(", ")),
+                    source,
+                    skipped: Some(reason),
+                },
+            }
+        })
+        .collect()
+}
+
+/// The lines of `70-autostart.conf`: the runner of the XDG autostart entries and the entries of
+/// the Apps & Autostart page ([`crate::apps::autostart::file_lines`]). An item that can't be
+/// written becomes a comment.
+fn autostart(state: &State) -> Vec<Line> {
+    crate::apps::autostart::file_lines(state)
+        .into_iter()
+        .map(|file_line| {
+            let source = Source {
+                keys: vec![file_line.key],
+                device: None,
+            };
+            let text = file_line.command.and_then(|command| {
+                command
+                    .render(Target::Config)
+                    .map_err(|error| error.to_string())
+            });
             match text {
                 Ok(text) => Line {
                     text,

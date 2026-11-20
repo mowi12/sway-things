@@ -321,6 +321,13 @@ pub enum ValueError {
     /// The text isn't a file name pattern: empty, with a slash or a line break, or with a `%`
     /// that isn't a known conversion.
     NotAFileName,
+    /// The keys type a character: a key that types needs Super, Ctrl or Alt.
+    TypingKeys,
+    /// The text isn't a desktop file ID like `org.mozilla.firefox.desktop`.
+    NotADesktopId,
+    /// The text isn't an autostart entry of Sway Things: `exec <command>` or `app <desktop file
+    /// ID>`, switched off with `# ` in front.
+    NotAnAutostartEntry,
 }
 
 impl ValueError {
@@ -392,6 +399,17 @@ impl ValueError {
             Self::NotAFileName => msg!(
                 "must be a file name without slashes or line breaks; % starts a date or time \
                  like %Y-%m-%d %H-%M-%S, and %% is a %"
+            )
+            .into(),
+            Self::TypingKeys => msg!("keys that type a character need Super, Ctrl or Alt").into(),
+            Self::NotADesktopId => msg!(
+                "must be a desktop file ID like org.mozilla.firefox.desktop: letters, digits, \
+                 -, _ and . ending in .desktop"
+            )
+            .into(),
+            Self::NotAnAutostartEntry => msg!(
+                "must be exec and a command line, or app and a desktop file ID; # in front \
+                 switches it off"
             )
             .into(),
         }

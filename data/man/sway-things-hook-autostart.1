@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-autostart 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-autostart \- Hand the session\*(Aqs variables to the systemd user session and start the XDG autostart entries through it (xdg\-desktop\-autostart.target): run at login while Sway Things starts them with systemd
+.SH SYNOPSIS
+\fBsway\-things hook autostart\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Hand the session\*(Aqs variables to the systemd user session and start the XDG autostart entries through it (xdg\-desktop\-autostart.target): run at login while Sway Things starts them with systemd
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

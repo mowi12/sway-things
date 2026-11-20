@@ -125,6 +125,9 @@ pub struct Persisted {
     pub saved: bool,
     /// What happened to each generated file.
     pub files: Report,
+    /// The files of the Apps & Autostart page that couldn't be written or deleted
+    /// ([`crate::apps::files`]): someone else's file, or one changed outside.
+    pub apps: Vec<crate::apps::files::Problem>,
 }
 
 impl Persisted {
@@ -203,6 +206,9 @@ pub struct Applier<V = SwayValidator> {
     /// generated files: what a change of the bindings is worked out against. `None` until
     /// [`Applier::set_user_config`]; bindings then change with a reload.
     user_config: Option<(Vec<crate::sway_config::Directive>, Option<usize>)>,
+    /// The XDG directories the files of the Apps & Autostart page go to
+    /// ([`crate::apps::files`]); `None` for an applier made for tests, which writes none.
+    apps_dirs: Option<crate::apps::Dirs>,
 }
 
 impl Applier<SwayValidator> {
@@ -238,6 +244,7 @@ impl Applier<SwayValidator> {
             .kanshi_files
             .as_ref()
             .is_some_and(|files| !files.ours_is_written());
+        applier.apps_dirs = crate::apps::Dirs::from_env();
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -301,6 +308,7 @@ impl<V: Validate> Applier<V> {
             kanshi_started: false,
             kanshi_file_missing: false,
             user_config: None,
+            apps_dirs: None,
         }
     }
 
@@ -333,6 +341,7 @@ impl<V: Validate> Applier<V> {
             kanshi_started: false,
             kanshi_file_missing: false,
             user_config: None,
+            apps_dirs: None,
         }
     }
 
@@ -423,6 +432,13 @@ impl<V: Validate> Applier<V> {
             status.config().directives.clone(),
             status.position(ConfigFile::Bindings),
         ));
+    }
+
+    /// Writes the files of the Apps & Autostart page for `dirs` from now on (default apps,
+    /// switched-off autostart entries, the systemd unit of the runner): [`Applier::open`] takes
+    /// the user's directories, other appliers write none until this is called.
+    pub fn set_apps_dirs(&mut self, dirs: Option<crate::apps::Dirs>) {
+        self.apps_dirs = dirs;
     }
 
     /// Generates for displays set up by `displays` from now on ([`generate::Displays::detect`]
@@ -767,6 +783,7 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Applied, ApplyError> {
         let live = if crate::registry::shortcuts::KEYS.contains(&setting.key())
             || crate::capture::shortcuts::KEYS.contains(&setting.key())
+            || crate::apps::launchers::KEYS.contains(&setting.key())
         {
             self.apply_bindings(&before).await
         } else {
@@ -965,10 +982,29 @@ impl<V: Validate> Applier<V> {
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        let persisted = Persisted { saved, files };
+        let apps = self.keep_apps_files();
+        let persisted = Persisted { saved, files, apps };
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)
+    }
+
+    /// Brings the files of the Apps & Autostart page in line with the settings, recorded in the
+    /// manifest: only files of Sway Things are written or deleted. Returns what couldn't be done.
+    fn keep_apps_files(&self) -> Vec<crate::apps::files::Problem> {
+        let Some(dirs) = &self.apps_dirs else {
+            return Vec::new();
+        };
+        let wanted = crate::apps::files::wanted(&self.state, dirs);
+        let mut manifest = generate::Manifest::load(self.locations.manifest());
+        let mut problems = crate::apps::files::keep(&wanted, &mut manifest);
+        if let Err(error) = manifest.save() {
+            problems.push(crate::apps::files::Problem::Io(
+                self.locations.manifest().to_owned(),
+                error.to_string(),
+            ));
+        }
+        problems
     }
 
     /// The stored changes that wait for a reload of sway or the next login.

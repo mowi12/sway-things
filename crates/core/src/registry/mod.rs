@@ -33,6 +33,7 @@
 //! ```
 
 pub mod app;
+pub mod apps;
 mod behavior;
 pub mod capture;
 pub mod cursor;
@@ -93,6 +94,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());
     settings.extend(shortcuts::settings());
+    settings.extend(apps::settings());
     settings.extend(capture::settings());
     settings.extend(app::settings());
     Registry { settings }

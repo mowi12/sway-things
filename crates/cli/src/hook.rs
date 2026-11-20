@@ -2,15 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The hooks generated config runs: `gsettings` and `wallpaper` in the session, `displays`,
-//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`], and
-//! `clipboard` through [`sway_things_core::capture::clipboard`].
+//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`],
+//! `clipboard` through [`sway_things_core::capture::clipboard`], and `launch` and `autostart`
+//! through [`sway_things_core::apps`], which need neither the settings nor sway.
 
 use std::io::Write;
 
+use sway_things_core::apps;
 use sway_things_core::capture::clipboard::{self, Synced};
 use sway_things_core::capture::{self as capture, HISTORY, Settings};
 use sway_things_core::generate::Validate;
-use sway_things_core::i18n::trf;
+use sway_things_core::i18n::{Text, trf};
 use sway_things_core::ipc::Client;
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks::{self, HookEnv};
@@ -57,14 +59,57 @@ async fn hook_new_display(client: &mut Client, env: &HookEnv, err: &mut dyn Writ
     }
 }
 
+/// `hook launch <ID>`: starts the installed app `id` as its desktop entry says, and returns at
+/// once.
+async fn hook_launch(id: &str, err: &mut dyn Write) -> Exit {
+    let Some(dirs) = apps::Dirs::from_env() else {
+        return fail_with(err, &Text::from(msg!("HOME isn't set")));
+    };
+    match apps::launch::launch(&dirs, id).await {
+        Ok(()) => Exit::Ok,
+        Err(error) => fail_with(err, &error.text()),
+    }
+}
+
+/// `hook autostart`: starts the XDG autostart entries through the systemd user session.
+async fn hook_autostart(err: &mut dyn Write) -> Exit {
+    match apps::autostart::start_with_systemd().await {
+        Ok(()) => Exit::Ok,
+        Err(error) => {
+            let _ = writeln!(err, "{}", super::error_line(&error));
+            Exit::Failure
+        }
+    }
+}
+
+/// A hook of the apps (`launch`, `autostart`), which runs the same for the user and in a
+/// session; `None` for the other hooks.
+async fn run_app_hook(hook: &Hook, err: &mut dyn Write) -> Option<Exit> {
+    match hook {
+        Hook::Launch { id } => Some(hook_launch(id, err).await),
+        Hook::Autostart => Some(hook_autostart(err).await),
+        Hook::Gsettings
+        | Hook::Displays
+        | Hook::Workspaces
+        | Hook::Mirror
+        | Hook::NewDisplay
+        | Hook::Clipboard
+        | Hook::Wallpaper => None,
+    }
+}
+
 /// kanshi's files for `doctor`, if kanshi is installed.
 pub(super) fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
     outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
 }
 
-/// A hook of the displays for the user who runs `sway-things`: their settings files, and the
-/// session of `$SWAYSOCK` or, for a hook kanshi runs, sway's newest socket ([`hooks::connect`]).
-pub(super) async fn hook_for_user(hook: Hook, err: &mut dyn Write) -> Exit {
+/// A hook for the user who runs `sway-things`: one of the apps as it is, one of the displays with
+/// their settings files and the session of `$SWAYSOCK` or, for a hook kanshi runs, sway's newest
+/// socket ([`hooks::connect`]).
+pub(super) async fn hook_for_user(hook: &Hook, err: &mut dyn Write) -> Exit {
+    if let Some(exit) = run_app_hook(hook, err).await {
+        return exit;
+    }
     let mut client = match hooks::connect().await {
         Ok(client) => client,
         Err(error) => return fail_with(err, &error.text()),
@@ -75,7 +120,7 @@ pub(super) async fn hook_for_user(hook: Hook, err: &mut dyn Write) -> Exit {
 /// A hook of the displays (`displays`, `workspaces`, `mirror`, `new-display`) on `client` with
 /// the files of `env`, as [`outputs::hooks`] runs it.
 pub(super) async fn run_display_hook(
-    hook: Hook,
+    hook: &Hook,
     client: &mut Client,
     env: &HookEnv,
     err: &mut dyn Write,
@@ -85,7 +130,13 @@ pub(super) async fn run_display_hook(
         Hook::NewDisplay => return hook_new_display(client, env, err).await,
         Hook::Workspaces => hooks::workspaces(client, env).await,
         Hook::Mirror => hooks::mirror(client, env).await,
-        Hook::Gsettings | Hook::Wallpaper | Hook::Clipboard => return Exit::Ok,
+        Hook::Gsettings
+        | Hook::Wallpaper
+        | Hook::Clipboard
+        | Hook::Launch { .. }
+        | Hook::Autostart => {
+            return Exit::Ok;
+        }
     };
     match done {
         Ok(_) => Exit::Ok,
@@ -96,7 +147,7 @@ pub(super) async fn run_display_hook(
 /// A hook in a session that runs already (as the tests do; for the user, `run_for_user` runs
 /// them without loading the settings).
 pub(super) async fn run_hook<V: Validate>(
-    hook: Hook,
+    hook: &Hook,
     session: &mut Session<V>,
     io: &mut Io<'_>,
 ) -> Exit {
@@ -113,7 +164,14 @@ pub(super) async fn run_hook<V: Validate>(
             );
             return hook_clipboard(|| history, io.err);
         }
-        Hook::Displays | Hook::Workspaces | Hook::Mirror => {}
+        Hook::Displays
+        | Hook::Workspaces
+        | Hook::Mirror
+        | Hook::Launch { .. }
+        | Hook::Autostart => {}
+    }
+    if let Some(exit) = run_app_hook(hook, io.err).await {
+        return exit;
     }
     let env = HookEnv {
         paths: Some(session.applier.state().paths().clone()),

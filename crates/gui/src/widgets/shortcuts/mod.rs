@@ -39,7 +39,7 @@ use sway_things_core::registry::{Link, Page, Registry, Value};
 
 use super::setting_row::tilde;
 use super::{Place, SettingRow};
-use crate::i18n::{msg, tr, trf};
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
@@ -581,6 +581,12 @@ pub(crate) fn place(source: &Source) -> String {
                 &[("title", &title), ("page", &page)],
             )
         }),
+        Origin::App(key) => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("the {app} binding of Sway Things"),
+                &[("app", &tr(title).to_lowercase())],
+            )
+        }),
     }
 }
 
@@ -596,6 +602,11 @@ fn feature(key: &str) -> Option<(String, String)> {
                 tr(setting.page().title()).to_owned(),
             )
         })
+}
+
+/// What the binding of the Apps & Autostart page with the setting `key` opens.
+fn app_title(key: &str) -> Option<Msg> {
+    sway_things_core::apps::launchers::Binding::of(key).map(|binding| binding.title)
 }
 
 /// The options of a binding in words.
@@ -677,6 +688,12 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
                 &[("title", &title), ("page", &page)],
             )
         }),
+        RowKind::App { key } => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("{app}, chosen on Apps & Autostart"),
+                &[("app", &tr(title))],
+            )
+        }),
     });
     lines
 }
@@ -714,6 +731,12 @@ fn locked_reason(row: &Row) -> Option<String> {
                 &[("title", &title), ("page", &page)],
             )
         }),
+        RowKind::App { key } => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("{app}, chosen on Apps & Autostart"),
+                &[("app", &tr(title))],
+            )
+        }),
     })
 }
 
@@ -725,7 +748,7 @@ fn owner(row: &Row) -> Option<&'static str> {
         | RowKind::Added { .. }
         | RowKind::Changed { .. }
         | RowKind::Removed { .. } => None,
-        RowKind::Group { key } | RowKind::Feature { key } => Some(key),
+        RowKind::Group { key } | RowKind::Feature { key } | RowKind::App { key } => Some(key),
     }
 }
 

@@ -45,19 +45,23 @@ pub enum Section {
     Generated,
     /// Lines of the user's config that set a stored setting.
     Conflicts,
+    /// The default apps and everything that starts with the session.
+    Apps,
 }
 
 impl Section {
     /// Every section, in order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Compositor,
         Self::Config,
         Self::Settings,
         Self::Generated,
         Self::Conflicts,
+        Self::Apps,
     ];
 
-    /// The id for scripts: `compositor`, `config`, `settings`, `generated`, `conflicts`.
+    /// The id for scripts: `compositor`, `config`, `settings`, `generated`, `conflicts`,
+    /// `apps`.
     pub fn id(self) -> &'static str {
         match self {
             Self::Compositor => "compositor",
@@ -65,6 +69,7 @@ impl Section {
             Self::Settings => "settings",
             Self::Generated => "generated",
             Self::Conflicts => "conflicts",
+            Self::Apps => "apps",
         }
     }
 
@@ -76,6 +81,7 @@ impl Section {
             Self::Settings => msg!("Settings files"),
             Self::Generated => msg!("Generated files"),
             Self::Conflicts => msg!("Conflicts"),
+            Self::Apps => msg!("Apps & Autostart"),
         }
     }
 }
@@ -171,6 +177,19 @@ pub enum Code {
     /// A line of the user's config comes before the generated file and has no effect while the
     /// setting is stored.
     ConfigLineDead,
+    /// Default apps are chosen, and `XDG_CURRENT_DESKTOP` names sway, so they apply.
+    DesktopSway,
+    /// Default apps are chosen, but `XDG_CURRENT_DESKTOP` doesn't name sway, so apps don't read
+    /// `sway-mimeapps.list`.
+    DesktopNotSway,
+    /// A file of the Apps & Autostart page can't be written: someone else's, or changed outside.
+    AppsFile,
+    /// Something runs the XDG autostart entries, and what starts at login.
+    AutostartRunner,
+    /// XDG autostart entries would start, but nothing runs them.
+    AutostartNoRunner,
+    /// More than one thing runs the XDG autostart entries, so they may start twice.
+    AutostartTwice,
 }
 
 impl Code {
@@ -218,6 +237,12 @@ impl Code {
             Self::NoConflicts => "no_conflicts",
             Self::ConfigWins => "config_wins",
             Self::ConfigLineDead => "config_line_dead",
+            Self::DesktopSway => "desktop_sway",
+            Self::DesktopNotSway => "desktop_not_sway",
+            Self::AppsFile => "apps_file",
+            Self::AutostartRunner => "autostart_runner",
+            Self::AutostartNoRunner => "autostart_no_runner",
+            Self::AutostartTwice => "autostart_twice",
         }
     }
 
@@ -263,6 +288,12 @@ impl Code {
             | Self::FileInvalid
             | Self::ValidationSkipped => Section::Generated,
             Self::NoConflicts | Self::ConfigWins | Self::ConfigLineDead => Section::Conflicts,
+            Self::DesktopSway
+            | Self::DesktopNotSway
+            | Self::AppsFile
+            | Self::AutostartRunner
+            | Self::AutostartNoRunner
+            | Self::AutostartTwice => Section::Apps,
         }
     }
 }

@@ -112,6 +112,8 @@ enum Part {
     Command(Box<SwayCmd>),
     /// A whole binding line, which renders itself ([`crate::bindings::Line`]).
     Binding(Box<BindingPart>),
+    /// The command line of `exec` or `exec_always`, which sway runs with `sh -c`.
+    ExecLine(SwayText),
 }
 
 /// A binding line with the modifier its `$mod` stands for.
@@ -227,6 +229,26 @@ impl SwayCmd {
             min_swayfx: None,
             criteria: None,
         })
+    }
+
+    /// `exec <line>`: sway runs the command line `line` with `sh -c`, at once over IPC, once
+    /// when it starts in a config file (`exec_always` with `always`: also at each reload).
+    ///
+    /// The line is one quoted argument, as in [`crate::bindings::Action::Run`]: sway keeps the
+    /// quotes of `exec`'s arguments, replaces `$$` with `$` once (an `exec` of a config file is
+    /// run later like an IPC command) and takes a single quoted argument without its quotes. So
+    /// the shell gets `line` exactly, `;`, `,` and `$` included.
+    pub fn exec(line: SwayText, always: bool) -> Self {
+        Self {
+            parts: vec![
+                Part::Keyword(if always { "exec_always" } else { "exec" }),
+                Part::ExecLine(line),
+            ],
+            availability: Availability::Anywhere,
+            min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
+            criteria: None,
+        }
     }
 
     /// `<criteria> <command>`: runs `command` now on every open window that matches `criteria`,
@@ -500,6 +522,11 @@ impl SwayCmd {
                     }
                     .map_err(|_| CommandError::InvalidBinding)?
                 }
+                // `$` is doubled in both: the config line is read like an IPC command later.
+                Part::ExecLine(line) => match rendering {
+                    Rendering::Ipc | Rendering::Config => line.render_ipc(),
+                    Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
+                },
             });
         }
         Ok(rendered)
