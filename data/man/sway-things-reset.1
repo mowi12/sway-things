@@ -4,13 +4,16 @@
 .SH NAME
 sway\-things\-reset \- Remove the stored value of a setting and apply its default
 .SH SYNOPSIS
-\fBsway\-things reset\fR [\fB\-\-device\fR] [\fB\-\-yes\fR] [\fB\-\-overwrite\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIKEY\fR> 
+\fBsway\-things reset\fR [\fB\-\-device\fR] [\fB\-\-collection\fR] [\fB\-\-yes\fR] [\fB\-\-overwrite\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIKEY\fR> 
 .SH DESCRIPTION
 Remove the stored value of a setting and apply its default
 .SH OPTIONS
 .TP
 \fB\-\-device\fR \fI<IDENTIFIER>\fR
 The input device or display: an input device by its identifier as `swaymsg \-t get_inputs` shows it, a display by its make, model and serial as `swaymsg \-t get_outputs` shows them, or in a sway session by its name
+.TP
+\fB\-\-collection\fR \fI<NAME>\fR
+The wallpaper collection, by its name
 .TP
 \fB\-\-yes\fR
 Reset a setting that can lock you out without asking to keep it

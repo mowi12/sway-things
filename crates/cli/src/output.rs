@@ -157,7 +157,11 @@ pub(crate) fn list(all: &[Shown], paths: &Paths, out: &mut dyn Write) {
         if shown.device != device {
             device.clone_from(&shown.device);
             if let Some(device) = &device {
-                let heading = if for_displays(shown.key) {
+                let heading = if of_collection(shown.key) {
+                    // TRANSLATORS: The heading of a wallpaper collection's settings in
+                    // `sway-things get`.
+                    trf(msg!("collection {collection}"), &[("collection", device)])
+                } else if for_displays(shown.key) {
                     // TRANSLATORS: The heading of a display's settings in `sway-things get`.
                     trf(msg!("display {display}"), &[("display", device)])
                 } else {
@@ -175,9 +179,10 @@ pub(crate) fn list(all: &[Shown], paths: &Paths, out: &mut dyn Write) {
     }
 }
 
-/// The setting `key` as the user names it: with `--device`, if it is for one.
+/// The setting `key` as the user names it: with `--device` or `--collection`, if it is for one.
 pub(crate) fn name(key: &str, device: Option<&str>) -> String {
     match device {
+        Some(collection) if of_collection(key) => format!("{key} --collection {collection}"),
         Some(device) => format!("{key} --device {device}"),
         None => key.to_owned(),
     }
@@ -189,6 +194,13 @@ fn for_displays(key: &str) -> bool {
     Registry::builtin()
         .get(key)
         .is_some_and(|setting| setting.scope() == Scope::PerOutput)
+}
+
+/// Whether the setting `key` is one of a wallpaper collection.
+fn of_collection(key: &str) -> bool {
+    Registry::builtin()
+        .get(key)
+        .is_some_and(|setting| setting.scope() == Scope::PerCollection)
 }
 
 /// A line of a generated file that sway rejected, with the settings it comes from.

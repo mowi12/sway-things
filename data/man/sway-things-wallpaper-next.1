@@ -1,0 +1,34 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-wallpaper-next 1 "" "Sway Things 0.2.1" "Sway Things Manual"
+.SH NAME
+sway\-things\-wallpaper\-next \- Show the next picture of the collection
+.SH SYNOPSIS
+\fBsway\-things wallpaper next\fR [\fB\-\-device\fR] [\fB\-\-due\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Show the next picture of the collection
+.SH OPTIONS
+.TP
+\fB\-\-device\fR \fI<IDENTIFIER>\fR
+The display, as for `get`; without one, the collection of every display
+.TP
+\fB\-\-due\fR
+Only if its time has come; without a sway session, stop the timer instead
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

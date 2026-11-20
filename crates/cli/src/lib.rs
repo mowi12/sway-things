@@ -43,6 +43,7 @@ use sway_things_core::sound::Sound;
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
+use sway_things_core::wallpaper::{self, Moment};
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
 pub use prompt::{Prompt, Terminal};
@@ -74,6 +75,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Print JSON for scripts
         #[arg(long)]
         json: bool,
@@ -91,6 +95,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Store the value for this machine only, in settings.d/<hostname>.toml
         #[arg(long, conflicts_with = "shared")]
         host: bool,
@@ -113,6 +120,9 @@ pub enum Command {
         /// get_outputs` shows them, or in a sway session by its name
         #[arg(long, value_name = "IDENTIFIER")]
         device: Option<String>,
+        /// The wallpaper collection, by its name
+        #[arg(long, value_name = "NAME", conflicts_with = "device")]
+        collection: Option<String>,
         /// Reset a setting that can lock you out without asking to keep it
         #[arg(long)]
         yes: bool,
@@ -142,6 +152,42 @@ pub enum Command {
     /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
+    /// Change the picture of a wallpaper collection
+    ///
+    /// A display shows a collection when wallpaper.collection names one. The generated sway
+    /// config runs `wallpaper start` at login; a systemd user timer runs `wallpaper next --due`
+    /// for collections that change daily or after an interval.
+    #[command(subcommand)]
+    Wallpaper(WallpaperCommand),
+}
+
+/// A command of `sway-things wallpaper`.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum WallpaperCommand {
+    /// Show the next picture of each collection whose time has come, and start their timers
+    Start {
+        /// The display, as for `get`; without one, every display that shows a collection
+        #[arg(long, value_name = "IDENTIFIER")]
+        device: Option<String>,
+    },
+    /// Show the next picture of the collection
+    Next {
+        /// The display, as for `get`; without one, the collection of every display
+        #[arg(long, value_name = "IDENTIFIER")]
+        device: Option<String>,
+        /// Only if its time has come; without a sway session, stop the timer instead
+        #[arg(long)]
+        due: bool,
+    },
+}
+
+impl WallpaperCommand {
+    /// The display the command is for, as given.
+    fn device(&self) -> Option<&str> {
+        match self {
+            Self::Start { device } | Self::Next { device, .. } => device.as_deref(),
+        }
+    }
 }
 
 /// A hook of `sway-things hook`.
@@ -279,9 +325,13 @@ impl Displays {
         io: &mut Io<'_>,
     ) -> Result<Self, Exit> {
         let listed = match (command, session.applier.client()) {
-            (Command::Get { .. } | Command::Set { .. } | Command::Reset { .. }, Some(client)) => {
-                Some(client.outputs().await.map(|found| Outputs::new(&found)))
-            }
+            (
+                Command::Get { .. }
+                | Command::Set { .. }
+                | Command::Reset { .. }
+                | Command::Wallpaper(_),
+                Some(client),
+            ) => Some(client.outputs().await.map(|found| Outputs::new(&found))),
             _ => None,
         };
         if let (
@@ -304,6 +354,32 @@ impl Displays {
     /// given.
     fn resolve(&self, key: Option<&str>, device: Option<&str>) -> Option<String> {
         resolve_display(key, device, self.outputs.as_ref())
+    }
+
+    /// What a value of `key` is stored for: `collection` for a setting of a wallpaper collection,
+    /// else `device` as [`Displays::resolve`] makes it.
+    ///
+    /// # Errors
+    ///
+    /// [`StateError::NotPerCollection`] for `collection` with another setting,
+    /// [`StateError::NoCollection`] for a setting of a collection without one.
+    fn stored_for(
+        &self,
+        key: &str,
+        device: Option<&str>,
+        collection: Option<&str>,
+    ) -> Result<Option<String>, StateError> {
+        let setting = Registry::builtin().get(key);
+        let of_collection = setting.is_some_and(|setting| setting.scope() == Scope::PerCollection);
+        match (collection, setting) {
+            (Some(collection), _) if of_collection => Ok(Some(collection.to_owned())),
+            (Some(_), Some(setting)) => Err(StateError::NotPerCollection { key: setting.key() }),
+            (None, Some(setting)) if of_collection => {
+                Err(StateError::NoCollection { key: setting.key() })
+            }
+            // An unknown key is reported by the state.
+            _ => Ok(self.resolve(Some(key), device)),
+        }
     }
 }
 
@@ -741,8 +817,16 @@ pub async fn run<V: Validate>(
     };
     let resolved = |key: Option<&str>, device: Option<&str>| displays.resolve(key, device);
     match command {
-        Command::Get { key, device, json } => {
-            let device = resolved(key.as_deref(), device.as_deref());
+        Command::Get {
+            key,
+            device,
+            collection,
+            json,
+        } => {
+            let device = match collection {
+                Some(collection) => Some(collection.clone()),
+                None => resolved(key.as_deref(), device.as_deref()),
+            };
             let known = Known {
                 devices: None,
                 outputs: displays.outputs.as_ref(),
@@ -760,17 +844,21 @@ pub async fn run<V: Validate>(
             key,
             value,
             device,
+            collection,
             host,
             shared,
             yes,
             overwrite,
         } => {
+            let device = match displays.stored_for(key, device.as_deref(), collection.as_deref()) {
+                Ok(device) => device,
+                Err(error) => return fail(&mut io, &error.into()),
+            };
             let layer = match (host, shared) {
                 (true, _) => Some(Layer::Host),
                 (_, true) => Some(Layer::Shared),
                 _ => None,
             };
-            let device = resolved(Some(key), device.as_deref());
             let change = Change {
                 key,
                 device: device.as_deref(),
@@ -781,15 +869,19 @@ pub async fn run<V: Validate>(
             follow_combination(session, key, &mut io).await;
             let exit = set(session, &change, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, false, &mut io).await;
-            exit
+            follow_collections(session, key, exit, &mut io).await
         }
         Command::Reset {
             key,
             device,
+            collection,
             yes,
             overwrite,
         } => {
-            let device = resolved(Some(key), device.as_deref());
+            let device = match displays.stored_for(key, device.as_deref(), collection.as_deref()) {
+                Ok(device) => device,
+                Err(error) => return fail(&mut io, &error.into()),
+            };
             let reset_of = Reset {
                 key,
                 device: device.as_deref(),
@@ -798,12 +890,13 @@ pub async fn run<V: Validate>(
             follow_combination(session, key, &mut io).await;
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
             note_kanshi(session, key, exit, true, &mut io).await;
-            exit
+            follow_collections(session, key, exit, &mut io).await
         }
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
         Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+        Command::Wallpaper(command) => wallpaper(session, command, &displays, &mut io).await,
     }
 }
 
@@ -860,6 +953,101 @@ fn hook_gsettings<V: Validate>(session: &Session<V>, io: &mut Io<'_>) -> Exit {
     } else {
         Exit::Failure
     }
+}
+
+/// After a change of a wallpaper or collection setting in a session: starts the timers of the
+/// collections again, so they follow the change.
+async fn follow_collections<V: Validate>(
+    session: &mut Session<V>,
+    key: &str,
+    exit: Exit,
+    io: &mut Io<'_>,
+) -> Exit {
+    let wallpaper = key.starts_with("wallpaper.") || key.starts_with("collection.");
+    if exit != Exit::Ok || !wallpaper || session.applier.client().is_none() {
+        return exit;
+    }
+    if wallpaper::has_timers() {
+        if let Err(error) =
+            wallpaper::reschedule(session.applier.state(), &wallpaper::program()).await
+        {
+            io.warn(error.text().translated());
+        }
+    }
+    exit
+}
+
+/// `wallpaper start` and `wallpaper next`, for the display of `--device` (one named by its name
+/// is the one stored by its identifier) or, without one, for every display that shows a
+/// collection (`start`) or the collection of every display (`next`).
+async fn wallpaper<V: Validate>(
+    session: &mut Session<V>,
+    command: &WallpaperCommand,
+    displays: &Displays,
+    io: &mut Io<'_>,
+) -> Exit {
+    if let Some(name) = command
+        .device()
+        .filter(|name| OutputSelector::output(name).is_err())
+    {
+        let error = StateError::InvalidDevice {
+            device: name.to_owned(),
+        };
+        return fail(io, &error.into());
+    }
+    let device = displays.resolve(Some(wallpaper::COLLECTION), command.device());
+    let device = device.as_deref();
+    let moment = match command {
+        WallpaperCommand::Start { .. } => Moment::Login,
+        WallpaperCommand::Next { due: true, .. } => Moment::Timer,
+        WallpaperCommand::Next { due: false, .. } => Moment::Now,
+    };
+    if session.applier.client().is_none() {
+        if moment == Moment::Timer {
+            // The session the timer was started for has ended.
+            wallpaper::unschedule(device).await;
+            return Exit::Ok;
+        }
+        io.error(tr(msg!("not in a sway session")));
+        return Exit::Failure;
+    }
+    let state = session.applier.state().clone();
+    // At login, every display that shows a collection; else the one asked for.
+    let displays: Vec<Option<String>> = if moment == Moment::Login && device.is_none() {
+        wallpaper::shown(&state)
+            .into_iter()
+            .map(|shown| shown.output)
+            .collect()
+    } else {
+        vec![device.map(ToOwned::to_owned)]
+    };
+    let mut exit = Exit::Ok;
+    for display in &displays {
+        let display = display.as_deref();
+        let shown = wallpaper::shown_on(&state, display);
+        let result = wallpaper::next(session.applier.client(), &state, display, moment).await;
+        if let Err(error) = result {
+            if moment == Moment::Timer && shown.is_none() {
+                // The display no longer shows a collection.
+                wallpaper::unschedule(display).await;
+                continue;
+            }
+            io.error(error.text().translated());
+            exit = Exit::Failure;
+            continue;
+        }
+        if let (Some(shown), Moment::Login) = (shown, moment) {
+            if wallpaper::has_timers() {
+                let started =
+                    wallpaper::schedule(display, shown.collection.change, &wallpaper::program())
+                        .await;
+                if let Err(error) = started {
+                    io.warn(error.text().translated());
+                }
+            }
+        }
+    }
+    exit
 }
 
 /// `open`: starts the app at `link`, or without one, and returns at once. A running app brings
@@ -1481,7 +1669,10 @@ fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
             | StateError::InvalidValue { .. }
             | StateError::NotPerDevice { .. }
             | StateError::InvalidDevice { .. }
-            | StateError::OneAtATime { .. },
+            | StateError::OneAtATime { .. }
+            | StateError::NotPerCollection { .. }
+            | StateError::NoCollection { .. }
+            | StateError::InvalidCollection { .. },
         )
         | ApplyError::Render(_) => Exit::Usage,
         ApplyError::Unsupported { .. }
