@@ -1,0 +1,30 @@
+Sway Things Wallpaper License
+
+Copyright (c) the photographers named for each photo in wallpapers/wallpapers.toml and in the photo's own metadata.
+All rights reserved.
+
+The photos in the directory wallpapers/ of the Sway Things repository (https://github.com/mowi12/sway-things) are
+not covered by the GNU General Public License or any other license of Sway Things. Their photographers keep all
+rights to them and allow only the following:
+
+1. Anyone who uses Sway Things may download a photo through Sway Things or from the repository and use it as the
+   wallpaper of their own desktop, on as many of their own devices as they like.
+
+2. The Sway Things project may keep the photos in its repository and offer them to its users for that purpose.
+
+Nothing else is allowed without the photographer's written permission. In particular, it is not allowed to:
+
+- sell a photo, alone or as part of anything else, or use it in exchange for money or any other payment;
+- publish, distribute or offer a photo anywhere else, including in other software, packages, wallpaper collections,
+  websites or social media;
+- use a photo for advertising, for products or services, or in any other commercial way;
+- edit a photo and publish or distribute the result, other than scaling or cropping it to fit a screen as a
+  wallpaper;
+- use a photo to train or evaluate machine learning models;
+- remove or change the name of the photographer or the copyright notice in a photo's metadata.
+
+A fork of Sway Things may keep the directory wallpapers/ unchanged with this license, for the same use by its own
+users; this permission ends for any fork that is sold or that breaks these terms.
+
+The photos are provided as they are, without any warranty. A permission given here ends automatically for anyone who
+breaks these terms.

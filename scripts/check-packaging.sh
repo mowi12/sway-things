@@ -12,7 +12,8 @@
 # - The License of both specs names exactly the license expressions of the crates linked into the binaries (cargo
 #   tree as Fedora's %cargo_license_summary runs it: no build, dev or proc-macro dependencies, every target) and
 #   CC0-1.0 of the metainfo. The SourceLicense of the Fedora spec names exactly those of every crate in the tarball's
-#   vendor/ and the licenses in LICENSES/. So a new dependency with a new license can't make them wrong unnoticed.
+#   vendor/ and the licenses in LICENSES/ that are in the tarball (export-ignore keeps the wallpaper photos and their
+#   license out). So a new dependency with a new license can't make them wrong unnoticed.
 #
 # In the specs, License and SourceLicense are written as %{shrink:…} with one expression per line, joined by AND; an
 # expression with more than one license is put in parentheses.
@@ -110,7 +111,11 @@ linked=$( (licenses --edges no-build,no-dev,no-proc-macro && echo CC0-1.0) | LC_
 for spec in "$opensuse" "$fedora"; do
   compare_licenses "$spec" License "$linked"
 done
-own=$(for text in LICENSES/*.txt; do basename "$text" .txt; done)
+# Only the licenses of files that are in the tarball: git archive leaves out what .gitattributes marks export-ignore
+# (the wallpaper photos and their license).
+own=$(for text in LICENSES/*.txt; do
+  [[ $(git check-attr export-ignore -- "$text") == *": export-ignore: set" ]] || basename "$text" .txt
+done)
 vendored=$( (licenses --edges normal,build,dev --all-features && printf '%s\n' "$own") | LC_ALL=C sort -u)
 compare_licenses "$fedora" SourceLicense "$vendored"
 
