@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 22:58+0100\n"
+"POT-Creation-Date: 2026-11-20 22:59+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2697,6 +2697,8 @@ msgstr ""
 msgid "Flat"
 msgstr ""
 
+#. TRANSLATORS: The security of a Wi-Fi network: none.
+#. TRANSLATORS: How good the signal of a Wi-Fi network is: no signal.
 #. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
 #: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
@@ -6112,18 +6114,22 @@ msgstr ""
 msgid "DNS"
 msgstr ""
 
+#. TRANSLATORS: How good the signal of a Wi-Fi network is: the best of four levels.
 #: crates/gui/src/widgets/network/mod.rs
 msgid "Excellent"
 msgstr ""
 
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
 #: crates/gui/src/widgets/network/mod.rs
 msgid "Good"
 msgstr ""
 
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
 #: crates/gui/src/widgets/network/mod.rs
 msgid "OK"
 msgstr ""
 
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
 #: crates/gui/src/widgets/network/mod.rs
 msgid "Weak"
 msgstr ""

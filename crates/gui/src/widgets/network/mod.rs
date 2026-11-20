@@ -2152,14 +2152,29 @@ fn signal_icon(level: u8) -> &'static str {
 
 /// How good a signal of `level` (0 to 4) is, as the details say it.
 fn signal_quality(level: u8) -> &'static str {
-    // TRANSLATORS: How good the signal of a Wi-Fi network is.
-    tr(match level {
-        4 => msg!("Excellent"),
-        3 => msg!("Good"),
-        2 => msg!("OK"),
-        1 => msg!("Weak"),
-        _ => msg!("None"),
-    })
+    let quality = match level {
+        4 => {
+            // TRANSLATORS: How good the signal of a Wi-Fi network is: the best of four levels.
+            msg!("Excellent")
+        }
+        3 => {
+            // TRANSLATORS: How good the signal of a Wi-Fi network is.
+            msg!("Good")
+        }
+        2 => {
+            // TRANSLATORS: How good the signal of a Wi-Fi network is.
+            msg!("OK")
+        }
+        1 => {
+            // TRANSLATORS: How good the signal of a Wi-Fi network is.
+            msg!("Weak")
+        }
+        _ => {
+            // TRANSLATORS: How good the signal of a Wi-Fi network is: no signal.
+            msg!("None")
+        }
+    };
+    tr(quality)
 }
 
 /// The signal of `level` (0 to 4), for screen readers.
@@ -2200,8 +2215,10 @@ fn security_text(security: Security) -> &'static str {
 /// How the details name `security`.
 fn security_name(security: Security) -> &'static str {
     match security {
-        // TRANSLATORS: The security of a Wi-Fi network: none.
-        Security::Open => tr(msg!("None")),
+        Security::Open => {
+            // TRANSLATORS: The security of a Wi-Fi network: none.
+            tr(msg!("None"))
+        }
         Security::EnhancedOpen => tr(msg!("Enhanced Open (OWE)")),
         Security::Wep => "WEP",
         Security::Personal => tr(msg!("WPA2 Personal")),
