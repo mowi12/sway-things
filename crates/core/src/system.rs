@@ -29,12 +29,27 @@ const OS_RELEASE: [&str; 2] = ["/etc/os-release", "/usr/lib/os-release"];
 /// The kernel release, as `uname -r` prints it.
 const KERNEL_RELEASE: &str = "/proc/sys/kernel/osrelease";
 
-/// The tools the pages delegate to, in the order they are listed.
-pub const TOOLS: [Tool; 4] = [
+/// The tools the pages delegate to, then those the keys of Screenshots & Clipboard run, in the
+/// order they are listed.
+pub const TOOLS: [Tool; 12] = [
     delegate::NM_CONNECTION_EDITOR,
     delegate::BLUEMAN,
     delegate::PWVUCONTROL,
     delegate::PAVUCONTROL,
+    Tool { program: "grim" },
+    Tool { program: "slurp" },
+    Tool { program: "wl-copy" },
+    Tool {
+        program: "cliphist",
+    },
+    Tool { program: "swappy" },
+    Tool { program: "satty" },
+    Tool {
+        program: "wf-recorder",
+    },
+    Tool {
+        program: "wl-screenrec",
+    },
 ];
 
 /// The heading of the details in `doctor`.

@@ -8,6 +8,7 @@
 //! sway and a validator of their own; [`run_for_user`] opens the session of the user who runs
 //! `sway-things`. Everything goes through the core, like in the app.
 
+mod capture;
 mod change;
 mod displays;
 mod doctor;
@@ -29,7 +30,7 @@ use change::{Change, Reset, fail, get, reset, set, show_generated};
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
 use displays::{Displays, follow_combination, note_kanshi};
-use hook::{hook_for_user, kanshi_files, run_hook};
+use hook::{hook_clipboard, hook_for_user, kanshi_files, read_history, run_hook};
 use sway_things_core::apply::Applier;
 use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
@@ -146,7 +147,9 @@ pub enum Command {
     /// The report starts with the system details for bug reports: the versions of Sway Things,
     /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager and
     /// the sound server (while they run) and the kernel, and whether the tools the pages delegate
-    /// to (nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol) are installed.
+    /// to (nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol) and those of
+    /// screenshots, the clipboard history and recording (grim, slurp, wl-copy, cliphist, swappy,
+    /// satty, wf-recorder, wl-screenrec) are installed.
     Doctor(DoctorArgs),
     /// Start the app, or bring its window up if it runs, at a page or a setting
     Open {
@@ -156,6 +159,28 @@ pub enum Command {
     /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
+    /// Take a screenshot with grim, and save and copy it as the Screenshots & Clipboard page says;
+    /// the screenshot keys run this
+    ///
+    /// The folder, the file name pattern, whether the picture is saved, copied or both, and what
+    /// follows (a notification with Open and Edit, or the editor) come from the settings. A
+    /// selection canceled with Escape takes no picture and is no error.
+    Screenshot {
+        /// What to capture: a region you select (or a window you click) with slurp, the focused
+        /// window, the focused display or all displays
+        #[arg(value_enum)]
+        area: capture::ShotArea,
+    },
+    /// Start a recording of the screen with wf-recorder or wl-screenrec, or stop the one that runs
+    /// so its file is complete; the recording key runs this
+    Record {
+        /// What to record; without it, what the Screenshots & Clipboard page says
+        #[arg(value_enum)]
+        area: Option<capture::RecordArea>,
+    },
+    /// Pick an entry of the clipboard history, or clear it
+    #[command(subcommand)]
+    Clipboard(capture::Clipboard),
     /// Change the picture of a wallpaper collection
     ///
     /// A display shows a collection when wallpaper.collection names one. The generated sway
@@ -214,6 +239,10 @@ pub enum Hook {
     /// timers of those that change daily or after an interval: run when sway starts while a
     /// display shows a collection
     Wallpaper,
+    /// Start the watcher of the clipboard history (wl-paste --watch cliphist store) if the
+    /// Screenshots & Clipboard page has the history on, and end it if not: run at every start and
+    /// reload of sway while it is on
+    Clipboard,
 }
 
 /// The binary of the app.
@@ -295,6 +324,10 @@ pub async fn run_for_user(command: &Command) -> Exit {
         ) => {
             return hook_for_user(*hook, &mut err).await;
         }
+        Command::Hook(Hook::Clipboard) => return hook_clipboard(read_history, &mut err),
+        Command::Screenshot { area } => return capture::screenshot(*area, &mut err).await,
+        Command::Record { area } => return capture::record(*area, &mut err).await,
+        Command::Clipboard(action) => return capture::clipboard(*action, &mut err).await,
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -309,14 +342,26 @@ pub async fn run_for_user(command: &Command) -> Exit {
     // A change of the bindings is sent to sway as the difference to what the config binds.
     applier.set_user_config(&status);
     let mut session = Session { applier, status };
-    run(
+    let exit = run(
         command,
         &mut session,
         &mut Terminal,
         &mut io::stdout().lock(),
         &mut err,
     )
-    .await
+    .await;
+    // The clipboard history's watcher follows its switch at once, in the session it runs in.
+    if let (Command::Set { key, .. } | Command::Reset { key, .. }, Exit::Ok) = (command, exit) {
+        if sway_things_core::capture::clipboard::KEYS.contains(&key.as_str())
+            && session.applier.client().is_some()
+        {
+            if let Err(error) = sway_things_core::capture::clipboard::sync(session.applier.state())
+            {
+                let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+            }
+        }
+    }
+    exit
 }
 
 /// Prints `text` as an error line on `err` and returns [`Exit::Failure`].
@@ -402,6 +447,26 @@ async fn system_details(compositor: Option<Compositor>) -> Details {
     Details::read(compositor, gtk, network_manager.as_ref(), sound.as_ref()).await
 }
 
+/// Whether `command` warns of the problems of the settings files: the doctor reports them itself,
+/// `open` doesn't read them, and neither do the hooks and keys that run in the background.
+fn warns_of_problems(command: &Command) -> bool {
+    !matches!(
+        command,
+        Command::Doctor(_)
+            | Command::Open { .. }
+            | Command::Hook(
+                Hook::Displays
+                    | Hook::Workspaces
+                    | Hook::Mirror
+                    | Hook::NewDisplay
+                    | Hook::Clipboard
+            )
+            | Command::Screenshot { .. }
+            | Command::Record { .. }
+            | Command::Clipboard(_)
+    )
+}
+
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
 /// whether to keep a risky change.
 pub async fn run<V: Validate>(
@@ -412,13 +477,7 @@ pub async fn run<V: Validate>(
     err: &mut dyn Write,
 ) -> Exit {
     let mut io = Io { out, err };
-    // The doctor reports the problems of the settings files itself; `open` doesn't read them.
-    if !matches!(
-        command,
-        Command::Doctor(_)
-            | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::NewDisplay)
-    ) {
+    if warns_of_problems(command) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
         }
@@ -511,6 +570,9 @@ pub async fn run<V: Validate>(
         Command::Open { link } => open(link.as_deref(), io.err),
         Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
         Command::Wallpaper(command) => wallpaper(session, command, &displays, &mut io).await,
+        Command::Screenshot { area } => capture::screenshot(*area, io.err).await,
+        Command::Record { area } => capture::record(*area, io.err).await,
+        Command::Clipboard(action) => capture::clipboard(*action, io.err).await,
     }
 }
 

@@ -1,0 +1,47 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-screenshot 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-screenshot \- Take a screenshot with grim, and save and copy it as the Screenshots & Clipboard page says; the screenshot keys run this
+.SH SYNOPSIS
+\fBsway\-things screenshot\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIAREA\fR> 
+.SH DESCRIPTION
+Take a screenshot with grim, and save and copy it as the Screenshots & Clipboard page says; the screenshot keys run this
+.PP
+The folder, the file name pattern, whether the picture is saved, copied or both, and what follows (a notification with Open and Edit, or the editor) come from the settings. A selection canceled with Escape takes no picture and is no error.
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+<\fIAREA\fR>
+What to capture: a region you select (or a window you click) with slurp, the focused window, the focused display or all displays
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+region: A region you select, or a window you click
+.IP \(bu 2
+window: The focused window
+.IP \(bu 2
+display: The display with the focus
+.IP \(bu 2
+all: Every display
+.RE
