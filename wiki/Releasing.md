@@ -21,7 +21,8 @@ tag pushed again.
 ## Release steps
 
 1. **Ready?** Every issue of the milestone is closed, CI is green on `main` (including the integration matrix and the
-   MSRV job), the Packages workflow is green on `main`, and an OBS snapshot of `main` builds in every repository.
+   MSRV job), and the Packages workflow is green on `main`, which builds every distribution's package from the tarball
+   and tests the install script.
 2. **Release pull request** from a branch named after the release issue (e.g. `build/89-release-v0-1`):
    - `scripts/bump-version.sh X.Y.Z` sets the version in `Cargo.toml`, both lock files and both specs, adds the
      `<release>` to the AppStream metainfo (dated today, or pass the date as second argument) and regenerates the man
