@@ -393,22 +393,24 @@ pub fn started_by(config: &SwayConfig, ours: &Path) -> bool {
 /// Has kanshi read its config again and apply the matching profile: `kanshictl reload`, given
 /// five seconds. Best effort: without kanshictl, or without kanshi running, nothing happens.
 pub async fn reload() {
-    let child = std::process::Command::new("kanshictl")
+    let child = async_process::Command::new("kanshictl")
         .arg("reload")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdin(async_process::Stdio::null())
+        .stdout(async_process::Stdio::null())
+        .stderr(async_process::Stdio::null())
         .spawn();
     let Ok(mut child) = child else {
         return;
     };
-    let until = std::time::Instant::now() + Duration::from_secs(5);
-    while matches!(child.try_wait(), Ok(None)) && std::time::Instant::now() < until {
-        async_io::Timer::after(Duration::from_millis(50)).await;
-    }
-    if matches!(child.try_wait(), Ok(None)) {
+    // A kanshictl that hangs doesn't keep the caller: it gets five seconds.
+    let finished = futures_lite::future::or(async { child.status().await.is_ok() }, async {
+        async_io::Timer::after(Duration::from_secs(5)).await;
+        false
+    })
+    .await;
+    if !finished {
         let _ = child.kill();
-        let _ = child.wait();
+        let _ = child.status().await;
     }
 }
 
