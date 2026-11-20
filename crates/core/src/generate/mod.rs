@@ -370,7 +370,8 @@ fn bindings(state: &State) -> Vec<Line> {
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
 /// is stored, so its value reaches GSettings at login and after each reload, also when the
 /// settings file came from another machine; and `sway-things hook workspaces` while the
-/// workspaces are placed, since sway forgets their displays at a reload.
+/// workspaces are placed, since sway forgets their displays at a reload; and `sway-things hook
+/// clipboard` while the clipboard history is on, which starts its watcher once per session.
 fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
     let mut lines = Vec::new();
     let keys: Vec<&'static str> = registry
@@ -381,6 +382,9 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
         .collect();
     if !keys.is_empty() {
         lines.push(hook_line("gsettings", keys));
+    }
+    if crate::capture::is_on(state, crate::capture::HISTORY) {
+        lines.push(hook_line("clipboard", vec![crate::capture::HISTORY]));
     }
     if outputs::workspaces::Rule::of(state).places() {
         lines.push(hook_line(

@@ -754,7 +754,9 @@ impl<V: Validate> Applier<V> {
         changed: bool,
         before: State,
     ) -> Result<Applied, ApplyError> {
-        let live = if crate::registry::shortcuts::KEYS.contains(&setting.key()) {
+        let live = if crate::registry::shortcuts::KEYS.contains(&setting.key())
+            || crate::capture::shortcuts::KEYS.contains(&setting.key())
+        {
             self.apply_bindings(&before).await
         } else {
             self.apply_live(setting, device, Some(&before), &BTreeMap::new())

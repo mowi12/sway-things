@@ -31,6 +31,9 @@ pub enum Origin {
     Placeholder(usize),
     /// Sway Things: a binding of a group of media keys, by the key of its switch.
     Group(&'static str),
+    /// Sway Things: a binding of a key of another page, by the key of its setting (the keys of
+    /// the Screenshots & Clipboard page, [`crate::capture::shortcuts`]).
+    Feature(&'static str),
 }
 
 impl Origin {

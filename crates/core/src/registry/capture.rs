@@ -1,0 +1,224 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Settings of the Screenshots & Clipboard page: the screenshot keys and where screenshots go,
+//! the clipboard history, and screen recording.
+//!
+//! None of them has a sway directive: the keys go to `50-bindings.conf`
+//! ([`crate::capture::shortcuts`]) and run the command line, which reads the others when a key
+//! is pressed; the clipboard history is started by `sway-things hook clipboard` from
+//! `80-hooks.conf`.
+
+use super::{Choice, Page, Setting, When};
+use crate::capture::{
+    AFTERWARDS, DEFAULT_FILE_NAME, DEFAULT_RECORDING_FILE_NAME, DESTINATION, FILE_NAME, FOLDER,
+    HISTORY, HISTORY_KEY, KEY_ALL, KEY_DISPLAY, KEY_REGION, KEY_WINDOW, MAX_ENTRIES, RECORDING,
+    RECORDING_AREA, RECORDING_AUDIO, RECORDING_FILE_NAME, RECORDING_KEY, SCREENSHOTS, name,
+    shortcuts,
+};
+use crate::msg;
+
+const DESTINATIONS: &[Choice] = &[
+    Choice::new("both", msg!("Copy and save")),
+    Choice::new("clipboard", msg!("Copy to the clipboard")),
+    Choice::new("folder", msg!("Save to the folder")),
+];
+
+const AFTER: &[Choice] = &[
+    Choice::new("notify", msg!("Show a notification")),
+    Choice::new("edit", msg!("Open the editor")),
+    Choice::new("nothing", msg!("Nothing")),
+];
+
+const AREAS: &[Choice] = &[
+    Choice::new("region", msg!("A region you select")),
+    Choice::new("display", msg!("The focused display")),
+];
+
+pub(super) fn settings() -> Vec<Setting> {
+    let mut settings = screenshots();
+    settings.extend(clipboard());
+    settings.extend(recording());
+    settings
+}
+
+/// A setting with the keys of a shortcut, bound while `switch` is on.
+fn keys(key: &'static str, default: &'static str, switch: &'static str) -> super::SettingBuilder {
+    Setting::text(key, Page::ScreenshotsClipboard, default)
+        .check_text(shortcuts::check_keys)
+        .placeholder(msg!("No key"))
+        .depends_on(switch, When::On)
+}
+
+fn screenshots() -> Vec<Setting> {
+    let section = msg!("Screenshots");
+    vec![
+        Setting::toggle(SCREENSHOTS, Page::ScreenshotsClipboard, false)
+            .section(section)
+            .title(msg!("Screenshot keys"))
+            .subtitle(msg!(
+                "Take screenshots with the keys below, with grim and slurp"
+            ))
+            .requires_tools(&["grim", "slurp"])
+            .keywords(&[
+                msg!("screenshot"),
+                msg!("print screen"),
+                msg!("capture"),
+                msg!("grim"),
+                msg!("slurp"),
+            ])
+            .build(),
+        keys(KEY_REGION, "Print", SCREENSHOTS)
+            .section(section)
+            .title(msg!("Region"))
+            .subtitle(msg!("Select a region, or click a window"))
+            .keywords(&[msg!("area"), msg!("selection")])
+            .build(),
+        keys(KEY_WINDOW, "Alt+Print", SCREENSHOTS)
+            .section(section)
+            .title(msg!("Window"))
+            .subtitle(msg!("The focused window"))
+            .build(),
+        keys(KEY_DISPLAY, "Shift+Print", SCREENSHOTS)
+            .section(section)
+            .title(msg!("Display"))
+            .subtitle(msg!("The display with the focused window"))
+            .keywords(&[msg!("screen"), msg!("monitor"), msg!("output")])
+            .build(),
+        keys(KEY_ALL, "Ctrl+Print", SCREENSHOTS)
+            .section(section)
+            .title(msg!("All displays"))
+            .keywords(&[msg!("screen"), msg!("monitor"), msg!("full")])
+            .build(),
+        Setting::choice(
+            DESTINATION,
+            Page::ScreenshotsClipboard,
+            "both",
+            DESTINATIONS,
+        )
+        .section(section)
+        .title(msg!("Where screenshots go"))
+        .keywords(&[msg!("clipboard"), msg!("save"), msg!("copy")])
+        .build(),
+        Setting::text(FOLDER, Page::ScreenshotsClipboard, "")
+            .section(section)
+            .title(msg!("Folder"))
+            .subtitle(msg!(
+                "Where screenshots and recordings are saved; made when the first one goes there"
+            ))
+            .placeholder(msg!("Screenshots in your Pictures folder"))
+            .check_text(name::check_folder)
+            .keywords(&[msg!("directory"), msg!("path"), msg!("location")])
+            .build(),
+        Setting::text(FILE_NAME, Page::ScreenshotsClipboard, DEFAULT_FILE_NAME)
+            .section(section)
+            .title(msg!("File name"))
+            .subtitle(msg!(
+                "%Y, %m, %d, %H, %M and %S are the year, month, day, hour, minute and second; \
+                 .png, .jpg or .ppm at the end decides the format"
+            ))
+            .check_text(name::check_file_name)
+            .keywords(&[msg!("pattern"), msg!("name"), msg!("date")])
+            .build(),
+        Setting::choice(AFTERWARDS, Page::ScreenshotsClipboard, "notify", AFTER)
+            .section(section)
+            .title(msg!("Afterwards"))
+            .subtitle(msg!(
+                "A notification with the picture, with Open and Edit, or the editor right away \
+                 (swappy or satty)"
+            ))
+            .keywords(&[
+                msg!("notification"),
+                msg!("editor"),
+                msg!("annotate"),
+                msg!("swappy"),
+                msg!("satty"),
+            ])
+            .build(),
+    ]
+}
+
+fn clipboard() -> Vec<Setting> {
+    let section = msg!("Clipboard history");
+    vec![
+        Setting::toggle(HISTORY, Page::ScreenshotsClipboard, false)
+            .section(section)
+            .title(msg!("Clipboard history"))
+            .subtitle(msg!(
+                "Keep what you copy, text and images, with cliphist, and pick it again with a key"
+            ))
+            .requires_tools(&["cliphist", "wl-paste", "wl-copy"])
+            .keywords(&[
+                msg!("clipboard"),
+                msg!("copy"),
+                msg!("paste"),
+                msg!("cliphist"),
+            ])
+            .build(),
+        keys(HISTORY_KEY, "$mod+Shift+v", HISTORY)
+            .section(section)
+            .title(msg!("Open the history"))
+            .subtitle(msg!(
+                "In the launcher that is installed; the entry you pick is copied again"
+            ))
+            .keywords(&[msg!("launcher"), msg!("pick")])
+            .build(),
+        Setting::integer(MAX_ENTRIES, Page::ScreenshotsClipboard, 750, 10, 10000)
+            .section(section)
+            .title(msg!("Entries kept"))
+            .subtitle(msg!("The oldest entries go when there are more"))
+            .slider(10.0, 2000.0, 10.0)
+            .depends_on(HISTORY, When::On)
+            .keywords(&[msg!("limit"), msg!("size"), msg!("history")])
+            .build(),
+    ]
+}
+
+fn recording() -> Vec<Setting> {
+    let section = msg!("Screen recording");
+    vec![
+        Setting::toggle(RECORDING, Page::ScreenshotsClipboard, false)
+            .section(section)
+            .title(msg!("Recording key"))
+            .subtitle(msg!(
+                "Start a recording of the screen with the key below, and stop it with the same \
+                 key, with wf-recorder or wl-screenrec"
+            ))
+            .keywords(&[
+                msg!("record"),
+                msg!("video"),
+                msg!("screencast"),
+                msg!("wf-recorder"),
+                msg!("wl-screenrec"),
+            ])
+            .build(),
+        keys(RECORDING_KEY, "Ctrl+Alt+Shift+r", RECORDING)
+            .section(section)
+            .title(msg!("Start and stop"))
+            .build(),
+        Setting::choice(RECORDING_AREA, Page::ScreenshotsClipboard, "region", AREAS)
+            .section(section)
+            .title(msg!("What to record"))
+            .keywords(&[msg!("area"), msg!("display"), msg!("region")])
+            .build(),
+        Setting::text(
+            RECORDING_FILE_NAME,
+            Page::ScreenshotsClipboard,
+            DEFAULT_RECORDING_FILE_NAME,
+        )
+        .section(section)
+        .title(msg!("File name"))
+        .subtitle(msg!(
+            "In the folder of screenshots; .mp4 or .mkv at the end decides the format"
+        ))
+        .check_text(name::check_file_name)
+        .keywords(&[msg!("pattern"), msg!("name"), msg!("video")])
+        .build(),
+        Setting::toggle(RECORDING_AUDIO, Page::ScreenshotsClipboard, false)
+            .section(section)
+            .title(msg!("Record sound"))
+            .subtitle(msg!("What the default sound input hears"))
+            .keywords(&[msg!("audio"), msg!("microphone"), msg!("sound")])
+            .build(),
+    ]
+}

@@ -141,5 +141,19 @@ volume = true
 brightness = true
 player = true
 
+[screenshots]
+enabled = true
+destination = "folder"
+
+[screenshots.key]
+all = ""
+window = "$mod+Print"
+
+[clipboard]
+enabled = true
+
+[recording]
+enabled = true
+
 [app]
 safety_net_timeout = 20

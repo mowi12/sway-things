@@ -479,7 +479,27 @@ fn place(source: &Source) -> String {
         Origin::Item(_) | Origin::Placeholder(_) => {
             tr(msg!("a shortcut of Sway Things")).to_owned()
         }
+        Origin::Feature(key) => feature(key).map_or_else(String::new, |(title, page)| {
+            trf(
+                msg!("the key \u{201c}{title}\u{201d} of the {page} page"),
+                &[("title", &title), ("page", &page)],
+            )
+        }),
     }
+}
+
+/// The title of the setting `key` of another page that binds a key, and the title of its page.
+fn feature(key: &str) -> Option<(String, String)> {
+    sway_things_core::registry::Registry::builtin()
+        .get(key)
+        .map(|setting| {
+            let section = tr(setting.section());
+            let title = tr(setting.title());
+            (
+                format!("{section} \u{203a} {title}"),
+                tr(setting.page().title()).to_owned(),
+            )
+        })
 }
 
 /// The options of a binding in words.
@@ -552,6 +572,12 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
             trf(
                 msg!("{group}, switched on below"),
                 &[("group", &tr(group.title))],
+            )
+        }),
+        RowKind::Feature { key } => feature(key).map_or_else(String::new, |(title, page)| {
+            trf(
+                msg!("{title}, set on the {page} page"),
+                &[("title", &title), ("page", &page)],
             )
         }),
     });

@@ -300,6 +300,15 @@ pub enum ValueError {
     NotAFont,
     /// The text isn't a binding line Sway Things can write (`bindsym $mod+Return exec foot`).
     NotABinding(crate::bindings::LineErrorKind),
+    /// The text isn't keys Sway Things can bind (`Print`, `$mod+Shift+v`).
+    NotAKey,
+    /// The keys would type a character: a key that types needs Super, Ctrl or Alt.
+    TypingKey,
+    /// The text isn't a folder: not absolute (or below `~/`), or with a line break.
+    NotAFolder,
+    /// The text isn't a file name pattern: empty, with a slash or a line break, or with a `%`
+    /// that isn't a known conversion.
+    NotAFileName,
 }
 
 impl ValueError {
@@ -351,6 +360,22 @@ impl ValueError {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
             }
             Self::NotABinding(kind) => kind.text(),
+            Self::NotAKey => {
+                msg!("must be keys like Print or $mod+Shift+v, joined by +, or empty").into()
+            }
+            Self::TypingKey => msg!(
+                "a key that types needs Super, Ctrl or Alt; F1, Print and media keys work alone"
+            )
+            .into(),
+            Self::NotAFolder => {
+                msg!("must be a folder that starts with / or ~/, without line breaks, or empty")
+                    .into()
+            }
+            Self::NotAFileName => msg!(
+                "must be a file name without slashes or line breaks; % starts a date or time \
+                 like %Y-%m-%d %H-%M-%S, and %% is a %"
+            )
+            .into(),
         }
     }
 }
