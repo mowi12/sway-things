@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The welcome screen while Sway Things is read-only: why, the one line to add with a copy
-//! button, a button that opens the config in the default text editor, and that it waits for the
-//! line. "Look around first" lets the user browse the pages read-only.
+//! button, a button that opens the config in the user's editor (`app.editor_command`), and that
+//! it waits for the line. "Look around first" lets the user browse the pages read-only.
 //!
 //! The texts come from the core's [`IncludeStatus`], so the app and the command line say the
 //! same: the line is missing, it covers only some of the files, or it may be in a part of the

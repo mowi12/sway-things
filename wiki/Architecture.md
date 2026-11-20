@@ -15,7 +15,7 @@ flowchart LR
             ST["State<br/>settings.toml + host overlay"]
             GEN["Generators"]
             PAR["Sway config parser<br/>+ conflict detection"]
-            BE["Backends<br/>kanshi, waybar, swayidle, ..."]
+            BE["Backends<br/>kanshi, BlueZ, NetworkManager, sound"]
         end
     end
 
@@ -25,21 +25,25 @@ flowchart LR
     GEN -->|"own files only"| FILES[("Generated files<br/>~/.config/sway/sway-things/*.conf<br/>~/.config/sway-things/...")]
     core -->|"IPC: run, get_*, subscribe"| SWAY["sway / SwayFX"]
     PAR -->|"read only"| USERCFG[("User's hand-written<br/>sway config")]
-    BE -->|"D-Bus, polkit"| SYS["timedated, localed, NetworkManager,<br/>BlueZ, UPower, power-profiles-daemon, logind"]
+    BE -->|"D-Bus, polkit"| SYS["NetworkManager, BlueZ"]
     BE -->|"PulseAudio protocol"| SOUND["pipewire-pulse or PulseAudio"]
-    BE -->|"reload signals / ctl tools"| TOOLS["kanshi, waybar, swaync, mako, ..."]
+    BE -->|"reload signals / ctl tools"| TOOLS["kanshi"]
     SWAY -->|include| FILES
 ```
 
 The core idea: **apply live over IPC, persist to our own state file, generate our own include files, and only ever read
 the user's files.**
 
+The diagram shows what is built. The pages still to come add services and tools the same way (timedated, localed,
+UPower, power-profiles-daemon and logind over D-Bus; waybar, swayidle, swaync and mako through their files); their plans
+are in the [Feature Catalog](Feature-Catalog.md) and below under _planned_.
+
 ## Cargo workspace
 
 | Crate | Binary | Depends on GTK | Responsibility |
 | --- | --- | --- | --- |
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
-| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
+| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `hook` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
 | `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
 
@@ -74,7 +78,7 @@ Every setting is **defined once** in `crates/core/src/registry/`. Everything els
 | GSettings copy | `gsettings(INTERFACE, "cursor-theme")`: the value is copied there for the apps that read GSettings; a setting without a sway directive lives there only, see [GSettings](#gsettings) |
 | Font | `font(Font::Monospace)`: the text is a Pango font description, picked with GTK's font dialog (only monospace families for `Font::Monospace`) |
 | Apply mode | live, reload, tool-reload, re-login, risky (safety net) |
-| Requirements | `requires_tools(&["swayidle"])` → "Requires swayidle" indicator plus install hints |
+| Requirements | `requires_tools(&["swayidle"])` → "Requires swayidle" indicator plus install hints (no setting needs a tool yet) |
 
 ```rust
 // crates/core/src/registry/input.rs
@@ -200,19 +204,22 @@ may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-eff
 settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
 and in one section.
 
-Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the bindings editor and the bar
-layout editor. They still read and write settings through the registry.
+Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
+(Bluetooth, Network, Sound); the bindings editor and the bar layout editor are planned. They still read and write
+settings through the registry.
 
 ## State
 
 Sway Things keeps its own settings files as the source of truth instead of reading values back from sway: IPC can't
 report many values (client colors, gaps, the font) and can't tell a value the user chose from a sway default, and
-rewriting sway syntax in place is fragile. The CLI, export and import, and the history build on the same files. The
-per-machine overlay exists because dotfiles are shared between machines, and some values differ per machine.
+rewriting sway syntax in place is fragile. The CLI and the history build on the same files, and so will export and
+import (planned). The per-machine overlay exists because dotfiles are shared between machines, and some values differ
+per machine.
 
 ```text
 $XDG_CONFIG_HOME/sway-things/
 ├── settings.toml          # shared values: commit to dotfiles
+├── displays.toml          # display profiles: arrangements per combination of displays, see Outputs
 └── settings.d/
     └── <hostname>.toml    # per-machine overrides (optional)
 
@@ -279,12 +286,13 @@ position = "1920,0"
   (`std::fs`): the files are small, and only loading and saving touch the disk.
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
-- **Export / import:** `settings.toml` (plus overlays) _is_ the export format.
+- **Export / import (planned):** `settings.toml` (plus overlays) _is_ the export format.
 - **History:** before a save replaces anything, both files as they are on disk go to `history/` as one snapshot, also if
   they were changed outside in the meantime. A snapshot equal to the newest one is skipped, and the newest 50 are kept.
   If the snapshot can't be written, nothing is replaced. Restoring a snapshot loads both files from it, comments and
   unknown keys included (a file that didn't exist then becomes empty), and is written by a normal save, which takes a
-  snapshot in turn, so a restore can be undone. A snapshot of a file that can't be loaded can't be restored.
+  snapshot in turn, so a restore can be undone. A snapshot of a file that can't be loaded can't be restored. Restoring
+  is built in the core (`State::restore`); no page or command offers it yet.
 - **Backups:** we never write user files, so we never need to back them up. `history/` covers our own state.
 - **Window state:** `ui.toml` lists the collapsed sections by page id and section id (the English section title in
   lowercase words joined by dashes, `focused-tab-title`), version 1. It is UI state, not a setting, so it lives per
@@ -329,9 +337,9 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 20-output.conf         # output lines only while kanshi doesn't run
 ├── 30-appearance.conf
 ├── 40-behavior.conf
-├── 50-bindings.conf
-├── 60-idle.conf           # swayidle exec line, if the user handed idle over
-├── 70-autostart.conf
+├── 50-bindings.conf       # planned
+├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
+├── 70-autostart.conf      # planned
 ├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
@@ -350,7 +358,7 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 that keeps a display on), see [No daemon](#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
-  "Show generated config" and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
+  _Generated config_ and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
   ownership (absent, current, ours, edited outside, foreign), for the window to mark. Below the header, each line is one
   command exactly as the command builders render it for a config file; there are no blocks. The settings of one
   directive make one line. The order is the order of the registry, the lines for input types before those for single
@@ -392,6 +400,8 @@ The app never adds this line itself. It shows the line with a copy button and de
 
 ### Other tools
 
+Only kanshi is built, see [Outputs](#outputs); the other rows are the plan for the pages still to come.
+
 | Tool | Include support | Strategy |
 | --- | --- | --- |
 | kanshi | yes (`include`, wordexp) | Our file `~/.config/kanshi/sway-things.conf`; the user adds `include` to their kanshi config. With no kanshi config at all, we create `~/.config/kanshi/config` ourselves |
@@ -417,7 +427,8 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 1. The user flips a toggle (or runs `sway-things set …`).
 2. The core builds the sway command with the [**typed builder**](#sway-command-builders) and sends it over IPC
    (`RUN_COMMAND`) → instant effect.
-3. The core updates the in-memory state and saves `settings.toml` / the overlay after a debounce (~500 ms).
+3. The core updates the in-memory state and saves `settings.toml` / the overlay: the CLI at once, the GUI 500 ms after
+   the last change (see `persist` below).
 4. The generators regenerate the affected files:
    - write to a staged file → `sway --validate --config <staged file>` for each staged file → atomic replace. Each file
      is validated as a main config of its own: sway ignores errors in included files (`cmd_include` in sway 1.10 –
@@ -530,8 +541,8 @@ countdown, and save only on `y`. Without a TTY it refuses unless `--yes` is give
 | --- | --- | --- |
 | live | gaps, colors, input options | IPC command + persist |
 | reload | settings sway only honors at load | persist + `reload` after the user confirmed (reload banner) |
-| tool reload | kanshi, waybar, swaync | `kanshictl reload`, `SIGUSR2` to waybar, `swaync-client -R`, … |
-| re-login | environment.d, `xwayland` (sway reads it only at startup) | persist + "takes effect after re-login" badge |
+| tool reload | planned: waybar, swaync (no setting uses it yet; kanshi reloads through the [display profiles](#outputs)) | `SIGUSR2` to waybar, `swaync-client -R`, … |
+| re-login | `xwayland` (sway reads it only at startup); planned: environment.d | persist + "takes effect after re-login" badge |
 | risky | see above | live + safety net, persist on _Keep_ |
 
 ## Sway command builders
@@ -1011,8 +1022,8 @@ user's line sets all of them) and sends the user's value from the report, so not
 user's, sway's default. If a value of the group can't be read from the line, nothing is sent and the caller reloads
 sway, which reads the line itself.
 
-Bindings defined in the user's config can still be changed from the app: our include comes later, so it can `unbindsym`
-and re-bind without touching their file.
+Planned with the Keyboard Shortcuts page: bindings defined in the user's config can still be changed from the app, since
+our include comes later, so it can `unbindsym` and re-bind without touching their file.
 
 ### Editor
 
@@ -1036,9 +1047,12 @@ pass their own.
 
 ## Backends
 
-Each area that has competing tools defines a backend trait:
+The plan (not built yet) is a backend trait for each area that has competing tools. Today the only companion tool Sway
+Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](#outputs)); Bluetooth, the network and sound
+are services with no competing stack and use no trait (below).
 
 ```rust
+// planned
 trait Backend {
     fn detect(&self) -> Availability;   // installed? running? version? managed externally by file:line?
     fn read(&self) -> Result<Values>;
@@ -1047,7 +1061,7 @@ trait Backend {
 }
 ```
 
-| Area | Backends (reference first) |
+| Area | Backends (reference first); only display profiles, audio, Bluetooth and the network are built |
 | --- | --- |
 | Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
@@ -1067,7 +1081,7 @@ trait Backend {
 | Brightness | logind `Session.SetBrightness` (no root needed) / brightnessctl; ddcutil for external monitors |
 | Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
 
-Bluetooth is not a `Backend`: it is runtime state that BlueZ owns and keeps itself, with nothing to store or generate,
+Bluetooth needs no `Backend`: it is runtime state that BlueZ owns and keeps itself, with nothing to store or generate,
 and no competing stack. `crates/core/src/bluetooth/` has a `Bluez` handle on the system bus (zbus, async-io): one
 `GetManagedObjects` call gives a snapshot of the adapters and devices, the actions are D-Bus calls, and a stream of
 `PropertiesChanged`, `InterfacesAdded`/`Removed` and `NameOwnerChanged` signals (without the noise of signal strength)
@@ -1078,29 +1092,28 @@ screen and the radio is on, or with `app.bluetooth_search = "manual"` only for 3
 reads `/dev/rfkill` for the soft and hard block and lifts a soft block by writing one `RFKILL_OP_CHANGE_ALL` event. A
 page's "Advanced…" button starts a specialist tool from `delegate` (blueman-manager), found in `PATH`.
 
-The network is no `Backend` either: NetworkManager owns the connections and their passwords. `crates/core/src/network/`
-has a `NetworkManager` handle on the system bus: `GetManagedObjects` on `/org/freedesktop` and `GetSettings` of each
-saved connection give a snapshot of the devices (with their IP configuration), access points, saved and active
-connections; Wi-Fi networks are the access points of one SSID merged, sorted by signal level (the four bars) so small
-changes don't reorder them. The actions are D-Bus calls: `WirelessEnabled` and `Enable` (polkit), `RequestScan`,
-`ActivateConnection` (a saved connection, the best one for a device with "/", a VPN), `AddAndActivateConnection` for a
-new or hidden network, `Disconnect`, `DeactivateConnection` and `Delete`. The page asks for a scan every 15 s while it
-is on screen and Wi-Fi is on, or with `app.wifi_search = "manual"` for one after _Search_, which waits until the
-device's `LastScan` moves on (at most 15 s). A new connection is built as `nmcli device wifi connect` builds it: no
-`connection.permissions` (every user), the password with `psk-flags` 0 (kept by NetworkManager), `key-mgmt` from the
-access point's flags (`wpa-psk`, `sae`, `owe`). `wait_connected` follows an active connection until it is up, or reports
-why it ended: the device's state reason, or for a VPN the reason of its `StateChanged` signal. The change stream takes
-every signal of NetworkManager under `/org/freedesktop` and `NameOwnerChanged`, without traffic counters,
-`LastSeen`/`LastScan` and NetworkManager's old duplicate `PropertiesChanged` signals. Our secret agent
-(`org.freedesktop.NetworkManager.SecretAgent` at its fixed path, registered as `io.github.mowi12.SwayThings`) is
-registered while the page is on screen and until a connection it started has finished, and again when the owner of
-`org.freedesktop.NetworkManager` changes (NetworkManager forgets agents when it restarts). It answers only
-NetworkManager, and only for WPA and WPA3 Personal passwords when it may ask the user; everything else (802.1X, VPN
-secrets) gets `NoSecrets`, so another agent can answer. `delegate` starts nm-connection-editor: the whole editor,
-`--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which is checked to be one before it becomes an
-argument.
+The network needs none either: NetworkManager owns the connections and their passwords. `crates/core/src/network/` has a
+`NetworkManager` handle on the system bus: `GetManagedObjects` on `/org/freedesktop` and `GetSettings` of each saved
+connection give a snapshot of the devices (with their IP configuration), access points, saved and active connections;
+Wi-Fi networks are the access points of one SSID merged, sorted by signal level (the four bars) so small changes don't
+reorder them. The actions are D-Bus calls: `WirelessEnabled` and `Enable` (polkit), `RequestScan`, `ActivateConnection`
+(a saved connection, the best one for a device with "/", a VPN), `AddAndActivateConnection` for a new or hidden network,
+`Disconnect`, `DeactivateConnection` and `Delete`. The page asks for a scan every 15 s while it is on screen and Wi-Fi
+is on, or with `app.wifi_search = "manual"` for one after _Search_, which waits until the device's `LastScan` moves on
+(at most 15 s). A new connection is built as `nmcli device wifi connect` builds it: no `connection.permissions` (every
+user), the password with `psk-flags` 0 (kept by NetworkManager), `key-mgmt` from the access point's flags (`wpa-psk`,
+`sae`, `owe`). `wait_connected` follows an active connection until it is up, or reports why it ended: the device's state
+reason, or for a VPN the reason of its `StateChanged` signal. The change stream takes every signal of NetworkManager
+under `/org/freedesktop` and `NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's
+old duplicate `PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed
+path, registered as `io.github.mowi12.SwayThings`) is registered while the page is on screen and until a connection it
+started has finished, and again when the owner of `org.freedesktop.NetworkManager` changes (NetworkManager forgets
+agents when it restarts). It answers only NetworkManager, and only for WPA and WPA3 Personal passwords when it may ask
+the user; everything else (802.1X, VPN secrets) gets `NoSecrets`, so another agent can answer. `delegate` starts
+nm-connection-editor: the whole editor, `--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which
+is checked to be one before it becomes an argument.
 
-Sound is no `Backend` either: the sound server (PipeWire with WirePlumber, or PulseAudio) owns the defaults, volumes and
+Sound needs none either: the sound server (PipeWire with WirePlumber, or PulseAudio) owns the defaults, volumes and
 profiles and remembers them. `crates/core/src/sound/` speaks the PulseAudio protocol through libpulse, which
 pipewire-pulse serves too. `Sound` runs libpulse's threaded main loop: every call into libpulse holds the loop's lock
 (let go even if the binding panics over an operation libpulse refuses at once, which becomes an error), the callbacks
@@ -1166,8 +1179,9 @@ goes to a string key (an enum key takes the choice's id), a whole number to an i
   `set_gsettings` names a store, and the tests use `MemoryGSettings`. Only `Applier::connect` (the app and the CLI) uses
   GIO.
 
-If an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh` line), `detect()`
-reports **managed externally by file:line**. The page explains this and offers a handover. It never fights the script.
+Planned with the trait: if an unknown tool or a custom script is in charge (e.g. an `exec ~/.local/bin/my-wallpaper.sh`
+line), `detect()` reports **managed externally by file:line**. The page explains this and offers a handover. It never
+fights the script.
 
 ## Command line
 
@@ -1193,6 +1207,7 @@ with what the app reads.
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
+| `hook <gsettings\|displays\|workspaces\|mirror>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
   `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
@@ -1233,8 +1248,8 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | Section | Codes | What is checked |
 | --- | --- | --- |
 | Compositor | `session`, `no_session`, `session_unusable`, `installed_unsupported`, `version_unknown`, `sway_missing` | the running sway or SwayFX (`GET_VERSION`), or without a session the installed one (`sway --version`) |
-| Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic` | the main config in use, the [include status](#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, not a regular file, unresolved include, include not found, … |
-| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped` | files that can't be used (problem), entries that are ignored (warning), and stored settings that are a comment in the generated file because the compositor doesn't support them |
+| Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic`, `kanshi_include_missing`, `kanshi_file_foreign`, `kanshi_profile_overlap`, `hook_program` | the main config in use, the [include status](#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, not a regular file, unresolved include, include not found, …; kanshi's config without the include of our profiles, a foreign file in their place, a profile of the user's that comes first for a combination we remember ([Outputs](#outputs)); and whether sway and kanshi can run this `sway-things` for the hooks |
+| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped`, `setting_not_copied` | files that can't be used (problem), entries that are ignored (warning), stored settings that are a comment in the generated file because the compositor doesn't support them, and stored values GSettings can't take ([GSettings](#gsettings)) |
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
 
@@ -1335,7 +1350,7 @@ the table says what protects it.
 | Threat | Mitigation |
 | --- | --- |
 | Command injection via external strings (device names, **SSIDs**, **Bluetooth names**, file names, workspace names, window titles) | Typed sway command builders with escaping and quoting; processes started with argument arrays, never `sh -c`; the editor command is split into words without a shell and expands nothing |
-| Malicious or broken `settings.toml` from shared dotfiles | Schema validation; `exec`/`bindsym … exec` lines shown verbatim in "Show generated config"; generated sway config validated with `sway --validate` |
+| Malicious or broken `settings.toml` from shared dotfiles | Schema validation; `exec`/`bindsym … exec` lines shown verbatim in _Generated config_; generated sway config validated with `sway --validate` |
 | Corrupting the user's config | We never write user files; atomic writes; manifest hashes detect foreign edits to our files |
 | Locking the user out (no display, no keyboard) | Safety net with auto-revert; last-output and last-keyboard protection |
 | Privilege escalation | Only existing polkit-guarded D-Bus services (timedated, localed, NetworkManager, BlueZ, power-profiles-daemon); root-owned files such as `logind.conf` are **read-only**, with a copyable command |
@@ -1450,11 +1465,11 @@ the table says what protects it.
   a generated file sway rejected or that was changed outside).
 - **Welcome screen and status banner:** while the include status isn't active, the window shows `Welcome` in the content
   pane instead of the page: the core's explanation of the status (`IncludeStatus::explanation`, without the line), the
-  line with a copy button, a button that opens the config with `gtk::FileLauncher` (the default application for text
-  files) and a spinner while it waits. _Look around first_ or opening a page leaves it for the pages, with a banner
-  above them that leads back. The window follows the model's `changed` signal, so the welcome screen and the banner go
-  away as soon as the watcher finds the line. Once active, a banner tells how many of the user's lines come after the
-  include, until dismissed.
+  line with a copy button, a button that opens the config in the user's editor (`editor::open`, see [Editor](#editor);
+  the default application only when no editor is found) and a spinner while it waits. _Look around first_ or opening a
+  page leaves it for the pages, with a banner above them that leads back. The window follows the model's `changed`
+  signal, so the welcome screen and the banner go away as soon as the watcher finds the line. Once active, a banner
+  tells how many of the user's lines come after the include, until dismissed.
 - Custom pages are GObject subclasses.
 - **Components:** every building block is a widget in `crates/gui/src/widgets/`, a GObject subclass written in Rust (no
   `.ui` files) with its own CSS node name (`st-sidebar`, `st-page-header`, …). The shell is made of them: `Sidebar` (the
@@ -1480,9 +1495,9 @@ the table says what protects it.
   portal over GIO's D-Bus and follows its changes. The WCAG math (luminance, contrast ratio, text on a fill, a color
   made readable on a background) lives in `crates/core/src/theme.rs`, shared with the GUI's contrast check.
 - **Concurrency**: one event loop. Futures run on the GTK main context (`glib::spawn_future_local`); I/O uses
-  executor-agnostic, async-io based crates (zbus, swayipc-async, async-process); the CLI uses `async_io::block_on`. No
-  tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly in futures without
-  bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
+  executor-agnostic, async-io based crates (zbus, async-process, and our own IPC wire format on async-io); the CLI uses
+  `async_io::block_on`. No tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly
+  in futures without bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
 
 ## Internationalization
 
@@ -1568,7 +1583,7 @@ gettext from day one. Source strings (msgids) are American English; en_GB and ot
 | Golden files | every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest supported sway and SwayFX |
 | Fuzzing | the sway config parser with `cargo-fuzz` (`fuzz/`, `scripts/fuzz.sh`), on the stable toolchain without a sanitizer (the parser has no unsafe code): an input is a main config, and a line `#=> PATH` in it starts a file it can include and a line `#=\| PATH` puts something there that isn't a regular file, all in `MemoryFiles`, so the fuzzer never touches the file system. The target checks that the parser ends without a panic, in less than 10 s and 2 GB, and within its limits (directives, text), that no file is read twice, that nothing but a regular file is read and that every directive and diagnostic belongs to a file that was read. It starts from the seeds in `fuzz/seeds/` (includes, globs, cycles, variables, blocks, hostile includes) and the sample configs of `ci/integration/` bundled with their includes, with a dictionary of the words the parser treats specially. CI lints the fuzz crate and fuzzes each change for 60 s from the seeds; `.github/workflows/fuzz.yml` fuzzes daily for 15 minutes with the corpus kept in the Actions cache and minimized, uploads what it finds, and opens a Bug issue per crash signature (where it panicked, or timeout or out of memory) with the minimized input as base64 and hex, or comments on the open issue with that title. The report job alone may write issues, and the input reaches the issue only as base64 and hex |
 | Integration | headless compositor (`WLR_BACKENDS=headless`, `WLR_LIBINPUT_NO_DEVICES=1`) in CI on **sway 1.10, sway latest and SwayFX latest** (containers from Debian 13, Arch Linux and Void Linux in `ci/containers/`; SwayFX renders in software on a virtual DRM node): apply over IPC, read back, validate generated files (incl. `90-effects.conf` on SwayFX); the generators' golden files (each passes `sway --validate` on its own and is included by the sample config) and their write path with the real validator (`crates/core/tests/generate_sway.rs`); the config parser against the modes sway reports (`crates/core/tests/sway_config_sway.rs`); a setting changed end to end (`crates/core/tests/apply_sway.rs`): sent, read back, saved, generated into a directory the sample config includes, and still in effect after a `reload`; the `sway-things` binary setting, reading back, showing and resetting settings, with the real `sway --validate` and a risky setting set and reset with `--yes`, and `doctor` validating the generated files and replacing a `90-effects.conf` with a SwayFX directive (which only SwayFX accepts) with `--fix --overwrite` (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes); the IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`): compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply, tick and workspace events, the device watch on a session without devices; fixtures generated from the command builders: each generated config file passes `sway --validate` on its own, every IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged; the BlueZ backend against python-dbusmock's `bluez5` template on a private bus (`crates/core/tests/bluetooth_bluez.rs`, stand-in in `bluetooth::stand_in`, `test-support`): snapshot, BlueZ stopping and starting, power, discovery, pair, connect, rename, forget, the change stream without noise, the battery, and the agent's flows (confirm, reject, passkey, PIN, display, cancel) with a `Pair` that calls the agent from BlueZ's own connection, and a stranger's call rejected; the NetworkManager backend against python-dbusmock's `networkmanager` template (`crates/core/tests/network_nm.rs`, stand-in in `network::stand_in`, extended by an agent manager, a device's `Disconnect`, `ActivateConnection` with "/", a `DeactivateConnection` that only touches its own devices and an `AddAndActivateConnection` that keeps the settings it was sent): snapshot, NetworkManager stopping and starting (a new owner), Wi-Fi and networking on and off, scans and `LastScan` moving on after one, a new network with its password, a saved one connected, disconnected and forgotten, a hidden one, a failed connection's reason, a VPN without its password, wired and VPN connections, addresses, the change stream without noise, and the secret agent asking again, being canceled, leaving other questions to others and rejecting a stranger; the sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults, switching them, volume with its balance and mute, the apps and their volume, the level meter (also on an input nothing records from), and the server going away and coming back |
-| GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open (config lines shown, groups expanded), drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's controls beside its text (measured from each row's width beside, since a tiled window can't be resized) and the window can get narrower; every page fits 544 px (a third of a laptop screen) and scrolls sideways when narrower; a slider row shrinks its slider first, then moves its controls below its text and gets higher; narrow (the tests move the threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows it with the back button and the focus in it, Esc and the back button show the sidebar at the open page, switching keeps the page, the pane with the focus and the focus, a search on the page shows the sidebar with the results and the focused field, a result and a deep link show their page and focus their row, and Esc goes back to the result. Deep links: a link opens its page, a link to a setting tints its row, focuses its control and the tint goes again, one to a member of a collapsed group expands the group first, and one to a row hidden for want of devices only opens the page. Welcome: without the include line the window opens on the welcome screen with the line, _Look around first_ and opening a page lead to the pages with the banner, whose button leads back, its spinner turns again after coming back (compared on the drawn pixels, with animations on: a spinner's animation doesn't restart by itself, so the screen puts in a new one each time it is shown), the welcome screen and the banner go away once the line is there, and a banner tells about lines after the include until dismissed; the welcome screen and a read-only page are checked for contrast in light and dark. Text inside insensitive widgets is left out of the contrast check: WCAG exempts inactive controls, and GTK draws their text faint on purpose. Animations are off, so screens are checked as they end up. Sections: a header collapses its section with a click or Enter and expands it again, `ui.toml` follows, a section collapsed in the file starts collapsed, with the preference off none does and nothing is written, and a deep link into a collapsed section expands it without storing that. Rows: every page shows a row per setting in registry order, each control takes the focus, a change reaches the settings, a slider dragged near its default lands exactly on it while one outside the zone and a key step don't, a slider keeps its place when the reset buttons appear, a SwayFX setting on sway is locked and says why, a setting that applies after a reload has that badge and one that applies after a re-login its own, a change without the include line shows its error, and the config line shows only while `app.show_directives` is on, in rows of every page, and follows a switch at once. Groups: the colors of `client.focused` are the members of one collapsed group row, which shows a swatch per color and the line once (not in the members), follows a change, and expands and collapses with `Enter` and `Space`. Safety net: switching pointers off shows the banner with _Revert_ focused and the tried value in the row, _Keep_ stores it, _Revert_, the countdown and closing the window put the old value back, the only pointer can't be switched off, and the page with the banner is checked for contrast in light and dark. Indicators: a stored value has a reset button and a machine toggle (which moves it to the host overlay; the reset removes it), a line before the include shows _Overridden_ and one after it _Your config wins_, both with the ⋮ menu showing file:line and the line, _Let my config win_ hands the setting back to the config, a risky reset shows the safety-net banner and is removed on Keep, a device's own value resets to the value of all mice, a page reset removes all but risky values, an unsupported setting shows its requirement as a badge, and the page with the indicators is checked for contrast in light and dark. Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them. Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows back, a touchpad that is plugged in and a mouse that is unplugged (the stand-in sends `input` events) change the page live, and the test area names a click and scrolls. Displays (against a stand-in that reports outputs): the canvas shows the outputs that are on at their places and the one that is off, the picker lists them all with the one with the focus picked, a tile clicked picks its output for the rows and the mode row offers its modes, _All displays_ stays picked through a change, an output moved onto another is settled next to it with every position stored and sent and Ctrl+Z puts it back, a gap is reported and _Arrange Side by Side_ closes it, a monitor plugged in shows up, the last output that is on can't be switched off, without a session the canvas gives way to a hint, _Identify_ (the stand-in's output named like the headless sway's own) shows one window with the number on the overlay layer and takes it away after three seconds, and the page with the canvas is checked for contrast in light and dark. Sound: the page against the stand-in sound server shows the outputs, the input and the apps, choosing an output makes it the default, the volume slider and mute reach the server, an app's volume too, the server's own changes move the slider, the slider goes to 150 % only with `app.sound_above_100`, a server that goes away gives way to the placeholder and comes back, and without one the page says how to start it. About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the distribution, NetworkManager as not running, the kernel and the delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment, and the links go to the website, the repository and its issues. Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same window, it follows a change, About & Maintenance opens it, it closes with the main window; a file changed outside has its banner, its content on disk on request and is replaced by Overwrite; a foreign file and, without the include line, an edited one can't be overwritten; the window with a banner is checked for contrast in light and dark. Reload: a change of a setting for the config only shows the reload banner with the count, a change for the next login doesn't add to it, and the reload saves the generated file, sends `reload` and hides the banner; the page with the banner is checked for contrast in light and dark. Theme: the accent stylesheet carries the stored focus color, follows a change of it and is empty once `app.accent_source` asks for the theme's accent. Apps Look & Feel, with GSettings in memory: a theme set with another tool shows in its row as GSettings', _Dark_ goes to `color-scheme` as `prefer-dark` and a reset resets the key, and a font row shows the stored font in a button. Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the welcome screen, until an open works. The window works on settings files in a temporary directory and a sway config in memory, without a session or in the session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a reload are validated with `true`, so nothing runs sway. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Logic stays in `core`, so the GUI stays thin Bluetooth: the page against the BlueZ stand-in shows the paired and the other devices with their state and battery, the adapter choice for two adapters, looks for devices while shown, connects, pairs through the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices again, and it stops looking once the radio is off; test windows reach no Bluetooth but the stand-in. Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does after it, which ends with the new list, and switching back to automatic hides the button and scans again, connects to a saved network, asks for the password of a new one (refusing a short one) and sends it, answers the agent's "Wrong password" question, switches the cable and the VPN on, shows an unplugged cable without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows reach no NetworkManager but the stand-in |
+| GUI | `crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open (config lines shown, groups expanded), drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it. Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content. Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's controls beside its text (measured from each row's width beside, since a tiled window can't be resized) and the window can get narrower; every page fits 544 px (a third of a laptop screen) and scrolls sideways when narrower; a slider row shrinks its slider first, then moves its controls below its text and gets higher; narrow (the tests move the threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows it with the back button and the focus in it, Esc and the back button show the sidebar at the open page, switching keeps the page, the pane with the focus and the focus, a search on the page shows the sidebar with the results and the focused field, a result and a deep link show their page and focus their row, and Esc goes back to the result. Deep links: a link opens its page, a link to a setting tints its row, focuses its control and the tint goes again, one to a member of a collapsed group expands the group first, and one to a row hidden for want of devices only opens the page. Welcome: without the include line the window opens on the welcome screen with the line, _Look around first_ and opening a page lead to the pages with the banner, whose button leads back, its spinner turns again after coming back (compared on the drawn pixels, with animations on: a spinner's animation doesn't restart by itself, so the screen puts in a new one each time it is shown), the welcome screen and the banner go away once the line is there, and a banner tells about lines after the include until dismissed; the welcome screen and a read-only page are checked for contrast in light and dark. Text inside insensitive widgets is left out of the contrast check: WCAG exempts inactive controls, and GTK draws their text faint on purpose. Animations are off, so screens are checked as they end up. Sections: a header collapses its section with a click or Enter and expands it again, `ui.toml` follows, a section collapsed in the file starts collapsed, with the preference off none does and nothing is written, and a deep link into a collapsed section expands it without storing that. Rows: every page shows a row per setting in registry order, each control takes the focus, a change reaches the settings, a slider dragged near its default lands exactly on it while one outside the zone and a key step don't, a slider keeps its place when the reset buttons appear, a SwayFX setting on sway is locked and says why, a setting that applies after a reload has that badge and one that applies after a re-login its own, a change without the include line shows its error, and the config line shows only while `app.show_directives` is on, in rows of every page, and follows a switch at once. Groups: the colors of `client.focused` are the members of one collapsed group row, which shows a swatch per color and the line once (not in the members), follows a change, and expands and collapses with `Enter` and `Space`. Safety net: switching pointers off shows the banner with _Revert_ focused and the tried value in the row, _Keep_ stores it, _Revert_, the countdown and closing the window put the old value back, the only pointer can't be switched off, and the page with the banner is checked for contrast in light and dark. Indicators: a stored value has a reset button and a machine toggle (which moves it to the host overlay; the reset removes it), a line before the include shows _Overridden_ and one after it _Your config wins_, both with the ⋮ menu showing file:line and the line, _Let my config win_ hands the setting back to the config, a risky reset shows the safety-net banner and is removed on Keep, a device's own value resets to the value of all mice, a page reset removes all but risky values, an unsupported setting shows its requirement as a badge, and the page with the indicators is checked for contrast in light and dark. Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them. Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows back, a touchpad that is plugged in and a mouse that is unplugged (the stand-in sends `input` events) change the page live, and the test area names a click and scrolls. Displays (against a stand-in that reports outputs): the canvas shows the outputs that are on at their places and the one that is off, the picker lists them all with the one with the focus picked, a tile clicked picks its output for the rows and the mode row offers its modes, _All displays_ stays picked through a change, an output moved onto another is settled next to it with every position stored and sent and Ctrl+Z puts it back, a gap is reported and _Arrange Side by Side_ closes it, a monitor plugged in shows up, the last output that is on can't be switched off, without a session the canvas gives way to a hint, _Identify_ (the stand-in's output named like the headless sway's own) shows one window with the number on the overlay layer and takes it away after three seconds, and the page with the canvas is checked for contrast in light and dark. Sound: the page against the stand-in sound server shows the outputs, the input and the apps, choosing an output makes it the default, the volume slider and mute reach the server, an app's volume too, the server's own changes move the slider, the slider goes to 150 % only with `app.sound_above_100`, a server that goes away gives way to the placeholder and comes back, and without one the page says how to start it. About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the distribution, NetworkManager as not running, the kernel and the delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment, and the links go to the website, the repository and its issues. Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same window, it follows a change, About & Maintenance opens it, it closes with the main window; a file changed outside has its banner, its content on disk on request and is replaced by Overwrite; a foreign file and, without the include line, an edited one can't be overwritten; the window with a banner is checked for contrast in light and dark. Reload: a change of a setting for the config only shows the reload banner with the count, a change for the next login doesn't add to it, and the reload saves the generated file, sends `reload` and hides the banner; the page with the banner is checked for contrast in light and dark. Theme: the accent stylesheet carries the stored focus color, follows a change of it and is empty once `app.accent_source` asks for the theme's accent. Apps Look & Feel, with GSettings in memory: a theme set with another tool shows in its row as GSettings', _Dark_ goes to `color-scheme` as `prefer-dark` and a reset resets the key, and a font row shows the stored font in a button. Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the welcome screen, until an open works. The window works on settings files in a temporary directory and a sway config in memory, without a session or in the session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a reload are validated with `true`, so nothing runs sway. `scripts/gui-screenshots.sh` runs the same tests on a private Broadway display and keeps a PNG of the window with each page, light and dark. Bluetooth: the page against the BlueZ stand-in shows the paired and the other devices with their state and battery, the adapter choice for two adapters, looks for devices while shown, connects, pairs through the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices again, and it stops looking once the radio is off; test windows reach no Bluetooth but the stand-in. Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does after it, which ends with the new list, and switching back to automatic hides the button and scans again, connects to a saved network, asks for the password of a new one (refusing a short one) and sends it, answers the agent's "Wrong password" question, switches the cable and the VPN on, shows an unplugged cable without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows reach no NetworkManager but the stand-in |
 
 ## Packaging
 
