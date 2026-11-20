@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 23:25+0100\n"
+"POT-Creation-Date: 2026-11-20 23:26+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5283,7 +5283,7 @@ msgid "All screens"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
-#: crates/gui/src/widgets/displays/mod.rs
+#: crates/gui/src/widgets/displays/picker.rs
 msgid "Settings for"
 msgstr ""
 
@@ -5420,6 +5420,70 @@ msgstr ""
 msgid "Display {number}, {label}, {details}, at {x}, {y}"
 msgstr ""
 
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid "Copy Line"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/page_view/about.rs crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Put this line at the top of your kanshi config, above your profiles, and "
+"take a line further down that includes it away:"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
+"left alone and kanshi never sees the arrangement. Move that file away, then "
+"change something here."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"The line of Sway Things isn’t at the top of your kanshi config: {name} comes "
+"before it and wins over the arrangement made here whenever its displays are "
+"connected."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"Changes here don’t last: your kanshi profile {name} sets up these displays, "
+"as it comes before the line of Sway Things in your kanshi config."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together. kanshi starts with your "
+"next login."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"So that each combination of displays is remembered, your kanshi config needs "
+"the line of Sway Things at its top, above your own profiles."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"With kanshi installed, each combination of displays is remembered and comes "
+"back on its own."
+msgstr ""
+
 #. TRANSLATORS: The title of the row that picks what a display shows: its own content
 #. or another display's picture.
 #: crates/gui/src/widgets/displays/mirroring.rs
@@ -5523,18 +5587,6 @@ msgstr ""
 msgid "No display is on."
 msgstr ""
 
-#. TRANSLATORS: A display in the drop-down of displays: its number and name.
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid "{number}  {label} (not connected)"
-msgstr ""
-
-#. TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid "{number}  {label} · {name} (off)"
-msgstr ""
-
 #: crates/gui/src/widgets/displays/mod.rs
 msgid "Any rate"
 msgstr ""
@@ -5543,67 +5595,16 @@ msgstr ""
 msgid "Refresh rate"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/mod.rs
-msgid "Copy Line"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
-#: crates/gui/src/widgets/page_view/about.rs crates/gui/src/widgets/welcome.rs
-msgid "Copied"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Put this line at the top of your kanshi config, above your profiles, and "
-"take a line further down that includes it away:"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
+#. TRANSLATORS: A display in the drop-down of displays: its number and name.
+#: crates/gui/src/widgets/displays/picker.rs
 #, rust-format
-msgid ""
-"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
-"left alone and kanshi never sees the arrangement. Move that file away, then "
-"change something here."
+msgid "{number}  {label} (not connected)"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/mod.rs
+#. TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
+#: crates/gui/src/widgets/displays/picker.rs
 #, rust-format
-msgid ""
-"The line of Sway Things isn’t at the top of your kanshi config: {name} comes "
-"before it and wins over the arrangement made here whenever its displays are "
-"connected."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid ""
-"Changes here don’t last: your kanshi profile {name} sets up these displays, "
-"as it comes before the line of Sway Things in your kanshi config."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Each combination of displays is remembered: kanshi brings this arrangement "
-"back whenever these displays are connected together. kanshi starts with your "
-"next login."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Each combination of displays is remembered: kanshi brings this arrangement "
-"back whenever these displays are connected together."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"So that each combination of displays is remembered, your kanshi config needs "
-"the line of Sway Things at its top, above your own profiles."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"With kanshi installed, each combination of displays is remembered and comes "
-"back on its own."
+msgid "{number}  {label} · {name} (off)"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
