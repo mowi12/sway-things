@@ -789,6 +789,9 @@ impl<V: Validate> Applier<V> {
         {
             return Ok(Effect::Unsupported(unmet));
         }
+        // The `bg` line of a collection names the link to its current picture, which must exist.
+        // A link that can't be made leaves the color in place of the picture.
+        let _ = crate::wallpaper::prepare(&self.state);
         // What goes into the generated file must be a command too.
         let config = render(&self.state, over, setting, device, Target::Config)?;
         if let Some(unmet) = config
@@ -885,6 +888,7 @@ impl<V: Validate> Applier<V> {
         self.state.save(access)?;
         self.remember_displays().await;
         self.keep_kanshi_file().await;
+        let _ = crate::wallpaper::prepare(&self.state);
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;

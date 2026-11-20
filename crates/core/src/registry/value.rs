@@ -303,6 +303,8 @@ pub enum ValueError {
     NotAMode,
     /// The text isn't a position in the layout like `1920,0`.
     NotAPosition,
+    /// The text can't be the name of a wallpaper collection.
+    NotACollectionName,
 }
 
 impl ValueError {
@@ -348,6 +350,11 @@ impl ValueError {
                 msg!("must be a mode like 2560x1440 or 2560x1440@59.951Hz, or empty").into()
             }
             Self::NotAPosition => msg!("must be a position like 1920,0, or empty").into(),
+            Self::NotACollectionName => msg!(
+                "a collection name has 1 to 64 characters, no line breaks and no spaces at \
+                 either end"
+            )
+            .into(),
         }
     }
 }

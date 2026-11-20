@@ -315,6 +315,19 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
         })?
     });
     lines.extend(guard);
+    // One line for every output with a collection: it names none, see `wallpaper::start_command`.
+    if let Some(first) = crate::wallpaper::shown(state).first() {
+        if let Ok(text) = crate::wallpaper::start_command().render(Target::Config) {
+            lines.push(Line {
+                text,
+                source: Source {
+                    keys: vec![crate::wallpaper::COLLECTION],
+                    device: first.output.clone(),
+                },
+                skipped: None,
+            });
+        }
+    }
     lines
 }
 

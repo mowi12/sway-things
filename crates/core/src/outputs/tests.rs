@@ -107,6 +107,15 @@ fn outputs_are_read_from_sway() {
 }
 
 #[test]
+fn the_pixels_of_an_output_are_turned_like_it() {
+    let desk = desk();
+    let pixels = |identifier| desk.get(identifier).and_then(super::Output::pixels);
+    assert_eq!(pixels(LAPTOP), Some((1920, 1080)));
+    // Turned a quarter: as tall as the mode is wide.
+    assert_eq!(pixels(LEFT), Some((1440, 2560)));
+}
+
+#[test]
 fn outputs_are_found_by_name_or_identifier() {
     let desk = desk();
     assert_eq!(desk.find("DP-4").unwrap().identifier(), LEFT);

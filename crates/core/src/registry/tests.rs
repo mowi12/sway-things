@@ -424,14 +424,17 @@ fn every_stored_value_changes_the_commands() {
 }
 
 #[test]
-fn app_preferences_have_no_sway_mapping() {
+fn app_preferences_and_collections_have_no_sway_mapping() {
     for setting in registry().iter() {
         let is_app = setting.key().starts_with("app.");
         // The placement of the workspaces depends on the displays connected: a hook sends it.
         let is_placement = setting.key().starts_with("workspaces.");
+        // The settings of a wallpaper collection reach sway through the output that shows it.
+        let is_collection = setting.scope() == Scope::PerCollection;
+        assert_eq!(is_collection, setting.key().starts_with("collection."));
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement,
+            is_app || is_placement || is_collection,
             "{}",
             setting.key()
         );
@@ -510,6 +513,7 @@ fn input_settings_are_per_device_and_output_settings_per_output() {
                 assert_eq!(block, Block::Output, "{}", setting.key());
                 ("HDMI-A-1", "output \"HDMI-A-1\" ".to_owned())
             }
+            Scope::PerCollection => panic!("{} is a sway setting of a collection", setting.key()),
             Scope::Global | Scope::PerHost => {
                 assert!(
                     matches!(block, Block::Top | Block::Seat),

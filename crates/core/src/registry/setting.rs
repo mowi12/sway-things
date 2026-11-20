@@ -62,13 +62,18 @@ pub enum Scope {
     /// Every output, or one output. The value for all outputs is stored in the shared file by
     /// default, a value for one output in the host overlay.
     PerOutput,
+    /// One wallpaper collection, by its name. A value is always stored for one collection, in the
+    /// shared file by default.
+    PerCollection,
 }
 
 impl Scope {
-    /// Whether a value can be stored for one input device or output, besides the value for all
-    /// of them.
+    /// Whether a value can be stored for one input device, output or collection.
     pub const fn has_instances(self) -> bool {
-        matches!(self, Self::PerDevice(_) | Self::PerOutput)
+        matches!(
+            self,
+            Self::PerDevice(_) | Self::PerOutput | Self::PerCollection
+        )
     }
 }
 
@@ -429,7 +434,8 @@ impl Setting {
 
     /// Checks that a value of the setting can be stored for `device`: the identifier of an input
     /// device for a setting with [`Scope::PerDevice`], the identifier or name of an output for
-    /// one with [`Scope::PerOutput`].
+    /// one with [`Scope::PerOutput`], the name of a collection for one with
+    /// [`Scope::PerCollection`].
     ///
     /// # Errors
     ///
@@ -439,6 +445,7 @@ impl Setting {
         let fits = match self.scope {
             Scope::PerDevice(_) => InputSelector::device(device).is_ok(),
             Scope::PerOutput => OutputSelector::output(device).is_ok(),
+            Scope::PerCollection => crate::wallpaper::is_collection_name(device),
             Scope::Global | Scope::PerHost => return Err(DeviceError::NotPerDevice),
         };
         if fits {
@@ -462,12 +469,14 @@ impl Setting {
         self.sets_up_display
     }
 
-    /// The table of a settings file that holds values for one device or output: `device` or
-    /// `display` (`output` is taken by the values for every output, `output.scale`). `None` for a setting that isn't stored per device.
+    /// The table of a settings file that holds values for one device, output or collection:
+    /// `device`, `display` (`output` is taken by the values for every output, `output.scale`) or
+    /// `collection`. `None` for a setting that isn't stored per device.
     pub fn device_table(&self) -> Option<&'static str> {
         match self.scope {
             Scope::PerDevice(_) => Some("device"),
             Scope::PerOutput => Some("display"),
+            Scope::PerCollection => Some("collection"),
             Scope::Global | Scope::PerHost => None,
         }
     }

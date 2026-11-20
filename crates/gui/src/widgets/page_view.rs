@@ -218,7 +218,7 @@ impl PageView {
                 Scope::PerDevice(kind) => Some(Instances::Devices(kind)),
                 // The Displays page picks its output on the arrangement.
                 Scope::PerOutput if !setting.sets_up_display() => Some(Instances::Outputs),
-                Scope::Global | Scope::PerHost | Scope::PerOutput => None,
+                Scope::Global | Scope::PerHost | Scope::PerOutput | Scope::PerCollection => None,
             };
             let list = match &section {
                 Some((title, list)) if *title == setting.section() => list.clone(),
