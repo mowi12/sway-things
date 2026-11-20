@@ -118,10 +118,14 @@ runs and CI can't drift. CI calls the scripts directly; the `justfile` just wrap
 hooks. Run checks yourself before pushing:
 
 ```sh
+just test               # run the tests of the workspace
+just lint               # run the fast offline checks: no tests, no sway, no network
 just check              # run every check, like CI
 scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
+
+`just` without a recipe lists every development command.
 
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
@@ -229,8 +233,8 @@ and committed. After changing a command, an argument or a help text in `crates/c
 
 ## Working on the GUI
 
-- `cargo run -p sway-things-gui` starts the app. `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore
-  the widget tree and try CSS live.
+- `just gui` starts the app from source, and `just cli ARGS` runs the command line (`just cli doctor`).
+  `GTK_DEBUG=interactive` opens the GTK Inspector next to it, to explore the widget tree and try CSS live.
 - The GUI tests check the window with every page for contrast in light and dark, the keyboard navigation, and the
   setting rows (one per setting, a change, a locked setting, a failed change). They need a display, so they run in the
   sway integration containers (`scripts/check-integration.sh --container all`). `scripts/gui-screenshots.sh` runs them
@@ -240,9 +244,9 @@ See [wiki/Architecture.md](wiki/Architecture.md#ui-architecture) for the structu
 
 ## Working on the website
 
-The project site in `website/` is built with Astro: `npm ci --prefix website`, then `npm --prefix website run dev`
-serves it with live reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the
-build says when one doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
+The project site in `website/` is built with Astro: `npm ci --prefix website`, then `just website` serves it with live
+reload. It reads `README.md` and the app icon, so keep the README's sections in their shape; the build says when one
+doesn't fit. See [wiki/Architecture.md](wiki/Architecture.md#website).
 
 ## Documentation
 

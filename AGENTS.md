@@ -59,7 +59,7 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   ├── labels.yml   # label taxonomy, synced to GitHub
 │   ├── dependabot.yml
 │   └── pull_request_template.md
-├── justfile         # convenience wrapper around scripts/ (`just check`)
+├── justfile         # convenience wrapper around cargo, npm and scripts/ (`just` lists the recipes)
 ├── Cargo.toml       # workspace: shared package metadata and lints; Cargo.lock is committed
 ├── clippy.toml      # lets tests use unwrap/expect/panic
 ├── REUSE.toml, dprint.json, .markdownlint-cli2.yaml, _typos.toml, lychee.toml, deny.toml, cliff.toml, .editorconfig
