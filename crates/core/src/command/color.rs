@@ -32,6 +32,17 @@ impl Color {
         [self.red, self.green, self.blue]
     }
 
+    /// The alpha, if the color has one.
+    pub const fn alpha(self) -> Option<u8> {
+        self.alpha
+    }
+
+    /// The color without its alpha, rendered as `#rrggbb`.
+    #[must_use]
+    pub const fn opaque(self) -> Self {
+        Self::rgb(self.red, self.green, self.blue)
+    }
+
     /// A color with alpha, rendered as `#rrggbbaa`.
     pub const fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self {

@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::path::Path;
+
 use proptest::prelude::*;
 
-use super::{Mode, Output, OutputError, OutputSelector, Transform, parse_position};
-use crate::command::{OutOfRange, SwayCmd, Target, TextError};
+use super::{Fill, Mode, Output, OutputError, OutputSelector, Transform, parse_position};
+use crate::command::model::{self, Parsed};
+use crate::command::{Color, OutOfRange, SwayCmd, Target, TextError};
 
 fn all() -> Output {
     Output::new(OutputSelector::All)
@@ -202,5 +205,150 @@ proptest! {
         prop_assert_eq!(Mode::parse(&mode.to_string()), Ok(mode));
         // The word passes the command's own check.
         prop_assert!(all().mode(mode).render(Target::Ipc).is_ok());
+    }
+}
+
+/// What `wordexp(3)` makes of a word that only uses single quotes, and double quotes around
+/// characters without a meaning there, with `HOME=/home/me`: the quotes go, a leading `~/`
+/// becomes the home folder, everything else stays.
+fn wordexp(word: &str) -> Result<String, String> {
+    let (mut out, word) = match word.strip_prefix("~/") {
+        Some(rest) => ("/home/me/".to_owned(), rest),
+        None => (String::new(), word),
+    };
+    let mut quote = None;
+    for character in word.chars() {
+        match (quote, character) {
+            (None, '\'' | '"') => quote = Some(character),
+            (Some(open), _) if open == character => quote = None,
+            (Some('"'), '$' | '`' | '\\') => return Err(format!("{character} in double quotes")),
+            (Some(_), _) => out.push(character),
+            (None, _) => return Err(format!("{character:?} outside quotes")),
+        }
+    }
+    match quote {
+        None => Ok(out),
+        Some(_) => Err("unterminated quote".to_owned()),
+    }
+}
+
+/// The file sway reads from a rendered `output * bg <file> …` command for `target`.
+fn file_for(target: Target, rendered: &str) -> Result<String, String> {
+    let argv = match target {
+        Target::Ipc => match model::execute_command(rendered.as_bytes())?.as_slice() {
+            [Parsed { argv, .. }] => argv.clone(),
+            commands => return Err(format!("expected one command, got {commands:?}")),
+        },
+        Target::Config => model::config_command(rendered.as_bytes())?,
+    };
+    let file = argv.get(3).ok_or("no file")?;
+    wordexp(&String::from_utf8(file.clone()).map_err(|error| error.to_string())?)
+}
+
+#[test]
+fn colors_render_without_alpha() {
+    let cmd = all().background_color(Color::rgba(1, 2, 3, 0x80));
+    assert_eq!(
+        cmd.render(Target::Ipc).unwrap(),
+        "output * bg #010203 solid_color"
+    );
+    assert_eq!(
+        cmd.render(Target::Config).unwrap(),
+        "output * bg #010203 solid_color"
+    );
+}
+
+#[test]
+fn every_fill_mode_renders() {
+    for mode in Fill::ALL {
+        let cmd = all()
+            .background_image(Path::new("/a.png"), mode, Color::rgb(0, 0, 0))
+            .unwrap();
+        assert_eq!(
+            cmd.render(Target::Ipc).unwrap(),
+            format!("output * bg \"'/a.png'\" {} #000000", mode.keyword())
+        );
+        assert_eq!(
+            Fill::from_keyword(&mode.keyword().to_uppercase()),
+            Some(mode)
+        );
+    }
+    assert_eq!(Fill::from_keyword("solid_color"), None);
+}
+
+#[test]
+fn a_background_selects_one_output() {
+    let cmd = Output::new(OutputSelector::output("HDMI-A-1").unwrap())
+        .background_color(Color::rgb(0, 0, 0));
+    assert_eq!(
+        cmd.render(Target::Ipc).unwrap(),
+        r#"output "HDMI-A-1" bg #000000 solid_color"#
+    );
+}
+
+#[test]
+fn file_names_are_data_for_wordexp() {
+    let path = Path::new("/home/me/it's $(rm -rf ~) `id` \"x\" $HOME.png");
+    let cmd = all()
+        .background_image(path, Fill::Fit, Color::rgb(1, 2, 3))
+        .unwrap();
+    for target in [Target::Ipc, Target::Config] {
+        let rendered = cmd.render(target).unwrap();
+        assert_eq!(
+            file_for(target, &rendered).unwrap(),
+            path.to_str().unwrap(),
+            "{rendered}"
+        );
+    }
+}
+
+#[test]
+fn the_home_folder_is_left_to_wordexp() {
+    let cmd = all()
+        .background_image(Path::new("~/it's.png"), Fill::Fill, Color::rgb(0, 0, 0))
+        .unwrap();
+    assert_eq!(
+        cmd.render(Target::Config).unwrap(),
+        r#"output * bg "~/'it'\"'\"'s.png'" fill #000000"#
+    );
+    for target in [Target::Ipc, Target::Config] {
+        let rendered = cmd.render(target).unwrap();
+        assert_eq!(file_for(target, &rendered).unwrap(), "/home/me/it's.png");
+    }
+}
+
+#[test]
+fn paths_sway_cant_read_are_refused() {
+    let image =
+        |path: &str| all().background_image(Path::new(path), Fill::Fill, Color::rgb(0, 0, 0));
+    assert_eq!(image("a.png"), Err(OutputError::NotAbsolute));
+    assert_eq!(image("~me/a.png"), Err(OutputError::NotAbsolute));
+    assert_eq!(image("./a.png"), Err(OutputError::NotAbsolute));
+    assert_eq!(image("/a  b.png"), Err(OutputError::DoubleSpace));
+    assert_eq!(
+        image("/a\\b.png"),
+        Err(OutputError::Text(TextError::Backslash { index: 2 }))
+    );
+    assert!(matches!(
+        image("/a\nb.png"),
+        Err(OutputError::Text(TextError::ControlCharacter { .. }))
+    ));
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(2000))]
+
+    /// Every path the builder takes reaches sway's `wordexp` as a word that expands to itself.
+    #[test]
+    fn accepted_paths_arrive_unchanged(path in "/[^\\x00-\\x1f\\x7f\\\\]{0,40}") {
+        let Ok(cmd) = all().background_image(Path::new(&path), Fill::Fill, Color::rgb(0, 0, 0))
+        else {
+            prop_assert!(path.contains("  ") || path.chars().any(char::is_control));
+            return Ok(());
+        };
+        for target in [Target::Ipc, Target::Config] {
+            let rendered = cmd.render(target).unwrap();
+            prop_assert_eq!(file_for(target, &rendered), Ok(path.clone()), "{}", rendered);
+        }
     }
 }

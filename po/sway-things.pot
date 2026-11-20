@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 12:23+0100\n"
+"POT-Creation-Date: 2026-11-21 13:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -558,6 +558,18 @@ msgstr ""
 
 #: crates/core/src/command/output.rs
 msgid "expected a position like 1920,0"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "the image needs an absolute path or one in your home folder (~/…)"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "the path of the image isn't valid UTF-8"
+msgstr ""
+
+#: crates/core/src/command/output.rs
+msgid "sway can't read an image path with two spaces in a row"
 msgstr ""
 
 #: crates/core/src/command/text.rs
