@@ -610,16 +610,23 @@ impl<V: Validate> Checkup<'_, V> {
         progress(Step::Section(Section::Config));
         self.config(&mut findings);
         self.kanshi(&mut findings);
-        if let Some(path) = &self.path {
+        let generated = self.found.compositor().map(|compositor| {
+            generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
+        });
+        // Only where something runs a hook: a line of the generated config, or kanshi's profiles.
+        let hooks = self.displays.is_kanshi()
+            || generated.as_ref().is_some_and(|files| {
+                files
+                    .iter()
+                    .any(|file| file.text().contains("sway-things hook "))
+            });
+        if let Some(path) = self.path.as_ref().filter(|_| hooks) {
             Self::hook_program(
                 Some(path.as_os_str()),
                 std::env::current_exe().ok().as_deref(),
                 &mut findings,
             );
         }
-        let generated = self.found.compositor().map(|compositor| {
-            generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
-        });
         progress(Step::Section(Section::Settings));
         self.settings(generated.as_deref(), &mut findings);
         progress(Step::Section(Section::Generated));
