@@ -6,7 +6,7 @@ FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f0
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates cargo sway kanshi libgtk-4-dev libgtk4-layer-shell-dev libpulse-dev pkgconf fonts-dejavu-core dbus-daemon python3-dbusmock \
-    pipewire pipewire-pulse wireplumber pulseaudio-utils \
+    pipewire pipewire-pulse wireplumber pulseaudio-utils cups-daemon cups-filters \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --create-home tester \
   && install -d -o tester /work

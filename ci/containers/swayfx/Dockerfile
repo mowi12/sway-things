@@ -3,14 +3,16 @@
 
 # The newest SwayFX release, from Void Linux. SwayFX needs a DRM render node and GLES2: scripts/check-integration.sh
 # passes in the host's render nodes (in CI a virtual one from vgem), and Mesa renders in software, so no GPU is needed.
-# Its sway binary has the cap_sys_nice file capability, which containers don't grant, so the image removes it.
+# Its sway binary has the cap_sys_nice file capability, which containers don't grant, so the image removes it. CUPS's
+# stand-in runs cupsd as the tester, which Void installs for root only.
 FROM ghcr.io/void-linux/void-glibc@sha256:7de4630b6d3e0a76e9e68771837c15fc179e320de292b06e29c7292756d29583
 
 RUN xbps-install -Syu xbps \
   && xbps-install -Syu bash shadow swayfx kanshi mesa-dri libcap-progs rust cargo gcc gtk4-devel gtk4-layer-shell-devel pulseaudio-devel pkg-config dejavu-fonts-ttf dbus python3-dbusmock \
-    pipewire wireplumber pulseaudio-utils \
+    pipewire wireplumber pulseaudio-utils cups cups-filters \
   && xbps-remove -O \
   && setcap -r /usr/bin/sway \
+  && chmod 755 /usr/bin/cupsd \
   && useradd --create-home tester \
   && install -d -o tester /work
 
