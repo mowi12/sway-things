@@ -97,6 +97,7 @@ impl Setup {
             outputs: None,
             displays: crate::generate::Displays::Sway,
             kanshi: None,
+            path: None,
         }
     }
 
@@ -359,6 +360,41 @@ fn a_line_naming_a_display_by_its_connector_competes_with_its_identifier() {
     assert_eq!(wins.device.as_deref(), Some("A B C"));
     // Without the session's outputs, the line can't be told to be about that display.
     none(&setup.diagnose(), Code::ConfigWins);
+}
+
+#[test]
+fn the_program_the_hooks_run_is_checked() {
+    let dir = tempfile::tempdir().unwrap();
+    let hooks = |path: &std::path::Path, this: &std::path::Path| {
+        let mut findings = Vec::new();
+        super::Checkup::<Validator>::hook_program(
+            Some(path.as_os_str()),
+            Some(this),
+            &mut findings,
+        );
+        findings
+    };
+    let bin = dir.path().join("bin");
+    let build = dir.path().join("build");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(&build).unwrap();
+    let this = build.join("sway-things");
+    // Not in `$PATH`: sway and kanshi can't run the hooks at all.
+    let missing = hooks(&bin, &this);
+    assert_eq!(missing.len(), 1);
+    assert_eq!(missing[0].severity, Severity::Problem);
+    // Another build in `$PATH` than the one running.
+    for file in [bin.join("sway-things"), this.clone()] {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(&file, "").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let other = hooks(&bin, &this);
+    assert_eq!(other.len(), 1);
+    assert_eq!(other[0].severity, Severity::Warning);
+    // The one running is the one in `$PATH`; the app is another program and isn't compared.
+    assert_eq!(hooks(&build, &this).len(), 0);
+    assert_eq!(hooks(&bin, &build.join("sway-things-gui")).len(), 0);
 }
 
 #[test]

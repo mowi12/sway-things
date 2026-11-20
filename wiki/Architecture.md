@@ -746,7 +746,13 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   make an empty one so kanshi starts), and never the user's config except to create it. kanshi rejects its whole config
   over an include it can't find, so the file is kept there and current at every save (`Applier::keep_kanshi_file`), also
   when no display was ever set up, and `hook displays` writes it at every start and reload of sway and starts kanshi if
-  it gave up over it. `doctor` reports the file missing, out of date or someone else's; the Displays page and
+  it gave up over it. Each profile says in comment lines which workspaces go on which display by the rule
+  (`Profile::placement_lines`, from `workspaces::place_on`, the same placement the hook makes), above the command that
+  places them, so the file shows what is set. `Applier::forget_displays` (the page's reset, while kanshi sets up the
+  displays) drops the profile of the displays connected with their stored values, pictures and placement and has kanshi
+  read the file again, so what set them up before applies again: a profile of the user's own, or what they run with.
+  `doctor` also checks that `sway-things` is in `$PATH` and is this build (`hook_program`), since sway and kanshi run
+  the hooks by that name. `doctor` reports the file missing, out of date or someone else's; the Displays page and
   `sway-things set` say when it is someone else's, since nothing set reaches kanshi then. `20-output.conf` then has no
   per-output lines, a comment, the startup guard (always with kanshi), and `exec kanshi` when the user's sway config
   doesn't start kanshi (`kanshi::started_by`, not counting our files) and no kanshi started elsewhere (a systemd unit)

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 10:30+0100\n"
+"POT-Creation-Date: 2026-11-20 11:10+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -797,6 +797,32 @@ msgstr ""
 msgid ""
 "Move it out of {directory}: the include line reads every *.conf file there, "
 "and Sway Things needs the name."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"sway and kanshi can't run sway-things: it isn't in a directory of $PATH. The "
+"hooks in the generated config do nothing, so workspaces aren't placed, "
+"pictures don't start and no display is switched on when none is."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install Sway Things, or put the directory of sway-things into $PATH before "
+"sway starts."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"sway and kanshi run {found} for the hooks, not this build ({this}). An older "
+"one doesn't know every hook, so workspaces may not be placed and pictures "
+"may not start after a reload."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Install this build, or put its directory first in $PATH before sway starts."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -4456,6 +4482,11 @@ msgstr ""
 #: crates/gui/src/model.rs
 #, rust-format
 msgid "The settings of the displays weren’t updated: {error}."
+msgstr ""
+
+#: crates/gui/src/model.rs
+#, rust-format
+msgid "The displays weren’t reset: {error}."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs

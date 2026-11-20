@@ -606,7 +606,7 @@ async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) -> bool {
         return false;
     };
     let state = State::load(Registry::builtin(), paths);
-    let places = outputs::workspaces::Rule::of(&state).places();
+    let places = outputs::workspaces::Placing::of(&state);
     let wrote = matches!(
         files.write(&outputs::profiles::kanshi_config(profiles, places)),
         Ok(true)
@@ -685,6 +685,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         displays: generate::Displays::detect(&status, &locations)
             .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
         kanshi: kanshi_files(),
+        path: std::env::var_os("PATH"),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -955,6 +956,7 @@ async fn doctor_in<V: Validate>(
         outputs: outputs.as_ref(),
         displays: applier.displays(),
         kanshi: applier.kanshi_files().cloned(),
+        path: None,
     };
     doctor(&checkup, None, args, out).await
 }

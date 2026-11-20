@@ -1522,6 +1522,16 @@ impl Model {
                 self.emit_failed(key, device.as_deref(), &error.text().translated());
             }
         }
+        // While kanshi sets up the displays, what is set here lives in the profile of the
+        // displays connected: forgotten with it, so what set them up before applies again.
+        if page == Page::Displays && applier.displays().is_kanshi() {
+            if let Err(error) = applier.forget_displays(access).await {
+                self.emit_problem(&trf(
+                    msg!("The displays weren\u{2019}t reset: {error}."),
+                    &[("error", &error.text().translated())],
+                ));
+            }
+        }
     }
 
     /// Reverts the change that waits when `countdown` elapses, unless it was kept or reverted

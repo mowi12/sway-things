@@ -903,7 +903,7 @@ impl<V: Validate> Applier<V> {
         if !self.displays.is_kanshi() {
             return;
         }
-        let places = crate::outputs::workspaces::Rule::of(&self.state).places();
+        let places = crate::outputs::workspaces::Placing::of(&self.state);
         let (Some(files), Some(profiles)) = (self.kanshi_files.as_ref(), self.profiles.as_ref())
         else {
             return;
@@ -953,7 +953,7 @@ impl<V: Validate> Applier<V> {
         self.displays_problem = Self::write_kanshi(
             self.kanshi_files.as_ref(),
             profiles,
-            crate::outputs::workspaces::Rule::of(&self.state).places(),
+            crate::outputs::workspaces::Placing::of(&self.state),
         )
         .await;
         // The generated config starts kanshi, but it doesn't run yet (the displays are set up
@@ -1098,7 +1098,7 @@ impl<V: Validate> Applier<V> {
         self.displays_problem = Self::write_kanshi(
             self.kanshi_files.as_ref(),
             profiles,
-            crate::outputs::workspaces::Rule::of(&self.state).places(),
+            crate::outputs::workspaces::Placing::of(&self.state),
         )
         .await;
     }
@@ -1121,7 +1121,7 @@ impl<V: Validate> Applier<V> {
     async fn write_kanshi(
         files: Option<&KanshiFiles>,
         profiles: &Profiles,
-        places: bool,
+        places: Option<crate::outputs::workspaces::Placing>,
     ) -> Option<Text> {
         let files = files?;
         match files.write(&kanshi_config(profiles, places)) {
@@ -1218,7 +1218,7 @@ impl<V: Validate> Applier<V> {
         self.displays_problem = Self::write_kanshi(
             self.kanshi_files.as_ref(),
             profiles,
-            crate::outputs::workspaces::Rule::of(&self.state).places(),
+            crate::outputs::workspaces::Placing::of(&self.state),
         )
         .await;
         // The picture doesn't take the focus when it starts (the generated config says so from
@@ -1251,6 +1251,94 @@ impl<V: Validate> Applier<V> {
             }
         }
         Ok(())
+    }
+
+    /// Forgets everything set here for the displays connected now, while kanshi sets them up:
+    /// their stored values (the risky ones too), the profile of their combination with its
+    /// pictures and its placement of the workspaces. kanshi's file is written without it and
+    /// kanshi reads it again, so what set the displays up before Sway Things did applies again:
+    /// a profile of the user's own for these displays, or what the displays run with. The
+    /// pictures end and their workspaces come back. Says whether anything was forgotten.
+    ///
+    /// # Errors
+    ///
+    /// [`ApplyError::PendingChange`] while a risky change waits, the IPC errors, and the errors
+    /// of writing.
+    pub async fn forget_displays(&mut self, access: &WriteAccess) -> Result<bool, ApplyError> {
+        if let Some(pending) = &self.pending {
+            return Err(ApplyError::PendingChange { key: pending.key() });
+        }
+        self.reread_profiles();
+        let places = crate::outputs::workspaces::Placing::of(&self.state);
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return Ok(false);
+        };
+        let outputs = Outputs::new(&client.outputs().await.map_err(ApplyError::Ipc)?);
+        let connected: Vec<String> = outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(|output| output.identifier().to_owned())
+            .collect();
+        let names: Vec<&str> = connected.iter().map(String::as_str).collect();
+        let session = client.socket().display().to_string();
+        // The workspaces each picture took along, to give back, and where its display stood.
+        let pictures: Vec<Picture> = profiles
+            .of(&names)
+            .map(|profile| {
+                profile
+                    .outputs()
+                    .filter(|(_, setup)| setup.mirror.is_some())
+                    .map(|(name, setup)| {
+                        (
+                            name.to_owned(),
+                            profile.gathered(name, &session),
+                            setup.position,
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut forgotten = profiles.forget(&names);
+        if forgotten {
+            let path = profiles.path().to_owned();
+            profiles
+                .save()
+                .map_err(|source| ApplyError::Write(generate::WriteError::Io { path, source }))?;
+        }
+        // The stored values of these displays, whatever they are for.
+        let stored: Vec<(&'static str, String)> = self
+            .state
+            .entries()
+            .into_iter()
+            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
+            .filter(|(_, device)| connected.contains(device))
+            .collect();
+        for (key, device) in stored {
+            forgotten |= self.state.reset(key, Some(&device))?;
+        }
+        self.state.save(access)?;
+        // Nothing made here is kept for this combination: it is read from the displays again
+        // when it comes back.
+        self.combination = None;
+        self.displays_touched = false;
+        let (Some(client), Some(profiles)) = (&mut self.client, &self.profiles) else {
+            return Ok(forgotten);
+        };
+        // The pictures end, their displays go back among the others and take their workspaces.
+        crate::outputs::mirror::apply(profiles, &outputs);
+        for (target, gathered, place) in &pictures {
+            let _ = crate::outputs::mirror::give_back_workspaces(client, target, gathered, *place)
+                .await;
+        }
+        let _ = crate::outputs::mirror::leave_ended(client, profiles).await;
+        // kanshi reads the file without the profile: another one that matches applies.
+        self.displays_problem =
+            Self::write_kanshi(self.kanshi_files.as_ref(), profiles, places).await;
+        if let Some(client) = &mut self.client {
+            let _ = crate::outputs::ensure_one_on(client).await;
+        }
+        Ok(forgotten)
     }
 
     /// kanshi's files, if kanshi is installed (not for an applier made for tests).
@@ -1345,7 +1433,7 @@ impl<V: Validate> Applier<V> {
     /// the hook only while it places.
     async fn write_profiles_for_kanshi(&mut self) {
         if let Some(profiles) = &self.profiles {
-            let places = crate::outputs::workspaces::Rule::of(&self.state).places();
+            let places = crate::outputs::workspaces::Placing::of(&self.state);
             self.displays_problem =
                 Self::write_kanshi(self.kanshi_files.as_ref(), profiles, places).await;
         }
@@ -1502,6 +1590,10 @@ impl<V: Values> Values for Over<'_, V> {
         self.over.get(key).or_else(|| self.under.get(key))
     }
 }
+
+/// A display that showed a picture: its name in the settings, the workspaces the picture took
+/// along, and where the display stood among the others.
+type Picture = (String, Vec<String>, Option<(i32, i32)>);
 
 /// The commands of two effects of one change, sent one after the other.
 fn merged(first: Effect, then: Effect) -> Effect {

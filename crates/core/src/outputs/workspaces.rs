@@ -129,15 +129,29 @@ pub fn place(
     fixed: &BTreeMap<String, String>,
 ) -> BTreeMap<String, String> {
     let displays = targets(outputs, mirrors);
+    let built_in = displays
+        .iter()
+        .position(|output| is_built_in(output))
+        .unwrap_or(0);
+    let names: Vec<&str> = displays.iter().map(|output| output.identifier()).collect();
+    place_on(rule, &names, built_in, count, fixed)
+}
+
+/// [`place`] on the displays `displays` (by their names in the settings, from left to right),
+/// with the one at `built_in` as the laptop's own. This is the placement itself, also for
+/// displays that aren't connected: what kanshi's file says of a remembered combination.
+pub fn place_on(
+    rule: Rule,
+    displays: &[&str],
+    built_in: usize,
+    count: usize,
+    fixed: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
     let mut placement = BTreeMap::new();
     if displays.is_empty() || rule == Rule::Sway {
         return placement;
     }
     let per_display = count.div_ceil(displays.len()).max(1);
-    let built_in = displays
-        .iter()
-        .position(|output| is_built_in(output))
-        .unwrap_or(0);
     for (index, name) in names(count).into_iter().enumerate() {
         let round = index % displays.len();
         let display = match rule {
@@ -146,18 +160,34 @@ pub fn place(
             Rule::OneDisplay => built_in,
             Rule::Fixed => fixed
                 .get(&name)
-                .and_then(|wanted| {
-                    displays
-                        .iter()
-                        .position(|output| output.identifier() == wanted)
-                })
+                .and_then(|wanted| displays.iter().position(|display| display == wanted))
                 .unwrap_or(round),
         };
         if let Some(display) = displays.get(display) {
-            placement.insert(name, display.identifier().to_owned());
+            placement.insert(name, (*display).to_owned());
         }
     }
     placement
+}
+
+/// What places the workspaces: the rule and how many, while one places them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Placing {
+    /// The rule.
+    pub rule: Rule,
+    /// How many workspaces are placed.
+    pub count: usize,
+}
+
+impl Placing {
+    /// What places the workspaces by the settings in `state`; `None` while sway does.
+    pub fn of(state: &State) -> Option<Self> {
+        let rule = Rule::of(state);
+        rule.places().then(|| Self {
+            rule,
+            count: count(state),
+        })
+    }
 }
 
 /// `placement` with the other displays of `outputs` that aren't in `mirrors` after each

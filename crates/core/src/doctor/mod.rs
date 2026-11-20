@@ -150,6 +150,8 @@ pub enum Code {
     /// A profile of the user's kanshi config covers a combination Sway Things remembers, and
     /// comes first.
     KanshiProfileOverlap,
+    /// sway and kanshi can't run `sway-things` for the hooks, or run another build of it.
+    HookProgram,
     /// The settings files load without problems.
     SettingsLoaded,
     /// A settings file can't be used at all.
@@ -216,6 +218,7 @@ impl Code {
             Self::KanshiIncludeMissing => "kanshi_include_missing",
             Self::KanshiFileForeign => "kanshi_file_foreign",
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
+            Self::HookProgram => "hook_program",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
             Self::FileMissing => "file_missing",
@@ -252,7 +255,8 @@ impl Code {
             | Self::ConfigDiagnostic
             | Self::KanshiIncludeMissing
             | Self::KanshiFileForeign
-            | Self::KanshiProfileOverlap => Section::Config,
+            | Self::KanshiProfileOverlap
+            | Self::HookProgram => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
             | Self::SettingsEntry
@@ -586,6 +590,9 @@ pub struct Checkup<'a, V> {
     pub displays: generate::Displays,
     /// kanshi's files, if kanshi is installed: what is checked of them.
     pub kanshi: Option<crate::outputs::kanshi::KanshiFiles>,
+    /// The `$PATH` sway and kanshi run `sway-things` from for the hooks; `None` for a checkup
+    /// that doesn't look at the machine.
+    pub path: Option<std::ffi::OsString>,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -603,6 +610,13 @@ impl<V: Validate> Checkup<'_, V> {
         progress(Step::Section(Section::Config));
         self.config(&mut findings);
         self.kanshi(&mut findings);
+        if let Some(path) = &self.path {
+            Self::hook_program(
+                Some(path.as_os_str()),
+                std::env::current_exe().ok().as_deref(),
+                &mut findings,
+            );
+        }
         let generated = self.found.compositor().map(|compositor| {
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
         });
@@ -993,6 +1007,67 @@ impl<V: Validate> Checkup<'_, V> {
         }
     }
 
+    /// Whether sway and kanshi can run `sway-things`: the generated config and kanshi's profiles
+    /// run it by name for the hooks (the display guard, the workspaces, the pictures), so it
+    /// must be in a directory of `path` (`$PATH`). One that isn't the program `this` (the one
+    /// running now) is another build, which may not know the hooks of this one.
+    fn hook_program(
+        path: Option<&std::ffi::OsStr>,
+        this: Option<&std::path::Path>,
+        findings: &mut Vec<Finding>,
+    ) {
+        let Some(found) = crate::delegate::find_program("sway-things", path) else {
+            findings.push(
+                Finding::new(
+                    Code::HookProgram,
+                    Severity::Problem,
+                    Text::new(msg!(
+                        "sway and kanshi can't run sway-things: it isn't in a directory of \
+                         $PATH. The hooks in the generated config do nothing, so workspaces \
+                         aren't placed, pictures don't start and no display is switched on \
+                         when none is."
+                    )),
+                )
+                .with_hint(msg!(
+                    "Install Sway Things, or put the directory of sway-things into $PATH \
+                     before sway starts."
+                )),
+            );
+            return;
+        };
+        let same = |one: &std::path::Path, other: &std::path::Path| match (
+            one.canonicalize(),
+            other.canonicalize(),
+        ) {
+            (Ok(one), Ok(other)) => one == other,
+            _ => one == other,
+        };
+        // Only told apart from a `sway-things` itself: the app is another program.
+        let Some(this) =
+            this.filter(|this| this.file_name().is_some_and(|name| name == "sway-things"))
+        else {
+            return;
+        };
+        if !same(&found, this) {
+            findings.push(
+                Finding::new(
+                    Code::HookProgram,
+                    Severity::Warning,
+                    Text::new(msg!(
+                        "sway and kanshi run {found} for the hooks, not this build ({this}). An \
+                         older one doesn't know every hook, so workspaces may not be placed and \
+                         pictures may not start after a reload."
+                    ))
+                    .arg("found", found.display())
+                    .arg("this", this.display()),
+                )
+                .with_hint(msg!(
+                    "Install this build, or put its directory first in $PATH before sway starts."
+                )),
+            );
+        }
+    }
+
     /// What keeps kanshi from bringing back the remembered combinations: its config without
     /// our include, a file of someone else's in the place of ours, a profile of the user's that
     /// covers a remembered combination before ours. Nothing without kanshi.
@@ -1068,7 +1143,7 @@ impl<V: Validate> Checkup<'_, V> {
         if !self.displays.is_kanshi() || files.ours_is_foreign() {
             return;
         }
-        let places = crate::outputs::workspaces::Rule::of(self.state).places();
+        let places = crate::outputs::workspaces::Placing::of(self.state);
         let expected = crate::outputs::profiles::kanshi_config(profiles, places);
         let finding = match std::fs::read_to_string(&files.ours) {
             Ok(text) if text == expected => return,

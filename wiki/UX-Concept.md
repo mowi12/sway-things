@@ -178,8 +178,11 @@ new mode, a rotation and switching an output off go through the safety net.
   profiles stay for the combinations never arranged here. While anything of the user's comes before the line, the note
   is a warning with the command that moves the line up (or what to do by hand, where no command does it safely); it
   names the profile that sets up the displays connected now, since every change on the page is undone by that profile at
-  once. The page follows kanshi's config, so the warning goes as soon as the line is in place. Any one display alone
-  always comes on, so no combination stays dark.
+  once. The page follows kanshi's config, so the warning goes as soon as the line is in place. _Reset page_ forgets what
+  was set here for the displays connected (their profile with its pictures and placement, and their stored values): what
+  set them up before, a kanshi profile of the user's own or sway, applies again. Our file for kanshi shows per
+  combination where each display stands and, in comment lines, which workspaces go on it. Any one display alone always
+  comes on, so no combination stays dark.
 - **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
