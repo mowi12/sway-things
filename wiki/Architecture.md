@@ -39,7 +39,7 @@ the user's files.**
 | Crate | Binary | Depends on GTK | Responsibility |
 | --- | --- | --- | --- |
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
-| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` |
+| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `export` / `import` / `hook` / `screenshot` / `record` / `clipboard` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
 | `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
 
@@ -332,7 +332,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf
 ├── 60-idle.conf           # swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf
-├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
+├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 
@@ -1094,6 +1094,13 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
 - **Editing** (`bindings::edit`): the page's changes as new lists of items: `add` (a binding of the user's on the same
   keys becomes a change item; one of Sway Things' is replaced, a change on the same keys keeps only its unbind),
   `change`, `remove` (a change keeps its unbind) and `restore`, which takes only the item of its row.
+- **Keys of other pages** (`capture::shortcuts`): the keys of Screenshots & Clipboard are settings of that page (the
+  keys as text, `$mod` allowed, empty for none; checked to need no quotes and to leave typing alone) bound while the
+  switch of their part is on. `ours::file_lines` writes them after the media keys, with `--no-warn` like those and
+  `--no-repeat` (a key held down would take screenshots in a row, or start and stop a recording), each
+  `exec "sway-things <command>"`; their origin is `Origin::Feature(<key>)` and their row `RowKind::Feature`, which the
+  Keyboard Shortcuts page lists with what they take the place of and can't change, and whose keys its dialog refuses. A
+  change of one is sent like any binding change (`Applier::apply_bindings`).
 
 ### Editor
 
@@ -1137,8 +1144,9 @@ trait Backend {
 | Night light | gammastep, wlsunset |
 | Wallpaper | swaybg via `output * bg`; swww later |
 | Launcher | fuzzel, wofi, rofi(-wayland), tofi |
-| Screenshots | grim + slurp (grimshot), swappy / satty |
-| Clipboard history | cliphist, clipman |
+| Screenshots | grim + slurp, swappy / satty (the command line, see below) |
+| Clipboard history | cliphist with `wl-paste --watch`; a launcher (fuzzel, wofi, rofi, tofi, bemenu) to pick |
+| Screen recording | wf-recorder, wl-screenrec |
 | Auto dark mode | darkman |
 | Audio | PulseAudio API via pipewire-pulse or PulseAudio (`libpulse-binding`, on libpulse's threaded main loop) |
 | Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection |
@@ -1147,6 +1155,64 @@ trait Backend {
 | Power | power-profiles-daemon / tuned-ppd, UPower (D-Bus) |
 | Brightness | logind `Session.SetBrightness` (no root needed) / brightnessctl; ddcutil for external monitors |
 | Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
+
+Screenshots, the clipboard history and recording are no `Backend` either: nothing is configured in another tool, the
+keys run the command line (`crates/core/src/capture/`, `crates/cli/src/capture.rs`), which runs the tools and ends. It
+loads only the settings files and asks sway only what it needs, so a key press is quick. The facts behind it are in the
+[Sway Reference](Sway-Reference.md#screenshots-clipboard-and-recording).
+
+- **Screenshots** (`capture::shot`): a region is selected with slurp, which gets the windows on screen (`GET_TREE`,
+  `visible`) as boxes to click; the focused window is its `rect`, the focused display its name (`GET_OUTPUTS`). grim
+  writes the picture to standard output in the format of the name's extension (`png` by default, `jpg`, `ppm`). The name
+  comes from the pattern, filled in with the local time by `g_date_time_format` (`capture::name`); before the picture is
+  taken, so a pattern that makes no name costs none. The file is created only if no file of its name exists
+  (`create_new`), else `name (2).png` and so on (a thousand tries, then an error, never a name that wasn't checked), in
+  the folder (`$XDG_PICTURES_DIR/Screenshots` from GLib's user directories, else `~/Pictures/Screenshots`), made when
+  needed. `wl-copy --type <mime>` copies it, with no pipe to its output kept, since it forks and serves the clipboard.
+  For _Copy and save_, saving and copying are tried each on its own: when only one works, the notification says which
+  (_Screenshot saved, but not copied_) and why, and the command exits with 1; the picture is never lost. A canceled
+  selection is `CaptureError::Canceled`: no picture, no message, exit 0.
+- **Afterwards:** a notification (`capture::notify`, `org.freedesktop.Notifications` over zbus) with the picture
+  (`image-path`), _Open_ (GIO's default app for the file) and _Edit_ (swappy `-f <file> -o <file>`, or satty
+  `--filename <file> --output-filename <file>` with `%` doubled; a picture only copied goes to the editor's standard
+  input, and only then is it kept in memory while the command waits). The body has `&`, `<` and `>` escaped, since
+  servers may read it as markup. The command waits for a button or the notification to close, at most two minutes, only
+  if the server shows buttons (`GetCapabilities`). Errors go to standard error and to a notification, since a key has no
+  terminal.
+- **Processes and locks** (`capture::process`): the watcher and a recorder are found in `/proc` by their name, the
+  marker in their environment and the caller's sway session (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`); a caller without
+  either finds none, so a command from a TTY or ssh never ends another session's processes. Paths of the arguments are
+  kept byte for byte. A lock is `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR` with a token of its holder; one older
+  than ten seconds is taken over by renaming a file with a new token over it and reading it back, and only the holder
+  whose token is in it removes it. These locks are the page's own, apart from the mirror's.
+- **Recording** (`capture::record`): `sway-things record` holds the lock `record` from looking for a recording until a
+  new one runs, so a second press meanwhile starts none (it says so). The file is made empty with `create_new` first, so
+  no other file is written over, and wf-recorder gets `-y` (it would ask before writing over it); then
+  `setsid -f wf-recorder` (else wl-screenrec) `-g <geometry>` or `-o <display>` `-f <file>` `[--audio]`, detached like
+  `wl-mirror`, with `SWAY_THINGS_RECORDING=<notification id>` in its environment and its standard error in
+  `$XDG_RUNTIME_DIR/sway-things-recording.log`; 0.7 s later it must still run, or the last line of the log is the error
+  and the empty file goes. Only `.mp4` and `.mkv`: both recorders encode H.264 by default, which WebM can't hold. The
+  notification that says it records goes after the server's usual time, so it isn't recorded for long, and takes the
+  place of the last one about a recording (its id in `$XDG_RUNTIME_DIR/sway-things-recording.notification`). The next
+  press finds the recorder, sends `SIGINT` (`kill -s INT`), waits up to ten seconds for it to end, so the file is
+  complete, lets go of the lock and replaces the notification with where the file is and _Open_. The page looks for a
+  recording every two seconds while it is on screen and shows _Stop_, which runs `sway-things record` without waiting
+  for it.
+- **Clipboard history** (`capture::clipboard`): `sync_with` has exactly the watcher run that the settings ask for:
+  `setsid -f wl-paste --watch cliphist -max-items <n> store` with `SWAY_THINGS_CLIPBOARD=1`, or none; it ends the marked
+  ones that differ (also when the history was switched off by hand in `settings.toml`), so running it twice changes
+  nothing. It takes the lock `clipboard`, waiting up to three seconds, and reads the settings only once it holds it, so
+  of the hook and the app running at once the second acts on what is set by then. A `wl-paste --watch cliphist store` of
+  the user's own in the session means none of Sway Things runs; `hook clipboard` says so on stderr, and outside a
+  session (no `XDG_RUNTIME_DIR` or `WAYLAND_DISPLAY`) it says why it does nothing. `hook clipboard` in `80-hooks.conf`
+  runs it at every start and reload of sway while the history is on; the app runs it when the switch or the number of
+  entries changes and stood still for 0.8 s, and the command line after `set` or `reset` of either. `pick` runs
+  `cliphist list`, hands it to the launcher's dmenu mode (exit status 1 with nothing on stderr is a cancel; any other
+  failure is reported), the line picked to `cliphist decode`, and the entry to `wl-copy`, with `--type` for a PNG, JPEG,
+  GIF, BMP or WebP picture found by its first bytes; an entry without data is reported, not copied. `skips_passwords`
+  compares the versions of wl-paste and cliphist. clipman isn't offered: it keeps only text.
+- **Programs** (`capture::tools`): each with its package; `missing_for` says which part that is on misses what, for
+  `doctor` and the page.
 
 Bluetooth is not a `Backend`: it is runtime state that BlueZ owns and keeps itself, with nothing to store or generate,
 and no competing stack. `crates/core/src/bluetooth/` has a `Bluez` handle on the system bus (zbus, async-io): one
@@ -1274,6 +1340,9 @@ with what the app reads.
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
+| `screenshot region\|window\|display\|all` | takes a screenshot as Screenshots & Clipboard says ([Backends](#backends)); the screenshot keys run it. |
+| `record [region\|display]` | stops the recording Sway Things started, or starts one; without an argument, what the page says. The recording key runs it. |
+| `clipboard pick\|clear` | shows the clipboard history in the launcher and copies the entry picked again, or empties the history. |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
   `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
@@ -1315,7 +1384,7 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | --- | --- | --- |
 | Compositor | `session`, `no_session`, `session_unusable`, `installed_unsupported`, `version_unknown`, `sway_missing` | the running sway or SwayFX (`GET_VERSION`), or without a session the installed one (`sway --version`) |
 | Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic` | the main config in use, the [include status](#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, not a regular file, unresolved include, include not found, … |
-| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped` | files that can't be used (problem), entries that are ignored (warning), and stored settings that are a comment in the generated file because the compositor doesn't support them |
+| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped`, `tool_missing`, `history_twice` | files that can't be used (problem), entries that are ignored (warning), stored settings that are a comment in the generated file because the compositor doesn't support them, a part of Screenshots & Clipboard that is on while a program it runs isn't installed (problem), and the clipboard history on while the user's config starts one of its own (warning) |
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
 
@@ -1324,8 +1393,9 @@ the file and line, the setting and device where they apply, and what `--fix` doe
   distribution (`PRETTY_NAME` of `/etc/os-release`, else `/usr/lib/os-release`), NetworkManager (its `Version` property,
   asked only while its bus name has an owner, so the question doesn't start it), the sound server (its name, which for
   pipewire-pulse carries PipeWire's version, from libpulse's server info; `not running` without one, answered at once)
-  and the kernel (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor, blueman-manager, pwvucontrol and
-  pavucontrol are in `PATH`, without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a
+  and the kernel (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor, blueman-manager, pwvucontrol,
+  pavucontrol and the programs of Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder,
+  wl-screenrec) are in `PATH`, without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a
   `GApplication` option handled before the app registers on the bus, so it needs no display and reaches no running
   instance) and reads its `GTK` line; without the app the value is `unknown`. BlueZ (no version on D-Bus, `bluetoothd`
   in a different `libexec` per distribution) and wlroots (reported neither by IPC nor by `sway --version`) are left out:
@@ -1384,7 +1454,10 @@ profile sway-things-5e6f7a8b {
 exec_always sway-things hook gsettings
 ```
 
-`hook gsettings` (see [GSettings](#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there.
+`hook gsettings` (see [GSettings](#gsettings)) runs from `80-hooks.conf`, and so does `hook clipboard` while the
+clipboard history is on: it starts `wl-paste --watch cliphist store` detached, once per session, as the user's own tool
+([Backends](#backends)). The keys of Screenshots & Clipboard run `screenshot`, `record` and `clipboard pick`, which end
+when done; a recorder runs detached until the same key stops it. Lid hooks may follow in `80-hooks.conf`.
 
 Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
 They're our files, so that needs no edit of the user's config.

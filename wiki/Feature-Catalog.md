@@ -269,7 +269,7 @@ swaybar via our sway include.
 - [x] 🟡 Main modifier (`$mod`) for **our generated** bindings. Sway substitutes variables when a line is read, so this
       doesn't rebind hand-written lines; the page explains this
 - [x] 🟢 Media keys: volume, mute, brightness, play/pause/next (`wpctl`, `brightnessctl`, `playerctl`)
-- [ ] 🟢 Screenshot shortcuts (grim + slurp / grimshot)
+- [x] 🟢 Screenshot shortcuts (grim + slurp; the keys of Screenshots & Clipboard, listed here with their clashes)
 - [ ] 🟡 Touchpad gestures (`bindgesture`)
 - [ ] 🟡 Binding modes (resize mode, custom modes)
 - [ ] 🟢 Printable / exportable cheat sheet
@@ -294,10 +294,10 @@ swaybar via our sway include.
 
 ### Screenshots & Clipboard
 
-- [ ] 🟢 Screenshot folder and filename pattern
-- [ ] 🟢 Copy to clipboard and/or save; open an editor afterwards (swappy / satty)
-- [ ] 🟡 Clipboard history setup (cliphist / clipman + launcher binding)
-- [ ] 🟡 Screen recording shortcut (wf-recorder / wl-screenrec)
+- [x] 🟢 Screenshot folder and filename pattern
+- [x] 🟢 Copy to clipboard and/or save; open an editor afterwards (swappy / satty)
+- [x] 🟡 Clipboard history setup (cliphist + launcher binding; clipman, which keeps only text, isn't offered)
+- [x] 🟡 Screen recording shortcut (wf-recorder / wl-screenrec)
 
 ---
 
