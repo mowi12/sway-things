@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 20:50+0100\n"
+"POT-Creation-Date: 2026-11-20 21:08+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -371,82 +371,82 @@ msgstr ""
 msgid "y|yes"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
-#, rust-format
-msgid ""
-"{error} ({file}); the displays are set up from the sway config meanwhile"
-msgstr ""
-
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/displays.rs
 #, rust-format
 msgid "the displays can't be remembered in {file}: {error}"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "{key} can only be changed with the safety net"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "{key} {requirement}"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "not in a sway session, and sway can't be run: {error}"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 msgid "not in a sway session, and `sway --version` prints no version"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "{key} has no safety net; change it directly"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "keep or revert the change of {key} first"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 msgid ""
 "a display can't show one that shows another display itself, or be shown "
 "elsewhere while it shows another"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid ""
 "{key} wasn't changed: kanshi sets up the displays and remembers it for the "
 "displays connected, so it changes only in a running sway session"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 msgid "no change waits to be kept or reverted"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid ""
 "{key} can lock you out, so it is only tried in a running sway session, where "
 "it can be reverted"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 #, rust-format
 msgid "{key} wasn't changed: {reason}"
 msgstr ""
 
-#: crates/core/src/apply/mod.rs
+#: crates/core/src/apply/error.rs
 msgid "sway isn't running, so it can't reload its config"
+msgstr ""
+
+#: crates/core/src/apply/error.rs
+#, rust-format
+msgid "{files} couldn't be written, so sway wouldn't read the changes"
 msgstr ""
 
 #: crates/core/src/apply/mod.rs
 #, rust-format
-msgid "{files} couldn't be written, so sway wouldn't read the changes"
+msgid ""
+"{error} ({file}); the displays are set up from the sway config meanwhile"
 msgstr ""
 
 #: crates/core/src/bluetooth/bluez.rs crates/core/src/network/nm.rs
@@ -595,40 +595,209 @@ msgstr ""
 msgid "this would turn off the last display that is on"
 msgstr ""
 
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{file} can't be read: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid ""
+"The generated files weren't checked with sway --validate: sway can't be run "
+"({reason})."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+msgid "Install sway or SwayFX, or check your PATH."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{name} isn't needed: no stored setting goes into it."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{name} is missing, so the settings that go into it have no effect."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid ""
+"{name} was written by Sway Things; without knowing the compositor, it can't "
+"be told whether it is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{name} is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings for {compositor}."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things generates from the "
+"stored settings."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+msgid ""
+"This happens after switching between sway and SwayFX, or after editing the "
+"settings files while Sway Things didn't run."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{name} was changed outside Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+msgid ""
+"Move what you changed into your own config: fixing the file replaces it with "
+"what Sway Things generates."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid "{name} wasn't made by Sway Things, so it is never written."
+msgstr ""
+
+#: crates/core/src/doctor/files.rs
+#, rust-format
+msgid ""
+"Move it out of {directory}: the include line reads every *.conf file there, "
+"and Sway Things needs the name."
+msgstr ""
+
 #. TRANSLATORS: A label of the system details: the running or installed sway.
-#: crates/core/src/doctor/mod.rs crates/core/src/system.rs
+#: crates/core/src/doctor/finding.rs crates/core/src/system.rs
 msgid "Compositor"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/finding.rs
 msgid "Sway config"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/finding.rs
 msgid "Settings files"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/finding.rs
 msgid "Generated files"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/finding.rs
 msgid "Conflicts"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/found.rs
 msgid "SWAYSOCK isn't set"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/found.rs
 #, rust-format
 msgid "nothing answers on {socket}"
 msgstr ""
 
-#: crates/core/src/doctor/mod.rs
+#: crates/core/src/doctor/found.rs
 msgid ""
 "it isn't known which compositor to generate for: no sway session runs, and "
 "`sway --version` names none"
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid ""
+"sway and kanshi can't run sway-things: it isn't in a directory of $PATH. The "
+"hooks in the generated config do nothing, so workspaces aren't placed, "
+"pictures don't start and no display is switched on when none is."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid ""
+"Install Sway Things, or put the directory of sway-things into $PATH before "
+"sway starts."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"sway and kanshi run {found} for the hooks, not this build ({this}). An older "
+"one doesn't know every hook, so workspaces may not be placed and pictures "
+"may not start after a reload."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid ""
+"Install this build, or put its directory first in $PATH before sway starts."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"{file} doesn't include the profiles of Sway Things, so combinations of "
+"displays aren't remembered."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"{file} wasn't made by Sway Things, so nothing is written there and kanshi "
+"never sees what is set in the app."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid "Move it away, so Sway Things can write its profiles there."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid "{file} can't be used: {error}."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid "Fix or move it; meanwhile the displays are set up from the sway config."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things remembers for the "
+"displays, so kanshi sets them up as before."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"{file} is missing, and kanshi rejects its whole config over an include it "
+"can't find: no display is set up by kanshi."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+msgid ""
+"Run: sway-things hook displays (it writes the file again and has kanshi read "
+"it)"
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"The profile {name} in {file} comes before the include and covers displays "
+"Sway Things remembers; kanshi applies the first profile that matches."
+msgstr ""
+
+#: crates/core/src/doctor/kanshi.rs
+#, rust-format
+msgid ""
+"The include of Sway Things isn't at the top of {file}: {name} comes before "
+"it and wins for its displays, whatever is arranged for them on the Displays "
+"page."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -727,175 +896,6 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{setting}: {reason}."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{file} can't be read: {error}."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"The generated files weren't checked with sway --validate: sway can't be run "
-"({reason})."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid "Install sway or SwayFX, or check your PATH."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{name} isn't needed: no stored setting goes into it."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{name} is missing, so the settings that go into it have no effect."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{name} was written by Sway Things; without knowing the compositor, it can't "
-"be told whether it is up to date."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{name} is up to date."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} is out of date: it doesn't hold what Sway Things generates from the "
-"stored settings for {compositor}."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} is out of date: it doesn't hold what Sway Things generates from the "
-"stored settings."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"This happens after switching between sway and SwayFX, or after editing the "
-"settings files while Sway Things didn't run."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{name} was changed outside Sway Things."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"Move what you changed into your own config: fixing the file replaces it with "
-"what Sway Things generates."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{name} wasn't made by Sway Things, so it is never written."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"Move it out of {directory}: the include line reads every *.conf file there, "
-"and Sway Things needs the name."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"sway and kanshi can't run sway-things: it isn't in a directory of $PATH. The "
-"hooks in the generated config do nothing, so workspaces aren't placed, "
-"pictures don't start and no display is switched on when none is."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"Install Sway Things, or put the directory of sway-things into $PATH before "
-"sway starts."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"sway and kanshi run {found} for the hooks, not this build ({this}). An older "
-"one doesn't know every hook, so workspaces may not be placed and pictures "
-"may not start after a reload."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"Install this build, or put its directory first in $PATH before sway starts."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} doesn't include the profiles of Sway Things, so combinations of "
-"displays aren't remembered."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} wasn't made by Sway Things, so nothing is written there and kanshi "
-"never sees what is set in the app."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid "Move it away, so Sway Things can write its profiles there."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid "{file} can't be used: {error}."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid "Fix or move it; meanwhile the displays are set up from the sway config."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} is out of date: it doesn't hold what Sway Things remembers for the "
-"displays, so kanshi sets them up as before."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"{file} is missing, and kanshi rejects its whole config over an include it "
-"can't find: no display is set up by kanshi."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-msgid ""
-"Run: sway-things hook displays (it writes the file again and has kanshi read "
-"it)"
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"The profile {name} in {file} comes before the include and covers displays "
-"Sway Things remembers; kanshi applies the first profile that matches."
-msgstr ""
-
-#: crates/core/src/doctor/mod.rs
-#, rust-format
-msgid ""
-"The include of Sway Things isn't at the top of {file}: {name} comes before "
-"it and wins for its displays, whatever is arranged for them on the Displays "
-"page."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs crates/core/src/state/mod.rs
