@@ -787,6 +787,29 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   for the displays connected now (`kanshi::overriding`), and the page of anything above the line. The rows of the
   displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for every
   machine. A model made for tests never looks.
+- **The user's own kanshi profiles:** a combination whose displays the user's kanshi profiles set up can still have its
+  workspaces placed (or a picture mirrored) without Sway Things taking over the displays. While a rule places or a
+  combination mirrors, `KanshiFiles::config_for` copies every profile of the user's config after our include into our
+  file (`kanshi::after_ours`, read by `outputs::kanshi_config`, which reads words as kanshi's scfg does: `"…"` with `\`
+  escapes, `'…'`, `\` outside quotes), after our arranged profiles and before the profiles of a display alone
+  (`profiles::kanshi_config_with`). kanshi tries our file first, so the copy applies in place of the original: the
+  user's `output` lines and every other line as written, without a hook of ours, with `exec sway-things hook workspaces`
+  (and `hook mirror`) added, under a comment that names the original. While a rule places, the lines that do nothing but
+  place workspaces are left out too (`Kind::PlacesWorkspaces`: a plain `swaymsg` whose every command is `workspace N …`,
+  `move workspace to …` or `focus output …`); a line that does more, such as setting up a display in the same `swaymsg`
+  or running through the shell, is kept. A copy is named `sway-things-of-<hash>` of the profile's name and displays, so
+  it stays the same while the profile does. Aliases and defaults the user's config defines after the include work in our
+  file too (kanshi reads the whole config first). The copies stay current: the app watches the user's config, and
+  `hook displays` (at every start and reload of sway) and `hook workspaces` (after placing) write our file again, so an
+  edit takes effect without the app at the latest with the next reload. A placement made on the map of a combination
+  that a profile of the user's sets up (`KanshiFiles::sets_up`) is remembered as `placement_only` in `displays.toml`:
+  its workspaces, but no display setup, so it never makes our profile win over the user's (`Profiles::arranged` are the
+  others; `forget` keeps a profile with workspaces as placement only). Elsewhere it is remembered with the displays as
+  they are, so a profile of ours brings it back. The Displays page then says the user's profile sets up the displays and
+  Sway Things places the workspaces. `doctor` warns of an `exec` line kept in a copy that may move workspaces (one with
+  `swaymsg` and `workspace` that does more, or a program named after workspaces), and of an include after ours whose
+  file may hold profiles, which aren't copied (`kanshi_profile_copy`). Without a rule or a mirror, nothing is copied and
+  our file is as before.
 - **Workspace placement:** `outputs::workspaces` puts workspaces `1` to `workspaces.count` on the displays by the rule
   `workspaces.placement` (`Rule`: sway's own, round robin, blocks, the built-in display, or fixed). Both settings are on
   the Workspaces page and have no sway directive, since the placement depends on the displays connected. `place` gives

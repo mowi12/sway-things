@@ -101,6 +101,8 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 Our include goes above the user's own kanshi profiles, so the arrangement made here comes first; a warning with
       the command to move it while one of theirs wins for the displays connected
 - [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
+- [x] 🟡 The user's own profiles keep setting up their displays while Sway Things places the workspaces and mirrors on
+      them: a copy of each in our include, kept current, without their lines that place workspaces
 
 Workspace placement: see [Workspaces](#workspaces).
 
