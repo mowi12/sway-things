@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 20:46+0100\n"
+"POT-Creation-Date: 2026-11-20 20:50+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1420,14 +1420,14 @@ msgstr ""
 
 #: crates/core/src/outputs/kanshi.rs
 #, rust-format
-msgid "Run: {command}"
+msgid ""
+"Put the line {line} at the top of {file}, above your profiles, and take the "
+"line that includes it further down away."
 msgstr ""
 
 #: crates/core/src/outputs/kanshi.rs
 #, rust-format
-msgid ""
-"Put the line {line} at the top of {file}, above your profiles, and take the "
-"line that includes it further down away."
+msgid "Put the line {line} at the top of {file}, above your profiles."
 msgstr ""
 
 #: crates/core/src/outputs/kanshi.rs
@@ -5541,7 +5541,7 @@ msgid "Refresh rate"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
-msgid "Copy Command"
+msgid "Copy Line"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
@@ -5550,14 +5550,9 @@ msgid "Copied"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
-msgid "This command puts the line at the top:"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
 msgid ""
-"Put the line “{line}” at the top by hand, and take the line that includes it "
-"further down away."
+"Put this line at the top of your kanshi config, above your profiles, and "
+"take a line further down that includes it away:"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs

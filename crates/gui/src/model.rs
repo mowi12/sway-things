@@ -159,8 +159,6 @@ pub struct KanshiLook {
     pub include_missing: bool,
     /// The include line of ours.
     pub include_line: String,
-    /// The command that puts it at the top of the user's kanshi config, if one does.
-    pub command: Option<String>,
     /// The user's profiles before the include, which kanshi tries before ours.
     pub before_ours: Vec<(String, Vec<String>)>,
     /// The file of ours for kanshi, if someone else's file stands in its place: nothing can be
@@ -180,7 +178,6 @@ impl KanshiLook {
             runs: sway_things_core::outputs::kanshi_runs(),
             include_missing: files.inclusion() == kanshi::Inclusion::Missing,
             include_line: files.include_line(),
-            command: files.include_command(),
             before_ours: files.before_ours(),
             foreign: files
                 .ours_is_foreign()

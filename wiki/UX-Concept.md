@@ -173,17 +173,16 @@ new mode, a rotation and switching an output off go through the safety net.
   changes, the page shows what kanshi set up for it, so the rows and the canvas always show what runs; the rows then
   have no reset button or machine toggle. The first time, kanshi is started at once. A note above the canvas says so
   (and that kanshi starts with the next login, if it can't be started yet). Without the include line in an existing
-  kanshi config, the note shows the line and a command that puts it at the top, with _Copy Command_ (which says _Copied_
-  for a moment); without kanshi, it says that installing kanshi makes this happen. The line belongs above the user's own
-  profiles: kanshi applies the first profile that matches, so the arrangement made here comes first and the user's
-  profiles stay for the combinations never arranged here. While anything of the user's comes before the line, the note
-  is a warning with the command that moves the line up (or what to do by hand, where no command does it safely); it
-  names the profile that sets up the displays connected now, since every change on the page is undone by that profile at
-  once. The page follows kanshi's config, so the warning goes as soon as the line is in place. _Reset page_ forgets what
-  was set here for the displays connected (their profile with its pictures and placement, and their stored values): what
-  set them up before, a kanshi profile of the user's own or sway, applies again. Our file for kanshi shows per
-  combination where each display stands and, in comment lines, which workspaces go on it. Any one display alone always
-  comes on, so no combination stays dark.
+  kanshi config, the note says to put the line at the top, above the user's profiles, and shows the line with _Copy
+  Line_ (which says _Copied_ for a moment); without kanshi, it says that installing kanshi makes this happen. The line
+  belongs above the user's own profiles: kanshi applies the first profile that matches, so the arrangement made here
+  comes first and the user's profiles stay for the combinations never arranged here. While anything of the user's comes
+  before the line, the note is a warning with the line to move up, to copy; it names the profile that sets up the
+  displays connected now, since every change on the page is undone by that profile at once. The page follows kanshi's
+  config, so the warning goes as soon as the line is in place. _Reset page_ forgets what was set here for the displays
+  connected (their profile with its pictures and placement, and their stored values): what set them up before, a kanshi
+  profile of the user's own or sway, applies again. Our file for kanshi shows per combination where each display stands
+  and, in comment lines, which workspaces go on it. Any one display alone always comes on, so no combination stays dark.
 - **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is

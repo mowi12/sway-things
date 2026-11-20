@@ -9,7 +9,6 @@
 //! except that it is created with that line when there is none at all. Nothing here runs a
 //! shell: kanshi and kanshictl are started with argument lists.
 
-use std::fmt::Write as _;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -19,6 +18,7 @@ use super::workspaces::Placing;
 use crate::atomic;
 use crate::i18n::Text;
 use crate::msg;
+use crate::state::xdg_dir;
 use crate::sway_config::SwayConfig;
 
 /// The first line of the files Sway Things writes for kanshi.
@@ -42,10 +42,11 @@ pub struct KanshiFiles {
 impl KanshiFiles {
     /// The files in `$XDG_CONFIG_HOME/kanshi`, or `~/.config/kanshi`. `None` without either.
     pub fn from_env() -> Option<Self> {
-        let config_home = std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .filter(|path| path.is_absolute())
-            .or_else(|| std::env::var_os("HOME").map(|home| Path::new(&home).join(".config")))?;
+        let config_home = xdg_dir(
+            std::env::var_os("XDG_CONFIG_HOME"),
+            std::env::var_os("HOME"),
+            ".config",
+        )?;
         Some(Self::in_dir(&config_home.join("kanshi")))
     }
 
@@ -71,62 +72,6 @@ impl KanshiFiles {
         format!("include {shown}")
     }
 
-    /// A command for the user to paste into a terminal that puts [`Self::include_line`] at the
-    /// top of their kanshi config, above their own profiles, and removes a line that includes
-    /// ours further down: kanshi applies the first profile that matches, so ours come first.
-    /// It follows a symlink instead of replacing it. Into an empty config, the line is appended,
-    /// as `sed` has no first line to put it before. Sway Things never runs it: the user sees
-    /// what it does.
-    ///
-    /// `None` where no command does it safely, so the user moves the line by hand: the config
-    /// includes ours through a pattern (`include ~/.config/kanshi/*.conf`), which the command
-    /// would leave in place beside the new line, or our path has a backslash, which `sed` would
-    /// read as an escape.
-    pub fn include_command(&self) -> Option<String> {
-        let text = std::fs::read_to_string(&self.config).unwrap_or_default();
-        let line = self.include_line();
-        if line.contains('\\') {
-            return None;
-        }
-        let by_pattern = text
-            .lines()
-            .any(|line| self.includes_ours(line) && line.contains(['*', '?']));
-        if by_pattern {
-            return None;
-        }
-        if text.trim().is_empty() && self.config.exists() {
-            return Some(format!(
-                "printf '%s\\n' {} >> {}",
-                shell_quote(&line),
-                shell_path(&self.config)
-            ));
-        }
-        // Exactly the lines that include ours go, as they are written: not one of another file
-        // whose name merely looks alike.
-        let mut command = format!(
-            "sed -i --follow-symlinks -e {}",
-            shell_quote(&format!("1i {line}"))
-        );
-        let mut theirs: Vec<&str> = text
-            .lines()
-            .filter(|line| self.includes_ours(line))
-            .collect();
-        theirs.sort_unstable();
-        theirs.dedup();
-        for written in theirs {
-            if written.contains('\\') {
-                return None;
-            }
-            let _ = write!(
-                command,
-                " -e {}",
-                shell_quote(&format!("/^{}$/d", sed_literal(written)))
-            );
-        }
-        let _ = write!(command, " {}", shell_path(&self.config));
-        Some(command)
-    }
-
     /// Whether the file of ours is someone else's: there, with something in it, and without our
     /// header. Nothing is written to it then, so nothing set here reaches kanshi.
     pub fn ours_is_foreign(&self) -> bool {
@@ -140,18 +85,22 @@ impl KanshiFiles {
         std::fs::read_to_string(&self.ours).is_ok_and(|text| text.starts_with(HEADER))
     }
 
-    /// How the user puts the include of ours at the top of their kanshi config: the command of
-    /// [`Self::include_command`] to run, or what to do by hand where no command does it.
+    /// How the user puts the include of ours at the top of their kanshi config, in words: kanshi
+    /// applies the first profile that matches, so ours come first. Sway Things never edits the
+    /// user's config, and gives no command to paste either: the user changes their own file.
     pub fn how_to_include(&self) -> Text {
-        match self.include_command() {
-            Some(command) => Text::new(msg!("Run: {command}")).arg("command", command),
-            None => Text::new(msg!(
+        let text = std::fs::read_to_string(&self.config).unwrap_or_default();
+        let message = if self.includes_ours(&text) {
+            msg!(
                 "Put the line {line} at the top of {file}, above your profiles, and take the \
                  line that includes it further down away."
-            ))
+            )
+        } else {
+            msg!("Put the line {line} at the top of {file}, above your profiles.")
+        };
+        Text::new(message)
             .arg("line", self.include_line())
-            .arg("file", self.config.display()),
-        }
+            .arg("file", self.config.display())
     }
 
     /// The user's profiles in their kanshi config that come before the include of ours, which
@@ -463,43 +412,6 @@ pub async fn reload() {
     }
 }
 
-/// `text` as a basic regular expression of `sed` that matches exactly it, between `/`.
-fn sed_literal(text: &str) -> String {
-    let mut literal = String::with_capacity(text.len());
-    for char in text.chars() {
-        if matches!(char, '.' | '*' | '[' | ']' | '^' | '$' | '/') {
-            literal.push('\\');
-        }
-        literal.push(char);
-    }
-    literal
-}
-
-/// `text` in single quotes for a POSIX shell, a `'` in it closed, escaped and opened again.
-fn shell_quote(text: &str) -> String {
-    let plain = !text.is_empty()
-        && text
-            .chars()
-            .all(|char| char.is_ascii_alphanumeric() || "_./-+,:@%=".contains(char));
-    if plain {
-        return text.to_owned();
-    }
-    format!("'{}'", text.replace('\'', "'\\''"))
-}
-
-/// `path` for a POSIX shell: `~/` and the rest quoted where it is in the home directory, so it
-/// reads as people write it, else quoted whole.
-fn shell_path(path: &Path) -> String {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    match home
-        .as_deref()
-        .and_then(|home| path.strip_prefix(home).ok())
-    {
-        Some(relative) => format!("~/{}", shell_quote(&relative.display().to_string())),
-        None => shell_quote(&path.display().to_string()),
-    }
-}
-
 /// `path` with a leading `~` and `$HOME`, `$XDG_CONFIG_HOME` replaced.
 fn expand(path: &str) -> String {
     let home = std::env::var("HOME").unwrap_or_default();
@@ -557,27 +469,22 @@ mod tests {
         std::fs::write(&files.config, pattern).unwrap();
         assert_eq!(files.inclusion(), Inclusion::Included);
         assert!(matches("/a/*.conf", "/a/sway-things.conf"));
-        // No command moves a line that includes ours through a pattern: by hand.
-        assert_eq!(files.include_command(), None);
-        // The command to paste puts the line first, and takes away one further down.
-        std::fs::write(&files.config, format!("profile {{}}\ninclude \"{ours}\"\n")).unwrap();
-        let command = files.include_command().unwrap();
+        // The way to put it first is said in words: no command to paste.
+        let how = files.how_to_include().english();
+        assert!(how.starts_with("Put the line include "), "{how}");
         assert!(
-            command.starts_with("sed -i --follow-symlinks -e '1i include "),
-            "{command}"
+            how.ends_with("and take the line that includes it further down away."),
+            "{how}"
         );
-        // Exactly the line as it is written goes, not one of another file that looks alike.
-        let escaped = ours.replace('/', r"\/").replace('.', r"\.");
+        std::fs::write(&files.config, "profile {}\n").unwrap();
+        let how = files.how_to_include().english();
         assert!(
-            command.contains(&format!(r#" -e '/^include "{escaped}"$/d' "#)),
-            "{command}"
+            how.ends_with(&format!(
+                "at the top of {}, above your profiles.",
+                files.config.display()
+            )),
+            "{how}"
         );
-        // An empty config has no first line to put it before.
-        std::fs::write(&files.config, "\n").unwrap();
-        let command = files.include_command().unwrap();
-        assert!(command.starts_with("printf '%s\\n' 'include "), "{command}");
-        assert!(command.contains(" >> "), "{command}");
-        assert_eq!(super::shell_quote("it's"), "'it'\\''s'");
         assert!(!matches("/a/*.conf", "/a/b/c.conf"));
     }
 
