@@ -4,6 +4,7 @@
 use zbus::zvariant::{Array, StructureBuilder};
 
 use super::*;
+use crate::network::{ConnectionKind, Connectivity, DeviceState, IpConfig};
 
 fn value(value: impl Into<Value<'static>>) -> OwnedValue {
     OwnedValue::try_from(value.into()).unwrap()
