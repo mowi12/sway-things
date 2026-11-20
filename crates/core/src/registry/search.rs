@@ -85,6 +85,9 @@ impl<'a> SearchIndex<'a> {
             let mut texts = Vec::new();
             add(&mut texts, Field::Title, page.title(), &translate);
             add(&mut texts, Field::Subtitle, page.description(), &translate);
+            for keyword in page.keywords() {
+                add(&mut texts, Field::Keyword, *keyword, &translate);
+            }
             entries.push(Entry {
                 link: Link::to_page(page),
                 texts,
@@ -357,6 +360,11 @@ mod tests {
             hits.iter()
                 .any(|hit| hit.page() == Page::Wallpaper && hit.setting().is_none())
         );
+        // So do the keywords of a page without settings.
+        let hits = index.search("toner");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].page(), Page::Printers);
+        assert_eq!(hits[0].field(), Field::Keyword);
         // The description counts too, after the titles.
         let hits = index.search("vpn");
         assert_eq!(hits.len(), 1);
