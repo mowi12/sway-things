@@ -111,9 +111,10 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
-    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum; packages
-    from Ubuntu's or Debian's signed repositories need no pin; container images are pinned to a digest. Give every
-    workflow job only the `permissions` it needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
+    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum, written
+    once in `tools/binaries.txt` and installed by `scripts/install-tool.sh`; packages from Ubuntu's or Debian's signed
+    repositories need no pin; container images are pinned to a digest. Give every workflow job only the `permissions` it
+    needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
 
 ## Checks
 
@@ -141,7 +142,8 @@ Every script prints its header with `-h` or `--help` and refuses arguments it do
 
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
-environment with `pip install --require-hashes -r tools/requirements.txt`.
+environment with `pip install --require-hashes -r tools/requirements.txt`. `scripts/install-tool.sh NAME…` installs the
+tools of `tools/binaries.txt` from their GitHub releases (into `target/tools`, unless `--dir` says otherwise).
 
 | Check | Tools |
 | --- | --- |

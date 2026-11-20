@@ -53,7 +53,8 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │                    #   build-packages.sh, build-website.sh, install-from-obs.sh (served at sway-things.org/install),
 │                    #   and for releases bump-version.sh, verify-release.sh, release-notes.sh, trigger-obs.sh and
 │                    #   update-website-screenshots.sh
-├── tools/           # hash-locked versions of the check tools installed with pip or npm
+├── tools/           # hash-locked versions of the check tools installed with pip or npm; binaries.txt: the ones CI
+│                    #   downloads from GitHub releases (scripts/install-tool.sh)
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
 ├── .github/
