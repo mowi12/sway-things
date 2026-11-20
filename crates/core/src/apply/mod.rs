@@ -885,6 +885,7 @@ impl<V: Validate> Applier<V> {
         let saved = self.state.is_dirty();
         self.state.save(access)?;
         self.remember_displays().await;
+        self.keep_kanshi_file().await;
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
@@ -892,6 +893,24 @@ impl<V: Validate> Applier<V> {
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)
+    }
+
+    /// While kanshi sets up the displays: has the file of ours for kanshi there and saying what
+    /// the remembered displays do, whatever changed or didn't. kanshi rejects its whole config
+    /// over an include it can't find, so the file must be there before anything else works, also
+    /// when no display was ever set up here; and one that someone emptied is filled again.
+    async fn keep_kanshi_file(&mut self) {
+        if !self.displays.is_kanshi() {
+            return;
+        }
+        let places = crate::outputs::workspaces::Rule::of(&self.state).places();
+        let (Some(files), Some(profiles)) = (self.kanshi_files.as_ref(), self.profiles.as_ref())
+        else {
+            return;
+        };
+        if let Some(problem) = Self::write_kanshi(Some(files), profiles, places).await {
+            self.displays_problem = Some(problem);
+        }
     }
 
     /// While kanshi sets up the displays: remembers how the connected ones are set up here (the

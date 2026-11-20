@@ -161,6 +161,9 @@ pub struct KanshiLook {
     pub command: Option<String>,
     /// The user's profiles before the include, which kanshi tries before ours.
     pub before_ours: Vec<(String, Vec<String>)>,
+    /// The file of ours for kanshi, if someone else's file stands in its place: nothing can be
+    /// written there.
+    pub foreign: Option<String>,
 }
 
 impl KanshiLook {
@@ -177,6 +180,9 @@ impl KanshiLook {
             include_line: files.include_line(),
             command: files.include_command(),
             before_ours: files.before_ours(),
+            foreign: files
+                .ours_is_foreign()
+                .then(|| files.ours.display().to_string()),
         }
     }
 }

@@ -334,6 +334,17 @@ async fn note_kanshi<V: Validate>(
     if exit != Exit::Ok || !session.applier.displays().is_kanshi() || !is_for_displays(Some(key)) {
         return;
     }
+    // Someone else's file in the place of ours: nothing reaches kanshi.
+    if let Some(files) = kanshi_files().filter(outputs::kanshi::KanshiFiles::ours_is_foreign) {
+        io.warn(trf(
+            msg!(
+                "the change isn't remembered: {file} wasn't made by Sway Things, so it is left \
+                 alone and kanshi never sees what is set. Move that file away."
+            ),
+            &[("file", &files.ours.display())],
+        ));
+        return;
+    }
     // A profile of the user's own that kanshi applies before ours: the change didn't last.
     if let Some((names, how)) = overriding_profiles(session).await {
         io.warn(trf(
@@ -409,6 +420,23 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
             return Exit::Failure;
         }
     };
+    // The file of ours for kanshi is there before anything else: kanshi rejects its whole config
+    // over an include it can't find, and then sets up nothing at all. Where it was missing (or
+    // emptied) and kanshi gave up over it, kanshi is started now that it can read its config.
+    if let Some(profiles) = sway_things_core::state::Paths::from_env()
+        .ok()
+        .and_then(|paths| outputs::profiles::Profiles::load(paths.displays()).ok())
+    {
+        if refresh_kanshi(&profiles).await {
+            async_io::Timer::after(std::time::Duration::from_millis(500)).await;
+            if !outputs::kanshi_runs() {
+                let _ = client
+                    .run(&sway_things_core::command::SwayCmd::new("exec").keyword("kanshi"))
+                    .await;
+                async_io::Timer::after(std::time::Duration::from_millis(500)).await;
+            }
+        }
+    }
     // Then, sway having just read its config: kanshi applies its profile again over whatever
     // the config set for the displays. Best effort; without kanshictl kanshi keeps what it has.
     if outputs::kanshi_runs() {
@@ -555,33 +583,38 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     // A picture that ended leaves no workspace of its own behind on its display.
     let _ = outputs::mirror::leave_ended(client, &profiles).await;
     // Last: kanshi runs this hook again after reading its file, and finds everything noted.
-    refresh_kanshi(&profiles).await;
+    let _ = refresh_kanshi(&profiles).await;
     Ok(started)
 }
 
 /// Writes kanshi's file of ours again if it says something else than `profiles` do now, and has
 /// kanshi read it: `wl-mirror` came or went since it was written, so a display stands apart for
-/// a picture or no longer does. Only a file that is there already, and ours. kanshi runs the hook
+/// a picture or no longer does, or the file was missing or emptied. Only a file of ours, where it
+/// is there already or the user's kanshi config includes it. kanshi runs the hook
 /// again after reading it, which then finds the file as it wrote it and stops there.
-async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) {
+async fn refresh_kanshi(profiles: &outputs::profiles::Profiles) -> bool {
     let Some(files) = kanshi_files() else {
-        return;
+        return false;
     };
-    if !files.ours.is_file() {
-        return;
+    // Where the user's config includes ours, the file must be there: kanshi rejects its whole
+    // config over an include it can't find.
+    if !files.ours.is_file() && files.inclusion() != outputs::kanshi::Inclusion::Included {
+        return false;
     }
     // With the hook for the workspaces while a rule places them, as the app writes it.
     let Ok(paths) = sway_things_core::state::Paths::from_env() else {
-        return;
+        return false;
     };
     let state = State::load(Registry::builtin(), paths);
     let places = outputs::workspaces::Rule::of(&state).places();
-    if matches!(
+    let wrote = matches!(
         files.write(&outputs::profiles::kanshi_config(profiles, places)),
         Ok(true)
-    ) {
+    );
+    if wrote {
         outputs::kanshi::reload().await;
     }
+    wrote
 }
 
 /// Puts the workspaces where the Workspaces page says, as [`outputs::workspaces::apply`], with

@@ -125,6 +125,19 @@ impl KanshiFiles {
         Some(command)
     }
 
+    /// Whether the file of ours is someone else's: there, with something in it, and without our
+    /// header. Nothing is written to it then, so nothing set here reaches kanshi.
+    pub fn ours_is_foreign(&self) -> bool {
+        std::fs::read_to_string(&self.ours)
+            .is_ok_and(|text| !text.trim().is_empty() && !text.starts_with(HEADER))
+    }
+
+    /// Whether kanshi has a file of ours to read: there, and not empty. Without, kanshi rejects
+    /// the whole config that includes it (or reads nothing of ours).
+    pub fn ours_is_written(&self) -> bool {
+        std::fs::read_to_string(&self.ours).is_ok_and(|text| text.starts_with(HEADER))
+    }
+
     /// How the user puts the include of ours at the top of their kanshi config: the command of
     /// [`Self::include_command`] to run, or what to do by hand where no command does it.
     pub fn how_to_include(&self) -> Text {
@@ -215,7 +228,9 @@ impl KanshiFiles {
         let mut written = false;
         match std::fs::read_to_string(&self.ours) {
             Ok(old) if old == text => {}
-            Ok(old) if !old.starts_with(HEADER) => {
+            // An empty file is ours to fill: people make one so that kanshi, which rejects its
+            // whole config over an include it can't find, starts at all.
+            Ok(old) if !old.trim().is_empty() && !old.starts_with(HEADER) => {
                 return Err(KanshiError::Foreign(self.ours.clone()));
             }
             Ok(_) => {
@@ -653,6 +668,12 @@ mod tests {
         assert_eq!(files.inclusion(), Inclusion::Included);
         // Nothing new: nothing written.
         assert!(!files.write(text).unwrap());
+        // An empty file of that name (made so kanshi finds its include) is filled.
+        std::fs::write(&files.ours, "\n").unwrap();
+        assert!(!files.ours_is_written());
+        assert!(files.write(text).unwrap());
+        assert!(files.ours_is_written());
+        assert!(!files.ours_is_foreign());
         // Someone else's file of that name is left alone.
         std::fs::write(&files.ours, "profile mine {}\n").unwrap();
         assert!(files.write(text).is_err());

@@ -1144,6 +1144,18 @@ fn kanshi_says(model: &Model, outputs: &Outputs) -> (Option<String>, Option<Stri
             .collect::<Vec<_>>()
             .join(", ")
     };
+    // Someone else's file in the place of ours: nothing set here reaches kanshi.
+    if let Some(file) = &look.foreign {
+        let text = trf(
+            msg!(
+                "Nothing set here is remembered: {file} wasn\u{2019}t made by Sway Things, so \
+                 it is left alone and kanshi never sees the arrangement. Move that file away, \
+                 then change something here."
+            ),
+            &[("file", file)],
+        );
+        return (Some(text), None, true);
+    }
     let said = match displays {
         generate::Displays::Kanshi { .. } if warns && overriding.is_empty() => Some((
             trf(

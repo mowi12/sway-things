@@ -742,25 +742,29 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our
   include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per run of the app),
   not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places, which is the
-  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header, and never the
-  user's config except to create it. `20-output.conf` then has no per-output lines, a comment, the startup guard (always
-  with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi (`kanshi::started_by`, not counting
-  our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own line started keeps being started.
-  `displays.toml` starts with our header and a file without it is never written over; one that can't be read isn't
-  either: the displays are set up from our sway lines meanwhile, and the app says why. `hook displays` has kanshi apply
-  its profile again and then makes sure a display is on. The app looks again before each change and when displays come
-  and go (at most every two seconds) and writes the files when the answer changes; `doctor` compares against the same
-  and checks no conflicts of per-output settings meanwhile. With kanshi installed, `doctor` reports a kanshi config
-  without our include or with something before it (with `KanshiFiles::how_to_include`: the `sed` line of
-  `include_command` for the user to run, which puts the include at the top, takes exactly the line that included ours
-  away and follows a symlink, or what to do by hand where no command does it, as when ours is included through a
-  pattern), a file of someone else's in the place of ours, and a profile of the user's before the include that covers a
-  remembered combination (`kanshi::user_profiles`, with `output *` as one more display and `...output *` as any number),
-  since kanshi applies the first that matches. A file included before ours isn't read: it counts as standing above the
-  line. The Displays page and `sway-things set` warn of a profile that wins for the displays connected now
-  (`kanshi::overriding`), and the page of anything above the line. The rows of the displays have no reset button and no
-  machine toggle meanwhile: the values stand for the combination, not for every machine. A model made for tests never
-  looks.
+  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header or is empty (people
+  make an empty one so kanshi starts), and never the user's config except to create it. kanshi rejects its whole config
+  over an include it can't find, so the file is kept there and current at every save (`Applier::keep_kanshi_file`), also
+  when no display was ever set up, and `hook displays` writes it at every start and reload of sway and starts kanshi if
+  it gave up over it. `doctor` reports the file missing, out of date or someone else's; the Displays page and
+  `sway-things set` say when it is someone else's, since nothing set reaches kanshi then. `20-output.conf` then has no
+  per-output lines, a comment, the startup guard (always with kanshi), and `exec kanshi` when the user's sway config
+  doesn't start kanshi (`kanshi::started_by`, not counting our files) and no kanshi started elsewhere (a systemd unit)
+  runs; a kanshi our own line started keeps being started. `displays.toml` starts with our header and a file without it
+  is never written over; one that can't be read isn't either: the displays are set up from our sway lines meanwhile, and
+  the app says why. `hook displays` has kanshi apply its profile again and then makes sure a display is on. The app
+  looks again before each change and when displays come and go (at most every two seconds) and writes the files when the
+  answer changes; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. With
+  kanshi installed, `doctor` reports a kanshi config without our include or with something before it (with
+  `KanshiFiles::how_to_include`: the `sed` line of `include_command` for the user to run, which puts the include at the
+  top, takes exactly the line that included ours away and follows a symlink, or what to do by hand where no command does
+  it, as when ours is included through a pattern), a file of someone else's in the place of ours, and a profile of the
+  user's before the include that covers a remembered combination (`kanshi::user_profiles`, with `output *` as one more
+  display and `...output *` as any number), since kanshi applies the first that matches. A file included before ours
+  isn't read: it counts as standing above the line. The Displays page and `sway-things set` warn of a profile that wins
+  for the displays connected now (`kanshi::overriding`), and the page of anything above the line. The rows of the
+  displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for every
+  machine. A model made for tests never looks.
 - **Workspace placement:** `outputs::workspaces` puts workspaces `1` to `workspaces.count` on the displays by the rule
   `workspaces.placement` (`Rule`: sway's own, round robin, blocks, the built-in display, or fixed). Both settings are on
   the Workspaces page and have no sway directive, since the placement depends on the displays connected. `place` gives

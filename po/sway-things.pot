@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 09:44+0100\n"
+"POT-Creation-Date: 2026-11-20 10:30+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -138,6 +138,13 @@ msgstr ""
 #: crates/cli/src/doctor.rs
 #, rust-format
 msgid "Fix: {command} (your changes to the file are lost)"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid ""
+"the change isn't remembered: {file} wasn't made by Sway Things, so it is "
+"left alone and kanshi never sees what is set. Move that file away."
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -801,7 +808,9 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 #, rust-format
-msgid "{file} wasn't made by Sway Things."
+msgid ""
+"{file} wasn't made by Sway Things, so nothing is written there and kanshi "
+"never sees what is set in the app."
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -815,6 +824,26 @@ msgstr ""
 
 #: crates/core/src/doctor/mod.rs
 msgid "Fix or move it; meanwhile the displays are set up from the sway config."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is out of date: it doesn't hold what Sway Things remembers for the "
+"displays, so kanshi sets them up as before."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+#, rust-format
+msgid ""
+"{file} is missing, and kanshi rejects its whole config over an include it "
+"can't find: no display is set up by kanshi."
+msgstr ""
+
+#: crates/core/src/doctor/mod.rs
+msgid ""
+"Run: sway-things hook displays (it writes the file again and has kanshi read "
+"it)"
 msgstr ""
 
 #: crates/core/src/doctor/mod.rs
@@ -5119,6 +5148,14 @@ msgstr ""
 msgid ""
 "Put the line “{line}” at the top by hand, and take the line that includes it "
 "further down away."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/mod.rs
+#, rust-format
+msgid ""
+"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
+"left alone and kanshi never sees the arrangement. Move that file away, then "
+"change something here."
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
