@@ -85,10 +85,10 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
-| core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate` | the services and tools besides sway ([Backends](Backends.md)) |
+| core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
-| cli | `lib`, `main`, `doctor`, `output`, `prompt`, `spinner` | the commands, the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
+| cli | `lib`, `main`, `change`, `hook`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
 | gui | `app`, `args`, `window`, `model` | the application, its argument, the main window, the settings behind it ([UI Architecture](UI-Architecture.md)) |
 | gui | `widgets` | every building block and custom page, one module each |
 | gui | `theme`, `style`, `icons`, `contrast`, `i18n`, `xkb`, `editor` | colors, the style sheet, bundled icons, the runtime contrast check, translations, the XKB names, opening the editor |
