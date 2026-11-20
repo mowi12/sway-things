@@ -1060,7 +1060,8 @@ msgstr ""
 msgid "Pause"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/search_button.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/capture.rs
+#: crates/gui/src/widgets/search_button.rs
 msgid "Stop"
 msgstr ""
 
@@ -3126,7 +3127,7 @@ msgstr ""
 msgid "The focused display"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/gui/src/widgets/capture.rs
 msgid "No key"
 msgstr ""
 
@@ -6517,8 +6518,8 @@ msgid "Leave it empty to use the name the device announces."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
-#: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/capture.rs crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/live.rs crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
@@ -6891,6 +6892,114 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/search.rs
 #, rust-format
 msgid "Blueman can't be started: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Press the keys…"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Next: {name}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Recording now: {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "The history couldn’t be cleared: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Recording now"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"Not installed: {programs}. Install the packages {packages} with your package "
+"manager."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "The history opens in {launcher}."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"No launcher to show the history: install fuzzel, wofi, rofi, tofi or bemenu."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Edit opens {editor}."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"To edit screenshots, install swappy or satty; without one there is no Edit."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Records with {recorder}; a region is selected with slurp."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy. Passwords that your password manager "
+"marks as such (as KeePassXC does) are left out."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy, passwords too: leaving out what a "
+"password manager marks needs wl-clipboard 2.3 and cliphist 0.5 or newer."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy, passwords too unless your password "
+"manager marks them and wl-clipboard 2.3 and cliphist 0.5 or newer are "
+"installed."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"Your config starts a clipboard history already, at {place}; while it runs, "
+"Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"A clipboard history of your own runs already (wl-paste, process {pid}); "
+"while it runs, Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear History…"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear the clipboard history?"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Every entry is removed; what is on the clipboard now stays."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Press the keys; Backspace for no key, Escape to keep them"
 msgstr ""
 
 #: crates/gui/src/widgets/cursor.rs

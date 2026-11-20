@@ -43,6 +43,7 @@ use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
+pub(crate) use editor::first_level;
 pub use editor::{Captured, Editor, capture};
 
 /// The keymap of the app's keyboard, from GDK: which keycode gives a keysym on its first level

@@ -4,6 +4,7 @@
 //! The building blocks of the app.
 
 mod bluetooth;
+mod capture;
 mod clamp;
 mod cursor;
 mod device_selector;
