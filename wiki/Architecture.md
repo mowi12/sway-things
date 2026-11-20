@@ -773,11 +773,17 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   focus back. `apply` does all that for the session; it runs from `sway-things hook workspaces`, which every kanshi
   profile runs while a rule places (kanshi's file is written again when the rule changes) and `80-hooks.conf` runs at
   every start and reload of sway while a rule places (sway forgets the declarations then), and from the applier after a
-  change of either setting. A click or drag on the map sends one move (`Applier::fix_placement`): it is made on the
-  placement as it is then, so fast moves all count, remembered for the combination, and makes the rule fixed, so the
-  workspaces are placed once. Both settings apply after a reload (`Apply::Reload`, which a setting without a sway
-  directive honors with `Effect::AfterReload`, and so does a move on the map): sway keeps a session's declarations in
-  order, so open workspaces move at once, but one closed and opened again goes to its old display until sway reloads.
+  change of either setting. The hook first waits for the displays to stand (`workspaces::settled`: where our profile of
+  the combination puts them, or still for 0.7 seconds, at most four seconds), since after a start or reload kanshi puts
+  them in place a moment later and "left to right" read before that would be another placement, which sway then keeps.
+  After placing, `showing_own` has each display show a workspace of its own: sway gives a display whose workspace moved
+  away the next free number, which may be another display's, and that number would then lead there; a display with none
+  of its own (all on one display) shows the first number after the placed ones. A click or drag on the map sends one
+  move (`Applier::fix_placement`): it is made on the placement as it is then, so fast moves all count, remembered for
+  the combination, and makes the rule fixed, so the workspaces are placed once. Both settings apply after a reload
+  (`Apply::Reload`, which a setting without a sway directive honors with `Effect::AfterReload`, and so does a move on
+  the map): sway keeps a session's declarations in order, so open workspaces move at once, but one closed and opened
+  again goes to its old display until sway reloads.
 - **Mirroring:** `outputs::mirror` keeps, per display of a combination, which display it shows instead of its own
   content and how it fits (`mirror`, `mirror_scaling` in `displays.toml`); `Profile::set_mirror` refuses chains and
   cycles (a source that shows another display, a target shown elsewhere), and so does the page. `apply` is idempotent:
@@ -798,9 +804,11 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   runs (a workspace the user's config or another tool put there since would hide the picture, out of the pointer's
   reach), puts the display back apart if something set it among the others, and notes the workspaces in the profile
   (`mirror_workspaces`, with the sway session as `mirror_session`, so a later login gives nothing back), which
-  `give_back_workspaces` moves back, with the display back at its place, when it shows its own content again; the
-  mirror's window doesn't take the focus (`no_focus` by its title, in `20-output.conf` and sent before a mirror starts).
-  The app reads `displays.toml` again before it changes it, since the hook may have noted something meanwhile.
+  `give_back_workspaces` moves back, with the display back at its place, when it shows its own content again;
+  `mirror::leave_ended` has a display whose picture ended show a workspace like any other again, so none named after a
+  picture stays behind; the mirror's window doesn't take the focus (`no_focus` by its title, in `20-output.conf` and
+  sent before a mirror starts). The app reads `displays.toml` again before it changes it, since the hook may have noted
+  something meanwhile.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),

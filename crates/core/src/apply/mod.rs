@@ -1215,6 +1215,22 @@ impl<V: Validate> Applier<V> {
                 crate::outputs::mirror::give_back_workspaces(client, target, &given_back, place)
                     .await;
         }
+        // No workspace named after a picture that ended stays behind on its display.
+        let _ = crate::outputs::mirror::leave_ended(client, profiles).await;
+        // The display takes workspaces again, or no longer: placed anew. sway keeps the lists of
+        // displays it was told before until it reloads, so the workspaces that aren't open
+        // follow then.
+        if crate::outputs::workspaces::Rule::of(&self.state).places() {
+            let _ = self.place_now().await;
+            if let Some(setting) = self
+                .state
+                .registry()
+                .get(crate::registry::workspaces::PLACEMENT)
+            {
+                let was = self.state.get(setting.key(), None).cloned();
+                self.note(setting, None, &Effect::AfterReload, was);
+            }
+        }
         Ok(())
     }
 

@@ -1461,11 +1461,23 @@ impl Model {
     async fn displays_now(&self, applier: &mut Applier, op: Op) {
         match op {
             Op::SetMirror { target, mirror } => {
-                if let Err(error) = applier.set_mirror(&target, mirror).await {
-                    self.emit_problem(&trf(
+                match applier.set_mirror(&target, mirror).await {
+                    Ok(()) => {
+                        // While a rule places the workspaces, the display takes none now, or
+                        // takes them again. sway keeps the displays it was told for each
+                        // workspace until it reloads, and a number that still led onto the
+                        // picture would hide it: reloaded at once, without asking.
+                        let places =
+                            sway_things_core::outputs::workspaces::Rule::of(applier.state())
+                                .places();
+                        if places {
+                            self.queue(Op::ReloadSway);
+                        }
+                    }
+                    Err(error) => self.emit_problem(&trf(
                         msg!("The display wasn\u{2019}t mirrored: {error}."),
                         &[("error", &error.text().translated())],
-                    ));
+                    )),
                 }
             }
             Op::MoveAlong(places) => {

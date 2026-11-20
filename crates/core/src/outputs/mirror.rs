@@ -337,6 +337,96 @@ pub async fn give_back_workspaces(
     Ok(commands.len())
 }
 
+/// Has each display that shows the workspace of a picture that ended (or never started) show a
+/// workspace like any other again, so none named after a picture stays behind: one of its own
+/// that is open, else the lowest number that isn't open anywhere. sway closes the picture's
+/// workspace once it is empty and no longer shown. Returns how many commands were sent.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the commands.
+pub async fn leave_ended(
+    client: &mut crate::ipc::Client,
+    profiles: &Profiles,
+) -> Result<usize, crate::ipc::IpcError> {
+    let outputs = Outputs::new(&client.outputs().await?);
+    let names: Vec<&str> = outputs
+        .iter()
+        .filter(|output| output.is_connected())
+        .map(super::Output::identifier)
+        .collect();
+    // The displays whose picture runs on: theirs stay.
+    let kept: Vec<&str> = profiles.of(&names).map_or_else(Vec::new, |profile| {
+        startable(profile, &outputs)
+            .into_iter()
+            .map(|(target, _, _)| target.name())
+            .collect()
+    });
+    let open = client.workspaces().await?;
+    let commands = leaving(&kept, &open).unwrap_or_default();
+    client.run_together(&commands).await?;
+    Ok(commands.len())
+}
+
+/// The commands of [`leave_ended`] for the workspaces `open`, with the displays of `kept` (by
+/// their connectors) still showing a picture.
+fn leaving(
+    kept: &[&str],
+    open: &[crate::ipc::types::Workspace],
+) -> Result<Vec<SwayCmd>, crate::command::TextError> {
+    let number = |name: &str| name.parse::<u32>().ok();
+    let mut taken: Vec<u32> = open.iter().filter_map(|open| number(&open.name)).collect();
+    let mut commands = Vec::new();
+    let mut focus_display = None;
+    for ended in open.iter().filter(|open| {
+        open.visible && open.name == workspace_name(&open.output) && !kept.contains(&&*open.output)
+    }) {
+        // One that is open on the display already (it came back), else a new number.
+        let own = open
+            .iter()
+            .filter(|other| other.output == ended.output && other.name != ended.name)
+            .min_by_key(|other| number(&other.name).unwrap_or(u32::MAX))
+            .map(|other| other.name.clone());
+        let next = own.unwrap_or_else(|| {
+            let free = (1..=u32::MAX)
+                .find(|free| !taken.contains(free))
+                .unwrap_or(1);
+            taken.push(free);
+            free.to_string()
+        });
+        commands.push(
+            SwayCmd::new("focus")
+                .keyword("output")
+                .text(SwayText::new(&ended.output)?),
+        );
+        commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(next)?),
+        );
+        if ended.focused {
+            focus_display = Some(ended.output.as_str());
+        }
+    }
+    if commands.is_empty() {
+        return Ok(commands);
+    }
+    match (focus_display, open.iter().find(|open| open.focused)) {
+        (Some(display), _) => commands.push(
+            SwayCmd::new("focus")
+                .keyword("output")
+                .text(SwayText::new(display)?),
+        ),
+        (None, Some(focused)) => commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(&focused.name)?),
+        ),
+        (None, None) => {}
+    }
+    Ok(commands)
+}
+
 /// The lock of [`apply`]: a file in `$XDG_RUNTIME_DIR`, made only if it isn't there, and
 /// removed when dropped. One older than ten seconds was left behind and is taken over.
 struct Lock(std::path::PathBuf);
@@ -517,6 +607,41 @@ mod tests {
             fresh: false,
         };
         assert_eq!(sent(&[shown]), [r#"output "DP-1" pos 4000 0"#]);
+    }
+
+    #[test]
+    fn a_picture_that_ended_leaves_no_workspace_of_its_own_behind() {
+        use crate::command::Target;
+        let open: Vec<crate::ipc::types::Workspace> = serde_json::from_str(
+            r#"[{"id": 1, "num": 1, "name": "1", "layout": "splith", "visible": true,
+                 "focused": true, "urgent": false, "representation": "H[foot]",
+                 "orientation": "horizontal", "output": "eDP-1",
+                 "rect": {"x": 0, "y": 0, "width": 0, "height": 0}},
+                {"id": 2, "num": -1, "name": "Mirror DP-1", "layout": "splith", "visible": true,
+                 "focused": false, "urgent": false, "representation": "",
+                 "orientation": "horizontal", "output": "DP-1",
+                 "rect": {"x": 0, "y": 0, "width": 0, "height": 0}}]"#,
+        )
+        .unwrap();
+        let sent = |kept: &[&str]| -> Vec<String> {
+            super::leaving(kept, &open)
+                .unwrap()
+                .iter()
+                .map(|command| command.render(Target::Ipc).unwrap())
+                .collect()
+        };
+        // The display shows the lowest number that isn't open, and the focus stays.
+        assert_eq!(
+            sent(&[]),
+            [
+                r#"focus output "DP-1""#,
+                r#"workspace --no-auto-back-and-forth "2""#,
+                r#"workspace --no-auto-back-and-forth "1""#,
+            ]
+        );
+        // While its picture runs on, it keeps the workspace.
+        let none: Vec<String> = Vec::new();
+        assert_eq!(sent(&["DP-1"]), none);
     }
 
     #[test]

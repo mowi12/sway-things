@@ -342,7 +342,163 @@ pub async fn apply(
     };
     // One message: nobody else's command comes between a focus and the move after it.
     client.run_together(&commands).await?;
-    Ok(commands.len())
+    // sway gave a display that lost its workspace the next free number, which may be another
+    // display's: seen only now, so in a second message.
+    let open = client.workspaces().await?;
+    let shown = targets(&outputs, &mirrors);
+    let own = showing_own(&lists, &shown, &outputs, &open, count(state)).unwrap_or_default();
+    client.run_together(&own).await?;
+    Ok(commands.len() + own.len())
+}
+
+/// Waits until the displays stand as they will: after a start or reload of sway, kanshi puts
+/// them where its profile says a moment later, and a placement worked out from where sway put
+/// them meanwhile ("left to right") would be another one, which sway then keeps until it reloads
+/// again. With a profile of ours for the displays connected, that is when they stand where it
+/// says; without, when they haven't moved for [`STILL`]. At most [`PATIENCE`], then as they are.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway.
+pub async fn settled(
+    client: &mut crate::ipc::Client,
+    profiles: Option<&super::profiles::Profiles>,
+) -> Result<(), crate::ipc::IpcError> {
+    let places = |outputs: &Outputs| -> Vec<(String, Option<(i32, i32)>)> {
+        outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(|output| {
+                let place = output
+                    .rect()
+                    .filter(|_| output.is_enabled())
+                    .map(|rect| (rect.x, rect.y));
+                (output.identifier().to_owned(), place)
+            })
+            .collect()
+    };
+    let started = std::time::Instant::now();
+    let mut last = None;
+    let mut still_since = started;
+    loop {
+        let outputs = Outputs::new(&client.outputs().await?);
+        let now = places(&outputs);
+        let names: Vec<&str> = now.iter().map(|(name, _)| name.as_str()).collect();
+        // Where the profile of this combination puts the displays that show their own content.
+        let wanted = profiles
+            .and_then(|profiles| profiles.of(&names))
+            .map(|profile| {
+                profile
+                    .outputs()
+                    .filter(|(_, setup)| setup.enabled && setup.mirror.is_none())
+                    .all(|(name, setup)| {
+                        setup.position.is_none()
+                            || now
+                                .iter()
+                                .any(|(have, place)| have == name && *place == setup.position)
+                    })
+            });
+        if last.as_ref() != Some(&now) {
+            still_since = std::time::Instant::now();
+            last = Some(now);
+        }
+        let done = match wanted {
+            Some(as_remembered) => as_remembered,
+            None => still_since.elapsed() >= STILL,
+        };
+        if done || started.elapsed() >= PATIENCE {
+            return Ok(());
+        }
+        async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+    }
+}
+
+/// How long the displays must stand still to count as set up, where no profile says how.
+const STILL: std::time::Duration = std::time::Duration::from_millis(700);
+/// How long [`settled`] waits at most.
+const PATIENCE: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// The commands that have each display of `shown` (those that take workspaces, left to right)
+/// show a workspace of its own by `placement`: a display that shows an empty workspace placed on
+/// another one (sway makes the next free number for a display whose workspace moved away, and
+/// for one that comes on) switches to the lowest one placed on it, so the number of another
+/// display's workspace never leads here. A display with no workspace placed on it (all are on one
+/// display) shows the first number after the `count` placed ones. Then the focus goes back to
+/// the display that had it. Nothing if every display shows one of its own, or windows.
+///
+/// # Errors
+///
+/// [`TextError`] if a name can't be put into a command.
+pub fn showing_own(
+    placement: &BTreeMap<String, Vec<String>>,
+    shown: &[&Output],
+    outputs: &Outputs,
+    open: &[crate::ipc::types::Workspace],
+    count: usize,
+) -> Result<Vec<SwayCmd>, TextError> {
+    // The display each placed workspace goes on now: the first of its displays that is on.
+    let home = |workspace: &str| -> Option<&str> {
+        placement
+            .get(workspace)?
+            .iter()
+            .filter_map(|display| outputs.find(display))
+            .find(|output| output.is_connected() && output.is_enabled())
+            .map(Output::name)
+    };
+    let mut numbered: Vec<&String> = placement.keys().collect();
+    numbered.sort_by_key(|name| name.parse::<u32>().unwrap_or(u32::MAX));
+    let mut commands = Vec::new();
+    let mut focused_display = None;
+    // With the number after the placed ones, for a display that has none of its own.
+    for (spare, display) in (count + 1..).zip(shown.iter()) {
+        let Some(visible) = open
+            .iter()
+            .find(|open| open.visible && open.output == display.name())
+        else {
+            continue;
+        };
+        let empty = visible.representation.as_deref().is_none_or(str::is_empty);
+        let elsewhere = home(&visible.name).is_some_and(|home| home != display.name());
+        if !(empty && elsewhere) {
+            continue;
+        }
+        let own = numbered
+            .iter()
+            .find(|name| home(name) == Some(display.name()))
+            .map_or_else(|| spare.to_string(), |name| (*name).clone());
+        commands.push(
+            SwayCmd::new("focus")
+                .keyword("output")
+                .text(SwayText::new(display.name())?),
+        );
+        commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(own)?),
+        );
+        if visible.focused {
+            focused_display = Some(display.name());
+        }
+    }
+    if commands.is_empty() {
+        return Ok(commands);
+    }
+    // Back to where the focus was: its display, which shows its own workspace now, or the
+    // workspace that had it.
+    match (focused_display, open.iter().find(|open| open.focused)) {
+        (Some(display), _) => commands.push(
+            SwayCmd::new("focus")
+                .keyword("output")
+                .text(SwayText::new(display)?),
+        ),
+        (None, Some(focused)) => commands.push(
+            SwayCmd::new("workspace")
+                .keyword("--no-auto-back-and-forth")
+                .text(SwayText::new(&focused.name)?),
+        ),
+        (None, None) => {}
+    }
+    Ok(commands)
 }
 
 #[cfg(test)]
@@ -501,5 +657,89 @@ mod tests {
         for choice in crate::registry::workspaces::PLACEMENTS {
             assert_eq!(Rule::from_id(choice.id).id(), choice.id);
         }
+    }
+
+    /// The workspaces `open`: name, connector of its display, whether it is shown there,
+    /// whether it has the focus, and its windows.
+    fn opened(open: &[(&str, &str, bool, bool, &str)]) -> Vec<crate::ipc::types::Workspace> {
+        let items: Vec<String> = open
+            .iter()
+            .enumerate()
+            .map(|(id, (name, output, visible, focused, windows))| {
+                format!(
+                    r#"{{"id": {id}, "num": 1, "name": "{name}", "layout": "splith",
+                        "visible": {visible}, "focused": {focused}, "urgent": false,
+                        "representation": "{windows}", "orientation": "horizontal",
+                        "output": "{output}",
+                        "rect": {{"x": 0, "y": 0, "width": 0, "height": 0}}}}"#
+                )
+            })
+            .collect();
+        serde_json::from_str(&format!("[{}]", items.join(","))).unwrap()
+    }
+
+    #[test]
+    fn a_display_left_with_another_ones_empty_workspace_shows_its_own() {
+        let outputs = Outputs::new(&serde_json::from_str::<Vec<_>>(THREE).unwrap());
+        let shown = super::targets(&outputs, &[]);
+        let placement = place(Rule::RoundRobin, &outputs, &[], 6, &BTreeMap::new());
+        let lists = with_fallbacks(&placement, &outputs, &[]);
+        let sent = |open: &[(&str, &str, bool, bool, &str)]| -> Vec<String> {
+            super::showing_own(&lists, &shown, &outputs, &opened(open), 6)
+                .unwrap()
+                .iter()
+                .map(|command| command.render(Target::Ipc).unwrap())
+                .collect()
+        };
+        // sway gave the second display the empty workspace 1, which is the first one's: it
+        // shows its lowest own one, 2, and the focus stays where it was.
+        assert_eq!(
+            sent(&[
+                ("4", "eDP-1", true, true, "H[foot]"),
+                ("1", "DP-1", true, false, ""),
+                ("3", "HDMI-A-1", true, false, ""),
+            ]),
+            [
+                r#"focus output "DP-1""#,
+                r#"workspace --no-auto-back-and-forth "2""#,
+                r#"workspace --no-auto-back-and-forth "4""#,
+            ]
+        );
+        // Every display shows one of its own, or one with windows: nothing to do.
+        let none: Vec<String> = Vec::new();
+        assert_eq!(
+            sent(&[
+                ("1", "eDP-1", true, true, ""),
+                ("4", "DP-1", true, false, "H[foot]"),
+                ("3", "HDMI-A-1", true, false, ""),
+            ]),
+            none
+        );
+        // All on one display: the others show the numbers after the placed ones.
+        let placement = place(Rule::OneDisplay, &outputs, &[], 6, &BTreeMap::new());
+        let lists = with_fallbacks(&placement, &outputs, &[]);
+        let sent: Vec<String> = super::showing_own(
+            &lists,
+            &shown,
+            &outputs,
+            &opened(&[
+                ("1", "eDP-1", true, false, "H[foot]"),
+                ("2", "DP-1", true, true, ""),
+                ("9", "HDMI-A-1", true, false, ""),
+            ]),
+            6,
+        )
+        .unwrap()
+        .iter()
+        .map(|command| command.render(Target::Ipc).unwrap())
+        .collect();
+        assert_eq!(
+            sent,
+            [
+                r#"focus output "DP-1""#,
+                r#"workspace --no-auto-back-and-forth "8""#,
+                r#"focus output "DP-1""#,
+            ]
+        );
     }
 }

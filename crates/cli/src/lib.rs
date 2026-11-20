@@ -552,6 +552,8 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     // A picture that starts doesn't take the focus.
     let _ = client.run(&outputs::mirror::no_focus_command()).await;
     let started = outputs::mirror::apply(&profiles, &found);
+    // A picture that ended leaves no workspace of its own behind on its display.
+    let _ = outputs::mirror::leave_ended(client, &profiles).await;
     // Last: kanshi runs this hook again after reading its file, and finds everything noted.
     refresh_kanshi(&profiles).await;
     Ok(started)
@@ -591,6 +593,11 @@ async fn place_workspaces(client: &mut Client) -> Result<usize, sway_things_core
     };
     let profiles = outputs::profiles::Profiles::load(paths.displays()).ok();
     let state = State::load(Registry::builtin(), paths);
+    // After a start or reload of sway, kanshi puts the displays in place a moment later: what
+    // is left and right is read once they stand.
+    if outputs::workspaces::Rule::of(&state).places() && outputs::kanshi_runs() {
+        outputs::workspaces::settled(client, profiles.as_ref()).await?;
+    }
     outputs::workspaces::apply(client, &state, profiles.as_ref()).await
 }
 

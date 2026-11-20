@@ -208,7 +208,11 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
     robin.
 
   A rule is worked out again for whatever displays are connected, so it fits at home, at the office and on the laptop
-  alone without any setup per combination. A display that shows another one's picture takes no workspaces.
+  alone without any setup per combination. A display that shows another one's picture takes no workspaces: while a rule
+  places them, starting or ending a picture places them anew and reloads sway at once, without asking (sway keeps the
+  displays it was told for each workspace until it reloads, and a number that still led onto the picture would hide it),
+  so no number leads onto the picture and every number is back on its display when the picture ends. After placing,
+  every display shows one of its own workspaces, so the number of another display's workspace never leads there.
 - **Workspaces placed:** how many, from 1 (default 10, up to 20). sway's own keys reach 1 to 10; keys for more come with
   Keyboard Shortcuts.
 - **The map:** below the rows, a card per display from left to right (two displays of one brand with their connector)
