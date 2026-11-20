@@ -57,7 +57,7 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::{Client, Compositor, Reloads};
 use sway_things_core::outputs::profiles::Profiles;
 use sway_things_core::outputs::{OutputWatch, Outputs};
-use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value, Values};
+use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
@@ -435,7 +435,7 @@ impl Model {
     pub fn view(&self, setting: &'static Setting, device: Option<&str>) -> Option<SettingView> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let mut view = SettingView::with_desktop(
+        let view = SettingView::with_desktop(
             setting,
             device,
             &core.state,
@@ -444,61 +444,17 @@ impl Model {
             core.known(),
             core.desktop.as_ref(),
         );
-        // A risky change that waits isn't stored, but it is in effect.
-        let pending = core
-            .pending
-            .as_ref()
-            .filter(|pending| pending.device() == device);
-        if let Some((pending, value)) = pending.and_then(|pending| {
-            let tried = pending.values().find(|tried| tried.key == setting.key())?;
-            Some((pending, &tried.value))
-        }) {
-            view.value = value.clone();
-            let tried = Tried {
-                values: pending
-                    .values()
-                    .map(|tried| (tried.key, &tried.value))
-                    .collect(),
-                under: core.state.values(device),
-            };
-            if setting.sway().is_some() {
-                view.line = core
-                    .state
-                    .registry()
-                    .config_line(setting, &tried, device)
-                    .ok();
-            }
-        }
-        // A display moved along with a trial: its place is in effect, though not stored yet.
-        if setting.key() == sway_things_core::outputs::POSITION {
-            let along = core
-                .pending
-                .as_ref()
-                .zip(device)
-                .and_then(|(pending, device)| pending.along(device));
-            if let Some(place) = along {
-                view.value = place.clone();
-            }
-        }
-        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
-            // kanshi sets up the displays: no line of ours is in the sway config meanwhile.
-            view.line = None;
-            // A value for every display is stored for each one: the row shows the one they
-            // share, if they do.
-            if device.is_none() {
-                let mut each = core
-                    .outputs
-                    .iter()
-                    .filter(|output| output.is_connected() && output.is_enabled())
-                    .map(|output| core.state.get(setting.key(), Some(output.identifier())));
-                if let Some(Some(first)) = each.next() {
-                    if each.all(|value| value == Some(first)) {
-                        view.value = first.clone();
-                    }
-                }
-            }
-        }
-        Some(view)
+        let effect = sway_things_core::apply::InEffect {
+            pending: core.pending.as_ref(),
+            kanshi: self.kanshi_runs().then_some(&core.outputs),
+        };
+        Some(sway_things_core::apply::in_effect(
+            view,
+            setting,
+            device,
+            &core.state,
+            &effect,
+        ))
     }
 
     /// Who sets up the displays: kanshi if it is set up for it (for a model that looks).
@@ -1720,22 +1676,6 @@ fn is_risky(applier: &Applier, key: &str) -> bool {
         .registry()
         .get(key)
         .is_some_and(|setting| setting.apply() == Apply::Risky)
-}
-
-/// The tried values of a risky change, and the stored values for the other keys.
-struct Tried<'a, V> {
-    values: Vec<(&'static str, &'a Value)>,
-    under: V,
-}
-
-impl<V: Values> Values for Tried<'_, V> {
-    fn get(&self, key: &str) -> Option<&Value> {
-        self.values
-            .iter()
-            .find(|(tried, _)| *tried == key)
-            .map(|(_, value)| *value)
-            .or_else(|| self.under.get(key))
-    }
 }
 
 /// Why settings can't be changed, in the user's language.

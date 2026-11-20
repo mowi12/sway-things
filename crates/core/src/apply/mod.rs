@@ -40,9 +40,11 @@
 mod risky;
 #[cfg(test)]
 mod tests;
+mod view;
 mod waiting;
 
 pub use risky::{Countdown, Pending, Trial, Tried, TriedValue};
+pub use view::{InEffect, in_effect};
 pub use waiting::{Until, Waiting, WaitingChange};
 
 use std::collections::{BTreeMap, BTreeSet};

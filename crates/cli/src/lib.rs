@@ -23,7 +23,9 @@ use anstream::{AutoStream, ColorChoice};
 
 use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
-use sway_things_core::apply::{Applied, Applier, ApplyError, Effect, Trial, Tried};
+use sway_things_core::apply::{
+    Applied, Applier, ApplyError, Effect, InEffect, Trial, Tried, in_effect,
+};
 use sway_things_core::command::input::InputSelector;
 use sway_things_core::command::output::OutputSelector;
 use sway_things_core::conflict::Known;
@@ -45,6 +47,7 @@ use sway_things_core::sound::Sound;
 use sway_things_core::state::{Layer, Paths, State, StateError};
 use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
+use sway_things_core::view::SettingView;
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
 pub use prompt::{Prompt, Terminal};
@@ -824,8 +827,15 @@ fn get<V: Validate>(
 ) -> Exit {
     let state = session.applier.state();
     let desktop = session.applier.gsettings();
+    // What the app shows: while kanshi sets up the displays, their shared value and no line.
+    let effect = InEffect {
+        pending: session.applier.pending(),
+        kanshi: known
+            .outputs
+            .filter(|_| session.applier.displays().is_kanshi()),
+    };
     let shown = |setting, device| {
-        output::Shown::of(
+        let view = SettingView::with_desktop(
             setting,
             device,
             state,
@@ -833,7 +843,9 @@ fn get<V: Validate>(
             session.applier.compositor(),
             known,
             desktop.as_ref(),
-        )
+        );
+        let view = in_effect(view, setting, device, state, &effect);
+        output::Shown::of(setting, device, view, &session.status, known)
     };
     let paths = state.paths();
     if let Some(key) = key {
