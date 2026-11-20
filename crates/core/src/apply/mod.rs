@@ -1263,7 +1263,7 @@ impl<V: Validate> Applier<V> {
             .run(&crate::outputs::mirror::no_focus_command())
             .await;
         // Idempotent: kanshi's own `hook mirror` after the reload changes nothing more.
-        crate::outputs::mirror::apply(profiles, &outputs);
+        let _ = crate::outputs::mirror::apply_keeping_focus(client, profiles, &outputs).await;
         // Its own content again: its workspaces come back.
         if ending {
             let _ =
@@ -1287,6 +1287,24 @@ impl<V: Validate> Applier<V> {
             }
         }
         Ok(())
+    }
+
+    /// Starts a picture again that the combination connected now asks for but that doesn't run
+    /// (its `wl-mirror` crashed or its window was closed), as [`crate::outputs::mirror::heal`];
+    /// the app calls it when it opens and when displays come and go. Nothing happens while
+    /// every picture runs. Says how many pictures it started.
+    ///
+    /// # Errors
+    ///
+    /// The IPC errors of asking sway and of the commands.
+    pub async fn heal_mirrors(&mut self) -> Result<usize, ApplyError> {
+        self.reread_profiles();
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return Ok(0);
+        };
+        crate::outputs::mirror::heal(client, profiles)
+            .await
+            .map_err(ApplyError::Ipc)
     }
 
     /// Forgets everything set here for the displays connected now, while kanshi sets them up:

@@ -72,6 +72,10 @@ const NO_RELOADS: Msg = msg!("Reloads of sway from elsewhere won’t show: {erro
 const NO_DISPLAYS: Msg = msg!("Displays can't be listed: {error}");
 
 /// The preference whether collapsed sections are remembered across restarts.
+/// How long the displays stand unchanged before the app looks whether a picture went
+/// ([`Model::heal_mirrors_later`]): kanshi has set them up and run its hooks by then.
+const HEAL_AFTER: std::time::Duration = std::time::Duration::from_secs(3);
+
 const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
 
 /// Whether `state` asks to remember collapsed sections (`app.remember_collapsed_sections`).
@@ -137,6 +141,9 @@ enum Op {
     FollowCombination,
     /// Moves other displays along with the trial of a display's new size, to these places.
     MoveAlong(Vec<(String, Value)>),
+    /// Starts a picture of the combination connected now again that doesn't run
+    /// ([`Applier::heal_mirrors`]).
+    HealMirrors,
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -267,6 +274,8 @@ mod imp {
         /// depend on the machine they run on.
         pub(super) looks_for_kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
+        /// Counts the changes of the outputs, so only the last one has the pictures looked at.
+        pub(super) outputs_seen: Cell<u64>,
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
@@ -1071,6 +1080,7 @@ impl Model {
             | Op::SwayReloaded
             | Op::FollowCombination
             | Op::MoveAlong(_)
+            | Op::HealMirrors
             | Op::Overwrite(_)
             | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,
@@ -1228,6 +1238,7 @@ impl Model {
             (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
                 self.displays_now(&mut applier, op).await;
             }
+            (Op::HealMirrors, _) => self.displays_now(&mut applier, Op::HealMirrors).await,
             (Op::FixPlacement { workspace, display }, access) => {
                 self.fix_placement_now(&mut applier, &workspace, &display, access)
                     .await;
@@ -1370,7 +1381,29 @@ impl Model {
         }
         // While kanshi sets up the displays, the stored values follow what it set up.
         self.queue(Op::FollowCombination);
+        self.heal_mirrors_later();
         self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// Once the displays stand (no change for [`HEAL_AFTER`]: kanshi sets them up and runs its
+    /// hooks meanwhile), starts a remembered picture of the combination again that doesn't run,
+    /// as when its window was closed. When the app opens, too.
+    fn heal_mirrors_later(&self) {
+        let seen = self.imp().outputs_seen.get().wrapping_add(1);
+        self.imp().outputs_seen.set(seen);
+        if !self.imp().looks_for_kanshi.get() {
+            return;
+        }
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                glib::timeout_future(HEAL_AFTER).await;
+                if model.imp().outputs_seen.get() == seen {
+                    model.queue(Op::HealMirrors);
+                }
+            }
+        ));
     }
 
     /// Follows the reloads of sway's config in the session on `socket`, whoever asks for them, so
@@ -1586,6 +1619,10 @@ impl Model {
                         &[("error", &error.text().translated())],
                     )),
                 }
+            }
+            // Best effort, quietly: the hooks of kanshi and sway try again.
+            Op::HealMirrors => {
+                let _ = applier.heal_mirrors().await;
             }
             Op::FollowCombination => {
                 if let Err(error) = applier.follow_combination().await {

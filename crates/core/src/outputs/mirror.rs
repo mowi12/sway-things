@@ -86,7 +86,7 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
     // One at a time in a session: a kanshi hook and the app can run at once, and a mirror
     // started by one shows in `/proc` only a moment later. Whoever comes second leaves it to
     // the first, which has the same profiles.
-    let Some(_lock) = Lock::take() else {
+    let Some(_lock) = super::SessionLock::take("sway-things-mirror.lock") else {
         return 0;
     };
     let wanted = wanted(profiles, outputs);
@@ -126,6 +126,169 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
         }
     }
     started
+}
+
+/// Whether a picture the profile of the combination of `outputs` asks for doesn't run: its
+/// `wl-mirror` ended (it crashed, or its window was closed) or never started. Reads `/proc`;
+/// nothing is started.
+pub fn missing(profiles: &Profiles, outputs: &Outputs) -> bool {
+    let running = running();
+    wanted(profiles, outputs)
+        .iter()
+        .any(|arguments| !running.iter().any(|(_, have)| have == arguments))
+}
+
+/// Starts the pictures the profile of the combination connected now asks for, and ends the
+/// others Sway Things started: the workspaces of a display about to show a picture go to the
+/// display shown first ([`gather_workspaces`], noted in `profiles` and saved), the picture
+/// doesn't take the focus, and a display whose picture ended shows a workspace like any other
+/// again ([`leave_ended`]). Returns how many pictures it started. Nothing happens while no
+/// combination mirrors.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the commands.
+pub async fn start(
+    client: &mut crate::ipc::Client,
+    profiles: &mut Profiles,
+) -> Result<usize, crate::ipc::IpcError> {
+    if !profiles.iter().any(super::profiles::Profile::mirrors) {
+        return Ok(0);
+    }
+    // One at a time in a session, the hooks and the app alike: each notes the workspaces it
+    // moves in `displays.toml`, so the profiles are read again once it is this one's turn. A
+    // holder that doesn't finish is waited for at most fifteen seconds.
+    let _turn = super::SessionLock::wait_for(
+        "sway-things-mirror-start.lock",
+        std::time::Duration::from_secs(15),
+    )
+    .await;
+    if profiles.path().exists() {
+        if let Ok(fresh) = Profiles::load(profiles.path()) {
+            *profiles = fresh;
+        }
+    }
+    // Noted also when a command failed: the workspaces that did move find their way back.
+    match gather_workspaces(client, profiles).await {
+        Ok(0) => {}
+        Ok(_) => {
+            let _ = profiles.save();
+        }
+        Err(error) => {
+            let _ = profiles.save();
+            return Err(error);
+        }
+    }
+    let found = Outputs::new(&client.outputs().await?);
+    let _ = client.run(&no_focus_command()).await;
+    let started = apply_keeping_focus(client, profiles, &found).await?;
+    let _ = leave_ended(client, profiles).await;
+    Ok(started)
+}
+
+/// [`apply`], with the focus given back to the workspace that had it if the window of a picture
+/// that starts takes it ([`keep_focus`]).
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the command.
+pub async fn apply_keeping_focus(
+    client: &mut crate::ipc::Client,
+    profiles: &Profiles,
+    outputs: &Outputs,
+) -> Result<usize, crate::ipc::IpcError> {
+    // Where the user works, to go back to.
+    let focused = client
+        .workspaces()
+        .await?
+        .into_iter()
+        .find(|open| open.focused && open.name != workspace_name(&open.output))
+        .map(|open| open.name);
+    let windows = pictures_shown(&client.tree().await?);
+    let started = apply(profiles, outputs);
+    if started > 0 {
+        if let Some(focused) = focused {
+            keep_focus(client, &focused, windows + started).await?;
+        }
+    }
+    Ok(started)
+}
+
+/// How many windows of pictures sway shows in `node`, its tree.
+fn pictures_shown(node: &crate::ipc::types::Node) -> usize {
+    let own = usize::from(node.name.as_deref() == Some(TITLE));
+    own + node
+        .nodes
+        .iter()
+        .chain(&node.floating_nodes)
+        .map(pictures_shown)
+        .sum::<usize>()
+}
+
+/// Gives the focus back to the workspace `focused` if the window of a picture that just started
+/// takes it: sway gives a fullscreen window the focus when it asks for its display after it
+/// appeared, whatever `no_focus` says. Looks until `windows` pictures are shown and a moment
+/// after, at most three seconds; stops when the user went to another workspace meanwhile, and
+/// goes back only to a workspace that is still there.
+async fn keep_focus(
+    client: &mut crate::ipc::Client,
+    focused: &str,
+    windows: usize,
+) -> Result<(), crate::ipc::IpcError> {
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    let mut shown_at = None;
+    while std::time::Instant::now() < until {
+        async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+        let open = client.workspaces().await?;
+        let Some(now) = open.iter().find(|open| open.focused) else {
+            continue;
+        };
+        if now.name == workspace_name(&now.output) {
+            if open.iter().any(|open| open.name == focused) {
+                if let Ok(name) = SwayText::new(focused) {
+                    let back = SwayCmd::new("workspace")
+                        .keyword("--no-auto-back-and-forth")
+                        .text(name);
+                    client.run(&back).await?;
+                }
+            }
+            return Ok(());
+        }
+        // The user went elsewhere: that is where they work now.
+        if now.name != focused {
+            return Ok(());
+        }
+        if pictures_shown(&client.tree().await?) >= windows {
+            let at = *shown_at.get_or_insert_with(std::time::Instant::now);
+            if at.elapsed() >= std::time::Duration::from_millis(300) {
+                return Ok(());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Starts a picture again that the profile of the combination connected now asks for but that
+/// doesn't run ([`missing`]), as [`start`] does; while every picture runs, or none is asked
+/// for, nothing is sent and no picture of another combination is ended. Sway Things keeps
+/// nothing running to notice a picture that went: the hooks and the app call this where they
+/// run anyway. Returns how many pictures it started.
+///
+/// # Errors
+///
+/// The IPC errors of asking sway and of the commands.
+pub async fn heal(
+    client: &mut crate::ipc::Client,
+    profiles: &mut Profiles,
+) -> Result<usize, crate::ipc::IpcError> {
+    if !profiles.iter().any(super::profiles::Profile::mirrors) {
+        return Ok(0);
+    }
+    let found = Outputs::new(&client.outputs().await?);
+    if !missing(profiles, &found) {
+        return Ok(0);
+    }
+    start(client, profiles).await
 }
 
 /// Moves the workspaces that stand on a display about to show another one's picture to that other
@@ -425,45 +588,6 @@ fn leaving(
         (None, None) => {}
     }
     Ok(commands)
-}
-
-/// The lock of [`apply`]: a file in `$XDG_RUNTIME_DIR`, made only if it isn't there, and
-/// removed when dropped. One older than ten seconds was left behind and is taken over.
-struct Lock(std::path::PathBuf);
-
-impl Lock {
-    fn take() -> Option<Self> {
-        let dir = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from)?;
-        let path = dir.join("sway-things-mirror.lock");
-        let created = || {
-            std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)
-                .is_ok()
-        };
-        if created() {
-            return Some(Self(path));
-        }
-        let stale = std::fs::metadata(&path)
-            .and_then(|meta| meta.modified())
-            .ok()
-            .and_then(|modified| modified.elapsed().ok())
-            .is_some_and(|age| age > std::time::Duration::from_secs(10));
-        if stale {
-            let _ = std::fs::remove_file(&path);
-            if created() {
-                return Some(Self(path));
-            }
-        }
-        None
-    }
-}
-
-impl Drop for Lock {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
 }
 
 /// The arguments of `wl-mirror` for each mirror the profile of the combination of `outputs`

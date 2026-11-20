@@ -160,7 +160,8 @@ pub enum Hook {
     /// profile
     Workspaces,
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
-    /// the mirrors of other combinations: run by kanshi when it applied a profile
+    /// the mirrors of other combinations: run by kanshi when it applied a profile, and from a key
+    /// binding of yours to bring back a picture that went
     Mirror,
 }
 
@@ -503,13 +504,15 @@ async fn hook_workspaces(err: &mut dyn Write) -> Exit {
         }
     };
     let placed = place_workspaces(&mut client).await;
-    // kanshi just applied a profile, maybe a copy of the user's own made before they changed
-    // it: the copies are made again, and kanshi reads them if they changed (and runs this hook
-    // once more, which then finds them as they are).
-    if let Some(profiles) = sway_things_core::state::Paths::from_env()
+    if let Some(mut profiles) = sway_things_core::state::Paths::from_env()
         .ok()
         .and_then(|paths| outputs::profiles::Profiles::load(paths.displays()).ok())
     {
+        // A picture of this combination that went (its window closed, say) comes back.
+        let _ = outputs::mirror::heal(&mut client, &mut profiles).await;
+        // kanshi just applied a profile, maybe a copy of the user's own made before they
+        // changed it: the copies are made again, and kanshi reads them if they changed (and
+        // runs this hook once more, which then finds them as they are).
         let _ = refresh_kanshi(&profiles).await;
     }
     match placed {
@@ -577,23 +580,7 @@ async fn start_mirrors(client: &mut Client) -> Result<usize, sway_things_core::i
     }
     // The workspaces of a display that shows another one's picture go to that one first, noted
     // so they come back when it shows its own content again.
-    // Noted also when a command failed: the workspaces that did move find their way back.
-    match outputs::mirror::gather_workspaces(client, &mut profiles).await {
-        Ok(0) => {}
-        Ok(_) => {
-            let _ = profiles.save();
-        }
-        Err(error) => {
-            let _ = profiles.save();
-            return Err(error);
-        }
-    }
-    let found = Outputs::new(&client.outputs().await?);
-    // A picture that starts doesn't take the focus.
-    let _ = client.run(&outputs::mirror::no_focus_command()).await;
-    let started = outputs::mirror::apply(&profiles, &found);
-    // A picture that ended leaves no workspace of its own behind on its display.
-    let _ = outputs::mirror::leave_ended(client, &profiles).await;
+    let started = outputs::mirror::start(client, &mut profiles).await?;
     // Last: kanshi runs this hook again after reading its file, and finds everything noted.
     let _ = refresh_kanshi(&profiles).await;
     Ok(started)
