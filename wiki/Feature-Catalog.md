@@ -283,11 +283,11 @@ swaybar via our sway include.
 
 ### Apps & Autostart
 
-- [ ] 🟢 Default terminal and launcher (fuzzel / wofi / rofi / tofi). Like `$mod`, `$term`/`$menu` only affect bindings
+- [x] 🟢 Default terminal and launcher (fuzzel / wofi / rofi / tofi). Like `$mod`, `$term`/`$menu` only affect bindings
       we generate, so we generate the matching bindings
-- [ ] 🟢 Default apps: browser, file manager, mail, image viewer, PDF, video, via our `sway-mimeapps.list`
+- [x] 🟢 Default apps: browser, file manager, mail, image viewer, PDF, video, via our `sway-mimeapps.list`
 
-- [ ] 🟡 Autostart as one hybrid list: our entries (editable, `exec` lines in our include), hand-written `exec` lines
+- [x] 🟡 Autostart as one hybrid list: our entries (editable, `exec` lines in our include), hand-written `exec` lines
       (read-only, file:line), XDG autostart entries (with "runner active?" status and an offer to enable
       `xdg-desktop-autostart.target` or `dex -a`; system entries disabled via our own `Hidden=true` override)
 - **Maybe:** 🟡 launcher appearance (fuzzel INI, wofi CSS)
