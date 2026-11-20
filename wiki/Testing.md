@@ -118,12 +118,12 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
 
 ## GUI
 
-`crates/gui/tests/gui.rs`, run by `scripts/check-integration.sh` on the headless sway of the sway containers (skipped by
-a plain `cargo test`; SwayFX draws no frames in a container): the window with each page open (config lines shown, groups
-expanded), drawn in GTK's own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA
-contrast (4.5:1, large text 3:1). The check reads what GTK draws: the render nodes say where each text is and which
-colors are painted under it (after opacity; the worst stop of a gradient), and the rendered pixels give the text color
-as the user sees it.
+`crates/gui/tests/gui/` (`main.rs` and a module per area, sharing the fixtures of `common.rs`), run by
+`scripts/check-integration.sh` on the headless sway of the sway containers (skipped by a plain `cargo test`; SwayFX
+draws no frames in a container): the window with each page open (config lines shown, groups expanded), drawn in GTK's
+own theme in light and dark and scrolled through a window height at a time, must reach WCAG AA contrast (4.5:1, large
+text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it
+(after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it.
 
 - Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content.
 - Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's

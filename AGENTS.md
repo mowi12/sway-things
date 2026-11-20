@@ -35,7 +35,7 @@ restating them. Keep it that way: a fact belongs in one place.
 │   │                #   fixtures, tests against stand-ins and against a real sway (the latter run in containers)
 │   ├── cli/         # `sway-things`: get/set/reset/show-generated/open/doctor/hook; tests/: in-process and binary
 │   ├── gui/         # `sway-things-gui`: gtk4-rs app, rows built from the registry, custom pages in src/widgets/;
-│   │                #   tests/gui.rs and gui_pseudo.rs need a display and run in the sway containers
+│   │                #   tests/gui/ and gui_pseudo.rs need a display and run in the sway containers
 │   └── cli-docs/    # dev-only generator of data/man and data/completions; not a default member, never shipped
 ├── data/            # desktop entry and AppStream metainfo templates (*.in, merged with the translations at build
 │                    #   time); icons/: the app icon and its symbolic variant (hand-written SVG); man/ and
