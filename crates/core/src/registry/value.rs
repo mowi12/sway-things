@@ -298,6 +298,8 @@ pub enum ValueError {
     NotAThemeName,
     /// The text isn't a font description: empty, too long, or with a control character.
     NotAFont,
+    /// The text isn't a binding line Sway Things can write (`bindsym $mod+Return exec foot`).
+    NotABinding(crate::bindings::LineErrorKind),
 }
 
 impl ValueError {
@@ -348,6 +350,7 @@ impl ValueError {
             Self::NotAFont => {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
             }
+            Self::NotABinding(kind) => kind.text(),
         }
     }
 }

@@ -14,7 +14,7 @@ pub(crate) type Bytes = Vec<u8>;
 
 /// A command as sway's handler sees it.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) struct Parsed {
+pub(crate) struct Parsed {
     pub criteria: Option<Vec<(Bytes, Bytes)>>,
     pub argv: Vec<Bytes>,
 }
@@ -103,7 +103,7 @@ pub(super) fn split_args(input: &[u8]) -> Vec<Bytes> {
     argv
 }
 
-pub(super) fn strip_quotes(input: &[u8]) -> Bytes {
+pub(crate) fn strip_quotes(input: &[u8]) -> Bytes {
     let (mut in_str, mut in_chr, mut escaped) = (false, false, false);
     let mut out = Vec::with_capacity(input.len());
     for &byte in c_str(input) {
@@ -338,7 +338,7 @@ pub(super) fn criteria_parse(input: &[u8]) -> Result<(Vec<(Bytes, Bytes)>, usize
 }
 
 /// `execute_command` up to the handler call. Returns every command of the payload.
-pub(super) fn execute_command(payload: &[u8]) -> Result<Vec<Parsed>, String> {
+pub(crate) fn execute_command(payload: &[u8]) -> Result<Vec<Parsed>, String> {
     let payload = c_str(payload);
     let mut commands = Vec::new();
     let mut head = Some(0);

@@ -216,8 +216,8 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
   displays it was told for each workspace until it reloads, and a number that still led onto the picture would hide it),
   so no number leads onto the picture and every number is back on its display when the picture ends. After placing,
   every display shows one of its own workspaces, so the number of another display's workspace never leads there.
-- **Workspaces placed:** how many, from 1 (default 10, up to 20). sway's own keys reach 1 to 10; keys for more come with
-  Keyboard Shortcuts.
+- **Workspaces placed:** how many, from 1 (default 10, up to 20). sway's own keys reach 1 to 10; keys for more can be
+  added on Keyboard Shortcuts.
 - **The map:** below the rows, a card per display from left to right (two displays of one brand with their connector)
   with the numbers it holds. A click on a number sends it to the next display, dragging puts it on another card; either
   makes the placement _Fixed_, starting from what the rule gave. With one display there is nothing to arrange, and the
@@ -230,6 +230,36 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
   sway does too. Without kanshi, a combination seen for the first time is placed at the next start or reload.
 - **New workspaces:** _Layout of new workspaces_, _Split of new workspaces_ and _Back and forth_, which were on Window
   Behavior.
+
+### Keyboard Shortcuts
+
+- **One list of every binding:** the user's, with file and line, and those of Sway Things, grouped by what they do
+  (windows, workspaces, apps, media, system, other) and then by mode. A row shows the keys as keycaps the way people
+  read them (`Super` + `Shift` + `E`, `Enter` for `Return`, `Volume Up`, a keycode by the key the keyboard gives it),
+  what the binding does in words for common commands with the command below, its options in words (_also on the lock
+  screen_, _the same key in every layout_, _by keycode_, _on release_) and where it comes from: a file and line, _Added
+  here_, _Changed here_ with what the config binds, _Removed here_.
+- **Search** matches keys (also as shown), commands, descriptions and modes; every word must match.
+- **Clashes** show on the row with a warning sign: a later line on the same keys takes the place of an earlier one (both
+  rows say so, with file and line), an unbind of the user's removes it, a keycode binding wins over a keysym binding of
+  the same key (the keyboard's keymap tells), a `--locked` binding only runs on the lock screen next to one without it.
+- **Add, change, remove:** _Add Shortcut…_ and each row's ⋮ menu (_Change…_, _Remove_, _Back to Your Config's Binding_,
+  _Open in Editor_) open a dialog: a field that takes the keys as they are pressed (sway passes every key to it
+  meanwhile; Esc stops, Backspace clears), what the binding does (open an app, run a command, focus or move a window, go
+  to or move to a workspace, close, fullscreen, floating, or a sway command, which must start with a command sway
+  knows), _Also on the lock screen_ and _The same key in every keyboard layout_. A key that types (a letter, Enter)
+  needs Super, Ctrl or Alt; F1, Print and the media keys work alone. AltGr counts as `Mod5`. Keys in use say by what;
+  saving puts the new binding in their place. Keys of a media key group or of a line read after Sway Things' file can't
+  be taken, and the dialog says why. The change applies at once, without a reload.
+- **Never in the user's file:** a binding of the config is removed with `unbindsym` in Sway Things' file and, for a
+  change, bound again there; _Back to Your Config's Binding_ undoes it. Lines read after the include line, bindings of
+  modes and keys that need quotes can't be changed here; their row says so and offers the editor.
+- **Main modifier:** _Super_ or _Alt_ for what `$mod` means in the bindings Sway Things writes. The user's own lines
+  keep the `$mod` they were read with, since sway replaces a variable when it reads a line; the row says so.
+- **Media keys:** a switch each for the volume (`wpctl`), brightness (`brightnessctl`) and media player keys
+  (`playerctl`), shown only while the program is installed (or the switch is on, so it can be switched off). Below a
+  switch, what its keys replace of the user's config or what wins over them.
+- **Later:** editing bindings of modes, touchpad gestures (`bindgesture`), a cheat sheet to print.
 
 ### Sound
 

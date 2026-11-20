@@ -39,10 +39,10 @@ use super::device_selector::none_connected;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
 use super::{
-    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
-    TestArea, WorkspaceMap,
+    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, ShortcutList,
+    SoundServer, TestArea, WorkspaceMap,
 };
-use super::{cursor, keyboard, look};
+use super::{cursor, keyboard, look, shortcuts};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
@@ -191,14 +191,7 @@ impl PageView {
     pub fn for_settings(model: &Model, page: Page) -> Option<Self> {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let mut sections = Vec::new();
-        if page == Page::About {
-            sections.push(about_section(model, &body));
-            sections.push(generated_section(model, &body));
-        }
-        if page == Page::AppsLookFeel {
-            body.append(&look::note());
-        }
-        let mut first = page != Page::About;
+        let mut first = leading_sections(model, page, &body, &mut sections);
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
         let mut files = BTreeSet::new();
@@ -266,7 +259,10 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in keyboard::below(model, &row) {
+            for widget in keyboard::below(model, &row)
+                .into_iter()
+                .chain(shortcuts::below(model, &row))
+            {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
@@ -584,6 +580,50 @@ fn add_workspace_map(model: &Model, sections: &[Section]) {
     }
 }
 
+/// The sections of `page` above its rows: About and the generated files on About &
+/// Maintenance, the list of bindings on Keyboard Shortcuts, and the note of Apps Look & Feel.
+/// Returns whether the next section is the first of the page.
+fn leading_sections(
+    model: &Model,
+    page: Page,
+    body: &gtk::Box,
+    sections: &mut Vec<Section>,
+) -> bool {
+    match page {
+        Page::About => {
+            sections.push(about_section(model, body));
+            sections.push(generated_section(model, body));
+            false
+        }
+        Page::KeyboardShortcuts => {
+            sections.push(shortcuts_section(model, body, true));
+            false
+        }
+        Page::AppsLookFeel => {
+            body.append(&look::note());
+            true
+        }
+        _ => true,
+    }
+}
+
+/// The "Shortcuts" section of Keyboard Shortcuts: every binding, searchable, with the button
+/// that adds one. The first section of the page, above its rows.
+fn shortcuts_section(model: &Model, body: &gtk::Box, first: bool) -> Section {
+    let title = msg!("Shortcuts");
+    let section = Section::new(
+        model,
+        Page::KeyboardShortcuts,
+        title.msgid(),
+        tr(title),
+        first,
+    );
+    section.body.append(ShortcutList::new(model).widget());
+    body.append(&section.header);
+    body.append(&section.body);
+    section
+}
+
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.
 fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
     let title = msg!("Test area");
@@ -621,6 +661,9 @@ const COPIED_FOR: Duration = Duration::from_secs(2);
 /// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
 /// themes, the screens), following what they depend on.
 fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
+    if !shortcuts::has_row(model, setting) {
+        return None;
+    }
     if setting.key() == outputs::MODE {
         return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
     }
