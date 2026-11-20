@@ -754,39 +754,40 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   `sway-things-<hash>`, then for each display of them without a remembered combination of its own, one that switches it
   on when it is the only one connected (a laptop's panel switched off at the dock comes back when the dock goes). There
   is no profile for any displays (`...output *`): kanshi keeps a profile that still matches when displays are plugged
-  in, so it would never switch to a remembered combination again; a combination with every display off is never
-  remembered nor written) and has kanshi read it again (`kanshictl reload`, five seconds) if the file changed. If our
-  include starts kanshi and none runs yet (the first time), sway starts it now (`exec kanshi`, once per run of the app),
-  not only at the next login. sway reports a scale as a 32-bit float; `Output` rounds it to six places, which is the
-  scale that was set. `outputs::kanshi::KanshiFiles` writes only a file that starts with our header or is empty (people
-  make an empty one so kanshi starts), and never the user's config except to create it. kanshi rejects its whole config
-  over an include it can't find, so the file is kept there and current at every save (`Applier::keep_kanshi_file`), also
-  when no display was ever set up, and `hook displays` writes it at every start and reload of sway and starts kanshi if
-  it gave up over it. Each profile says in comment lines which workspaces go on which display by the rule
-  (`Profile::placement_lines`, from `workspaces::place_on`, the same placement the hook makes), above the command that
-  places them, so the file shows what is set. `Applier::forget_displays` (the page's reset, while kanshi sets up the
-  displays) drops the profile of the displays connected with their stored values, pictures and placement and has kanshi
-  read the file again, so what set them up before applies again: a profile of the user's own, or what they run with.
-  `doctor` also checks that `sway-things` is in `$PATH` and is this build (`hook_program`), since sway and kanshi run
-  the hooks by that name. `doctor` reports the file missing, out of date or someone else's; the Displays page and
-  `sway-things set` say when it is someone else's, since nothing set reaches kanshi then. `20-output.conf` then has no
-  per-output lines, a comment, the startup guard (always with kanshi), and `exec kanshi` when the user's sway config
-  doesn't start kanshi (`kanshi::started_by`, not counting our files) and no kanshi started elsewhere (a systemd unit)
-  runs; a kanshi our own line started keeps being started. `displays.toml` starts with our header and a file without it
-  is never written over; one that can't be read isn't either: the displays are set up from our sway lines meanwhile, and
-  the app says why. `hook displays` has kanshi apply its profile again and then makes sure a display is on. The app
-  looks again before each change and when displays come and go (at most every two seconds) and writes the files when the
-  answer changes; `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. With
-  kanshi installed, `doctor` reports a kanshi config without our include or with something before it (with
-  `KanshiFiles::how_to_include`: the `sed` line of `include_command` for the user to run, which puts the include at the
-  top, takes exactly the line that included ours away and follows a symlink, or what to do by hand where no command does
-  it, as when ours is included through a pattern), a file of someone else's in the place of ours, and a profile of the
-  user's before the include that covers a remembered combination (`kanshi::user_profiles`, with `output *` as one more
-  display and `...output *` as any number), since kanshi applies the first that matches. A file included before ours
-  isn't read: it counts as standing above the line. The Displays page and `sway-things set` warn of a profile that wins
-  for the displays connected now (`kanshi::overriding`), and the page of anything above the line. The rows of the
-  displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for every
-  machine. A model made for tests never looks.
+  in, so it would never switch to a remembered combination again (the profiles with exactly one display more, which ask
+  about it, are described below); a combination with every display off is never remembered nor written) and has kanshi
+  read it again (`kanshictl reload`, five seconds) if the file changed. If our include starts kanshi and none runs yet
+  (the first time), sway starts it now (`exec kanshi`, once per run of the app), not only at the next login. sway
+  reports a scale as a 32-bit float; `Output` rounds it to six places, which is the scale that was set.
+  `outputs::kanshi::KanshiFiles` writes only a file that starts with our header or is empty (people make an empty one so
+  kanshi starts), and never the user's config except to create it. kanshi rejects its whole config over an include it
+  can't find, so the file is kept there and current at every save (`Applier::keep_kanshi_file`), also when no display
+  was ever set up, and `hook displays` writes it at every start and reload of sway and starts kanshi if it gave up over
+  it. Each profile says in comment lines which workspaces go on which display by the rule (`Profile::placement_lines`,
+  from `workspaces::place_on`, the same placement the hook makes), above the command that places them, so the file shows
+  what is set. `Applier::forget_displays` (the page's reset, while kanshi sets up the displays) drops the profile of the
+  displays connected with their stored values, pictures and placement and has kanshi read the file again, so what set
+  them up before applies again: a profile of the user's own, or what they run with. `doctor` also checks that
+  `sway-things` is in `$PATH` and is this build (`hook_program`), since sway and kanshi run the hooks by that name.
+  `doctor` reports the file missing, out of date or someone else's; the Displays page and `sway-things set` say when it
+  is someone else's, since nothing set reaches kanshi then. `20-output.conf` then has no per-output lines, a comment,
+  the startup guard (always with kanshi), and `exec kanshi` when the user's sway config doesn't start kanshi
+  (`kanshi::started_by`, not counting our files) and no kanshi started elsewhere (a systemd unit) runs; a kanshi our own
+  line started keeps being started. `displays.toml` starts with our header and a file without it is never written over;
+  one that can't be read isn't either: the displays are set up from our sway lines meanwhile, and the app says why.
+  `hook displays` has kanshi apply its profile again and then makes sure a display is on. The app looks again before
+  each change and when displays come and go (at most every two seconds) and writes the files when the answer changes;
+  `doctor` compares against the same and checks no conflicts of per-output settings meanwhile. With kanshi installed,
+  `doctor` reports a kanshi config without our include or with something before it (with `KanshiFiles::how_to_include`:
+  the `sed` line of `include_command` for the user to run, which puts the include at the top, takes exactly the line
+  that included ours away and follows a symlink, or what to do by hand where no command does it, as when ours is
+  included through a pattern), a file of someone else's in the place of ours, and a profile of the user's before the
+  include that covers a remembered combination (`kanshi::user_profiles`, with `output *` as one more display and
+  `...output *` as any number), since kanshi applies the first that matches. A file included before ours isn't read: it
+  counts as standing above the line. The Displays page and `sway-things set` warn of a profile that wins for the
+  displays connected now (`kanshi::overriding`), and the page of anything above the line. The rows of the displays have
+  no reset button and no machine toggle meanwhile: the values stand for the combination, not for every machine. A model
+  made for tests never looks.
 - **The user's own kanshi profiles:** a combination whose displays the user's kanshi profiles set up can still have its
   workspaces placed (or a picture mirrored) without Sway Things taking over the displays. While a rule places or a
   combination mirrors, `KanshiFiles::config_for` copies every profile of the user's config after our include into our
@@ -856,8 +857,52 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   `give_back_workspaces` moves back, with the display back at its place, when it shows its own content again;
   `mirror::leave_ended` has a display whose picture ended show a workspace like any other again, so none named after a
   picture stays behind; the mirror's window doesn't take the focus (`no_focus` by its title, in `20-output.conf` and
-  sent before a mirror starts). The app reads `displays.toml` again before it changes it, since the hook may have noted
-  something meanwhile.
+  sent before a mirror starts; a fullscreen window that takes it anyway gives it back, `mirror::apply_keeping_focus`).
+  The app reads `displays.toml` again before it changes it, since the hook may have noted something meanwhile.
+- **A picture that went comes back (no daemon):** `mirror::missing` tells a picture the combination connected now asks
+  for whose `wl-mirror` isn't running (crashed, its window closed) from the `/proc` entries, and `mirror::heal` starts
+  it again as `mirror::start` does (gather the workspaces, `no_focus`, `apply`, `leave_ended`), sending nothing while
+  every picture runs and ending no picture of another combination. `start` runs one at a time in a session (the lock
+  `sway-things-mirror-start.lock`, waited for at most fifteen seconds) and reads `displays.toml` again once it has it,
+  so a hook's save never drops what another one noted. It runs where Sway Things runs anyway: `hook workspaces`
+  (kanshi's profiles and every start and reload of sway while a rule places), `hook displays` and `hook mirror` (which
+  start them as before), and the app (`Applier::heal_mirrors`, queued as `Op::HealMirrors` when it opens and three
+  seconds after the last change of the outputs, `HEAL_AFTER`, so kanshi's own hooks went first). `mirror::apply` takes a
+  lock in `$XDG_RUNTIME_DIR` (`outputs::SessionLock`), so two of them never start a picture twice. A `SessionLock` is a
+  file made with `create_new` holding a token (process number, time, counter); `Drop` removes it only while it still
+  holds that token. One whose process is gone (or older than ten minutes) is taken over by moving it aside first, which
+  only one process can do, and put back with a hard link if what was moved was a newer lock. The focus goes back only if
+  it is on a picture's workspace and the workspace that had it is still there; looking stops as soon as the pictures'
+  windows are shown (and 0.3 seconds later), or the user went to another workspace, at most after three seconds.
+- **A new display asks once:** for each arranged combination, `profiles::kanshi_config_with` (with `ask`) adds a profile
+  `sway-things-new-<hash>` with the combination's displays without directives (nothing of their setup changes) and
+  `output *`, which kanshi matches with exactly one display more, running `exec sway-things hook new-display`. It comes
+  after our arranged profiles and the copies of the user's (which win for their displays) and before the profiles of a
+  display alone; kanshi tries the exact profile of a remembered combination first. `KanshiFiles::config_for` asks only
+  where `wl-mirror` is installed and no include after ours may hold profiles that can't be read; a combination for which
+  a profile of the user's after our include may set up one display more has none (`may_take_one_more`: the same number
+  of displays, or `...output *`, and at most one criterion that surely names another display: one with make, model and
+  serial whose pattern matches none of them; a connector, an alias or a pattern with `[` may be one of them).
+  `hook new-display` waits until the outputs stand (unchanged for 1.5 seconds, at most ten: a dock's displays come one
+  after the other), leaves a combination a profile of the user's sets up (`KanshiFiles::sets_up`) alone, and asks
+  `outputs::new_display::decide`: a question only for exactly one display that isn't in any remembered combination
+  (`Profiles::seen`), is on, and was added to an arranged combination with a display that can be shown (on, showing its
+  own content: the built-in panel, else the focused one, else the leftmost). A display seen before that showed a picture
+  in a remembered combination shows it again if that display is there (`Decision::Repeat`); else nothing. The question
+  is noted in `$XDG_RUNTIME_DIR/sway-things-new-display` with the sway session and the output's `id` (new at each
+  plug-in), so kanshi applying the profile again (a reload) asks no second time, and while it waits the hook holds a
+  lock per session and display (`new_display::asking`), so the display plugged in again meanwhile isn't asked about
+  twice (the first answer counts, for the same combination). kanshi doesn't wait for `exec`, so the waiting hook holds
+  up nothing. Without a notification server, or one that doesn't list `actions` (`Asked::NoActions`), the hook writes
+  one line for kanshi's log and ends with success; the whole question gives up ten seconds after `WAIT` if the bus
+  doesn't answer. `new_display::ask` sends a notification over `org.freedesktop.Notifications` (`GetCapabilities` must
+  list `actions`) with the actions `default` and `mirror` (_Mirror_) and `extend` (_Extend_), the hint `desktop-entry`
+  and a timeout of two minutes (`WAIT`), and waits for `ActionInvoked` or `NotificationClosed` of its id, subscribed
+  before it is sent; then it closes the notification. The answer becomes the profile of the new combination
+  (`Profile::with_one_more`: the known combination as remembered, the new display as it runs, with a `fit` picture of
+  the source for _Mirror_), saved to `displays.toml` unless the displays changed or the combination was remembered
+  meanwhile; kanshi's file is written again and kanshi reloads it, which applies the new profile (`kanshictl reload`
+  applies the first matching profile anew), and the pictures start (`mirror::start`). No answer changes nothing.
 - **Never without a display:** an output stored as off stays off when sway starts, also when it is the only one
   connected then (a laptop's panel, switched off at the dock, after starting without the dock); sway has no protection
   of its own. So while Sway Things stores anything for an output (a line of the user's may still switch it off),
@@ -1309,6 +1354,9 @@ is needed, generated config calls the CLI briefly:
   with `exec_always` while Sway Things stores anything for an output. While kanshi runs, it first has kanshi apply its
   profile again (`kanshictl reload`, given five seconds), since sway just read its config, then makes sure a display is
   on and places the workspaces and starts the mirrors again.
+- **`hook new-display`**: asks once whether a display plugged in to a remembered combination mirrors or extends, through
+  the notification server, and remembers the answer ([Outputs](#outputs)); kanshi runs it from the profiles of our file
+  with one display more than a remembered combination. It ends with the answer or after two minutes.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

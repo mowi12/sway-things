@@ -91,6 +91,12 @@ kanshi, static `output` lines in our include (no profiles).
       sway switches one on if none is
 - [x] 🟢 Identify displays (numbers flashed on each screen)
 - [x] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode, remembered per combination
+- [x] 🟡 A picture that went comes back by itself, without a daemon: when the app opens and when displays come and go,
+      in kanshi's hooks and at each start and reload of sway; `sway-things hook mirror` for a key binding
+- [x] 🟡 A display never seen before, plugged in to a remembered combination, asks once (a notification with _Mirror_
+      and _Extend_) and the answer is remembered for the new combination
+- [ ] 🟡 Recognize a projector again by make and model where its serial is generic (`0x00000001`, `0x01010101`) or it
+      comes through another port; needs checking with real projectors and adapters (see Sway-Reference)
 
 #### Profiles (kanshi backend)
 
