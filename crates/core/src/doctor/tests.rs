@@ -784,3 +784,54 @@ fn a_stored_value_gsettings_cant_take_is_reported() {
             .is_some_and(|hint| hint.english().contains("gsettings-desktop-schemas"))
     );
 }
+
+#[test]
+fn what_the_copies_of_the_users_kanshi_profiles_cant_cover_is_reported() {
+    let setup = Setup::new(
+        "version = 1\n\n[workspaces]\nplacement = \"round_robin\"\n",
+        INCLUDE,
+    );
+    let kanshi = setup.dir.path().join("config/kanshi");
+    fs::create_dir_all(&kanshi).unwrap();
+    let files = crate::outputs::kanshi::KanshiFiles::in_dir(&kanshi);
+    fs::write(
+        &files.config,
+        format!(
+            "include {}\nprofile Desk {{\n    output eDP-1 disable\n    exec swaymsg workspace 1 \
+             output eDP-1\n    exec ~/bin/arrange-workspaces\n    exec notify-send docked\n}}\n\
+             include ~/.config/kanshi/more\n",
+            files.ours.display()
+        ),
+    )
+    .unwrap();
+    let checkup = |displays| {
+        let mut checkup = setup.checkup();
+        checkup.displays = displays;
+        checkup.kanshi = Some(crate::outputs::kanshi::KanshiFiles::in_dir(&kanshi));
+        block_on(checkup.diagnose())
+    };
+    let diagnosis = checkup(crate::generate::Displays::Kanshi { start: false });
+    let found = with(&diagnosis, Code::KanshiProfileCopy);
+    assert_eq!(found.len(), 2, "{diagnosis:#?}");
+    assert!(
+        found
+            .iter()
+            .all(|finding| finding.severity == Severity::Warning)
+    );
+    // The script may place workspaces; swaymsg is left out of the copy, notify-send is harmless.
+    let script = found[0].message.english();
+    assert!(
+        script.contains("Desk") && script.contains("exec ~/bin/arrange-workspaces"),
+        "{script}"
+    );
+    let include = found[1].message.english();
+    assert!(
+        include.contains("include ~/.config/kanshi/more"),
+        "{include}"
+    );
+    // Without kanshi setting up the displays, nothing is copied, so nothing is reported.
+    none(
+        &checkup(crate::generate::Displays::Sway),
+        Code::KanshiProfileCopy,
+    );
+}

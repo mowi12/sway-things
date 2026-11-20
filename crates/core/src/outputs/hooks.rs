@@ -109,7 +109,14 @@ pub async fn workspaces(client: &mut Client, env: &HookEnv) -> Result<usize, Ipc
     if workspaces::Rule::of(&state).places() && env.kanshi_runs() {
         workspaces::settled(client, profiles.as_ref()).await?;
     }
-    workspaces::apply(client, &state, profiles.as_ref()).await
+    let placed = workspaces::apply(client, &state, profiles.as_ref()).await;
+    // kanshi just applied a profile, maybe a copy of the user's own made before they changed
+    // it: the copies are made again, and kanshi reads them if they changed (and runs this hook
+    // once more, which then finds them as they are).
+    if let Some(profiles) = &profiles {
+        let _ = refresh_kanshi(env, profiles).await;
+    }
+    placed
 }
 
 /// `hook mirror`, run by kanshi after it set up a profile: ends the mirrors Sway Things started

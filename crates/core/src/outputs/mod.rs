@@ -35,6 +35,7 @@
 
 pub mod hooks;
 pub mod kanshi;
+pub mod kanshi_config;
 pub mod layout;
 pub mod mirror;
 pub mod modes;
