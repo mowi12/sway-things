@@ -1698,8 +1698,9 @@ Two specs, each following its distribution's guidelines, from the same tarball:
   them.
 - **License tags:** `License` is every license expression of the crates linked into the binaries (as Fedora's
   `%cargo_license_summary` counts them: no build, dev or proc-macro dependencies, every target), plus `CC0-1.0` of the
-  metainfo. Fedora's `SourceLicense` covers the whole tarball: every crate in `vendor/` and the licenses in `LICENSES/`.
-  Each is a `%{shrink:…}` with one expression per line; `scripts/check-packaging.sh` fails when one is out of date, so a
+  metainfo. Fedora's `SourceLicense` covers the whole tarball: every crate in `vendor/` and the licenses in `LICENSES/`
+  that are in the tarball (not the wallpaper photos' license, which `export-ignore` keeps out with the photos). Each is
+  a `%{shrink:…}` with one expression per line; `scripts/check-packaging.sh` fails when one is out of date, so a
   dependency with a new license is caught on its pull request.
 - **Source:** the tarball of the GitHub release, written out
   (`https://github.com/mowi12/sway-things/releases/download/v%{version}/…`), not built from `%{url}`: `URL` is the
@@ -1844,6 +1845,19 @@ website serves it as `/install` and `/install.sh`, see [Website](#website)).
   the `-git` package builds `main`, not the pull request.
 - `scripts/check-shell.sh` lints the `PKGBUILD`s with shellcheck as bash, without the warnings that makepkg's way of
   sourcing them makes moot (unused metadata variables, `pkgdir`, `cd` without `|| exit` under errexit).
+
+## Wallpaper photos
+
+`wallpapers/` holds photos for the Wallpaper page to offer: one directory per photographer, files named after what they
+show, and `wallpapers.toml` as the index (path, title, photographer, copyright, license, size, bytes, SHA-256 to check a
+download). They are scaled down to at most 3840 pixels on the longer side and carry the photographer, the copyright and
+the terms in their EXIF, IPTC and XMP metadata, without camera serial numbers or GPS positions.
+
+The photos are not under the GPL: their photographers keep all rights and allow only their use as a wallpaper with Sway
+Things (`LICENSES/LicenseRef-Sway-Things-Wallpapers.txt`, set per directory in `REUSE.toml`). So they stay out of the
+release tarball and the packages (`export-ignore` in `.gitattributes`). Downloading them is network access, which hard
+rule 5 rules out today; how the app gets them (and the exception that needs) is the Wallpaper page's to settle. How to
+add a photo is in `wallpapers/README.md`.
 
 ## Website
 

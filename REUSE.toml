@@ -93,3 +93,16 @@ path = "ci/install/home_mowi12_sway-things.asc"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# The wallpaper photos belong to their photographers: they may only be used as wallpapers with Sway Things.
+[[annotations]]
+path = "wallpapers/niko-burkert/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["2023 Niko Burkert", "2026 Niko Burkert"]
+SPDX-License-Identifier = "LicenseRef-Sway-Things-Wallpapers"
+
+[[annotations]]
+path = "wallpapers/christoph-schmid/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["2024 Christoph Schmid", "2025 Christoph Schmid", "2026 Christoph Schmid"]
+SPDX-License-Identifier = "LicenseRef-Sway-Things-Wallpapers"

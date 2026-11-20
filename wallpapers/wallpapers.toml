@@ -1,0 +1,115 @@
+# The wallpaper photos in this directory, for Sway Things to offer and download. Each photo belongs to its
+# photographer and may only be used as a wallpaper with Sway Things: see LICENSES/LicenseRef-Sway-Things-Wallpapers.txt.
+#
+# path: relative to this directory; width, height: in pixels; bytes and sha256: of the file, to check a download.
+version = 1
+
+[[wallpaper]]
+path = "niko-burkert/fallow-deer-in-the-snow.jpg"
+title = "Fallow deer in the snow"
+photographer = "Niko Burkert"
+copyright = "© 2026 Niko Burkert"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3072
+height = 2048
+bytes = 352561
+sha256 = "ed08853aa71e6614398b6e467b5b65eb57c7beefb77ef2171393f57fc64cbbd9"
+
+[[wallpaper]]
+path = "niko-burkert/grain-field-at-dusk.jpg"
+title = "Grain field at dusk"
+photographer = "Niko Burkert"
+copyright = "© 2023 Niko Burkert"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 1114079
+sha256 = "2df9582b681343015f75328fde8a030413515a2cd041b685194afbb400f4970d"
+
+[[wallpaper]]
+path = "niko-burkert/spruce-cone-in-the-evening-light.jpg"
+title = "Spruce cone in the evening light"
+photographer = "Niko Burkert"
+copyright = "© 2023 Niko Burkert"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 1172737
+sha256 = "608556fa1ce1208f465bee711617dd371be8ac7e79b4b82b51abed2bf5ca257f"
+
+[[wallpaper]]
+path = "christoph-schmid/chapel-above-a-grain-field.jpg"
+title = "Chapel above a grain field"
+photographer = "Christoph Schmid"
+copyright = "© 2024 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 1949437
+sha256 = "b2e82c8bf044a27cde8637d67deb40b4c2426e90d2855b3ce071563f78d26ae6"
+
+[[wallpaper]]
+path = "christoph-schmid/sunset-over-a-hillside-village.jpg"
+title = "Sunset over a hillside village"
+photographer = "Christoph Schmid"
+copyright = "© 2024 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2160
+bytes = 1177261
+sha256 = "70917cef29836fed5d92414be3b1865045374cf26b113178de9c106f80395d50"
+
+[[wallpaper]]
+path = "christoph-schmid/skyline-by-the-river.jpg"
+title = "Skyline by the river"
+photographer = "Christoph Schmid"
+copyright = "© 2025 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 1563680
+sha256 = "e960d9574f388f703a18063e500bc60b530f3e7d6b0a3a4dc7d7c7ea78585d06"
+
+[[wallpaper]]
+path = "christoph-schmid/rocky-coast.jpg"
+title = "Rocky coast"
+photographer = "Christoph Schmid"
+copyright = "© 2026 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 2619212
+sha256 = "4d75aa72e948925677bea62603c7bf20274153e36b3465ecf405805592765dc1"
+
+[[wallpaper]]
+path = "christoph-schmid/snowflake.jpg"
+title = "Snowflake"
+photographer = "Christoph Schmid"
+copyright = "© 2024 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3519
+height = 2346
+bytes = 1934299
+sha256 = "8a3438c5b67959b223151d7aa165f54b4e877867d96f71a14d25be732322ab89"
+
+[[wallpaper]]
+path = "christoph-schmid/mountain-lake-mirror.jpg"
+title = "Mountain lake mirror"
+photographer = "Christoph Schmid"
+copyright = "© 2024 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 2962091
+sha256 = "395eed0c12ef30fb2815e36c739fd8a2147d1604b9b605dcc824027d74c1941a"
+
+[[wallpaper]]
+path = "christoph-schmid/mountain-lake-in-the-morning.jpg"
+title = "Mountain lake in the morning"
+photographer = "Christoph Schmid"
+copyright = "© 2024 Christoph Schmid"
+license = "LicenseRef-Sway-Things-Wallpapers"
+width = 3840
+height = 2560
+bytes = 2091667
+sha256 = "1fa5869a42808fa025d10532d31a3bab20d77835384a46745ace6f55a5e7836c"
