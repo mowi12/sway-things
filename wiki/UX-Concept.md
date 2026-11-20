@@ -50,8 +50,9 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
   dialog: a row per line of the system details, with the value selectable for bug reports: the versions of Sway Things,
   the running compositor (for SwayFX with the sway it is based on), GTK (the runtime version), the distribution
   (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_) and the kernel, then
-  _Installed_ or _Not installed_ for nm-connection-editor, blueman-manager, pwvucontrol and pavucontrol. Below the rows,
-  a centered _Copy System Details_ button copies them as a plain-text block in the same order, the one
+  _Installed_ or _Not installed_ for nm-connection-editor, blueman-manager, pwvucontrol and pavucontrol, and for the
+  programs of Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec). Below
+  the rows, a centered _Copy System Details_ button copies them as a plain-text block in the same order, the one
   `sway-things doctor` starts with, like GNOME Settings' System Details, and then says _Copied_ for two seconds. They
   are read again each time the section shows. Below the button, a centered line of links with a symbolic icon each:
   _Website_ (a globe), _Source Code (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default
@@ -346,6 +347,39 @@ click away in the binding's dialog.
   row after a removed one) and stays where it was on screen (a removal keeps the scroll position, so the rows after it
   move up). The Workspaces map does the same for the number clicked.
 - **Later:** editing bindings of modes, touchpad gestures (`bindgesture`), a cheat sheet to print.
+
+### Screenshots & Clipboard
+
+- **Three parts, each with a switch:** _Screenshot keys_, _Clipboard history_ and _Recording key_. Nothing is bound or
+  started while a switch is off, so the page changes nothing until asked.
+- **Keys:** a button per key shows it as people read it (_Alt + Print_); a click takes new keys as they are pressed,
+  like the field of the Keyboard Shortcuts dialog (sway passes every key to it meanwhile; Backspace removes the key,
+  Escape keeps it). A key that types needs Super, Ctrl or Alt. Defaults like other desktops: _Print_ a region (drag, or
+  click a window), _Alt + Print_ the focused window, _Shift + Print_ the focused display, _Ctrl + Print_ all displays,
+  _Super + Shift + V_ the history, _Ctrl + Alt + Shift + R_ start and stop a recording. Below a key, what it takes the
+  place of in the user's config; the Keyboard Shortcuts page lists the keys too, with a lock, can't change them there
+  (their dialog has _Open Screenshots & Clipboard_), and refuses them to its own bindings. A key applies at once.
+- **Where screenshots go:** _Copy and save_ (the default), _Copy to the clipboard_ or _Save to the folder_; the folder
+  (empty for _Screenshots_ in the pictures folder, made when the first file goes there); the file name pattern with
+  `%Y`, `%m`, `%d`, `%H`, `%M`, `%S` and the next name below it, updated every second. Two screenshots in one second get
+  `(2)`; no file is ever overwritten.
+- **Afterwards:** _Show a notification_ (the default) with the picture, _Open_ and _Edit_ (while swappy or satty is
+  installed), _Open the editor_ right away, or _Nothing_. A selection canceled with Escape shows nothing; any other
+  failure (a program missing, no window with the focus) shows a notification that says why. When only half of _Copy and
+  save_ works, the notification says so (_Screenshot saved, but not copied_) with the reason. A key held down takes one
+  screenshot.
+- **Clipboard history:** what is copied, text and images, kept by cliphist; the key opens it in the launcher that is
+  installed (fuzzel, wofi, rofi, tofi, bemenu) and copies the entry picked again. Below the switch: the note that the
+  history keeps everything, passwords too, unless the password manager marks them, and whether this system leaves those
+  out (wl-clipboard 2.3 and cliphist 0.5 or newer); a line of the user's config that starts a history already, with file
+  and line, or a history of the user's own that runs (then Sway Things starts none); _Clear History…_, after asking.
+  _Entries kept_ (750 by default).
+- **Screen recording:** a region (selected like a screenshot's) or the focused display, into the screenshot folder with
+  its own pattern (`.mp4` or `.mkv`), with sound if asked. When it starts, a notification says so and how to stop it,
+  for the usual few seconds, so it doesn't stay in the video; while it records, the page shows _Recording now_ with
+  _Stop_. The same key stops it, and a notification says where the file is; a second press while one starts or stops
+  does nothing but say so.
+- **Missing programs:** below each switch, which programs aren't installed and the packages that have them.
 
 ### Sound
 

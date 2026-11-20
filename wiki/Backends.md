@@ -1,7 +1,8 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server and GSettings, and the planned backends for the companion tools.
+> NetworkManager, the sound server and GSettings, the tools of Screenshots & Clipboard, and the planned backends for the
+> companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the only companion tool Sway
 Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)); Bluetooth, the network and
@@ -26,8 +27,9 @@ trait Backend {
 | Night light | gammastep, wlsunset |
 | Wallpaper | swaybg via `output * bg`; swww later |
 | Launcher | fuzzel, wofi, rofi(-wayland), tofi |
-| Screenshots | grim + slurp (grimshot), swappy / satty |
-| Clipboard history | cliphist, clipman |
+| Screenshots | grim + slurp, swappy / satty (the command line, see [below](#screenshots-clipboard-and-recording)) |
+| Clipboard history | cliphist with `wl-paste --watch`; a launcher (fuzzel, wofi, rofi, tofi, bemenu) to pick |
+| Screen recording | wf-recorder, wl-screenrec |
 | Auto dark mode | darkman |
 | Audio | PulseAudio API via pipewire-pulse or PulseAudio (`libpulse-binding`, on libpulse's threaded main loop) |
 | Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection |
@@ -126,6 +128,67 @@ callback (on libpulse's thread) share an `Rc<RefCell<…>>`, sound only because 
 lock held. The volume of alert sounds is left out: `libpulse-binding`'s stream-restore write hands libpulse a Rust array
 where it expects C structs, and a fix would need unsafe code. The page shows volumes up to 100 %, or 150 % with
 `app.sound_above_100`; `delegate` starts pwvucontrol, else pavucontrol, for the rest.
+
+## Screenshots, clipboard and recording
+
+Screenshots, the clipboard history and recording need no `Backend` either: nothing is configured in another tool, the
+keys run the command line (`crates/core/src/capture/`, `crates/cli/src/capture.rs`, `hook clipboard` in
+`crates/cli/src/hook.rs`), which runs the tools and ends. It loads only the settings files and asks sway only what it
+needs, so a key press is quick. The facts behind it are in the
+[Sway Reference](Sway-Reference.md#screenshots-clipboard-and-recording).
+
+- **Screenshots** (`capture::shot`): a region is selected with slurp, which gets the windows on screen (`GET_TREE`,
+  `visible`) as boxes to click; the focused window is its `rect`, the focused display its name (`GET_OUTPUTS`). grim
+  writes the picture to standard output in the format of the name's extension (`png` by default, `jpg`, `ppm`). The name
+  comes from the pattern, filled in with the local time by `g_date_time_format` (`capture::name`); before the picture is
+  taken, so a pattern that makes no name costs none. The file is created only if no file of its name exists
+  (`create_new`), else `name (2).png` and so on (a thousand tries, then an error, never a name that wasn't checked), in
+  the folder (`$XDG_PICTURES_DIR/Screenshots` from GLib's user directories, else `~/Pictures/Screenshots`), made when
+  needed. `wl-copy --type <mime>` copies it, with no pipe to its output kept, since it forks and serves the clipboard.
+  For _Copy and save_, saving and copying are tried each on its own: when only one works, the notification says which
+  (_Screenshot saved, but not copied_) and why, and the command exits with 1; the picture is never lost. A canceled
+  selection is `CaptureError::Canceled`: no picture, no message, exit 0.
+- **Afterwards:** a notification (`capture::notify`, `org.freedesktop.Notifications` over zbus) with the picture
+  (`image-path`), _Open_ (GIO's default app for the file) and _Edit_ (swappy `-f <file> -o <file>`, or satty
+  `--filename <file> --output-filename <file>` with `%` doubled; a picture only copied goes to the editor's standard
+  input, and only then is it kept in memory while the command waits). The body has `&`, `<` and `>` escaped, since
+  servers may read it as markup. The command waits for a button or the notification to close, at most two minutes, only
+  if the server shows buttons (`GetCapabilities`). Errors go to standard error and to a notification, since a key has no
+  terminal.
+- **Processes and locks** (`capture::process`): the watcher and a recorder are found in `/proc` by their name, the
+  marker in their environment and the caller's sway session (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`); a caller without
+  either finds none, so a command from a TTY or ssh never ends another session's processes. Paths of the arguments are
+  kept byte for byte. A lock is `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR` with a token of its holder; one older
+  than ten seconds is taken over by renaming a file with a new token over it and reading it back, and only the holder
+  whose token is in it removes it. These locks are the page's own, apart from the mirror's.
+- **Recording** (`capture::record`): `sway-things record` holds the lock `record` from looking for a recording until a
+  new one runs, so a second press meanwhile starts none (it says so). The file is made empty with `create_new` first, so
+  no other file is written over, and wf-recorder gets `-y` (it would ask before writing over it); then
+  `setsid -f wf-recorder` (else wl-screenrec) `-g <geometry>` or `-o <display>` `-f <file>` `[--audio]`, detached like
+  `wl-mirror`, with `SWAY_THINGS_RECORDING=<notification id>` in its environment and its standard error in
+  `$XDG_RUNTIME_DIR/sway-things-recording.log`; 0.7 s later it must still run, or the last line of the log is the error
+  and the empty file goes. Only `.mp4` and `.mkv`: both recorders encode H.264 by default, which WebM can't hold. The
+  notification that says it records goes after the server's usual time, so it isn't recorded for long, and takes the
+  place of the last one about a recording (its id in `$XDG_RUNTIME_DIR/sway-things-recording.notification`). The next
+  press finds the recorder, sends `SIGINT` (`kill -s INT`), waits up to ten seconds for it to end, so the file is
+  complete, lets go of the lock and replaces the notification with where the file is and _Open_. The page looks for a
+  recording every two seconds while it is on screen and shows _Stop_, which runs `sway-things record` without waiting
+  for it.
+- **Clipboard history** (`capture::clipboard`): `sync_with` has exactly the watcher run that the settings ask for:
+  `setsid -f wl-paste --watch cliphist -max-items <n> store` with `SWAY_THINGS_CLIPBOARD=1`, or none; it ends the marked
+  ones that differ (also when the history was switched off by hand in `settings.toml`), so running it twice changes
+  nothing. It takes the lock `clipboard`, waiting up to three seconds, and reads the settings only once it holds it, so
+  of the hook and the app running at once the second acts on what is set by then. A `wl-paste --watch cliphist store` of
+  the user's own in the session means none of Sway Things runs; `hook clipboard` says so on stderr, and outside a
+  session (no `XDG_RUNTIME_DIR` or `WAYLAND_DISPLAY`) it says why it does nothing. `hook clipboard` in `80-hooks.conf`
+  runs it at every start and reload of sway while the history is on; the app runs it when the switch or the number of
+  entries changes and stood still for 0.8 s, and the command line after `set` or `reset` of either. `pick` runs
+  `cliphist list`, hands it to the launcher's dmenu mode (exit status 1 with nothing on stderr is a cancel; any other
+  failure is reported), the line picked to `cliphist decode`, and the entry to `wl-copy`, with `--type` for a PNG, JPEG,
+  GIF, BMP or WebP picture found by its first bytes; an entry without data is reported, not copied. `skips_passwords`
+  compares the versions of wl-paste and cliphist. clipman isn't offered: it keeps only text.
+- **Programs** (`capture::tools`): each with its package; `missing_for` says which part that is on misses what, for
+  `doctor` and the page.
 
 ## GSettings
 

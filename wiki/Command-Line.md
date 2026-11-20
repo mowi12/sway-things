@@ -28,7 +28,10 @@ with what the app reads.
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](Architecture.md#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
-| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `screenshot region\|window\|display\|all` | takes a screenshot as Screenshots & Clipboard says ([Backends](Backends.md#screenshots-clipboard-and-recording)); the screenshot keys run it. |
+| `record [region\|display]` | stops the recording Sway Things started, or starts one; without an argument, what the page says. The recording key runs it. |
+| `clipboard pick\|clear` | shows the clipboard history in the launcher and copies the entry picked again, or empties the history. |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
   `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
@@ -71,7 +74,7 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | --- | --- | --- |
 | Compositor | `session`, `no_session`, `session_unusable`, `installed_unsupported`, `version_unknown`, `sway_missing` | the running sway or SwayFX (`GET_VERSION`), or without a session the installed one (`sway --version`) |
 | Sway config | `main_config`, `no_config`, `include_active`, `include_not_last`, `include_partial`, `include_unknown`, `include_missing`, `config_diagnostic`, `kanshi_include_missing`, `kanshi_file_foreign`, `kanshi_profile_overlap`, `hook_program`, `swaybg_command` | the main config in use, the [include status](Reading-Sway.md#include-detection) (with the instructions while read-only, and up to ten of the user's lines after the include if it isn't last), and the parser's diagnostics: unreadable file, not a regular file, unresolved include, include not found, …; kanshi's config without the include of our profiles, a foreign file in their place, a profile of the user's that comes first for a combination we remember ([Outputs](Outputs.md)); whether sway and kanshi can run this `sway-things` for the hooks; and, while a wallpaper is stored, a `swaybg_command` of the user's that starts no program (`-`) or one that can't be found, so the wallpaper isn't drawn |
-| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped`, `setting_not_copied` | files that can't be used (problem), entries that are ignored (warning), stored settings that are a comment in the generated file because the compositor doesn't support them, and stored values GSettings can't take ([GSettings](Backends.md#gsettings)) |
+| Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped`, `setting_not_copied`, `tool_missing`, `history_twice` | files that can't be used (problem), entries that are ignored (warning), stored settings that are a comment in the generated file because the compositor doesn't support them, stored values GSettings can't take ([GSettings](Backends.md#gsettings)), a part of Screenshots & Clipboard that is on while a program it runs isn't installed (problem), and the clipboard history on while the user's config starts one of its own (warning) |
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
 
@@ -80,8 +83,9 @@ the file and line, the setting and device where they apply, and what `--fix` doe
   distribution (`PRETTY_NAME` of `/etc/os-release`, else `/usr/lib/os-release`), NetworkManager (its `Version` property,
   asked only while its bus name has an owner, so the question doesn't start it), the sound server (its name, which for
   pipewire-pulse carries PipeWire's version, from libpulse's server info; `not running` without one, answered at once)
-  and the kernel (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor, blueman-manager, pwvucontrol and
-  pavucontrol are in `PATH`, without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a
+  and the kernel (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor, blueman-manager, pwvucontrol,
+  pavucontrol and the programs of Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder,
+  wl-screenrec) are in `PATH`, without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a
   `GApplication` option handled before the app registers on the bus, so it needs no display and reaches no running
   instance) and reads its `GTK` line; without the app the value is `unknown`. BlueZ (no version on D-Bus, `bluetoothd`
   in a different `libexec` per distribution) and wlroots (reported neither by IPC nor by `sway --version`) are left out:
@@ -158,8 +162,13 @@ profile sway-things-5e6f7a8b {
 exec_always sway-things hook gsettings
 ```
 
-`hook gsettings` (see [GSettings](Backends.md#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there. It and
-`hook wallpaper` run in the session like the other commands, with the settings loaded.
+`hook gsettings` (see [GSettings](Backends.md#gsettings)) runs from `80-hooks.conf`, and so does `hook clipboard` while
+the clipboard history is on: it starts `wl-paste --watch cliphist store` detached, once per session, as the user's own
+tool ([Backends](Backends.md#screenshots-clipboard-and-recording)). The user's run reads the switch and the number of
+entries from the settings files, the in-process tests from the session's state; both go through the same
+`hook_clipboard`. `hook gsettings` and `hook wallpaper` run in the session like the other commands, with the settings
+loaded. The keys of Screenshots & Clipboard run `screenshot`, `record` and `clipboard pick`, which end when done; a
+recorder runs detached until the same key stops it. Lid hooks may follow in `80-hooks.conf`.
 
 Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
 They're our files, so that needs no edit of the user's config.

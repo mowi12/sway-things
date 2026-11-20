@@ -58,7 +58,7 @@ are in the [Feature Catalog](Feature-Catalog.md) and below under _planned_.
 | Crate | Binary | Depends on GTK | Responsibility |
 | --- | --- | --- | --- |
 | `crates/core` | – | no | Settings registry, state (load, merge, save, history), generators, sway config parser, conflict detection, IPC client, backends, typed sway command builders |
-| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `hook` |
+| `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `hook` / `screenshot` / `record` / `clipboard` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
 | `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
 
@@ -86,10 +86,11 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
 | core | `bindings`, `swayosd` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent; whether SwayOSD, which the media keys can show, is installed and its server runs ([Key bindings](Reading-Sway.md#key-bindings)) |
+| core | `capture` | screenshots, the clipboard history and screen recording: the keys of Screenshots & Clipboard, the tools they run, notifications, the session's processes and locks ([Backends](Backends.md#screenshots-clipboard-and-recording)) |
 | core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
-| cli | `lib`, `main`, `change`, `hook`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
+| cli | `lib`, `main`, `change`, `hook`, `capture`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; screenshot, record and clipboard; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
 | gui | `app`, `args`, `window`, `model` | the application, its argument, the main window, the settings behind it ([UI Architecture](UI-Architecture.md)) |
 | gui | `widgets` | every building block and custom page, one module each |
 | gui | `theme`, `style`, `icons`, `contrast`, `i18n`, `xkb`, `editor` | colors, the style sheet, bundled icons, the runtime contrast check, translations, the XKB names, opening the editor |
@@ -249,11 +250,13 @@ editor, cursors). Keys and defaults other modules share with it are defined in t
 `registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
 the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`. The keys of Keyboard Shortcuts are
 `registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
-reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state.
+reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state. The keys,
+defaults and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
+`capture::shortcuts`); the check of its keys uses `bindings::keys` the same way.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
-(Bluetooth, Network, Sound) and the list of bindings on Keyboard Shortcuts with its dialog; the bar layout editor is
-planned. They still read and write settings through the registry.
+(Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, and the key buttons and notes
+of Screenshots & Clipboard; the bar layout editor is planned. They still read and write settings through the registry.
 
 ## State
 
@@ -394,7 +397,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf      # planned
-├── 80-hooks.conf          # sway-things hook gsettings; later: bindswitch lid → sway-things hook lid …
+├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard; later: bindswitch lid → sway-things hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 
