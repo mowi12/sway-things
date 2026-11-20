@@ -110,6 +110,16 @@ enum Part {
     EmptyText,
     Criteria(Criteria),
     Command(Box<SwayCmd>),
+    /// A whole binding line, which renders itself ([`crate::bindings::Line`]).
+    Binding(Box<BindingPart>),
+}
+
+/// A binding line with the modifier its `$mod` stands for.
+#[derive(Debug, Clone, PartialEq)]
+struct BindingPart {
+    line: crate::bindings::Line,
+    modifier: crate::bindings::Modifiers,
+    no_warn: bool,
 }
 
 /// A sway command built from typed parts.
@@ -188,6 +198,37 @@ impl SwayCmd {
         })
     }
 
+    /// A `bindsym`, `bindcode`, `unbindsym` or `unbindcode` line, with [`crate::bindings::keys::MOD`]
+    /// in its keys standing for `modifier`. `no_warn` adds `--no-warn` to a binding.
+    ///
+    /// The command of a binding is kept by sway as it is and run like an IPC message later, so
+    /// it is rendered by [`crate::bindings::BindCommand`]: with its `$` doubled in a config line,
+    /// quoted as one argument over IPC.
+    ///
+    /// # Errors
+    ///
+    /// The [`LineError`](crate::bindings::LineError) of a line that can't be rendered for both
+    /// targets: keys or a device that would need quotes, a command with a backslash.
+    pub fn binding(
+        line: &crate::bindings::Line,
+        modifier: crate::bindings::Modifiers,
+        no_warn: bool,
+    ) -> Result<Self, crate::bindings::LineError> {
+        line.config(modifier, no_warn)?;
+        line.ipc(modifier, no_warn)?;
+        Ok(Self {
+            parts: vec![Part::Binding(Box::new(BindingPart {
+                line: line.clone(),
+                modifier,
+                no_warn,
+            }))],
+            availability: Availability::Anywhere,
+            min_sway: SwayVersion::OLDEST_SUPPORTED,
+            min_swayfx: None,
+            criteria: None,
+        })
+    }
+
     /// `<criteria> <command>`: runs `command` now on every open window that matches `criteria`,
     /// e.g. `[app_id="^firefox\z"] opacity 0.8`. Only works over IPC; sway reports a failure if no
     /// window matches.
@@ -208,10 +249,12 @@ impl SwayCmd {
     /// Checks that `self` can run inside `for_window` or after leading criteria.
     fn check_inner(&self) -> Result<(), CommandError> {
         if self.criteria.is_some()
-            || self
-                .parts
-                .iter()
-                .any(|part| matches!(part, Part::Criteria(_) | Part::Command(_)))
+            || self.parts.iter().any(|part| {
+                matches!(
+                    part,
+                    Part::Criteria(_) | Part::Command(_) | Part::Binding(_)
+                )
+            })
         {
             return Err(CommandError::NestedCriteria);
         }
@@ -444,6 +487,19 @@ impl SwayCmd {
                     Rendering::Config => inner.render_as(Rendering::Ipc)?.replace('$', "$$"),
                     Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
                 },
+                Part::Binding(binding) => {
+                    let BindingPart {
+                        line,
+                        modifier,
+                        no_warn,
+                    } = binding.as_ref();
+                    match rendering {
+                        Rendering::Ipc => line.ipc(*modifier, *no_warn),
+                        Rendering::Config => line.config(*modifier, *no_warn),
+                        Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
+                    }
+                    .map_err(|_| CommandError::InvalidBinding)?
+                }
             });
         }
         Ok(rendered)
@@ -513,6 +569,8 @@ pub enum CommandError {
     EmptyCriteria,
     /// The command of `for_window` or after leading criteria contains criteria or `for_window`.
     NestedCriteria,
+    /// A binding line can't be written: keys that need quotes, a command with a backslash.
+    InvalidBinding,
     /// A command whose arguments sway doesn't unquote has a text argument.
     TextKeepsQuotes {
         /// The command name.
@@ -539,6 +597,7 @@ impl CommandError {
             Self::NestedCriteria => {
                 msg!("a command after criteria can't contain criteria or for_window").into()
             }
+            Self::InvalidBinding => msg!("the binding can't be written as a sway command").into(),
             Self::TextKeepsQuotes { command } => {
                 Text::new(msg!("{command} can't take a text argument")).arg("command", command)
             }

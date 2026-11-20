@@ -253,6 +253,8 @@ pub async fn run_for_user(command: &Command) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
     // While kanshi sets up the displays, no output lines of ours contradict it.
     applier.set_displays(generate::Displays::detect(&status, applier.locations()));
+    // A change of the bindings is sent to sway as the difference to what the config binds.
+    applier.set_user_config(&status);
     let mut session = Session { applier, status };
     run(
         command,
@@ -1126,6 +1128,22 @@ async fn set<V: Validate>(
             return Exit::Usage;
         }
     };
+    // The file takes a binding of a command sway doesn't know, so one typo doesn't drop them all;
+    // what is set here has to work.
+    if let Value::List(items) = &value {
+        if setting.key() == sway_things_core::bindings::ours::BINDINGS {
+            for item in items {
+                if let Err(error) = sway_things_core::bindings::ours::parse_strict(item) {
+                    io.error(format_args!(
+                        "{}: {item}: {}",
+                        setting.key(),
+                        error.text().translated()
+                    ));
+                    return Exit::Usage;
+                }
+            }
+        }
+    }
     let applied = if setting.apply() != Apply::Risky {
         session
             .applier

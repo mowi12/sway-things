@@ -60,7 +60,7 @@ pub(super) fn strip_whitespace(input: &[u8]) -> &[u8] {
 }
 
 /// Splits a line into arguments at blanks outside quotes and brackets. Quotes stay.
-pub(super) fn split_args(input: &[u8]) -> Vec<Vec<u8>> {
+pub(crate) fn split_args(input: &[u8]) -> Vec<Vec<u8>> {
     let input = c_str(input);
     let mut argv = Vec::new();
     let (mut in_token, mut in_string, mut in_char, mut in_brackets, mut escaped) =
@@ -111,7 +111,7 @@ pub(super) fn split_args(input: &[u8]) -> Vec<Vec<u8>> {
 }
 
 /// Removes the quotes that delimit strings.
-pub(super) fn strip_quotes(input: &[u8]) -> Vec<u8> {
+pub(crate) fn strip_quotes(input: &[u8]) -> Vec<u8> {
     let (mut in_str, mut in_chr, mut escaped) = (false, false, false);
     let mut out = Vec::with_capacity(input.len());
     for &byte in c_str(input) {

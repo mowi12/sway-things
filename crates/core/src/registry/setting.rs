@@ -336,6 +336,7 @@ impl Setting {
         self.kind.check(value)?;
         match (self.check_text, value) {
             (Some(check), Value::Text(text)) => check(text),
+            (Some(check), Value::List(items)) => items.iter().try_for_each(|item| check(item)),
             _ => Ok(()),
         }
     }

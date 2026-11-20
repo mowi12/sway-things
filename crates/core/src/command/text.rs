@@ -51,7 +51,7 @@ impl SwayText {
     /// sway strips quotes from an argument that starts with one, and replaces `$variables`
     /// afterwards. The text is split into runs quoted with `"` or `'`, so a quote character always
     /// sits inside the other kind of quotes, and every `$` is doubled.
-    pub(super) fn render_ipc(&self) -> String {
+    pub(crate) fn render_ipc(&self) -> String {
         let quote_for = |character: char| match character {
             '"' => Some('\''),
             '\'' => Some('"'),
