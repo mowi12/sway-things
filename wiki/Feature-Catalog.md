@@ -263,6 +263,8 @@ swaybar via our sway include.
 - [x] 🟢 Number of workspaces placed (1–20)
 - [x] 🟡 Applied at every start and reload of sway and each kanshi profile (`sway-things hook workspaces`), and at once
       from the page
+- [x] 🟡 Also where the user's own kanshi profiles set up the displays: a copy of each runs the placement in place of
+      their own `exec swaymsg workspace` lines (see [Profiles](#profiles-kanshi-backend))
 - [x] 🟢 Layout, split and back-and-forth of new workspaces (moved from Window Behavior)
 - [ ] 🟡 Keys for workspaces 11–20 and to move a workspace to another display, with conflict detection for the user's
       own bindings (→ shares the binding parser with Keyboard Shortcuts)
