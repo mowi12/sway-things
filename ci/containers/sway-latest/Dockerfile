@@ -3,7 +3,7 @@
 
 # The newest sway release, from Arch Linux. Its sway binary has the cap_sys_nice file capability, which containers
 # don't grant, so the image removes it.
-FROM archlinux:base@sha256:b1c2fe6e717bfd5673af8fc217e1e1c3ce0dcbb1d53c3414c8425e7ce79fc6d9
+FROM archlinux:base@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
 
 RUN pacman -Syu --noconfirm sway rust gcc gtk4 gtk4-layer-shell libpulse pkgconf ttf-dejavu python-dbusmock \
     pipewire pipewire-pulse wireplumber \
