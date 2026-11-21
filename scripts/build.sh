@@ -18,10 +18,14 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 cd "$(dirname "$0")/.."
 
 usage() {
-  echo "usage: scripts/build.sh [--data-only] [-- CARGO_BUILD_ARGUMENTS…]" >&2
+  echo "usage: $0 [--data-only] [-- CARGO_BUILD_ARGUMENTS…]" >&2
   exit 2
 }
 
@@ -61,10 +65,7 @@ if $data_only; then
     exit 1
   fi
 else
-  if ! command -v cargo >/dev/null; then
-    echo "error: needs cargo" >&2
-    exit 1
-  fi
+  require cargo
   SWAY_THINGS_LOCALEDIR=$localedir cargo build --locked --profile "$profile" "$@"
 fi
 
@@ -75,10 +76,7 @@ for binary in sway-things sway-things-gui; do
   fi
 done
 
-if ! command -v msgfmt >/dev/null; then
-  echo "error: needs msgfmt (GNU gettext)" >&2
-  exit 1
-fi
+require_hint msgfmt "GNU gettext"
 
 rm -rf "$out/data"
 scripts/merge-metadata.sh "$out/data"

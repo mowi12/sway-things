@@ -5,17 +5,20 @@
 # Checks the dependencies with cargo-deny, configured in deny.toml: security advisories, licenses compatible with
 # GPL-3.0-or-later, banned or duplicate crates, and crates.io as the only source.
 #
+# Check level: network (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-deps.sh
 #
 # Needs cargo-deny (https://github.com/EmbarkStudios/cargo-deny). Fetches the RustSec advisory database.
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v cargo-deny >/dev/null; then
-  echo "error: needs cargo-deny" >&2
-  exit 1
-fi
+require cargo-deny
 
 cargo deny --locked check

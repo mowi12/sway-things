@@ -1,0 +1,12 @@
+# The check tools CI downloads from GitHub releases, installed by scripts/install-tool.sh. One tool per line:
+#
+#   NAME VERSION SHA256 REPOSITORY TAG ASSET
+#
+# {version} in TAG and ASSET stands for VERSION. SHA256 is the checksum of ASSET, the x86_64 Linux build. To update a
+# tool, change VERSION and SHA256 together: download the new ASSET and run sha256sum on it.
+actionlint 1.7.12 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 rhysd/actionlint v{version} actionlint_{version}_linux_amd64.tar.gz
+cargo-deny 0.20.2 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f EmbarkStudios/cargo-deny {version} cargo-deny-{version}-x86_64-unknown-linux-musl.tar.gz
+cargo-fuzz 0.13.2 b5b704018b63e0f151c17a057ac53b5111e1db545d1b9f72fee79f08a545931c rust-fuzz/cargo-fuzz {version} cargo-fuzz-{version}-x86_64-unknown-linux-musl.tar.gz
+dprint 0.64.3 f71cb7e22d6776439eba168d5cb296092d6413fea7148fe4d70684a2702a4fee dprint/dprint {version} dprint-x86_64-unknown-linux-gnu.zip
+lychee 0.24.2 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a lycheeverse/lychee lychee-v{version} lychee-x86_64-unknown-linux-gnu.tar.gz
+typos 1.51.1 93c301fd4120ff076e2cc2a6d6a61cab4a4bdb81899287c0938b452e56d1f454 crate-ci/typos v{version} typos-v{version}-x86_64-unknown-linux-musl.tar.gz

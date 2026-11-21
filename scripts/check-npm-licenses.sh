@@ -7,12 +7,18 @@
 # packages use. cargo-deny doesn't read npm packages. A few build-only packages are exempt below, each with its reason;
 # none of them ends up in the published site.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-npm-licenses.sh
 #
 # Needs the installed packages (`npm ci --prefix tools` and `npm ci --prefix website`); license-checker-rseidelsohn is
 # one of the check tools.
 
 set -euo pipefail
+
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
 
 cd "$(dirname "$0")/.."
 

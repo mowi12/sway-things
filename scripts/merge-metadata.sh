@@ -11,18 +11,19 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 cd "$(dirname "$0")/.."
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/merge-metadata.sh OUT_DIR" >&2
+  echo "usage: $0 OUT_DIR" >&2
   exit 2
 fi
 out=$1
 
-if ! command -v msgfmt >/dev/null; then
-  echo "error: needs msgfmt (GNU gettext)" >&2
-  exit 1
-fi
+require_hint msgfmt "GNU gettext"
 
 mkdir -p "$out"
 for template in data/*.desktop.in; do

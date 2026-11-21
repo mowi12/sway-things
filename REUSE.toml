@@ -10,6 +10,7 @@ path = [
   "Cargo.lock",
   "fuzz/Cargo.lock",
   "tools/requirements.*",
+  "tools/binaries.txt",
   ".gitignore",
   ".gitattributes",
   ".editorconfig",

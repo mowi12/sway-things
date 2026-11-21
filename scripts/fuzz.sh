@@ -23,6 +23,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 usage() {
   echo "usage: $0 lint | run [SECONDS] | minimize | reproduce FILE | triage DIR | report DIR [--dry-run]" >&2
   exit 2
@@ -41,12 +45,7 @@ readonly title_suffix="in the sway config parser"
 readonly title_pattern="^Fuzzer: [A-Za-z0-9 _./:-]+ $title_suffix\$"
 
 need() {
-  for tool in "$@"; do
-    if ! command -v "$tool" >/dev/null; then
-      echo "error: needs $tool" >&2
-      exit 1
-    fi
-  done
+  require "$@"
 }
 
 # What cargo fuzz needs to build the target: no sanitizer, and the target of the Rust toolchain (cargo-fuzz's release

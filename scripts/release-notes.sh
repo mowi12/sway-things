@@ -15,8 +15,12 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/release-notes.sh TAG" >&2
+  echo "usage: $0 TAG" >&2
   exit 2
 fi
 tag=$1

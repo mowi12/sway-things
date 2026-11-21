@@ -5,11 +5,17 @@
 # Runs all tests of the workspace (unit, integration and doc tests) with the current toolchain. CI runs it on the MSRV
 # and on stable.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-tests.sh
 #
 # Needs cargo.
 
 set -euo pipefail
+
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
 
 cd "$(dirname "$0")/.."
 

@@ -5,7 +5,10 @@
 # Checks the packaging files against the code, without building anything:
 #
 # - The version of [workspace.package] in Cargo.toml is the Version of both RPM specs, the version in the header of
-#   the man page data/man/sway-things.1, and the newest <release> of the AppStream metainfo, once it has one.
+#   the man page data/man/sway-things.1, the newest section of CHANGELOG.md and the newest <release> of the AppStream
+#   metainfo, once it has one.
+# - The MSRV, rust-version of [workspace.package], is the oldest toolchain the tests run on (ci.yml), the rustc that
+#   packaging/debian/control and the cargo that the openSUSE spec require, and the Rust the README asks for.
 # - The License of both specs names exactly the license expressions of the crates linked into the binaries (cargo
 #   tree as Fedora's %cargo_license_summary runs it: no build, dev or proc-macro dependencies, every target) and
 #   CC0-1.0 of the metainfo. The SourceLicense of the Fedora spec names exactly those of every crate in the tarball's
@@ -14,18 +17,21 @@
 # In the specs, License and SourceLicense are written as %{shrink:…} with one expression per line, joined by AND; an
 # expression with more than one license is put in parentheses.
 #
+# Check level: host (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-packaging.sh
 #
 # Needs cargo (with the network, unless the crates are already downloaded).
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v cargo >/dev/null; then
-  echo "error: needs cargo" >&2
-  exit 1
-fi
+require cargo
 
 opensuse=packaging/rpm/opensuse/sway-things.spec
 fedora=packaging/rpm/fedora/sway-things.spec
@@ -60,6 +66,21 @@ metainfo=data/io.github.mowi12.SwayThings.metainfo.xml.in
 if grep -q '<release ' "$metainfo"; then
   check_version "$metainfo" "$(grep -o -m 1 '<release [^>]*version="[^"]*"' "$metainfo" | sed 's/.*version="//; s/"$//')"
 fi
+check_version CHANGELOG.md "$(sed -n 's/^## \([0-9][^ ]*\) (.*/\1/p' CHANGELOG.md | head -n 1)"
+
+# The MSRV.
+msrv=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+check_msrv() {
+  local file=$1 found=$2
+  if [[ $found != "$msrv" ]]; then
+    echo "error: $file has the MSRV ${found:-(none)}, Cargo.toml has $msrv" >&2
+    status=1
+  fi
+}
+check_msrv .github/workflows/ci.yml "$(sed -n 's/^ *toolchain: \["\([^"]*\)", stable\]$/\1/p' .github/workflows/ci.yml)"
+check_msrv packaging/debian/control "$(sed -n 's/^ *rustc (>= \([^)]*\)),$/\1/p' packaging/debian/control)"
+check_msrv "$opensuse" "$(sed -n 's/^BuildRequires: *cargo >= //p' "$opensuse")"
+check_msrv README.md "$(sed -n 's/^You need Rust \([0-9.]*\) or newer.*/\1/p' README.md)"
 
 # The license expressions cargo tree prints with these arguments, one per line, in the form of the specs.
 licenses() {

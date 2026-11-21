@@ -27,14 +27,7 @@ jobs:
       - name: Install dprint
         env:
           GH_TOKEN: ${{ github.token }}
-          DPRINT_VERSION: 0.64.3
-          DPRINT_SHA256: f71cb7e22d6776439eba168d5cb296092d6413fea7148fe4d70684a2702a4fee
-        run: |
-          gh release download "$DPRINT_VERSION" --repo dprint/dprint \
-            --pattern dprint-x86_64-unknown-linux-gnu.zip --output "$RUNNER_TEMP/dprint.zip"
-          echo "$DPRINT_SHA256  $RUNNER_TEMP/dprint.zip" | sha256sum --check --quiet
-          unzip -q "$RUNNER_TEMP/dprint.zip" -d "$RUNNER_TEMP/dprint"
-          echo "$RUNNER_TEMP/dprint" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh dprint
       - name: Check Formatting
         run: scripts/check-fmt.sh
 
@@ -93,17 +86,11 @@ jobs:
       - name: Install actionlint
         env:
           GH_TOKEN: ${{ github.token }}
-          ACTIONLINT_VERSION: 1.7.12
-          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-        run: |
-          gh release download "v$ACTIONLINT_VERSION" --repo rhysd/actionlint \
-            --pattern "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" --output "$RUNNER_TEMP/actionlint.tar.gz"
-          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/actionlint"
-          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
-          echo "$RUNNER_TEMP/actionlint" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh actionlint
       - name: Lint Workflows
         run: scripts/check-workflows.sh
+      - name: Check Container Images
+        run: scripts/check-images.sh
 
   shell:
     name: Lint Shell Scripts
@@ -178,15 +165,7 @@ jobs:
       - name: Install typos
         env:
           GH_TOKEN: ${{ github.token }}
-          TYPOS_VERSION: 1.51.1
-          TYPOS_SHA256: 93c301fd4120ff076e2cc2a6d6a61cab4a4bdb81899287c0938b452e56d1f454
-        run: |
-          gh release download "v$TYPOS_VERSION" --repo crate-ci/typos \
-            --pattern "typos-v$TYPOS_VERSION-x86_64-unknown-linux-musl.tar.gz" --output "$RUNNER_TEMP/typos.tar.gz"
-          echo "$TYPOS_SHA256  $RUNNER_TEMP/typos.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/typos"
-          tar -xzf "$RUNNER_TEMP/typos.tar.gz" -C "$RUNNER_TEMP/typos" ./typos
-          echo "$RUNNER_TEMP/typos" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh typos
       - name: Check Spelling
         run: scripts/check-spelling.sh
 
@@ -221,16 +200,7 @@ jobs:
       - name: Install lychee
         env:
           GH_TOKEN: ${{ github.token }}
-          LYCHEE_VERSION: 0.24.2
-          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
-        run: |
-          gh release download "lychee-v$LYCHEE_VERSION" --repo lycheeverse/lychee \
-            --pattern lychee-x86_64-unknown-linux-gnu.tar.gz --output "$RUNNER_TEMP/lychee.tar.gz"
-          echo "$LYCHEE_SHA256  $RUNNER_TEMP/lychee.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/lychee"
-          tar -xzf "$RUNNER_TEMP/lychee.tar.gz" -C "$RUNNER_TEMP/lychee" --strip-components 1 \
-            lychee-x86_64-unknown-linux-gnu/lychee
-          echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh lychee
       - name: Check Links
         run: scripts/check-links.sh
 
@@ -255,16 +225,7 @@ jobs:
       - name: Install lychee
         env:
           GH_TOKEN: ${{ github.token }}
-          LYCHEE_VERSION: 0.24.2
-          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
-        run: |
-          gh release download "lychee-v$LYCHEE_VERSION" --repo lycheeverse/lychee \
-            --pattern lychee-x86_64-unknown-linux-gnu.tar.gz --output "$RUNNER_TEMP/lychee.tar.gz"
-          echo "$LYCHEE_SHA256  $RUNNER_TEMP/lychee.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/lychee"
-          tar -xzf "$RUNNER_TEMP/lychee.tar.gz" -C "$RUNNER_TEMP/lychee" --strip-components 1 \
-            lychee-x86_64-unknown-linux-gnu/lychee
-          echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh lychee
       - name: Check npm Licenses
         run: scripts/check-npm-licenses.sh
       - name: Check Website
@@ -288,17 +249,7 @@ jobs:
       - name: Install cargo-deny
         env:
           GH_TOKEN: ${{ github.token }}
-          CARGO_DENY_VERSION: 0.20.2
-          CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
-        run: |
-          gh release download "$CARGO_DENY_VERSION" --repo EmbarkStudios/cargo-deny \
-            --pattern "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl.tar.gz" \
-            --output "$RUNNER_TEMP/cargo-deny.tar.gz"
-          echo "$CARGO_DENY_SHA256  $RUNNER_TEMP/cargo-deny.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/cargo-deny"
-          tar -xzf "$RUNNER_TEMP/cargo-deny.tar.gz" -C "$RUNNER_TEMP/cargo-deny" --strip-components 1 \
-            "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl/cargo-deny"
-          echo "$RUNNER_TEMP/cargo-deny" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh cargo-deny
       - name: Check Dependencies
         run: scripts/check-deps.sh
 
@@ -376,29 +327,11 @@ jobs:
       - name: Install cargo-fuzz
         env:
           GH_TOKEN: ${{ github.token }}
-          CARGO_FUZZ_VERSION: 0.13.2
-          CARGO_FUZZ_SHA256: b5b704018b63e0f151c17a057ac53b5111e1db545d1b9f72fee79f08a545931c
-        run: |
-          gh release download "$CARGO_FUZZ_VERSION" --repo rust-fuzz/cargo-fuzz \
-            --pattern "cargo-fuzz-$CARGO_FUZZ_VERSION-x86_64-unknown-linux-musl.tar.gz" --output "$RUNNER_TEMP/cargo-fuzz.tar.gz"
-          echo "$CARGO_FUZZ_SHA256  $RUNNER_TEMP/cargo-fuzz.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/cargo-fuzz"
-          tar -xzf "$RUNNER_TEMP/cargo-fuzz.tar.gz" -C "$RUNNER_TEMP/cargo-fuzz" cargo-fuzz
-          echo "$RUNNER_TEMP/cargo-fuzz" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh cargo-fuzz
       - name: Install cargo-deny
         env:
           GH_TOKEN: ${{ github.token }}
-          CARGO_DENY_VERSION: 0.20.2
-          CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
-        run: |
-          gh release download "$CARGO_DENY_VERSION" --repo EmbarkStudios/cargo-deny \
-            --pattern "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl.tar.gz" \
-            --output "$RUNNER_TEMP/cargo-deny.tar.gz"
-          echo "$CARGO_DENY_SHA256  $RUNNER_TEMP/cargo-deny.tar.gz" | sha256sum --check --quiet
-          mkdir "$RUNNER_TEMP/cargo-deny"
-          tar -xzf "$RUNNER_TEMP/cargo-deny.tar.gz" -C "$RUNNER_TEMP/cargo-deny" --strip-components 1 \
-            "cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl/cargo-deny"
-          echo "$RUNNER_TEMP/cargo-deny" >> "$GITHUB_PATH"
+        run: scripts/install-tool.sh cargo-deny
       - name: Lint Fuzz Crate
         run: scripts/fuzz.sh lint
       - name: Fuzz Config Parser

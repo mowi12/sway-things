@@ -111,9 +111,11 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md).
 
 10. **Pin GitHub Actions to a full commit SHA**, with the version as a comment:
     `uses: actions/checkout@<40-character SHA> # v7.0.1`. Tags can be moved; a SHA can't. Dependabot keeps the pins
-    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum; packages
-    from Ubuntu's or Debian's signed repositories need no pin; container images are pinned to a digest. Give every
-    workflow job only the `permissions` it needs. Workflow, job and step names use Title Case (`Preview Label Changes`).
+    current. Tools a workflow downloads are pinned to a version and verified against their SHA-256 checksum, written
+    once in `tools/binaries.txt` and installed by `scripts/install-tool.sh`; packages from Ubuntu's or Debian's signed
+    repositories need no pin; container images are pinned to a digest. Give every workflow job only the `permissions` it
+    needs. Workflow, job and step names use Title Case (`Preview Label Changes`); tool names keep their own spelling
+    (`Install cargo-deny`).
 
 ## Checks
 
@@ -122,18 +124,27 @@ runs and CI can't drift. CI calls the scripts directly; the `justfile` just wrap
 hooks. Run checks yourself before pushing:
 
 ```sh
-just test               # run the tests of the workspace
+just test               # run the tests of the workspace (the ones that need sway are skipped)
 just lint               # run the fast offline checks: no tests, no sway, no network
-just check              # run every check, like CI
+just check              # run every check that is safe on this machine: offline, never starts sway
+just check-all          # run every check, like CI: also network and containers (sway runs only in containers)
+just checks             # list every check with its level
 scripts/check-fmt.sh    # or run a single check directly
 just fmt                # format Rust, Markdown, TOML, YAML and JSON
 ```
 
-`just` without a recipe lists every development command.
+`just` without a recipe lists every development command. Each check script names its level (`lint`, `host`, `network` or
+`container`) in its header, and `scripts/run-checks.sh` runs the checks of a level. The tests against a real sway run
+only in containers: `scripts/check-integration.sh` builds and runs every one of `ci/containers/`; `--host` would start
+the sway on `PATH` instead and is only for the containers themselves.
+
+Every script prints its header with `-h` or `--help` and refuses arguments it doesn't know. The helpers they share
+(`require`, `container_engine`, `repo_files`, the help) are in `scripts/lib.sh`, which each script sources.
 
 Each script names the tools it needs in its header. Tools from npm and PyPI are pinned with hashes in `tools/`:
 `npm ci --prefix tools` installs the npm ones where the scripts find them; install the PyPI ones into a virtual
-environment with `pip install --require-hashes -r tools/requirements.txt`.
+environment with `pip install --require-hashes -r tools/requirements.txt`. `scripts/install-tool.sh NAME…` installs the
+tools of `tools/binaries.txt` from their GitHub releases (into `target/tools`, unless `--dir` says otherwise).
 
 | Check | Tools |
 | --- | --- |
@@ -144,13 +155,14 @@ environment with `pip install --require-hashes -r tools/requirements.txt`.
 | Translation template | `xgettext` ≥ 0.24 (GNU gettext): `po/sway-things.pot` holds exactly the strings marked with `msg!` and those of `data/*.in` |
 | Links | `lychee --offline` (relative links + anchors); external links weekly, dead ones open a Docs issue |
 | Licensing | `reuse lint` |
+| Container images | every image is pinned to a digest, the same one everywhere an image:tag appears, and the workflows' images are in `ci/images/Dockerfile`, where Dependabot updates them (`scripts/check-images.sh`) |
 | Dependencies | `cargo deny check` (advisories, GPL-compatible licenses, sources) |
 | npm licenses | `license-checker-rseidelsohn`: the packages of `website/` and `tools/` against the allow list of `deny.toml`, with a few reasoned exceptions for build-only packages (`scripts/check-npm-licenses.sh`) |
 | Website | `scripts/check-website.sh`: the unit tests of `website/src/lib/`, builds the site, then `html-validate` and `lychee --offline` on the built pages and checks the served install script; `scripts/check-website-performance.sh`: Lighthouse on every page, as a phone and as a desktop (performance ≥ 95, accessibility, best practices and SEO 100) |
 | Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Install script | `scripts/check-install-from-obs.sh`: dry runs of `scripts/install-from-obs.sh` (served at sway-things.org/install) under dash, bash and busybox `sh` in a clean container, for every supported system and some unsupported ones, and the signing key's fingerprint as the script computes it; with `--container all` (in the Packages workflow), a real install, update and uninstall from the published OBS repository on every distribution |
-| Packaging | the version in `Cargo.toml`, both RPM specs and the man pages agree; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates (`scripts/check-packaging.sh`) |
+| Packaging | the version in `Cargo.toml`, both RPM specs, the man pages, the newest `CHANGELOG.md` section and the metainfo agree, and so does the MSRV in `Cargo.toml`, the CI test matrix, the Debian and openSUSE build requirements and the README; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates (`scripts/check-packaging.sh`) |
 | Packages | not a pull request check: on every push to `main`, weekly and for a release, the reproducible tarball (`scripts/make-tarball.sh --check`) and the openSUSE Tumbleweed, Fedora, Debian 13 and Ubuntu 26.04 packages built from it offline in containers (`ci/packages/`), with `rpmlint` or `lintian` and an install test; locally `scripts/build-packages.sh --container all`. Also the install script against the published packages (`scripts/check-install-from-obs.sh --container all`) |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |

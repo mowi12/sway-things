@@ -14,14 +14,15 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 if [[ -z ${OBS_TOKEN:-} ]]; then
   echo "error: needs the token in OBS_TOKEN" >&2
   exit 1
 fi
-if ! command -v curl >/dev/null; then
-  echo "error: needs curl" >&2
-  exit 1
-fi
+require curl
 
 printf 'Authorization: Token %s\n' "$OBS_TOKEN" |
   curl --silent --show-error --fail-with-body --retry 3 --header @- --request POST \

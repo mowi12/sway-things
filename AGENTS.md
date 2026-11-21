@@ -46,13 +46,16 @@ Prefer the wiki and existing docs over restating them. If you summarize, keep it
 │   └── aur/         # PKGBUILD and .SRCINFO of the AUR packages, copied to the AUR by hand
 ├── ci/              # containers (sway 1.10, sway latest, SwayFX; each builds the IPC tests) and sample configs;
 │                    #   packages/: one container per distribution package (scripts/build-packages.sh);
+│                    #   images/: the images used outside a Dockerfile, for Dependabot;
 │                    #   install/: the OBS signing key, a fixture of scripts/check-install-from-obs.sh
-├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; helpers like
+├── scripts/         # one script per check (check-fmt.sh, …), the ONLY place a check command lives; run-checks.sh runs
+│                    #   them by level, lib.sh holds the shared shell helpers; helpers like
 │                    #   sync-labels.sh, update-pot.sh, update-cli-docs.sh, make-tarball.sh, debian-copyright.sh,
 │                    #   build-packages.sh, build-website.sh, install-from-obs.sh (served at sway-things.org/install),
 │                    #   and for releases bump-version.sh, verify-release.sh, release-notes.sh, trigger-obs.sh and
 │                    #   update-website-screenshots.sh
-├── tools/           # hash-locked versions of the check tools installed with pip or npm
+├── tools/           # hash-locked versions of the check tools installed with pip or npm; binaries.txt: the ones CI
+│                    #   downloads from GitHub releases (scripts/install-tool.sh)
 ├── wiki/            # canonical developer docs, published to the GitHub wiki by CI
 ├── LICENSES/        # REUSE license texts
 ├── .github/
@@ -100,7 +103,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Every source file (`.rs`, scripts) starts with the REUSE SPDX header
   (`SPDX-FileCopyrightText: 2026 Sway Things contributors`, `SPDX-License-Identifier: GPL-3.0-or-later`). Everything
   else is covered by `REUSE.toml`; add a pattern there for a new file type without a header.
-- Before finishing a change, run `just fmt` and `just check` (or the relevant `scripts/check-*.sh`).
+- Before finishing a change, run `just fmt` and `just check` (or the relevant `scripts/check-*.sh`). `just check` never
+  starts sway; the sway tests run only in containers (`just check-all` or `scripts/check-integration.sh`).
 - Docs: update `wiki/` in the same change, so the docs always describe the current state.
 - After changing the CLI's commands, arguments or help texts, or the GUI's argument, run `scripts/update-cli-docs.sh`
   and commit the regenerated `data/man/` and `data/completions/`.
@@ -115,7 +119,8 @@ Never break these, even if a task seems to ask for it. Ask instead.
 - Workflows: pin every action to a full commit SHA with a version comment (`@<sha> # v7.0.1`), set `permissions: {}` at
   the top and grant each job only what it needs. Downloaded tools are pinned to a version and verified against their
   SHA-256 checksum; packages from Ubuntu's or Debian's signed repositories need no pin; container images are pinned to a
-  digest. Every workflow, job and step `name` is in Title Case (`Preview Label Changes`, `Check Out Repository`).
+  digest. Every workflow, job and step `name` is in Title Case (`Preview Label Changes`, `Check Out Repository`); tool
+  names keep their own spelling (`Install cargo-deny`).
 - Labels: edit `.github/labels.yml`, never labels on github.com (the sync deletes unknown labels).
 - Issues: the issue type (Bug, Feature, Maintenance, Docs, Security) says what sort of work it is and the Effort field
   (Easy, Medium, Hard) how big it is. Neither is a label, and titles carry no `[Type]:` prefix.

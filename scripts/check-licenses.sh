@@ -5,17 +5,20 @@
 # Checks that every file declares its copyright and license, following the REUSE specification (SPDX headers and
 # REUSE.toml).
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-licenses.sh
 #
 # Needs reuse (https://reuse.software/).
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v reuse >/dev/null; then
-  echo "error: needs reuse" >&2
-  exit 1
-fi
+require reuse
 
 reuse lint

@@ -12,7 +12,7 @@ RUN pacman -Syu --noconfirm sway rust gcc gtk4 gtk4-layer-shell libpulse pkgconf
   && useradd --create-home tester \
   && install -d -o tester /work
 
-COPY --chown=tester scripts/check-integration.sh /work/scripts/
+COPY --chown=tester scripts/check-integration.sh scripts/lib.sh /work/scripts/
 COPY --chown=tester ci/integration/ /work/ci/integration/
 COPY --chown=tester Cargo.toml Cargo.lock /work/
 COPY --chown=tester crates/ /work/crates/
@@ -22,4 +22,4 @@ USER tester
 WORKDIR /work
 # The tests that need sway are built on the system they run on.
 RUN scripts/check-integration.sh --build
-CMD ["scripts/check-integration.sh"]
+CMD ["scripts/check-integration.sh", "--host"]

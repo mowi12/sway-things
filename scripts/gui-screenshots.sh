@@ -12,14 +12,19 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+if (($# > 1)); then
+  echo "usage: $0 [DIR]" >&2
+  exit 2
+fi
+
 cd "$(dirname "$0")/.."
 
 directory=$(realpath -m "${1:-target/screenshots}")
 
-if ! command -v gtk4-broadwayd >/dev/null; then
-  echo "error: needs gtk4-broadwayd" >&2
-  exit 1
-fi
+require gtk4-broadwayd
 
 runtime=$(mktemp -d)
 chmod 700 "$runtime"

@@ -5,18 +5,21 @@
 # Checks that the gettext template po/sway-things.pot holds exactly the strings marked with msg!("…"), as
 # scripts/update-pot.sh extracts them. The creation date doesn't count.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-pot.sh
 #
 # Needs xgettext 0.24 or newer (GNU gettext), the first version that reads Rust, and diff (GNU diffutils).
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v diff >/dev/null; then
-  echo "error: needs diff (GNU diffutils)" >&2
-  exit 1
-fi
+require_hint diff "GNU diffutils"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT

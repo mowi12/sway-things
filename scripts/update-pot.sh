@@ -12,14 +12,19 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+if (($# > 1)); then
+  echo "usage: $0 [OUTPUT]" >&2
+  exit 2
+fi
+
 cd "$(dirname "$0")/.."
 
 output=${1:-po/sway-things.pot}
 
-if ! command -v xgettext >/dev/null; then
-  echo "error: needs xgettext 0.24 or newer (GNU gettext)" >&2
-  exit 1
-fi
+require_hint xgettext "0.24 or newer, GNU gettext"
 version=$(xgettext --version | head -n 1 | awk '{print $NF}')
 if [[ $(printf '%s\n' 0.24 "$version" | sort -V | head -n 1) != 0.24 ]]; then
   echo "error: needs xgettext 0.24 or newer (GNU gettext) to read Rust, found $version" >&2

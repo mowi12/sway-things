@@ -19,17 +19,16 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 if [[ $# -ne 1 || ! -d $1/vendor ]]; then
-  echo "usage: scripts/debian-copyright.sh TREE (an unpacked tarball of scripts/make-tarball.sh)" >&2
+  echo "usage: $0 TREE (an unpacked tarball of scripts/make-tarball.sh)" >&2
   exit 2
 fi
 tree=$1
-for tool in cargo jq; do
-  if ! command -v "$tool" >/dev/null; then
-    echo "error: needs $tool" >&2
-    exit 1
-  fi
-done
+require cargo jq
 
 own_copyright="2026 Sway Things contributors"
 own_license=GPL-3.0-or-later

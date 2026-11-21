@@ -16,38 +16,34 @@
 # --version` must run, a second run must keep the repository, and --uninstall must remove the package, the repository
 # and the key. Run by .github/workflows/packages.yml, since it needs the network and the published packages.
 #
+# Check level: container (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-install-from-obs.sh [--container NAME|all]
 #
 # Needs docker or podman (CONTAINER_ENGINE overrides the choice).
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 cd "$(dirname "$0")/.."
 
 script=scripts/install-from-obs.sh
 fingerprint=$(sed -n 's/^KEY_FINGERPRINT=//p' "$script")
 
-engine=${CONTAINER_ENGINE:-}
-if [[ -z $engine ]]; then
-  for candidate in docker podman; do
-    if command -v "$candidate" >/dev/null; then
-      engine=$candidate
-      break
-    fi
-  done
-fi
-[[ -n $engine ]] || {
-  echo "error: needs docker or podman" >&2
-  exit 1
-}
+engine=$(container_engine)
 
-# Clean images of the distributions, pinned to a digest. The Fedora image is the newest release with packages on OBS.
-declare -A images=(
-  [opensuse-tumbleweed]=opensuse/tumbleweed@sha256:dc714bafa362b1aa58a6fd2fcea9c2469255c1fb8f4433e943e44fd61195c09c
-  [fedora]=fedora:44@sha256:15da97ed9aa94dd3d92c3925eb89520f6c80e07ea7ee24cba848d1f8b6912b3e
-  [debian-13]=debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
-  [ubuntu-26.04]=ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
-)
+# Clean images of the distributions, pinned to a digest in ci/images/Dockerfile, where Dependabot updates them.
+declare -A images=()
+for name in opensuse-tumbleweed fedora debian-13 ubuntu-26.04; do
+  images[$name]=$(sed -n "s/^FROM \([^ ]*\) AS $name\$/\1/p" ci/images/Dockerfile)
+  if [[ -z ${images[$name]} ]]; then
+    echo "error: ci/images/Dockerfile has no image $name" >&2
+    exit 1
+  fi
+done
 
 # Inside the offline container: one dry run per system and shell. EXPECTED is the pinned fingerprint.
 # shellcheck disable=SC2153 # EXPECTED comes from the container's environment

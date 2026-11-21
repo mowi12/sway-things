@@ -4,27 +4,31 @@
 #
 # Lints all shell scripts and the PKGBUILDs with shellcheck.
 #
+# Check level: lint (see scripts/run-checks.sh)
+#
 # Usage: scripts/check-shell.sh
 #
 # Needs shellcheck (https://www.shellcheck.net/).
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+no_arguments "$@"
+
 cd "$(dirname "$0")/.."
 
-if ! command -v shellcheck >/dev/null; then
-  echo "error: needs shellcheck" >&2
-  exit 1
-fi
+require shellcheck
 
 # Tracked and new files, but none that git ignores.
-mapfile -t files < <(git ls-files --cached --others --exclude-standard -- '*.sh')
-shellcheck "${files[@]}"
+mapfile -t files < <(repo_files '*.sh')
+# --external-sources follows the scripts that source scripts/lib.sh into it.
+shellcheck --external-sources "${files[@]}"
 
 # A PKGBUILD has no shebang and is sourced by makepkg, which reads its variables, sets pkgdir and srcdir, and runs each
 # function with errexit, so a failed cd stops the build: SC2034 (unused variable), SC2154 (pkgdir not assigned) and
 # SC2164 (cd without || exit) don't apply.
-mapfile -t pkgbuilds < <(git ls-files --cached --others --exclude-standard -- '*/PKGBUILD')
+mapfile -t pkgbuilds < <(repo_files '*/PKGBUILD')
 if ((${#pkgbuilds[@]})); then
   shellcheck --shell=bash --exclude=SC2034,SC2154,SC2164 "${pkgbuilds[@]}"
 fi

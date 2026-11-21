@@ -16,6 +16,10 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
+source "$(dirname "$0")/lib.sh"
+help_option "$@"
+
 cd "$(dirname "$0")/.."
 
 uninstall=false
@@ -23,7 +27,7 @@ case ${1:-} in
   "") ;;
   --uninstall) uninstall=true ;;
   *)
-    echo "usage: scripts/install.sh [--uninstall]" >&2
+    echo "usage: $0 [--uninstall]" >&2
     exit 2
     ;;
 esac
