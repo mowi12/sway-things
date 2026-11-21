@@ -108,10 +108,10 @@ impl GeneratedWindow {
         content.append(&imp.stack);
         self.set_child(Some(&content));
 
-        let files = model.generated().unwrap_or_default();
+        let files = model.generated_files().unwrap_or_default();
         let views: Vec<FileView> = files
             .iter()
-            .map(|(generated, _)| self.add_file(generated.file()))
+            .map(|generated| self.add_file(generated.file()))
             .collect();
         imp.files.replace(views);
         self.refresh();
@@ -281,11 +281,20 @@ impl GeneratedWindow {
             .map(|view| view.on_disk.clone())
     }
 
-    /// Reads the generated files and the files on disk again and shows them.
+    /// Reads the generated files and the files on disk again and shows them, once the disk has
+    /// been read on a thread of its own.
     pub fn refresh(&self) {
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            async move { window.show_files().await }
+        ));
+    }
+
+    async fn show_files(&self) {
         let imp = self.imp();
         let Some(model) = imp.model.get() else { return };
-        let Some(files) = model.generated() else {
+        let Some(files) = model.generated().await else {
             return;
         };
         let writable = model.status().is_some_and(|status| status.is_active());

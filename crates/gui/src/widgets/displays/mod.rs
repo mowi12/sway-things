@@ -16,16 +16,19 @@
 
 mod canvas;
 mod identify;
+mod kanshi_note;
 mod mirroring;
+mod picker;
 
-use std::cell::{Cell, RefCell};
+use self::kanshi_note::{kanshi_note, kanshi_says};
+pub use self::picker::OutputPicker;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
-use sway_things_core::generate;
-use sway_things_core::outputs::{kanshi, modes};
+use sway_things_core::outputs::modes;
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
@@ -228,7 +231,7 @@ impl Arrangement {
     }
 
     /// Shows the outputs of `model`.
-    fn update(&self, model: &Model, outputs: &Outputs, picker: &OutputPicker) {
+    pub(super) fn update(&self, model: &Model, outputs: &Outputs, picker: &OutputPicker) {
         let on = outputs
             .enabled()
             .filter(|output| output.rect().is_some())
@@ -358,192 +361,9 @@ fn shown_numbers(canvas: &Canvas) -> Vec<(String, usize, String)> {
         .collect()
 }
 
-/// Picks the output the rows are for: every output at once, or one of them.
-#[derive(Debug, Clone)]
-pub struct OutputPicker {
-    root: gtk::Box,
-    dropdown: gtk::DropDown,
-    labels: gtk::StringList,
-    /// The output of each entry after the first, which is every output.
-    identifiers: Rc<RefCell<Vec<String>>>,
-    /// Set while the list is rebuilt, so that isn't taken as the user's choice.
-    updating: Rc<std::cell::Cell<bool>>,
-}
-
-impl Default for OutputPicker {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl OutputPicker {
-    /// A picker with only "All displays".
-    pub fn new() -> Self {
-        let title = gtk::Label::new(Some(tr(msg!("Settings for"))));
-        title.set_xalign(0.0);
-        title.set_hexpand(true);
-        title.set_wrap(true);
-        title.add_css_class("st-row-title");
-        let labels = gtk::StringList::new(&[tr(ALL_DISPLAYS)]);
-        let dropdown = gtk::DropDown::new(Some(labels.clone()), gtk::Expression::NONE);
-        dropdown.set_valign(gtk::Align::Center);
-        dropdown.update_property(&[gtk::accessible::Property::Label(tr(msg!("Settings for")))]);
-        let root = gtk::Box::new(gtk::Orientation::Horizontal, 24);
-        root.append(&title);
-        root.append(&dropdown);
-        Self {
-            root,
-            dropdown,
-            labels,
-            identifiers: Rc::new(RefCell::new(Vec::new())),
-            updating: Rc::new(std::cell::Cell::new(false)),
-        }
-    }
-
-    /// The widget to show.
-    pub fn widget(&self) -> &gtk::Box {
-        &self.root
-    }
-
-    /// The drop-down.
-    pub fn dropdown(&self) -> &gtk::DropDown {
-        &self.dropdown
-    }
-
-    /// What the drop-down offers, in order: every output first.
-    pub fn labels(&self) -> Vec<String> {
-        (0..self.labels.n_items())
-            .filter_map(|index| self.labels.string(index))
-            .map(String::from)
-            .collect()
-    }
-
-    /// The output picked, or `None` for every output.
-    pub fn selected(&self) -> Option<String> {
-        let index = usize::try_from(self.dropdown.selected()).ok()?;
-        self.identifiers
-            .borrow()
-            .get(index.checked_sub(1)?)
-            .cloned()
-    }
-
-    /// Picks the output `identifier`, or with `None` every output, without telling.
-    pub fn select(&self, identifier: Option<&str>) {
-        let index = match identifier {
-            Some(identifier) => self
-                .identifiers
-                .borrow()
-                .iter()
-                .position(|known| known == identifier)
-                .map_or(0, |index| index + 1),
-            None => 0,
-        };
-        if let Ok(index) = u32::try_from(index) {
-            self.updating.set(true);
-            self.dropdown.set_selected(index);
-            self.updating.set(false);
-        }
-    }
-
-    /// The number of the output `identifier`, as the canvas and the picker show it: its place
-    /// among the connected outputs, counting from 1.
-    pub fn number(&self, identifier: &str) -> Option<usize> {
-        self.identifiers
-            .borrow()
-            .iter()
-            .position(|known| known == identifier)
-            .map(|index| index + 1)
-    }
-
-    /// Lists the outputs of `outputs`; the output picked stays picked while it is listed.
-    fn update(&self, outputs: &Outputs) {
-        let picked = self.selected();
-        let entries: Vec<(String, String)> = outputs
-            .iter()
-            .enumerate()
-            .map(|(index, output)| (output.identifier().to_owned(), entry(index + 1, output)))
-            .collect();
-        let same = {
-            let identifiers = self.identifiers.borrow();
-            identifiers.len() == entries.len()
-                && identifiers
-                    .iter()
-                    .zip(&entries)
-                    .all(|(known, (identifier, _))| known == identifier)
-        };
-        let shown: Vec<String> = std::iter::once(tr(ALL_DISPLAYS).to_owned())
-            .chain(entries.iter().map(|(_, label)| label.clone()))
-            .collect();
-        if same && shown == self.labels() {
-            return;
-        }
-        self.updating.set(true);
-        let texts: Vec<&str> = shown.iter().map(String::as_str).collect();
-        self.labels.splice(0, self.labels.n_items(), &texts);
-        self.identifiers.replace(
-            entries
-                .into_iter()
-                .map(|(identifier, _)| identifier)
-                .collect(),
-        );
-        self.updating.set(false);
-        self.select(picked.as_deref());
-    }
-
-    /// Calls `callback` with the output the user picked, or `None` for every output.
-    fn connect_picked<F: Fn(Option<&str>) + 'static>(&self, callback: F) {
-        // Not the picker itself: the drop-down would keep itself alive.
-        let identifiers = Rc::clone(&self.identifiers);
-        let updating = Rc::clone(&self.updating);
-        self.dropdown.connect_selected_notify(move |dropdown| {
-            if updating.get() {
-                return;
-            }
-            let picked = usize::try_from(dropdown.selected())
-                .ok()
-                .and_then(|index| index.checked_sub(1))
-                .and_then(|index| identifiers.borrow().get(index).cloned());
-            callback(picked.as_deref());
-        });
-    }
-
-    /// The picker without keeping its widgets alive, for handlers of other objects.
-    fn downgrade(&self) -> WeakPicker {
-        WeakPicker {
-            root: self.root.downgrade(),
-            dropdown: self.dropdown.downgrade(),
-            labels: self.labels.clone(),
-            identifiers: Rc::clone(&self.identifiers),
-            updating: Rc::clone(&self.updating),
-        }
-    }
-}
-
-/// An [`OutputPicker`] whose widgets may be gone.
-#[derive(Debug)]
-struct WeakPicker {
-    root: glib::WeakRef<gtk::Box>,
-    dropdown: glib::WeakRef<gtk::DropDown>,
-    labels: gtk::StringList,
-    identifiers: Rc<RefCell<Vec<String>>>,
-    updating: Rc<std::cell::Cell<bool>>,
-}
-
-impl WeakPicker {
-    fn upgrade(&self) -> Option<OutputPicker> {
-        Some(OutputPicker {
-            root: self.root.upgrade()?,
-            dropdown: self.dropdown.upgrade()?,
-            labels: self.labels.clone(),
-            identifiers: Rc::clone(&self.identifiers),
-            updating: Rc::clone(&self.updating),
-        })
-    }
-}
-
 impl Arrangement {
     /// The arrangement without keeping its widgets alive, for handlers of other objects.
-    fn downgrade(&self) -> WeakArrangement {
+    pub(super) fn downgrade(&self) -> WeakArrangement {
         WeakArrangement {
             root: self.root.downgrade(),
             canvas: self.canvas.downgrade(),
@@ -559,7 +379,7 @@ impl Arrangement {
 
 /// An [`Arrangement`] whose widgets may be gone.
 #[derive(Debug)]
-struct WeakArrangement {
+pub(super) struct WeakArrangement {
     root: glib::WeakRef<gtk::Box>,
     canvas: glib::WeakRef<Canvas>,
     empty: glib::WeakRef<gtk::Label>,
@@ -571,7 +391,7 @@ struct WeakArrangement {
 }
 
 impl WeakArrangement {
-    fn upgrade(&self) -> Option<Arrangement> {
+    pub(super) fn upgrade(&self) -> Option<Arrangement> {
         Some(Arrangement {
             root: self.root.upgrade()?,
             canvas: self.canvas.upgrade()?,
@@ -582,33 +402,6 @@ impl WeakArrangement {
             identify: self.identify.upgrade()?,
             identifying: Rc::clone(&self.identifying),
         })
-    }
-}
-
-/// The entry of an output in the picker: its number, make and model, and its name or that it
-/// is off or not connected.
-fn entry(number: usize, output: &Output) -> String {
-    let label = output.label();
-    if !output.is_connected() {
-        trf(
-            // TRANSLATORS: A display in the drop-down of displays: its number and name.
-            msg!("{number}  {label} (not connected)"),
-            &[("number", &number), ("label", &label)],
-        )
-    } else if !output.is_enabled() {
-        trf(
-            // TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
-            msg!("{number}  {label} \u{b7} {name} (off)"),
-            &[
-                ("number", &number),
-                ("label", &label),
-                ("name", &output.name()),
-            ],
-        )
-    } else if label == output.name() {
-        format!("{number}  {label}")
-    } else {
-        format!("{number}  {label} \u{b7} {}", output.name())
     }
 }
 
@@ -966,196 +759,6 @@ fn focused(outputs: &Outputs) -> Option<String> {
         .find(|output| output.is_focused())
         .or_else(|| outputs.enabled().next())
         .map(|output| output.identifier().to_owned())
-}
-
-/// The note about kanshi above the canvas, hidden: an icon, what is said with the line to put
-/// in the kanshi config on a line of its own under it, and the button that copies the line and
-/// says so for a moment.
-fn kanshi_note() -> gtk::Box {
-    let note = gtk::Label::new(None);
-    note.set_wrap(true);
-    note.set_xalign(0.0);
-    note.set_hexpand(true);
-    note.set_selectable(true);
-    let copy = gtk::Button::with_label(tr(msg!("Copy Line")));
-    copy.set_valign(gtk::Align::Center);
-    copy.set_visible(false);
-    // Each click says "Copied" for a while; only the latest click's timeout restores the label.
-    let clicks = Rc::new(Cell::new(0_u32));
-    copy.connect_clicked(move |button| {
-        let Some(line) = button.tooltip_text() else {
-            return;
-        };
-        button.clipboard().set_text(&line);
-        button.set_label(tr(msg!("Copied")));
-        let click = clicks.get().wrapping_add(1);
-        clicks.set(click);
-        glib::timeout_add_seconds_local_once(
-            2,
-            glib::clone!(
-                #[weak]
-                button,
-                #[strong]
-                clicks,
-                move || {
-                    if clicks.get() == click {
-                        button.set_label(tr(msg!("Copy Line")));
-                    }
-                }
-            ),
-        );
-    });
-    // The line for the kanshi config, on a line of its own under what it is for.
-    let line = gtk::Label::new(None);
-    line.set_wrap(true);
-    line.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    line.set_xalign(0.0);
-    line.set_selectable(true);
-    line.add_css_class("monospace");
-    line.add_css_class(style::DIM);
-    let said = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    said.set_hexpand(true);
-    said.append(&note);
-    said.append(&line);
-    let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    kanshi.add_css_class("st-display-warning");
-    kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
-    kanshi.append(&said);
-    kanshi.append(&copy);
-    kanshi.set_visible(false);
-    kanshi
-}
-
-/// What the note says (`said`, with whether something is to do about it) with how to do it:
-/// the line to put at the top of the kanshi config, to copy. Sway Things never edits that file
-/// and gives no command for it either.
-fn with_the_way(
-    said: Option<(String, bool)>,
-    look: &crate::model::KanshiLook,
-) -> (Option<String>, Option<String>) {
-    match said {
-        Some((text, true)) => (
-            Some(format!(
-                "{text} {}",
-                tr(msg!(
-                    "Put this line at the top of your kanshi config, above your profiles, and \
-                     take a line further down that includes it away:"
-                ))
-            )),
-            Some(look.include_line.clone()),
-        ),
-        Some((text, false)) => (Some(text), None),
-        None => (None, None),
-    }
-}
-
-/// What the note about kanshi says for the displays `outputs` connected now, the line for the
-/// kanshi config with it, and whether it is a warning. From what the model saw when it last looked:
-/// nothing is read from the machine here.
-fn kanshi_says(model: &Model, outputs: &Outputs) -> (Option<String>, Option<String>, bool) {
-    // What the model saw when it last looked: nothing is read from the machine here.
-    let look = model.kanshi();
-    let displays = model.displays_backend();
-    // A profile of the user's that kanshi applies instead of ours, for these displays.
-    let connected: Vec<&str> = outputs
-        .iter()
-        .filter(|output| output.is_connected())
-        .map(Output::identifier)
-        .collect();
-    let overriding = kanshi::overriding(&look.before_ours, &connected, |criteria| {
-        outputs.find(criteria).map_or_else(
-            || criteria.to_owned(),
-            |output| output.identifier().to_owned(),
-        )
-    });
-    // The line belongs at the very top: any profile above it wins where it matches.
-    let above: Vec<&str> = look
-        .before_ours
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect();
-    let warns = displays.is_kanshi() && !above.is_empty();
-    // Each name in quotes of its own.
-    let quoted = |names: &[&str]| {
-        names
-            .iter()
-            .map(|name| format!("\u{201c}{name}\u{201d}"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    // Someone else's file in the place of ours: nothing set here reaches kanshi.
-    if let Some(file) = &look.foreign {
-        let text = trf(
-            msg!(
-                "Nothing set here is remembered: {file} wasn\u{2019}t made by Sway Things, so \
-                 it is left alone and kanshi never sees the arrangement. Move that file away, \
-                 then change something here."
-            ),
-            &[("file", file)],
-        );
-        return (Some(text), None, true);
-    }
-    let said = match displays {
-        generate::Displays::Kanshi { .. } if warns && overriding.is_empty() => Some((
-            trf(
-                msg!(
-                    "The line of Sway Things isn\u{2019}t at the top of your kanshi config: \
-                     {name} comes before it and wins over the arrangement made here whenever \
-                     its displays are connected."
-                ),
-                &[("name", &quoted(&above))],
-            ),
-            true,
-        )),
-        generate::Displays::Kanshi { .. } if warns => {
-            let names: Vec<&str> = overriding.iter().map(String::as_str).collect();
-            Some((
-                trf(
-                    msg!(
-                        "Changes here don\u{2019}t last: your kanshi profile {name} sets up \
-                         these displays, as it comes before the line of Sway Things in your \
-                         kanshi config."
-                    ),
-                    &[("name", &quoted(&names))],
-                ),
-                true,
-            ))
-        }
-        generate::Displays::Kanshi { start } => {
-            let text = if start && !look.runs {
-                msg!(
-                    "Each combination of displays is remembered: kanshi brings this \
-                     arrangement back whenever these displays are connected together. kanshi \
-                     starts with your next login."
-                )
-            } else {
-                msg!(
-                    "Each combination of displays is remembered: kanshi brings this \
-                     arrangement back whenever these displays are connected together."
-                )
-            };
-            Some((tr(text).to_owned(), false))
-        }
-        generate::Displays::Sway if look.installed && look.include_missing => Some((
-            tr(msg!(
-                "So that each combination of displays is remembered, your kanshi config needs \
-                 the line of Sway Things at its top, above your own profiles."
-            ))
-            .to_owned(),
-            true,
-        )),
-        generate::Displays::Sway if !look.installed => Some((
-            tr(msg!(
-                "With kanshi installed, each combination of displays is remembered and comes \
-                 back on its own."
-            ))
-            .to_owned(),
-            false,
-        )),
-        generate::Displays::Sway => None,
-    };
-    let (text, line) = with_the_way(said, &look);
-    (text, line, warns)
 }
 
 #[cfg(test)]

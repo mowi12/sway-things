@@ -866,11 +866,7 @@ impl Window {
                     }
                 });
             }
-            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
-            if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
-                header.set_end(&advanced);
-            }
-            return view;
+            return live_view(page, &body, body.advanced_button());
         }
         // Live state from BlueZ, not settings; only the preference for searching comes from the
         // model.
@@ -884,11 +880,7 @@ impl Window {
                     }
                 });
             }
-            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
-            if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
-                header.set_end(&advanced);
-            }
-            return view;
+            return live_view(page, &body, body.advanced_button());
         }
         // Live state from NetworkManager, likewise.
         if page == Page::Network {
@@ -901,11 +893,7 @@ impl Window {
                     }
                 });
             }
-            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
-            if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
-                header.set_end(&advanced);
-            }
-            return view;
+            return live_view(page, &body, body.advanced_button());
         }
         let Some(model) = self.imp().model.get() else {
             return PageView::unbuilt(page);
@@ -1082,4 +1070,14 @@ fn follow_manual_search(model: &Model, key: &str, apply: impl Fn(bool) + 'static
     };
     update(model);
     model.connect_changed(update);
+}
+
+/// The view of a live page (Bluetooth, Network, Sound): `body` under the page's title, with its
+/// `advanced` button, which starts the specialist tool, at the end of the header.
+fn live_view(page: Page, body: &impl IsA<gtk::Widget>, advanced: Option<gtk::Button>) -> PageView {
+    let view = PageView::new(tr(page.title()), tr(page.description()), body);
+    if let (Some(header), Some(advanced)) = (view.header(), advanced) {
+        header.set_end(&advanced);
+    }
+    view
 }

@@ -314,18 +314,14 @@ pub fn details(parent: Option<&gtk::Window>, title: &str, rows: &[(&str, String)
 
 /// Asks whether to forget the network `name`.
 pub async fn confirm_forget(name: &str, window: Option<&gtk::Window>) -> bool {
-    let dialog = gtk::AlertDialog::builder()
-        // Plain text: the dialog doesn't read markup.
-        .message(trf(msg!("Forget “{network}”?"), &[("network", &name)]))
-        .detail(tr(msg!(
+    crate::widgets::live::confirm_forget(
+        &trf(msg!("Forget “{network}”?"), &[("network", &name)]),
+        tr(msg!(
             "Its password is removed from this computer, and it won't connect by itself any more."
-        )))
-        .buttons([tr(msg!("Cancel")), tr(msg!("Forget"))])
-        .cancel_button(0)
-        .default_button(0)
-        .modal(true)
-        .build();
-    matches!(dialog.choose_future(window).await, Ok(1))
+        )),
+        window,
+    )
+    .await
 }
 
 /// A labeled password field for `security` in `content`, with the hint below; both returned.

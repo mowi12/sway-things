@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Sway Things contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Runs the GUI tests (crates/gui/tests/gui.rs) on a private display and keeps a PNG of the window with every page, in
+# Runs the GUI tests (crates/gui/tests/gui/) on a private display and keeps a PNG of the window with every page, in
 # light and dark. The display is GTK's Broadway backend, so no window opens on the desktop and no compositor is
 # started. CI runs the same tests against a headless sway in scripts/check-integration.sh.
 #

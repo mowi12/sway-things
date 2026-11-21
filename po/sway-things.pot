@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 22:58+0100\n"
+"POT-Creation-Date: 2026-11-20 23:26+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1746,9 +1746,9 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/displays/canvas.rs
-#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+#: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
 msgstr ""
@@ -2698,11 +2698,13 @@ msgid "Flat"
 msgstr ""
 
 #. TRANSLATORS: The security of a Wi-Fi network: none.
+#. TRANSLATORS: How good the signal of a Wi-Fi network is: no signal.
+#. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
 #: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
 #: crates/core/src/registry/output.rs crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
+#: crates/gui/src/widgets/network/text.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
 msgstr ""
 
@@ -3441,7 +3443,7 @@ msgstr ""
 msgid "Fonts"
 msgstr ""
 
-#: crates/core/src/registry/look.rs crates/gui/src/widgets/network/mod.rs
+#: crates/core/src/registry/look.rs crates/gui/src/widgets/network/text.rs
 msgid "Interface"
 msgstr ""
 
@@ -3609,7 +3611,8 @@ msgstr ""
 msgid "90° counterclockwise"
 msgstr ""
 
-#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+#: crates/core/src/registry/output.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
 msgid "Flipped"
 msgstr ""
 
@@ -3617,7 +3620,8 @@ msgstr ""
 msgid "Flipped, 90° clockwise"
 msgstr ""
 
-#: crates/core/src/registry/output.rs crates/gui/src/widgets/displays/canvas.rs
+#: crates/core/src/registry/output.rs
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
 msgid "Flipped, 180°"
 msgstr ""
 
@@ -4829,47 +4833,65 @@ msgstr ""
 msgid "The workspaces weren’t placed: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "{error}. The old value comes back when sway reloads its config."
-msgstr ""
-
-#: crates/gui/src/model.rs
-#, rust-format
-msgid "Sway wasn’t reloaded: {error}."
-msgstr ""
-
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The layout can't be switched: {error}"
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 msgid "The layout can only be switched in a running sway session."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The display wasn’t mirrored: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The other displays weren’t moved along: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The settings of the displays weren’t updated: {error}."
 msgstr ""
 
-#: crates/gui/src/model.rs
+#: crates/gui/src/model/queue.rs
 #, rust-format
 msgid "The displays weren’t reset: {error}."
 msgstr ""
 
+#: crates/gui/src/model/queue.rs
+#, rust-format
+msgid "{error}. The old value comes back when sway reloads its config."
+msgstr ""
+
+#: crates/gui/src/model/queue.rs
+#, rust-format
+msgid "Sway wasn’t reloaded: {error}."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+msgid "Leave it empty to use the adapter's own name."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+#, rust-format
+msgid "Couldn't make the computer visible: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+#, rust-format
+msgid "Couldn't hide the computer: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/actions.rs
+msgid "Leave it empty to use the name the device announces."
+msgstr ""
+
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs crates/gui/src/window.rs
 msgid "Cancel"
@@ -4889,27 +4911,24 @@ msgstr ""
 msgid "The pairing is removed. To use the device again, pair it again."
 msgstr ""
 
-#: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/network/dialogs.rs
-msgid "Forget"
-msgstr ""
-
 #: crates/gui/src/widgets/bluetooth/mod.rs
 msgid "Pairing…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connecting…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Disconnecting…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/actions.rs
 msgid "Forgetting…"
 msgstr ""
 
@@ -4978,11 +4997,13 @@ msgid "Visible to other devices"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
 msgid "Rename…"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "More actions"
 msgstr ""
 
@@ -5007,113 +5028,12 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #, rust-format
-msgid "Visible as “{name}” · {address}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "No paired devices yet. Pick one under Other devices to connect it."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"No other devices found yet. Put the device you want to connect into pairing "
-"mode."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"It's turned off by a hardware switch or key. Use it to turn Bluetooth back "
-"on."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"It's blocked by software, e.g. airplane mode. Turning it on with the switch "
-"above lifts the block."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"Turn it on with the switch above to connect your devices and find new ones."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth is off"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "No Bluetooth adapter"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"Plug in a Bluetooth adapter or turn it on in the firmware settings; this "
-"page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth isn't available"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid ""
-"The Bluetooth service isn't running. Start it with `systemctl start "
-"bluetooth`; this page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Bluetooth can't be read"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Forget…"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Leave it empty to use the adapter's own name."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't make the computer visible: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't hide the computer: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Leave it empty to use the name the device announces."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
 msgid "Couldn't turn Bluetooth on: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #, rust-format
 msgid "Couldn't turn Bluetooth off: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Stop looking for devices"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Look for devices nearby for 30 seconds"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Couldn't look for devices: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-#, rust-format
-msgid "Blueman can't be started: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
@@ -5186,12 +5106,12 @@ msgid "Type this code on “{device}”, then press Enter on it."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connected"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Not connected"
 msgstr ""
 
@@ -5209,13 +5129,13 @@ msgid "{state} · Battery {percent} %"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Disconnect"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/rows.rs
 msgid "Connect"
 msgstr ""
 
@@ -5261,6 +5181,89 @@ msgid_plural "Stays visible for {count} minutes"
 msgstr[0] ""
 msgstr[1] ""
 
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#, rust-format
+msgid "Visible as “{name}” · {address}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "No paired devices yet. Pick one under Other devices to connect it."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"No other devices found yet. Put the device you want to connect into pairing "
+"mode."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"It's turned off by a hardware switch or key. Use it to turn Bluetooth back "
+"on."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"It's blocked by software, e.g. airplane mode. Turning it on with the switch "
+"above lifts the block."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"Turn it on with the switch above to connect your devices and find new ones."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth is off"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "No Bluetooth adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"Plug in a Bluetooth adapter or turn it on in the firmware settings; this "
+"page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth isn't available"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid ""
+"The Bluetooth service isn't running. Start it with `systemctl start "
+"bluetooth`; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Bluetooth can't be read"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Forget…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+msgid "Stop looking for devices"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+msgid "Look for devices nearby for 30 seconds"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+#, rust-format
+msgid "Couldn't look for devices: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/search.rs
+#, rust-format
+msgid "Blueman can't be started: {error}"
+msgstr ""
+
 #: crates/gui/src/widgets/cursor.rs
 msgid "Default"
 msgstr ""
@@ -5280,7 +5283,7 @@ msgid "All screens"
 msgstr ""
 
 #: crates/gui/src/widgets/device_selector.rs
-#: crates/gui/src/widgets/displays/mod.rs
+#: crates/gui/src/widgets/displays/picker.rs
 msgid "Settings for"
 msgstr ""
 
@@ -5373,20 +5376,6 @@ msgstr ""
 msgid "No switch is connected. Its settings show up once one is."
 msgstr ""
 
-#. TRANSLATORS: A display's scale as a percentage, such as 150 %.
-#: crates/gui/src/widgets/displays/canvas.rs
-#, rust-format
-msgid "{percent} %"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/canvas.rs
-msgid "Flipped, 90°"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/canvas.rs
-msgid "Flipped, 270°"
-msgstr ""
-
 #: crates/gui/src/widgets/displays/canvas.rs
 msgid "Arrangement of the displays"
 msgstr ""
@@ -5399,22 +5388,100 @@ msgstr ""
 msgid "Horizontal guide"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/drag.rs
 msgid "Drag to scale"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#. TRANSLATORS: A display's scale as a percentage, such as 150 %.
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+#, rust-format
+msgid "{percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+msgid "Flipped, 90°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/geometry.rs
+msgid "Flipped, 270°"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 msgid "Built-in"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 #, rust-format
 msgid "Display {number}, {label}, off"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/canvas.rs
+#: crates/gui/src/widgets/displays/canvas/labels.rs
 #, rust-format
 msgid "Display {number}, {label}, {details}, at {x}, {y}"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid "Copy Line"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/page_view/about.rs crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Put this line at the top of your kanshi config, above your profiles, and "
+"take a line further down that includes it away:"
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
+"left alone and kanshi never sees the arrangement. Move that file away, then "
+"change something here."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"The line of Sway Things isn’t at the top of your kanshi config: {name} comes "
+"before it and wins over the arrangement made here whenever its displays are "
+"connected."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#, rust-format
+msgid ""
+"Changes here don’t last: your kanshi profile {name} sets up these displays, "
+"as it comes before the line of Sway Things in your kanshi config."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together. kanshi starts with your "
+"next login."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"Each combination of displays is remembered: kanshi brings this arrangement "
+"back whenever these displays are connected together."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"So that each combination of displays is remembered, your kanshi config needs "
+"the line of Sway Things at its top, above your own profiles."
+msgstr ""
+
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+msgid ""
+"With kanshi installed, each combination of displays is remembered and comes "
+"back on its own."
 msgstr ""
 
 #. TRANSLATORS: The title of the row that picks what a display shows: its own content
@@ -5520,18 +5587,6 @@ msgstr ""
 msgid "No display is on."
 msgstr ""
 
-#. TRANSLATORS: A display in the drop-down of displays: its number and name.
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid "{number}  {label} (not connected)"
-msgstr ""
-
-#. TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid "{number}  {label} · {name} (off)"
-msgstr ""
-
 #: crates/gui/src/widgets/displays/mod.rs
 msgid "Any rate"
 msgstr ""
@@ -5540,74 +5595,24 @@ msgstr ""
 msgid "Refresh rate"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/mod.rs
-msgid "Copy Line"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
-#: crates/gui/src/widgets/page_view.rs crates/gui/src/widgets/welcome.rs
-msgid "Copied"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Put this line at the top of your kanshi config, above your profiles, and "
-"take a line further down that includes it away:"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
+#. TRANSLATORS: A display in the drop-down of displays: its number and name.
+#: crates/gui/src/widgets/displays/picker.rs
 #, rust-format
-msgid ""
-"Nothing set here is remembered: {file} wasn’t made by Sway Things, so it is "
-"left alone and kanshi never sees the arrangement. Move that file away, then "
-"change something here."
+msgid "{number}  {label} (not connected)"
 msgstr ""
 
-#: crates/gui/src/widgets/displays/mod.rs
+#. TRANSLATORS: A display in the drop-down of displays: its number, name and connector.
+#: crates/gui/src/widgets/displays/picker.rs
 #, rust-format
-msgid ""
-"The line of Sway Things isn’t at the top of your kanshi config: {name} comes "
-"before it and wins over the arrangement made here whenever its displays are "
-"connected."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-#, rust-format
-msgid ""
-"Changes here don’t last: your kanshi profile {name} sets up these displays, "
-"as it comes before the line of Sway Things in your kanshi config."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Each combination of displays is remembered: kanshi brings this arrangement "
-"back whenever these displays are connected together. kanshi starts with your "
-"next login."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"Each combination of displays is remembered: kanshi brings this arrangement "
-"back whenever these displays are connected together."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"So that each combination of displays is remembered, your kanshi config needs "
-"the line of Sway Things at its top, above your own profiles."
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-msgid ""
-"With kanshi installed, each combination of displays is remembered and comes "
-"back on its own."
+msgid "{number}  {label} · {name} (off)"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
 msgid "Copy contents"
 msgstr ""
 
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/page_view/about.rs
 msgid "Generated config"
 msgstr ""
 
@@ -5745,6 +5750,10 @@ msgstr ""
 msgid "Standard"
 msgstr ""
 
+#: crates/gui/src/widgets/live.rs
+msgid "Forget"
+msgstr ""
+
 #: crates/gui/src/widgets/look.rs
 msgid ""
 "Apps can't read these settings: GSettings has no "
@@ -5764,12 +5773,103 @@ msgid ""
 "desktop-portal-gtk, then log in again."
 msgstr ""
 
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect from “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Connect to “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/prompts.rs
+msgid "Enter the password of the Wi-Fi network."
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect to “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect the cable: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect the cable: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't connect “{vpn}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't disconnect “{vpn}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't forget “{network}”: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "This connection can't be opened in nm-connection-editor"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Signal"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "{quality} ({percent} %)"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Frequency"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/dialogs.rs
+msgid "Security"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/network/rows.rs
+msgid "Wired"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+msgid "Type"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn Wi-Fi on: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn Wi-Fi off: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/actions.rs
+#, rust-format
+msgid "Couldn't turn networking on: {error}"
+msgstr ""
+
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "WPA & WPA2 Personal"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA3 Personal"
 msgstr ""
 
@@ -5787,11 +5887,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "Network name"
-msgstr ""
-
-#: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Security"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
@@ -5838,10 +5933,6 @@ msgid "Other networks"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
-msgid "Wired"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
 msgid "VPN"
 msgstr ""
 
@@ -5869,191 +5960,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
 msgid "The network can't be read"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Networking is turned off"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid ""
-"NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No network adapter"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Plug in a network adapter; this page updates by itself."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connected to “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connecting to “{network}”…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No saved networks yet. Pick one under Other networks to connect to it."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "No other networks found yet."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Wired ({interface})"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Details…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Edit…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Saved"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "needs nm-connection-editor"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Set Up…"
-msgstr ""
-
-#. TRANSLATORS: The button of a network for screen readers: "Connect Home".
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{action} {network}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Not in range"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Cable unplugged"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Couldn't connect"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{speed} Mb/s"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect from “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Connect to “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Enter the password of the Wi-Fi network."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect to “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect the cable: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect the cable: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't connect “{vpn}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't disconnect “{vpn}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't forget “{network}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "This connection can't be opened in nm-connection-editor"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Signal"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "{quality} ({percent} %)"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Frequency"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Type"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn Wi-Fi on: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn Wi-Fi off: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Couldn't turn networking on: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Wrong password for “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "The password didn't work, or it has changed."
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-#, rust-format
-msgid "Password for “{network}”"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Stop waiting for the scan"
-msgstr ""
-
-#: crates/gui/src/widgets/network/mod.rs
-msgid "Look for networks nearby now"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
@@ -6088,91 +5994,201 @@ msgstr ""
 msgid "More actions for {network}"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Wrong password for “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+msgid "The password didn't work, or it has changed."
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Password for “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Networking is turned off"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid ""
+"NetworkManager has networking turned off, for Wi-Fi, cables and VPNs alike."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No network adapter"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Plug in a network adapter; this page updates by itself."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Connected to “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Connecting to “{network}”…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No saved networks yet. Pick one under Other networks to connect to it."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "No other networks found yet."
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "Wired ({interface})"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Details…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Edit…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Saved"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "needs nm-connection-editor"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Set Up…"
+msgstr ""
+
+#. TRANSLATORS: The button of a network for screen readers: "Connect Home".
+#: crates/gui/src/widgets/network/rows.rs
+#, rust-format
+msgid "{action} {network}"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Not in range"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Cable unplugged"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Couldn't connect"
+msgstr ""
+
+#: crates/gui/src/widgets/network/rows.rs
+#: crates/gui/src/widgets/network/text.rs
+#, rust-format
+msgid "{speed} Mb/s"
+msgstr ""
+
+#: crates/gui/src/widgets/network/scan.rs
+msgid "Stop waiting for the scan"
+msgstr ""
+
+#: crates/gui/src/widgets/network/scan.rs
+msgid "Look for networks nearby now"
+msgstr ""
+
+#: crates/gui/src/widgets/network/text.rs
 msgid "Link speed"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Hardware address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "IPv4 address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "IPv6 address"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Gateway"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "DNS"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#. TRANSLATORS: How good the signal of a Wi-Fi network is: the best of four levels.
+#: crates/gui/src/widgets/network/text.rs
 msgid "Excellent"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
+#: crates/gui/src/widgets/network/text.rs
 msgid "Good"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
+#: crates/gui/src/widgets/network/text.rs
 msgid "OK"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#. TRANSLATORS: How good the signal of a Wi-Fi network is.
+#: crates/gui/src/widgets/network/text.rs
 msgid "Weak"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal excellent"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal good"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal ok"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal weak"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Signal none"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Open, not encrypted"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enhanced Open"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WEP, insecure"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enterprise (802.1X)"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "Enhanced Open (OWE)"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA2 Personal"
 msgstr ""
 
-#: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/network/text.rs
 msgid "WPA Enterprise (802.1X)"
 msgstr ""
 
@@ -6204,60 +6220,6 @@ msgid "Test area"
 msgstr ""
 
 #: crates/gui/src/widgets/page_view.rs
-msgid "Website"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Source Code (GitHub)"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Report a Bug"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Copy System Details"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "About"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a version that couldn't be found.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Unknown"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a service that isn't running.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Not running"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that is installed.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Installed"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that isn't installed.
-#: crates/gui/src/widgets/page_view.rs
-msgid "Not installed"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid ""
-"What Sway Things writes for your sway config to include, and which files "
-"were changed outside it"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Show…"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
-msgid "Show generated config"
-msgstr ""
-
-#: crates/gui/src/widgets/page_view.rs
 msgid ""
 "Sway Things no longer sets it: your config or sway’s defaults decide again."
 msgid_plural ""
@@ -6286,6 +6248,60 @@ msgstr[1] ""
 msgid "Reset"
 msgstr ""
 
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Website"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Source Code (GitHub)"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Report a Bug"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Copy System Details"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "About"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a version that couldn't be found.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Unknown"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a service that isn't running.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Not running"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Installed"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that isn't installed.
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Not installed"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid ""
+"What Sway Things writes for your sway config to include, and which files "
+"were changed outside it"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Show…"
+msgstr ""
+
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Show generated config"
+msgstr ""
+
 #: crates/gui/src/widgets/placeholder.rs
 msgid "Not built yet"
 msgstr ""
@@ -6303,78 +6319,6 @@ msgid "Stop"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
-msgid "This machine only"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "{title}: this machine only"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Your config sets this too"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "{title}: your config sets this too"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Let my config win"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs crates/gui/src/widgets/welcome.rs
-msgid "Open config in editor"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Copy line"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-#, rust-format
-msgid "Use the value of {devices}"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Use the value of all displays"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Reset to default"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Your config wins"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "This line comes after the include line, so it decides after a reload."
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Overridden"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Overridden in your config"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid ""
-"Sway Things’ value comes later and wins; this line is no longer in effect."
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Applies after reload"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Applies after re-login"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
 msgid "On for now: no other display was on"
 msgstr ""
 
@@ -6386,29 +6330,102 @@ msgstr ""
 msgid "Font"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid "Same as {devices}"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Same as all displays"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Chosen by sway"
 msgstr ""
 
-#: crates/gui/src/widgets/setting_row.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
 #, rust-format
 msgid ""
 "Apps use {value} now, set by another tool. Sway Things sets its own again "
 "when sway starts or reloads."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "Use the value of {devices}"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Use the value of all displays"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Reset to default"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Your config wins"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "This line comes after the include line, so it decides after a reload."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Overridden"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Overridden in your config"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid ""
+"Sway Things’ value comes later and wins; this line is no longer in effect."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Applies after reload"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Applies after re-login"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "This machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "{title}: this machine only"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#, rust-format
+msgid "{title}: your config sets this too"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Let my config win"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#: crates/gui/src/widgets/welcome.rs
+msgid "Open config in editor"
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Copy line"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs
@@ -6514,12 +6531,12 @@ msgstr ""
 msgid "Volume"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/mod.rs crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "The volume wasn’t changed: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/mod.rs crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "The mute wasn’t changed: {error}"
 msgstr ""
@@ -6536,39 +6553,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
 msgid "Sound can’t be read"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid ""
-"No output device. Plug in speakers or headphones; this page updates by "
-"itself."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid ""
-"No input device. Plug in a microphone or headset; this page updates by "
-"itself."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Another device"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "No app is playing or recording sound."
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "App volume"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-#, rust-format
-msgid "Profile of {card}"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Connectors and sound quality"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
@@ -6591,27 +6575,60 @@ msgstr ""
 msgid "{tool} can’t be started: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "Volume of {app}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "Mute {app}"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 msgid "Recording"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 msgid "Playing"
 msgstr ""
 
-#: crates/gui/src/widgets/sound/mod.rs
+#: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "{what} · on {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid ""
+"No output device. Plug in speakers or headphones; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid ""
+"No input device. Plug in a microphone or headset; this page updates by "
+"itself."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "Another device"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "No app is playing or recording sound."
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "App volume"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+#, rust-format
+msgid "Profile of {card}"
+msgstr ""
+
+#: crates/gui/src/widgets/sound/rows.rs
+msgid "Connectors and sound quality"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/volume.rs

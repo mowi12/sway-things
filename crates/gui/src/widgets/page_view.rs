@@ -18,35 +18,24 @@
 //! A deep link points to a row: [`PageView::point_to`] expands its group, scrolls it into view,
 //! gives its control the keyboard focus and tints it with the accent for a moment.
 
-use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
-use std::rc::Rc;
 use std::time::Duration;
 
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::command::input::InputType;
-use sway_things_core::network::NetworkManager;
-use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
-use sway_things_core::sound::Sound;
-use sway_things_core::system::{self, Details, Value};
 use sway_things_core::ui_state;
-use sway_things_core::view::Source;
 
-use super::device_selector::none_connected;
+use self::about::{about_section, generated_section};
+use self::device_group::DeviceGroup;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
-use super::{
-    Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
-    TestArea, WorkspaceMap,
-};
-use super::{cursor, keyboard, look};
+use super::{Clamp, GroupRow, PageHeader, Placeholder, SettingRow, TestArea, WorkspaceMap};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
-use crate::icons;
 use crate::model::Model;
 use crate::style;
+use crate::widgets::list::{list_row, section_list};
 
 /// The widest a page's content gets, in pixels, with its margins.
 pub const MAXIMUM_WIDTH: i32 = 760;
@@ -56,6 +45,10 @@ pub(super) const MARGINS: (i32, i32) = (12, 32);
 
 /// How long a row a deep link points to stays tinted before it fades back.
 const HIGHLIGHT: Duration = Duration::from_millis(1500);
+
+mod about;
+mod device_group;
+mod parts;
 
 mod imp {
     use std::cell::{OnceCell, RefCell};
@@ -191,26 +184,18 @@ impl PageView {
     pub fn for_settings(model: &Model, page: Page) -> Option<Self> {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let mut sections = Vec::new();
-        if page == Page::About {
-            sections.push(about_section(model, &body));
-            sections.push(generated_section(model, &body));
-        }
-        if page == Page::AppsLookFeel {
-            body.append(&look::note());
-        }
-        let mut first = page != Page::About;
+        let mut first = true;
+        let arrangement = parts::before_rows(model, page, &body, &mut sections, &mut first);
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
         let mut files = BTreeSet::new();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
-        let arrangement = (page == Page::Displays)
-            .then(|| arrangement_section(model, &body, std::mem::take(&mut first), &mut sections));
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
         {
-            let Some(row) = setting_row(model, setting) else {
+            let Some(row) = parts::row(model, setting) else {
                 continue;
             };
             if let Some(mapping) = setting.sway() {
@@ -231,7 +216,7 @@ impl PageView {
                         std::mem::take(&mut first),
                     );
                     let heading = new.header.clone().upcast::<gtk::Widget>();
-                    let list = section_list(setting.section());
+                    let list = section_list(tr(setting.section()));
                     body.append(&new.header);
                     body.append(&new.body);
                     let open = groups
@@ -266,7 +251,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in keyboard::below(model, &row) {
+            for widget in parts::below(model, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
@@ -276,7 +261,7 @@ impl PageView {
         for group in groups {
             group.follow(model);
         }
-        add_page_parts(model, page, &body, &mut sections);
+        parts::after_rows(model, page, &body, &mut sections);
         let displays = arrangement.map(|shown| follow_displays(model, shown, &rows));
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
@@ -564,16 +549,6 @@ fn follow_displays(
     (picker, arrangement)
 }
 
-/// The parts of `page` beyond its rows: the test area of Mouse & Touchpad, the map of the
-/// displays on Workspaces.
-fn add_page_parts(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec<Section>) {
-    match page {
-        Page::MouseTouchpad => sections.push(test_area_section(model, body)),
-        Page::Workspaces => add_workspace_map(model, sections),
-        _ => {}
-    }
-}
-
 /// The map of the displays with their workspaces, below the rows of the Workspaces page's
 /// "Placement" section.
 fn add_workspace_map(model: &Model, sections: &[Section]) {
@@ -591,279 +566,6 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
     section.body.append(&TestArea::new());
     body.append(&section.header);
     body.append(&section.body);
-    section
-}
-
-/// The project's links below the "About" section: what they are called, their icon and where
-/// they lead.
-const PROJECT_LINKS: [(Msg, &str, &str); 3] = [
-    (msg!("Website"), icons::WEBSITE, env!("CARGO_PKG_HOMEPAGE")),
-    (
-        msg!("Source Code (GitHub)"),
-        icons::SOURCE_CODE,
-        env!("CARGO_PKG_REPOSITORY"),
-    ),
-    (
-        msg!("Report a Bug"),
-        icons::BUG,
-        concat!(env!("CARGO_PKG_REPOSITORY"), "/issues"),
-    ),
-];
-
-/// The label of the button that copies the system details.
-const COPY_DETAILS: Msg = msg!("Copy System Details");
-/// Its label right after a click.
-const COPIED: Msg = msg!("Copied");
-/// How long it says so.
-const COPIED_FOR: Duration = Duration::from_secs(2);
-
-/// The row of `setting` on its page, for the whole session or input type: a drop-down where the
-/// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
-/// themes, the screens), following what they depend on.
-fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
-    if setting.key() == outputs::MODE {
-        return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
-    }
-    let choices = keyboard::choices(setting)
-        .or_else(|| cursor::choices(model, setting))
-        .or_else(|| look::choices(setting));
-    let row = match choices {
-        Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
-        None => SettingRow::new(model, setting, None),
-    }?;
-    cursor::follow(model, &row);
-    look::follow(&row);
-    Some(row)
-}
-
-/// The "About" section of About & Maintenance: a row per line of the system details (Sway
-/// Things, the compositor, GTK, the distribution, NetworkManager, the sound server, the kernel
-/// and the tools the pages delegate to), a button that copies them for a bug report, then the project's links,
-/// which open in the default browser. The details are read again each time the section shows.
-fn about_section(model: &Model, body: &gtk::Box) -> Section {
-    let title = msg!("About");
-    let section = Section::new(model, Page::About, title.msgid(), tr(title), true);
-    body.append(&section.header);
-    body.append(&section.body);
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
-    let details = Rc::new(RefCell::new(None::<Details>));
-    // The labels; the values follow once the details are read.
-    let labels = Details {
-        compositor: None,
-        gtk: None,
-        distribution: None,
-        network_manager: None,
-        sound_server: None,
-        kernel: None,
-        tools: system::TOOLS.iter().map(|tool| (*tool, false)).collect(),
-    }
-    .lines();
-    let mut values = Vec::new();
-    for (label, _) in labels {
-        let (row, value) = info_row(&label.translated(), "");
-        values.push(value);
-        list.append(&list_row(&row));
-    }
-    section.body.append(&list);
-    let copy = copy_button(&details);
-    section.body.append(&copy);
-    let compositor = model.compositor();
-    list.connect_map(glib::clone!(
-        #[strong]
-        details,
-        #[weak]
-        copy,
-        move |list| {
-            let window = list.root().and_downcast::<crate::window::Window>();
-            let bus = window
-                .as_ref()
-                .map_or(NetworkBus::Off, crate::window::Window::network_bus);
-            let server = window
-                .as_ref()
-                .map_or(SoundServer::Off, crate::window::Window::sound_server);
-            let values = values.clone();
-            let details = details.clone();
-            glib::spawn_future_local(glib::clone!(
-                #[weak]
-                copy,
-                async move {
-                    let nm = match &bus {
-                        NetworkBus::System => NetworkManager::connect().await.ok(),
-                        NetworkBus::Address(address) => {
-                            NetworkManager::connect_to(address).await.ok()
-                        }
-                        NetworkBus::Off => None,
-                    };
-                    let sound = match &server {
-                        SoundServer::Session => Sound::connect().ok(),
-                        SoundServer::Address(address) => Sound::connect_to(Some(address)).ok(),
-                        SoundServer::Off => None,
-                    };
-                    let read = Details::read(
-                        compositor,
-                        Some(crate::app::gtk_version()),
-                        nm.as_ref(),
-                        sound.as_ref(),
-                    )
-                    .await;
-                    for (label, (_, value)) in values.iter().zip(read.lines()) {
-                        label.set_label(&shown(&value));
-                    }
-                    details.replace(Some(read));
-                    copy.set_sensitive(true);
-                }
-            ));
-        }
-    ));
-    let links = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    links.set_halign(gtk::Align::Center);
-    links.add_css_class("st-about-links");
-    for (label, icon, uri) in PROJECT_LINKS {
-        links.append(&link_button(tr(label), icon, uri));
-    }
-    section.body.append(&links);
-    section
-}
-
-/// The button that copies `details` once they are read, and says so for a moment.
-fn copy_button(details: &Rc<RefCell<Option<Details>>>) -> gtk::Button {
-    let copy = gtk::Button::with_label(tr(COPY_DETAILS));
-    copy.set_halign(gtk::Align::Center);
-    copy.add_css_class("st-about-copy");
-    copy.set_sensitive(false);
-    // Each click says "Copied" for a while; only the latest click's timeout restores the label.
-    let clicks = Rc::new(Cell::new(0_u32));
-    copy.connect_clicked(glib::clone!(
-        #[strong]
-        details,
-        move |button| {
-            let Some(text) = details.borrow().as_ref().map(Details::text) else {
-                return;
-            };
-            button.clipboard().set_text(&text);
-            button.set_label(tr(COPIED));
-            let click = clicks.get().wrapping_add(1);
-            clicks.set(click);
-            glib::timeout_add_local_once(
-                COPIED_FOR,
-                glib::clone!(
-                    #[weak]
-                    button,
-                    #[strong]
-                    clicks,
-                    move || {
-                        if clicks.get() == click {
-                            button.set_label(tr(COPY_DETAILS));
-                        }
-                    }
-                ),
-            );
-        }
-    ));
-    copy
-}
-
-/// A value of the system details as a row shows it, capitalized like a label.
-fn shown(value: &Value) -> String {
-    match value {
-        Value::Text(text) => text.clone(),
-        Value::Translated(text) => text.translated(),
-        // TRANSLATORS: A value in the About section: a version that couldn't be found.
-        Value::Unknown => tr(msg!("Unknown")).to_owned(),
-        // TRANSLATORS: A value in the About section: a service that isn't running.
-        Value::NotRunning => tr(msg!("Not running")).to_owned(),
-        // TRANSLATORS: A value in the About section: a tool that is installed.
-        Value::Installed => tr(msg!("Installed")).to_owned(),
-        // TRANSLATORS: A value in the About section: a tool that isn't installed.
-        Value::NotInstalled => tr(msg!("Not installed")).to_owned(),
-    }
-}
-
-/// A row with `title` on the left and `value` on the right, selectable for bug reports, and the
-/// label of the value.
-fn info_row(title: &str, value: &str) -> (gtk::Box, gtk::Label) {
-    let title = gtk::Label::new(Some(title));
-    title.set_xalign(0.0);
-    title.set_hexpand(true);
-    let value = gtk::Label::new(Some(value));
-    value.set_xalign(1.0);
-    value.set_selectable(true);
-    value.set_wrap(true);
-    value.add_css_class(style::DIM);
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    row.append(&title);
-    row.append(&value);
-    (row, value)
-}
-
-/// A flat button with `icon` and `label` that opens `uri` in the default browser.
-fn link_button(label: &str, icon: &str, uri: &'static str) -> gtk::Button {
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    content.append(&gtk::Image::from_icon_name(icon));
-    content.append(&gtk::Label::new(Some(label)));
-    let button = gtk::Button::builder()
-        .child(&content)
-        .css_classes(["flat"])
-        .tooltip_text(uri)
-        .build();
-    button.update_property(&[gtk::accessible::Property::Label(label)]);
-    button.connect_clicked(move |button| {
-        let window = button.root().and_downcast::<gtk::Window>();
-        gtk::UriLauncher::new(uri).launch(
-            window.as_ref(),
-            gtk::gio::Cancellable::NONE,
-            move |result| {
-                if let Err(error) = result {
-                    glib::g_warning!("sway-things", "{uri} can't be opened: {error}");
-                }
-            },
-        );
-    });
-    button
-}
-
-/// The "Generated config" section of About & Maintenance: a row that opens the window with the
-/// files Sway Things writes.
-fn generated_section(model: &Model, body: &gtk::Box) -> Section {
-    let title = msg!("Generated config");
-    let section = Section::new(model, Page::About, title.msgid(), tr(title), false);
-    body.append(&section.header);
-    body.append(&section.body);
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
-    let title = gtk::Label::new(Some(tr(title)));
-    title.set_xalign(0.0);
-    let subtitle = gtk::Label::new(Some(tr(msg!(
-        "What Sway Things writes for your sway config to include, and which files were changed \
-         outside it"
-    ))));
-    subtitle.set_xalign(0.0);
-    subtitle.set_wrap(true);
-    subtitle.add_css_class(style::DIM);
-    let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    text.set_hexpand(true);
-    text.append(&title);
-    text.append(&subtitle);
-    let show = gtk::Button::with_label(tr(msg!("Show…")));
-    show.set_valign(gtk::Align::Center);
-    show.update_property(&[gtk::accessible::Property::Label(tr(msg!(
-        "Show generated config"
-    )))]);
-    show.connect_clicked(|button| {
-        if let Some(window) = button.root().and_downcast::<crate::window::Window>() {
-            window.show_generated(None);
-        }
-    });
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    row.append(&text);
-    row.append(&show);
-    list.append(&list_row(&row));
-    section.body.append(&list);
     section
 }
 
@@ -1059,121 +761,5 @@ impl Section {
         }));
         self.header
             .update_state(&[gtk::accessible::State::Expanded(Some(expanded))]);
-    }
-}
-
-/// The list for the rows of a section titled `title`.
-fn section_list(title: Msg) -> gtk::ListBox {
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(tr(title))]);
-    list
-}
-
-/// `child` as a row of a section list. The row itself takes no focus; its controls do.
-fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
-    let item = gtk::ListBoxRow::new();
-    item.set_activatable(false);
-    item.set_focusable(false);
-    item.set_child(Some(child));
-    item
-}
-
-/// A run of sections of per-device settings of one input type, with the selector for the device
-/// their rows are for.
-struct DeviceGroup {
-    kind: InputType,
-    selector: DeviceSelector,
-    /// Shown in place of the rows while there is nothing to set.
-    hint: gtk::Label,
-    /// The header and the list of each section.
-    sections: Vec<(gtk::Widget, gtk::ListBox)>,
-    rows: Vec<SettingRow>,
-    /// The groups of settings among the rows, whose summary follows the device too.
-    group_rows: Vec<GroupRow>,
-    /// Whether the sections being built still belong to the group.
-    open: bool,
-}
-
-impl DeviceGroup {
-    /// A group of type `kind` that starts with the section of `heading` and `list`. The selector
-    /// becomes the first row of the list.
-    fn new(kind: InputType, heading: gtk::Widget, list: &gtk::ListBox) -> Self {
-        let selector = DeviceSelector::new(kind);
-        list.append(&list_row(&selector));
-        let hint = gtk::Label::new(Some(none_connected(kind)));
-        hint.set_xalign(0.0);
-        hint.set_wrap(true);
-        hint.add_css_class("st-section-hint");
-        hint.add_css_class(style::DIM);
-        hint.set_visible(false);
-        Self {
-            kind,
-            selector,
-            hint,
-            sections: vec![(heading, list.clone())],
-            rows: Vec::new(),
-            group_rows: Vec::new(),
-            open: true,
-        }
-    }
-
-    /// Points the rows at the device picked, and keeps the device list and what is shown current
-    /// with `model`.
-    fn follow(self, model: &Model) {
-        let rows: Vec<glib::WeakRef<SettingRow>> =
-            self.rows.iter().map(ObjectExt::downgrade).collect();
-        let group_rows: Vec<glib::WeakRef<GroupRow>> =
-            self.group_rows.iter().map(ObjectExt::downgrade).collect();
-        self.selector.connect_device_changed(glib::clone!(
-            #[strong]
-            rows,
-            move |_, device| {
-                for row in rows.iter().filter_map(glib::WeakRef::upgrade) {
-                    row.set_device(device);
-                }
-                for group in group_rows.iter().filter_map(glib::WeakRef::upgrade) {
-                    group.refresh();
-                }
-            }
-        ));
-        let sections: Vec<(glib::WeakRef<gtk::Widget>, glib::WeakRef<gtk::ListBox>)> = self
-            .sections
-            .iter()
-            .map(|(heading, list)| (heading.downgrade(), list.downgrade()))
-            .collect();
-        let kind = self.kind;
-        let update = glib::clone!(
-            #[weak(rename_to = selector)]
-            self.selector,
-            #[weak(rename_to = hint)]
-            self.hint,
-            move |model: &Model| {
-                let Some(devices) = model.devices() else {
-                    return;
-                };
-                selector.update(&devices);
-                let connected = devices.of_type(kind).next().is_some();
-                let stored = rows
-                    .iter()
-                    .filter_map(glib::WeakRef::upgrade)
-                    .filter_map(|row| row.setting())
-                    .filter_map(|setting| model.view(setting, None))
-                    .any(|view| matches!(view.source, Source::Stored { .. }));
-                let shown = !model.devices_known() || connected || stored;
-                for (index, (heading, list)) in sections.iter().enumerate() {
-                    if let Some(heading) = heading.upgrade() {
-                        heading.set_visible(shown || index == 0);
-                    }
-                    if let Some(list) = list.upgrade() {
-                        list.set_visible(shown);
-                    }
-                }
-                hint.set_visible(!shown);
-            }
-        );
-        update(model);
-        model.connect_changed(update);
     }
 }

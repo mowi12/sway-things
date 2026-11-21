@@ -271,18 +271,14 @@ fn split_typed(passkey: u32, entered: u16) -> (String, String) {
 
 /// Asks whether to forget the device `name`.
 pub async fn confirm_forget(name: &str, window: Option<&gtk::Window>) -> bool {
-    let dialog = gtk::AlertDialog::builder()
-        // Plain text: the dialog doesn't read markup.
-        .message(trf(msg!("Forget “{device}”?"), &[("device", &name)]))
-        .detail(tr(msg!(
+    crate::widgets::live::confirm_forget(
+        &trf(msg!("Forget “{device}”?"), &[("device", &name)]),
+        tr(msg!(
             "The pairing is removed. To use the device again, pair it again."
-        )))
-        .buttons([tr(msg!("Cancel")), tr(msg!("Forget"))])
-        .cancel_button(0)
-        .default_button(0)
-        .modal(true)
-        .build();
-    matches!(dialog.choose_future(window).await, Ok(1))
+        )),
+        window,
+    )
+    .await
 }
 
 #[cfg(test)]

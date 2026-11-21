@@ -14,27 +14,29 @@
 //!
 //! Device names are untrusted and only ever set as plain label text.
 
+mod actions;
 mod dialogs;
+mod prompts;
+mod rows;
+mod search;
 
 use std::time::Duration;
 
-use futures_lite::StreamExt;
-use futures_lite::future::poll_once;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 use sway_things_core::bluetooth::rfkill::{self, Rfkill};
 use sway_things_core::bluetooth::{
-    AgentEvent, Answer, Bluez, Device, Error, Prompt, Request, Snapshot, check_alias,
-    parse_passkey, valid_pin,
+    AgentEvent, Bluez, Device, Error, Request, Snapshot, check_alias, parse_passkey, valid_pin,
 };
 use sway_things_core::delegate;
-use sway_things_core::i18n::Text;
 
-use self::dialogs::{Dialog, Field, Spec};
-use super::{Placeholder, search_button};
+use self::dialogs::{Field, Spec};
+use super::search_button;
 use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::style;
+use crate::widgets::list::{heading, hint, list_row, plain_row, row, section_list};
+use crate::widgets::live::follow_changes;
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
@@ -435,13 +437,13 @@ impl BluetoothPage {
         imp.devices.set_orientation(gtk::Orientation::Vertical);
         imp.controls.append(&imp.devices);
         imp.devices.append(&heading(tr(msg!("My devices")), false));
-        device_list(&imp.mine, tr(msg!("My devices")));
+        crate::widgets::list::section(&imp.mine, tr(msg!("My devices")));
         imp.devices.append(&imp.mine);
         hint(&imp.mine_hint);
         imp.devices.append(&imp.mine_hint);
 
         self.build_others_heading();
-        device_list(&imp.others, tr(msg!("Other devices")));
+        crate::widgets::list::section(&imp.others, tr(msg!("Other devices")));
         imp.devices.append(&imp.others);
         hint(&imp.others_hint);
         imp.devices.append(&imp.others_hint);
@@ -596,7 +598,7 @@ impl BluetoothPage {
             if !refresh(&weak, &bluez).await {
                 return;
             }
-            let mut changes = match changes {
+            let changes = match changes {
                 Ok(changes) => changes,
                 Err(error) => {
                     if let Some(page) = weak.upgrade() {
@@ -608,13 +610,7 @@ impl BluetoothPage {
                     return;
                 }
             };
-            while changes.next().await.is_some() {
-                glib::timeout_future(THROTTLE).await;
-                while let Some(Some(())) = poll_once(changes.next()).await {}
-                if !refresh(&weak, &bluez).await {
-                    return;
-                }
-            }
+            follow_changes(changes, THROTTLE, || refresh(&weak, &bluez)).await;
         });
         self.imp().tasks.borrow_mut().push(task);
     }
@@ -745,532 +741,6 @@ impl BluetoothPage {
         }
     }
 
-    /// Shows the selected adapter, its devices and the rfkill block.
-    fn render(&self) {
-        let imp = self.imp();
-        let snapshot = imp.snapshot.borrow();
-        let Some(snapshot) = snapshot.as_ref() else {
-            return;
-        };
-        let selected = imp.selected.borrow().clone();
-        let Some(adapter) = selected.as_deref().and_then(|path| snapshot.adapter(path)) else {
-            self.show_missing(&Error::Unavailable(Text::data("")));
-            return;
-        };
-        imp.missing.set_visible(false);
-        imp.controls.set_visible(true);
-
-        let block = imp.block.get().unwrap_or_default();
-        imp.power.set_active(adapter.powered);
-        imp.power.set_state(adapter.powered);
-        imp.power.set_sensitive(!block.hard);
-        imp.power_subtitle.set_text(&if adapter.powered {
-            trf(
-                msg!("Visible as “{name}” · {address}"),
-                &[("name", &adapter.name), ("address", &adapter.address)],
-            )
-        } else {
-            tr(msg!("Off")).to_owned()
-        });
-        imp.adapter_menu.set_sensitive(adapter.powered);
-        imp.adapter_rename.set_sensitive(adapter.powered);
-        imp.visible.set_active(adapter.discoverable);
-        imp.visible.set_state(adapter.discoverable);
-        imp.visible.set_sensitive(adapter.powered);
-        imp.visible_subtitle
-            .set_text(&visible_text(adapter.discoverable_timeout));
-        self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
-
-        // In manual mode the spinner is in the Search button instead.
-        let searching = adapter.powered && adapter.discovering && !imp.manual.get();
-        imp.search.set_sensitive(adapter.powered);
-        let started = searching && !imp.searching.is_visible();
-        imp.searching.set_visible(searching);
-        if started {
-            self.new_spinner();
-        }
-
-        let devices: Vec<&Device> = snapshot.devices_of(&adapter.path).collect();
-        let running = imp.running.borrow().clone();
-        let mut rows = imp.rows.borrow_mut();
-        rows.retain(|path, row| {
-            let keep = devices.iter().any(|device| device.path == *path);
-            if !keep {
-                remove_row(&row.row);
-            }
-            keep
-        });
-        for device in &devices {
-            let row = rows
-                .entry(device.path.clone())
-                .or_insert_with(|| self.device_row(&device.path));
-            update_row(
-                row,
-                device,
-                running.get(&device.path).copied(),
-                adapter.powered,
-            );
-        }
-        let mine: Vec<&DeviceRow> = devices
-            .iter()
-            .filter(|device| device.paired)
-            .filter_map(|device| rows.get(&device.path))
-            .collect();
-        let others: Vec<&DeviceRow> = devices
-            .iter()
-            .filter(|device| !device.paired)
-            .filter_map(|device| rows.get(&device.path))
-            .collect();
-        arrange(&imp.mine, &mine);
-        arrange(&imp.others, &others);
-        let (mine, others) = (mine.len(), others.len());
-        drop(rows);
-
-        imp.mine.set_visible(mine > 0);
-        set_hint(
-            &imp.mine_hint,
-            (mine == 0).then_some(tr(msg!(
-                "No paired devices yet. Pick one under Other devices to connect it."
-            ))),
-        );
-        imp.others_heading.set_visible(adapter.powered);
-        imp.others.set_visible(adapter.powered && others > 0);
-        set_hint(
-            &imp.others_hint,
-            if !adapter.powered {
-                None
-            } else if others == 0 {
-                Some(tr(msg!(
-                    "No other devices found yet. Put the device you want to connect into pairing \
-                     mode."
-                )))
-            } else {
-                None
-            },
-        );
-    }
-
-    /// Shows the placeholder for a radio that is off (with whether it is hard and soft blocked)
-    /// instead of the devices, or the devices for `None`.
-    fn show_off(&self, off: Option<(bool, bool)>) {
-        let imp = self.imp();
-        imp.devices.set_visible(off.is_none());
-        imp.off.set_visible(off.is_some());
-        if imp.off_shown.replace(off) == off {
-            return;
-        }
-        while let Some(child) = imp.off.first_child() {
-            imp.off.remove(&child);
-        }
-        let Some((hard, soft)) = off else {
-            return;
-        };
-        let text = tr(if hard {
-            msg!("It's turned off by a hardware switch or key. Use it to turn Bluetooth back on.")
-        } else if soft {
-            msg!(
-                "It's blocked by software, e.g. airplane mode. Turning it on with the switch above \
-                 lifts the block."
-            )
-        } else {
-            msg!("Turn it on with the switch above to connect your devices and find new ones.")
-        });
-        let placeholder = Placeholder::new(
-            "bluetooth-disabled-symbolic",
-            tr(msg!("Bluetooth is off")),
-            text,
-        );
-        placeholder.set_hexpand(true);
-        imp.off.append(&placeholder);
-    }
-
-    /// The texts of the placeholder shown while the radio is off; `None` while the devices show.
-    pub fn off_placeholder(&self) -> Option<Vec<String>> {
-        let off = &self.imp().off;
-        off.is_visible().then(|| labels_in(off.upcast_ref()))
-    }
-
-    /// Shows a placeholder for `error` (or for no adapter) instead of the controls.
-    fn show_missing(&self, error: &Error) {
-        let imp = self.imp();
-        let placeholder = match error {
-            Error::Unavailable(reason) if reason.english().is_empty() => Placeholder::new(
-                "bluetooth-disabled-symbolic",
-                tr(msg!("No Bluetooth adapter")),
-                tr(msg!(
-                    "Plug in a Bluetooth adapter or turn it on in the firmware settings; this page \
-                     updates by itself."
-                )),
-            ),
-            Error::Unavailable(_) => Placeholder::new(
-                "bluetooth-disabled-symbolic",
-                tr(msg!("Bluetooth isn't available")),
-                tr(msg!(
-                    "The Bluetooth service isn't running. Start it with `systemctl start \
-                     bluetooth`; this page updates by itself."
-                )),
-            ),
-            other => Placeholder::new(
-                "dialog-error-symbolic",
-                tr(msg!("Bluetooth can't be read")),
-                &other.text().translated(),
-            ),
-        };
-        while let Some(child) = imp.missing.first_child() {
-            imp.missing.remove(&child);
-        }
-        placeholder.set_hexpand(true);
-        imp.missing.append(&placeholder);
-        imp.controls.set_visible(false);
-        imp.missing.set_visible(true);
-    }
-
-    /// Shows `message` under the adapter's controls, or hides it when empty.
-    fn show_error(&self, message: &str) {
-        let error = &self.imp().error;
-        error.set_text(message);
-        error.set_visible(!message.is_empty());
-    }
-
-    /// A new row for the device at `path`; [`update_row`] fills it.
-    fn device_row(&self, path: &str) -> DeviceRow {
-        // Decorative: the name and state say it all.
-        let icon = gtk::Image::builder()
-            .pixel_size(24)
-            .accessible_role(gtk::AccessibleRole::Presentation)
-            .build();
-        let name = gtk::Label::new(None);
-        let status = gtk::Label::new(None);
-        status.add_css_class(style::DIM);
-        let button = gtk::Button::new();
-        button.set_valign(gtk::Align::Center);
-        let weak = self.downgrade();
-        let device = path.to_owned();
-        button.connect_clicked(move |_| {
-            if let Some(page) = weak.upgrade() {
-                page.main_action(&device);
-            }
-        });
-
-        let menu_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let popover = gtk::Popover::new();
-        popover.set_child(Some(&menu_box));
-        for (label, action) in [
-            (msg!("Rename…"), Action::Rename),
-            (msg!("Forget…"), Action::Forget),
-        ] {
-            let item = gtk::Button::with_label(tr(label));
-            item.add_css_class("flat");
-            if let Some(child) = item.child().and_downcast::<gtk::Label>() {
-                child.set_xalign(0.0);
-            }
-            let weak = self.downgrade();
-            let device = path.to_owned();
-            item.connect_clicked(glib::clone!(
-                #[weak]
-                popover,
-                move |_| {
-                    popover.popdown();
-                    if let Some(page) = weak.upgrade() {
-                        page.run(action, &device);
-                    }
-                }
-            ));
-            menu_box.append(&item);
-        }
-        let menu = gtk::MenuButton::builder()
-            .icon_name("view-more-symbolic")
-            .popover(&popover)
-            .valign(gtk::Align::Center)
-            .tooltip_text(tr(msg!("More actions")))
-            .build();
-        menu.add_css_class("flat");
-
-        let line = row(&name, &status, &[button.upcast_ref(), menu.upcast_ref()]);
-        line.prepend(&icon);
-        DeviceRow {
-            row: list_row(&line),
-            icon,
-            name,
-            status,
-            button,
-            menu,
-            paired: false,
-        }
-    }
-
-    /// The device at `path`, as last read.
-    fn device(&self, path: &str) -> Option<Device> {
-        self.imp()
-            .snapshot
-            .borrow()
-            .as_ref()
-            .and_then(|snapshot| snapshot.device(path).cloned())
-    }
-
-    /// What the row's button does: connect (pairing first if needed) or disconnect.
-    fn main_action(&self, path: &str) {
-        let Some(device) = self.device(path) else {
-            return;
-        };
-        let action = if device.connected {
-            Action::Disconnect
-        } else if device.paired {
-            Action::Connect
-        } else {
-            Action::Pair
-        };
-        self.run(action, path);
-    }
-
-    /// Runs `action` on the device at `path`; a failure shows under the controls. Pairing goes on
-    /// to connect; forgetting asks first, renaming asks for the name.
-    fn run(&self, action: Action, path: &str) {
-        let imp = self.imp();
-        let (Some(bluez), Some(device)) = (imp.bluez.borrow().clone(), self.device(path)) else {
-            return;
-        };
-        if imp.running.borrow().contains_key(path) {
-            return;
-        }
-        if action == Action::Rename {
-            self.rename(&bluez, &device);
-            return;
-        }
-        let weak = self.downgrade();
-        let window = self.root().and_downcast::<gtk::Window>();
-        glib::spawn_future_local(async move {
-            if action == Action::Forget
-                && !dialogs::confirm_forget(&device.name, window.as_ref()).await
-            {
-                return;
-            }
-            let mut action = action;
-            let result = loop {
-                set_running(&weak, &device.path, Some(action));
-                let result = match action {
-                    Action::Pair => bluez.pair(&device.path).await,
-                    Action::Connect => bluez.connect_device(&device.path).await,
-                    Action::Disconnect => bluez.disconnect_device(&device.path).await,
-                    Action::Forget => bluez.remove(&device.adapter, &device.path).await,
-                    Action::Rename => Ok(()),
-                };
-                if action == Action::Pair {
-                    if let Some(page) = weak.upgrade() {
-                        page.close_dialog_of(&device.path);
-                    }
-                }
-                match result {
-                    // A device pairs to be used: connect it right away.
-                    Ok(()) if action == Action::Pair => action = Action::Connect,
-                    result => break result,
-                }
-            };
-            set_running(&weak, &device.path, None);
-            if let Some(page) = weak.upgrade() {
-                page.show_error(&match result {
-                    Ok(()) => String::new(),
-                    Err(error) => action.failure(&device.name, &error),
-                });
-            }
-            refresh(&weak, &bluez).await;
-        });
-    }
-
-    /// Asks for a new name for the selected adapter and sets it.
-    fn rename_adapter(&self) {
-        let imp = self.imp();
-        let adapter = imp.selected.borrow().clone().and_then(|path| {
-            let snapshot = imp.snapshot.borrow();
-            Some((
-                path.clone(),
-                snapshot.as_ref()?.adapter(&path)?.name.clone(),
-            ))
-        });
-        let (Some(bluez), Some((path, old))) = (imp.bluez.borrow().clone(), adapter) else {
-            return;
-        };
-        let window = self.root().and_downcast::<gtk::Window>();
-        let weak = self.downgrade();
-        Dialog::open(
-            window.as_ref(),
-            &rename_spec(
-                &old,
-                tr(msg!("Leave it empty to use the adapter's own name.")),
-            ),
-            move |name| {
-                let Some(name) = name else {
-                    return;
-                };
-                glib::spawn_future_local(async move {
-                    let result = bluez.set_adapter_alias(&path, &name).await;
-                    if let Some(page) = weak.upgrade() {
-                        page.show_error(&match result {
-                            Ok(()) => String::new(),
-                            Err(error) => Action::Rename.failure(&old, &error),
-                        });
-                    }
-                    refresh(&weak, &bluez).await;
-                });
-            },
-        );
-    }
-
-    /// The handler of the "Visible to other devices" switch.
-    fn visible_changed(&self, on: bool) -> glib::Propagation {
-        let imp = self.imp();
-        let adapter = imp.selected.borrow().clone().and_then(|path| {
-            let snapshot = imp.snapshot.borrow();
-            let discoverable = snapshot.as_ref()?.adapter(&path)?.discoverable;
-            Some((path, discoverable))
-        });
-        let (Some(bluez), Some((path, discoverable))) = (imp.bluez.borrow().clone(), adapter)
-        else {
-            return glib::Propagation::Proceed;
-        };
-        if discoverable == on {
-            return glib::Propagation::Proceed;
-        }
-        let weak = self.downgrade();
-        glib::spawn_future_local(async move {
-            let result = bluez.set_discoverable(&path, on).await;
-            if let Some(page) = weak.upgrade() {
-                page.show_error(&match result {
-                    Ok(()) => String::new(),
-                    Err(error) => trf(
-                        if on {
-                            msg!("Couldn't make the computer visible: {error}")
-                        } else {
-                            msg!("Couldn't hide the computer: {error}")
-                        },
-                        &[("error", &error.text().translated())],
-                    ),
-                });
-            }
-            // A refused change puts the switch back.
-            refresh(&weak, &bluez).await;
-        });
-        // The switch shows the new position; its state follows once BlueZ reports it.
-        glib::Propagation::Stop
-    }
-
-    /// Asks for a new name for `device` and sets it.
-    fn rename(&self, bluez: &Bluez, device: &Device) {
-        let window = self.root().and_downcast::<gtk::Window>();
-        let weak = self.downgrade();
-        let bluez = bluez.clone();
-        let path = device.path.clone();
-        let old = device.name.clone();
-        Dialog::open(
-            window.as_ref(),
-            &rename_spec(
-                &device.name,
-                tr(msg!("Leave it empty to use the name the device announces.")),
-            ),
-            move |name| {
-                let Some(name) = name else {
-                    return;
-                };
-                glib::spawn_future_local(async move {
-                    set_running(&weak, &path, Some(Action::Rename));
-                    let result = bluez.set_alias(&path, &name).await;
-                    set_running(&weak, &path, None);
-                    if let Some(page) = weak.upgrade() {
-                        page.show_error(&match result {
-                            Ok(()) => String::new(),
-                            Err(error) => Action::Rename.failure(&old, &error),
-                        });
-                    }
-                    refresh(&weak, &bluez).await;
-                });
-            },
-        );
-    }
-
-    /// Shows the agent's `prompt` as a dialog, or updates the open one.
-    fn prompt(&self, prompt: Prompt) {
-        let imp = self.imp();
-        let name = self
-            .device(&prompt.device)
-            .map_or_else(|| prompt.device.clone(), |device| device.name);
-        if let Request::DisplayPasskey { passkey, entered } = prompt.request {
-            if let Some((path, dialog)) = imp.dialog.borrow().as_ref() {
-                if *path == prompt.device {
-                    dialog.set_typed(passkey, entered);
-                    return;
-                }
-            }
-        }
-        self.close_dialog();
-        let window = self.root().and_downcast::<gtk::Window>();
-        let (spec, passkey) = prompt_spec(&prompt.request, &name);
-        let device = prompt.device.clone();
-        let weak = self.downgrade();
-        let request = prompt.request.clone();
-        let mut prompt = Some(prompt);
-        let dialog = Dialog::open(window.as_ref(), &spec, move |answer| {
-            let Some(prompt) = prompt.take() else {
-                return;
-            };
-            if !prompt.request.needs_answer() {
-                // Only shown: closing it cancels the pairing.
-                if answer.is_none() {
-                    if let Some(page) = weak.upgrade() {
-                        page.cancel_pairing(&prompt.device);
-                    }
-                }
-                return;
-            }
-            prompt.answer(match (answer, &request) {
-                (None, _) => Answer::Reject,
-                (Some(pin), Request::PinCode) => Answer::PinCode(pin.trim().to_owned()),
-                (Some(text), Request::Passkey) => {
-                    parse_passkey(&text).map_or(Answer::Reject, Answer::Passkey)
-                }
-                (Some(_), _) => Answer::Accept,
-            });
-            if let Some(page) = weak.upgrade() {
-                page.imp().dialog.replace(None);
-            }
-        });
-        if let Some((passkey, entered)) = passkey {
-            dialog.set_typed(passkey, entered);
-        }
-        imp.dialog.replace(Some((device, dialog)));
-    }
-
-    /// Stops the pairing of the device at `path`.
-    fn cancel_pairing(&self, path: &str) {
-        let Some(bluez) = self.imp().bluez.borrow().clone() else {
-            return;
-        };
-        let path = path.to_owned();
-        glib::spawn_future_local(async move {
-            // The pairing may have ended already; its result is reported by the pairing itself.
-            let _ = bluez.cancel_pairing(&path).await;
-        });
-    }
-
-    /// Closes the agent's dialog, if one is open.
-    fn close_dialog(&self) {
-        if let Some((_, dialog)) = self.imp().dialog.take() {
-            dialog.close();
-        }
-    }
-
-    /// Closes the agent's dialog if it is about the device at `path`.
-    fn close_dialog_of(&self, path: &str) {
-        let open = self
-            .imp()
-            .dialog
-            .borrow()
-            .as_ref()
-            .is_some_and(|(device, _)| device == path);
-        if open {
-            self.close_dialog();
-        }
-    }
-
     /// The handler of the power switch: turns the radio on (lifting a soft block first) or off.
     fn power_changed(&self, on: bool) -> glib::Propagation {
         let imp = self.imp();
@@ -1330,176 +800,6 @@ impl BluetoothPage {
         spinner.set_spinning(true);
         imp.spinner_slot.append(&spinner);
         imp.spinner.replace(Some(spinner));
-    }
-
-    /// Whether a turning spinner shows, next to the heading or in the Search button; for
-    /// tests.
-    pub fn is_searching(&self) -> bool {
-        let imp = self.imp();
-        let heading = imp.searching.is_visible()
-            && imp
-                .spinner
-                .borrow()
-                .as_ref()
-                .is_some_and(gtk::Spinner::is_spinning);
-        heading || search_button::is_spinning(&imp.search)
-    }
-
-    /// Whether the page looks for devices only after _Search_ (`true`) or also the whole time
-    /// it is on screen and the radio is on (`false`, the default).
-    pub fn set_manual_search(&self, manual: bool) {
-        let imp = self.imp();
-        imp.manual.set(manual);
-        imp.search.set_visible(manual);
-        if !manual {
-            self.end_search();
-        }
-        self.render();
-        self.update_discovery();
-    }
-
-    /// The _Search_ button next to "Other devices"; for tests.
-    pub fn search_button(&self) -> &gtk::Button {
-        &self.imp().search
-    }
-
-    /// What the _Search_ button reads: `Search` or `Stop`; for tests.
-    pub fn search_text(&self) -> String {
-        search_button::text(&self.imp().search)
-    }
-
-    /// _Search_ (manual mode only) starts a discovery for [`SEARCH_FOR`]; _Stop_ ends it.
-    fn search_clicked(&self) {
-        let imp = self.imp();
-        if imp.requested.borrow().is_some() {
-            self.end_search();
-            self.update_discovery();
-            return;
-        }
-        let Some(path) = self.powered_adapter() else {
-            return;
-        };
-        let weak = self.downgrade();
-        let timer = glib::timeout_add_local_once(SEARCH_FOR, move || {
-            if let Some(page) = weak.upgrade() {
-                // The timer is spent, so its id is only dropped, not removed.
-                page.imp().requested.replace(None);
-                page.update_search_button();
-                page.update_discovery();
-            }
-        });
-        imp.requested.replace(Some((path, timer)));
-        self.update_search_button();
-        self.update_discovery();
-    }
-
-    /// Ends the search started with _Search_, if one runs.
-    fn end_search(&self) {
-        if let Some((_, timer)) = self.imp().requested.take() {
-            timer.remove();
-        }
-        self.update_search_button();
-    }
-
-    /// Shows _Stop_ while a search started with _Search_ runs, _Search_ otherwise.
-    fn update_search_button(&self) {
-        let imp = self.imp();
-        let running = imp.requested.borrow().is_some();
-        search_button::set_running(
-            &imp.search,
-            running,
-            tr(if running {
-                msg!("Stop looking for devices")
-            } else {
-                msg!("Look for devices nearby for 30 seconds")
-            }),
-        );
-    }
-
-    /// The path of the selected adapter if its radio is on.
-    fn powered_adapter(&self) -> Option<String> {
-        let imp = self.imp();
-        imp.selected.borrow().clone().filter(|path| {
-            imp.snapshot
-                .borrow()
-                .as_ref()
-                .and_then(|snapshot| snapshot.adapter(path))
-                .is_some_and(|adapter| adapter.powered)
-        })
-    }
-
-    /// The adapter the page should look for devices on now: the selected one while the page is
-    /// on screen and its radio is on, after _Search_ or always in automatic mode. Ends a search
-    /// started with _Search_ that no longer applies.
-    fn wanted_discovery(&self) -> Option<String> {
-        let imp = self.imp();
-        let adapter = self.powered_adapter().filter(|_| self.is_mapped());
-        let requested = imp
-            .requested
-            .borrow()
-            .as_ref()
-            .map(|(path, _)| path.clone());
-        if requested.is_some() && requested != adapter {
-            self.end_search();
-        }
-        let requested = imp.requested.borrow().is_some();
-        adapter.filter(|_| requested || !imp.manual.get())
-    }
-
-    /// Starts or stops looking for devices as [`wanted_discovery`](Self::wanted_discovery) says.
-    fn update_discovery(&self) {
-        let imp = self.imp();
-        let wanted = self.wanted_discovery();
-        if wanted == *imp.discovery.borrow() {
-            return;
-        }
-        self.stop_discovery();
-        let (Some(path), Some(bluez)) = (wanted, imp.bluez.borrow().clone()) else {
-            return;
-        };
-        imp.discovery.replace(Some(path.clone()));
-        let weak = self.downgrade();
-        glib::spawn_future_local(async move {
-            if let Err(error) = bluez.start_discovery(&path).await {
-                if let Some(page) = weak.upgrade() {
-                    page.show_error(&trf(
-                        msg!("Couldn't look for devices: {error}"),
-                        &[("error", &error.text().translated())],
-                    ));
-                }
-            }
-        });
-    }
-
-    /// Stops the discovery the page started, so the radio doesn't keep scanning once the page is
-    /// gone or hidden. BlueZ also stops it when the connection closes.
-    fn stop_discovery(&self) {
-        let imp = self.imp();
-        let Some(path) = imp.discovery.take() else {
-            return;
-        };
-        if let Some(bluez) = imp.bluez.borrow().clone() {
-            glib::spawn_future_local(async move {
-                // The radio may be off or BlueZ gone; then there's nothing to stop.
-                let _ = bluez.stop_discovery(&path).await;
-            });
-        }
-    }
-
-    /// Starts blueman-manager.
-    fn open_blueman(&self) {
-        match delegate::BLUEMAN.launch() {
-            Ok(mut child) => {
-                // Waiting reaps it once it ends, so it doesn't stay behind as a zombie.
-                glib::spawn_future_local(async move {
-                    let _ = child.status().await;
-                });
-            }
-            Err(error) => self.show_error(&trf(
-                msg!("Blueman can't be started: {error}"),
-                &[("error", &error)],
-            )),
-        }
     }
 }
 
@@ -1671,44 +971,6 @@ fn update_row(row: &mut DeviceRow, device: &Device, running: Option<Action>, pow
         ))]);
 }
 
-/// Puts `rows` into `list` in this order, moving only what is out of place, so a row with the
-/// focus keeps it unless it moves.
-fn arrange(list: &gtk::ListBox, rows: &[&DeviceRow]) {
-    let current: Vec<gtk::Widget> = {
-        let mut out = Vec::new();
-        let mut child = list.first_child();
-        while let Some(widget) = child {
-            child = widget.next_sibling();
-            out.push(widget);
-        }
-        out
-    };
-    let wanted: Vec<gtk::Widget> = rows.iter().map(|row| row.row.clone().upcast()).collect();
-    if current == wanted {
-        return;
-    }
-    let focus = list
-        .root()
-        .and_then(|root| root.focus())
-        .filter(|focus| rows.iter().any(|row| focus.is_ancestor(&row.row)));
-    for row in rows {
-        remove_row(&row.row);
-    }
-    for row in rows {
-        list.append(&row.row);
-    }
-    if let Some(focus) = focus {
-        focus.grab_focus();
-    }
-}
-
-/// Takes `row` out of the list it is in.
-fn remove_row(row: &gtk::ListBoxRow) {
-    if let Some(list) = row.parent().and_downcast::<gtk::ListBox>() {
-        list.remove(row);
-    }
-}
-
 /// Marks what runs on the device at `path` and shows it.
 fn set_running(page: &glib::WeakRef<BluetoothPage>, path: &str, action: Option<Action>) {
     let Some(page) = page.upgrade() else {
@@ -1752,78 +1014,6 @@ fn icon_name(icon: Option<&str>) -> String {
     }
 }
 
-/// A section heading as on the pages built from the registry; `first` has no space above it.
-/// The texts of the labels in `widget`, in order.
-fn labels_in(widget: &gtk::Widget) -> Vec<String> {
-    let mut texts = Vec::new();
-    let mut child = widget.first_child();
-    while let Some(current) = child {
-        if let Some(label) = current.downcast_ref::<gtk::Label>() {
-            texts.push(label.text().to_string());
-        }
-        texts.extend(labels_in(&current));
-        child = current.next_sibling();
-    }
-    texts
-}
-
-fn heading(title: &str, first: bool) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(title.to_uppercase())
-        .xalign(0.0)
-        .margin_start(4)
-        .margin_bottom(8)
-        .margin_top(if first { 0 } else { 24 })
-        .accessible_role(gtk::AccessibleRole::Heading)
-        .build();
-    label.add_css_class("st-section-heading");
-    label.add_css_class(style::DIM);
-    label
-}
-
-/// A bordered list for the rows of a section.
-fn section_list(title: &str) -> gtk::ListBox {
-    let list = gtk::ListBox::new();
-    device_list(&list, title);
-    list
-}
-
-/// Makes `list` a bordered list of a section named `title`.
-fn device_list(list: &gtk::ListBox, title: &str) {
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("st-section");
-    list.update_property(&[gtk::accessible::Property::Label(title)]);
-}
-
-/// Styles `label` as the hint shown in place of an empty list.
-fn hint(label: &gtk::Label) {
-    label.set_xalign(0.0);
-    label.set_wrap(true);
-    label.add_css_class(style::DIM);
-    label.add_css_class("st-section-hint");
-    label.set_visible(false);
-}
-
-/// Shows `text` in `label`, or hides it.
-fn set_hint(label: &gtk::Label, text: Option<&str>) {
-    label.set_text(text.unwrap_or_default());
-    label.set_visible(text.is_some());
-}
-
-/// `child` as a row of a section list. The row itself takes no focus; its controls do.
-fn list_row(child: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
-    let item = gtk::ListBoxRow::new();
-    item.set_child(Some(child));
-    plain_row(&item);
-    item
-}
-
-/// Makes `row` a row that takes no focus and can't be activated; its controls can.
-fn plain_row(row: &gtk::ListBoxRow) {
-    row.set_activatable(false);
-    row.set_focusable(false);
-}
-
 /// The dialog that asks for a new name instead of `name`, with `note` under the field.
 fn rename_spec(name: &str, note: &str) -> Spec {
     Spec {
@@ -1864,24 +1054,6 @@ fn visible_text(timeout: u32) -> String {
             timeout / 60,
         ),
     }
-}
-
-/// A row with `title` above `subtitle` on the left and `controls` on the right.
-fn row(title: &gtk::Label, subtitle: &gtk::Label, controls: &[&gtk::Widget]) -> gtk::Box {
-    for label in [title, subtitle] {
-        label.set_xalign(0.0);
-        label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    }
-    let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    text.set_hexpand(true);
-    text.append(title);
-    text.append(subtitle);
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    line.append(&text);
-    for control in controls {
-        line.append(*control);
-    }
-    line
 }
 
 #[cfg(test)]

@@ -36,27 +36,27 @@
 //! [`DeviceWatch`] reads them again on each `input` event of sway, and the devices that only have
 //! stored values are listed too. Without a session only those are known.
 
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::time::Instant;
+mod kanshi;
+mod queue;
+mod watch;
 
-use crate::i18n::{Msg, msg, tr, trf};
+pub use self::kanshi::KanshiLook;
+use std::rc::Rc;
+
+use crate::i18n::{Msg, msg, trf};
 use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::apply::{
-    Applier, ApplyError, Countdown, Pending, Persisted, SAVE_DELAY, Waiting,
-};
-use sway_things_core::command::input::{InputSelector, XkbSwitch};
+use sway_things_core::apply::{Applier, Pending, Persisted, Waiting};
 use sway_things_core::conflict::{Known, Report};
-use sway_things_core::devices::{DeviceWatch, Devices, switch_layout};
+use sway_things_core::devices::Devices;
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
-use sway_things_core::gsettings::{GSettingsError, GSettingsStore, INTERFACE};
+use sway_things_core::gsettings::{GSettingsStore, INTERFACE};
 use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAccess};
-use sway_things_core::ipc::{Client, Compositor, Reloads};
+use sway_things_core::ipc::Compositor;
+use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::profiles::Profiles;
-use sway_things_core::outputs::{OutputWatch, Outputs};
 use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
@@ -145,45 +145,6 @@ enum Op {
     SwayReloaded,
     /// Writes a generated file that was changed outside Sway Things.
     Overwrite(ConfigFile),
-}
-
-/// What the model saw of kanshi when it last looked, for the note of the Displays page: read
-/// from the machine once, not each time the page draws.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct KanshiLook {
-    /// Whether kanshi is installed.
-    pub installed: bool,
-    /// Whether one runs in this session.
-    pub runs: bool,
-    /// Whether the user's kanshi config is there without the include of ours.
-    pub include_missing: bool,
-    /// The include line of ours.
-    pub include_line: String,
-    /// The user's profiles before the include, which kanshi tries before ours.
-    pub before_ours: Vec<(String, Vec<String>)>,
-    /// The file of ours for kanshi, if someone else's file stands in its place: nothing can be
-    /// written there.
-    pub foreign: Option<String>,
-}
-
-impl KanshiLook {
-    /// Looks at the machine: `$PATH`, `/proc` and the user's kanshi config.
-    fn read() -> Self {
-        use sway_things_core::outputs::kanshi;
-        let Some(files) = kanshi::KanshiFiles::from_env() else {
-            return Self::default();
-        };
-        Self {
-            installed: kanshi::installed(),
-            runs: sway_things_core::outputs::kanshi_runs(),
-            include_missing: files.inclusion() == kanshi::Inclusion::Missing,
-            include_line: files.include_line(),
-            before_ours: files.before_ours(),
-            foreign: files
-                .ours_is_foreign()
-                .then(|| files.ours.display().to_string()),
-        }
-    }
 }
 
 /// What the model works with once it is loaded.
@@ -317,7 +278,7 @@ impl Model {
                 model.start(applier, watch.status().clone(), true);
                 // kanshi started or stopped since the files were written: the lines for the
                 // displays go or come back. Only a file as Sway Things wrote it is replaced.
-                let outdated = model.generated().is_some_and(|files| {
+                let outdated = model.generated().await.is_some_and(|files| {
                     files.iter().any(|(file, on_disk)| {
                         on_disk.file == ConfigFile::Output
                             && on_disk.ownership == Ok(generate::Ownership::Ours)
@@ -488,70 +449,6 @@ impl Model {
         self.imp().kanshi.borrow().clone()
     }
 
-    /// Looks again whether kanshi sets up the displays, as when displays come and go; says
-    /// whether what it saw changed. At most every two seconds: the model changes often while a
-    /// display is dragged, and a look reads `/proc`. kanshi's config and sway's are watched, so
-    /// a change of those is seen at once ([`Model::look_at_kanshi`]).
-    pub fn look_for_kanshi(&self) -> bool {
-        let recently = self.imp().kanshi_looked.get().is_some_and(|then| {
-            std::time::Instant::now().duration_since(then) < std::time::Duration::from_secs(2)
-        });
-        !recently && self.look_at_kanshi()
-    }
-
-    /// Looks now whether kanshi sets up the displays and what its config says; says whether
-    /// that changed.
-    fn look_at_kanshi(&self) -> bool {
-        self.imp()
-            .kanshi_looked
-            .set(Some(std::time::Instant::now()));
-        let look = if self.imp().looks_for_kanshi.get() {
-            KanshiLook::read()
-        } else {
-            KanshiLook::default()
-        };
-        let seen = self.imp().kanshi.replace(look.clone()) != look;
-        let displays = self.displays();
-        let changed = self.imp().displays.replace(displays) != displays;
-        if changed {
-            // The rows show what the displays run with, or what is stored, and the lines for
-            // the displays go from the generated files or come back.
-            self.queue(Op::Persist);
-        }
-        changed || seen
-    }
-
-    /// Follows the user's kanshi config and ours: the include line that was added, moved or
-    /// removed shows on the Displays page at once, as the one of the sway config does.
-    fn watch_kanshi(&self) {
-        let Some(files) = sway_things_core::outputs::kanshi::KanshiFiles::from_env() else {
-            return;
-        };
-        let Ok(watcher) = sway_things_core::watch::Watcher::new(
-            [files.config.clone(), files.ours],
-            sway_things_core::watch::DEBOUNCE,
-        ) else {
-            return;
-        };
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                while let Some(changed) = watcher.changed().await {
-                    let theirs = changed.contains(&files.config);
-                    if model.look_at_kanshi() {
-                        model.emit_by_name::<()>("changed", &[]);
-                    }
-                    // kanshi doesn't follow its config by itself: the line the user just put
-                    // there counts at once, and the arrangement made here comes back.
-                    if theirs && model.kanshi_runs() {
-                        sway_things_core::outputs::kanshi::reload().await;
-                    }
-                }
-            }
-        ));
-    }
-
     /// The input devices: in a session the connected ones, then those that only have stored
     /// values. `None` if the settings couldn't be loaded.
     pub fn devices(&self) -> Option<Devices> {
@@ -642,18 +539,29 @@ impl Model {
         self.queue(Op::ReloadSway);
     }
 
-    /// What Sway Things writes to each generated file for the current settings, and the file as
-    /// it is on disk, read now. Nothing is written. `None` if the settings couldn't be loaded.
-    pub fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
+    /// What Sway Things writes to each generated file for the current settings. Nothing is
+    /// read or written. `None` if the settings couldn't be loaded.
+    pub fn generated_files(&self) -> Option<Vec<GeneratedFile>> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
-        let files = generate::generate_for(
+        Some(generate::generate_for(
             core.state.registry(),
             &core.state,
             core.compositor,
             self.imp().displays.get(),
-        );
-        let on_disk = generate::on_disk(&files, &core.locations);
+        ))
+    }
+
+    /// What Sway Things writes to each generated file for the current settings, and the file as
+    /// it is on disk, read now on a thread of its own, so the window never waits for the disk.
+    /// Nothing is written. `None` if the settings couldn't be loaded.
+    pub async fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
+        let files = self.generated_files()?;
+        let locations = self.imp().core.borrow().as_ref()?.locations.clone();
+        let read = files.clone();
+        let on_disk = gtk::gio::spawn_blocking(move || generate::on_disk(&read, &locations))
+            .await
+            .ok()?;
         Some(files.into_iter().zip(on_disk).collect())
     }
 
@@ -998,587 +906,6 @@ impl Model {
             }
         }
         self.run_queue();
-    }
-
-    fn queue(&self, op: Op) {
-        {
-            let mut queue = self.imp().queue.borrow_mut();
-            if !queue.contains(&op) {
-                queue.push_back(op);
-            }
-        }
-        self.run_queue();
-    }
-
-    /// Runs the queued operations one by one, unless that is already happening.
-    fn run_queue(&self) {
-        let imp = self.imp();
-        if imp.busy.replace(true) {
-            return;
-        }
-        glib::spawn_future_local(glib::clone!(
-            #[strong(rename_to = model)]
-            self,
-            async move {
-                loop {
-                    let op = model.imp().queue.borrow_mut().pop_front();
-                    let Some(op) = op else { break };
-                    model.run(op).await;
-                }
-                model.imp().busy.set(false);
-                // Who waited for the queue to be done (`is_busy`) looks again.
-                model.emit_by_name::<()>("changed", &[]);
-                model.plan_save();
-            }
-        ));
-    }
-
-    async fn run(&self, op: Op) {
-        let (applier, status) = {
-            let mut core = self.imp().core.borrow_mut();
-            let Some(core) = core.as_mut() else { return };
-            let Some(applier) = core.applier.take() else {
-                return;
-            };
-            (applier, core.status.clone())
-        };
-        let mut applier = applier;
-        self.follow_displays(&mut applier, matches!(op, Op::Persist));
-        let was_pending = applier.pending().map(Pending::countdown);
-        match (op, status.write_access()) {
-            (
-                Op::Set { key, device, .. }
-                | Op::Reset { key, device }
-                | Op::MoveTo { key, device, .. },
-                Err(read_only),
-            ) => {
-                self.emit_failed(key, device.as_deref(), &explained(&read_only));
-            }
-            (Op::TryRiskyAll { device, changes }, access) => {
-                self.try_risky_all_now(&mut applier, device.as_deref(), &changes, &status, access)
-                    .await;
-            }
-            // Switching the layout stores nothing, so it needs no include line.
-            (Op::SwitchLayout { device, index }, _) => {
-                self.switch_layout_now(&mut applier, device.as_deref(), index)
-                    .await;
-            }
-            (Op::LetConfigWin(report), Err(read_only)) => {
-                self.emit_failed(report.key(), report.device(), &explained(&read_only));
-            }
-            (Op::Overwrite(file), Ok(access)) => {
-                self.persist_now(&mut applier, &[file], &access).await;
-            }
-            (Op::ResetPage(_) | Op::ReloadSway | Op::Overwrite(_), Err(read_only)) => {
-                self.emit_problem(&explained(&read_only));
-            }
-            (Op::Reset { key, device }, Ok(access)) => {
-                self.reset_now(&mut applier, key, device.as_deref(), &status, &access)
-                    .await;
-            }
-            (Op::MoveTo { key, device, layer }, Ok(access)) => {
-                if let Err(error) = applier.move_to(key, device.as_deref(), layer, &access) {
-                    self.emit_failed(key, device.as_deref(), &error.text().translated());
-                }
-            }
-            (Op::LetConfigWin(report), Ok(access)) => {
-                if let Err(error) = applier.let_config_win(&report, &access).await {
-                    self.emit_failed(report.key(), report.device(), &error.text().translated());
-                }
-            }
-            (Op::ResetPage(page), Ok(access)) => {
-                self.reset_page_now(&mut applier, page, &access).await;
-            }
-            (Op::Set { key, device, value }, Ok(access)) => {
-                self.set_now(
-                    &mut applier,
-                    key,
-                    device.as_deref(),
-                    value,
-                    &status,
-                    &access,
-                )
-                .await;
-            }
-            (Op::Keep, Ok(access)) => {
-                if let Err(error) = applier.keep(&access) {
-                    self.emit_problem(&error.text().translated());
-                }
-            }
-            // Without the include line nothing can be kept: back to the old value.
-            (Op::Keep | Op::Revert, _) => match applier.revert().await {
-                Ok(_) | Err(ApplyError::NothingPending) => {}
-                Err(error) => self.emit_problem(&trf(
-                    msg!("{error}. The old value comes back when sway reloads its config."),
-                    &[("error", &error.text().translated())],
-                )),
-            },
-            (Op::Persist, Ok(access)) => self.persist_now(&mut applier, &[], &access).await,
-            (Op::Reload, Ok(access)) => {
-                applier.reload(&access).await;
-            }
-            (Op::ReloadSway, Ok(access)) => self.reload_sway_now(&mut applier, &access).await,
-            (Op::SwayReloaded, _) => applier.reloaded(),
-            (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
-                self.displays_now(&mut applier, op).await;
-            }
-            (Op::FixPlacement { workspace, display }, access) => {
-                self.fix_placement_now(&mut applier, &workspace, &display, access)
-                    .await;
-            }
-            // Nothing can be saved or loaded without the include line; it is shown elsewhere.
-            (Op::Persist | Op::Reload, Err(_)) => {}
-        }
-        self.give_back(applier, was_pending);
-    }
-
-    /// Saves and writes the files, replacing the generated files `overwrite` changed outside.
-    async fn persist_now(
-        &self,
-        applier: &mut Applier,
-        overwrite: &[ConfigFile],
-        access: &WriteAccess,
-    ) {
-        match applier.persist(overwrite, access).await {
-            Ok(persisted) => self.emit_persisted(&persisted),
-            Err(error) => self.emit_problem(&error.text().translated()),
-        }
-    }
-
-    /// Saves and writes the files, and has sway reload its config.
-    async fn reload_sway_now(&self, applier: &mut Applier, access: &WriteAccess) {
-        match applier.reload_sway(access).await {
-            Ok(persisted) => self.emit_persisted(&persisted),
-            Err(error) => self.emit_problem(&trf(
-                msg!("Sway wasn’t reloaded: {error}."),
-                &[("error", &error.text().translated())],
-            )),
-        }
-    }
-
-    /// Takes `applier` back after an operation: copies what the rows read, plans the revert of a
-    /// risky change that started waiting (none waited with the countdown `was_pending`), and
-    /// tells the rows.
-    fn give_back(&self, mut applier: Applier, was_pending: Option<Countdown>) {
-        if let Some(problem) = applier.take_displays_problem() {
-            self.emit_problem(&problem.translated());
-        }
-        let pending = applier.pending().cloned();
-        if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
-            if was_pending != Some(countdown) {
-                self.revert_at(countdown);
-            }
-        }
-        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
-            core.state = applier.state().clone();
-            core.devices.set_stored(&core.state);
-            core.outputs.set_stored(&core.state);
-            core.pending = pending;
-            core.waiting = applier.waiting().clone();
-            core.profiles = applier.profiles().cloned();
-            core.applier = Some(applier);
-        }
-        self.emit_by_name::<()>("changed", &[]);
-    }
-
-    /// Follows the input devices of the session on `socket`: reads them, and again on each
-    /// `input` event, until sway closes the connection.
-    fn watch_devices(&self, socket: PathBuf) {
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                let started = match Client::connect_to(socket).await {
-                    Ok(client) => DeviceWatch::start(&client).await,
-                    Err(error) => Err(error),
-                };
-                let mut watch = match started {
-                    Ok(watch) => watch,
-                    Err(error) => {
-                        model.emit_problem(&trf(
-                            NO_DEVICES,
-                            &[("error", &error.text().translated())],
-                        ));
-                        return;
-                    }
-                };
-                model.take_devices(watch.devices());
-                // An error leaves the list as it was; the events after it still come.
-                while watch.changed().await.is_some() {
-                    model.take_devices(watch.devices());
-                }
-            }
-        ));
-    }
-
-    /// Follows the outputs of the session on `socket`: reads them, and again on each `output`
-    /// event, until sway closes the connection.
-    fn watch_outputs(&self, socket: PathBuf) {
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                let started = match Client::connect_to(socket).await {
-                    Ok(client) => OutputWatch::start(&client).await,
-                    Err(error) => Err(error),
-                };
-                let mut watch = match started {
-                    Ok(watch) => watch,
-                    Err(error) => {
-                        model.emit_problem(&trf(
-                            NO_DISPLAYS,
-                            &[("error", &error.text().translated())],
-                        ));
-                        return;
-                    }
-                };
-                model.take_outputs(watch.outputs());
-                // An error leaves the list as it was; the events after it still come.
-                while watch.changed().await.is_some() {
-                    model.take_outputs(watch.outputs());
-                }
-                // sway is gone: what it reported is no longer so.
-                model.forget_outputs();
-            }
-        ));
-    }
-
-    /// Forgets the connected outputs once sway is gone; those with stored values stay listed.
-    fn forget_outputs(&self) {
-        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
-            let mut outputs = Outputs::default();
-            outputs.set_stored(&core.state);
-            core.outputs = outputs;
-            core.outputs_known = false;
-        }
-        self.emit_by_name::<()>("changed", &[]);
-    }
-
-    /// Takes the connected outputs of `outputs`, and lists those with stored values too.
-    fn take_outputs(&self, outputs: &Outputs) {
-        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
-            let mut outputs = outputs.clone();
-            outputs.set_stored(&core.state);
-            core.outputs = outputs;
-            core.outputs_known = true;
-        }
-        // While kanshi sets up the displays, the stored values follow what it set up.
-        self.queue(Op::FollowCombination);
-        self.emit_by_name::<()>("changed", &[]);
-    }
-
-    /// Follows the reloads of sway's config in the session on `socket`, whoever asks for them, so
-    /// the changes that waited for one count as in effect.
-    fn watch_reloads(&self, socket: PathBuf) {
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                let started = match Client::connect_to(socket).await {
-                    Ok(client) => Reloads::start(&client).await,
-                    Err(error) => Err(error),
-                };
-                let mut reloads = match started {
-                    Ok(reloads) => reloads,
-                    Err(error) => {
-                        model.emit_problem(&trf(
-                            NO_RELOADS,
-                            &[("error", &error.text().translated())],
-                        ));
-                        return;
-                    }
-                };
-                // An event that can't be read is skipped; the events after it still come.
-                while let Some(reloaded) = reloads.next().await {
-                    if reloaded.is_ok() {
-                        model.queue(Op::SwayReloaded);
-                    }
-                }
-            }
-        ));
-    }
-
-    /// Takes the connected devices of `devices`, and lists those with stored values too.
-    fn take_devices(&self, devices: &Devices) {
-        if let Some(core) = self.imp().core.borrow_mut().as_mut() {
-            let mut devices = devices.clone();
-            devices.set_stored(&core.state);
-            core.devices = devices;
-            core.devices_known = true;
-        }
-        self.emit_by_name::<()>("changed", &[]);
-    }
-
-    /// Changes `key` for `device` to `value`; a risky setting is tried with the safety net.
-    async fn set_now(
-        &self,
-        applier: &mut Applier,
-        key: &'static str,
-        device: Option<&str>,
-        value: Value,
-        status: &IncludeStatus,
-        access: &WriteAccess,
-    ) {
-        let result = if is_risky(applier, key) {
-            applier
-                .try_risky(key, device, value, status, access)
-                .await
-                .map(|_| Vec::new())
-        } else {
-            applier
-                .set(key, device, value, access)
-                .await
-                .map(|applied| applied.not_copied)
-        };
-        self.report_change(key, device, result);
-    }
-
-    /// Removes the stored value of `key` for `device`; a risky setting is tried with the safety
-    /// net.
-    async fn reset_now(
-        &self,
-        applier: &mut Applier,
-        key: &'static str,
-        device: Option<&str>,
-        status: &IncludeStatus,
-        access: &WriteAccess,
-    ) {
-        let result = if is_risky(applier, key) {
-            applier
-                .try_risky_reset(key, device, status, access)
-                .await
-                .map(|_| Vec::new())
-        } else {
-            applier
-                .reset(key, device, access)
-                .await
-                .map(|applied| applied.not_copied)
-        };
-        self.report_change(key, device, result);
-    }
-
-    /// Reports a change of `key` that failed, or that was made but couldn't reach GSettings, so
-    /// the apps that read it there keep their own value.
-    fn report_change(
-        &self,
-        key: &'static str,
-        device: Option<&str>,
-        result: Result<Vec<GSettingsError>, ApplyError>,
-    ) {
-        match result {
-            Err(error) => self.emit_failed(key, device, &error.text().translated()),
-            Ok(not_copied) => {
-                if let Some(error) = not_copied.first() {
-                    self.emit_failed(key, device, &error.text().translated());
-                }
-            }
-        }
-    }
-
-    /// Tries several risky settings of `device` as one change; a failure is reported for the
-    /// first key.
-    async fn try_risky_all_now(
-        &self,
-        applier: &mut Applier,
-        device: Option<&str>,
-        changes: &[(&'static str, Option<Value>)],
-        status: &IncludeStatus,
-        access: Result<WriteAccess, ReadOnly>,
-    ) {
-        let Some((key, _)) = changes.first() else {
-            return;
-        };
-        let result = match access {
-            Ok(access) => applier
-                .try_risky_all(device, changes, status, &access)
-                .await
-                .map(drop)
-                .map_err(|error| error.text().translated()),
-            Err(read_only) => Err(explained(&read_only)),
-        };
-        if let Err(message) = result {
-            self.emit_failed(key, device, &message);
-        }
-    }
-
-    /// Switches the active layout of the keyboard `device`, or of every keyboard, to the one at
-    /// `index`. A failure is shown in the banner above the page.
-    async fn switch_layout_now(&self, applier: &mut Applier, device: Option<&str>, index: u8) {
-        let selector = match device.map(InputSelector::device).transpose() {
-            Ok(selector) => selector,
-            Err(error) => {
-                self.emit_problem(&trf(
-                    msg!("The layout can't be switched: {error}"),
-                    &[("error", &error.text().translated())],
-                ));
-                return;
-            }
-        };
-        let Some(client) = applier.client() else {
-            self.emit_problem(tr(msg!(
-                "The layout can only be switched in a running sway session."
-            )));
-            return;
-        };
-        if let Err(error) = switch_layout(client, selector.as_ref(), XkbSwitch::Index(index)).await
-        {
-            self.emit_problem(&trf(
-                msg!("The layout can't be switched: {error}"),
-                &[("error", &error.text().translated())],
-            ));
-        }
-    }
-
-    /// Tells `applier` who sets up the displays now: kanshi may have been set up or gone since
-    /// the app opened. When that changed, the files are written again (unless `persisting`
-    /// already), so the lines for the displays go or come back.
-    fn follow_displays(&self, applier: &mut Applier, persisting: bool) {
-        let before = self.imp().displays.get();
-        // Not before every change: a look reads `/proc` and kanshi's config.
-        self.look_for_kanshi();
-        let displays = self.imp().displays.get();
-        applier.set_displays(displays);
-        if displays != before && persisting {
-            // Written with this very change: once is enough.
-            self.imp()
-                .queue
-                .borrow_mut()
-                .retain(|op| !matches!(op, Op::Persist));
-        }
-    }
-
-    /// Runs an operation of the displays that isn't a change of a setting: a mirror, the
-    /// workspaces, following the combination kanshi set up.
-    async fn displays_now(&self, applier: &mut Applier, op: Op) {
-        match op {
-            Op::SetMirror { target, mirror } => {
-                match applier.set_mirror(&target, mirror).await {
-                    Ok(()) => {
-                        // While a rule places the workspaces, the display takes none now, or
-                        // takes them again. sway keeps the displays it was told for each
-                        // workspace until it reloads, and a number that still led onto the
-                        // picture would hide it: reloaded at once, without asking.
-                        let places =
-                            sway_things_core::outputs::workspaces::Rule::of(applier.state())
-                                .places();
-                        if places {
-                            self.queue(Op::ReloadSway);
-                        }
-                    }
-                    Err(error) => self.emit_problem(&trf(
-                        msg!("The display wasn\u{2019}t mirrored: {error}."),
-                        &[("error", &error.text().translated())],
-                    )),
-                }
-            }
-            Op::MoveAlong(places) => {
-                // Nothing waits any more (kept or reverted meanwhile): nothing to move along.
-                match applier.move_along(&places).await {
-                    Ok(()) | Err(ApplyError::NothingPending) => {}
-                    Err(error) => self.emit_problem(&trf(
-                        msg!("The other displays weren\u{2019}t moved along: {error}."),
-                        &[("error", &error.text().translated())],
-                    )),
-                }
-            }
-            Op::FollowCombination => {
-                if let Err(error) = applier.follow_combination().await {
-                    self.emit_problem(&trf(
-                        msg!("The settings of the displays weren\u{2019}t updated: {error}."),
-                        &[("error", &error.text().translated())],
-                    ));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    /// Removes every stored value of `page`, except those of risky settings.
-    async fn reset_page_now(&self, applier: &mut Applier, page: Page, access: &WriteAccess) {
-        let errors = applier.reset_page(page, access).await;
-        for (key, device, error) in errors.failed {
-            self.emit_failed(key, device.as_deref(), &error.text().translated());
-        }
-        if let Some(error) = errors.displays {
-            self.emit_problem(&trf(
-                msg!("The displays weren\u{2019}t reset: {error}."),
-                &[("error", &error.text().translated())],
-            ));
-        }
-    }
-
-    /// Reverts the change that waits when `countdown` elapses, unless it was kept or reverted
-    /// before.
-    fn revert_at(&self, countdown: Countdown) {
-        glib::timeout_add_local_once(
-            countdown.remaining(),
-            glib::clone!(
-                #[weak(rename_to = model)]
-                self,
-                move || {
-                    let still = model
-                        .pending_change()
-                        .is_some_and(|pending| pending.countdown() == countdown);
-                    if still {
-                        model.revert();
-                    }
-                }
-            ),
-        );
-    }
-
-    /// Plans the save of the changes that aren't saved yet, unless one is planned.
-    fn plan_save(&self) {
-        let imp = self.imp();
-        let due = {
-            let core = imp.core.borrow();
-            core.as_ref()
-                .filter(|core| core.autosave)
-                .and_then(|core| core.applier.as_ref())
-                .and_then(Applier::save_due)
-        };
-        let Some(due) = due else { return };
-        if imp.save_planned.replace(true) {
-            return;
-        }
-        let wait = due
-            .saturating_duration_since(Instant::now())
-            .max(SAVE_DELAY / 10);
-        glib::timeout_add_local_once(
-            wait,
-            glib::clone!(
-                #[weak(rename_to = model)]
-                self,
-                move || {
-                    model.imp().save_planned.set(false);
-                    model.queue(Op::Persist);
-                }
-            ),
-        );
-    }
-
-    fn watch_config(&self, mut watch: IncludeWatch) {
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                while let Some(status) = watch.changed().await {
-                    model.set_status(status.clone());
-                }
-            }
-        ));
-    }
-
-    fn watch_state(&self, watcher: sway_things_core::watch::Watcher) {
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = model)]
-            self,
-            async move {
-                while watcher.changed().await.is_some() {
-                    model.queue(Op::Reload);
-                }
-            }
-        ));
     }
 
     fn emit_failed(&self, key: &str, device: Option<&str>, message: &str) {

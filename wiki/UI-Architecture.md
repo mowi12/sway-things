@@ -28,6 +28,11 @@
 - **Pages from the registry:** `PageView::for_settings(model, page)` builds a page from the registry: a heading and a
   bordered list per section, and the generated files the page writes to at the bottom. Every page with settings is built
   this way; custom pages can mix these rows with their own widgets.
+- **Page parts** (`crates/gui/src/widgets/page_view/parts.rs`): what a page adds to its rows, in one place, so
+  `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, Apps
+  Look & Feel's note, the Displays arrangement), below them (the test area, the workspace map), the choices of a row and
+  what it follows, and the widgets below a row (the Keyboard page's layouts and options). About's sections are
+  `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
   `app.show_directives` is on, and a chevron. Its list item takes the focus; a click, `Enter` or `Space` expands it, and
@@ -95,8 +100,10 @@
   preference it follows (`app.bluetooth_search`, `app.wifi_search`, `app.sound_above_100`) and puts its _Advanced…_
   button, which starts the specialist tool, in the page header. Each page follows the service's change stream on the
   main loop (`glib::spawn_future_local`, holding the page by a `WeakRef`), reads a new snapshot at most every 200 ms
-  (Sound 100 ms) and updates its rows in place; the tasks end in `dispose`. Bluetooth and Network search only while the
-  page is on screen and the radio is on, or after _Search_ with the preference set to manual. Their dialogs
+  (Sound 100 ms, `live::follow_changes`) and updates its rows in place; the tasks end in `dispose`. The sections, rows
+  and hints are the shared ones of `widgets/list.rs`, the forget dialog is `live::confirm_forget`, and
+  `window::live_view` puts each page under its title with its _Advanced…_ button. Bluetooth and Network search only
+  while the page is on screen and the radio is on, or after _Search_ with the preference set to manual. Their dialogs
   (`dialogs.rs`) take the pairing agent's and the secret agent's questions, renaming, passwords, hidden networks and
   forgetting. Device, network and app names are untrusted and only ever set as plain label text. The tests run the pages
   against the stand-ins of `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
@@ -110,9 +117,10 @@
   picked theme ships, of the screens a tablet or touchscreen can map to (following the outputs), of the installed GTK
   themes and of the icon themes (each with a few of its icons); and notes at the top of Apps Look & Feel when GSettings
   has no `org.gnome.desktop.interface` or no Settings portal reports the style ([GSettings](Backends.md#gsettings)).
-- **Model** (`crates/gui/src/model.rs`): owns the core's `Applier`, the include status and the watchers of the user's
-  config and the settings files. In a session it also runs a `DeviceWatch` on a connection of its own, and lists the
-  devices with stored values after every change (`Devices::set_stored`); without one only those are listed, and
+- **Model** (`crates/gui/src/model.rs`; its queue of operations in `model/queue.rs`, the watchers in `model/watch.rs`,
+  what it sees of kanshi in `model/kanshi.rs`): owns the core's `Applier`, the include status and the watchers of the
+  user's config and the settings files. In a session it also runs a `DeviceWatch` on a connection of its own, and lists
+  the devices with stored values after every change (`Devices::set_stored`); without one only those are listed, and
   `devices_known` is false. Rows read from a copy of the state, so they never wait for a change in progress. A change is
   queued and sent one at a time; a setting that changes again before its turn sends only its newest value (a slider
   being dragged). The files are saved `SAVE_DELAY` after the last change. The model reports `changed` (rows read again;

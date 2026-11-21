@@ -14,7 +14,7 @@
 # (crates/core/tests/bluetooth_bluez.rs, crates/core/tests/network_nm.rs), and the sound backend against a private
 # PipeWire with pipewire-pulse and virtual devices (crates/core/tests/sound_pulse.rs). The files generated from the
 # sample settings (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
-# Last, the GUI tests (crates/gui/tests/gui.rs: contrast in light and dark, keyboard navigation) open their windows on
+# Last, the GUI tests (crates/gui/tests/gui/: contrast in light and dark, keyboard navigation) open their windows on
 # the headless sway (not on SwayFX, see below).
 #
 # Without options, runs every container: --container NAME builds ci/containers/NAME/Dockerfile and runs this script
