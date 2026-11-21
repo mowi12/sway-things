@@ -368,7 +368,12 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
   the plugin supports it, a dialog of the page, _Sign in to VPN “Office”_ (_… again_ after a failed attempt), with the
   plugin's text and its fields (a password field for a secret, a text field with the current value otherwise) and
   _Cancel_ / _Connect_. Canceling gives up the connection. Without the plugin's dialog the switch fails with an error
-  that names the plugin and says its GNOME package provides the dialog.
+  that names the plugin and says its GNOME package provides the dialog. An OpenConnect VPN signs in through one dialog
+  of the page that walks through the server's steps: _Sign in to VPN “Uni”_ with the server's message and the field it
+  asks for (username, password, a code; a drop-down for a choice) and _Cancel_ / _Continue_, then _Signing in…_ with a
+  spinner until the next field, or _Continue the sign-in in your browser…_ for a web sign-in; it closes once signed in.
+  A failed sign-in shows the server's message in the switch's error; a server certificate that fails verification is
+  refused.
 - **Advanced…:** in the header, while nm-connection-editor is installed.
 - **Not available:** a placeholder while NetworkManager isn't running or there is no adapter and no VPN at all, and
   _Networking is turned off_ with _Turn On_; the page updates by itself.

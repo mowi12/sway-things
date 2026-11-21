@@ -162,6 +162,8 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Switches for the wired devices and the VPN and WireGuard connections
 - [ ] 🟡 WPA-Enterprise (802.1X) dialog: PEAP and TTLS with MSCHAPv2 or PAP, TLS with certificates, a CA file
 - [x] 🟡 Ask for VPN passwords through the VPN plugin's dialog
+- [x] 🟡 Sign in to OpenConnect VPNs through our own dialog (`openconnect --authenticate`), also with a TOTP or a web
+      sign-in
 - **Not planned:** a full network editor (delegate)
 
 ---

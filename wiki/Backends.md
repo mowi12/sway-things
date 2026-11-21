@@ -73,13 +73,27 @@ whether it supports `--external-ui-mode` and hints. The dialog is started with a
 it (`-u` UUID, `-n` name, `-s` service, `-i` when it may ask, `-r` when the old secrets failed, `-t` per hint), reads
 the VPN's data and secrets from stdin and answers on stdout: key and value lines up to an empty line, then it gets
 `QUIT` and ends by itself; in external UI mode a key file whose fields with `ShouldAsk` the page asks for in a dialog of
-its own. `CancelGetSecrets` ends a running dialog. Nothing is stored by Sway Things: the secrets go back to
-NetworkManager, which keeps them as their flags say; those left to an agent are asked for again (no keyring). Without an
-auth dialog (only the plugin's KDE part, or its GNOME package missing) the agent answers `NoSecrets` and notes it, so
-`connect_vpn` reports which plugin's GNOME part is missing. Everything else (802.1X, WireGuard, whose keys are in the
-connection) gets `NoSecrets`, so another agent can answer. `delegate` starts nm-connection-editor: the whole editor,
-`--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which is checked to be one before it becomes an
-argument.
+its own. `CancelGetSecrets` ends a running dialog. OpenConnect VPNs don't use the plugin's dialog, which fails for some
+servers: the agent signs in itself (`network::openconnect`), as nmcli does. It runs `openconnect --authenticate` (found
+in `/usr/sbin`, `/sbin`, `/usr/local/sbin`, then the `bin` directories) in the C.UTF-8 locale with the profile's
+settings as `--option=value` (`protocol`, `useragent`, `reported_os`, certificates, proxy, token mode) and the server
+after `--`, plus `--external-browser=xdg-open` for web sign-ins. openconnect asks one field at a time on stderr, a
+prompt without a line break (ending in a colon, or followed by half a second of silence) and a line read from stdin; its
+progress lines are recognized by their beginnings, and the other lines are the server's message for the next prompt. A
+field is secret unless its label names a user, account or group; `LABEL [a|b]:` is a choice. Each prompt is a step of a
+`SignIn`, which the page shows in one dialog; an answer has its line breaks taken out. The `COOKIE`, `CONNECT_URL` (else
+`HOST`), `FINGERPRINT` and `RESOLVE` it prints become the `cookie`, `gateway`, `gwcert` and `resolve` secrets. A prompt
+to accept a certificate that failed verification ends the sign-in. Why it failed (no openconnect, the certificate, the
+server's last message) is noted for `connect_vpn`. Before it connects an OpenConnect VPN, `connect_vpn` gives a profile
+without them the flags 2 (not saved) for `cookie`, `gateway`, `gwcert` and `resolve`, as the plugin's editor does
+(`Update`, with the secrets NetworkManager keeps): NetworkManager drops secrets from an agent for keys it takes to be
+stored, which a profile made with `nmcli connection add` would lead to. Nothing is stored by Sway Things: the secrets go
+back to NetworkManager, which keeps them as their flags say; those left to an agent are asked for again (no keyring).
+Without an auth dialog (only the plugin's KDE part, or its GNOME package missing) the agent answers `NoSecrets` and
+notes it, so `connect_vpn` reports which plugin's GNOME part is missing. Everything else (802.1X, WireGuard, whose keys
+are in the connection) gets `NoSecrets`, so another agent can answer. `delegate` starts nm-connection-editor: the whole
+editor, `--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which is checked to be one before it
+becomes an argument.
 
 Sound needs none either: the sound server (PipeWire with WirePlumber, or PulseAudio) owns the defaults, volumes and
 profiles and remembers them. `crates/core/src/sound/` speaks the PulseAudio protocol through libpulse, which

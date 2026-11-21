@@ -114,6 +114,84 @@ pub fn fake_vpn_plugin(dir: &std::path::Path, dialog: FakeDialog) -> Result<(), 
     Ok(())
 }
 
+/// How a fake openconnect (see [`fake_openconnect`]) signs in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FakeSignIn {
+    /// Asks for `Username:` and `Password:`, then after the server's message "MFA: Enter your
+    /// TOTP as the second factor" for `Response:`, and signs in.
+    Totp,
+    /// Asks for a `GROUP: [Students|Staff]:` choice, then signs in.
+    Group,
+    /// Asks for `Username:` and `Password:`, then fails with "Login failed.".
+    Fails,
+    /// Asks to accept a certificate that failed verification.
+    Certificate,
+}
+
+/// Puts a fake `openconnect` that signs in as `kind` says into `dir`; its path (see
+/// [`NetworkManager::use_openconnect`]). It writes its arguments, one per line, to
+/// `openconnect-args.txt` in `dir` and the answers it got to `answers.txt`, and prints the cookie
+/// `webvpn=fake`, the server `https://vpn.example.org/` and the fingerprint `pin-sha256:fake=`.
+///
+/// # Errors
+///
+/// If the file can't be written.
+pub fn fake_openconnect(
+    dir: &std::path::Path,
+    kind: FakeSignIn,
+) -> Result<std::path::PathBuf, Error> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let ask = |label: &str, var: &str| format!("printf '%s' \"{label}\" >&2\nread -r {var}\n");
+    let mut script = format!(
+        "#!/bin/sh\ndir='{}'\nprintf '%s\\n' \"$@\" > \"$dir/openconnect-args.txt\"\n\
+         echo 'POST https://vpn.example.org/' >&2\necho 'XML POST enabled' >&2\n",
+        dir.display()
+    );
+    let answers = match kind {
+        FakeSignIn::Totp => {
+            script.push_str(&ask("Username:", "user"));
+            script.push_str(&ask("Password:", "pass"));
+            script.push_str("echo 'POST https://vpn.example.org/' >&2\n");
+            script.push_str("echo 'MFA: Enter your TOTP as the second factor' >&2\n");
+            script.push_str(&ask("Response:", "code"));
+            "\"$user\" \"$pass\" \"$code\""
+        }
+        FakeSignIn::Group => {
+            script.push_str(&ask("GROUP: [Students|Staff]:", "group"));
+            "\"$group\""
+        }
+        FakeSignIn::Fails => {
+            script.push_str(&ask("Username:", "user"));
+            script.push_str(&ask("Password:", "pass"));
+            script.push_str(
+                "echo 'Login failed.' >&2\necho 'Failed to complete authentication' >&2\nexit 1\n",
+            );
+            "\"$user\""
+        }
+        FakeSignIn::Certificate => {
+            script.push_str(
+                "echo 'Certificate from VPN server \"vpn.example.org\" failed verification.' >&2\n",
+            );
+            script.push_str(&ask(
+                "Enter 'yes' to accept, 'no' to abort; anything else to view: ",
+                "accept",
+            ));
+            "\"$accept\""
+        }
+    };
+    script = format!(
+        "{script}printf '%s\\n' {answers} > \"$dir/answers.txt\"\n\
+         echo \"COOKIE='webvpn=fake'\"\necho \"HOST='[2001:db8::1]'\"\n\
+         echo \"CONNECT_URL='https://vpn.example.org/'\"\n\
+         echo \"FINGERPRINT='pin-sha256:fake='\"\n"
+    );
+    let program = dir.join("openconnect");
+    std::fs::write(&program, script)?;
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))?;
+    Ok(program)
+}
+
 /// `NM_DEVICE_STATE_DISCONNECTED`.
 pub const DISCONNECTED: u32 = 30;
 /// `NM_DEVICE_STATE_UNAVAILABLE`.

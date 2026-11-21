@@ -104,10 +104,10 @@
   and hints are the shared ones of `widgets/list.rs`, the forget dialog is `live::confirm_forget`, and
   `window::live_view` puts each page under its title with its _Advanced…_ button. Bluetooth and Network search only
   while the page is on screen and the radio is on, or after _Search_ with the preference set to manual. Their dialogs
-  (`dialogs.rs`) take the pairing agent's and the secret agent's questions (Wi-Fi passwords and a VPN plugin's fields),
-  renaming, passwords, hidden networks and forgetting. Device, network and app names are untrusted and only ever set as
-  plain label text. The tests run the pages against the stand-ins of `bluetooth::stand_in`, `network::stand_in` and
-  `sound::stand_in`.
+  (`dialogs.rs`) take the pairing agent's and the secret agent's questions (Wi-Fi passwords, a VPN plugin's fields, the
+  steps of an OpenConnect sign-in), renaming, passwords, hidden networks and forgetting. Device, network and app names
+  are untrusted and only ever set as plain label text. The tests run the pages against the stand-ins of
+  `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
 - **Workspaces page** (`crates/gui/src/widgets/workspaces.rs`): below the rows of `workspaces.count` and
   `workspaces.placement`, a map with a card per display that takes workspaces, holding the numbers the placement rule
   gives it (`Model::placement`). A click on a number sends it to the next display, a drag onto another card puts it

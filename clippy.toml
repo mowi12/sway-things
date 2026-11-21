@@ -7,6 +7,7 @@ doc-valid-idents = [
   "BlueZ",
   "NetworkManager",
   "OpenVPN",
+  "OpenConnect",
   "WireGuard",
   "GSettings",
   "PulseAudio",

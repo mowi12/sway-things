@@ -144,7 +144,7 @@ pub(super) fn short_name(service: &str) -> String {
     clean(service.rsplit('.').next().unwrap_or(service))
 }
 
-fn is_executable(path: &Path) -> bool {
+pub(super) fn is_executable(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
 }
 
@@ -264,6 +264,8 @@ pub struct VpnField {
     pub value: String,
     /// Whether it is a secret, to type in hidden.
     pub secret: bool,
+    /// The answers to choose from; empty for a field to type in.
+    pub choices: Vec<String>,
 }
 
 /// What an auth dialog in external UI mode asks for.
@@ -429,6 +431,7 @@ fn form(file: &KeyFile) -> Result<Form, Failure> {
                 label: clean(label.trim_end().trim_end_matches(':')),
                 value: current,
                 secret: flag("IsSecret"),
+                choices: Vec::new(),
             });
         } else if flag("IsSecret") && !current.is_empty() {
             form.known.push((name.clone(), current));
@@ -744,12 +747,14 @@ ShouldAsk=false
                     label: "Username".to_owned(),
                     value: "alice".to_owned(),
                     secret: false,
+                    choices: Vec::new(),
                 },
                 VpnField {
                     key: "password".to_owned(),
                     label: "Password".to_owned(),
                     value: String::new(),
                     secret: true,
+                    choices: Vec::new(),
                 },
             ]
         );

@@ -24,8 +24,10 @@ use zbus::message::Header;
 use zbus::zvariant::OwnedValue;
 
 use super::nm::{SERVICE, value_bytes};
+use super::openconnect::{self, SignInFailure, SignInStep};
 use super::vpn::{self, Failure, Outcome, Plugin, Request, VpnField};
-use super::{clean, ssid_text};
+use super::{Error, clean, ssid_text};
+use crate::i18n::Text;
 
 /// Where NetworkManager looks for an agent on its connection: a fixed path.
 pub(super) const PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
@@ -101,6 +103,39 @@ impl VpnPrompt {
     }
 }
 
+/// A sign-in to an OpenConnect VPN under way: the page shows its steps in one dialog until they
+/// end, and answers each question. Dropping it cancels the sign-in.
+#[derive(Debug)]
+pub struct SignIn {
+    /// The path of the saved connection it is for.
+    pub connection: String,
+    /// The connection's name. Untrusted: show it as plain text only.
+    pub name: String,
+    /// The steps, until the sign-in ended.
+    steps: Receiver<SignInStep>,
+    /// Where the answers go.
+    answers: Sender<String>,
+    /// Dropped with the sign-in, which tells the agent.
+    _alive: Sender<()>,
+}
+
+impl SignIn {
+    /// The next step; `None` once the sign-in ended (signed in, failed or canceled).
+    pub async fn next(&self) -> Option<SignInStep> {
+        self.steps.recv().await.ok()
+    }
+
+    /// The steps, to wait for without holding the sign-in; the channel ends with the sign-in.
+    pub fn steps(&self) -> Receiver<SignInStep> {
+        self.steps.clone()
+    }
+
+    /// Answers the field of the last [`SignInStep::Ask`].
+    pub fn answer(&self, value: String) {
+        let _ = self.answers.try_send(value);
+    }
+}
+
 /// What the agent tells the page.
 #[derive(Debug)]
 pub enum AgentEvent {
@@ -108,6 +143,8 @@ pub enum AgentEvent {
     Prompt(SecretPrompt),
     /// A VPN's fields to ask for.
     Vpn(VpnPrompt),
+    /// A sign-in to an OpenConnect VPN.
+    SignIn(SignIn),
     /// NetworkManager stopped waiting for the password of the connection at this path (it
     /// timed out or the connection was given up): close its dialog.
     Cancel(String),
@@ -138,9 +175,11 @@ enum AgentError {
 pub(super) struct VpnState {
     /// Where the plugins' `.name` files are; `None` for where libnm looks.
     dirs: RwLock<Option<Vec<PathBuf>>>,
-    /// The connections (by path) whose secrets were asked for while their plugin has no auth
-    /// dialog, with the plugin's name.
-    missing: Mutex<HashMap<String, String>>,
+    /// The openconnect program instead of the installed one.
+    openconnect: RwLock<Option<PathBuf>>,
+    /// Why the agent couldn't answer for a connection (by path): no auth dialog, no
+    /// openconnect, a failed sign-in.
+    failures: Mutex<HashMap<String, Error>>,
 }
 
 impl VpnState {
@@ -157,14 +196,30 @@ impl VpnState {
             .unwrap_or_else(vpn::plugin_dirs)
     }
 
-    /// The name of the plugin without an auth dialog, if the connection at `path` needed one
-    /// since the last call; forgets it.
-    pub(super) fn take_missing(&self, path: &str) -> Option<String> {
-        lock(&self.missing).remove(path)
+    /// Runs `program` instead of the installed openconnect.
+    pub(super) fn use_openconnect(&self, program: PathBuf) {
+        *self
+            .openconnect
+            .write()
+            .unwrap_or_else(PoisonError::into_inner) = Some(program);
     }
 
-    fn note_missing(&self, path: &str, plugin: String) {
-        lock(&self.missing).insert(path.to_owned(), plugin);
+    fn openconnect(&self) -> Option<PathBuf> {
+        self.openconnect
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .or_else(openconnect::find_program)
+    }
+
+    /// Why the agent couldn't answer for the connection at `path` since the last call, if it
+    /// couldn't; forgets it.
+    pub(super) fn take_failure(&self, path: &str) -> Option<Error> {
+        lock(&self.failures).remove(path)
+    }
+
+    fn note_failure(&self, path: &str, error: Error) {
+        lock(&self.failures).insert(path.to_owned(), error);
     }
 }
 
@@ -186,7 +241,8 @@ pub(super) struct Agent {
 type Reply = HashMap<String, HashMap<String, OwnedValue>>;
 
 impl Agent {
-    /// The secrets of the VPN in `settings` at `path`, from its plugin's auth dialog.
+    /// The secrets of the VPN in `settings` at `path`: from our sign-in for OpenConnect, else
+    /// from its plugin's auth dialog.
     async fn vpn_secrets(
         &self,
         settings: &Settings,
@@ -199,19 +255,16 @@ impl Agent {
         else {
             return Err(no_secrets());
         };
-        let plugin = vpn::find_plugin(&self.vpn.dirs(), &request.service);
-        let Some((program, plugin)) = plugin
-            .as_ref()
-            .and_then(|plugin| plugin.auth_dialog.clone().map(|program| (program, plugin)))
-        else {
-            let name = plugin.map_or_else(|| vpn::short_name(&request.service), |p| p.name);
-            self.vpn.note_missing(path, name);
-            return Err(no_secrets());
-        };
-        self.vpn.take_missing(path);
+        self.vpn.take_failure(path);
         let (stop, stopped) = async_channel::bounded::<()>(1);
         lock(&self.running).insert(path.to_owned(), stop.clone());
-        let ask = self.ask_vpn(&program, plugin, &request, path);
+        let ask = async {
+            if request.service == openconnect::SERVICE {
+                self.sign_in(&request, path).await
+            } else {
+                self.plugin_secrets(&request, path).await
+            }
+        };
         let canceled = async {
             let _ = stopped.recv().await;
             Err(canceled())
@@ -230,6 +283,79 @@ impl Agent {
             VPN.to_owned(),
             HashMap::from([("secrets".to_owned(), secrets)]),
         )]))
+    }
+
+    /// The secrets of `request` from its plugin's auth dialog.
+    async fn plugin_secrets(
+        &self,
+        request: &Request,
+        path: &str,
+    ) -> Result<Vec<(String, String)>, AgentError> {
+        let plugin = vpn::find_plugin(&self.vpn.dirs(), &request.service);
+        let Some((program, plugin)) = plugin
+            .as_ref()
+            .and_then(|plugin| plugin.auth_dialog.clone().map(|program| (program, plugin)))
+        else {
+            let name = plugin.map_or_else(|| vpn::short_name(&request.service), |p| p.name);
+            self.vpn.note_failure(path, Error::NoAuthDialog(name));
+            return Err(no_secrets());
+        };
+        self.ask_vpn(&program, plugin, request, path).await
+    }
+
+    /// The secrets of the OpenConnect VPN `request` from our own sign-in, whose steps the page
+    /// shows.
+    async fn sign_in(
+        &self,
+        request: &Request,
+        path: &str,
+    ) -> Result<Vec<(String, String)>, AgentError> {
+        if !request.interactive {
+            return Err(no_secrets());
+        }
+        let Some(program) = self
+            .vpn
+            .openconnect()
+            .filter(|program| vpn::is_executable(program))
+        else {
+            self.vpn.note_failure(path, Error::NoOpenConnect);
+            return Err(no_secrets());
+        };
+        let Some(args) = openconnect::arguments(&request.data) else {
+            return Err(no_secrets());
+        };
+        let (steps, step_events) = async_channel::unbounded();
+        let (answer, answers) = async_channel::bounded(1);
+        let (alive, gone) = async_channel::bounded::<()>(1);
+        let mut name = clean(&request.name);
+        if name.is_empty() {
+            "OpenConnect".clone_into(&mut name);
+        }
+        let sign_in = SignIn {
+            connection: path.to_owned(),
+            name,
+            steps: step_events,
+            answers: answer,
+            _alive: alive,
+        };
+        self.events
+            .send(AgentEvent::SignIn(sign_in))
+            .await
+            .map_err(|_| canceled())?;
+        let run = openconnect::sign_in(&program, &args, &steps, &answers);
+        let dropped = async {
+            let _ = gone.recv().await;
+            Err(SignInFailure::Canceled)
+        };
+        let failure = match futures_lite::future::or(run, dropped).await {
+            Ok(signed_in) => return Ok(signed_in.secrets),
+            Err(SignInFailure::Canceled) => return Err(canceled()),
+            Err(SignInFailure::Start) => Error::NoOpenConnect,
+            Err(SignInFailure::Certificate) => Error::UntrustedCertificate,
+            Err(SignInFailure::Failed(message)) => Error::SignIn(Text::data(message)),
+        };
+        self.vpn.note_failure(path, failure);
+        Err(no_secrets())
     }
 
     /// Runs the auth dialog `program` of `plugin` for `request`, and asks the page for the fields

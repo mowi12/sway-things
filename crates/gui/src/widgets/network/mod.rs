@@ -180,6 +180,8 @@ mod imp {
         pub prompt: RefCell<Option<(String, Opened)>>,
         /// Where the agent looks for the VPN plugins instead, set by tests.
         pub vpn_plugins: RefCell<Option<Vec<PathBuf>>>,
+        /// The openconnect the agent runs instead, set by tests.
+        pub openconnect: RefCell<Option<PathBuf>>,
         /// The open dialog of the page itself (a password, a hidden network, details).
         pub dialog: RefCell<Option<gtk::Window>>,
         /// Whether our agent is registered (or on its way).
@@ -373,6 +375,15 @@ impl NetworkPage {
             nm.use_vpn_plugin_dirs(dirs.clone());
         }
         self.imp().vpn_plugins.replace(Some(dirs));
+    }
+
+    /// Makes the agent sign in to OpenConnect VPNs with `program`, for tests with a fake one
+    /// (see `NetworkManager::use_openconnect`).
+    pub fn use_openconnect(&self, program: PathBuf) {
+        if let Some(nm) = self.imp().nm.borrow().as_ref() {
+            nm.use_openconnect(program.clone());
+        }
+        self.imp().openconnect.replace(Some(program));
     }
 
     /// The window of the open dialog: the agent's, else the page's own; for tests.
@@ -638,6 +649,9 @@ impl NetworkPage {
             if let Some(dirs) = page.imp().vpn_plugins.borrow().clone() {
                 nm.use_vpn_plugin_dirs(dirs);
             }
+            if let Some(program) = page.imp().openconnect.borrow().clone() {
+                nm.use_openconnect(program);
+            }
             page.imp().nm.replace(Some(nm.clone()));
             page.follow_agent(&nm);
             drop(page);
@@ -675,6 +689,7 @@ impl NetworkPage {
                 match event {
                     AgentEvent::Prompt(prompt) => page.prompt(prompt),
                     AgentEvent::Vpn(prompt) => page.vpn_prompt(prompt),
+                    AgentEvent::SignIn(sign_in) => page.sign_in(sign_in),
                     AgentEvent::Cancel(connection) => page.close_prompt_of(&connection),
                 }
             }

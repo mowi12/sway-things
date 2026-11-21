@@ -14,6 +14,7 @@
 
 mod agent;
 mod nm;
+mod openconnect;
 #[cfg(any(test, feature = "test-support"))]
 pub mod stand_in;
 mod vpn;
@@ -24,8 +25,9 @@ use std::fmt;
 use crate::i18n::Text;
 use crate::msg;
 
-pub use agent::{AgentEvent, SecretPrompt, VpnPrompt};
+pub use agent::{AgentEvent, SecretPrompt, SignIn, VpnPrompt};
 pub use nm::NetworkManager;
+pub use openconnect::SignInStep;
 pub use vpn::VpnField;
 
 /// The kind of a network device.
@@ -652,6 +654,13 @@ pub enum Error {
     /// A VPN failed for want of secrets, and the auth dialog of its plugin (the name, from the
     /// plugin's `.name` file) isn't installed.
     NoAuthDialog(String),
+    /// An OpenConnect VPN needs the openconnect program to sign in, and it isn't installed.
+    NoOpenConnect,
+    /// The VPN server's certificate failed verification; the sign-in was refused.
+    UntrustedCertificate,
+    /// Signing in to an OpenConnect VPN failed: openconnect's or the server's last message
+    /// (untrusted text, as data), or nothing.
+    SignIn(Text),
     /// NetworkManager refused or failed: its message (untrusted text, as data), or what Sway
     /// Things makes of it.
     Failed(Text),
@@ -673,6 +682,19 @@ impl Error {
                  isn't installed. It comes with the plugin's GNOME package"
             ))
             .arg("plugin", plugin),
+            Self::NoOpenConnect => {
+                msg!("The VPN needs the openconnect program to sign in, and it isn't installed")
+                    .into()
+            }
+            Self::UntrustedCertificate => msg!(
+                "The VPN server's certificate couldn't be verified, so Sway Things didn't sign in"
+            )
+            .into(),
+            Self::SignIn(reason) if reason.english().is_empty() => {
+                msg!("The sign-in to the VPN failed").into()
+            }
+            Self::SignIn(reason) => Text::new(msg!("The sign-in to the VPN failed: {reason}"))
+                .text("reason", reason.clone()),
             Self::Failed(reason) => reason.clone(),
         }
     }
