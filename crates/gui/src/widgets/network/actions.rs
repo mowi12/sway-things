@@ -231,11 +231,7 @@ impl NetworkPage {
                 let name = vpn.name.clone();
                 if on {
                     self.run_connection(key, move |nm| async move {
-                        let result = match nm.activate(&vpn.path, None).await {
-                            Ok(active) => nm.wait_connected(&active, None).await,
-                            Err(error) => Err(error),
-                        };
-                        result.map_err(|error| {
+                        nm.connect_vpn(&vpn.path).await.map_err(|error| {
                             failed(msg!("Couldn't connect “{vpn}”: {error}"), &name, &error)
                         })
                     });

@@ -29,6 +29,8 @@ use super::agent;
 
 /// NetworkManager's bus name.
 const SERVICE: &str = "org.freedesktop.NetworkManager";
+/// The VPN service of the fake plugin of [`fake_vpn_plugin`].
+pub const OPENVPN: &str = "org.freedesktop.NetworkManager.openvpn";
 /// The template's main object, which has its helpers.
 const MAIN: &str = "/org/freedesktop";
 /// The manager object.
@@ -41,6 +43,76 @@ const TEST: &str = "org.freedesktop.NetworkManager.Test";
 const DEVICE: &str = "org.freedesktop.NetworkManager.Device";
 /// The interface of a Wi-Fi device.
 const WIRELESS: &str = "org.freedesktop.NetworkManager.Device.Wireless";
+
+/// The auth dialog of a fake VPN plugin (see [`fake_vpn_plugin`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FakeDialog {
+    /// None: the plugin's GNOME part isn't installed.
+    Missing,
+    /// Its own window: answers `password` = `hunter2`, then waits for `QUIT`.
+    Window,
+    /// External UI mode: asks for `username` (now `alice`) and the secret `password`, and knows
+    /// the secret `cert-pass` = `known`.
+    ExternalUi,
+    /// The user cancels it.
+    Canceled,
+    /// It waits until it is ended.
+    Hangs,
+}
+
+/// Puts a fake plugin for [`OPENVPN`] with `dialog` into `dir`, which then stands in for
+/// `/usr/lib/NetworkManager/VPN` (see [`NetworkManager::use_vpn_plugin_dirs`]). The auth dialog
+/// writes its arguments, one per line, to `args.txt` in `dir`, what it reads to `input.txt`, and
+/// the line after its secrets to `quit.txt`.
+///
+/// # Errors
+///
+/// If the files can't be written.
+pub fn fake_vpn_plugin(dir: &std::path::Path, dialog: FakeDialog) -> Result<(), Error> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let program = dir.join("auth-dialog");
+    let mut name = format!(
+        "[VPN Connection]\nname=openvpn\nservice={OPENVPN}\n\
+         program=/usr/libexec/nm-openvpn-service\n"
+    );
+    if dialog != FakeDialog::Missing {
+        name = format!("{name}\n[GNOME]\nauth-dialog={}\n", program.display());
+    }
+    if dialog == FakeDialog::ExternalUi {
+        name.push_str("supports-external-ui-mode=true\n");
+    }
+    let file = dir.join("nm-openvpn-service.name");
+    std::fs::write(&file, name)?;
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))?;
+    let answer = match dialog {
+        FakeDialog::Missing => return Ok(()),
+        FakeDialog::Window => {
+            "printf 'password\\nhunter2\\n\\n\\n'\n\
+                               while IFS= read -r quit && [ -z \"$quit\" ]; do :; done\n\
+                               printf '%s\\n' \"$quit\" > \"$dir/quit.txt\""
+        }
+        FakeDialog::ExternalUi => {
+            "printf '%s\\n' '[VPN Plugin UI]' Version=2 \
+                                   'Description=Sign in to Office' '' '[username]' Value=alice \
+                                   Label=Username: IsSecret=false ShouldAsk=true '' \
+                                   '[password]' Value= Label=Password: IsSecret=true \
+                                   ShouldAsk=true '' '[cert-pass]' Value=known IsSecret=true \
+                                   ShouldAsk=false"
+        }
+        FakeDialog::Canceled => "exit 1",
+        FakeDialog::Hangs => "exec sleep 600",
+    };
+    let script = format!(
+        "#!/bin/sh\ndir='{}'\nprintf '%s\\n' \"$@\" > \"$dir/args.txt\"\n\
+         while IFS= read -r line; do\n  printf '%s\\n' \"$line\" >> \"$dir/input.txt\"\n  \
+         [ \"$line\" = DONE ] && break\ndone\n{answer}\n",
+        dir.display()
+    );
+    std::fs::write(&program, script)?;
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))?;
+    Ok(())
+}
 
 /// `NM_DEVICE_STATE_DISCONNECTED`.
 pub const DISCONNECTED: u32 = 30;
@@ -122,13 +194,19 @@ agent.GetSecrets(
 ";
 
 /// The test helper `SecretsReply()`: "" while the agent hasn't answered, else `ok:` and the
-/// password, or `error:` and the D-Bus error.
+/// password (for a VPN its secrets as `key=value`, sorted and joined by `;`), or `error:` and
+/// the D-Bus error.
 const SECRETS_REPLY: &str = "\
 replies = getattr(self, 'secrets', [])
 if not replies:
     ret = ''
 elif isinstance(replies[0], dbus.exceptions.DBusException):
     ret = 'error:' + replies[0].get_dbus_name()
+elif 'vpn' in replies[0]:
+    pairs = []
+    for key, value in sorted(replies[0]['vpn']['secrets'].items()):
+        pairs.append(str(key) + '=' + str(value))
+    ret = 'ok:' + ';'.join(pairs)
 else:
     ret = 'ok:' + str(replies[0]['802-11-wireless-security']['psk'])
 ";

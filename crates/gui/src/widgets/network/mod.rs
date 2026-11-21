@@ -658,6 +658,8 @@ impl NetworkPage {
                 };
                 match event {
                     AgentEvent::Prompt(prompt) => page.prompt(prompt),
+                    // Not asked for yet: dropping the prompt cancels it.
+                    AgentEvent::Vpn(prompt) => drop(prompt),
                     AgentEvent::Cancel(connection) => page.close_prompt_of(&connection),
                 }
             }

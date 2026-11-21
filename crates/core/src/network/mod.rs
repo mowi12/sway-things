@@ -3,7 +3,7 @@
 
 //! Networks through NetworkManager on the system D-Bus: the devices, the Wi-Fi networks around,
 //! the saved and the active connections, what can be done with them, and the secret agent that
-//! asks for a Wi-Fi password again.
+//! asks for a Wi-Fi password again and for a VPN's secrets through its plugin's auth dialog.
 //!
 //! [`NetworkManager`] is the backend; the types here are plain data, free of D-Bus. SSIDs come
 //! from anyone in radio range, and connection names and NetworkManager's messages often carry
@@ -16,6 +16,7 @@ mod agent;
 mod nm;
 #[cfg(any(test, feature = "test-support"))]
 pub mod stand_in;
+mod vpn;
 
 pub(crate) use crate::dbus::clean;
 use std::fmt;
@@ -23,8 +24,9 @@ use std::fmt;
 use crate::i18n::Text;
 use crate::msg;
 
-pub use agent::{AgentEvent, SecretPrompt};
+pub use agent::{AgentEvent, SecretPrompt, VpnPrompt};
 pub use nm::NetworkManager;
+pub use vpn::VpnField;
 
 /// The kind of a network device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -647,6 +649,9 @@ pub enum Error {
     /// A VPN failed to connect: NetworkManager's `NMActiveConnectionStateReason` (see
     /// [`vpn_reason_text`]).
     Vpn(u32),
+    /// A VPN failed for want of secrets, and the auth dialog of its plugin (the name, from the
+    /// plugin's `.name` file) isn't installed.
+    NoAuthDialog(String),
     /// NetworkManager refused or failed: its message (untrusted text, as data), or what Sway
     /// Things makes of it.
     Failed(Text),
@@ -663,6 +668,11 @@ impl Error {
             Self::Invalid(error) => error.text(),
             Self::Connect(reason) => reason_text(*reason),
             Self::Vpn(reason) => vpn_reason_text(*reason),
+            Self::NoAuthDialog(plugin) => Text::new(msg!(
+                "The VPN asks for a password, but the password dialog of its plugin “{plugin}” \
+                 isn't installed. It comes with the plugin's GNOME package"
+            ))
+            .arg("plugin", plugin),
             Self::Failed(reason) => reason.clone(),
         }
     }
@@ -692,11 +702,7 @@ pub fn reason_text(reason: u32) -> Text {
 /// What NetworkManager's `NMActiveConnectionStateReason` `reason` means, for a VPN that failed.
 pub fn vpn_reason_text(reason: u32) -> Text {
     match reason {
-        9 => msg!(
-            "The VPN asks for a password, which Sway Things can't ask for yet. Save the password \
-             with Edit…, or run nm-applet"
-        )
-        .into(),
+        9 => msg!("The VPN got no password").into(),
         10 => msg!("The VPN refused the login").into(),
         6 | 7 => msg!("The VPN didn't answer in time").into(),
         8 => msg!("The VPN's plugin didn't start").into(),

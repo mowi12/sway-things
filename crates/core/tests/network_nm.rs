@@ -14,10 +14,10 @@ use std::time::Duration;
 
 use async_io::{Timer, block_on};
 use futures_lite::{StreamExt, future};
-use sway_things_core::network::stand_in::{self, StandIn};
+use sway_things_core::network::stand_in::{self, FakeDialog, StandIn};
 use sway_things_core::network::{
     ActiveState, AgentEvent, Connectivity, DeviceKind, DeviceState, Error as NetError,
-    NetworkManager, SecretPrompt, Security, Snapshot,
+    NetworkManager, SecretPrompt, Security, Snapshot, VpnField, VpnPrompt,
 };
 use zbus::zvariant::{ObjectPath, OwnedValue, Value};
 
@@ -93,8 +93,82 @@ async fn until(nm: &NetworkManager, done: impl Fn(&Snapshot) -> bool) -> Result<
 async fn next_prompt(nm: &NetworkManager) -> Result<SecretPrompt> {
     match nm.agent_events().recv().await? {
         AgentEvent::Prompt(prompt) => Ok(prompt),
-        AgentEvent::Cancel(connection) => Err(format!("canceled: {connection}").into()),
+        other => Err(format!("not a Wi-Fi prompt: {other:?}").into()),
     }
+}
+
+/// The next VPN prompt of the agent.
+async fn next_vpn_prompt(nm: &NetworkManager) -> Result<VpnPrompt> {
+    match nm.agent_events().recv().await? {
+        AgentEvent::Vpn(prompt) => Ok(prompt),
+        other => Err(format!("not a VPN prompt: {other:?}").into()),
+    }
+}
+
+/// A stand-in with the VPN "Office" and an agent that finds the fake plugin with `dialog` in the
+/// returned directory: the stand-in, our connection, the VPN's path, the agent's name.
+async fn with_vpn(
+    dialog: FakeDialog,
+) -> Result<(StandIn, NetworkManager, String, String, tempfile::TempDir)> {
+    let (stand_in, nm, _) = with_wifi().await?;
+    let vpn = stand_in.add_connection(&vpn_settings("Office")).await?;
+    let plugins = tempfile::tempdir()?;
+    stand_in::fake_vpn_plugin(plugins.path(), dialog)?;
+    nm.use_vpn_plugin_dirs(vec![plugins.path().to_owned()]);
+    let agent = nm.unique_name().ok_or("no unique name")?;
+    Ok((stand_in, nm, vpn, agent, plugins))
+}
+
+/// Makes the stand-in's `ActivateConnection` start the active connection that `FailVpn` (see
+/// [`fail_vpn`]) ends for want of secrets; its path.
+async fn failing_vpn(stand_in: &StandIn) -> Result<&'static str> {
+    let active = "/org/freedesktop/NetworkManager/ActiveConnection/99";
+    let interface = "org.freedesktop.NetworkManager.Connection.Active";
+    stand_in
+        .add_method(
+            MANAGER,
+            "org.freedesktop.NetworkManager",
+            "ActivateConnection",
+            "ooo",
+            "o",
+            &format!(
+                "self.AddObject('{active}', '{interface}', \
+                 {{'State': dbus.UInt32(1)}}, [])\n\
+                 ret = dbus.ObjectPath('{active}')\n"
+            ),
+        )
+        .await?;
+    // NetworkManager gives up for want of secrets (reason 9) and the active connection goes.
+    stand_in
+        .add_method(
+            MANAGER,
+            "org.freedesktop.NetworkManager.Test",
+            "FailVpn",
+            "",
+            "",
+            &format!(
+                "objects['{active}'].EmitSignal('{interface}', 'StateChanged', 'uu', \
+                 [dbus.UInt32(4), dbus.UInt32(9)])\n\
+                 self.RemoveObject('{active}')\n"
+            ),
+        )
+        .await?;
+    Ok(active)
+}
+
+/// Ends the VPN of [`failing_vpn`] for want of secrets.
+async fn fail_vpn(stand_in: &StandIn) -> Result<()> {
+    stand_in
+        .connection()
+        .call_method(
+            Some("org.freedesktop.NetworkManager"),
+            MANAGER,
+            Some("org.freedesktop.NetworkManager.Test"),
+            "FailVpn",
+            &(),
+        )
+        .await?;
+    Ok(())
 }
 
 /// The settings of the call `index` of `method` on the manager.
@@ -432,56 +506,173 @@ fn a_vpn_without_its_password_says_so() -> Result<()> {
     run(async {
         let (stand_in, nm, _) = with_wifi().await?;
         let vpn = stand_in.add_connection(&vpn_settings("Office")).await?;
-        let active = "/org/freedesktop/NetworkManager/ActiveConnection/99";
-        let interface = "org.freedesktop.NetworkManager.Connection.Active";
-        // The VPN starts to connect, then NetworkManager gives up for want of secrets (reason
-        // 9) and the active connection goes.
-        stand_in
-            .add_method(
-                MANAGER,
-                "org.freedesktop.NetworkManager",
-                "ActivateConnection",
-                "ooo",
-                "o",
-                &format!(
-                    "self.AddObject('{active}', '{interface}', \
-                     {{'State': dbus.UInt32(1)}}, [])\n\
-                     ret = dbus.ObjectPath('{active}')\n"
-                ),
-            )
-            .await?;
-        stand_in
-            .add_method(
-                MANAGER,
-                "org.freedesktop.NetworkManager.Test",
-                "FailVpn",
-                "",
-                "",
-                &format!(
-                    "objects['{active}'].EmitSignal('{interface}', 'StateChanged', 'uu', \
-                     [dbus.UInt32(4), dbus.UInt32(9)])\n\
-                     self.RemoveObject('{active}')\n"
-                ),
-            )
-            .await?;
+        let active = failing_vpn(&stand_in).await?;
         let path = nm.activate(&vpn, None).await?;
         assert_eq!(path, active);
         let (result, failed) = future::zip(nm.wait_connected(&path, None), async {
             Timer::after(Duration::from_millis(300)).await;
-            stand_in
-                .connection()
-                .call_method(
-                    Some("org.freedesktop.NetworkManager"),
-                    MANAGER,
-                    Some("org.freedesktop.NetworkManager.Test"),
-                    "FailVpn",
-                    &(),
-                )
-                .await
+            fail_vpn(&stand_in).await
         })
         .await;
         failed?;
         assert_eq!(result, Err(NetError::Vpn(9)));
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn a_vpn_whose_plugin_has_no_dialog_says_what_is_missing() -> Result<()> {
+    run(async {
+        let (stand_in, nm, vpn, agent, _plugins) = with_vpn(FakeDialog::Missing).await?;
+        failing_vpn(&stand_in).await?;
+        let (result, asked) = future::zip(nm.connect_vpn(&vpn), async {
+            Timer::after(Duration::from_millis(300)).await;
+            stand_in
+                .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+                .await?;
+            let reply = stand_in.secrets_reply().await?;
+            fail_vpn(&stand_in).await?;
+            Ok::<_, Box<dyn Error + Send + Sync>>(reply)
+        })
+        .await;
+        assert_eq!(
+            asked?,
+            Err("org.freedesktop.NetworkManager.SecretAgent.NoSecrets".to_owned())
+        );
+        assert_eq!(result, Err(NetError::NoAuthDialog("openvpn".to_owned())));
+        assert!(nm.agent_events().is_empty());
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn the_agent_runs_the_vpn_plugins_own_dialog() -> Result<()> {
+    run(async {
+        let (stand_in, nm, vpn, agent, plugins) = with_vpn(FakeDialog::Window).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION | REQUEST_NEW)
+            .await?;
+        assert_eq!(
+            stand_in.secrets_reply().await?,
+            Ok("password=hunter2".to_owned())
+        );
+        let read = |name: &str| std::fs::read_to_string(plugins.path().join(name));
+        assert_eq!(
+            read("args.txt")?,
+            "-u\n2f6a1d8e-5c3b-4f0a-9e7d-1b2c3d4e5f60\n-n\nOffice\n-s\n\
+             org.freedesktop.NetworkManager.openvpn\n-i\n-r\n"
+        );
+        assert_eq!(
+            read("input.txt")?,
+            "DATA_KEY=remote\nDATA_VAL=vpn.example.org\n\nDONE\n"
+        );
+        // The dialog gets its QUIT once the secrets are read; it may still be writing it down.
+        for _ in 0..50 {
+            if read("quit.txt").is_ok_and(|quit| quit == "QUIT\n") {
+                break;
+            }
+            Timer::after(Duration::from_millis(100)).await;
+        }
+        assert_eq!(read("quit.txt")?, "QUIT\n");
+        // Nothing for the page to show.
+        assert!(nm.agent_events().is_empty());
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn the_agent_asks_for_the_fields_of_an_external_ui_dialog() -> Result<()> {
+    run(async {
+        let (stand_in, nm, vpn, agent, plugins) = with_vpn(FakeDialog::ExternalUi).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let prompt = next_vpn_prompt(&nm).await?;
+        assert_eq!(
+            std::fs::read_to_string(plugins.path().join("args.txt"))?
+                .lines()
+                .nth(6),
+            Some("--external-ui-mode")
+        );
+        assert_eq!(
+            (prompt.connection.as_str(), prompt.name.as_str()),
+            (vpn.as_str(), "Office")
+        );
+        assert_eq!(prompt.description, "Sign in to Office");
+        assert!(!prompt.retry);
+        assert_eq!(
+            prompt.fields,
+            [
+                VpnField {
+                    key: "username".to_owned(),
+                    label: "Username".to_owned(),
+                    value: "alice".to_owned(),
+                    secret: false,
+                },
+                VpnField {
+                    key: "password".to_owned(),
+                    label: "Password".to_owned(),
+                    value: String::new(),
+                    secret: true,
+                },
+            ]
+        );
+        prompt.answer(vec!["bob".to_owned(), "123456".to_owned()]);
+        assert_eq!(
+            stand_in.secrets_reply().await?,
+            Ok("cert-pass=known;password=123456;username=bob".to_owned())
+        );
+
+        // Canceled by NetworkManager: the page hears of it; the dropped prompt says so.
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let prompt = next_vpn_prompt(&nm).await?;
+        stand_in.cancel_secrets(&agent, &vpn).await?;
+        match nm.agent_events().recv().await? {
+            AgentEvent::Cancel(connection) => assert_eq!(connection, vpn),
+            other => return Err(format!("not a cancel: {other:?}").into()),
+        }
+        drop(prompt);
+        assert_eq!(
+            stand_in.secrets_reply().await?,
+            Err("org.freedesktop.NetworkManager.SecretAgent.UserCanceled".to_owned())
+        );
+
+        // Without leave to ask, fields to fill in are no answer.
+        stand_in.ask_secrets_of(&agent, &vpn, "vpn", 0).await?;
+        assert_eq!(
+            stand_in.secrets_reply().await?,
+            Err("org.freedesktop.NetworkManager.SecretAgent.NoSecrets".to_owned())
+        );
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn a_canceled_or_stopped_vpn_dialog_cancels() -> Result<()> {
+    run(async {
+        let canceled = Err("org.freedesktop.NetworkManager.SecretAgent.UserCanceled".to_owned());
+        let (stand_in, _nm, vpn, agent, _plugins) = with_vpn(FakeDialog::Canceled).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        assert_eq!(stand_in.secrets_reply().await?, canceled);
+
+        // NetworkManager stops waiting while the dialog is open: it is ended.
+        let (stand_in, _nm, vpn, agent, plugins) = with_vpn(FakeDialog::Hangs).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        while !plugins.path().join("args.txt").exists() {
+            Timer::after(Duration::from_millis(50)).await;
+        }
+        stand_in.cancel_secrets(&agent, &vpn).await?;
+        assert_eq!(stand_in.secrets_reply().await?, canceled);
         Ok(())
     })
 }
@@ -541,10 +732,16 @@ fn the_agent_asks_for_a_new_password() -> Result<()> {
         let (stand_in, nm, wlan) = with_wifi().await?;
         let saved = stand_in.add_wifi_connection(&wlan, "home", "Home").await?;
         nm.register_agent().await?;
-        let registered = stand_in.calls(stand_in.agent_manager(), "Register").await?;
+        let registered = stand_in
+            .calls(stand_in.agent_manager(), "RegisterWithCapabilities")
+            .await?;
         assert_eq!(
-            registered[0][0],
-            Value::from("io.github.mowi12.SwayThings").try_into()?
+            registered[0],
+            [
+                Value::from("io.github.mowi12.SwayThings").try_into()?,
+                // NM_SECRET_AGENT_CAPABILITY_VPN_HINTS
+                Value::from(1_u32).try_into()?,
+            ]
         );
         let agent = nm.unique_name().ok_or("no unique name")?;
 
@@ -570,7 +767,7 @@ fn the_agent_asks_for_a_new_password() -> Result<()> {
         stand_in.cancel_secrets(&agent, &saved).await?;
         match nm.agent_events().recv().await? {
             AgentEvent::Cancel(connection) => assert_eq!(connection, saved),
-            AgentEvent::Prompt(_) => return Err("a second prompt".into()),
+            other => return Err(format!("not a cancel: {other:?}").into()),
         }
         drop(prompt);
         assert_eq!(
@@ -602,11 +799,21 @@ fn the_agent_leaves_other_questions_to_others() -> Result<()> {
         // Without leave to ask the user.
         stand_in.ask_secrets(&agent, &saved, 0).await?;
         assert_eq!(stand_in.secrets_reply().await?, no_secrets);
-        // An 802.1X password.
-        stand_in
-            .ask_secrets_of(&agent, &saved, "802-1x", ALLOW_INTERACTION)
+        // An 802.1X password, a VPN's secrets of a Wi-Fi network, WireGuard keys.
+        let wireguard = stand_in
+            .add_connection(&wireguard_settings("Tunnel"))
             .await?;
-        assert_eq!(stand_in.secrets_reply().await?, no_secrets);
+        for (connection, setting) in [
+            (&saved, "802-1x"),
+            (&saved, "vpn"),
+            (&wireguard, "vpn"),
+            (&wireguard, "wireguard"),
+        ] {
+            stand_in
+                .ask_secrets_of(&agent, connection, setting, ALLOW_INTERACTION)
+                .await?;
+            assert_eq!(stand_in.secrets_reply().await?, no_secrets, "{setting}");
+        }
         assert!(nm.agent_events().is_empty());
 
         // Someone else than NetworkManager.
@@ -651,6 +858,17 @@ fn ethernet_settings(name: &str) -> HashMap<&'static str, HashMap<&'static str, 
     )])
 }
 
+/// The settings of a saved WireGuard connection called `name`.
+fn wireguard_settings(name: &str) -> HashMap<&'static str, HashMap<&'static str, Value<'static>>> {
+    HashMap::from([(
+        "connection",
+        HashMap::from([
+            ("id", Value::from(name.to_owned())),
+            ("type", Value::from("wireguard")),
+        ]),
+    )])
+}
+
 /// The settings of a saved OpenVPN connection called `name`.
 fn vpn_settings(name: &str) -> HashMap<&'static str, HashMap<&'static str, Value<'static>>> {
     HashMap::from([
@@ -658,15 +876,19 @@ fn vpn_settings(name: &str) -> HashMap<&'static str, HashMap<&'static str, Value
             "connection",
             HashMap::from([
                 ("id", Value::from(name.to_owned())),
+                ("uuid", Value::from("2f6a1d8e-5c3b-4f0a-9e7d-1b2c3d4e5f60")),
                 ("type", Value::from("vpn")),
             ]),
         ),
         (
             "vpn",
-            HashMap::from([(
-                "service-type",
-                Value::from("org.freedesktop.NetworkManager.openvpn"),
-            )]),
+            HashMap::from([
+                ("service-type", Value::from(stand_in::OPENVPN)),
+                (
+                    "data",
+                    Value::from(HashMap::from([("remote", "vpn.example.org")])),
+                ),
+            ]),
         ),
     ])
 }

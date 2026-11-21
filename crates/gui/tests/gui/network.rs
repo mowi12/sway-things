@@ -320,7 +320,7 @@ pub(crate) fn check_network_while_shown(
     )?;
     ensure(
         run_until(Duration::from_secs(5), || {
-            calls(stand_in.agent_manager(), "Register") > 0
+            calls(stand_in.agent_manager(), "RegisterWithCapabilities") > 0
         }),
         "  the agent wasn't registered while the page is shown",
     )?;

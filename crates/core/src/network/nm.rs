@@ -8,6 +8,8 @@
 mod snapshot;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use async_channel::Receiver;
 use futures_lite::{Stream, StreamExt};
@@ -18,7 +20,7 @@ use zbus::{Connection, MatchRule, Message, MessageStream};
 
 pub(super) use self::snapshot::value_bytes;
 use self::snapshot::{snapshot, state_reason, text};
-use super::agent::{self, Agent, AgentEvent, Settings};
+use super::agent::{self, Agent, AgentEvent, Settings, VpnState};
 use super::{
     ActiveState, Device, Error, Network, Security, Snapshot, check_password, check_ssid, clean,
     ssid_text,
@@ -60,6 +62,8 @@ const IP6: &str = "org.freedesktop.NetworkManager.IP6Config";
 const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
 /// The standard interface that lists objects and reports new and removed ones.
 const OBJECT_MANAGER: &str = "org.freedesktop.DBus.ObjectManager";
+/// `NM_ACTIVE_CONNECTION_STATE_REASON_NO_SECRETS`.
+const NO_SECRETS: u32 = 9;
 /// The path NetworkManager uses for "none".
 const NONE: &str = "/";
 
@@ -80,6 +84,7 @@ type Objects = HashMap<OwnedObjectPath, Interfaces>;
 pub struct NetworkManager {
     connection: Connection,
     agent_events: Receiver<AgentEvent>,
+    vpn: Arc<VpnState>,
 }
 
 impl NetworkManager {
@@ -117,8 +122,14 @@ impl NetworkManager {
     /// already up can miss the calls that arrive right after.
     async fn build(builder: zbus::connection::Builder<'_>) -> Result<Self, Error> {
         let (events, agent_events) = agent::channel();
+        let vpn = Arc::new(VpnState::default());
+        let agent = Agent {
+            events,
+            vpn: Arc::clone(&vpn),
+            running: Mutex::default(),
+        };
         let connection = builder
-            .serve_at(agent::PATH, Agent { events })
+            .serve_at(agent::PATH, agent)
             .map_err(failure)?
             .build()
             .await
@@ -128,6 +139,7 @@ impl NetworkManager {
         Ok(Self {
             connection,
             agent_events,
+            vpn,
         })
     }
 
@@ -434,9 +446,10 @@ impl NetworkManager {
         }
     }
 
-    /// Registers our secret agent, so NetworkManager asks it for Wi-Fi passwords (see
-    /// [`agent_events`](Self::agent_events)) until [`unregister_agent`](Self::unregister_agent)
-    /// or until this connection closes. NetworkManager forgets it when it restarts.
+    /// Registers our secret agent, so NetworkManager asks it for Wi-Fi passwords and VPN
+    /// secrets (see [`agent_events`](Self::agent_events)) until
+    /// [`unregister_agent`](Self::unregister_agent) or until this connection closes.
+    /// NetworkManager forgets it when it restarts.
     ///
     /// # Errors
     ///
@@ -446,10 +459,36 @@ impl NetworkManager {
         self.call(
             AGENT_MANAGER_PATH,
             AGENT_MANAGER,
-            "Register",
-            &(agent::IDENTIFIER,),
+            "RegisterWithCapabilities",
+            &(agent::IDENTIFIER, agent::VPN_HINTS),
         )
         .await
+    }
+
+    /// Makes the agent look for the VPN plugins' `.name` files in `dirs` instead of where libnm
+    /// looks (`NM_VPN_PLUGIN_DIR`, `/usr/lib/NetworkManager/VPN`, `/etc/NetworkManager/VPN`);
+    /// for tests, with fake plugins.
+    pub fn use_vpn_plugin_dirs(&self, dirs: Vec<PathBuf>) {
+        self.vpn.use_dirs(dirs);
+    }
+
+    /// Connects the VPN with the saved connection at `connection` and waits until it is up
+    /// (see [`activate`](Self::activate) and [`wait_connected`](Self::wait_connected)).
+    ///
+    /// # Errors
+    ///
+    /// As [`wait_connected`](Self::wait_connected), and [`Error::NoAuthDialog`] if it failed
+    /// for want of secrets that our agent couldn't ask for, as the plugin has no auth dialog.
+    pub async fn connect_vpn(&self, connection: &str) -> Result<(), Error> {
+        self.vpn.take_missing(connection);
+        let active = self.activate(connection, None).await?;
+        match self.wait_connected(&active, None).await {
+            Err(Error::Vpn(NO_SECRETS)) => Err(self
+                .vpn
+                .take_missing(connection)
+                .map_or(Error::Vpn(NO_SECRETS), Error::NoAuthDialog)),
+            other => other,
+        }
     }
 
     /// Unregisters our secret agent.
