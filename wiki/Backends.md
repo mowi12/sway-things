@@ -1,15 +1,15 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server, CUPS, SANE, systemd-timedated and -localed, the notification daemons and GSettings,
-> the tools of Screenshots & Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the
-> desktop entries, default apps and autostart runners of Apps & Autostart, and the planned backends for the companion
-> tools.
+> NetworkManager, the sound server, CUPS, SANE, systemd-timedated and -localed, the notification daemons, the bar and
+> GSettings, the tools of Screenshots & Clipboard, logind, ddcutil and the night-light tools of Brightness & Night
+> Light, the desktop entries, default apps and autostart runners of Apps & Autostart, and the planned backends for the
+> companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the companion tools Sway
-Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), and the notification daemons
-([Notifications](#notifications)), without a trait yet; Bluetooth, the network, sound and printers are services with no
-competing stack and use no trait (below).
+Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), the notification daemons
+([Notifications](#notifications)), and waybar or swaybar, in `crates/core/src/bar/` ([Bar](#bar)), without a trait yet;
+Bluetooth, the network, sound and printers are services with no competing stack and use no trait (below).
 
 ```rust
 // planned
@@ -21,7 +21,7 @@ trait Backend {
 }
 ```
 
-| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network, printers, notifications and the system clock are built |
+| Area | Backends (reference first); only display profiles, the bar, audio, Bluetooth, the network, printers, notifications and the system clock are built |
 | --- | --- |
 | Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
@@ -474,6 +474,120 @@ for it, each in its own format.
   the pointer to the window's middle (`seat - cursor set`), not for one still in the scratchpad. The names are only
   compared, never put into a command. It closes swaync's panel and always exits 0, with the reason on stderr.
 - **Not written for dunst yet:** dunst is asked and switched, but nothing is generated for it.
+
+## Bar
+
+`crates/core/src/bar/` sets up the bar: waybar through a [handover](Architecture.md#other-tools), or swaybar through our
+sway include. The settings are the registry's `bar.*` (page Bar): the program (`bar.backend`: not set up here, waybar or
+swaybar), where the bar stands (position, height, displays, layer, margins, whether it reserves its space, the space
+between modules), its three module lists, its style, swaybar's status command, and SwayFX's blur behind waybar. Only the
+blur has a sway directive (`layer_effects waybar blur enable` and `… blur_ignore_transparent enable`, in
+`90-effects.conf`; switched off, only `… blur disable`, since `blur_ignore_transparent disable` crashes SwayFX 0.6, see
+[Sway Reference](Sway-Reference.md#swayfx); it depends on the layer above floating windows, since SwayFX doesn't blur
+behind the bottom layer); the others have none and apply as a tool reload (`Apply::ToolReload`,
+`Effect::AfterToolReload`). The defaults are waybar's own default bar: the module lists and module definitions of the
+`config.jsonc` waybar 0.16 ships, and waybar's built-in values where that file sets nothing (layer bottom, exclusive, no
+margins). That file and waybar's `style.css` are embedded (`bar/waybar-default/`, MIT); a fresh setup and a reset give
+exactly that bar.
+
+- **Module definitions** (`bar::Modules`) live in `bar.jsonc` next to the settings files: version 1, `modules` with each
+  definition changed here as a whole (the object waybar reads under the module's name), and `bar` with the options of
+  the bar that have no setting (`fixed-center`, `name`, `mode`, …). Options are kept as JSON as they are, so what the
+  page doesn't know passes through. A module without a stored definition uses the one of waybar's default config, or
+  none. The file starts with our header; one without it is reported and neither used nor written. Hand edits are kept:
+  the app reads the file again before it changes it. It isn't in the [history](Architecture.md#state).
+- **The catalog** (`bar::catalog`) lists the common modules (clock, battery, network, pulseaudio, wireplumber, tray,
+  cpu, memory, disk, temperature, backlight, bluetooth, idle_inhibitor, power-profiles-daemon, privacy, mpris, mpd,
+  keyboard-state, the sway modules, custom, group, image) with a title, a description, what each needs to work here (a
+  battery in `/sys/class/power_supply`, a backlight, Bluetooth, a thermal zone, a program in `$PATH`, a PulseAudio
+  server, power-profiles-daemon's D-Bus service file) and the options of its form with their types (format, text,
+  command, whole or decimal number within a range, on/off, a choice), after the man pages of waybar 0.16. `preview`
+  fills a format's placeholders with sample values, a clock's `{:%H:%M}` with the time, and drops Pango markup.
+- **waybar's files** (`bar::waybar`, `bar::WaybarFiles`): `config.jsonc` is made by `serde_json` from the settings and
+  the definitions of every module the bar shows (members of groups too), so it is valid JSON by construction; waybar has
+  no option to check a config without showing a bar, and one it can't read ends it, also at a reload. `style.css` only
+  imports `theme.css` and then the user's own stylesheet (`bar.style.extra_css`, an absolute path as a `file://` URL),
+  so the user's rules win; `theme.css` is waybar's own stylesheet, nothing (_only your own stylesheet_), or rules made
+  from the shape (one bar, or a pill per module on a transparent bar), font (a Pango description split into family,
+  weight, style and size), padding, corners, opacity and colors, either the user's or those of the windows
+  (`bar::style::Colors::sway`: the stored value, else the last line of the user's config, else sway's default). Values
+  are quoted and escaped, so none can end a rule. Each file starts with our header and is written only where it changed
+  and only over a file of ours (`WaybarFiles::write`).
+- **Presets** (`bar::style::PRESETS`): _Glass_ (dark glass pills on a transparent floating bar, blurred behind on
+  SwayFX), _Sway_ (one bar in the colors of the windows) and _waybar_ (its own look). A preset stores its values and
+  resets the other style settings, so it always looks the same.
+- **What runs** (`bar::process`): the waybar processes of this session are found in `/proc` as
+  [`hook mirror`](Outputs.md#mirroring) finds its `wl-mirror`s, as waybar by their name, the first word of their command
+  line or their executable (`waybar`, or nix's `.waybar-wrapped`), with the config of their command line (`-c`,
+  `--config`, relative to their working directory), their start time and whether they run as a systemd unit (their
+  control group). Right before a signal each process is checked to be still the same one (its start time in
+  `/proc/<pid>/stat`); a `kill` that can't be run is an error that is reported.
+- **What starts waybar** (`bar::starter`): `Starter::detect` reads the user's sway config (outside our files) and splits
+  each `exec`/`exec_always` line into commands and words as a POSIX shell would, expanding nothing. A command starts
+  waybar when its program is waybar after `exec`, `--no-startup-id`, `env`, `setsid`, `nohup`, their options and
+  variable assignments; inside `sh -c '…'` (also bash, dash, zsh, ksh); after `uwsm app [--]`; and
+  `systemctl --user start|restart waybar[.service]` starts its unit. `swaybar_command waybar` in a `bar` block or on a
+  `bar` line counts too, and a running waybar unit. A line that names waybar but runs something else
+  (`~/.config/waybar/launch.sh`) may start it (`Starter::Maybe`): Sway Things can't tell, doesn't start a second bar,
+  and the page and `doctor` say so with the line to use instead. `handover` gives the line to copy in its place
+  (`exec waybar -c ~/.config/sway-things/waybar/config.jsonc -s …/style.css`, `swaybar_command waybar -c … -s …`, or the
+  drop-in with `ExecStart=` for `systemctl --user edit waybar.service`), none where the line already passes our config
+  as the argument of `-c` or `--config` (compared as a whole path, with `~`, `$HOME` and `$XDG_CONFIG_HOME` expanded).
+  `swaybars` lists the `bar` blocks of the user's config that run swaybar (no `swaybar_command` of another program),
+  which would show next to ours.
+- **Starting ours** (`process::ensure`, which the hook runs): under a lock in `$XDG_RUNTIME_DIR`
+  (`sway-things-waybar.lock`, with a token of its own; one older than 15 s is taken over), so the app's start and a
+  reload's `exec_always` never start two: nothing if one of ours runs or the user's config or a unit starts waybar;
+  nothing either if a waybar with another config runs or comes up within two seconds (at login the user's own lines
+  start theirs at the same time), which the hook says on stderr, in sway's log. Otherwise waybar is started
+  (`setsid -f waybar -c … -s …`, an argument list), after checking that it is installed, and checked to run our config a
+  moment later. What went wrong (not installed, `setsid` or `kill` missing, waybar ended at once) is noted in
+  `$XDG_RUNTIME_DIR/sway-things-waybar.problem` for the page and `doctor`.
+- **Applied at once** (`Applier::keep_bar`, after every `persist`, and `Applier::set_bar_modules`): with waybar, the
+  files are written where they changed, and only the waybar processes of this session that run our config get `SIGUSR2`
+  (`kill -s USR2 -- <pids>`), which has waybar read its config and stylesheet again; one that ended 1.5 s later is
+  started again once, and the page says that a module option may be one waybar can't take. If nothing else starts
+  waybar, none of ours runs and waybar is installed, sway starts the hook over IPC (`exec sway-things hook waybar`, once
+  per run). With swaybar, its lines are sent over IPC when they changed or the bar isn't there: `bar sway-things …`
+  changes the bar, or makes it and starts swaybar. What runs is looked at each time instead of remembered, so handing
+  the bar back works from the command line and right after the app started: a swaybar of ours that sway reports
+  (`GET_BAR_CONFIG`) and that isn't invisible is hidden (`bar sway-things mode invisible`) until sway reloads, and a
+  waybar of ours ends (`SIGTERM`) while nothing else starts waybar. Processes are only looked at, and sway only asked
+  about its bars, by the user's own applier (`Applier::open`), never by one made for tests.
+- **`75-bar.conf`**: with waybar `exec_always sway-things hook waybar`; the hook writes the files (they may have come
+  with the dotfiles from another machine), then runs `process::ensure`. With swaybar the one-line commands of
+  `command::bar` with the bar ID `sway-things` (`mode dock`, `position`, `height`, `output *` and then `output` per
+  display, `font "pango:…"`, `colors …`, `status_command "…"`); a position left or right is a comment, since swaybar
+  stands only at the top or the bottom. Each line also undoes what an earlier one set, so the running bar matches after
+  any change: `output *` empties sway's list of displays, which otherwise only grows; waybar's look and none send
+  swaybar's own colors; `status_command -` is none. Only a font taken away has no command (sway's font is no value of
+  the bar's): it waits for a reload of sway with the reload banner. The status command is the user's text, quoted as
+  sway text; sway runs it with `sh`.
+- **Import as starting point** (`bar::import`): the user's config is found as waybar finds it without `-c` (`config`,
+  then `config.jsonc`, in `$WAYBAR_CONFIG_DIR`, `$XDG_CONFIG_HOME/waybar`, `~/.config/waybar`, `~/waybar`; not
+  `/etc/xdg/waybar`, which holds waybar's default bar) and read as waybar reads it (`bar::jsonc`: `//` and `/* */`
+  comments, trailing commas, `\x` as `\u00`; a key given twice keeps its last value). `include`s are merged as waybar
+  merges them (`Config::mergeConfig`: objects key by key, otherwise the first definition wins), each path expanded like
+  `wordexp` without a shell, relative to the including file, then in waybar's directories; one that needs a shell isn't
+  read and is noted, at most 100 deep, 64 files (each file of a pattern counts) and 16 MiB together; a UTF-8 byte order
+  mark is skipped, as jsoncpp does. The app reads it off the main loop. A config with several bars gives its first.
+  Values with a setting become its values (a missing height is 0, which fits the bar to its modules; `margin` in each of
+  its spellings); outputs that are negated, `*` or a variable are noted. Every module definition (also unused ones) and
+  every other option of the bar are kept. The stylesheet next to the config becomes the user's own, with no look of ours
+  under it. Nothing is written.
+- **Templates** (`bar::templates`): custom modules the page offers, each a module definition and for most a POSIX `sh`
+  script that ships inside the program (`crates/core/src/bar/templates/*.sh`, GPL, with our SPDX header and the line
+  `# Sway Things template:`): a pomodoro timer, camera in use, updates available, a low battery warning, VPN status, the
+  highest system load, a power menu (swaynag) and swaync's notification center. Scripts keep their state in
+  `$XDG_RUNTIME_DIR` (never `/tmp`; without it they say so) or `$XDG_STATE_HOME`, and read it as data, never as shell. A
+  script is copied on request to `~/.config/sway-things/waybar/scripts/` (executable); a copy that is there is replaced
+  only while it is byte for byte a version Sway Things shipped (this one, or an older one by its SHA-256 in
+  `templates::SHIPPED`), so an edited copy stays and the page says so. From then on it is the user's: waybar runs it,
+  Sway Things never does.
+- **`doctor`** reports, while a bar is set up here, each file for waybar (`bar_file`: up to date, missing or out of
+  date, which `--fix` writes, or someone else's), waybar missing (`bar_waybar_missing`), which waybar runs
+  (`bar_running`: ours, none, or one with another config, with the line to change; a line that may start it; what went
+  wrong when ours was last started) and a swaybar of the user's next to ours (`bar_other`).
 
 ## GSettings
 

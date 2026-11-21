@@ -190,8 +190,8 @@ fn check_status_command(command: &str) -> Result<(), ValueError> {
         .map_err(ValueError::NotSwayText)
 }
 
-/// `layer_effects waybar blur enable|disable` and `… blur_ignore_transparent …`: blur behind
-/// waybar, but not behind its fully transparent parts (between pills).
+/// `layer_effects waybar blur enable|disable`, with `… blur_ignore_transparent enable` when on:
+/// blur behind waybar, but not behind its fully transparent parts (between pills).
 fn read_blur(args: &[String]) -> Result<Value, ReadError> {
     // SwayFX reads the state with `parse_boolean(…, true)` (`layer_criteria_parse`).
     Ok(Value::Bool(read::boolean(read::first(args)?, true)))
@@ -461,10 +461,18 @@ pub(super) fn settings() -> Vec<Setting> {
                 ConfigFile::Effects,
                 |ctx| {
                     let on = ctx.bool(BLUR)?;
-                    Ok(vec![
-                        effects::layer_blur(WAYBAR_NAMESPACE, on),
-                        effects::layer_blur_ignore_transparent(WAYBAR_NAMESPACE, on),
-                    ])
+                    let mut commands = vec![effects::layer_blur(WAYBAR_NAMESPACE, on)];
+                    // Never `blur_ignore_transparent disable`: SwayFX 0.6 (scenefx 0.5) crashes
+                    // at the next frame when a mapped layer surface loses it, and a config line
+                    // reaches the mapped surfaces too when sway reloads. With blur off it changes
+                    // nothing, so it stays as it was.
+                    if on {
+                        commands.push(effects::layer_blur_ignore_transparent(
+                            WAYBAR_NAMESPACE,
+                            true,
+                        ));
+                    }
+                    Ok(commands)
                 },
                 read_blur,
             )

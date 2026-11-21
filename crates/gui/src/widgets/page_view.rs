@@ -257,7 +257,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in parts::below(model, &row) {
+            for widget in parts::below(model, page, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);

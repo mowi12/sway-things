@@ -401,8 +401,28 @@ fn data() -> Vec<String> {
             .map(|component| component.package().to_owned()),
     );
     data.extend(locale_data());
+    data.extend(bar_data());
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));
     data.dedup();
+    data
+}
+
+/// The names of waybar's modules on the Bar page: its default layout, with the names of custom
+/// modules and instances (`custom/media`, `battery#bat2`) on their own too.
+fn bar_data() -> Vec<String> {
+    let mut data = Vec::new();
+    for name in sway_things_core::registry::bar::DEFAULT_LEFT
+        .iter()
+        .chain(sway_things_core::registry::bar::DEFAULT_CENTER)
+        .chain(sway_things_core::registry::bar::DEFAULT_RIGHT)
+    {
+        data.push((*name).to_owned());
+        data.extend(name.strip_prefix("custom/").map(ToOwned::to_owned));
+        data.extend(
+            name.split_once('#')
+                .map(|(_, instance)| instance.to_owned()),
+        );
+    }
     data
 }
 

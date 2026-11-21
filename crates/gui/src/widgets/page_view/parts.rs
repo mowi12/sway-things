@@ -18,8 +18,8 @@ use super::{
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
 use crate::widgets::{
-    SettingRow, apps, capture, cursor, environment, keyboard, look, night_light, notifications,
-    shortcuts,
+    SettingRow, apps, bar, capture, cursor, environment, keyboard, look, night_light,
+    notifications, shortcuts,
 };
 
 /// What the parts above the rows hand to the rest of the page.
@@ -142,12 +142,16 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     Some(row)
 }
 
-/// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
+/// The widgets of `page` below `row`, in the row's list: the Keyboard page's layout list and
 /// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, what the
 /// keys of the terminal and the launcher do now on Apps & Autostart, the notes of Screenshots &
 /// Clipboard, the lists of swaync's widgets and buttons on Notifications, the notes of the night
-/// light, which line of another environment.d file replaces a variable of a setting.
-pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
+/// light, which line of another environment.d file replaces a variable of a setting; the Bar
+/// page's status of the bar, displays, module chips and presets.
+pub(super) fn below(model: &Model, page: Page, row: &SettingRow) -> Vec<gtk::Widget> {
+    if page == Page::Bar {
+        return bar::below(model, row);
+    }
     let mut widgets = keyboard::below(model, row);
     widgets.extend(environment::below(model, row));
     widgets.extend(shortcuts::below(model, row));

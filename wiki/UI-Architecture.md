@@ -36,8 +36,8 @@
   about), the choices of a row and what it follows (a Keyboard Shortcuts or Apps & Autostart setting may have no row),
   and the widgets below a row (the Keyboard page's layouts and options, what a media key switch replaces, what keeps the
   terminal's and launcher's keys from the choice, the notes of Screenshots & Clipboard, the lists of swaync's widgets
-  and buttons), and the generated files a page writes to besides those of its directives. About's sections are
-  `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
+  and buttons, the Bar page's parts), and the generated files a page writes to besides those of its directives. About's
+  sections are `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
   `app.show_directives` is on, and a chevron. Its list item takes the focus; a click, `Enter` or `Space` expands it, and
@@ -225,6 +225,22 @@
   a hidden workspace) and after every change of the settings, one read at a time (asked during one, it reads once more
   after it), and tells the page which daemon it is about, so only that daemon's sections show
   ([Notifications](Backends.md#notifications)).
+- **Bar page** (`crates/gui/src/widgets/bar/`): below the bar program, how the bar runs (`status.rs`): waybar missing,
+  what starts it with the line to copy in its place (or the drop-in for its unit), whether ours runs with _Reload
+  waybar_, a swaybar of the user's next to ours, and the user's own waybar config with _Import as Starting Point…_,
+  which asks first and says what it couldn't take over. It looks at the processes again every three seconds while shown.
+  Below the displays a check button per display (none checked: every display). Below each module list its modules as
+  chips (`layout.rs`, a `FlowBox`): the catalog's title, the instance (`Battery (bat2)`), a warning icon where what the
+  module needs is missing, and ×. A chip is dragged within its area or onto another (`DragSource` with the list and
+  place, `DropTarget` on the area); Alt+←/→ move it within its area, Alt+↑/↓ to the end of the area above or below,
+  Delete removes it, Enter or a click opens its settings, and the focus follows a moved chip. Every change goes through
+  the list's row (`SettingRow::change`). _Add Module…_ is a popover with the catalog (a module already in the bar is
+  added as `name#2`, starting from its definition), _Custom module…_ and the templates. A module's settings
+  (`dialog.rs`) are a form from the catalog: an entry per format, text and command (empty leaves the option out), with a
+  preview under each format, numbers checked against their range, drop-downs for on/off and choices with waybar's
+  default first, and the options the catalog doesn't know (or a value of another type, like `"interval": "once"`) as
+  JSON. Below the look the presets. Module and file names, the user's config lines and waybar's options are only ever
+  set as plain label text.
 - **Workspaces page** (`crates/gui/src/widgets/workspaces.rs`): below the rows of `workspaces.count` and
   `workspaces.placement`, a map with a card per display that takes workspaces, holding the numbers the placement rule
   gives it (`Model::placement`). A click on a number sends it to the next display, a drag onto another card puts it

@@ -88,6 +88,13 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   manager by `os-release`, and `doctor`'s _Environment_ findings; the output chooser's lines for each choice (none
   without its tool or display, no output name that isn't a plain word), the first launcher installed, the file
   xdg-desktop-portal-wlr reads in its order, and its file wanted only where the user has none
+- The bar: JSON with comments as waybar reads it (comments, trailing commas, `\x`, arbitrary text), waybar's default bar
+  as the defaults, the config and stylesheet made from the settings (values that can't break out of the CSS), only our
+  files written, the module store, the import of a rich config modeled on a real one (nested drawers, instances, images,
+  privacy, a calendar with actions, custom modules, an include that loses to the config) without losing anything,
+  several bars, includes that need a shell or never end, what starts waybar and the line to change, the swaybars of the
+  user's config, a waybar command line's config, swaybar's lines, the templates' scripts and that they never replace a
+  file of the user's
 
 ## Golden files
 
@@ -410,6 +417,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   `app.accent_source` asks for the theme's accent. Apps Look & Feel, with GSettings in memory: a theme set with another
   tool shows in its row as GSettings', _Dark_ goes to `color-scheme` as `prefer-dark` and a reset resets the key, and a
   font row shows the stored font in a button.
+- Bar: with waybar the page shows an area of chips per module list in waybar's default layout, Alt+→ moves a chip within
+  its area, Alt+↓ to the next area and Delete removes it, each stored through its row, a module's dialog shows its
+  format and _Save_ stores the definition, and the _Glass_ preset sets the style.
 - Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted
   argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't
   closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the

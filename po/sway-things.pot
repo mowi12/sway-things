@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:02+0100\n"
+"POT-Creation-Date: 2026-11-26 22:04+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1197,7 +1197,7 @@ msgstr ""
 msgid "Custom"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/layout.rs
 msgid "The output of a command or script of yours"
 msgstr ""
 
@@ -2394,7 +2394,7 @@ msgstr ""
 msgid "To use the bar of the Bar page there: {line}"
 msgstr ""
 
-#: crates/core/src/doctor/bar.rs
+#: crates/core/src/doctor/bar.rs crates/gui/src/widgets/bar/status.rs
 msgid "waybar runs with the config of Sway Things."
 msgstr ""
 
@@ -4690,7 +4690,7 @@ msgstr ""
 msgid "floating"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/layout.rs
 msgid "Modules"
 msgstr ""
 
@@ -5215,6 +5215,7 @@ msgid "One above the other"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
+#: crates/gui/src/widgets/bar/dialog.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/brightness.rs
 #: crates/gui/src/widgets/displays/canvas/geometry.rs
@@ -6693,7 +6694,8 @@ msgstr ""
 msgid "output_name"
 msgstr ""
 
-#: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
+#: crates/core/src/registry/input.rs crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/group_row.rs
 msgid "On"
 msgstr ""
 
@@ -10217,7 +10219,7 @@ msgstr ""
 msgid "Add a Command"
 msgstr ""
 
-#: crates/gui/src/widgets/apps/dialogs.rs
+#: crates/gui/src/widgets/apps/dialogs.rs crates/gui/src/widgets/bar/dialog.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Add"
 msgstr ""
@@ -10392,6 +10394,291 @@ msgid ""
 "session, to have them started"
 msgstr ""
 
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "{option}: must be a number from {min} to {max}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Other options: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Other options must be one JSON object, in braces"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "The name can't be empty or have spaces, and no other module may have it"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Shows as: {text}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "New Custom Module"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Module {name}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Reset to Default"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Back to the module's definition in waybar's default config, or none"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs crates/gui/src/widgets/bar/status.rs
+#: crates/gui/src/widgets/bluetooth/dialogs.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
+#: crates/gui/src/widgets/environment/variables.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
+#: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/printers/details.rs
+#: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scan.rs crates/gui/src/widgets/region/mod.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#: crates/gui/src/widgets/wallpaper/collections.rs
+#: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
+msgid "Cancel"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/environment/variables.rs
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Name (custom/…)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Other options (JSON)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "waybar's default"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Plain text"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid ""
+"Drag to move. Alt+Left and Alt+Right move it in its area, Alt+Up and "
+"Alt+Down to another; Delete removes it, Enter opens its settings"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "Your copy of the script stays"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid ""
+"{file} isn't the script as Sway Things ships it, so it stays as it is and "
+"the new module runs it. Move it away to get the template's script."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "The template couldn't be added"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "Modules: {area}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "Add Module…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "Add a module to the {area} area"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "{group} (group of {count})"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "Remove from the bar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "Remove {module}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "{module}, {position} of {count}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "Custom module…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "From a template"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+#, rust-format
+msgid "Needs {programs}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+msgid "Displays that show the bar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+msgid "Sets the style and the placement it needs at once"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+msgid "Presets"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/brightness.rs crates/gui/src/widgets/notifications.rs
+#: crates/gui/src/widgets/region/language.rs
+#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
+msgid "Copy"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#: crates/gui/src/widgets/displays/kanshi_note.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/notifications.rs
+#: crates/gui/src/widgets/page_view/about.rs
+#: crates/gui/src/widgets/region/language.rs
+#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
+msgid "Copied"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Use your waybar config as the starting point?"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"The bar set up here is replaced by the one in {file}: where it stands, its "
+"modules and their options. Your file stays as it is, and your stylesheet is "
+"read after the one of Sway Things."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Import"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Imported, with notes"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"Your sway config starts swaybar too ({place}). Remove that bar block, or "
+"both bars show."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"swaybar is set up in Sway Things' sway include (75-bar.conf); a change shows "
+"at once."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"Choose waybar or swaybar to set up the bar here. Until then, your own bar "
+"stays as it is."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"waybar isn't installed. Install the waybar package, or choose swaybar, which "
+"comes with sway."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "No waybar runs now."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "waybar runs, but with another config."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Reload waybar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Has waybar read the config of Sway Things again"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid "Written to {config} and {style}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"Sway Things starts waybar with its own config when sway starts (75-bar.conf)."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid "Your sway config starts waybar with the files of Sway Things ({place})."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"Your sway config starts waybar with its own config ({place}). To use the bar "
+"set up here, change that line to:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"Your sway config runs something that may start waybar ({place}); Sway Things "
+"can't tell, so it doesn't start a second one. To use the bar set up here, "
+"start waybar there with:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"waybar runs as a systemd service. Point it at the files of Sway Things with "
+"a drop-in: run {command} and add:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid "Your waybar config: {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Import as Starting Point…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Reads your config; changes nothing in it"
+msgstr ""
+
 #: crates/gui/src/widgets/bluetooth/actions.rs
 msgid "Leave it empty to use the adapter's own name."
 msgstr ""
@@ -10408,21 +10695,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/actions.rs
 msgid "Leave it empty to use the name the device announces."
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
-#: crates/gui/src/widgets/environment/variables.rs
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
-#: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/page_view.rs
-#: crates/gui/src/widgets/printers/details.rs
-#: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/printers/scan.rs crates/gui/src/widgets/region/mod.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-#: crates/gui/src/widgets/wallpaper/collections.rs
-#: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
-msgid "Cancel"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
@@ -10537,13 +10809,6 @@ msgstr ""
 #: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/network/rows.rs
 msgid "More actions"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
-#: crates/gui/src/widgets/notifications.rs
-#: crates/gui/src/widgets/region/language.rs
-#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
-msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
@@ -11157,14 +11422,6 @@ msgid "Copy Line"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/kanshi_note.rs
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/notifications.rs
-#: crates/gui/src/widgets/page_view/about.rs
-#: crates/gui/src/widgets/region/language.rs
-#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
-msgid "Copied"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/kanshi_note.rs
 msgid ""
 "Put this line at the top of your kanshi config, above your profiles, and "
 "take a line further down that includes it away:"
@@ -11619,12 +11876,6 @@ msgstr ""
 msgid ""
 "$NAME and ${NAME} expand, ${NAME:-default} where it is unset, ${NAME:"
 "+alternate} where it is set; $$ is a $. Quotes keep spaces."
-msgstr ""
-
-#: crates/gui/src/widgets/environment/variables.rs
-#: crates/gui/src/widgets/printers/scan.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs

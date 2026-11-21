@@ -273,19 +273,21 @@ Scanners (scanning is basic, see [Vision and Scope](Vision-and-Scope.md#scope-by
 
 ### Bar
 
-Waybar via **handover** (waybar's include lets the main file win, see [Architecture](Architecture.md#other-tools));
-swaybar via our sway include.
+Waybar via **handover** (waybar's include lets the main file win, see [Bar](Backends.md#bar)); swaybar via our sway
+include.
 
-- [ ] 🟡 Position, height, output(s), layer, margins
-- [ ] 🟡 Module layout: drag modules between left / center / right
-- [ ] 🟡 Module catalog: clock, battery, network, pulseaudio, tray, cpu, memory, …
-- [ ] 🟡 Per-module settings form, driven by a schema per module
-- [ ] 🟡 Custom script modules (`custom/<name>`)
-- [ ] 🟡 Styling: colors, font, size, rounded corners (generated `style.css`)
-- [ ] 🟢 Reload waybar (`SIGUSR2`)
-- [ ] 🟡 "Import as starting point" from the user's existing waybar config (read-only)
-- [ ] 🟢 swaybar alternative: `bar { position, colors, font, status_command }`
-- [ ] 🟢 SwayFX: blur behind the bar (`layer_effects`)
+- [x] 🟡 Position, height, output(s), layer, margins, reserved space (exclusive zone)
+- [x] 🟡 Module layout: drag modules between left / center / right, or move them with Alt and the arrow keys
+- [x] 🟡 Module catalog: clock, battery, network, pulseaudio, tray, cpu, memory, …, with what each needs here
+- [x] 🟡 Per-module settings form, driven by a schema per module; unknown options kept as JSON
+- [x] 🟡 Custom script modules (`custom/<name>`), and templates (pomodoro, camera, updates, battery warning, VPN, system
+      load, power menu, notification center)
+- [x] 🟡 Styling: colors (yours or sway's window colors), font, padding, rounded corners, transparency, a pill per
+      module (generated `style.css`), presets, your own stylesheet read after ours
+- [x] 🟢 Reload waybar (`SIGUSR2`, only to the waybar that runs our config)
+- [x] 🟡 "Import as starting point" from the user's existing waybar config (read-only, JSONC with `include`s)
+- [x] 🟢 swaybar alternative: `bar { position, colors, font, status_command }` as one-line `bar sway-things …` commands
+- [x] 🟢 SwayFX: blur behind the bar (`layer_effects`)
 - **Maybe:** 🟡 multiple bars
 
 ---

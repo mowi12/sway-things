@@ -151,6 +151,10 @@ enum Op {
     /// Runs a command in the session now: an autostart entry started by hand. It stores
     /// nothing, so it needs no include line.
     Run(sway_things_core::command::SwayCmd),
+    /// Stores the module definitions of the bar and sets up the bar with them.
+    BarModules(sway_things_core::bar::Modules),
+    /// Has the waybar processes of the session that run our config read it again.
+    ReloadBar,
 }
 
 /// What the model works with once it is loaded.
@@ -1003,6 +1007,36 @@ impl Model {
         });
     }
 
+    /// The module definitions of the bar, read from `bar.jsonc` again (it may have been edited
+    /// by hand).
+    ///
+    /// # Errors
+    ///
+    /// The file can't be read; `None` before the settings are loaded.
+    pub fn bar_modules(
+        &self,
+    ) -> Option<Result<sway_things_core::bar::Modules, sway_things_core::bar::ModulesError>> {
+        let core = self.imp().core.borrow();
+        let path = sway_things_core::bar::Modules::path_of(&core.as_ref()?.state)?;
+        Some(sway_things_core::bar::Modules::load(&path))
+    }
+
+    /// The files Sway Things writes for waybar.
+    pub fn waybar_files(&self) -> Option<sway_things_core::bar::WaybarFiles> {
+        let core = self.imp().core.borrow();
+        sway_things_core::bar::WaybarFiles::of(&core.as_ref()?.state)
+    }
+
+    /// Stores `modules` as the module definitions of the bar and sets up the bar with them.
+    pub fn set_bar_modules(&self, modules: sway_things_core::bar::Modules) {
+        self.queue(Op::BarModules(modules));
+    }
+
+    /// Has the waybar processes of the session that run our config read it again.
+    pub fn reload_bar(&self) {
+        self.queue(Op::ReloadBar);
+    }
+
     /// Puts `workspace` on `display` (by its name in the settings) in the fixed placement for
     /// the displays connected now, and places the workspaces.
     pub fn fix_placement(&self, workspace: &str, display: &str) {
@@ -1049,7 +1083,9 @@ impl Model {
             | Op::Overwrite(_)
             | Op::Run(_)
             | Op::FixPlacement { .. }
-            | Op::SetMirror { .. } => false,
+            | Op::SetMirror { .. }
+            | Op::BarModules(_)
+            | Op::ReloadBar => false,
         })
     }
 
