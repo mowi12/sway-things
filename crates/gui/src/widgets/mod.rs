@@ -3,6 +3,7 @@
 
 //! The building blocks of the app.
 
+mod bar;
 mod bluetooth;
 mod clamp;
 mod cursor;

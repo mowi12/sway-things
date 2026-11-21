@@ -335,3 +335,22 @@ window.st-identify .st-identify-name {
 st-display-canvas.st-identifying > button.st-display-tile.st-off:not(:checked) {
   box-shadow: inset 0 0 0 3px @theme_selected_bg_color;
 }
+
+/* The Bar page: how the bar runs, the displays, the modules of each area as chips, the presets */
+.st-bar-status,
+.st-bar-outputs,
+.st-bar-presets,
+.st-bar-area {
+  padding: 8px 12px 12px;
+}
+
+.st-bar-chip {
+  padding: 2px 2px 2px 10px;
+  border: 1px solid @borders;
+  border-radius: 999px;
+}
+
+.st-bar-chips > flowboxchild {
+  padding: 0;
+  border-radius: 999px;
+}

@@ -314,6 +314,20 @@ fn data() -> Vec<String> {
             data.push((*default).to_owned());
         }
     }
+    // The names of waybar's modules on the Bar page: its default layout, with the names of
+    // custom modules and instances (`custom/media`, `battery#bat2`) on their own too.
+    for name in sway_things_core::registry::bar::DEFAULT_LEFT
+        .iter()
+        .chain(sway_things_core::registry::bar::DEFAULT_CENTER)
+        .chain(sway_things_core::registry::bar::DEFAULT_RIGHT)
+    {
+        data.push((*name).to_owned());
+        data.extend(name.strip_prefix("custom/").map(ToOwned::to_owned));
+        data.extend(
+            name.split_once('#')
+                .map(|(_, instance)| instance.to_owned()),
+        );
+    }
     // The system details About shows: the distribution and the kernel of this machine.
     let system = async_io::block_on(Details::read(None, None, None, None));
     data.extend(system.distribution);

@@ -145,6 +145,10 @@ enum Op {
     SwayReloaded,
     /// Writes a generated file that was changed outside Sway Things.
     Overwrite(ConfigFile),
+    /// Stores the module definitions of the bar and sets up the bar with them.
+    BarModules(sway_things_core::bar::Modules),
+    /// Has the waybar processes of the session that run our config read it again.
+    ReloadBar,
 }
 
 /// What the model saw of kanshi when it last looked, for the note of the Displays page: read
@@ -990,6 +994,36 @@ impl Model {
         });
     }
 
+    /// The module definitions of the bar, read from `bar.jsonc` again (it may have been edited
+    /// by hand).
+    ///
+    /// # Errors
+    ///
+    /// The file can't be read; `None` before the settings are loaded.
+    pub fn bar_modules(
+        &self,
+    ) -> Option<Result<sway_things_core::bar::Modules, sway_things_core::bar::ModulesError>> {
+        let core = self.imp().core.borrow();
+        let path = sway_things_core::bar::Modules::path_of(&core.as_ref()?.state)?;
+        Some(sway_things_core::bar::Modules::load(&path))
+    }
+
+    /// The files Sway Things writes for waybar.
+    pub fn waybar_files(&self) -> Option<sway_things_core::bar::WaybarFiles> {
+        let core = self.imp().core.borrow();
+        sway_things_core::bar::WaybarFiles::of(&core.as_ref()?.state)
+    }
+
+    /// Stores `modules` as the module definitions of the bar and sets up the bar with them.
+    pub fn set_bar_modules(&self, modules: sway_things_core::bar::Modules) {
+        self.queue(Op::BarModules(modules));
+    }
+
+    /// Has the waybar processes of the session that run our config read it again.
+    pub fn reload_bar(&self) {
+        self.queue(Op::ReloadBar);
+    }
+
     /// Puts `workspace` on `display` (by its name in the settings) in the fixed placement for
     /// the displays connected now, and places the workspaces.
     pub fn fix_placement(&self, workspace: &str, display: &str) {
@@ -1034,7 +1068,9 @@ impl Model {
             | Op::MoveAlong(_)
             | Op::Overwrite(_)
             | Op::FixPlacement { .. }
-            | Op::SetMirror { .. } => false,
+            | Op::SetMirror { .. }
+            | Op::BarModules(_)
+            | Op::ReloadBar => false,
         })
     }
 
@@ -1110,6 +1146,9 @@ impl Model {
             (applier, core.status.clone())
         };
         let mut applier = applier;
+        // The bar's style can follow the colors of the user's config, which also says what
+        // starts waybar.
+        applier.set_sway_config(status.config().clone());
         self.follow_displays(&mut applier, matches!(op, Op::Persist));
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
@@ -1193,10 +1232,33 @@ impl Model {
                 self.fix_placement_now(&mut applier, &workspace, &display, access)
                     .await;
             }
+            (op @ (Op::BarModules(_) | Op::ReloadBar), access) => {
+                self.bar_now(&mut applier, op, access).await;
+            }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
         self.give_back(applier, was_pending);
+    }
+
+    /// The bar's operations: storing the module definitions, and reloading waybar.
+    async fn bar_now(
+        &self,
+        applier: &mut Applier,
+        op: Op,
+        access: Result<WriteAccess, sway_things_core::include::ReadOnly>,
+    ) {
+        match (op, access) {
+            (Op::BarModules(modules), Ok(access)) => {
+                if let Err(error) = applier.set_bar_modules(&modules, &access).await {
+                    self.emit_problem(&error.text().translated());
+                }
+            }
+            (Op::BarModules(_), Err(read_only)) => self.emit_problem(&explained(&read_only)),
+            _ => {
+                applier.reload_bar().await;
+            }
+        }
     }
 
     /// Saves and writes the files, replacing the generated files `overwrite` changed outside.
@@ -1228,6 +1290,9 @@ impl Model {
     /// tells the rows.
     fn give_back(&self, mut applier: Applier, was_pending: Option<Countdown>) {
         if let Some(problem) = applier.take_displays_problem() {
+            self.emit_problem(&problem.translated());
+        }
+        if let Some(problem) = applier.take_bar_problem() {
             self.emit_problem(&problem.translated());
         }
         let pending = applier.pending().cloned();
