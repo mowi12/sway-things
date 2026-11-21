@@ -238,6 +238,9 @@ pub fn generate_for(
             }
         }
     }
+    if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Bar) {
+        file.lines.extend(bar_lines(state));
+    }
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
     }
@@ -340,6 +343,48 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
         ));
     }
     lines
+}
+
+/// The lines of `75-bar.conf`: with waybar, the hook that starts it with our config unless
+/// something else starts it; with swaybar, its `bar sway-things …` lines.
+fn bar_lines(state: &State) -> Vec<Line> {
+    use crate::bar::{Backend, swaybar};
+    use crate::registry::bar as keys;
+    match Backend::of(state) {
+        Backend::None => Vec::new(),
+        Backend::Waybar => vec![hook_line("waybar", vec![keys::BACKEND])],
+        Backend::Swaybar => swaybar::lines(state, None)
+            .into_iter()
+            .map(|line| match line {
+                swaybar::Line::Command(key, command) => {
+                    let source = Source {
+                        keys: vec![key],
+                        device: None,
+                    };
+                    match command.render(Target::Config) {
+                        Ok(text) => Line {
+                            text,
+                            source,
+                            skipped: None,
+                        },
+                        Err(error) => Line {
+                            text: format!("# {key}: {error}"),
+                            source,
+                            skipped: Some(error.to_string()),
+                        },
+                    }
+                }
+                swaybar::Line::Skipped(key, reason) => Line {
+                    text: format!("# {key}: {reason}"),
+                    source: Source {
+                        keys: vec![key],
+                        device: None,
+                    },
+                    skipped: Some(reason),
+                },
+            })
+            .collect(),
+    }
 }
 
 /// The line that runs `sway-things hook <name>`, for the settings `keys`.

@@ -26,3 +26,6 @@ position = "1920,0"
 
 [display."DP-99".output]
 enabled = false
+
+[bar]
+outputs = ["HEADLESS-1", "Dell \"U2415\" $1"]

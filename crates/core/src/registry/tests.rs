@@ -429,9 +429,12 @@ fn app_preferences_have_no_sway_mapping() {
         let is_placement = setting.key().starts_with("workspaces.");
         // The settings of Apps Look & Feel live in GSettings only.
         let is_gsettings_only = setting.page() == Page::AppsLookFeel;
+        // The bar's settings go to waybar's files or to swaybar's lines; only the blur behind
+        // waybar is a sway directive.
+        let is_bar = setting.page() == Page::Bar && setting.key() != "bar.blur";
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement || is_gsettings_only,
+            is_app || is_placement || is_gsettings_only || is_bar,
             "{}",
             setting.key()
         );
