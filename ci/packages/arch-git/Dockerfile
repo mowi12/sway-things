@@ -3,7 +3,7 @@
 
 # Builds the AUR package sway-things-git like a clean chroot: base-devel only, an unprivileged user who may run pacman,
 # so makepkg -s installs the declared dependencies and nothing else is there. See scripts/build-packages.sh.
-FROM archlinux:base@sha256:b1c2fe6e717bfd5673af8fc217e1e1c3ce0dcbb1d53c3414c8425e7ce79fc6d9
+FROM archlinux:base@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
 
 # The image has no local pacman key, which updating archlinux-keyring needs.
 RUN pacman-key --init \
