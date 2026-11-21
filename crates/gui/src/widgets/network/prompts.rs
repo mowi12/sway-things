@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The secret agent's questions as dialogs: a password that is wrong or changed, while the page
-//! is on screen or a connection it started is under way.
+//! The secret agent's questions as dialogs: a password that is wrong or changed, or the fields of
+//! a VPN's plugin, while the page is on screen or a connection it started is under way.
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::network::{SecretPrompt, Security};
+use sway_things_core::network::{SecretPrompt, Security, VpnPrompt};
 
 use super::dialogs::PasswordSpec;
 use super::{NetworkPage, dialogs};
@@ -58,7 +58,46 @@ impl NetworkPage {
                 page.imp().prompt.replace(None);
             }
         });
-        self.imp().prompt.replace(Some((connection, dialog)));
+        self.imp()
+            .prompt
+            .replace(Some((connection, dialog.opened())));
+    }
+
+    /// Shows the agent's VPN `prompt` as a dialog with the plugin's fields.
+    pub(super) fn vpn_prompt(&self, prompt: VpnPrompt) {
+        self.close_prompt();
+        let window = self.root().and_downcast::<gtk::Window>();
+        let title = if prompt.retry {
+            trf(
+                msg!("Sign in to VPN “{vpn}” again"),
+                &[("vpn", &prompt.name)],
+            )
+        } else {
+            trf(msg!("Sign in to VPN “{vpn}”"), &[("vpn", &prompt.name)])
+        };
+        let connection = prompt.connection.clone();
+        let description = prompt.description.clone();
+        let fields = prompt.fields.clone();
+        let weak = self.downgrade();
+        let mut prompt = Some(prompt);
+        let dialog = dialogs::vpn(
+            window.as_ref(),
+            &title,
+            &description,
+            &fields,
+            move |values| {
+                // Dropping the prompt without an answer cancels it.
+                if let (Some(prompt), Some(values)) = (prompt.take(), values) {
+                    prompt.answer(values);
+                }
+                if let Some(page) = weak.upgrade() {
+                    page.imp().prompt.replace(None);
+                }
+            },
+        );
+        self.imp()
+            .prompt
+            .replace(Some((connection, dialog.opened())));
     }
 
     /// Closes the agent's dialog, if one is open.

@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The dialogs of the Network page: a Wi-Fi password (for a new network, or when the secret agent
-//! asks again), a hidden network, a connection's details, and forgetting a network.
+//! asks again), a VPN's sign-in (the fields its plugin asks for), a hidden network, a
+//! connection's details, and forgetting a network.
 //!
-//! Network names are untrusted: they only ever go into label text, window titles and dialog
-//! messages, which GTK shows as plain text.
+//! Network names and what a VPN plugin says are untrusted: they only ever go into label text,
+//! window titles and dialog messages, which GTK shows as plain text.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::network::{Security, check_password, check_ssid};
+use sway_things_core::network::{Security, VpnField, check_password, check_ssid};
 
 use crate::i18n::{Msg, msg, tr, trf};
 use crate::style;
@@ -131,6 +132,15 @@ impl<T: 'static> Dialog<T> {
         self.finish(None);
     }
 
+    /// The dialog, whatever it answers with.
+    pub fn opened(&self) -> Opened {
+        let dialog = self.clone();
+        Opened {
+            window: self.window.clone(),
+            close: Rc::new(move || dialog.close()),
+        }
+    }
+
     /// The dialog's window.
     pub fn window(&self) -> &gtk::Window {
         &self.window
@@ -142,6 +152,25 @@ impl<T: 'static> Dialog<T> {
             done(answer);
         }
         self.window.destroy();
+    }
+}
+
+/// An open dialog, whatever it answers with: to close it, or find its window.
+#[derive(Clone)]
+pub struct Opened {
+    window: gtk::Window,
+    close: Rc<dyn Fn()>,
+}
+
+impl Opened {
+    /// Closes the dialog without an answer.
+    pub fn close(&self) {
+        (self.close)();
+    }
+
+    /// The dialog's window.
+    pub fn window(&self) -> &gtk::Window {
+        &self.window
     }
 }
 
@@ -202,6 +231,67 @@ pub fn password(
     }
     dialog.window.present();
     entry.grab_focus();
+    dialog
+}
+
+/// Asks for the `fields` of a VPN plugin under `title`, with the plugin's `description` (may be
+/// empty) above them; `done` gets their values in order, or `None`.
+pub fn vpn(
+    parent: Option<&gtk::Window>,
+    title: &str,
+    description: &str,
+    fields: &[VpnField],
+    done: impl FnOnce(Option<Vec<String>>) + 'static,
+) -> Dialog<Vec<String>> {
+    let (dialog, content) = Dialog::new(parent, title, done);
+    if !description.trim().is_empty() {
+        let body = gtk::Label::new(Some(description.trim()));
+        body.set_wrap(true);
+        body.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        body.set_justify(gtk::Justification::Center);
+        body.set_max_width_chars(40);
+        content.append(&body);
+    }
+    let entries: Vec<gtk::Editable> = fields
+        .iter()
+        .map(|field| {
+            let entry: gtk::Editable = if field.secret {
+                gtk::PasswordEntry::builder()
+                    .show_peek_icon(true)
+                    .activates_default(true)
+                    .build()
+                    .upcast()
+            } else {
+                gtk::Entry::builder()
+                    .activates_default(true)
+                    .build()
+                    .upcast()
+            };
+            entry.set_text(&field.value);
+            labeled(&content, &field.label, &entry);
+            entry
+        })
+        .collect();
+    if let Some(accept) = dialog.buttons(&content, Some(tr(msg!("Connect")))) {
+        let answer = dialog.clone();
+        let values = entries.clone();
+        accept.connect_clicked(move |_| {
+            answer.finish(Some(
+                values
+                    .iter()
+                    .map(|entry| entry.text().to_string())
+                    .collect(),
+            ));
+        });
+    }
+    dialog.window.present();
+    if let Some(first) = entries
+        .iter()
+        .find(|entry| entry.text().is_empty())
+        .or_else(|| entries.first())
+    {
+        first.grab_focus();
+    }
     dialog
 }
 

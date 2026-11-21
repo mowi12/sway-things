@@ -161,7 +161,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Captive portal note with the login page
 - [x] 🟢 Switches for the wired devices and the VPN and WireGuard connections
 - [ ] 🟡 WPA-Enterprise (802.1X) dialog: PEAP and TTLS with MSCHAPv2 or PAP, TLS with certificates, a CA file
-- [ ] 🟡 Ask for VPN passwords through the VPN plugin's dialog
+- [x] 🟡 Ask for VPN passwords through the VPN plugin's dialog
 - **Not planned:** a full network editor (delegate)
 
 ---

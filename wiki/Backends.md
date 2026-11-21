@@ -62,12 +62,24 @@ user), the password with `psk-flags` 0 (kept by NetworkManager), `key-mgmt` from
 reason, or for a VPN the reason of its `StateChanged` signal. The change stream takes every signal of NetworkManager
 under `/org/freedesktop` and `NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's
 old duplicate `PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed
-path, registered as `io.github.mowi12.SwayThings`) is registered while the page is on screen and until a connection it
-started has finished, and again when the owner of `org.freedesktop.NetworkManager` changes (NetworkManager forgets
-agents when it restarts). It answers only NetworkManager, and only for WPA and WPA3 Personal passwords when it may ask
-the user; everything else (802.1X, VPN secrets) gets `NoSecrets`, so another agent can answer. `delegate` starts
-nm-connection-editor: the whole editor, `--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which
-is checked to be one before it becomes an argument.
+path, registered as `io.github.mowi12.SwayThings` with the capability `VPN_HINTS`) is registered while the page is on
+screen and until a connection it started has finished, and again when the owner of `org.freedesktop.NetworkManager`
+changes (NetworkManager forgets agents when it restarts). It answers only NetworkManager: for WPA and WPA3 Personal
+passwords when it may ask the user, and for the `vpn` secrets of a VPN connection through its plugin's auth dialog
+(`network::vpn`). The plugin's `.name` file is looked up as libnm does (`NM_VPN_PLUGIN_DIR`,
+`/usr/lib/NetworkManager/VPN`, `/etc/NetworkManager/VPN`; only files of root or the user that nobody else may write),
+matched by `service` or `aliases`; its `[GNOME]` group names the `auth-dialog` (a bare name is in `/usr/libexec`) and
+whether it supports `--external-ui-mode` and hints. The dialog is started with an argument array as GNOME Shell starts
+it (`-u` UUID, `-n` name, `-s` service, `-i` when it may ask, `-r` when the old secrets failed, `-t` per hint), reads
+the VPN's data and secrets from stdin and answers on stdout: key and value lines up to an empty line, then it gets
+`QUIT` and ends by itself; in external UI mode a key file whose fields with `ShouldAsk` the page asks for in a dialog of
+its own. `CancelGetSecrets` ends a running dialog. Nothing is stored by Sway Things: the secrets go back to
+NetworkManager, which keeps them as their flags say; those left to an agent are asked for again (no keyring). Without an
+auth dialog (only the plugin's KDE part, or its GNOME package missing) the agent answers `NoSecrets` and notes it, so
+`connect_vpn` reports which plugin's GNOME part is missing. Everything else (802.1X, WireGuard, whose keys are in the
+connection) gets `NoSecrets`, so another agent can answer. `delegate` starts nm-connection-editor: the whole editor,
+`--create --type=802-11-wireless`, or `--edit` with a connection's UUID, which is checked to be one before it becomes an
+argument.
 
 Sound needs none either: the sound server (PipeWire with WirePlumber, or PulseAudio) owns the defaults, volumes and
 profiles and remembers them. `crates/core/src/sound/` speaks the PulseAudio protocol through libpulse, which

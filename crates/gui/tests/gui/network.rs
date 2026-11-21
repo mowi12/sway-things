@@ -65,8 +65,8 @@ pub(crate) fn network_stand_in() -> Result<(NmStandIn, String), String> {
 
 /// The Network page against the stand-in: the networks in their lists, scans and the agent while
 /// it is shown, connecting to a saved network and to a new one with its password, the agent's
-/// dialog for a wrong password, the wired device and the VPN, the captive portal note, and
-/// switching Wi-Fi off.
+/// dialog for a wrong password, the dialog with a VPN plugin's fields, the wired device and the
+/// VPN, the captive portal note, and switching Wi-Fi off.
 pub(crate) fn check_network() -> Outcome {
     let (stand_in, wlan) = network_stand_in()?;
     let page = NetworkPage::new(&NetworkBus::Address(stand_in.address().to_owned()));
@@ -146,6 +146,7 @@ pub(crate) fn check_network() -> Outcome {
 
     check_network_password(&page, &stand_in)?;
     check_network_agent(&page, &stand_in)?;
+    check_network_vpn_agent(&page, &stand_in)?;
 
     check_network_wired_vpn(&page, &stand_in)?;
 
@@ -320,7 +321,7 @@ pub(crate) fn check_network_while_shown(
     )?;
     ensure(
         run_until(Duration::from_secs(5), || {
-            calls(stand_in.agent_manager(), "Register") > 0
+            calls(stand_in.agent_manager(), "RegisterWithCapabilities") > 0
         }),
         "  the agent wasn't registered while the page is shown",
     )?;
@@ -477,4 +478,94 @@ pub(crate) fn check_network_agent(page: &NetworkPage, stand_in: &NmStandIn) -> O
     )?;
     ensure(page.open_dialog().is_none(), "  the dialog stayed open")?;
     Ok(())
+}
+
+/// The secret agent on `page` for the VPN "Office VPN", whose plugin's auth dialog describes its
+/// fields (external UI mode): the page asks for them, and the answers go back.
+pub(crate) fn check_network_vpn_agent(page: &NetworkPage, stand_in: &NmStandIn) -> Outcome {
+    let plugins = tempfile::tempdir().map_err(|error| format!("  {error}"))?;
+    nm_stand_in::fake_vpn_plugin(plugins.path(), nm_stand_in::FakeDialog::ExternalUi)
+        .map_err(|error| format!("  {error}"))?;
+    page.use_vpn_plugin_dirs(vec![plugins.path().to_owned()]);
+    let name = page.bus_name().ok_or("  the page has no bus name")?;
+    let vpn = async_io::block_on(connection_named(stand_in, "Office VPN"))
+        .map_err(|error| format!("  {error}"))?;
+    async_io::block_on(stand_in.ask_secrets_of(&name, &vpn, "vpn", 0x1))
+        .map_err(|error| format!("  {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.open_dialog().is_some()),
+        "  the agent didn't ask for the VPN's fields",
+    )?;
+    let dialog = page.open_dialog().ok_or("  no dialog")?;
+    ensure(
+        dialog.title().as_deref() == Some("Sign in to VPN “Office VPN”"),
+        &format!("  the dialog is titled {:?}", dialog.title()),
+    )?;
+    ensure(
+        all::<gtk::Label>(dialog.upcast_ref())
+            .iter()
+            .any(|label| label.text() == "Sign in to Office"),
+        "  the plugin's description isn't shown",
+    )?;
+    let username = find::<gtk::Entry>(dialog.upcast_ref()).ok_or("  no username field")?;
+    ensure(
+        username.text() == "alice",
+        &format!("  the username field holds {:?}", username.text()),
+    )?;
+    find::<gtk::PasswordEntry>(dialog.upcast_ref())
+        .ok_or("  no password field")?
+        .set_text("123456");
+    button_labeled(dialog.upcast_ref(), "Connect")
+        .ok_or("  the dialog has no Connect")?
+        .emit_clicked();
+    let reply =
+        async_io::block_on(stand_in.secrets_reply()).map_err(|error| format!("  {error}"))?;
+    ensure(
+        reply == Ok("cert-pass=known;password=123456;username=alice".to_owned()),
+        &format!("  the agent answered {reply:?}"),
+    )?;
+    ensure(page.open_dialog().is_none(), "  the dialog stayed open")?;
+    Ok(())
+}
+
+/// The path of the saved connection called `id` in the stand-in.
+async fn connection_named(stand_in: &NmStandIn, id: &str) -> Result<String, nm_stand_in::Error> {
+    let bus = stand_in.connection();
+    let service = Some("org.freedesktop.NetworkManager");
+    let paths: Vec<zbus::zvariant::OwnedObjectPath> = bus
+        .call_method(
+            service,
+            "/org/freedesktop/NetworkManager/Settings",
+            Some("org.freedesktop.NetworkManager.Settings"),
+            "ListConnections",
+            &(),
+        )
+        .await?
+        .body()
+        .deserialize()?;
+    for path in paths {
+        let settings: std::collections::HashMap<
+            String,
+            std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+        > = bus
+            .call_method(
+                service,
+                path.as_str(),
+                Some("org.freedesktop.NetworkManager.Settings.Connection"),
+                "GetSettings",
+                &(),
+            )
+            .await?
+            .body()
+            .deserialize()?;
+        let named = settings
+            .get("connection")
+            .and_then(|connection| connection.get("id"))
+            .and_then(|value| <&str>::try_from(value).ok())
+            == Some(id);
+        if named {
+            return Ok(path.to_string());
+        }
+    }
+    Err(format!("no connection called {id}").into())
 }
