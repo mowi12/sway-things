@@ -36,7 +36,7 @@ trait Backend {
 | Auto dark mode | darkman |
 | Audio | PulseAudio API via pipewire-pulse or PulseAudio (`libpulse-binding`, on libpulse's threaded main loop) |
 | Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection (systemd's `xdg-desktop-autostart.target`, dex), see [Apps and autostart](#apps-and-autostart) |
-| Bluetooth | BlueZ (D-Bus) |
+| Bluetooth | BlueZ (D-Bus); UPower or the kernel's power supplies for charging |
 | Network | NetworkManager (D-Bus) |
 | Printers | CUPS (IPP over its domain socket); cups-pk-helper (D-Bus, polkit); Avahi (D-Bus) |
 | Scanners | SANE's `scanimage` (subprocess); Avahi (D-Bus) |
@@ -57,6 +57,25 @@ runs `StartDiscovery` while it is on screen and the radio is on, or with `app.bl
 after _Search_. `bluetooth::rfkill` reads `/dev/rfkill` for the soft and hard block and lifts a soft block by writing
 one `RFKILL_OP_CHANGE_ALL` event. A page's "Advanced…" button starts a specialist tool from `delegate`
 (blueman-manager), found in `PATH`.
+
+BlueZ's `org.bluez.Battery1` has only a percentage, so `bluetooth::battery` adds whether a device charges. The snapshot
+asks UPower on the same bus: `GetNameOwner` first, then `EnumerateDevices` and the `org.freedesktop.UPower.Device`
+properties `State`, `Percentage`, `BatteryLevel`, `IsPresent`, `PowerSupply`, `NativePath` and `Serial`, sent to the
+owner's unique name so the questions can never start UPower. UPower gets 2 s; without an answer, or without UPower, the
+snapshot reads `/sys/class/power_supply/*` on the blocking thread pool (`blocking`), read-only and only on the system
+bus: `scope` and `type` of each supply, and only of those with scope `Device` and type `Battery` also `status`,
+`capacity`, `capacity_level`, `serial_number` and `present`. A battery belongs to a connected BlueZ device (a device
+paired with two adapters has its address twice; only the connected one is live) if its native path is the device's
+object path (UPower's own copy of a BlueZ battery) or its serial is the device's address, compared without case and only
+when it is a well-formed address (a kernel driver such as hid-logitech-hidpp puts the address of a Bluetooth device
+there). Of several, the one that knows whether it charges wins, then the kernel's; batteries that power the computer
+never match. UPower's 0 % without a state counts as no level, so BlueZ's percentage stays. A driver with another serial
+(a USB receiver's, an empty one) can't be tied to a device, which then shows BlueZ's percentage; nothing is guessed from
+names or models. Without a match the charging state stays unknown and the page claims nothing about it. The change
+stream also follows UPower (`PropertiesChanged` of the shown properties only, `DeviceAdded`/`DeviceRemoved`, its name
+owner), but not the display device and the batteries that power the computer, as the last snapshot found them. The
+kernel's supplies report nothing, so without UPower the page reads a snapshot every 30 s while a paired device is
+connected or a device's battery is among the supplies.
 
 The network needs none either: NetworkManager owns the connections and their passwords. `crates/core/src/network/` has a
 `NetworkManager` handle on the system bus: `GetManagedObjects` on `/org/freedesktop` and `GetSettings` of each saved

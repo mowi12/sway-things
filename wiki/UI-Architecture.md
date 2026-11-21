@@ -199,14 +199,17 @@
   preference it follows (`app.bluetooth_search`, `app.wifi_search`, `app.sound_above_100`) and puts its _Advanced…_
   button, which starts the specialist tool, in the page header. Each page follows the service's change stream on the
   main loop (`glib::spawn_future_local`, holding the page by a `WeakRef`), reads a new snapshot at most every 200 ms
-  (Sound 100 ms, `live::follow_changes`) and updates its rows in place; the tasks end in `dispose`. The sections, rows
-  and hints are the shared ones of `widgets/list.rs` (the notices of every page are `widgets/notice.rs`), the forget
-  dialog is `live::confirm_forget`, and `window::live_view` puts each page under its title with its _Advanced…_ button.
-  Bluetooth and Network search only while the page is on screen and the radio is on, or after _Search_ with the
-  preference set to manual. Their dialogs (`dialogs.rs`) take the pairing agent's and the secret agent's questions
-  (Wi-Fi passwords, a VPN plugin's fields, the steps of an OpenConnect sign-in), renaming, passwords, hidden networks
-  and forgetting. Device, network and app names are untrusted and only ever set as plain label text. The tests run the
-  pages against the stand-ins of `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
+  (Sound 100 ms, `live::follow_changes`) and updates its rows in place; the tasks end in `dispose`. Bluetooth follows
+  UPower's changes too and, while the snapshot says `ChargeSource::Kernel` (no UPower, and a paired device connected or
+  a device's battery among the kernel's power supplies, which report nothing), reads a snapshot every 30 s;
+  `bluetooth/rows.rs` turns a battery into the row's text and icon. The sections, rows and hints are the shared ones of
+  `widgets/list.rs` (the notices of every page are `widgets/notice.rs`), the forget dialog is `live::confirm_forget`,
+  and `window::live_view` puts each page under its title with its _Advanced…_ button. Bluetooth and Network search only
+  while the page is on screen and the radio is on, or after _Search_ with the preference set to manual. Their dialogs
+  (`dialogs.rs`) take the pairing agent's and the secret agent's questions (Wi-Fi passwords, a VPN plugin's fields, the
+  steps of an OpenConnect sign-in), renaming, passwords, hidden networks and forgetting. Device, network and app names
+  are untrusted and only ever set as plain label text. The tests run the pages against the stand-ins of
+  `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
 - **Printers page** (`crates/gui/src/widgets/printers/`; its rows in `rows.rs`, what they do in `actions.rs`, the
   dialogs for adding a printer, its details and removing it in `dialogs.rs`, the ink and toner bars in `supplies.rs`):
   live like the pages above, but CUPS has no change stream to follow, so it reads a snapshot every 2 s while it is on

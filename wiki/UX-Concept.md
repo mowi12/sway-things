@@ -493,8 +493,13 @@ and no generated file.
   (_My devices_, _Other devices_) and points to the switch. The Bluetooth section stays, with _Visible to other devices_
   and the ⋮ menu insensitive. A soft block (airplane mode, `rfkill`) says so and that the switch lifts it; a hard block
   says how to turn the radio back on. The devices come back as soon as the radio is on.
-- **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
-  level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
+- **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery,
+  _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first). The battery reads _Charging,
+  60 %_, _Fully charged_ or _Battery 40 %_ (a coarse level for devices without a percentage: _Battery high_), with a
+  battery icon in the row (its charging variant while charging). Whether it charges comes from UPower or the kernel;
+  where neither knows (BlueZ only), the row shows just the level and no icon, since a battery without the bolt would
+  read as not charging. The level's tooltip says that the device estimates it itself, so it can jump while charging and
+  right after.
 - **Other devices:** the devices around, as BlueZ knows them. _Connect_ pairs, trusts and connects in one step.
 - **Connecting and pairing:** while a device connects or pairs, its status reads _Connecting…_ or _Pairing…_ and its
   button _Cancel_ (the ⋮ menu is insensitive). _Cancel_ ends the attempt, as BlueZ does when it fails on its own with a
