@@ -3811,7 +3811,7 @@ msgstr ""
 msgid "pc105"
 msgstr ""
 
-#: crates/core/src/registry/input.rs
+#: crates/core/src/registry/input.rs crates/gui/src/widgets/shortcuts/parts.rs
 msgid "Options"
 msgstr ""
 
@@ -6931,6 +6931,7 @@ msgid "WPA3 Personal"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close"
 msgstr ""
 
@@ -7545,15 +7546,24 @@ msgid "The same key in every keyboard layout"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Details"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Remove"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#: crates/gui/src/widgets/shortcuts/row.rs
+msgid "Back to Your Config's Binding"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Keys"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "What it does"
+msgid "Action"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
@@ -7579,11 +7589,27 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Press the shortcut… (Esc stops, Backspace clears)"
+msgid "These keys are free."
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Click, then press the shortcut"
+msgid "Press the new shortcut…"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Esc to cancel · Backspace to clear"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Click to change"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Click to set the shortcut"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "No keys yet"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
@@ -7592,27 +7618,25 @@ msgid "Keys: {keys}"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Hold Super, Ctrl, Alt or Shift to see which keys are taken with them."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid "No shortcut uses {modifiers} yet: every key is free."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+#, rust-format
+msgid "Taken with {modifiers}:"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "The shortcut changed in the meantime. Close this and try again."
 msgstr ""
 
-#: crates/gui/src/widgets/shortcuts/editor.rs
-#, rust-format
-msgid ""
-"Taken by {what} ({place}), which can't be replaced here. Pick other keys."
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
-#, rust-format
-msgid "In use by {what} ({place}). Saving puts this in its place."
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
-#, rust-format
-msgid "Also on these keys: {what} ({place})."
-msgstr ""
-
 #: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Search keys and commands"
+msgid "Search by action or keys"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
@@ -7624,9 +7648,7 @@ msgid "Add Shortcut…"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
-msgid ""
-"Changes go to Sway Things' own file: a binding of your config is removed "
-"there with unbindsym and bound again, your file stays as it is."
+msgid "No Shortcuts Yet"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
@@ -7634,36 +7656,20 @@ msgid "Neither your config nor Sway Things binds any keys yet."
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "No shortcut matches the search."
+msgid "No Shortcuts Found"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Try other words, or keys like “super enter”."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "System and Other"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
 #, rust-format
-msgid "Mode {mode}"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Change…"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Remove"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Back to Your Config's Binding"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Open in Editor"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Change, remove or restore"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/mod.rs
-msgid "Shortcut actions"
+msgid "Mode “{mode}”"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
@@ -7737,6 +7743,32 @@ msgid "{group}, switched on below"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Read after Sway Things' file, so it can only be changed in your config."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Bindings of modes can only be changed in your config for now."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Its keys need quotes, so it can only be changed in your config."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Part of the {group}, switched on below."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+msgid "Show Switch"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "Open {page}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
 #, rust-format
 msgid "Takes the place of {command} at {place}"
 msgstr ""
@@ -7767,6 +7799,52 @@ msgstr ""
 #, rust-format
 msgid ""
 "Only on the lock screen: {place} binds the same keys otherwise, to {command}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid "Command"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid "Open in Editor"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid "Defined in"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid "Status"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid ""
+"Your config stays as it is: a change removes this binding in Sway Things' "
+"own file with unbindsym and binds the new keys there."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+#, rust-format
+msgid ""
+"Taken by “{what}” ({place}), which can't be replaced here. Pick other keys."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+#, rust-format
+msgid "In use by “{what}” ({place}). Saving puts this in its place."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/parts.rs
+#, rust-format
+msgid "Also on these keys: “{what}” ({place})."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/row.rs
+msgid "Removed"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/row.rs
+msgid "Not in effect"
 msgstr ""
 
 #: crates/gui/src/widgets/sidebar.rs

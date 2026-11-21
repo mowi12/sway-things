@@ -1,11 +1,18 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The dialog that adds a binding or changes one: a field that takes the keys as they are
-//! pressed, what the binding does (an app, a command, focus or move a window, a workspace, or a
-//! sway command) and its options. It warns before the keys take the place of another binding,
-//! and refuses keys it can't take (a media key group's, a line of the user's config read after
-//! Sway Things' file).
+//! The dialog of a binding, opened by a click on its row or by _Add Shortcut…_. At the top, the
+//! keys as large keycaps in a field that takes new ones as they are pressed; while it listens,
+//! the keys already in use with the modifiers held show below it, and once keys are pressed, a
+//! line says whether they are free, in use (saving puts the new binding in their place) or taken
+//! by a binding that can't be replaced. Then what the binding does (an app, a command, focus or
+//! move a window, a workspace, or a sway command) and its options, the clashes of the binding,
+//! and the details: its command, its options in words, where it is (with _Open in Editor_) and
+//! what Sway Things made of it. _Remove_ and _Back to Your Config's Binding_ sit at the start
+//! of the buttons.
+//!
+//! A binding that can't be changed here opens the same dialog without the parts that change it:
+//! why it can't, its details, and a button to the setting that owns it, if one does.
 //!
 //! While the field listens, the dialog asks sway to pass every key to it
 //! (`keyboard-shortcuts-inhibit`), so a binding that exists already doesn't run instead.
@@ -18,12 +25,12 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::bindings::ours::{self, BINDINGS, MODIFIER};
 use sway_things_core::bindings::{
-    Action, BindCommand, DEFAULT_MODE, Direction, Keymap, Line, MAX_WORKSPACE, Modifiers, Row,
-    RowKind, edit,
+    Action, BindCommand, DEFAULT_MODE, Direction, Keymap, Line, Listing, MAX_WORKSPACE, Modifiers,
+    Row, RowKind, edit,
 };
 use sway_things_core::registry::{Registry, Value};
 
-use super::GdkKeymap;
+use super::{GdkKeymap, parts};
 use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
@@ -44,6 +51,14 @@ const ACTIONS: [Msg; 10] = [
 
 /// The directions, in the order of their drop-down.
 const DIRECTIONS: [Msg; 4] = [msg!("Left"), msg!("Right"), msg!("Up"), msg!("Down")];
+
+/// The most keys the dialog lists as in use with the modifiers held.
+const MAX_TAKEN: usize = 48;
+
+thread_local! {
+    /// The dialog opened last, for [`Editor::last_opened`].
+    static LAST: RefCell<Option<Editor>> = const { RefCell::new(None) };
+}
 
 /// What the key field made of a key press.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,12 +113,36 @@ pub fn capture(
     Captured::Keys(parts.join("+"))
 }
 
+/// What the line below the keys says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Status {
+    /// No other binding is on the keys.
+    Free,
+    /// Other bindings are on the keys; saving takes their place or adds to them.
+    InUse,
+    /// A binding that can't be replaced here is on the keys.
+    Blocked,
+    /// The binding can't be saved, for another reason.
+    Error,
+}
+
 /// The dialog's widgets and what it edits.
 #[derive(Debug, Clone)]
 pub struct Editor {
     window: gtk::Window,
+    heading: gtk::Label,
     capture: gtk::Button,
-    conflict: gtk::Label,
+    capture_keys: gtk::Box,
+    capture_hint: gtk::Label,
+    status: gtk::Box,
+    status_icon: gtk::Image,
+    status_text: gtk::Label,
+    taken: gtk::Box,
+    taken_title: gtk::Label,
+    taken_keys: gtk::FlowBox,
+    locked: gtk::Box,
+    locked_text: gtk::Label,
+    edit_part: gtk::Box,
     action: gtk::DropDown,
     stack: gtk::Stack,
     command: gtk::Entry,
@@ -111,9 +150,14 @@ pub struct Editor {
     direction: gtk::DropDown,
     workspace: gtk::SpinButton,
     app: gtk::DropDown,
-    locked: gtk::CheckButton,
+    locked_screen: gtk::CheckButton,
     to_code: gtk::CheckButton,
-    error: gtk::Label,
+    clashes: gtk::Box,
+    details: gtk::Expander,
+    remove: gtk::Button,
+    restore: gtk::Button,
+    owner: gtk::Button,
+    cancel: gtk::Button,
     save: gtk::Button,
     state: Rc<RefCell<Editing>>,
 }
@@ -127,8 +171,16 @@ struct Editing {
     row: Option<Row>,
     /// Its line as stored: with `$mod` for one of Sway Things.
     base: Option<Line>,
+    /// Whether the binding can only be looked at here.
+    read_only: bool,
     /// Whether the field listens for keys.
     capturing: bool,
+    /// The modifiers held while the field listens.
+    held: Modifiers,
+    /// What the line below the keys says, if it shows.
+    status: Option<(Status, String)>,
+    /// The setting that owns the binding, for the button that opens it.
+    owner: Option<&'static str>,
     /// The command lines of the apps of the drop-down.
     apps: Vec<String>,
     model: Option<Model>,
@@ -151,7 +203,28 @@ impl Editor {
         editor.load(model, row);
         editor.refresh();
         editor.window.present();
+        // A new binding starts with its keys, as in GNOME Settings.
+        if row.is_none() {
+            editor.listen(true);
+        }
+        LAST.with(|last| last.replace(Some(editor.clone())));
+        editor.window.connect_close_request(|window| {
+            LAST.with(|last| {
+                let mut last = last.borrow_mut();
+                if last.as_ref().is_some_and(|editor| editor.window == *window) {
+                    *last = None;
+                }
+            });
+            glib::Propagation::Proceed
+        });
         editor
+    }
+
+    /// The dialog opened last, while it is open: the one a click on a row or _Add Shortcut…_
+    /// opened, for tests.
+    pub fn last_opened() -> Option<Self> {
+        LAST.with(|last| last.borrow().clone())
+            .filter(|editor| editor.window.is_visible())
     }
 
     /// The dialog's window.
@@ -164,18 +237,46 @@ impl Editor {
         &self.capture
     }
 
-    /// The warning about keys in use, if shown.
+    /// What the dialog says of the keys in use, if they are.
     pub fn conflict(&self) -> Option<String> {
-        self.conflict
-            .is_visible()
-            .then(|| self.conflict.text().to_string())
+        self.status_of(&[Status::InUse, Status::Blocked])
     }
 
-    /// Why the binding can't be saved, if it can't.
+    /// Why the binding can't be saved, if it can't for another reason than keys in use.
     pub fn error(&self) -> Option<String> {
-        self.error
-            .is_visible()
-            .then(|| self.error.text().to_string())
+        self.status_of(&[Status::Error])
+    }
+
+    /// Whether the dialog says the keys are free.
+    pub fn says_free(&self) -> bool {
+        self.status_of(&[Status::Free]).is_some()
+    }
+
+    /// The keys shown as in use with the modifiers held, while the field listens.
+    pub fn taken_keys(&self) -> Vec<String> {
+        let mut keys = Vec::new();
+        let mut child = self.taken_keys.first_child();
+        while let Some(widget) = child {
+            if let Some(label) = widget
+                .downcast_ref::<gtk::FlowBoxChild>()
+                .and_then(gtk::FlowBoxChild::child)
+                .and_downcast::<gtk::Label>()
+            {
+                keys.push(label.text().to_string());
+            }
+            child = widget.next_sibling();
+        }
+        keys
+    }
+
+    /// Whether the field listens for keys.
+    pub fn is_capturing(&self) -> bool {
+        self.state.borrow().capturing
+    }
+
+    /// Whether the dialog only shows the binding, which can't be changed here.
+    pub fn is_read_only(&self) -> bool {
+        self.state.borrow().read_only
     }
 
     /// The button that saves.
@@ -183,10 +284,30 @@ impl Editor {
         &self.save
     }
 
+    /// The button that removes the binding.
+    pub fn remove_button(&self) -> &gtk::Button {
+        &self.remove
+    }
+
+    /// The button that puts back the user's binding.
+    pub fn restore_button(&self) -> &gtk::Button {
+        &self.restore
+    }
+
+    /// The button that opens the setting that owns the binding.
+    pub fn owner_button(&self) -> &gtk::Button {
+        &self.owner
+    }
+
+    /// The part with the details: the command, the options, where it is.
+    pub fn details(&self) -> &gtk::Expander {
+        &self.details
+    }
+
     /// Sets the keys as an item writes them, as if they were pressed.
     pub fn set_keys(&self, keys: &str) {
         self.state.borrow_mut().keys = Some(keys.to_owned());
-        self.refresh();
+        self.listen(false);
     }
 
     /// Sets the action to run `command` (`Run a command`).
@@ -198,7 +319,7 @@ impl Editor {
 
     /// Sets whether the binding also works on the lock screen.
     pub fn set_locked(&self, locked: bool) {
-        self.locked.set_active(locked);
+        self.locked_screen.set_active(locked);
         self.refresh();
     }
 
@@ -209,24 +330,42 @@ impl Editor {
         self.refresh();
     }
 
+    /// Starts listening for keys, as a click on the field does.
+    pub fn start_capture(&self) {
+        self.listen(true);
+    }
+
     fn build(model: &Model, keymap: Rc<Option<GdkKeymap>>) -> Self {
         let window = gtk::Window::builder()
             .modal(true)
-            .default_width(480)
+            .default_width(520)
             .resizable(true)
+            .destroy_with_parent(true)
             .title(tr(msg!("Shortcut")))
             .build();
         window.add_css_class("st-dialog");
-        let capture = gtk::Button::new();
-        capture.add_css_class("st-shortcut-capture");
+        window.add_css_class("st-shortcut-dialog");
         let action = gtk::DropDown::from_strings(&ACTIONS.map(tr));
         let direction = gtk::DropDown::from_strings(&DIRECTIONS.map(tr));
         let workspace = gtk::SpinButton::with_range(1.0, f64::from(MAX_WORKSPACE), 1.0);
-        let (app, apps) = apps();
+        let (app, apps) = parts::apps();
+        let (status, status_icon, status_text) = parts::icon_line("st-shortcut-status");
+        let (locked, _, locked_text) = parts::icon_line("st-shortcut-locked");
         let editor = Self {
             window,
-            capture,
-            conflict: hint(),
+            heading: gtk::Label::new(None),
+            capture: gtk::Button::new(),
+            capture_keys: gtk::Box::new(gtk::Orientation::Horizontal, 0),
+            capture_hint: gtk::Label::new(None),
+            status,
+            status_icon,
+            status_text,
+            taken: gtk::Box::new(gtk::Orientation::Vertical, 6),
+            taken_title: gtk::Label::new(None),
+            taken_keys: gtk::FlowBox::new(),
+            locked,
+            locked_text,
+            edit_part: gtk::Box::new(gtk::Orientation::Vertical, 8),
             action,
             stack: gtk::Stack::new(),
             command: gtk::Entry::new(),
@@ -234,11 +373,16 @@ impl Editor {
             direction,
             workspace,
             app,
-            locked: gtk::CheckButton::with_label(tr(msg!("Also on the lock screen"))),
+            locked_screen: gtk::CheckButton::with_label(tr(msg!("Also on the lock screen"))),
             to_code: gtk::CheckButton::with_label(tr(msg!(
                 "The same key in every keyboard layout"
             ))),
-            error: hint(),
+            clashes: gtk::Box::new(gtk::Orientation::Vertical, 6),
+            details: gtk::Expander::new(Some(tr(msg!("Details")))),
+            remove: gtk::Button::with_label(tr(msg!("Remove"))),
+            restore: gtk::Button::with_label(tr(msg!("Back to Your Config's Binding"))),
+            owner: gtk::Button::new(),
+            cancel: gtk::Button::with_label(tr(msg!("Cancel"))),
             save: gtk::Button::with_label(tr(msg!("Save"))),
             state: Rc::new(RefCell::new(Editing {
                 apps,
@@ -254,9 +398,42 @@ impl Editor {
 
     /// Puts the widgets in the window.
     fn lay_out(&self) {
+        self.heading.add_css_class("title-2");
+        self.heading.set_wrap(true);
+        self.heading.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        self.heading.set_justify(gtk::Justification::Center);
+        self.heading.set_max_width_chars(36);
+        self.heading
+            .set_accessible_role(gtk::AccessibleRole::Heading);
+        // The field: the keys as large keycaps, or what to do, and a hint below.
+        self.capture_keys.set_halign(gtk::Align::Center);
+        self.capture_hint.add_css_class(style::DIM);
+        self.capture_hint.add_css_class("st-shortcut-capture-hint");
+        let field = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        field.set_valign(gtk::Align::Center);
+        field.append(&self.capture_keys);
+        field.append(&self.capture_hint);
+        self.capture.set_child(Some(&field));
+        self.capture.add_css_class("st-shortcut-capture");
+        // The keys in use with the modifiers held, while the field listens.
+        self.taken_title.set_xalign(0.0);
+        self.taken_title.set_wrap(true);
+        self.taken_title.add_css_class(style::DIM);
+        self.taken_keys.set_selection_mode(gtk::SelectionMode::None);
+        self.taken_keys.set_max_children_per_line(12);
+        self.taken_keys.set_column_spacing(6);
+        self.taken_keys.set_row_spacing(6);
+        self.taken_keys.set_homogeneous(false);
+        self.taken.add_css_class("st-shortcut-taken");
+        self.taken.append(&self.taken_title);
+        self.taken.append(&self.taken_keys);
+        self.taken.set_visible(false);
+        // What it does and the options.
         self.command.set_placeholder_text(Some("foot -e htop"));
+        self.command.set_activates_default(true);
         self.sway.set_placeholder_text(Some("layout toggle split"));
         self.sway.add_css_class("monospace");
+        self.sway.set_activates_default(true);
         self.stack.add_named(&self.app, Some("app"));
         self.stack.add_named(&self.command, Some("command"));
         self.stack.add_named(&self.direction, Some("direction"));
@@ -264,38 +441,54 @@ impl Editor {
         self.stack
             .add_named(&gtk::Box::new(gtk::Orientation::Vertical, 0), Some("none"));
         self.stack.add_named(&self.sway, Some("sway"));
-        self.error.add_css_class("error");
+        self.stack.set_vhomogeneous(false);
+        self.stack.set_hhomogeneous(false);
+        let options = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        options.set_margin_top(4);
+        options.append(&self.locked_screen);
+        options.append(&self.to_code);
+        self.edit_part.append(&caption(msg!("Action")));
+        self.edit_part.append(&self.action);
+        self.edit_part.append(&self.stack);
+        self.edit_part.append(&options);
+        self.details.add_css_class("st-shortcut-details");
+        // The buttons: those that remove or put back at the start, the others at the end.
+        self.remove.add_css_class("destructive-action");
         self.save.add_css_class("suggested-action");
-        let cancel = gtk::Button::with_label(tr(msg!("Cancel")));
-        cancel.connect_clicked(glib::clone!(
-            #[weak(rename_to = window)]
-            self.window,
-            move |_| window.close()
-        ));
-        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        buttons.set_halign(gtk::Align::End);
-        buttons.append(&cancel);
-        buttons.append(&self.save);
+        self.owner.add_css_class("suggested-action");
+        let start = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        start.set_hexpand(true);
+        start.append(&self.remove);
+        start.append(&self.restore);
+        let end = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        end.append(&self.cancel);
+        end.append(&self.owner);
+        end.append(&self.save);
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        buttons.add_css_class("st-shortcut-buttons");
+        buttons.append(&start);
+        buttons.append(&end);
         let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
-        content.set_margin_top(18);
+        content.set_margin_top(24);
         content.set_margin_bottom(18);
-        content.set_margin_start(18);
-        content.set_margin_end(18);
-        content.append(&caption(msg!("Keys")));
+        content.set_margin_start(24);
+        content.set_margin_end(24);
+        content.append(&self.heading);
         content.append(&self.capture);
-        content.append(&self.conflict);
-        content.append(&caption(msg!("What it does")));
-        content.append(&self.action);
-        content.append(&self.stack);
+        content.append(&self.taken);
+        content.append(&self.status);
+        content.append(&self.clashes);
         content.append(&self.locked);
-        content.append(&self.to_code);
-        content.append(&self.error);
+        content.append(&self.edit_part);
+        content.append(&self.details);
         content.append(&buttons);
         let scroller = gtk::ScrolledWindow::new();
         scroller.set_hscrollbar_policy(gtk::PolicyType::Never);
         scroller.set_propagate_natural_height(true);
+        scroller.set_max_content_height(720);
         scroller.set_child(Some(&content));
         self.window.set_child(Some(&scroller));
+        self.window.set_default_widget(Some(&self.save));
     }
 
     /// Follows the widgets.
@@ -317,19 +510,46 @@ impl Editor {
             let refresh = refresh.clone();
             self.workspace.connect_value_changed(move |_| refresh());
         }
-        for check in [&self.locked, &self.to_code] {
+        for check in [&self.locked_screen, &self.to_code] {
             let refresh = refresh.clone();
             check.connect_toggled(move |_| refresh());
         }
         let editor = self.clone();
-        self.capture.connect_clicked(move |_| editor.listen(true));
+        self.capture
+            .connect_clicked(move |_| editor.start_capture());
         let editor = self.clone();
         self.save.connect_clicked(move |_| editor.store());
+        let editor = self.clone();
+        self.remove
+            .connect_clicked(move |_| editor.change_row(edit::remove));
+        let editor = self.clone();
+        self.restore
+            .connect_clicked(move |_| editor.change_row(edit::restore));
+        let editor = self.clone();
+        self.owner.connect_clicked(move |_| {
+            let owner = editor.state.borrow().owner;
+            // The main window, before the dialog is gone.
+            let main = editor.window.transient_for();
+            editor.window.close();
+            if let (Some(key), Some(main)) = (owner, main) {
+                super::open_setting(&main, key);
+            }
+        });
+        let window = self.window.clone();
+        self.cancel.connect_clicked(move |_| window.close());
         let keys = gtk::EventControllerKey::new();
         keys.set_propagation_phase(gtk::PropagationPhase::Capture);
         let editor = self.clone();
         keys.connect_key_pressed(move |controller, keyval, keycode, state| {
             editor.key_pressed(controller, keyval, keycode, state)
+        });
+        let editor = self.clone();
+        keys.connect_key_released(move |_, keyval, _, state| {
+            if editor.state.borrow().capturing {
+                editor.state.borrow_mut().held =
+                    parts::held_in(state).without(parts::modifier_key(keyval));
+                editor.show_taken();
+            }
         });
         self.window.add_controller(keys);
         let editor = self.clone();
@@ -348,7 +568,13 @@ impl Editor {
     /// Starts or stops listening for keys. While it listens, sway passes every key to the
     /// window.
     fn listen(&self, on: bool) {
-        let was = std::mem::replace(&mut self.state.borrow_mut().capturing, on);
+        let was = {
+            let mut editing = self.state.borrow_mut();
+            if !on {
+                editing.held = Modifiers::NONE;
+            }
+            std::mem::replace(&mut editing.capturing, on)
+        };
         if let Some(toplevel) = self.window.surface().and_downcast::<gdk::Toplevel>() {
             if on && !was {
                 toplevel.inhibit_system_shortcuts(None::<&gdk::Event>);
@@ -359,7 +585,8 @@ impl Editor {
         self.refresh();
     }
 
-    /// A key pressed on the window: taken while the field listens.
+    /// A key pressed on the window: taken while the field listens; Esc closes the dialog
+    /// otherwise.
     fn key_pressed(
         &self,
         controller: &gtk::EventControllerKey,
@@ -368,14 +595,26 @@ impl Editor {
         state: gdk::ModifierType,
     ) -> glib::Propagation {
         if !self.state.borrow().capturing {
+            if keyval == gdk::Key::Escape && state.is_empty() {
+                self.window.close();
+                return glib::Propagation::Stop;
+            }
             return glib::Propagation::Proceed;
         }
         let event = controller
             .current_event()
             .and_then(|event| event.downcast::<gdk::KeyEvent>().ok());
-        let modifier = event.as_ref().is_some_and(gdk::KeyEvent::is_modifier);
+        let pressed = parts::modifier_key(keyval);
+        let modifier = event
+            .as_ref()
+            .map_or(!pressed.is_empty(), gdk::KeyEvent::is_modifier);
         let layout = event.as_ref().map_or(0, gdk::KeyEvent::layout);
         let level = event.as_ref().map_or(0, gdk::KeyEvent::level);
+        if modifier {
+            self.state.borrow_mut().held = parts::held_in(state).union(pressed);
+            self.show_taken();
+            return glib::Propagation::Stop;
+        }
         let name = first_level(&WidgetExt::display(&self.window), keycode, layout)
             .or_else(|| keyval.to_lower().name().map(|name| name.to_string()))
             .unwrap_or_default();
@@ -402,17 +641,79 @@ impl Editor {
             })
     }
 
+    /// The listing of the model, with the keymap.
+    fn listing(&self) -> Option<Listing> {
+        let editing = self.state.borrow();
+        let keymap = (*editing.keymap)
+            .as_ref()
+            .map(|keymap| keymap as &dyn Keymap);
+        editing.model.as_ref()?.bindings(keymap)
+    }
+
     /// Fills the dialog with the binding of the row at `index`, or leaves it empty.
     fn load(&self, model: &Model, index: Option<usize>) {
         let keymap = self.state.borrow().keymap.clone();
-        let listing = model.bindings((*keymap).as_ref().map(|keymap| keymap as &dyn Keymap));
+        let keymap = (*keymap).as_ref().map(|keymap| keymap as &dyn Keymap);
+        let listing = model.bindings(keymap);
         let row = index.and_then(|index| listing.as_ref()?.rows().get(index).cloned());
-        let Some(row) = row else {
+        let (Some(row), Some(listing)) = (row, listing) else {
             self.window.set_title(Some(tr(msg!("Add Shortcut"))));
+            self.heading.set_text(tr(msg!("Add Shortcut")));
             self.action.set_selected(1);
+            self.details.set_visible(false);
+            self.remove.set_visible(false);
+            self.restore.set_visible(false);
+            self.owner.set_visible(false);
+            self.locked.set_visible(false);
+            self.clashes.set_visible(false);
             return;
         };
-        self.window.set_title(Some(tr(msg!("Change Shortcut"))));
+        let read_only = !row.editable();
+        let (title, _) = super::title_of(&row);
+        if read_only {
+            self.window.set_title(Some(&title));
+            self.heading.set_text(&title);
+        } else {
+            self.window.set_title(Some(tr(msg!("Change Shortcut"))));
+            self.heading.set_text(tr(msg!("Change Shortcut")));
+        }
+        // Why it can't be changed: the lock's reason, or what became of a removed binding.
+        let reason = super::locked_reason(&row).or_else(|| {
+            matches!(row.kind, RowKind::Removed { .. })
+                .then(|| super::status_lines(&row, &listing, keymap).pop())
+                .flatten()
+        });
+        self.locked.set_visible(reason.is_some());
+        self.locked_text
+            .set_text(reason.as_deref().unwrap_or_default());
+        self.edit_part.set_visible(!read_only);
+        self.save.set_visible(!read_only);
+        self.remove.set_visible(!read_only);
+        self.restore.set_visible(edit::can_restore(&row));
+        self.cancel.set_label(tr(if read_only {
+            msg!("Close")
+        } else {
+            msg!("Cancel")
+        }));
+        let owner = super::owner(&row);
+        let owner_title = owner.and_then(super::owner_button_title);
+        self.owner.set_visible(owner_title.is_some());
+        self.owner
+            .set_label(owner_title.as_deref().unwrap_or_default());
+        if owner_title.is_some() {
+            self.window.set_default_widget(Some(&self.owner));
+        }
+        // Shown as it is, not greyed out, but nothing to click.
+        self.capture.set_can_target(!read_only);
+        self.capture.set_focusable(!read_only);
+        for clash in &row.clashes {
+            self.clashes.append(&super::clash_line(clash));
+        }
+        self.clashes.set_visible(!row.clashes.is_empty());
+        self.details.set_child(Some(&parts::details(
+            model, &row, &listing, keymap, read_only,
+        )));
+        self.details.set_expanded(read_only);
         // A binding of Sway Things as stored, with `$mod`.
         let items = model.binding_items();
         let stored = match row.kind {
@@ -423,7 +724,7 @@ impl Editor {
             _ => None,
         };
         let base = stored.unwrap_or_else(|| row.line.clone());
-        self.locked.set_active(base.flags.locked);
+        self.locked_screen.set_active(base.flags.locked);
         self.to_code.set_active(base.flags.to_code);
         if let Some(command) = &base.command {
             self.show_action(command);
@@ -431,6 +732,8 @@ impl Editor {
         let mut editing = self.state.borrow_mut();
         editing.keys = Some(base.keys.clone());
         editing.base = Some(base);
+        editing.read_only = read_only;
+        editing.owner = owner;
         editing.row = Some(row);
     }
 
@@ -542,7 +845,7 @@ impl Editor {
             .is_some_and(|base| base.code && base.keys == keys);
         let mut words = vec![if code { "bindcode" } else { "bindsym" }.to_owned()];
         let mut flags = base.as_ref().map(|base| base.flags).unwrap_or_default();
-        flags.locked = self.locked.is_active();
+        flags.locked = self.locked_screen.is_active();
         flags.to_code = self.to_code.is_active() && !code;
         flags.no_warn = false;
         words.extend(flags.words().into_iter().map(str::to_owned));
@@ -563,7 +866,7 @@ impl Editor {
         Ok(line)
     }
 
-    /// Shows the keys, the warnings and whether the binding can be saved.
+    /// Shows the keys, the line below them and whether the binding can be saved.
     fn refresh(&self) {
         let page = match self.action.selected() {
             0 => "app",
@@ -575,19 +878,44 @@ impl Editor {
         };
         self.stack.set_visible_child_name(page);
         self.show_keys();
-        let line = self.line();
-        let blocked = if let Ok(line) = &line {
-            self.show_conflicts(line)
-        } else {
-            self.conflict.set_visible(false);
-            false
+        self.show_taken();
+        let (read_only, capturing, has_keys, unchanged) = {
+            let editing = self.state.borrow();
+            let unchanged = editing
+                .base
+                .as_ref()
+                .is_some_and(|base| Some(&base.keys) == editing.keys.as_ref());
+            (
+                editing.read_only,
+                editing.capturing,
+                editing.keys.is_some(),
+                unchanged,
+            )
         };
-        let error = line
-            .as_ref()
-            .err()
-            .filter(|_| self.state.borrow().keys.is_some());
-        self.error.set_visible(error.is_some());
-        self.error.set_text(error.map_or("", String::as_str));
+        if read_only {
+            self.set_status(None);
+            return;
+        }
+        let line = self.line();
+        let (status, blocked) = match &line {
+            _ if capturing || !has_keys => (None, false),
+            Ok(line) => {
+                let (texts, blocked) = self.conflicts(line);
+                let status = if texts.is_empty() && unchanged {
+                    // The binding's own keys: nothing to say about them.
+                    None
+                } else if texts.is_empty() {
+                    Some((Status::Free, tr(msg!("These keys are free.")).to_owned()))
+                } else if blocked {
+                    Some((Status::Blocked, texts.join("\n")))
+                } else {
+                    Some((Status::InUse, texts.join("\n")))
+                };
+                (status, blocked)
+            }
+            Err(error) => (Some((Status::Error, error.clone())), false),
+        };
+        self.set_status(status);
         let writable = self
             .state
             .borrow()
@@ -596,7 +924,9 @@ impl Editor {
             .and_then(Model::status)
             .is_some_and(|status| status.is_active());
         self.save
-            .set_sensitive(line.is_ok() && !blocked && writable);
+            .set_sensitive(line.is_ok() && !blocked && writable && !capturing);
+        self.remove.set_sensitive(writable);
+        self.restore.set_sensitive(writable);
         self.to_code.set_visible(
             !self
                 .state
@@ -607,14 +937,45 @@ impl Editor {
         );
     }
 
-    /// Shows the keys in the field, or what to do.
+    /// Shows `status` in the line below the keys, or hides it.
+    fn set_status(&self, status: Option<(Status, String)>) {
+        for class in ["st-free", "st-in-use", "st-blocked", "st-error"] {
+            self.status.remove_css_class(class);
+        }
+        self.status.set_visible(status.is_some());
+        if let Some((kind, text)) = &status {
+            let (icon, class) = match kind {
+                Status::Free => ("object-select-symbolic", "st-free"),
+                Status::InUse => ("dialog-warning-symbolic", "st-in-use"),
+                Status::Blocked => ("dialog-error-symbolic", "st-blocked"),
+                Status::Error => ("dialog-error-symbolic", "st-error"),
+            };
+            self.status_icon.set_icon_name(Some(icon));
+            self.status.add_css_class(class);
+            self.status_text.set_text(text);
+        }
+        self.state.borrow_mut().status = status;
+    }
+
+    /// The text of the line below the keys, if it says one of `kinds`.
+    fn status_of(&self, kinds: &[Status]) -> Option<String> {
+        self.state
+            .borrow()
+            .status
+            .as_ref()
+            .filter(|(kind, _)| kinds.contains(kind))
+            .map(|(_, text)| text.clone())
+    }
+
+    /// Shows the keys in the field as large keycaps, or what to do.
     fn show_keys(&self) {
+        while let Some(child) = self.capture_keys.first_child() {
+            self.capture_keys.remove(&child);
+        }
         let editing = self.state.borrow();
-        let text = if editing.capturing {
-            tr(msg!("Press the shortcut… (Esc stops, Backspace clears)")).to_owned()
-        } else if let Some(keys) = &editing.keys {
+        let labels = editing.keys.as_ref().map(|keys| {
             ours::parse_item(&format!("bindsym {keys} nop")).map_or_else(
-                |_| keys.clone(),
+                |_| vec![keys.clone()],
                 |line| {
                     let keymap = (*editing.keymap)
                         .as_ref()
@@ -623,32 +984,111 @@ impl Editor {
                         .iter()
                         .map(sway_things_core::i18n::Text::translated)
                         .collect::<Vec<_>>()
-                        .join(" + ")
                 },
             )
+        });
+        let (name, hint) = if editing.capturing {
+            let prompt = gtk::Label::new(Some(tr(msg!("Press the new shortcut…"))));
+            prompt.add_css_class("st-shortcut-prompt");
+            self.capture_keys.append(&prompt);
+            self.capture.add_css_class("st-capturing");
+            (
+                tr(msg!("Press the new shortcut…")).to_owned(),
+                Some(tr(msg!("Esc to cancel · Backspace to clear"))),
+            )
+        } else if let Some(labels) = labels {
+            let caps = super::keycaps(&labels);
+            caps.add_css_class("st-keycaps-large");
+            self.capture_keys.append(&caps);
+            self.capture.remove_css_class("st-capturing");
+            (
+                labels.join(" + "),
+                (!editing.read_only).then(|| tr(msg!("Click to change"))),
+            )
         } else {
-            tr(msg!("Click, then press the shortcut")).to_owned()
+            let prompt = gtk::Label::new(Some(tr(msg!("Click to set the shortcut"))));
+            prompt.add_css_class("st-shortcut-prompt");
+            self.capture_keys.append(&prompt);
+            self.capture.remove_css_class("st-capturing");
+            (tr(msg!("No keys yet")).to_owned(), None)
         };
-        self.capture.set_label(&text);
+        self.capture_hint.set_visible(hint.is_some());
+        self.capture_hint.set_text(hint.unwrap_or_default());
         self.capture
             .update_property(&[gtk::accessible::Property::Label(&trf(
                 msg!("Keys: {keys}"),
-                &[("keys", &text)],
+                &[("keys", &name)],
             ))]);
     }
 
-    /// Shows what other bindings `line` would clash with. Returns whether it can't be saved:
-    /// the keys are a media key group's, or a line of the user's that can't be changed.
-    fn show_conflicts(&self, line: &Line) -> bool {
+    /// Shows the keys in use with the modifiers held, while the field listens.
+    fn show_taken(&self) {
+        while let Some(child) = self.taken_keys.first_child() {
+            self.taken_keys.remove(&child);
+        }
+        let (capturing, held) = {
+            let editing = self.state.borrow();
+            (editing.capturing, editing.held)
+        };
+        self.taken.set_visible(capturing);
+        if !capturing {
+            return;
+        }
+        if held.is_empty() {
+            self.taken_title.set_text(tr(msg!(
+                "Hold Super, Ctrl, Alt or Shift to see which keys are taken with them."
+            )));
+            self.taken_keys.set_visible(false);
+            return;
+        }
+        let modifiers = held
+            .labels()
+            .iter()
+            .map(sway_things_core::i18n::Text::translated)
+            .collect::<Vec<_>>()
+            .join(" + ");
+        let keys = self
+            .listing()
+            .map(|listing| {
+                let editing = self.state.borrow();
+                let keymap = (*editing.keymap)
+                    .as_ref()
+                    .map(|keymap| keymap as &dyn Keymap);
+                parts::taken(&listing, held, keymap)
+            })
+            .unwrap_or_default();
+        self.taken_title.set_text(&if keys.is_empty() {
+            trf(
+                msg!("No shortcut uses {modifiers} yet: every key is free."),
+                &[("modifiers", &modifiers)],
+            )
+        } else {
+            trf(
+                msg!("Taken with {modifiers}:"),
+                &[("modifiers", &modifiers)],
+            )
+        });
+        self.taken_keys.set_visible(!keys.is_empty());
+        for (key, what) in keys.into_iter().take(MAX_TAKEN) {
+            let cap = super::keycap(&key);
+            cap.set_tooltip_text(Some(&what));
+            cap.update_property(&[gtk::accessible::Property::Description(&what)]);
+            self.taken_keys.append(&cap);
+        }
+    }
+
+    /// What `line` would clash with, in words, and whether it can't be saved: the keys are a
+    /// media key group's, or a line of the user's that can't be changed.
+    fn conflicts(&self, line: &Line) -> (Vec<String>, bool) {
         let editing = self.state.borrow();
         let Some(model) = editing.model.clone() else {
-            return false;
+            return (Vec::new(), false);
         };
         let keymap = (*editing.keymap)
             .as_ref()
             .map(|keymap| keymap as &dyn Keymap);
         let Some(listing) = model.bindings(keymap) else {
-            return false;
+            return (Vec::new(), false);
         };
         let skip = editing
             .row
@@ -664,11 +1104,9 @@ impl Editor {
                 RowKind::Hand | RowKind::Added { .. } | RowKind::Changed { .. }
             ) || (other.kind == RowKind::Hand && !other.editable());
             blocked |= same && fixed;
-            texts.push(conflict_text(other, same, fixed));
+            texts.push(parts::conflict_text(other, same, fixed));
         }
-        self.conflict.set_visible(!texts.is_empty());
-        self.conflict.set_text(&texts.join("\n"));
-        blocked
+        (texts, blocked)
     }
 
     /// Stores the binding and closes the dialog.
@@ -694,10 +1132,7 @@ impl Editor {
             None => edit::add(&listing, &items, &line, keymap),
             Some(row) => {
                 let Some(index) = listing.rows().iter().position(|other| other == row) else {
-                    self.error.set_text(tr(msg!(
-                        "The shortcut changed in the meantime. Close this and try again."
-                    )));
-                    self.error.set_visible(true);
+                    self.changed_meanwhile();
                     return;
                 };
                 edit::change(&listing, &items, index, &line, keymap)
@@ -708,32 +1143,43 @@ impl Editor {
         }
         self.window.close();
     }
-}
 
-/// What a row the new binding clashes with says: what it does and where, and what saving does to
-/// it.
-fn conflict_text(other: &Row, same: bool, fixed: bool) -> String {
-    let what = other.description().map_or_else(
-        || other.line.command.clone().unwrap_or_default(),
-        |text| text.translated(),
-    );
-    let place = super::place(&other.source);
-    let args: &[(&str, &dyn std::fmt::Display)] = &[("what", &what), ("place", &place)];
-    match (same, fixed) {
-        (true, true) => trf(
-            msg!("Taken by {what} ({place}), which can't be replaced here. Pick other keys."),
-            args,
-        ),
-        (true, false) => trf(
-            msg!("In use by {what} ({place}). Saving puts this in its place."),
-            args,
-        ),
-        (false, _) => trf(msg!("Also on these keys: {what} ({place})."), args),
+    /// Removes the binding or puts back the user's, with `change` (of [`edit`]), and closes the
+    /// dialog.
+    fn change_row(&self, change: fn(&Listing, &[String], usize) -> Vec<String>) {
+        let (model, row) = {
+            let editing = self.state.borrow();
+            (editing.model.clone(), editing.row.clone())
+        };
+        let (Some(model), Some(row), Some(listing)) = (model, row, self.listing()) else {
+            return;
+        };
+        let Some(index) = listing.rows().iter().position(|other| *other == row) else {
+            self.changed_meanwhile();
+            return;
+        };
+        let items = model.binding_items();
+        let new = change(&listing, &items, index);
+        if new != items {
+            model.set(BINDINGS, None, Value::List(new));
+        }
+        self.window.close();
+    }
+
+    /// Says that the binding changed since the dialog opened.
+    fn changed_meanwhile(&self) {
+        self.set_status(Some((
+            Status::Error,
+            tr(msg!(
+                "The shortcut changed in the meantime. Close this and try again."
+            ))
+            .to_owned(),
+        )));
     }
 }
 
 /// The keysym of the first level of `keycode` in `layout`.
-fn first_level(display: &gdk::Display, keycode: u32, layout: u32) -> Option<String> {
+pub(crate) fn first_level(display: &gdk::Display, keycode: u32, layout: u32) -> Option<String> {
     display
         .map_keycode(keycode)?
         .into_iter()
@@ -742,61 +1188,11 @@ fn first_level(display: &gdk::Display, keycode: u32, layout: u32) -> Option<Stri
         .map(|name| name.to_string())
 }
 
-/// The drop-down of the apps, by name, and the command line of each, without the field codes of
-/// its desktop entry.
-fn apps() -> (gtk::DropDown, Vec<String>) {
-    let mut apps: Vec<(String, String)> = gtk::gio::AppInfo::all()
-        .into_iter()
-        .filter(gtk::gio::AppInfo::should_show)
-        .filter_map(|app| {
-            let line = app.commandline()?;
-            let line = without_field_codes(&line.to_string_lossy());
-            BindCommand::new(&format!("exec {line}"))
-                .ok()
-                .map(|_| (app.display_name().to_string(), line))
-        })
-        .collect();
-    apps.sort_by_key(|(name, _)| name.to_lowercase());
-    apps.dedup();
-    let names: Vec<&str> = apps.iter().map(|(name, _)| name.as_str()).collect();
-    let dropdown = gtk::DropDown::from_strings(&names);
-    dropdown.set_enable_search(true);
-    dropdown.set_search_match_mode(gtk::StringFilterMatchMode::Substring);
-    (dropdown, apps.into_iter().map(|(_, line)| line).collect())
-}
-
-/// `line` (an `Exec` of a desktop entry) without its field codes (`%f`, `%U`, …); `%%` is `%`.
-pub fn without_field_codes(line: &str) -> String {
-    let mut out = String::with_capacity(line.len());
-    let mut characters = line.chars().peekable();
-    while let Some(character) = characters.next() {
-        if character == '%' {
-            if characters.next() == Some('%') {
-                out.push('%');
-            }
-        } else {
-            out.push(character);
-        }
-    }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
 /// A caption above a part of the dialog.
 fn caption(text: Msg) -> gtk::Label {
     let label = gtk::Label::new(Some(tr(text)));
     label.set_xalign(0.0);
     label.add_css_class("heading");
-    label
-}
-
-/// A line of text that shows only when there is something to say.
-fn hint() -> gtk::Label {
-    let label = gtk::Label::new(None);
-    label.set_xalign(0.0);
-    label.set_wrap(true);
-    label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    label.add_css_class(style::DIM);
-    label.set_visible(false);
     label
 }
 
@@ -876,15 +1272,5 @@ mod tests {
                 "{name}"
             );
         }
-    }
-
-    #[test]
-    fn field_codes_are_left_out() {
-        assert_eq!(without_field_codes("firefox %u"), "firefox");
-        assert_eq!(
-            without_field_codes("app --name=%c %F --x"),
-            "app --name= --x"
-        );
-        assert_eq!(without_field_codes("printf 100%%"), "printf 100%");
     }
 }

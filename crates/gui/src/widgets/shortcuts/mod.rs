@@ -1,16 +1,21 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The list of every binding on the Keyboard Shortcuts page: the user's (with file and line) and
-//! those of Sway Things, grouped by what they do, searchable by keys and command. A row says what
-//! became of its binding and which others it clashes with; its menu changes or removes it
-//! through the items of `shortcuts.bindings` ([`sway_things_core::bindings::edit`]), never in
-//! the user's file, and puts the user's binding back. Bindings of other modes are listed by mode
-//! and read only.
+//! The list of every binding on the Keyboard Shortcuts page, in the manner of GNOME Settings: a
+//! search field that also matches keys, then a few groups (windows, workspaces, apps, media,
+//! system, and one per mode) with one line per binding, what it does on the left and its keys as
+//! keycaps on the right. A line that isn't in effect shows a warning sign, one that can't be
+//! changed here a lock, each with the reason as its tooltip; a binding of the user's that Sway
+//! Things changed or removes has a button that puts it back. Everything else (the command, the
+//! options, the file and line, the clashes) is in the dialog a click on the line opens
+//! ([`Editor`]), which changes or removes the binding through the items of `shortcuts.bindings`
+//! ([`sway_things_core::bindings::edit`]), never in the user's file.
 //!
 //! [`below`] adds to each switch of the media keys what its keys clash with.
 
 mod editor;
+mod parts;
+mod row;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,13 +27,12 @@ use gtk::prelude::*;
 use sway_things_core::bindings::ours::{BINDINGS, Group};
 use sway_things_core::bindings::{
     Category, Clash, ClashKind, DEFAULT_MODE, Flags, Keymap, Listing, Origin, Row, RowKind, Source,
-    edit,
 };
-use sway_things_core::registry::Value;
+use sway_things_core::registry::{Link, Page, Registry, Value};
 
+use super::SettingRow;
 use super::setting_row::tilde;
-use super::{SettingRow, list};
-use crate::i18n::{Msg, msg, tr, trf};
+use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
@@ -93,7 +97,10 @@ pub struct ShortcutList {
     search: gtk::SearchEntry,
     add: gtk::Button,
     lists: gtk::Box,
-    empty: gtk::Label,
+    empty: gtk::Box,
+    empty_icon: gtk::Image,
+    empty_title: gtk::Label,
+    empty_text: gtk::Label,
     keymap: Rc<Option<GdkKeymap>>,
     /// The rows shown, by the index of their row in the listing, for tests.
     shown: Rc<RefCell<Vec<(usize, gtk::Box)>>>,
@@ -103,29 +110,27 @@ impl ShortcutList {
     /// The list, following `model` until it is gone.
     pub fn new(model: &Model) -> Self {
         let search = gtk::SearchEntry::new();
-        search.set_placeholder_text(Some(tr(msg!("Search keys and commands"))));
+        search.set_placeholder_text(Some(tr(msg!("Search by action or keys"))));
         search.set_hexpand(true);
+        search.add_css_class("st-shortcut-search");
         search.update_property(&[gtk::accessible::Property::Label(tr(msg!(
             "Search shortcuts"
         )))]);
-        let add = gtk::Button::with_label(tr(msg!("Add Shortcut…")));
+        let add = gtk::Button::new();
+        let add_content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        add_content.append(&gtk::Image::from_icon_name("list-add-symbolic"));
+        add_content.append(&gtk::Label::new(Some(tr(msg!("Add Shortcut…")))));
+        add.set_child(Some(&add_content));
+        add.update_property(&[gtk::accessible::Property::Label(tr(msg!("Add Shortcut…")))]);
         let bar = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         bar.add_css_class("st-shortcut-bar");
         bar.append(&search);
         bar.append(&add);
-        let note = gtk::Label::new(Some(tr(msg!(
-            "Changes go to Sway Things' own file: a binding of your config is removed there with \
-             unbindsym and bound again, your file stays as it is."
-        ))));
-        list::hint(&note);
-        note.set_visible(true);
-        let empty = gtk::Label::new(None);
-        list::hint(&empty);
+        let (empty, empty_icon, empty_title, empty_text) = empty_state();
         let lists = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let root = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
         root.add_css_class("st-shortcuts");
         root.append(&bar);
-        root.append(&note);
         root.append(&empty);
         root.append(&lists);
         let list = Self {
@@ -134,6 +139,9 @@ impl ShortcutList {
             add,
             lists,
             empty,
+            empty_icon,
+            empty_title,
+            empty_text,
             keymap: Rc::new(GdkKeymap::of_default()),
             shown: Rc::default(),
         };
@@ -164,9 +172,7 @@ impl ShortcutList {
         list.add.connect_clicked(glib::clone!(
             #[weak]
             model,
-            move |button| {
-                Editor::open(button, &model, None, adding.keymap.clone());
-            }
+            move |button| adding.open_editor(button, &model, None)
         ));
         list
     }
@@ -191,6 +197,11 @@ impl ShortcutList {
         self.shown.borrow().clone()
     }
 
+    /// Opens the dialog for the binding at `index`, or for a new one.
+    fn open_editor(&self, from: &impl IsA<gtk::Widget>, model: &Model, index: Option<usize>) {
+        Editor::open(from, model, index, self.keymap.clone());
+    }
+
     /// Shows the bindings of `model` that match the search.
     fn update(&self, model: &Model) {
         while let Some(child) = self.lists.first_child() {
@@ -203,10 +214,12 @@ impl ShortcutList {
         let Some(listing) = model.bindings(keymap) else {
             return;
         };
+        // "super+shift+q" finds the keys as well as "super shift q".
         let words: Vec<String> = self
             .search
             .text()
-            .split_whitespace()
+            .split(|character: char| character.is_whitespace() || character == '+')
+            .filter(|word| !word.is_empty())
             .map(str::to_lowercase)
             .collect();
         let matching: Vec<(usize, &Row)> = listing
@@ -215,34 +228,35 @@ impl ShortcutList {
             .enumerate()
             .filter(|(_, row)| row.matches(&words, &labels(row, &listing, keymap)))
             .collect();
-        let empty = if listing.rows().is_empty() {
-            tr(msg!(
-                "Neither your config nor Sway Things binds any keys yet."
-            ))
-        } else {
-            tr(msg!("No shortcut matches the search."))
-        };
-        list::set_hint(&self.empty, matching.is_empty().then_some(empty));
-        for category in Category::ALL {
-            let rows: Vec<(usize, &Row)> = matching
-                .iter()
-                .filter(|(_, row)| row.mode == DEFAULT_MODE && row.category() == category)
-                .copied()
-                .collect();
-            self.add_list(model, &listing, tr(category.title()), &rows, writable);
-        }
-        for mode in listing.modes() {
-            let rows: Vec<(usize, &Row)> = matching
-                .iter()
-                .filter(|(_, row)| row.mode == mode)
-                .copied()
-                .collect();
-            let title = trf(msg!("Mode {mode}"), &[("mode", &mode)]);
-            self.add_list(model, &listing, &title, &rows, writable);
+        self.show_empty(listing.rows().is_empty(), matching.is_empty());
+        let mut first = true;
+        for (title, rows) in groups(&listing, &matching) {
+            self.add_list(model, &listing, &title, &rows, writable, first);
+            first = false;
         }
     }
 
-    /// Adds a heading `title` and a list of `rows`, if there are any.
+    /// Shows the empty state when nothing matches: that nothing is bound at all, or that the
+    /// search finds nothing.
+    fn show_empty(&self, nothing: bool, none_matches: bool) {
+        self.empty.set_visible(none_matches);
+        if nothing {
+            self.empty_icon
+                .set_icon_name(Some("input-keyboard-symbolic"));
+            self.empty_title.set_text(tr(msg!("No Shortcuts Yet")));
+            self.empty_text.set_text(tr(msg!(
+                "Neither your config nor Sway Things binds any keys yet."
+            )));
+        } else {
+            self.empty_icon.set_icon_name(Some("edit-find-symbolic"));
+            self.empty_title.set_text(tr(msg!("No Shortcuts Found")));
+            self.empty_text.set_text(tr(msg!(
+                "Try other words, or keys like \u{201c}super enter\u{201d}."
+            )));
+        }
+    }
+
+    /// Adds a heading `title` and a list of `rows`; `first` is the first list of the page.
     fn add_list(
         &self,
         model: &Model,
@@ -250,159 +264,113 @@ impl ShortcutList {
         title: &str,
         rows: &[(usize, &Row)],
         writable: bool,
+        first: bool,
     ) {
-        if rows.is_empty() {
-            return;
-        }
         let heading = gtk::Label::new(Some(title));
         heading.set_xalign(0.0);
         heading.add_css_class("st-shortcut-heading");
         heading.add_css_class("heading");
-        let list = list::section_list(title);
+        if first {
+            heading.add_css_class("st-first");
+        }
+        heading.set_accessible_role(gtk::AccessibleRole::Heading);
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::None);
+        list.add_css_class("st-section");
+        list.add_css_class("st-shortcut-list");
+        list.update_property(&[gtk::accessible::Property::Label(title)]);
         let keymap = (*self.keymap).as_ref().map(|keymap| keymap as &dyn Keymap);
         for &(index, row) in rows {
-            let content = self.row(model, listing, index, row, keymap, writable);
-            self.shown.borrow_mut().push((index, content.clone()));
-            list.append(&list::list_row(&content));
+            let built = row::build(model, listing, index, row, keymap, writable);
+            self.shown.borrow_mut().push((index, built.content.clone()));
+            list.append(&built.item);
         }
+        let shown = self.shown.clone();
+        let opening = self.clone();
+        list.connect_row_activated(glib::clone!(
+            #[weak]
+            model,
+            move |_, item| {
+                let child = item.child();
+                let index = shown
+                    .borrow()
+                    .iter()
+                    .find(|(_, content)| child.as_ref() == Some(content.upcast_ref()))
+                    .map(|(index, _)| *index);
+                if let Some(index) = index {
+                    opening.open_editor(item, &model, Some(index));
+                }
+            }
+        ));
         self.lists.append(&heading);
         self.lists.append(&list);
     }
-
-    /// The widget of the binding `row` at `index` of `listing`.
-    fn row(
-        &self,
-        model: &Model,
-        listing: &Listing,
-        index: usize,
-        row: &Row,
-        keymap: Option<&dyn Keymap>,
-        writable: bool,
-    ) -> gtk::Box {
-        let texts = gtk::Box::new(gtk::Orientation::Vertical, 3);
-        texts.set_hexpand(true);
-        texts.append(&keycaps(&labels(row, listing, keymap)));
-        let command = row.line.command.clone().unwrap_or_default();
-        let title = row
-            .description()
-            .map_or_else(|| command.clone(), |text| text.translated());
-        let title = label(&title, &["st-row-title"]);
-        texts.append(&title);
-        if row.description().is_some() {
-            texts.append(&label(&command, &[style::DIM, "monospace"]));
-        }
-        for line in status_lines(row, listing, keymap) {
-            texts.append(&label(&line, &[style::DIM]));
-        }
-        for clash in &row.clashes {
-            texts.append(&clash_line(clash));
-        }
-        let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        content.add_css_class("st-shortcut-row");
-        content.append(&texts);
-        if let Some(menu) = self.menu(model, index, row, writable) {
-            content.append(&menu);
-        }
-        let mut accessible = labels(row, listing, keymap).join(" + ");
-        accessible.push_str(": ");
-        accessible.push_str(&title.text());
-        content.update_property(&[gtk::accessible::Property::Label(&accessible)]);
-        content
-    }
-
-    /// The ⋮ menu of a row: change, remove, back to the user's binding, open the file.
-    fn menu(
-        &self,
-        model: &Model,
-        index: usize,
-        row: &Row,
-        writable: bool,
-    ) -> Option<gtk::MenuButton> {
-        let actions = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let popover = gtk::Popover::new();
-        popover.set_child(Some(&actions));
-        let changes = writable && row.editable();
-        if changes {
-            let keymap = self.keymap.clone();
-            actions.append(&action(
-                &popover,
-                msg!("Change…"),
-                move |button, model| {
-                    Editor::open(button, model, Some(index), keymap.clone());
-                },
-                model,
-            ));
-            actions.append(&action(
-                &popover,
-                msg!("Remove"),
-                move |_, model| {
-                    store(model, |listing, items| edit::remove(listing, items, index));
-                },
-                model,
-            ));
-        }
-        if writable && edit::can_restore(row) {
-            actions.append(&action(
-                &popover,
-                msg!("Back to Your Config's Binding"),
-                move |_, model| store(model, |listing, items| edit::restore(listing, items, index)),
-                model,
-            ));
-        }
-        if row.source.origin == Origin::User && !row.source.file.as_os_str().is_empty() {
-            let file = row.source.file.to_path_buf();
-            let line = row.source.line;
-            actions.append(&action(
-                &popover,
-                msg!("Open in Editor"),
-                move |button, model| {
-                    let reporter = model.clone();
-                    crate::editor::open(button, Some(model), &file, Some(line), move |error| {
-                        if let Some(error) = error {
-                            reporter.emit_problem(error);
-                        }
-                    });
-                },
-                model,
-            ));
-        }
-        actions.first_child()?;
-        let button = gtk::MenuButton::new();
-        button.set_icon_name("view-more-symbolic");
-        button.set_valign(gtk::Align::Center);
-        button.add_css_class("flat");
-        button.set_popover(Some(&popover));
-        button.set_tooltip_text(Some(tr(msg!("Change, remove or restore"))));
-        button.update_property(&[gtk::accessible::Property::Label(tr(msg!(
-            "Shortcut actions"
-        )))]);
-        Some(button)
-    }
 }
 
-/// A flat button of a row's menu, `title`, that closes `popover` and runs `run`.
-fn action(
-    popover: &gtk::Popover,
-    title: Msg,
-    run: impl Fn(&gtk::Button, &Model) + 'static,
-    model: &Model,
-) -> gtk::Button {
-    let button = gtk::Button::with_label(tr(title));
-    button.add_css_class("flat");
-    if let Some(label) = button.child().and_downcast::<gtk::Label>() {
-        label.set_xalign(0.0);
-    }
-    button.connect_clicked(glib::clone!(
-        #[weak]
-        model,
-        #[weak]
-        popover,
-        move |button| {
-            popover.popdown();
-            run(button, &model);
+/// The rows of one group of the list, by their index in the listing.
+type GroupRows<'a> = Vec<(usize, &'a Row)>;
+
+/// The groups of the list with the rows of `matching` in them, each with its title: the
+/// categories of the default mode (with "other" under "system", so the list has few groups),
+/// then one per mode. Empty groups are left out.
+fn groups<'a>(listing: &Listing, matching: &[(usize, &'a Row)]) -> Vec<(String, GroupRows<'a>)> {
+    let mut groups = Vec::new();
+    for category in Category::ALL {
+        if category == Category::Other {
+            continue;
         }
-    ));
-    button
+        let rows: GroupRows<'a> = matching
+            .iter()
+            .filter(|(_, row)| {
+                row.mode == DEFAULT_MODE
+                    && (row.category() == category
+                        || (category == Category::System && row.category() == Category::Other))
+            })
+            .copied()
+            .collect();
+        let title = if category == Category::System {
+            tr(msg!("System and Other"))
+        } else {
+            tr(category.title())
+        };
+        groups.push((title.to_owned(), rows));
+    }
+    for mode in listing.modes() {
+        let rows: GroupRows<'a> = matching
+            .iter()
+            .filter(|(_, row)| row.mode == mode)
+            .copied()
+            .collect();
+        groups.push((
+            trf(msg!("Mode \u{201c}{mode}\u{201d}"), &[("mode", &mode)]),
+            rows,
+        ));
+    }
+    groups.retain(|(_, rows)| !rows.is_empty());
+    groups
+}
+
+/// The box shown in place of the list when nothing matches, with its icon, title and text.
+fn empty_state() -> (gtk::Box, gtk::Image, gtk::Label, gtk::Label) {
+    let icon = gtk::Image::new();
+    icon.set_pixel_size(48);
+    icon.add_css_class(style::DIM);
+    let title = gtk::Label::new(None);
+    title.add_css_class("title-3");
+    title.set_wrap(true);
+    title.set_justify(gtk::Justification::Center);
+    let text = gtk::Label::new(None);
+    text.add_css_class(style::DIM);
+    text.set_wrap(true);
+    text.set_justify(gtk::Justification::Center);
+    let empty = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    empty.add_css_class("st-shortcut-empty");
+    empty.set_halign(gtk::Align::Center);
+    empty.append(&icon);
+    empty.append(&title);
+    empty.append(&text);
+    empty.set_visible(false);
+    (empty, icon, title, text)
 }
 
 /// Stores the items `change` makes of the items stored now, for the listing of `model`.
@@ -427,22 +395,44 @@ fn labels(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Vec<Stri
         .collect()
 }
 
-/// The keys as keycaps: a framed label per key.
-fn keycaps(labels: &[String]) -> gtk::Box {
+/// What a binding does, as its row says it: in words for a common command, else the command.
+/// The second value says whether it is the command.
+fn title_of(row: &Row) -> (String, bool) {
+    row.description().map_or_else(
+        || (row.line.command.clone().unwrap_or_default(), true),
+        |text| (text.translated(), false),
+    )
+}
+
+/// The keys as keycaps: a framed label per key, with a "+" between them.
+pub(crate) fn keycaps(labels: &[String]) -> gtk::Box {
     let keys = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     keys.add_css_class("st-keycaps");
+    keys.set_valign(gtk::Align::Center);
     for (index, text) in labels.iter().enumerate() {
         if index > 0 {
-            keys.append(&gtk::Label::new(Some("+")));
+            let plus = gtk::Label::new(Some("+"));
+            plus.add_css_class("st-keycap-plus");
+            keys.append(&plus);
         }
-        let key = gtk::Label::new(Some(text));
-        key.add_css_class("st-keycap");
+        let key = keycap(text);
         keys.append(&key);
     }
     keys
 }
 
-/// A label of a row, left-aligned and wrapping, with `classes`.
+/// A key as a keycap. A lone symbol is a little larger, so it reads, and `-` is the wider minus
+/// sign.
+fn keycap(text: &str) -> gtk::Label {
+    let key = gtk::Label::new(Some(if text == "-" { "\u{2212}" } else { text }));
+    key.add_css_class("st-keycap");
+    if text.chars().count() == 1 && text.chars().all(|c| c.is_ascii_punctuation()) {
+        key.add_css_class("st-keycap-symbol");
+    }
+    key
+}
+
+/// A label, left-aligned and wrapping, with `classes`.
 fn label(text: &str, classes: &[&str]) -> gtk::Label {
     let label = gtk::Label::new(Some(text));
     label.set_xalign(0.0);
@@ -455,7 +445,7 @@ fn label(text: &str, classes: &[&str]) -> gtk::Label {
 }
 
 /// Where a binding is, to show: the user's file and line, or what of Sway Things it is.
-fn place(source: &Source) -> String {
+pub(crate) fn place(source: &Source) -> String {
     match source.origin {
         Origin::User => format!("{}:{}", tilde(&source.file), source.line),
         Origin::Group(key) => Group::of(key).map_or_else(String::new, |group| {
@@ -493,7 +483,8 @@ fn options(flags: Flags, code: bool) -> Vec<&'static str> {
     .collect()
 }
 
-/// The lines that say where a binding is and what became of it.
+/// The lines that say where a binding is and what became of it: its options in words, if any,
+/// then where it comes from.
 fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Vec<String> {
     let mut lines = Vec::new();
     let options = options(row.line.flags, row.line.code);
@@ -546,12 +537,75 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
     lines
 }
 
-/// The line that says how a binding clashes with another, with a warning sign.
-fn clash_line(clash: &Clash) -> gtk::Box {
+/// Why the binding of `row` can't be changed on this page, if it can't: shown as the tooltip of
+/// the lock on its row and at the top of its dialog. A binding Sway Things removes can't be
+/// changed either, but it can be put back, which its row offers instead.
+fn locked_reason(row: &Row) -> Option<String> {
+    if row.editable() {
+        return None;
+    }
+    Some(match &row.kind {
+        RowKind::Hand if row.source.after_ours => tr(msg!(
+            "Read after Sway Things' file, so it can only be changed in your config."
+        ))
+        .to_owned(),
+        RowKind::Hand if row.mode != DEFAULT_MODE => tr(msg!(
+            "Bindings of modes can only be changed in your config for now."
+        ))
+        .to_owned(),
+        RowKind::Hand => tr(msg!(
+            "Its keys need quotes, so it can only be changed in your config."
+        ))
+        .to_owned(),
+        RowKind::Added { .. } | RowKind::Changed { .. } | RowKind::Removed { .. } => return None,
+        RowKind::Group { key } => Group::of(key).map_or_else(String::new, |group| {
+            trf(
+                msg!("Part of the {group}, switched on below."),
+                &[("group", &tr(group.title).to_lowercase())],
+            )
+        }),
+    })
+}
+
+/// The setting that owns the binding of `row`, if another setting than the list of shortcuts
+/// does: its dialog links to it.
+fn owner(row: &Row) -> Option<&'static str> {
+    match &row.kind {
+        RowKind::Hand
+        | RowKind::Added { .. }
+        | RowKind::Changed { .. }
+        | RowKind::Removed { .. } => None,
+        RowKind::Group { key } => Some(key),
+    }
+}
+
+/// The title of the button that opens the setting `key`: on this page its row, else its page.
+fn owner_button_title(key: &str) -> Option<String> {
+    let setting = Registry::builtin().get(key)?;
+    Some(if setting.page() == Page::KeyboardShortcuts {
+        tr(msg!("Show Switch")).to_owned()
+    } else {
+        trf(
+            msg!("Open {page}"),
+            &[("page", &tr(setting.page().title()))],
+        )
+    })
+}
+
+/// Opens the setting `key` in `main`, the app's window.
+fn open_setting(main: &gtk::Window, key: &str) {
+    let main = main.downcast_ref::<crate::window::Window>();
+    if let (Some(main), Ok(link)) = (main, Link::parse(key, Registry::builtin())) {
+        main.open_link(&link);
+    }
+}
+
+/// What a clash means for a binding, in words.
+fn clash_text(clash: &Clash) -> String {
     let place = place(&clash.source);
     let command = clash.command.as_deref().unwrap_or_default();
     let args: &[(&str, &dyn std::fmt::Display)] = &[("place", &place), ("command", &command)];
-    let text = match clash.kind {
+    match clash.kind {
         ClashKind::Replaces => trf(msg!("Takes the place of {command} at {place}"), args),
         ClashKind::ReplacedBy => trf(
             msg!("Not in effect: {place} binds the same keys later, to {command}"),
@@ -570,13 +624,18 @@ fn clash_line(clash: &Clash) -> gtk::Box {
             msg!("Only on the lock screen: {place} binds the same keys otherwise, to {command}"),
             args,
         ),
-    };
+    }
+}
+
+/// The line that says how a binding clashes with another, with a warning sign.
+pub(crate) fn clash_line(clash: &Clash) -> gtk::Box {
     let icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
     icon.set_valign(gtk::Align::Start);
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    icon.add_css_class("st-shortcut-warning");
+    let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     line.add_css_class("st-shortcut-clash");
     line.append(&icon);
-    line.append(&label(&text, &[style::DIM]));
+    line.append(&label(&clash_text(clash), &[]));
     line
 }
 
