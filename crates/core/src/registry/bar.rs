@@ -84,6 +84,9 @@ pub const EXTRA_CSS_ON: &str = "bar.style.extra_css_on";
 pub const BLUR: &str = "bar.blur";
 /// The key of swaybar's status command.
 pub const STATUS_COMMAND: &str = "bar.swaybar.status_command";
+/// The bar configs of the user's sway config that Sway Things' waybar takes over, by ID: the first
+/// runs it (`bar <id> swaybar_command sway-things`), the others show nothing. Empty: none.
+pub const TAKE_OVER: &str = "bar.take_over";
 
 /// The layer namespace of waybar's surfaces (waybar's config can rename it with `name`, which
 /// Sway Things doesn't set).
@@ -160,6 +163,13 @@ pub(crate) fn check_module(name: &str) -> Result<(), ValueError> {
     } else {
         Err(ValueError::NotAModule)
     }
+}
+
+/// The ID of a bar config, as sway text.
+fn check_bar_id(id: &str) -> Result<(), ValueError> {
+    crate::command::SwayText::new(id)
+        .map(|_| ())
+        .map_err(ValueError::NotSwayText)
 }
 
 /// A font description or nothing (the bar's default font).
@@ -292,6 +302,22 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("panel"),
                 msg!("status bar"),
                 msg!("taskbar"),
+            ])
+            .build(),
+        Setting::list(TAKE_OVER, Page::Bar, &[])
+            .section(msg!("Bar"))
+            .title(msg!("Your bars it replaces"))
+            .subtitle(msg!(
+                "The bars of your sway config that show Sway Things' Waybar instead, by ID; your \
+                 config stays as it is"
+            ))
+            .apply(Apply::ToolReload)
+            .depends_on(BACKEND, When::OneOf(&["waybar"]))
+            .check_text(check_bar_id)
+            .keywords(&[
+                msg!("swaybar_command"),
+                msg!("bar block"),
+                msg!("take over"),
             ])
             .build(),
         bar_section(Setting::choice(POSITION, Page::Bar, "top", POSITIONS))

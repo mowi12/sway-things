@@ -22,7 +22,10 @@ use std::time::{Duration, Instant};
 
 use super::WaybarFiles;
 use super::starter::is_waybar;
-pub use super::starter::{Line, Starter, UNIT_EDIT, arguments, handover, shell_path, swaybars};
+pub use super::starter::{
+    Commands, Edit, Handover, Line, Starter, TakesEffect, UNIT_EDIT, arguments, handover,
+    handover_commands, handover_edit, shell_path, swaybars, unit_commands,
+};
 use crate::i18n::Text;
 use crate::msg;
 
@@ -277,6 +280,40 @@ pub fn stop(files: &WaybarFiles) -> Result<usize, ProcessError> {
     signal(&ours(files), "TERM")
 }
 
+/// The waybars of ours among `running` that would be a second bar: those Sway Things started
+/// (not a unit), where `starter` surely starts the user's own waybar or one with another config
+/// runs. A waybar the user's own line starts with our config is never one, nor is ours where
+/// their bar is taken over.
+pub fn surplus(starter: &Starter, running: &[Waybar], files: &WaybarFiles) -> Vec<Waybar> {
+    // Taken over, sway runs ours as their bar; theirs may still be ending after the reload.
+    if matches!(starter, Starter::TakenOver(_)) {
+        return Vec::new();
+    }
+    let theirs = starter.starts_theirs() || running.iter().any(|waybar| !waybar.runs(files));
+    if !theirs {
+        return Vec::new();
+    }
+    running
+        .iter()
+        .filter(|waybar| waybar.runs(files) && !waybar.unit)
+        .cloned()
+        .collect()
+}
+
+/// Ends every waybar that Sway Things started (`SIGTERM`), not one a unit runs: the backend
+/// isn't waybar any more. Says how many got the signal.
+///
+/// # Errors
+///
+/// [`ProcessError::Tool`] if `kill` can't be run.
+pub fn stop_started(files: &WaybarFiles) -> Result<usize, ProcessError> {
+    let started: Vec<Waybar> = ours(files)
+        .into_iter()
+        .filter(|waybar| !waybar.unit)
+        .collect();
+    signal(&started, "TERM")
+}
+
 /// The version of the waybar that is installed, as `waybar --version` says it (`0.16.0`).
 /// Runs it: call it off the main loop.
 pub fn version() -> Option<String> {
@@ -399,6 +436,17 @@ pub async fn ensure(files: &WaybarFiles, starter: &Starter) -> Result<Ensured, P
     let Some(_lock) = Lock::take().await else {
         return Ok(Ensured::Busy);
     };
+    // A waybar of ours next to the user's own (their `bar` block came back, say): ours goes.
+    let all = running();
+    let surplus = surplus(starter, &all, files);
+    if !surplus.is_empty() {
+        signal(&surplus, "TERM")?;
+        note(None);
+        return Ok(match all.iter().find(|waybar| !waybar.runs(files)) {
+            Some(theirs) if !starter.is_elsewhere() => Ensured::Other(theirs.pid),
+            _ => Ensured::Elsewhere,
+        });
+    }
     if !ours(files).is_empty() {
         note(None);
         return Ok(Ensured::Runs);
@@ -518,6 +566,58 @@ mod tests {
             config_argument(b"/usr/bin/waybar\0-c/a\0", None),
             Some(PathBuf::from("/a"))
         );
+    }
+
+    #[test]
+    fn ours_goes_where_the_user_s_own_waybar_runs() {
+        let waybar = |pid, config: Option<&str>, unit| Waybar {
+            pid,
+            start: 1,
+            config: config.map(PathBuf::from),
+            unit,
+        };
+        let ours = waybar(1, Some("/c/sway-things/waybar/config.jsonc"), false);
+        let theirs = waybar(2, None, false);
+        let line = |ours| Line {
+            file: PathBuf::from("/c/sway/config"),
+            line: 3,
+            text: String::new(),
+            ours,
+        };
+        let block = Starter::SwaybarCommand(line(false));
+        let alone = vec![ours];
+        let both = vec![theirs, alone[0].clone()];
+        // Their `bar` block came back while ours runs: ours goes, also before theirs is up.
+        assert_eq!(surplus(&block, &both, &files()), alone);
+        assert_eq!(surplus(&block, &alone, &files()), alone);
+        assert_eq!(
+            surplus(&Starter::Exec(line(false)), &alone, &files()),
+            alone
+        );
+        // A waybar with another config runs: ours would be the second.
+        assert_eq!(surplus(&Starter::Nothing, &both, &files()), alone);
+        // Ours alone, or started by the user's own line with our config, stays.
+        assert_eq!(
+            surplus(&Starter::Nothing, &alone, &files()),
+            Vec::<Waybar>::new()
+        );
+        assert_eq!(
+            surplus(&Starter::Exec(line(true)), &alone, &files()),
+            Vec::<Waybar>::new()
+        );
+        // A line that only may start waybar isn't sure.
+        assert_eq!(
+            surplus(&Starter::Maybe(line(false)), &alone, &files()),
+            Vec::<Waybar>::new()
+        );
+        // Taken over, sway runs ours as their bar, while theirs may still be ending.
+        assert_eq!(
+            surplus(&Starter::TakenOver(line(false)), &both, &files()),
+            Vec::<Waybar>::new()
+        );
+        // A unit of the user's is never ended by Sway Things.
+        let unit = waybar(3, Some("/c/sway-things/waybar/config.jsonc"), true);
+        assert_eq!(surplus(&block, &[unit], &files()), Vec::<Waybar>::new());
     }
 
     #[test]

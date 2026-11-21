@@ -395,6 +395,20 @@ msgid ""
 msgstr ""
 
 #: crates/cli/src/lib.rs
+msgid "The folder of the settings of Sway Things isn't known: HOME isn't set."
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "waybar can't be started: {error}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "swaybar can't be started either: {error}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
 msgid "Loading the settings files…"
 msgstr ""
 
@@ -2436,6 +2450,31 @@ msgstr ""
 
 #: crates/core/src/doctor/bar.rs
 #, rust-format
+msgid ""
+"Sway Things' bar shows in place of your bar {id}; your config stays as it is."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid ""
+"sway-things set bar.backend none, or Switch Back on the Bar page, brings "
+"yours back."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid ""
+"Sway Things takes over the bar {id}, but your sway config doesn't set it up "
+"before the include of Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid ""
+"Choose Use Sway Things' Bar on the Bar page again, or switch back with sway-"
+"things set bar.backend none."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
 msgid "Run {command} to start it again."
 msgstr ""
 
@@ -2461,6 +2500,14 @@ msgstr ""
 #: crates/core/src/doctor/bar.rs
 #, rust-format
 msgid "It starts with sway; or run {command}."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid ""
+"Choose Use Sway Things' Bar on the Bar page: it shows the bar of Sway Things "
+"in place of the bar block with swaybar_command waybar ({place}), without "
+"changing your config."
 msgstr ""
 
 #: crates/core/src/doctor/bar.rs
@@ -4867,6 +4914,28 @@ msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "taskbar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Your bars it replaces"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"The bars of your sway config that show Sway Things' Waybar instead, by ID; "
+"your config stays as it is"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "swaybar_command"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "bar block"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "take over"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
@@ -10406,7 +10475,7 @@ msgstr ""
 msgid "Search apps"
 msgstr ""
 
-#: crates/gui/src/widgets/apps/mod.rs
+#: crates/gui/src/widgets/apps/mod.rs crates/gui/src/widgets/bar/status.rs
 #: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/shortcuts/parts.rs
 msgid "Open in Editor"
@@ -10624,7 +10693,8 @@ msgstr ""
 msgid "Not installed: install the waybar package first"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/backend.rs crates/gui/src/window.rs
+#: crates/gui/src/widgets/bar/backend.rs crates/gui/src/widgets/bar/takeover.rs
+#: crates/gui/src/window.rs
 msgid "Keep"
 msgstr ""
 
@@ -11277,6 +11347,18 @@ msgid "Imported, with notes"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
+msgid "Reload waybar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Reloading…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Reload Sway"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
 #, rust-format
 msgid ""
 "Your sway config starts swaybar too ({place}). Remove that bar block, or "
@@ -11310,11 +11392,18 @@ msgid "waybar runs, but with another config."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
-msgid "Reload waybar"
+msgid "Nothing to reload: no waybar runs with the config of Sway Things."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
-msgid "Has waybar read the config of Sway Things again"
+msgid ""
+"Nothing to reload yet: the waybar that runs has its own config, and Sway "
+"Things leaves it alone. Once waybar runs with the config of Sway Things, it "
+"can be reloaded here."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "waybar read the config of Sway Things again."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
@@ -11343,8 +11432,73 @@ msgid "Another Waybar runs: see Details."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
+msgid "Has waybar read the config of Sway Things again"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "No waybar runs with the config of Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Saves the changes and has sway read its config again"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"Your sway config starts its own waybar ({place}), so the bar set up here "
+"doesn't show. Sway Things never changes your files: you make the change "
+"yourself."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"the whole bar { … } block with swaybar_command waybar (sway runs that "
+"command without options, so it can't use the files of Sway Things)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid "line {line}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"1. Run this in a terminal. It keeps a copy of your config next to it (.bak-"
+"sway-things) and puts # in front of {what}:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "To take it back later, run:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid "2. Or open the file and put # in front of {what} yourself."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"3. Reload sway: with the button, or with your reload shortcut (Super+Shift+C "
+"by default)."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "3. Log out and back in: sway runs exec lines only when it starts."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Sway was reloaded; waybar is starting…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
 msgid ""
 "Sway Things starts waybar with its own config when sway starts (75-bar.conf)."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Reload sway to start it now."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
@@ -11353,10 +11507,19 @@ msgid "Your sway config starts waybar with the files of Sway Things ({place})."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
-#, rust-format
+msgid "Reload sway so that it starts waybar with them."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
 msgid ""
-"Your sway config starts waybar with its own config ({place}). To use the bar "
-"set up here, change that line to:"
+"It takes effect when you log in again: sway runs exec lines only when it "
+"starts."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"Your sway config starts its own Waybar in a bar block. Use Sway Things' Bar, "
+"above, to show this bar in its place without changing your config."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
@@ -11375,6 +11538,19 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
+msgid ""
+"Or stop waybar's service, so Sway Things starts its own: run the first "
+"command in a terminal yourself; the second one takes it back."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+#, rust-format
+msgid ""
+"Your bar ({place}) shows Sway Things' Waybar: 75-bar.conf gives it another "
+"program, and your sway config stays as it is."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
 #, rust-format
 msgid "Your waybar config: {file}"
 msgstr ""
@@ -11385,6 +11561,78 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
 msgid "Reads your config; changes nothing in it"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "What Waybar said"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Switched back to your own bar: Sway Things' Waybar ended."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Switched back to your own bar: Sway Things' bar wasn't kept."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid ""
+"Switched back to your own bar: Sway Things' Waybar ended right after it "
+"started. What Waybar said is below."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid ""
+"Switched back to your own bar: Sway Things' Waybar didn't start. Is waybar "
+"installed?"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+#, rust-format
+msgid "Keep this bar? Switching back in {seconds} s"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Starting Sway Things' bar…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Switch Back"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Your own bar is back, exactly as your sway config sets it."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid ""
+"Sway Things' bar shows in place of your own. Your sway config and your own "
+"Waybar config stay as they are."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Switch Back to My Own Bar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid ""
+"Your bar: your own Waybar, started by your sway config. Sway Things can show "
+"its bar instead: your config and your own Waybar config stay untouched, and "
+"you can switch back at any time."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid ""
+"Your bar: started by your sway config. Sway Things can show its bar instead: "
+"your config stays untouched, and you can switch back at any time."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Use Sway Things' Bar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/takeover.rs
+msgid "Install the waybar package first."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/toast.rs

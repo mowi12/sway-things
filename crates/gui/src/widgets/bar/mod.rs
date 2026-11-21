@@ -27,6 +27,7 @@ mod presets;
 mod preview;
 mod script;
 mod status;
+mod takeover;
 mod toast;
 
 use std::cell::RefCell;
@@ -208,7 +209,11 @@ pub fn finish() -> Vec<(&'static str, gtk::Widget)> {
 pub fn is_hidden(key: &str) -> bool {
     matches!(
         key,
-        keys::BACKEND | keys::MODULES_LEFT | keys::MODULES_CENTER | keys::MODULES_RIGHT
+        keys::BACKEND
+            | keys::TAKE_OVER
+            | keys::MODULES_LEFT
+            | keys::MODULES_CENTER
+            | keys::MODULES_RIGHT
     )
 }
 

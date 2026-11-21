@@ -377,7 +377,7 @@ _sway__things() {
 
     case "${cmd}" in
         sway__things)
-            opts="-h -V --color --help --version get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper brightness night-light help"
+            opts="-b -h -V --color --help --version get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper brightness night-light help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -385,6 +385,10 @@ _sway__things() {
             case "${prev}" in
                 --color)
                     COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                -b)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)

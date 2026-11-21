@@ -215,6 +215,7 @@ pub(crate) fn check_rows() -> Outcome {
                     sway_things_core::registry::environment::VARIABLES,
                     sway_things_core::registry::environment::PORTAL_CONFIG,
                     sway_things_core::registry::bar::BACKEND,
+                    sway_things_core::registry::bar::TAKE_OVER,
                     sway_things_core::registry::bar::MODULES_LEFT,
                     sway_things_core::registry::bar::MODULES_CENTER,
                     sway_things_core::registry::bar::MODULES_RIGHT,

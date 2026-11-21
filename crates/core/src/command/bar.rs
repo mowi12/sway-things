@@ -93,6 +93,34 @@ pub fn waybar_hold(key: Modifier) -> [SwayCmd; 3] {
     ]
 }
 
+/// `bar <id> swaybar_command sway-things`: the user's bar `id` runs Sway Things' waybar (sway
+/// runs `sway-things -b <id>`). Only for the config: `swaybar_command` is config-only.
+///
+/// # Errors
+///
+/// [`TextError`] for an ID that can't be sway text.
+pub fn take_over(id: &str) -> Result<SwayCmd, TextError> {
+    Ok(SwayCmd::new("bar")
+        .text(SwayText::new(id)?)
+        .keyword("swaybar_command")
+        .keyword(crate::bar::takeover::LAUNCHER)
+        .config_only())
+}
+
+/// `bar <id> swaybar_command true`: the user's bar `id` shows nothing, while another one of theirs
+/// shows Sway Things' waybar.
+///
+/// # Errors
+///
+/// [`TextError`] for an ID that can't be sway text.
+pub fn silence(id: &str) -> Result<SwayCmd, TextError> {
+    Ok(SwayCmd::new("bar")
+        .text(SwayText::new(id)?)
+        .keyword("swaybar_command")
+        .keyword("true")
+        .config_only())
+}
+
 /// Where swaybar stands: it takes only the top or the bottom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Position {

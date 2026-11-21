@@ -16,6 +16,7 @@ _sway-things() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-b+[The ID sway gives the program of a bar (\`swaybar_command\`)\: with it, \`sway-things\` runs Sway Things'\'' waybar as that bar. Only sway passes it]:BAR_ID:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \

@@ -20,7 +20,7 @@ use sway_things_core::bar::process;
 use sway_things_core::registry::{Value, bar as keys};
 
 use super::preview::item_title;
-use super::{Ctx, follow, status};
+use super::{Ctx, follow, status, takeover};
 use crate::i18n::{Msg, msg, msg_plural, tr, trf};
 
 /// The version of Waybar that is installed.
@@ -110,6 +110,7 @@ pub fn card(ctx: &Rc<Ctx>) -> gtk::Box {
     });
     head.append(&change);
     card.append(&head);
+    card.append(&takeover::section(ctx));
     let status = status::Status::new(ctx.model());
     let details = gtk::Expander::new(Some(tr(msg!("Details"))));
     details.add_css_class("st-bar-details");
@@ -148,7 +149,8 @@ pub fn card(ctx: &Rc<Ctx>) -> gtk::Box {
         };
         title.set_text(tr(heading));
         change.set_label(tr(button));
-        if current(&ctx) == "none" {
+        // Where the user's own bar can be replaced, that is the suggested way.
+        if current(&ctx) == "none" && !takeover::offers(&ctx) {
             change.add_css_class("suggested-action");
         } else {
             change.remove_css_class("suggested-action");

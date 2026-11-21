@@ -490,6 +490,42 @@ fn bar_lines(state: &State) -> Vec<Line> {
         Backend::None => Vec::new(),
         Backend::Waybar => {
             let mut lines = vec![hook_line(command::Hook::Waybar, vec![keys::BACKEND])];
+            // The user's bars it takes over: the first runs our waybar, the others nothing.
+            let taken = match state.get(keys::TAKE_OVER, None) {
+                Some(crate::registry::Value::List(ids)) => ids.clone(),
+                _ => Vec::new(),
+            };
+            for (at, id) in taken.iter().enumerate() {
+                let command = if at == 0 {
+                    crate::command::bar::take_over(id)
+                } else {
+                    crate::command::bar::silence(id)
+                };
+                let source = Source {
+                    keys: vec![keys::BACKEND, keys::TAKE_OVER],
+                    device: None,
+                };
+                lines.push(
+                    match command
+                        .map_err(|error| error.to_string())
+                        .and_then(|command| {
+                            command
+                                .render(Target::Config)
+                                .map_err(|error| error.to_string())
+                        }) {
+                        Ok(text) => Line {
+                            text,
+                            source,
+                            skipped: None,
+                        },
+                        Err(error) => Line {
+                            text: format!("# {}: {error}", keys::TAKE_OVER),
+                            source,
+                            skipped: Some(error),
+                        },
+                    },
+                );
+            }
             if let Some(key) = crate::bar::hold_key(state) {
                 for command in crate::command::bar::waybar_hold(key) {
                     let source = Source {

@@ -31,10 +31,14 @@ pub enum Starter {
     /// An `exec` line runs something that names waybar, a script say: it may start waybar.
     Maybe(Line),
     /// `swaybar_command waybar` in a `bar` block of the user's sway config: sway starts it as
-    /// the bar.
+    /// the bar. sway runs that command as one program name (`execvp`, with `-b <id>` after it),
+    /// so a command with options (`waybar -c …`) starts nothing and isn't this.
     SwaybarCommand(Line),
     /// A waybar of this session runs as a systemd unit.
     Unit,
+    /// A `bar` block of the user's that would run waybar, which our `75-bar.conf` took over: sway
+    /// starts Sway Things' waybar as that bar ([`super::takeover`]).
+    TakenOver(Line),
 }
 
 /// A line of the user's sway config.
@@ -80,8 +84,10 @@ impl Starter {
             ours: names_config(&directive.args.join(" "), &files.config()),
         };
         let mut maybe = None;
+        let mut taken = None;
+        let bars = super::takeover::bars(config, generated);
         for directive in &config.directives {
-            if directive.file.starts_with(generated) {
+            if super::takeover::in_generated(&directive.file, generated) {
                 continue;
             }
             let exec = directive.is(&[], "exec") || directive.is(&[], "exec_always");
@@ -96,13 +102,29 @@ impl Starter {
                 }
             }
             if let Some(command) = swaybar_command(directive) {
-                if starts(&command, 0) == Start::Program {
+                // One word only: with options it is no program sway can run.
+                let single = command.split_whitespace().count() == 1;
+                if single && starts(&command, 0) == Start::Program {
+                    // The bar the line is in: the last one made in its file before it.
+                    let bar = bars
+                        .iter()
+                        .filter(|bar| {
+                            bar.theirs && *bar.file == *directive.file && bar.line <= directive.line
+                        })
+                        .max_by_key(|bar| bar.line);
+                    if bar.is_some_and(super::takeover::Bar::taken) {
+                        taken.get_or_insert_with(|| line(directive));
+                        continue;
+                    }
                     return Self::SwaybarCommand(line(directive));
                 }
             }
         }
         if let Some(line) = maybe {
             return Self::Maybe(line);
+        }
+        if let Some(line) = taken {
+            return Self::TakenOver(line);
         }
         if running.iter().any(|waybar| waybar.unit) {
             return Self::Unit;
@@ -114,59 +136,32 @@ impl Starter {
     pub fn is_elsewhere(&self) -> bool {
         !matches!(self, Self::Nothing)
     }
+
+    /// Whether this surely starts a waybar of the user's own: a `bar` block's `swaybar_command
+    /// waybar`, an `exec` line or a unit start without our config, or a running unit. A waybar of
+    /// ours would then be a second bar. A line that only may start waybar isn't sure.
+    pub fn starts_theirs(&self) -> bool {
+        match self {
+            Self::SwaybarCommand(_) | Self::Unit => true,
+            Self::Exec(line) | Self::UnitStart(line) => !line.ours,
+            Self::Nothing | Self::Maybe(_) | Self::TakenOver(_) => false,
+        }
+    }
 }
 
 /// The `bar` blocks of the user's sway config that run swaybar (no `swaybar_command` with
-/// another program): a bar next to ours. Each with the line it starts on. The parser gives each
-/// line of a block with the block's words in front; which block a line belongs to is told by
-/// the lines that open them, read from the file.
+/// another program) and that Sway Things didn't take over: a bar next to ours. Each with the
+/// line it starts on ([`super::takeover::bars`]).
 pub fn swaybars(config: &SwayConfig, generated: &Path) -> Vec<(PathBuf, usize)> {
-    let mut openers: std::collections::BTreeMap<PathBuf, Vec<usize>> =
-        std::collections::BTreeMap::new();
-    // (file, line of the opener) → whether it runs another program than swaybar.
-    let mut bars: Vec<((PathBuf, usize), bool)> = Vec::new();
-    for directive in &config.directives {
-        if directive.file.starts_with(generated) {
-            continue;
-        }
-        let in_bar = directive
-            .block
-            .first()
-            .is_some_and(|word| word.eq_ignore_ascii_case("bar"));
-        if !in_bar {
-            continue;
-        }
-        let file = directive.file.to_path_buf();
-        let lines = openers.entry(file.clone()).or_insert_with(|| {
-            std::fs::read_to_string(&file)
-                .map(|text| block_openers(&text))
-                .unwrap_or_default()
-        });
-        let opener = lines
-            .iter()
-            .rev()
-            .find(|line| **line <= directive.line)
-            .copied()
-            .unwrap_or(directive.line);
-        let key = (file, opener);
-        let other = directive.name.eq_ignore_ascii_case("swaybar_command")
-            && directive
-                .args
-                .first()
-                .is_none_or(|program| base(program) != "swaybar");
-        match bars.iter_mut().find(|(found, _)| *found == key) {
-            Some((_, runs_other)) => *runs_other |= other,
-            None => bars.push((key, other)),
-        }
-    }
-    bars.into_iter()
-        .filter(|(_, other)| !other)
-        .map(|(start, _)| start)
+    super::takeover::bars(config, generated)
+        .into_iter()
+        .filter(|bar| bar.theirs && !bar.taken() && base(bar.program.trim()) == "swaybar")
+        .map(|bar| (bar.file, bar.line))
         .collect()
 }
 
 /// The numbers of the lines that open a `bar` block (`bar {`, `bar <id> {`), counted from 1.
-fn block_openers(text: &str) -> Vec<usize> {
+pub(super) fn block_openers(text: &str) -> Vec<usize> {
     text.lines()
         .enumerate()
         .filter(|(_, line)| {
@@ -444,13 +439,86 @@ pub fn arguments(files: &WaybarFiles) -> String {
     )
 }
 
+/// When a changed line of the user's sway config takes effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TakesEffect {
+    /// At the next reload of sway: a `bar` block or an `exec_always` line.
+    Reload,
+    /// At the next login: sway runs `exec` lines only when it starts.
+    Login,
+}
+
+/// What to change in the user's sway config.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Edit {
+    /// Write this line in place of theirs.
+    Replace(String),
+    /// Remove the `bar { … }` block the line is in: sway can't give `swaybar_command` options,
+    /// so no line there can point waybar at our files; without the block, our include starts
+    /// waybar.
+    RemoveBar,
+}
+
+/// The edit of the user's sway config that hands waybar over to our files, step by step: which
+/// line of which file, what is written there now, what to do with it, and when it takes effect.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Handover {
+    /// The line that starts waybar.
+    pub line: Line,
+    /// What is written there now, without the indentation (`swaybar_command waybar`).
+    pub current: String,
+    /// What to change.
+    pub edit: Edit,
+    /// When the change takes effect.
+    pub takes_effect: TakesEffect,
+}
+
+/// The edit of the user's sway config for `starter`, if a line of it starts waybar with another
+/// config: `None` for a systemd unit (a drop-in, see [`handover`]), our own include, or a line
+/// that already runs our files.
+pub fn handover_edit(starter: &Starter, files: &WaybarFiles) -> Option<Handover> {
+    let line = match starter {
+        Starter::Exec(line) | Starter::Maybe(line) | Starter::SwaybarCommand(line)
+            if !line.ours =>
+        {
+            line
+        }
+        _ => return None,
+    };
+    let text = line.text.trim();
+    if let Starter::SwaybarCommand(_) = starter {
+        // A line of a block may be given with the block's words in front (`bar swaybar_command …`).
+        let current = text
+            .find("swaybar_command")
+            .map_or(text, |start| &text[start..]);
+        return Some(Handover {
+            line: line.clone(),
+            current: current.to_owned(),
+            edit: Edit::RemoveBar,
+            takes_effect: TakesEffect::Reload,
+        });
+    }
+    let takes_effect = if text.starts_with("exec_always") {
+        TakesEffect::Reload
+    } else {
+        TakesEffect::Login
+    };
+    Some(Handover {
+        line: line.clone(),
+        current: text.to_owned(),
+        edit: Edit::Replace(handover(starter, files)?),
+        takes_effect,
+    })
+}
+
 /// What the user changes so that waybar runs our files, for `starter`: the line to put in place
 /// of theirs, or the drop-in for the unit. `None` where nothing is to change (ours already, or
-/// our include starts it).
+/// our include starts it), and for `swaybar_command`, which takes no options: its `bar` block
+/// goes instead ([`handover_edit`]).
 pub fn handover(starter: &Starter, files: &WaybarFiles) -> Option<String> {
     match starter {
-        Starter::Nothing => None,
-        Starter::Exec(line) | Starter::SwaybarCommand(line) if line.ours => None,
+        Starter::Nothing | Starter::SwaybarCommand(_) | Starter::TakenOver(_) => None,
+        Starter::Exec(line) if line.ours => None,
         Starter::Exec(line) | Starter::Maybe(line) => {
             let exec = if line.text.trim_start().starts_with("exec_always") {
                 "exec_always"
@@ -459,7 +527,6 @@ pub fn handover(starter: &Starter, files: &WaybarFiles) -> Option<String> {
             };
             Some(format!("{exec} waybar {}", arguments(files)))
         }
-        Starter::SwaybarCommand(_) => Some(format!("swaybar_command waybar {}", arguments(files))),
         Starter::Unit | Starter::UnitStart(_) => {
             let program =
                 crate::delegate::find_program("waybar", std::env::var_os("PATH").as_deref())
@@ -482,6 +549,74 @@ pub fn handover(starter: &Starter, files: &WaybarFiles) -> Option<String> {
             ))
         }
     }
+}
+
+/// Commands for a terminal that the user runs themselves to make the change of `edit`, and to
+/// undo it: Sway Things never writes the user's config. The file is named by its real path
+/// (with links such as `~/.config/sway` → `~/dotfiles/…` resolved), so `sed -i` changes the file
+/// and doesn't replace a link with a copy. A copy of the file comes first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Commands {
+    /// What makes the change.
+    pub change: String,
+    /// What takes it back.
+    pub undo: String,
+}
+
+/// The commands for `edit`: `#` in front of the line that starts waybar, or of every line of the
+/// `bar { … }` block it is in; `None` where the file or the end of the block can't be read.
+pub fn handover_commands(edit: &Handover) -> Option<Commands> {
+    let real = std::fs::canonicalize(&edit.line.file).ok()?;
+    let (first, last) = match edit.edit {
+        Edit::Replace(_) => (edit.line.line, edit.line.line),
+        Edit::RemoveBar => {
+            let text = std::fs::read_to_string(&real).ok()?;
+            block_around(&text, edit.line.line)?
+        }
+    };
+    let file = quoted(&real.to_string_lossy());
+    let backup = quoted(&format!("{}.bak-sway-things", real.to_string_lossy()));
+    let range = if first == last {
+        first.to_string()
+    } else {
+        format!("{first},{last}")
+    };
+    Some(Commands {
+        change: format!("cp {file} {backup} && sed -i '{range}s/^/# /' {file}"),
+        undo: format!("sed -i '{range}s/^# //' {file}"),
+    })
+}
+
+/// The commands for waybar's systemd unit: disable it, and enable it again.
+pub fn unit_commands() -> Commands {
+    Commands {
+        change: "systemctl --user disable --now waybar.service".to_owned(),
+        undo: "systemctl --user enable --now waybar.service".to_owned(),
+    }
+}
+
+/// `text` in single quotes for a shell.
+fn quoted(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
+/// The first and last line (counted from 1) of the `bar { … }` block that holds line `line`.
+fn block_around(text: &str, line: usize) -> Option<(usize, usize)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = block_openers(text)
+        .into_iter()
+        .filter(|opener| *opener <= line)
+        .max()?;
+    let mut depth = 0_i32;
+    for (index, content) in lines.iter().enumerate().skip(first - 1) {
+        let content = content.split('#').next().unwrap_or("");
+        depth += i32::try_from(content.matches('{').count()).ok()?;
+        depth -= i32::try_from(content.matches('}').count()).ok()?;
+        if depth <= 0 {
+            return (index + 1 >= line).then_some((first, index + 1));
+        }
+    }
+    None
 }
 
 /// The command that opens the drop-in for waybar's unit in an editor.
@@ -598,6 +733,100 @@ mod tests {
     }
 
     #[test]
+    fn a_bar_block_taken_over_starts_ours() {
+        let dir = tempfile::tempdir().unwrap();
+        let generated = dir.path().join("sway-things");
+        std::fs::create_dir(&generated).unwrap();
+        let path = dir.path().join("config");
+        std::fs::write(
+            &path,
+            format!(
+                "bar {{\n  swaybar_command waybar\n}}\nbar {{\n  position top\n}}\n\
+                 include {}/*.conf\n",
+                generated.display()
+            ),
+        )
+        .unwrap();
+        let detect = || {
+            Starter::detect(
+                &parse(&path, &crate::sway_config::Disk),
+                &generated,
+                &[],
+                &files(),
+            )
+        };
+        assert!(matches!(detect(), Starter::SwaybarCommand(line) if line.line == 2));
+        assert_eq!(
+            swaybars(&parse(&path, &crate::sway_config::Disk), &generated),
+            [(path.clone(), 4)]
+        );
+        std::fs::write(
+            generated.join("75-bar.conf"),
+            "bar \"bar-0\" swaybar_command sway-things\nbar \"bar-1\" swaybar_command true\n",
+        )
+        .unwrap();
+        let starter = detect();
+        assert!(matches!(&starter, Starter::TakenOver(line) if line.line == 2));
+        assert!(starter.is_elsewhere() && !starter.starts_theirs());
+        // Their other bar shows nothing now: no swaybar next to ours.
+        assert_eq!(
+            swaybars(&parse(&path, &crate::sway_config::Disk), &generated),
+            Vec::<(PathBuf, usize)>::new()
+        );
+    }
+
+    #[test]
+    fn the_commands_comment_out_the_right_lines_in_the_real_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let real_dir = dir.path().join("dotfiles");
+        std::fs::create_dir(&real_dir).unwrap();
+        let real = real_dir.join("it's config");
+        std::fs::write(
+            &real,
+            "set $mod Mod4\nexec_always waybar\nbar {\n  colors {\n    background #000000\n  }\n  \
+             swaybar_command waybar\n}\nbindsym $mod+q kill\n",
+        )
+        .unwrap();
+        let linked = dir.path().join("linked");
+        std::os::unix::fs::symlink(&real_dir, &linked).unwrap();
+        let line = |number, text: &str| Line {
+            file: linked.join("it's config"),
+            line: number,
+            text: text.to_owned(),
+            ours: false,
+        };
+        let real = std::fs::canonicalize(&real).unwrap();
+        let file = format!("'{}'", real.display()).replace("it's", "it'\\''s");
+        let exec = Handover {
+            line: line(2, "exec_always waybar"),
+            current: "exec_always waybar".to_owned(),
+            edit: Edit::Replace(String::new()),
+            takes_effect: TakesEffect::Reload,
+        };
+        let commands = handover_commands(&exec).unwrap();
+        assert_eq!(
+            commands.change,
+            format!(
+                "cp {file} {} && sed -i '2s/^/# /' {file}",
+                format!("'{}.bak-sway-things'", real.display()).replace("it's", "it'\\''s")
+            )
+        );
+        assert_eq!(commands.undo, format!("sed -i '2s/^# //' {file}"));
+        let block = Handover {
+            line: line(7, "swaybar_command waybar"),
+            edit: Edit::RemoveBar,
+            ..exec
+        };
+        let commands = handover_commands(&block).unwrap();
+        assert!(
+            commands
+                .change
+                .ends_with(&format!("sed -i '3,8s/^/# /' {file}"))
+        );
+        assert_eq!(commands.undo, format!("sed -i '3,8s/^# //' {file}"));
+    }
+
+    #[test]
     fn swaybars_of_the_user_are_found() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config");
@@ -622,8 +851,11 @@ mod tests {
         let text = handover(&Starter::Exec(line.clone()), &files()).unwrap();
         assert!(text.starts_with("exec_always waybar -c "), "{text}");
         assert!(text.ends_with("waybar/style.css"), "{text}");
-        let text = handover(&Starter::SwaybarCommand(line.clone()), &files()).unwrap();
-        assert!(text.starts_with("swaybar_command waybar -c "));
+        // sway can't give swaybar_command options: no line for it.
+        assert_eq!(
+            handover(&Starter::SwaybarCommand(line.clone()), &files()),
+            None
+        );
         assert!(handover(&Starter::Maybe(line.clone()), &files()).is_some());
         let ours = Line { ours: true, ..line };
         assert_eq!(handover(&Starter::Exec(ours), &files()), None);
@@ -633,5 +865,55 @@ mod tests {
                 .contains("ExecStart=\n")
         );
         assert_eq!(shell_path(Path::new("/a b/c")), "'/a b/c'");
+    }
+
+    #[test]
+    fn the_handover_names_the_line_what_it_says_and_when_it_takes_effect() {
+        let dir = tempfile::tempdir().unwrap();
+        let generated = Path::new("/c/sway/sway-things");
+        let edit = |text: &str| {
+            let path = dir.path().join("config");
+            std::fs::write(&path, text).unwrap();
+            let config = parse(&path, &crate::sway_config::Disk);
+            handover_edit(
+                &Starter::detect(&config, generated, &[], &files()),
+                &files(),
+            )
+        };
+        let bar = edit("set $mod Mod4\nbar {\n    swaybar_command waybar\n    position top\n}\n")
+            .unwrap();
+        assert_eq!(bar.line.line, 3);
+        assert_eq!(bar.current, "swaybar_command waybar");
+        // The block goes.
+        assert_eq!(bar.edit, Edit::RemoveBar);
+        assert_eq!(bar.takes_effect, TakesEffect::Reload);
+        let always = edit("exec_always waybar\n").unwrap();
+        assert_eq!(always.current, "exec_always waybar");
+        assert!(
+            matches!(&always.edit, Edit::Replace(line) if line.starts_with("exec_always waybar -c "))
+        );
+        assert_eq!(always.takes_effect, TakesEffect::Reload);
+        // sway runs `exec` lines only when it starts.
+        assert_eq!(
+            edit("exec waybar\n").unwrap().takes_effect,
+            TakesEffect::Login
+        );
+        // Nothing to edit: our include starts it, or the line runs our files already.
+        assert_eq!(edit("bar {\n    position top\n}\n"), None);
+        let ours = format!("exec waybar {}\n", arguments(&files()));
+        assert_eq!(edit(&ours), None);
+        // sway runs swaybar_command as one program name, so with options it starts nothing
+        // (seen on sway 1.10, 1.12 and SwayFX): our include starts waybar then.
+        let options = format!(
+            "bar {{\n    swaybar_command waybar {}\n}}\n",
+            arguments(&files())
+        );
+        assert_eq!(edit(&options), None);
+        let path = dir.path().join("config");
+        let config = parse(&path, &crate::sway_config::Disk);
+        assert_eq!(
+            Starter::detect(&config, generated, &[], &files()),
+            Starter::Nothing
+        );
     }
 }

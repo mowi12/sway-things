@@ -244,6 +244,31 @@ fn the_workspaces_hook_runs_while_a_rule_places_them() {
 }
 
 #[test]
+fn the_user_s_bars_are_taken_over_by_their_ids() {
+    let (_dir, taking) = state(
+        "version = 1\n\n[bar]\nbackend = \"waybar\"\ntake_over = [\"bar-0\", \"my bar\"]\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &taking, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Bar),
+        format!(
+            "{HEADER}exec_always sway-things hook waybar
+bar \"bar-0\" swaybar_command sway-things
+bar \"my bar\" swaybar_command true
+"
+        )
+    );
+    // Without waybar, their bars are theirs again.
+    let (_other, back) = state(
+        "version = 1\n\n[bar]\nbackend = \"none\"\ntake_over = [\"bar-0\"]\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &back, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Bar).contains("swaybar_command"));
+}
+
+#[test]
 fn the_same_state_generates_the_same_bytes() {
     let (_dir, first) = sample();
     let (_dir, second) = sample();

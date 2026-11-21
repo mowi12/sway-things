@@ -35,6 +35,9 @@ impl<V: Validate> Checkup<'_, V> {
                 )),
             );
         }
+        if backend == Backend::Waybar {
+            self.bars_taken(findings);
+        }
         if backend == Backend::Swaybar {
             findings.push(Finding::new(
                 Code::BarRunning,
@@ -67,6 +70,51 @@ impl<V: Validate> Checkup<'_, V> {
             return;
         }
         self.bar_running(&files, findings);
+    }
+
+    /// The bars of the user's that Sway Things' waybar shows in place of, and stored ones their
+    /// config doesn't make before our include.
+    fn bars_taken(&self, findings: &mut Vec<Finding>) {
+        let stored = match self.state.get(crate::registry::bar::TAKE_OVER, None) {
+            Some(crate::registry::Value::List(ids)) => ids.clone(),
+            _ => return,
+        };
+        let bars = crate::bar::takeover::bars(self.status.config(), self.locations.directory());
+        for id in stored {
+            match bars.iter().find(|bar| bar.id == id && bar.can_take()) {
+                Some(bar) => findings.push(
+                    Finding::new(
+                        Code::BarRunning,
+                        Severity::Ok,
+                        Text::new(msg!(
+                            "Sway Things' bar shows in place of your bar {id}; your config stays as \
+                             it is."
+                        ))
+                        .text("id", Text::data(id.clone())),
+                    )
+                    .at(&bar.file, bar.line)
+                    .with_hint(msg!(
+                        "sway-things set bar.backend none, or Switch Back on the Bar page, brings \
+                         yours back."
+                    )),
+                ),
+                None => findings.push(
+                    Finding::new(
+                        Code::BarOther,
+                        Severity::Warning,
+                        Text::new(msg!(
+                            "Sway Things takes over the bar {id}, but your sway config doesn't set \
+                             it up before the include of Sway Things."
+                        ))
+                        .text("id", Text::data(id.clone())),
+                    )
+                    .with_hint(msg!(
+                        "Choose Use Sway Things' Bar on the Bar page again, or switch back with \
+                         sway-things set bar.backend none."
+                    )),
+                ),
+            }
+        }
     }
 
     /// Which waybar runs, what went wrong when it was last started, and a line that may start
@@ -115,17 +163,29 @@ impl<V: Validate> Checkup<'_, V> {
                     .arg("command", Hook::Waybar.command_line(&[])),
             )
         } else {
-            let hint = process::handover(&starter, files).map_or_else(
-                || {
-                    Text::new(msg!(
-                        "Start waybar with -c and -s pointing at the files of Sway Things."
-                    ))
-                },
-                |line| {
-                    Text::new(msg!("Change the line that starts it to: {line}"))
-                        .text("line", Text::data(line))
-                },
-            );
+            let hint = if let Starter::SwaybarCommand(line) = &starter {
+                Text::new(msg!(
+                    "Choose Use Sway Things' Bar on the Bar page: it shows the bar of Sway Things \
+                     in place of the bar block with swaybar_command waybar ({place}), without \
+                     changing your config."
+                ))
+                .text(
+                    "place",
+                    Text::data(format!("{}:{}", line.file.display(), line.line)),
+                )
+            } else {
+                process::handover(&starter, files).map_or_else(
+                    || {
+                        Text::new(msg!(
+                            "Start waybar with -c and -s pointing at the files of Sway Things."
+                        ))
+                    },
+                    |line| {
+                        Text::new(msg!("Change the line that starts it to: {line}"))
+                            .text("line", Text::data(line))
+                    },
+                )
+            };
             Finding::new(
                 Code::BarRunning,
                 Severity::Warning,

@@ -306,6 +306,9 @@ include.
 - [x] 🟢 Size (height and text size together), contrast of the text on the background
 - [x] 🟢 Show the bar always or while a key is held (swaybar `mode hide`, waybar over sway's IPC)
 - [x] 🟢 Bar program in one card, a dialog that says what the other program can't show before switching
+- [x] 🟡 Use Sway Things' bar in place of the user's `bar { … }` block without editing their config
+      (`bar <id> swaybar_command sway-things`), kept within 15 s or switched back by itself, and _Switch Back to My Own
+      Bar_
 - [x] 🟢 The files Sway Things writes for Waybar, read-only, with their paths
 - [ ] 🟡 Per-monitor bars: all screens as the base, overrides per display matched by make, model and serial
 - [ ] 🟡 Keep-or-revert after a change of the bar (15 s), and a history of the last applied bars

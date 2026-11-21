@@ -3,8 +3,8 @@
 
 //! The Bar page with Waybar: the preview and its summary, the lanes moved with the keyboard,
 //! the menu and a drop, a removal undone, the picker, an item's basic settings, a command of
-//! the user's with its test run, the looks and the switch to swaybar; screenshots of each part in
-//! light and dark.
+//! the user's with its test run, the looks and the switch to swaybar, the handover of a waybar
+//! the user's sway config starts; screenshots of each part in light and dark.
 
 use super::*;
 
@@ -114,6 +114,10 @@ pub(crate) fn check_bar_pages() -> Vec<(String, Outcome)> {
             check_bar_preview(),
         ),
         (
+            "bar: the user's own bar is taken over and given back".to_owned(),
+            check_bar_takeover(),
+        ),
+        (
             "bar: a wide preview pans with a drag and the wheel".to_owned(),
             check_bar_pan(),
         ),
@@ -129,12 +133,13 @@ pub(crate) fn check_bar_pages() -> Vec<(String, Outcome)> {
 }
 
 /// The Bar page with Waybar: every part, used as a user would, and its screenshots.
-pub(crate) fn check_bar() -> Outcome {
+fn check_bar() -> Outcome {
     let settings = gtk::Settings::default().ok_or_else(|| "  no GTK settings".to_owned())?;
     check_bar_parts()?;
     for dark in [false, true] {
         set_dark(&settings, dark);
-        let result = shoot_bar(if dark { "dark" } else { "light" });
+        let scheme = if dark { "dark" } else { "light" };
+        let result = shoot_bar(scheme).and_then(|()| check_handover(scheme));
         if result.is_err() {
             set_dark(&settings, false);
             return result;
@@ -551,6 +556,96 @@ fn check_switch(fixture: &Fixture, window: &Window) -> Outcome {
     )
 }
 
+/// With `bar { swaybar_command waybar }` in the user's sway config, the details point at _Use
+/// Sway Things' Bar_, which needs no edit. With `exec_always waybar`, which can't be taken over,
+/// they say how the user changes that file themselves (Sway Things never writes it): a command
+/// for a terminal that keeps a copy and comments the line out, the one that takes it back, or the
+/// file opened at the line; then a reload of sway. _Reload waybar_ can't be used while no
+/// waybar of Sway Things runs, and says why. Once the line is gone, Sway Things starts waybar
+/// itself.
+fn check_handover(scheme: &str) -> Outcome {
+    let block = "set $mod Mod4\nbar {\n    swaybar_command waybar\n    position top\n}\n";
+    let fixture = fixture(
+        SWAY,
+        "version = 1\n\n[bar]\nbackend = \"waybar\"\n",
+        block,
+        true,
+    )?;
+    // Which bar block a line is in is read from the file itself.
+    let on_disk = |text: &str| -> Outcome {
+        if let Some(parent) = fixture.main.parent() {
+            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        std::fs::write(&fixture.main, format!("{text}{}", fixture.include_line()))
+            .map_err(|error| error.to_string())
+    };
+    on_disk(block)?;
+    let window = open(&fixture, Page::Bar)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let details = all::<gtk::Expander>(&content)
+        .into_iter()
+        .find(|expander| expander.has_css_class("st-bar-details"))
+        .ok_or_else(|| "  no details".to_owned())?;
+    ensure(details.is_expanded(), "  the details didn't open")?;
+    let said = texts(details.upcast_ref()).join("\n");
+    ensure(
+        said.contains("Use Sway Things' Bar, above")
+            && !said.contains("Remove that whole bar")
+            && !said.contains("starts swaybar too"),
+        &format!("  with a bar block the details say {said:?}"),
+    )?;
+    button_with(&content, "Use Sway Things' Bar")?;
+    // A line that can't be taken over: the steps in the file.
+    let exec = "set $mod Mod4\nexec_always waybar\n";
+    on_disk(exec)?;
+    fixture.model.set_status(fixture.status(exec, true));
+    settle(&window)?;
+    let said = texts(details.upcast_ref()).join("\n");
+    for step in [
+        "Sway Things never changes your files",
+        "1. Run this in a terminal.",
+        ".bak-sway-things",
+        "sed -i '2s/^/# /'",
+        "To take it back later",
+        "sed -i '2s/^# //'",
+        "2. Or open the file and put # in front of line 2 yourself.",
+        "3. Reload sway",
+        "Nothing to reload",
+    ] {
+        ensure(
+            said.contains(step),
+            &format!("  {step:?} isn't in {said:?}"),
+        )?;
+    }
+    let reload = button_with(details.upcast_ref(), "Reload waybar")?;
+    ensure(
+        !reload.is_sensitive(),
+        "  Reload waybar can be used without a waybar of Sway Things",
+    )?;
+    button_with(details.upcast_ref(), "Open in Editor")?;
+    button_with(details.upcast_ref(), "Reload Sway")?;
+    scroll_to(&window, &details)?;
+    shoot(window.upcast_ref(), &format!("bar-handover-steps-{scheme}"))?;
+    // The user removes the line; the watch of their config tells the model.
+    on_disk("set $mod Mod4\n")?;
+    fixture
+        .model
+        .set_status(fixture.status("set $mod Mod4\n", true));
+    settle(&window)?;
+    let said = texts(details.upcast_ref()).join("\n");
+    ensure(
+        said.contains("Sway Things starts waybar with its own config when sway starts")
+            && !said.contains("Run this in a terminal"),
+        &format!("  without the line the details say {said:?}"),
+    )?;
+    shoot(
+        window.upcast_ref(),
+        &format!("bar-handover-removed-{scheme}"),
+    )
+}
+
 /// Screenshots of the page's parts in `scheme`, each checked for contrast. On SwayFX, so the
 /// looks include Glass.
 fn shoot_bar(scheme: &str) -> Outcome {
@@ -625,7 +720,7 @@ fn colored(widget: &gtk::Widget, [red, green, blue]: [u8; 3]) -> bool {
 /// drawn with the user's own stylesheet, which reaches nothing else of the app; what can't be
 /// parsed or would be fetched is left out.
 #[expect(clippy::too_many_lines, reason = "one picture, checked part by part")]
-pub(crate) fn check_bar_preview() -> Outcome {
+fn check_bar_preview() -> Outcome {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
     let extra = dir.path().join("style.css");
     std::fs::write(
@@ -792,6 +887,106 @@ pub(crate) fn check_bar_preview() -> Outcome {
 /// The labels' texts in `widget` and below it, joined.
 fn all_text(widget: &gtk::Widget) -> String {
     texts(widget).join("\n")
+}
+
+/// Where the user's sway config starts their own waybar in a `bar` block: _Use Sway Things'
+/// Bar_ takes it over by its ID and asks to keep it; _Switch Back_ and _Switch Back to My Own
+/// Bar_ give it back; screenshots of each state.
+fn check_bar_takeover() -> Outcome {
+    use sway_things_core::registry::bar as keys;
+    let users = "bar {\n    swaybar_command waybar\n}\n";
+    let fixture = fixture(SWAY, "version = 1\n", users, true)?;
+    let model = &fixture.model;
+    // Hard rule 1: the user's config stays as it is, byte for byte and with its time.
+    if let Some(parent) = fixture.main.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    std::fs::write(&fixture.main, format!("{users}{}", fixture.include_line()))
+        .map_err(|error| error.to_string())?;
+    let untouched = || -> Result<(Vec<u8>, std::time::SystemTime), String> {
+        let bytes = std::fs::read(&fixture.main).map_err(|error| error.to_string())?;
+        let modified = std::fs::metadata(&fixture.main)
+            .and_then(|meta| meta.modified())
+            .map_err(|error| error.to_string())?;
+        Ok((bytes, modified))
+    };
+    let before = untouched()?;
+    let window = open(&fixture, Page::Bar)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let card = all::<gtk::Box>(&content)
+        .into_iter()
+        .find(|widget| widget.has_css_class("st-bar-takeover"))
+        .ok_or_else(|| "  no part about the user's own bar".to_owned())?;
+    let card: &gtk::Widget = card.upcast_ref();
+    ensure(
+        all_text(card).contains("Your bar: your own Waybar, started by your sway config."),
+        &format!("  the card says {:?}", all_text(card)),
+    )?;
+    let use_ours = button_with(card, "Use Sway Things' Bar")?;
+    shoot(window.upcast_ref(), "bar-takeover-offer")?;
+    if !sway_things_core::bar::process::installed() {
+        // Without waybar, nothing to switch to.
+        ensure(
+            !use_ours.is_sensitive() && all_text(card).contains("Install the waybar package"),
+            "  the button works without waybar",
+        )?;
+        window.destroy();
+        return Ok(());
+    }
+    use_ours.emit_clicked();
+    wait_for_model(model)?;
+    ensure(
+        value(model, keys::BACKEND)? == Some(Value::Choice("waybar".to_owned()))
+            && list_value(model, keys::TAKE_OVER)? == strings(&["bar-0"]),
+        "  Use Sway Things' Bar didn't take bar-0 over",
+    )?;
+    // Until Sway Things' waybar runs, it can't be kept yet, only switched back.
+    ensure(
+        all_text(card).contains("Starting Sway Things' bar…")
+            && !button_with(card, "Keep")?.is_sensitive(),
+        &format!("  no banner: {:?}", all_text(card)),
+    )?;
+    shoot(window.upcast_ref(), "bar-takeover-trial")?;
+    button_with(card, "Switch Back")?.emit_clicked();
+    wait_for_model(model)?;
+    ensure(
+        value(model, keys::BACKEND)? == Some(Value::Choice("none".to_owned()))
+            && list_value(model, keys::TAKE_OVER)?.is_empty(),
+        "  Switch Back didn't give the bar back",
+    )?;
+    // The stand-in runs no waybar: it switches back by itself and says why.
+    button_with(card, "Use Sway Things' Bar")?.emit_clicked();
+    wait_for_model(model)?;
+    let said = run_until(Duration::from_secs(15), || {
+        all_text(card).contains("Sway Things' Waybar didn't start")
+    });
+    wait_for_model(model)?;
+    ensure(
+        said && list_value(model, keys::TAKE_OVER)?.is_empty(),
+        &format!("  without a waybar: {:?}", all_text(card)),
+    )?;
+    // While it shows in place of theirs, the way back.
+    model.set(keys::TAKE_OVER, None, Value::List(strings(&["bar-0"])));
+    model.set(keys::BACKEND, None, Value::Choice("waybar".to_owned()));
+    wait_for_model(model)?;
+    settle(&window)?;
+    let back = button_with(card, "Switch Back to My Own Bar")?;
+    shoot(window.upcast_ref(), "bar-takeover-active")?;
+    back.emit_clicked();
+    wait_for_model(model)?;
+    ensure(
+        list_value(model, keys::TAKE_OVER)?.is_empty()
+            && all_text(card).contains("Your own bar is back"),
+        &format!("  after Switch Back to My Own Bar: {:?}", all_text(card)),
+    )?;
+    ensure(
+        untouched()? == before,
+        "  the user's sway config changed while their bar was taken over and given back",
+    )?;
+    window.destroy();
+    Ok(())
 }
 
 /// The controller named `name` of `widget`.

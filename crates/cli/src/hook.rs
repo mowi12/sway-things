@@ -300,15 +300,21 @@ pub(super) fn hook_clipboard(history: impl FnOnce() -> (bool, u32), err: &mut dy
 
 /// `hook waybar`: writes waybar's files of Sway Things (they may have come with the dotfiles
 /// from another machine) and starts waybar with them, unless one runs with them already or the
-/// user's sway config or a systemd unit starts waybar. Quiet when there is nothing to do.
+/// user's sway config or a systemd unit starts waybar. A waybar it started goes when the user's
+/// own waybar is back (their `bar` block, say) or the backend is no longer waybar, so two bars
+/// never show. Quiet when there is nothing to do.
 pub(super) async fn hook_waybar<V: Validate>(session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
     let state = session.applier.state();
-    if bar::Backend::of(state) != bar::Backend::Waybar {
-        return Exit::Ok;
-    }
     let Some(files) = bar::WaybarFiles::of(state) else {
         return Exit::Ok;
     };
+    if bar::Backend::of(state) != bar::Backend::Waybar {
+        // A waybar Sway Things started stays no longer than its backend.
+        if let Err(error) = process::stop_started(&files) {
+            io.error(error.text().translated());
+        }
+        return Exit::Ok;
+    }
     if let Ok(access) = session.status.write_access() {
         let modules = match session.applier.bar_modules() {
             Ok(modules) => modules,

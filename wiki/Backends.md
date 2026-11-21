@@ -561,22 +561,48 @@ there.
   waybar when its program is waybar after `exec`, `--no-startup-id`, `env`, `setsid`, `nohup`, their options and
   variable assignments; inside `sh -c '…'` (also bash, dash, zsh, ksh); after `uwsm app [--]`; and
   `systemctl --user start|restart waybar[.service]` starts its unit. `swaybar_command waybar` in a `bar` block or on a
-  `bar` line counts too, and a running waybar unit. A line that names waybar but runs something else
-  (`~/.config/waybar/launch.sh`) may start it (`Starter::Maybe`): Sway Things can't tell, doesn't start a second bar,
-  and the page and `doctor` say so with the line to use instead. `handover` gives the line to copy in its place
-  (`exec waybar -c ~/.config/sway-things/waybar/config.jsonc -s …/style.css`, `swaybar_command waybar -c … -s …`, or the
-  drop-in with `ExecStart=` for `systemctl --user edit waybar.service`), none where the line already passes our config
-  as the argument of `-c` or `--config` (compared as a whole path, with `~`, `$HOME` and `$XDG_CONFIG_HOME` expanded).
-  `swaybars` lists the `bar` blocks of the user's config that run swaybar (no `swaybar_command` of another program),
-  which would show next to ours.
+  `bar` line counts too (only as one word: sway runs the command as a program name, so one with options starts nothing),
+  and a running waybar unit. A line that names waybar but runs something else (`~/.config/waybar/launch.sh`) may start
+  it (`Starter::Maybe`): Sway Things can't tell, doesn't start a second bar, and the page and `doctor` say so with the
+  line to use instead. `handover` gives the line to copy in its place
+  (`exec waybar -c ~/.config/sway-things/waybar/config.jsonc -s …/style.css`, or the drop-in with `ExecStart=` for
+  `systemctl --user edit waybar.service`), none where the line already passes our config as the argument of `-c` or
+  `--config` (compared as a whole path, with `~`, `$HOME` and `$XDG_CONFIG_HOME` expanded), and none for
+  `swaybar_command`, which can't take `-c`. `handover_commands` gives the commands the user runs themselves for it
+  (`cp FILE FILE.bak-sway-things && sed -i 'Ns/^/# /' FILE` on the real path, a block as a range of lines, and the `sed`
+  that takes it back; `unit_commands` disables and enables the unit). `handover_edit` turns it into steps for the page:
+  the file and line, what is written there, the edit (`Edit::Replace` with that line, or `Edit::RemoveBar`: the `bar`
+  block goes as a whole, so our include starts waybar), and when it takes effect (`TakesEffect::Reload` for a `bar`
+  block or `exec_always`, `Login` for `exec`).
+- **Taking over the user's bar** (`bar::takeover`): `bars` reads the bar configs of a sway config as sway makes them
+  (unnamed blocks `bar-0`, `bar-1`, …, named ones, one-line `bar <id> …`, `id` in a block), with the program each runs
+  in the end, and the lines of our `75-bar.conf` where our include puts them when the config comes without our files. A
+  bar the user made before our include can be taken over (`Bar::can_take`). `bar.take_over` holds the IDs the page took
+  over; with Waybar as the bar program, `75-bar.conf` gets `bar "<id>" swaybar_command sway-things` for the first and
+  `… swaybar_command true` for the others (`command::bar::take_over`, `silence`). sway then runs `sway-things -b <id>`,
+  which becomes `waybar -c … -s …` with our files (`run_bar`, `exec` of an argument list, no shell), or, if waybar can't
+  be run (uninstalled since), `swaybar -b <id>`, so the user keeps their own bar (`takeover::fallback_arguments`); its
+  output goes to `$XDG_RUNTIME_DIR/sway-things-waybar.log` (written anew at each start), which the page shows when it
+  switches back (`takeover::log_errors`). The folder of our files is compared as given and with links resolved
+  (`takeover::in_generated`): the parser names an included file by its real path, and `~/.config/sway` is often a link
+  into a dotfiles repository. Before that was so, the hook took the user's taken-over block for a bar of theirs and
+  ended the Waybar sway had just started for it, so the bar vanished and the page switched back. `Starter::TakenOver`
+  says so: the hook starts no second waybar and ends none of ours (`process::surplus`), `swaybars` leaves taken bars
+  out, and `doctor` names each taken bar, or warns about an ID the config doesn't make before our include. With the
+  backend `none` (the page's _Switch Back_, or `sway-things set bar.backend none` and a reload of sway) the lines go and
+  the user's bar is back. `swaybars` lists the `bar` blocks of the user's config that run swaybar (no `swaybar_command`
+  of another program), which would show next to ours.
 - **Starting ours** (`process::ensure`, which the hook runs): under a lock in `$XDG_RUNTIME_DIR`
   (`sway-things-waybar.lock`, with a token of its own; one older than 15 s is taken over), so the app's start and a
-  reload's `exec_always` never start two: nothing if one of ours runs or the user's config or a unit starts waybar;
-  nothing either if a waybar with another config runs or comes up within two seconds (at login the user's own lines
-  start theirs at the same time), which the hook says on stderr, in sway's log. Otherwise waybar is started
-  (`setsid -f waybar -c … -s …`, an argument list), after checking that it is installed, and checked to run our config a
-  moment later. What went wrong (not installed, `setsid` or `kill` missing, waybar ended at once) is noted in
-  `$XDG_RUNTIME_DIR/sway-things-waybar.problem` for the page and `doctor`.
+  reload's `exec_always` never start two. First, a waybar Sway Things started (not one of a unit) ends (`SIGTERM`) where
+  it would be a second bar (`process::surplus`): when the user's config surely starts their own waybar (a `bar` block's
+  `swaybar_command waybar`, an `exec` line or a unit start without our config, a running unit) or a waybar with another
+  config runs; one the user's own line starts with our config stays. Then nothing if one of ours runs or the user's
+  config or a unit starts waybar; nothing either if a waybar with another config runs or comes up within two seconds (at
+  login the user's own lines start theirs at the same time), which the hook says on stderr, in sway's log. Otherwise
+  waybar is started (`setsid -f waybar -c … -s …`, an argument list), after checking that it is installed, and checked
+  to run our config a moment later. What went wrong (not installed, `setsid` or `kill` missing, waybar ended at once) is
+  noted in `$XDG_RUNTIME_DIR/sway-things-waybar.problem` for the page and `doctor`.
 - **Applied at once** (`Applier::keep_bar`, after every `persist`, and `Applier::set_bar_modules`): with waybar, the
   files are written where they changed, and only the waybar processes of this session that run our config get `SIGUSR2`
   (`kill -s USR2 -- <pids>`), which has waybar read its config and stylesheet again; one that ended 1.5 s later is

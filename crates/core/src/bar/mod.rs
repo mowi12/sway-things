@@ -7,8 +7,9 @@
 //! add modules, never change what the user's config sets. So Sway Things writes a complete config
 //! and stylesheet of its own to `$XDG_CONFIG_HOME/sway-things/waybar/` ([`WaybarFiles`]), each
 //! starting with our header, and the user's waybar config is never written. waybar is pointed at
-//! them with `-c` and `-s`: by the user's own `exec waybar` line or `swaybar_command`, which the
-//! page shows the change for ([`process::Starter`]), or by `75-bar.conf`, which runs
+//! them with `-c` and `-s`: by the user's own `exec waybar` line, which the page shows the change
+//! for ([`process::Starter`]; a `bar` block with `swaybar_command waybar` goes instead, since sway
+//! runs that command without options), or by `75-bar.conf`, which runs
 //! `sway-things hook waybar` ([`process::ensure`]). A change reaches waybar with `SIGUSR2`, sent
 //! only to the waybar processes of this session that run our config ([`process::reload`]).
 //!
@@ -33,6 +34,7 @@ pub mod script;
 pub mod starter;
 pub mod style;
 pub mod swaybar;
+pub mod takeover;
 pub mod templates;
 pub mod waybar;
 

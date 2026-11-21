@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_sway_things_global_optspecs
-    string join \n color= h/help V/version
+    string join \n color= b= h/help V/version
 end
 
 function __fish_sway_things_needs_command
@@ -27,6 +27,7 @@ end
 complete -c sway-things -n "__fish_sway_things_needs_command" -l color -d 'Controls when to use color' -r -f -a "auto\t''
 always\t''
 never\t''"
+complete -c sway-things -n "__fish_sway_things_needs_command" -s b -d 'The ID sway gives the program of a bar (`swaybar_command`): with it, `sway-things` runs Sway Things\' waybar as that bar. Only sway passes it' -r
 complete -c sway-things -n "__fish_sway_things_needs_command" -s h -l help -d 'Print help'
 complete -c sway-things -n "__fish_sway_things_needs_command" -s V -l version -d 'Print version'
 complete -c sway-things -n "__fish_sway_things_needs_command" -f -a "get" -d 'Show the value in effect and where it comes from; without a key, every stored setting'

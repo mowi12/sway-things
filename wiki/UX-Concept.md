@@ -495,12 +495,37 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   islands, …_). Nothing is dropped: every setting stays saved, and switching back brings it all back. The default stays
   _None_, so the user's own bar is never replaced unasked. The details say how the bar runs, in plain sentences: who
   starts Waybar. Without a line of the user's, Sway Things starts it with its own files when sway starts, and right away
-  the first time. If the user's sway config starts Waybar (an `exec` line, or `swaybar_command waybar` in a `bar`
-  block), the card shows the file and line and the line to put there instead, with _Copy_; for a Waybar that runs as a
-  systemd service (or that a line starts with `systemctl`), the drop-in to add. A line that runs a script naming waybar
-  may start it: the card says it can't tell, starts no second bar, and offers the line to use instead. Whether ours
-  runs, with _Reload waybar_, and what went wrong when it was last started. A `bar` block of the user's that starts
-  swaybar next to ours is a warning with its line. If Waybar isn't installed, the state line says to install it.
+  the first time. If the user's sway config starts Waybar (an `exec` line, or `swaybar_command waybar` in a `bar` block
+  that can't be taken over), the card says the user makes the change themselves, in numbered steps: a command for a
+  terminal, with _Copy_ and one sentence on what it does, that keeps a copy of the file (`.bak-sway-things`) and puts
+  `#` in front of that line or of the whole `bar { … }` block
+  (`cp FILE FILE.bak-sway-things && sed -i '12s/^/# /' FILE`, with the file's real path, links such as `~/.config/sway`
+  → `~/dotfiles/…` resolved), the command that takes it back (`sed -i '12s/^# //' FILE`), or the file opened at the line
+  (_Open in Editor_); then reload sway (_Reload Sway_, over IPC, or log in again for an `exec` line). Sway Things never
+  runs these commands. Once the change is read, the steps give way to what starts Waybar now and, until ours runs,
+  _Reload Sway_. For a Waybar that runs as a systemd service (or that a line starts with `systemctl`), the drop-in to
+  add. A line that runs a script naming waybar may start it: the card says it can't tell, starts no second bar, and
+  offers the line to use instead. Whether ours runs (with a check mark), with _Reload waybar_, which only works on a
+  Waybar of ours: insensitive otherwise, with the reason in a line below it (the user's own Waybar is never signaled),
+  and confirmed in a line once it ran. And what went wrong when it was last started. A `bar` block of the user's that
+  starts swaybar next to ours is a warning with its line. If Waybar isn't installed, the state line says to install it.
+- **Your own bar:** where the user's sway config starts their bar in a `bar { … }` block before our include, the card
+  says _Your bar: your own Waybar, started by your sway config. Sway Things can show its bar instead: your config and
+  your own Waybar config stay untouched, and you can switch back at any time._ with _Use Sway Things' Bar_ (the
+  suggested button then). It stores the IDs of their bars, reloads sway, which shows Sway Things' Waybar as their first
+  bar and nothing for the others. The banner says _Starting Sway Things' bar…_ until it runs, then asks _Keep this bar?
+  Switching back in 15 s_ (15 s from when it shows) with _Keep_ and _Switch Back_. Without _Keep_ it switches back by
+  itself; if Sway Things' Waybar ends, ends right after it started, or doesn't run 6 s after the reload, it switches
+  back at once and says why (_Sway Things' Waybar ended right after it started._, _… didn't start. Is waybar
+  installed?_), with what Waybar wrote under _What Waybar said_. While Sway Things' bar shows, _Switch Back to My Own
+  Bar_ is always there: it removes our lines and reloads, so their bar comes back exactly as before (_Your own bar is
+  back, exactly as your sway config sets it._). No editing of the config is needed; the numbered steps above remain only
+  for what can't be taken over (an `exec` line, a script, a unit, a block after our include).
+- **The user's files stay theirs** (hard rule 1): the takeover, the handover, the import and the preview of the user's
+  stylesheet only read the user's sway config, Waybar config, stylesheet and scripts (and anything under a dotfiles
+  folder they link to); they never write, move, rename or touch them. Sway Things writes only its own files:
+  `75-bar.conf`, its Waybar files, the launcher's log and its settings. Where a change in the user's own file is the
+  only way, the page gives the command and the user runs it.
 - **Import as Starting Point…**: shown while the user has a Waybar config of their own. It asks first, then the bar set
   up here becomes the user's (where it stands, the items, every item with all its options, the user's stylesheet read
   after ours with no look of ours under it), and says in a dialog what couldn't be taken over. The user's files are only
@@ -1147,12 +1172,19 @@ Built for the Bar page, planned with the Notifications and Power & Lock pages. W
 hand-written file that we may not write (e.g. `~/.config/waybar/config.jsonc`):
 
 ```text
-Your sway config starts waybar with its own config (~/.config/sway/config:334). To use the bar set up
-here, change that line to:
-  swaybar_command waybar -c ~/.config/sway-things/waybar/config.jsonc -s ~/.config/sway-things/waybar/style.css  [Copy]
-
-Your waybar config: ~/.config/waybar/config.jsonc        [Import as Starting Point…]
+⚠ Your sway config starts its own waybar (~/.config/sway/config:334), so the bar set up here doesn't show.
+  To change that, edit a line of that file; it is not a command for a terminal.
+    1. Open ~/.config/sway/config, your sway config, at line 334, inside bar { … }.  [Open in Editor]
+    2. Remove that whole bar { … } block (the one with swaybar_command waybar), or put # in front
+       of each of its lines.
+       Changing the swaybar_command line isn't enough: sway runs it without options, …
+    3. Save the file and reload sway: with the button, or with your reload shortcut.  [Reload Sway]
+waybar runs, but with another config.                                                 [Reload waybar] (insensitive)
+Nothing to reload yet: the waybar that runs has its own config, and Sway Things leaves it alone. …
+Your waybar config: ~/.config/waybar/config.jsonc                         [Import as Starting Point…]
 ```
+
+An `exec waybar` line gets _2. Replace exec waybar with this line:_ and the line with _Copy_ instead.
 
 Without a line of the user's that starts the tool, our include starts it with our files.
 
