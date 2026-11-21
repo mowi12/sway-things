@@ -298,6 +298,13 @@ pub enum ValueError {
     NotAThemeName,
     /// The text isn't a font description: empty, too long, or with a control character.
     NotAFont,
+    /// The text isn't a JSON object (empty stands for none).
+    NotAJsonObject,
+    /// The text isn't a name swaync takes for a widget: letters, digits, `_` and `-`, maybe with
+    /// `#` and a name for a second one of a kind.
+    NotAWidget,
+    /// The text has a control character or is too long for a notification daemon's config.
+    NotDaemonText,
 }
 
 impl ValueError {
@@ -347,6 +354,13 @@ impl ValueError {
             }
             Self::NotAFont => {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
+            }
+            Self::NotAJsonObject => msg!("must be a JSON object, or empty").into(),
+            Self::NotAWidget => {
+                msg!("must be a widget name like title or buttons-grid#quick").into()
+            }
+            Self::NotDaemonText => {
+                msg!("must be at most 255 characters, without line breaks").into()
             }
         }
     }

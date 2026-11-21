@@ -14,6 +14,7 @@ mod keyboard;
 mod layout_list;
 mod look;
 mod network;
+mod notifications;
 mod page_header;
 mod page_view;
 mod panes;

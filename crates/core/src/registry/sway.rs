@@ -118,7 +118,8 @@ pub enum ConfigFile {
     Appearance,
     /// `40-behavior.conf`
     Behavior,
-    /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`.
+    /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`, and
+    /// the notification daemon Sway Things starts.
     Hooks,
     /// `90-effects.conf`: SwayFX directives only, written only while SwayFX runs.
     Effects,

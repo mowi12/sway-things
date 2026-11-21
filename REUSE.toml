@@ -94,3 +94,10 @@ path = "ci/install/home_mowi12_sway-things.asc"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Sway Things contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# swaync's own default config, as swaync 0.12.6 ships it: the base of the config Sway Things writes for swaync.
+[[annotations]]
+path = "crates/core/src/notifications/swaync-config.json"
+precedence = "override"
+SPDX-FileCopyrightText = "2021 Erik Reider and the SwayNotificationCenter contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

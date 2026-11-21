@@ -1,0 +1,41 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-notifications 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-notifications \- Do Not Disturb, the notification daemon that runs, and a test notification
+.SH SYNOPSIS
+\fBsway\-things notifications\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Do Not Disturb, the notification daemon that runs, and a test notification
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH SUBCOMMANDS
+.TP
+sway\-things\-notifications\-dnd(1)
+Show whether Do Not Disturb is on, or switch it: for mako, swaync and dunst
+.TP
+sway\-things\-notifications\-status(1)
+Show which notification daemon runs and whether Do Not Disturb is on
+.TP
+sway\-things\-notifications\-test(1)
+Send a test notification through the daemon that runs
+.TP
+sway\-things\-notifications\-import\-swaync(1)
+Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn\*(Aqt changed

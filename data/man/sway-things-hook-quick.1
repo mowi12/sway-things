@@ -1,0 +1,64 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-quick 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-quick \- Switch Do Not Disturb, Wi\-Fi, Bluetooth, the sound or the microphone: run by the buttons of swaync\*(Aqs panel
+.SH SYNOPSIS
+\fBsway\-things hook quick\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIWHICH\fR> [\fIACTION\fR] 
+.SH DESCRIPTION
+Switch Do Not Disturb, Wi\-Fi, Bluetooth, the sound or the microphone: run by the buttons of swaync\*(Aqs panel
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+<\fIWHICH\fR>
+What to switch
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+dnd: Do Not Disturb of the notification daemon
+.IP \(bu 2
+wifi: Wi\-Fi (NetworkManager)
+.IP \(bu 2
+bluetooth: Bluetooth (the first adapter)
+.IP \(bu 2
+sound: The sound of the default output (on is not muted)
+.IP \(bu 2
+microphone: The default microphone (on is not muted)
+.RE
+.TP
+[\fIACTION\fR]
+on, off, toggle, or state to print true or false; without, the state swaync gives a toggle button, else toggle
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on: Switch it on
+.IP \(bu 2
+off: Switch it off
+.IP \(bu 2
+toggle: Switch it to the other state
+.IP \(bu 2
+state: Print true or false, for swaync\*(Aqs update\-command
+.RE

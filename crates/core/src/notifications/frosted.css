@@ -1,0 +1,390 @@
+/* SPDX-FileCopyrightText: 2026 Sway Things contributors
+   SPDX-License-Identifier: GPL-3.0-or-later
+
+   "Frosted glass", a style for swaync: dark, translucent cards with round corners, meant for
+   blur behind notifications on SwayFX. It goes on top of swaync's own style sheet, which swaync
+   always loads first; the colors and corners set on the Notifications page come after it. */
+:root {
+  --cc-bg: rgba(20, 20, 26, 0.32);
+  --noti-border-color: rgba(255, 255, 255, 0.07);
+  --noti-bg: 32, 32, 36;
+  --noti-bg-alpha: 0;
+  --noti-bg-darker: rgb(24, 24, 27);
+  --noti-bg-hover: rgba(255, 255, 255, 0.07);
+  --noti-bg-focus: transparent;
+  --noti-close-bg: rgba(255, 255, 255, 0.08);
+  --noti-close-bg-hover: rgba(255, 255, 255, 0.16);
+  --text-color: rgb(244, 244, 245);
+  --text-color-disabled: rgb(138, 138, 138);
+  --bg-selected: #b162d5;
+  --border-radius: 10px;
+  --font-size-body: 13px;
+  --font-size-summary: 14px;
+}
+
+* {
+  font-family: "Noto Sans", "MesloLGS NF", sans-serif;
+}
+
+.control-center * {
+  background-color: transparent;
+}
+
+@keyframes cc-slide-in {
+  from {
+    transform: translateX(440px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes cc-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(440px);
+    opacity: 0;
+  }
+}
+
+.control-center {
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  padding: 6px;
+  transition: border-color 150ms ease;
+}
+
+.control-center:hover {
+  border-color: #b162d5;
+}
+
+.control-center *:focus,
+.control-center *:focus-visible,
+.control-center *:focus-within {
+  outline: none;
+  box-shadow: none;
+}
+
+.widget-title > label {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.control-center .widget-title:not(.quick) {
+  margin: 10px 8px 0 8px;
+
+  padding: 12px 3px 0 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+}
+
+.control-center .widget-title > button,
+.control-center .close-button {
+  border-radius: 999px;
+}
+.control-center .widget-title > button {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.control-center .widget-title > button:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+.control-center .widget-buttons-grid {
+  margin: 4px 8px;
+  padding: 0;
+}
+.control-center .widget-buttons-grid flowbox {
+  padding: 0;
+}
+.control-center .widget-buttons-grid flowboxchild {
+  padding: 3px;
+  min-width: 0;
+}
+.control-center .widget-buttons-grid flowboxchild > button {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  min-width: 80px;
+  min-height: 0;
+  padding: 12px 10px;
+  color: #e8e8ed;
+  transition: background-color 150ms ease;
+}
+.control-center .widget-buttons-grid flowboxchild > button label {
+  font-family: "Noto Sans", "MesloLGS NF", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+.control-center .widget-buttons-grid flowboxchild > button:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.control-center .widget-buttons-grid flowboxchild > button.toggle:checked {
+  background-color: #b162d5;
+  border-color: #b162d5;
+  color: #ffffff;
+}
+.control-center .widget-buttons-grid flowboxchild > button.toggle:checked:hover {
+  background-color: #c07ae0;
+}
+
+.control-center .widget-menubar {
+  background: transparent;
+  margin: 0 8px;
+  padding: 0;
+}
+.control-center .widget-menubar > .menu-button-bar > .start,
+.control-center .widget-menubar > .menu-button-bar > .end {
+  margin: 0;
+}
+.control-center .widget-menubar > .menu-button-bar button {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-width: 370px;
+  min-height: 0;
+  margin: 0 3px;
+  padding: 7px 10px;
+  color: #a8a8b3;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    min-height 200ms ease,
+    padding 200ms ease,
+    opacity 150ms ease;
+}
+.control-center .widget-menubar > .menu-button-bar button label {
+  transition: font-size 200ms ease;
+}
+.control-center .widget-menubar > .menu-button-bar button:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #e8e8ed;
+}
+.control-center .widget-buttons-grid.more {
+  margin-top: 0;
+  transition: margin 200ms ease;
+}
+.control-center .widget-buttons-grid.more flowboxchild {
+  transition: padding 200ms ease;
+}
+.control-center .widget-buttons-grid.more flowboxchild > button {
+  transition:
+    min-height 200ms ease,
+    padding 200ms ease,
+    border-width 200ms ease,
+    opacity 150ms ease,
+    background-color 150ms ease;
+}
+.control-center .widget-buttons-grid.more flowboxchild > button label {
+  transition: font-size 200ms ease;
+}
+
+.control-center .widget-mpris {
+  background-color: transparent;
+  margin: 10px 8px 4px 8px;
+  padding: 8px 0 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+}
+.control-center .widget-mpris .widget-mpris-player {
+  margin: 0 3px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.control-center .widget-mpris .widget-mpris-player .mpris-overlay {
+  padding: 12px 14px;
+}
+
+.control-center .widget-mpris .widget-mpris-player .mpris-overlay > box > button {
+  background-color: rgba(255, 255, 255, 0.10);
+  border: none;
+  box-shadow: none;
+  border-radius: 999px;
+  min-width: 32px;
+  min-height: 32px;
+}
+.control-center .widget-mpris .widget-mpris-player .mpris-overlay > box > button:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.control-center .widget-mpris > box > button,
+.control-center .widget-mpris > box > button:hover,
+.control-center .widget-mpris > box > button:active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  min-width: 0;
+  padding: 0 6px;
+  margin: 0;
+}
+.control-center .widget-mpris > box > button image {
+  -gtk-icon-size: 20px;
+  color: rgba(232, 232, 237, 0.75);
+  transition: transform 150ms ease, color 150ms ease;
+}
+.control-center .widget-mpris > box > button:hover image {
+  color: #ffffff;
+  transform: scale(1.3);
+}
+.control-center .widget-mpris > box > button:active image {
+  transform: scale(1.1);
+}
+.control-center .widget-mpris > box > button:disabled {
+  opacity: 0;
+}
+
+.control-center .widget-notifications {
+  margin: 4px 8px 0 8px;
+  padding: 0;
+  border-radius: 0;
+}
+.control-center .control-center-list,
+.control-center scrolledwindow,
+.control-center viewport,
+.control-center animatedlist,
+.control-center animatedlistitem,
+.control-center list,
+.control-center row,
+.control-center .notification-group,
+.control-center .notification-row {
+  margin: 0;
+  padding: 0;
+}
+
+.notification-row .notification-background {
+  padding: 4px 8px;
+}
+.control-center .notification-row .notification-background {
+  padding: 4px 3px;
+}
+.notification-row .notification-background .notification .notification-default-action {
+  padding: 12px 14px;
+}
+.notification-row .notification-background .notification .notification-default-action .notification-content .text-box {
+  margin-left: 4px;
+}
+.notification-row .notification-background .notification .notification-alt-actions {
+  padding: 0 10px 10px 10px;
+}
+
+.notification-row .notification-background .notification {
+  background-color: rgba(255, 255, 255, 0.09);
+  border: none;
+  box-shadow: none;
+}
+
+.notification-group.collapsed .notification-row .notification {
+  background-color: rgba(255, 255, 255, 0.09);
+  border: none;
+  box-shadow: none;
+}
+.notification-group.collapsed .notification-row:not(:last-child) .notification {
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+}
+.notification-group.collapsed .notification-row:not(:last-child) .notification .notification-default-action,
+.notification-group.collapsed .notification-row:not(:last-child) .notification .notification-alt-actions {
+  opacity: 0;
+}
+
+.notification-row .notification-background .notification .notification-default-action,
+.notification-row .notification-background .notification .notification-default-action .notification-content {
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+.notification-row .notification-background .notification .notification-default-action:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.notification-row .notification-background .notification {
+  transition: box-shadow 150ms ease;
+}
+.notification-row:hover .notification-background .notification,
+.notification-group.collapsed .notification-row:hover .notification {
+  box-shadow: inset 0 0 0 2px #b162d5;
+}
+
+.notification-row .notification-background .notification.critical {
+  background-color: rgba(255, 59, 48, 0.18);
+}
+.notification-row .notification-background .notification .notification-action > button {
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.07);
+}
+.notification-row .notification-background .notification .notification-action > button:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+.notification-row .notification-background .close-button {
+  margin-top: 10px;
+  margin-right: 10px;
+}
+
+.notification-row
+  .notification-background
+  .notification
+  .notification-default-action
+  .notification-content
+  .text-box
+  .time {
+  margin-right: 0;
+  font-size: 12px;
+  font-weight: normal;
+  color: rgba(255, 255, 255, 0.5);
+  transition: opacity 150ms ease;
+}
+.notification-row:hover
+  .notification-background
+  .notification
+  .notification-default-action
+  .notification-content
+  .text-box
+  .time {
+  opacity: 0;
+}
+
+notificationwindow,
+notificationwindow.background {
+  background-color: transparent;
+}
+notificationwindow * {
+  background-color: transparent;
+}
+notificationwindow .notification-row .notification-background .notification,
+notificationwindow .notification-group.collapsed .notification-row .notification {
+  background-color: rgba(24, 24, 28, 0.55);
+}
+
+.control-center .control-center-list .notification {
+  box-shadow: none;
+}
+
+.control-center .notification-group .notification-group-headers .notification-group-header {
+  font-size: 13px;
+  font-weight: 700;
+}
+.control-center .notification-group .notification-group-headers .notification-group-icon {
+  -gtk-icon-size: 18px;
+}
+.control-center .notification-group .notification-group-buttons button,
+.control-center .notification-group .notification-group-close-button .close-button {
+  background-color: rgba(255, 255, 255, 0.08);
+  border: none;
+  box-shadow: none;
+  border-radius: 999px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+}
+.control-center .notification-group .notification-group-buttons button:hover,
+.control-center .notification-group .notification-group-close-button .close-button:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}

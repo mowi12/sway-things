@@ -757,3 +757,31 @@ fn with_kanshi_the_displays_get_no_output_lines() {
     // Everything else is generated as always.
     assert!(text(&files, ConfigFile::Appearance).contains("gaps inner 8"));
 }
+
+#[test]
+fn the_notification_daemon_chosen_starts_from_the_hooks_file() {
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"swaync\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Hooks),
+        format!("{HEADER}exec_always sway-things hook notification-daemon\n")
+    );
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"mako\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Hooks),
+        format!("{HEADER}exec_always sway-things hook notification-daemon\n")
+    );
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"none\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(text(&files, ConfigFile::Hooks), HEADER);
+}

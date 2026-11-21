@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-20 16:39+0100\n"
+"POT-Creation-Date: 2026-11-21 10:34+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -191,6 +191,20 @@ msgid "Collecting the system details…"
 msgstr ""
 
 #: crates/cli/src/lib.rs
+msgid "no home directory"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{file} can't be read: {error}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+#, rust-format
+msgid "{file} isn't a swaync config: {error}"
+msgstr ""
+
+#: crates/cli/src/lib.rs
 #, rust-format
 msgid ""
 "can't find {program}: install it next to sway-things or in PATH, or name it "
@@ -295,7 +309,7 @@ msgid "It takes effect when sway reloads its config (swaymsg reload)."
 msgstr ""
 
 #: crates/cli/src/lib.rs
-msgid "It takes effect when the tool behind it reloads its config."
+msgid "The tool behind it reads its config again now, or when it starts."
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -305,6 +319,64 @@ msgstr ""
 #: crates/cli/src/lib.rs
 #, rust-format
 msgid "Nothing was sent: it {requirement}."
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "no notification daemon runs"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "No notification daemon runs."
+msgstr ""
+
+#: crates/cli/src/notify.rs
+#, rust-format
+msgid "Daemon: {daemon}"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+#, rust-format
+msgid "Daemon: {daemon} {version}"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "not supported"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+#, rust-format
+msgid "Do Not Disturb: {state}"
+msgstr ""
+
+#: crates/cli/src/notify.rs crates/gui/src/widgets/notifications.rs
+msgid "This is how notifications look"
+msgstr ""
+
+#: crates/cli/src/notify.rs crates/gui/src/widgets/notifications.rs
+msgid "Change them on the Notifications page of Sway Things."
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "no session bus"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "no Bluetooth adapter"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid "no sound device"
+msgstr ""
+
+#: crates/cli/src/notify.rs
+msgid ""
+"the files of Sway Things for swaync aren't there, so swaync starts with its "
+"own config"
+msgstr ""
+
+#: crates/cli/src/notify.rs crates/gui/src/editor.rs
+#, rust-format
+msgid "{program} can't be started: {error}"
 msgstr ""
 
 #. TRANSLATORS: Where `sway-things get` found a value: a settings file, with
@@ -369,6 +441,14 @@ msgstr ""
 #. TRANSLATORS: The answers that mean yes to "Keep? [y/N]", separated by "|", in lowercase.
 #: crates/cli/src/prompt.rs
 msgid "y|yes"
+msgstr ""
+
+#: crates/core/src/apply/daemon.rs
+#, rust-format
+msgid ""
+"{running} runs and wasn't started by Sway Things, so it is left alone: quit "
+"it and remove what starts it (a line of your sway config or a systemd unit), "
+"then {chosen} starts with the next login"
 msgstr ""
 
 #: crates/core/src/apply/mod.rs
@@ -593,6 +673,124 @@ msgstr ""
 
 #: crates/core/src/devices/mod.rs
 msgid "this would turn off the last display that is on"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid "started by {file}:{line}"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid "started as the systemd unit {unit}"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs crates/gui/src/widgets/notifications.rs
+msgid "started by D-Bus activation or a program"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid "{daemon} shows the notifications, {origin}."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"No notification daemon runs yet; the bus starts {daemons} with the first "
+"notification."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs crates/gui/src/widgets/notifications.rs
+msgid "No notification daemon runs, and your sway config starts none."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+msgid ""
+"Choose one under Start with sway on the Notifications page, or add exec mako "
+"to your sway config."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid "{daemons} are all started; only the first to start shows notifications."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid "{file}:{line}: {text}"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+msgid "Remove the lines of all but one."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"{file} names the file of Sway Things in a way mako refuses, and with it the "
+"whole config: without blanks around =, and with a path that starts with / or "
+"~/."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"{file} doesn't exist, and mako runs with a config of its own or there is a "
+"system-wide one, so none is created; what is set on the Notifications page "
+"doesn't reach mako."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"{file} includes the file of Sway Things after a [section], where mako "
+"refuses it and with it the whole config."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"{file} doesn't include the file of Sway Things, so what is set on the "
+"Notifications page doesn't reach mako."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"{file} doesn't include the file of Sway Things, so neither Do Not Disturb "
+"nor what is set on the Notifications page reaches mako."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"Add {line} to it, after your own options and before the first [section]; "
+"then run makoctl reload."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+msgid ""
+"swaync runs with its own config, so what is set on the Notifications page "
+"doesn't reach it."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid "Start it with: swaync -c {config} -s {style}"
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+#, rust-format
+msgid ""
+"swaync runs with the config of Sway Things, so your own {file} isn't in "
+"effect."
+msgstr ""
+
+#: crates/core/src/doctor/daemon.rs
+msgid ""
+"Import it as a starting point: Import My swaync Config on the Notifications "
+"page, or sway-things notifications import-swaync."
 msgstr ""
 
 #. TRANSLATORS: A label of the system details: the running or installed sway.
@@ -1426,6 +1624,26 @@ msgstr ""
 msgid "NetworkManager isn't running"
 msgstr ""
 
+#: crates/core/src/notifications/bus.rs
+#, rust-format
+msgid "the notification daemon didn't answer: {error}"
+msgstr ""
+
+#: crates/core/src/notifications/bus.rs crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid "{daemon} has no Do Not Disturb that Sway Things can switch"
+msgstr ""
+
+#: crates/core/src/notifications/files.rs crates/core/src/outputs/kanshi.rs
+#, rust-format
+msgid "{file} wasn't written by Sway Things, so it is left alone"
+msgstr ""
+
+#: crates/core/src/notifications/files.rs
+#, rust-format
+msgid "{file} can't be written: {error}"
+msgstr ""
+
 #: crates/core/src/outputs/kanshi.rs
 #, rust-format
 msgid "Run: {command}"
@@ -1436,11 +1654,6 @@ msgstr ""
 msgid ""
 "Put the line {line} at the top of {file}, above your profiles, and take the "
 "line that includes it further down away."
-msgstr ""
-
-#: crates/core/src/outputs/kanshi.rs
-#, rust-format
-msgid "{file} wasn't written by Sway Things, so it is left alone"
 msgstr ""
 
 #: crates/core/src/outputs/kanshi.rs
@@ -1474,7 +1687,8 @@ msgstr ""
 msgid "Manual"
 msgstr ""
 
-#: crates/core/src/registry/app.rs data/io.github.mowi12.SwayThings.desktop.in
+#: crates/core/src/registry/app.rs crates/gui/src/widgets/notifications.rs
+#: data/io.github.mowi12.SwayThings.desktop.in
 #: data/io.github.mowi12.SwayThings.metainfo.xml.in
 msgid "Sway Things"
 msgstr ""
@@ -1508,6 +1722,7 @@ msgid "The color of switches, sliders and selections in this app"
 msgstr ""
 
 #: crates/core/src/registry/app.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/notifications.rs
 #: crates/core/src/registry/windows.rs
 msgid "theme"
 msgstr ""
@@ -1630,7 +1845,7 @@ msgstr ""
 msgid "over-amplification"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/notifications.rs
 msgid "volume"
 msgstr ""
 
@@ -1798,6 +2013,7 @@ msgid "No limit"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/notifications.rs
 msgid "Custom"
 msgstr ""
 
@@ -2007,6 +2223,7 @@ msgid "focus on window activation"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
 msgid "urgent"
 msgstr ""
 
@@ -2181,6 +2398,7 @@ msgid "tabs"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/notifications.rs
 msgid "stack"
 msgstr ""
 
@@ -2306,7 +2524,7 @@ msgstr ""
 msgid "hide"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
 msgid "timeout"
 msgstr ""
 
@@ -2370,8 +2588,8 @@ msgstr ""
 msgid "map to output"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/workspaces.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
 msgid "monitor"
 msgstr ""
 
@@ -2477,10 +2695,12 @@ msgid "Blurs what is behind transparent windows"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
 msgid "transparency"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
 msgid "frosted glass"
 msgstr ""
 
@@ -2524,7 +2744,7 @@ msgstr ""
 msgid "dither"
 msgstr ""
 
-#: crates/core/src/registry/effects.rs
+#: crates/core/src/registry/effects.rs crates/gui/src/widgets/notifications.rs
 msgid "Brightness"
 msgstr ""
 
@@ -2705,10 +2925,12 @@ msgstr ""
 msgid "Flat"
 msgstr ""
 
+#. TRANSLATORS: Sway Things starts no notification daemon itself.
 #. TRANSLATORS: The security of a Wi-Fi network: none.
 #. TRANSLATORS: No keys switch the layout.
 #: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
-#: crates/core/src/registry/output.rs crates/core/src/registry/windows.rs
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/network/mod.rs crates/gui/src/widgets/xkb_options.rs
 msgid "None"
@@ -3367,7 +3589,7 @@ msgstr ""
 msgid "Vertical BGR"
 msgstr ""
 
-#: crates/core/src/registry/look.rs
+#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
 msgid "Style"
 msgstr ""
 
@@ -3413,7 +3635,7 @@ msgstr ""
 msgid "gtk"
 msgstr ""
 
-#: crates/core/src/registry/look.rs
+#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
 msgid "look"
 msgstr ""
 
@@ -3425,7 +3647,7 @@ msgstr ""
 msgid "widgets"
 msgstr ""
 
-#: crates/core/src/registry/look.rs
+#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
 msgid "Icons"
 msgstr ""
 
@@ -3605,6 +3827,375 @@ msgstr ""
 msgid "lcd"
 msgstr ""
 
+#: crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/page_view.rs
+msgid "mako"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "SwayNotificationCenter"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "dunst"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Top right"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Top center"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Top left"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Bottom right"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Bottom center"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Bottom left"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/windows.rs
+msgid "Center"
+msgstr ""
+
+#. TRANSLATORS: The notification daemon's own colors.
+#: crates/core/src/registry/notifications.rs
+msgid "The daemon’s own"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Like the focused window"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "swaync’s own"
+msgstr ""
+
+#. TRANSLATORS: A look: translucent cards that let a blurred background through.
+#: crates/core/src/registry/notifications.rs
+msgid "Frosted glass"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "another effect than blur"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "blur without enable or disable"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Colors"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Daemon"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Start with sway"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Started from Sway Things’ include, while your config starts none"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "daemon"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "swaync"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "autostart"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Clicking a notification shows its app"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid ""
+"Brings the app’s window to the front; the app still opens the chat or mail "
+"itself"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "click"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/windows.rs
+msgid "focus"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "jump to app"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+msgid "Position"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Where on the display notifications show"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "corner"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "anchor"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "top"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "bottom"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+msgid "Display"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "The name of the display, like DP-1; empty for the focused one"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "The focused display"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/workspaces.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "output"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid ""
+"Like the focused window follows the Windows page, with its border as the "
+"accent"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "accent"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Background"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Text"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/windows.rs
+msgid "Border"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Blur behind notifications"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Shows through a blurred desktop where the background is see-through"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "layer effects"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Width"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Maximum height"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Shorter notifications shrink to fit"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Visible at once"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Older ones wait; -1 shows all"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Hide after"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "For notifications that don’t say; 0 keeps them"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "duration"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Hide critical ones after"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "0 keeps them until you close them"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Group by app"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "grouping"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Font"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Border width"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Rounded corners"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "corner radius"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "swaync: Notifications"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "0 keeps them"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Hide unimportant ones after"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "low"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Frosted glass looks best with blur behind notifications"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "css"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "swaync: Control center"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "panel"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "notification center"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Height"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Unless it fits the screen"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Widgets"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "What the panel shows, from the top"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "media"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "mpris"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "buttons"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/notifications.rs
+msgid "Buttons"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Quick switches in the panel’s button grid"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "quick settings"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "toggles"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "wi-fi"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Other options"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "Further options of swaync’s config.json, as JSON"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "json"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "advanced"
+msgstr ""
+
+#: crates/core/src/registry/notifications.rs
+msgid "scripts"
+msgstr ""
+
 #: crates/core/src/registry/output.rs
 msgid "90° clockwise"
 msgstr ""
@@ -3634,10 +4225,6 @@ msgid "Flipped, 90° counterclockwise"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
-msgid "Display"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
 msgid "Use this display"
 msgstr ""
 
@@ -3646,10 +4233,6 @@ msgid ""
 "A display that is off gives its workspaces and windows to the others. If no "
 "other display is on when sway starts or reloads, Sway Things switches it on "
 "again"
-msgstr ""
-
-#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
-msgid "screen"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -3712,10 +4295,6 @@ msgstr ""
 
 #: crates/core/src/registry/output.rs
 msgid "portrait"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
-msgid "Position"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -3820,11 +4399,12 @@ msgstr ""
 msgid "Displays"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/notifications.rs
 msgid "Sound"
 msgstr ""
 
 #: crates/core/src/registry/page.rs crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/notifications.rs
 msgid "Bluetooth"
 msgstr ""
 
@@ -3860,7 +4440,7 @@ msgstr ""
 msgid "Keyboard Shortcuts"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/notifications.rs
 msgid "Notifications"
 msgstr ""
 
@@ -4110,6 +4690,18 @@ msgid "must be a font and size like \"Adwaita Sans 11\", without line breaks"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
+msgid "must be a JSON object, or empty"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a widget name like title or buttons-grid#quick"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be at most 255 characters, without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
 msgid "boolean"
 msgstr ""
 
@@ -4150,10 +4742,6 @@ msgid "Focused window"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
-msgid "focus"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
 msgid "active"
 msgstr ""
 
@@ -4191,10 +4779,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Split indicator"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "Border"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -4309,10 +4893,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Outer gaps only with one window"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "Center"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -4781,11 +5361,6 @@ msgstr ""
 
 #: crates/gui/src/editor.rs
 #, rust-format
-msgid "{program} can't be started: {error}"
-msgstr ""
-
-#: crates/gui/src/editor.rs
-#, rust-format
 msgid "{program} ended with {status}"
 msgstr ""
 
@@ -4986,7 +5561,8 @@ msgstr ""
 msgid "More actions"
 msgstr ""
 
-#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
@@ -5545,7 +6121,8 @@ msgid "Copy Command"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs crates/gui/src/widgets/generated.rs
-#: crates/gui/src/widgets/page_view.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/welcome.rs
 msgid "Copied"
 msgstr ""
 
@@ -5827,6 +6404,7 @@ msgid "Open nm-connection-editor for VPNs, 802.1X networks and more"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
+#: crates/gui/src/widgets/notifications.rs
 msgid "Wi-Fi"
 msgstr ""
 
@@ -6181,6 +6759,156 @@ msgstr ""
 msgid "WPA Enterprise (802.1X)"
 msgstr ""
 
+#: crates/gui/src/widgets/notifications.rs
+msgid "Imported"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/page_view.rs
+msgid "Do Not Disturb"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Notifications wait silently until you switch it off"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Send Test Notification"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Notification daemon"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "No notification daemon runs"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid ""
+"mako only hides notifications with the include line below, or a [mode=do-not-"
+"disturb] section of your own"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "None runs"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "started by Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid "{daemon}, {origin}"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"{daemons} are all started, but only the first to start shows notifications. "
+"Remove the lines of all but one:"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Start with sway, below"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid ""
+"swaync runs with its own config. For these settings to reach it, start it "
+"like this instead, or choose it under Start with sway after removing the "
+"line that starts it:"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"swaync {version} is built with GTK 3: Frosted glass and Rounded corners need "
+"swaync 0.12 or newer, and only the colors reach it."
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"mako reads {file}, which doesn't exist, and Sway Things doesn't create it "
+"while mako runs with a config of its own or a system-wide one exists. For "
+"these settings and Do Not Disturb to reach mako, create it with this line, "
+"then run makoctl reload:"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"{file} names the file of Sway Things in a way mako refuses, and with it the "
+"whole config. Write the line like this, after your own options and before "
+"the first [section], then run makoctl reload:"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"For these settings and Do Not Disturb to reach mako, add this line to "
+"{file}, after your own options and before the first [section], then run "
+"makoctl reload:"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"The file of Sway Things lands in {target}, where the folder of mako's config "
+"points."
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid ""
+"No notification daemon runs, and none is installed. Install mako, for "
+"instance, then start it here."
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid "Start {daemon} with Sway"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+#, rust-format
+msgid ""
+"Start from your own swaync config: the options of {file} that the page has "
+"go to its settings, the others are kept as they are. Your file isn't changed."
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Import My swaync Config"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Move up"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Move down"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Title and Clear All"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Media player"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/sound/mod.rs
+msgid "Volume"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Apps that hold notifications back"
+msgstr ""
+
+#: crates/gui/src/widgets/notifications.rs
+msgid "Microphone"
+msgstr ""
+
 #: crates/gui/src/widgets/page_view.rs
 msgid "Reset page…"
 msgstr ""
@@ -6388,10 +7116,6 @@ msgid "Keep or revert the change of the other display first"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row.rs
-msgid "Font"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row.rs
 #, rust-format
 msgid "From {file}:{line}"
 msgstr ""
@@ -6513,10 +7237,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
 msgid "Mute input"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Volume"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs

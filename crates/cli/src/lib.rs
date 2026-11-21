@@ -9,6 +9,7 @@
 //! `sway-things`. Everything goes through the core, like in the app.
 
 mod doctor;
+mod notify;
 mod output;
 mod prompt;
 mod spinner;
@@ -46,6 +47,7 @@ use sway_things_core::sway_config::Disk;
 use sway_things_core::system::{self, Details};
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
+pub use notify::{NotificationsCommand, Quick, QuickAction, Switch};
 pub use prompt::{Prompt, Terminal};
 pub use spinner::Spinner;
 
@@ -140,13 +142,16 @@ pub enum Command {
         /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
         link: Option<String>,
     },
+    /// Do Not Disturb, the notification daemon that runs, and a test notification
+    #[command(subcommand)]
+    Notifications(NotificationsCommand),
     /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
 }
 
 /// A hook of `sway-things hook`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
@@ -162,6 +167,26 @@ pub enum Hook {
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
     /// the mirrors of other combinations: run by kanshi when it applied a profile
     Mirror,
+    /// Bring the window of a clicked notification's app to the front: run by swaync (as a
+    /// script, with the notification in its environment) and mako (with --mako) while the
+    /// Notifications page says so
+    NotificationClick {
+        /// The id of mako's notification; mako runs the hook with it
+        #[arg(long, value_name = "ID")]
+        mako: Option<u32>,
+    },
+    /// Start the notification daemon chosen on the Notifications page unless one runs: run at
+    /// every start and reload of sway while one is chosen
+    NotificationDaemon,
+    /// Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone: run by the buttons
+    /// of swaync's panel
+    Quick {
+        /// What to switch
+        which: Quick,
+        /// on, off, toggle, or state to print true or false; without, the state swaync gives a
+        /// toggle button, else toggle
+        action: Option<QuickAction>,
+    },
 }
 
 /// The binary of the app.
@@ -241,6 +266,70 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Hook(Hook::Displays) => return hook_displays(&mut err).await,
         Command::Hook(Hook::Workspaces) => return hook_workspaces(&mut err).await,
         Command::Hook(Hook::Mirror) => return hook_mirror(&mut err).await,
+        Command::Hook(Hook::NotificationClick { mako }) => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            // Only the sway of the session the daemon shows on, never one found elsewhere.
+            let same = match (
+                std::env::var_os("SWAYSOCK"),
+                std::env::var_os("XDG_RUNTIME_DIR"),
+            ) {
+                (Some(socket), Some(runtime)) => {
+                    sway_things_core::notifications::click::same_session(
+                        std::path::Path::new(&socket),
+                        std::path::Path::new(&runtime),
+                        std::env::var("WAYLAND_DISPLAY").ok().as_deref(),
+                    )
+                }
+                _ => false,
+            };
+            let mut client = if same {
+                Client::connect().await.ok()
+            } else {
+                None
+            };
+            return notify::notification_click(
+                bus.as_ref(),
+                client.as_mut(),
+                *mako,
+                &|name| std::env::var(name).ok(),
+                &mut err,
+            )
+            .await;
+        }
+        Command::Hook(Hook::NotificationDaemon) => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            return notify::notification_daemon(bus.as_ref(), &mut err).await;
+        }
+        Command::Hook(Hook::Quick { which, action }) => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            return notify::quick(
+                *which,
+                *action,
+                bus.as_ref(),
+                &|name| std::env::var(name).ok(),
+                &mut io::stdout().lock(),
+                &mut err,
+            )
+            .await;
+        }
+        Command::Notifications(command)
+            if !matches!(command, NotificationsCommand::ImportSwaync { .. }) =>
+        {
+            let bus = match sway_things_core::notifications::Notifications::session().await {
+                Ok(bus) => bus,
+                Err(error) => {
+                    let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+                    return Exit::Failure;
+                }
+            };
+            return notifications(command, &bus, &mut io::stdout().lock(), &mut err).await;
+        }
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -488,6 +577,30 @@ async fn hook_displays(err: &mut dyn Write) -> Exit {
 }
 
 /// kanshi's files for `doctor`, if kanshi is installed.
+/// What the doctor checks of the notification daemon: the one that runs on the session bus
+/// (asked without starting one), the files for it and the daemons installed. `None` without a
+/// session bus (at a TTY), where no daemon could run.
+async fn daemon_look() -> Option<sway_things_core::doctor::DaemonLook> {
+    use sway_things_core::notifications::{Daemon, Notifications, files::Files};
+    let files = Files::from_env()?;
+    let bus = Notifications::session().await.ok()?;
+    let server = bus.server().await.ok()?;
+    let running_config = server
+        .as_ref()
+        .and_then(|server| server.pid)
+        .and_then(sway_things_core::notifications::starts::config_arg);
+    Some(sway_things_core::doctor::DaemonLook {
+        files,
+        server,
+        activatable: sway_things_core::notifications::starts::activatable(),
+        running_config,
+        installed: Daemon::KNOWN
+            .into_iter()
+            .filter(|daemon| daemon.installed())
+            .collect(),
+    })
+}
+
 fn kanshi_files() -> Option<outputs::kanshi::KanshiFiles> {
     outputs::kanshi::KanshiFiles::from_env().filter(|_| outputs::kanshi::installed())
 }
@@ -687,6 +800,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         displays: generate::Displays::detect(&status, &locations)
             .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
         kanshi: kanshi_files(),
+        notifications: daemon_look().await,
         path: std::env::var_os("PATH"),
         gsettings: &Gio,
     };
@@ -727,9 +841,7 @@ pub async fn run<V: Validate>(
     // The doctor reports the problems of the settings files itself; `open` doesn't read them.
     if !matches!(
         command,
-        Command::Doctor(_)
-            | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+        Command::Doctor(_) | Command::Open { .. } | Command::Hook(_) | Command::Notifications(_)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -805,14 +917,126 @@ pub async fn run<V: Validate>(
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
-        Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+        Command::Hook(hook) => run_hook(hook, session, &mut io).await,
+        Command::Notifications(NotificationsCommand::ImportSwaync { file }) => {
+            import_swaync(session, file.as_deref(), &mut io).await
+        }
+        Command::Notifications(command) => {
+            match sway_things_core::notifications::Notifications::session().await {
+                Ok(bus) => notifications(command, &bus, io.out, io.err).await,
+                Err(error) => {
+                    io.error(error.text().translated());
+                    Exit::Failure
+                }
+            }
+        }
     }
+}
+
+/// `notifications dnd|status|test` against the daemon on `bus`.
+pub async fn notifications(
+    command: &NotificationsCommand,
+    bus: &sway_things_core::notifications::Notifications,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Exit {
+    match command {
+        NotificationsCommand::Dnd { state } => notify::dnd(bus, *state, out, err).await,
+        NotificationsCommand::Status => notify::status(bus, out, err).await,
+        NotificationsCommand::Test => notify::test(bus, err).await,
+        NotificationsCommand::ImportSwaync { .. } => Exit::Usage,
+    }
+}
+
+/// `notifications import-swaync [<file>]`: stores what a swaync config sets as the settings of
+/// the Notifications page, and the options without a setting as its other options.
+async fn import_swaync<V: Validate>(
+    session: &mut Session<V>,
+    file: Option<&std::path::Path>,
+    io: &mut Io<'_>,
+) -> Exit {
+    use sway_things_core::notifications::{files::Files, swaync};
+    use sway_things_core::registry::notifications::swaync::OTHER;
+    let path = if let Some(path) = file {
+        path.to_owned()
+    } else if let Some(files) = Files::from_env() {
+        files.swaync_user_config
+    } else {
+        io.error(tr(msg!("no home directory")));
+        return Exit::Failure;
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) => {
+            io.error(trf(
+                msg!("{file} can't be read: {error}"),
+                &[("file", &path.display()), ("error", &error)],
+            ));
+            return Exit::Failure;
+        }
+    };
+    let imported = match swaync::import(&text, &swaync::default_config()) {
+        Ok(imported) => imported,
+        Err(error) => {
+            io.error(trf(
+                msg!("{file} isn't a swaync config: {error}"),
+                &[("file", &path.display()), ("error", &error)],
+            ));
+            return Exit::Failure;
+        }
+    };
+    let Some(access) = write_access(session, io) else {
+        return Exit::ReadOnly;
+    };
+    let mut values = imported.values.clone();
+    values.push((OTHER, Value::Text(imported.other.clone())));
+    for (key, value) in values {
+        if let Err(error) = session.applier.set(key, None, value, &access).await {
+            io.error(error.text().translated());
+            return Exit::Failure;
+        }
+        io.out(key);
+    }
+    persist(session, false, &access, io).await
 }
 
 /// A hook in a session that runs already (as the tests do; for the user, `run_for_user` runs
 /// them without loading the settings).
-async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
+async fn run_hook<V: Validate>(hook: &Hook, session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
     match hook {
+        Hook::NotificationClick { mako } => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            notify::notification_click(
+                bus.as_ref(),
+                session.applier.client(),
+                *mako,
+                &|name| std::env::var(name).ok(),
+                io.err,
+            )
+            .await
+        }
+        Hook::NotificationDaemon => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            notify::notification_daemon(bus.as_ref(), io.err).await
+        }
+        Hook::Quick { which, action } => {
+            let bus = sway_things_core::notifications::Notifications::session()
+                .await
+                .ok();
+            notify::quick(
+                *which,
+                *action,
+                bus.as_ref(),
+                &|name| std::env::var(name).ok(),
+                io.out,
+                io.err,
+            )
+            .await
+        }
         Hook::Gsettings => hook_gsettings(session, io),
         Hook::Mirror => match (
             session.applier.profiles().cloned(),
@@ -961,6 +1185,7 @@ async fn doctor_in<V: Validate>(
         outputs: outputs.as_ref(),
         displays: applier.displays(),
         kanshi: applier.kanshi_files().cloned(),
+        notifications: None,
         path: None,
         gsettings: desktop.as_ref(),
     };
@@ -1386,6 +1611,10 @@ async fn persist<V: Validate>(
         Ok(persisted) => persisted,
         Err(error) => return fail(io, &error),
     };
+    // The files of the notification daemon are best effort: the settings are saved.
+    if let Some(problem) = session.applier.take_daemon_problem() {
+        io.warn(problem.translated());
+    }
     let mut exit = Exit::Ok;
     for (file, outcome) in persisted.problems() {
         match outcome {
@@ -1465,7 +1694,7 @@ fn effect_note(effect: &Effect) -> Option<String> {
         ),
         Effect::AfterToolReload => Some(
             tr(msg!(
-                "It takes effect when the tool behind it reloads its config."
+                "The tool behind it reads its config again now, or when it starts."
             ))
             .to_owned(),
         ),

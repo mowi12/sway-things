@@ -2389,3 +2389,71 @@ fn apps_look_and_feel_lives_in_gsettings_only() {
         Some(Value::Text("Noto Sans 10".to_owned()))
     );
 }
+
+#[test]
+fn the_files_of_the_notification_daemons_follow_the_settings() {
+    use crate::notifications::files::Files;
+    use crate::registry::notifications::{POSITION, swaync::TIMEOUT};
+    let mut setup = Setup::offline("version = 1\n");
+    let home = setup.dir.path().join("home");
+    let files = Files::new(Some(home.clone()), &home.join(".config"));
+    // mako has a config and swaync our (empty) file, so both are written whatever is installed.
+    fs::create_dir_all(files.mako_config.parent().unwrap()).unwrap();
+    fs::write(&files.mako_config, "font=x\n").unwrap();
+    fs::create_dir_all(files.swaync_config.parent().unwrap()).unwrap();
+    fs::write(&files.swaync_config, "").unwrap();
+    setup.applier.set_daemon_files(files.clone(), None);
+    let applied = setup
+        .set(POSITION, Value::Choice("bottom-left".to_owned()))
+        .unwrap();
+    assert_eq!(applied.effect, Effect::AfterToolReload);
+    setup.set(TIMEOUT, Value::Integer(3)).unwrap();
+    setup.persist(&[]);
+    assert!(setup.applier.take_daemon_problem().is_none());
+    let mako = fs::read_to_string(&files.mako_ours).unwrap();
+    assert!(mako.contains("\nanchor=bottom-left\n"), "{mako}");
+    let swaync = fs::read_to_string(&files.swaync_config).unwrap();
+    assert!(swaync.contains("\"timeout\": 3"), "{swaync}");
+    assert!(swaync.contains("\"positionX\": \"left\""), "{swaync}");
+    assert!(files.swaync_style.is_file());
+    // The user's mako config stays as it was.
+    assert_eq!(fs::read_to_string(&files.mako_config).unwrap(), "font=x\n");
+    // A file in our place that isn't ours is reported, not written.
+    fs::write(&files.mako_ours, "width=9\n").unwrap();
+    setup
+        .set(POSITION, Value::Choice("top-left".to_owned()))
+        .unwrap();
+    setup.persist(&[]);
+    assert!(setup.applier.take_daemon_problem().is_some());
+    assert_eq!(fs::read_to_string(&files.mako_ours).unwrap(), "width=9\n");
+}
+
+#[test]
+fn the_daemon_files_are_left_alone_until_the_page_asks_for_them() {
+    use crate::notifications::files::Files;
+    use crate::registry::notifications::{POSITION, START};
+    let mut setup = Setup::offline("version = 1\n");
+    let home = setup.dir.path().join("home");
+    let files = Files::new(Some(home.clone()), &home.join(".config"));
+    setup.applier.set_daemon_files(files.clone(), None);
+    // Another page's setting writes nothing for a notification daemon.
+    setup.set(GAPS, Value::Integer(4)).unwrap();
+    setup.persist(&[]);
+    assert!(!files.mako_ours.exists());
+    assert!(!files.mako_config.exists());
+    // A setting of the page writes ours while mako is installed, but creates no mako config of
+    // the user's.
+    setup
+        .set(POSITION, Value::Choice("top-left".to_owned()))
+        .unwrap();
+    setup.persist(&[]);
+    assert!(!files.mako_config.exists());
+    // Choosing mako creates it, with the include line only.
+    setup.set(START, Value::Choice("mako".to_owned())).unwrap();
+    setup.persist(&[]);
+    let config = fs::read_to_string(&files.mako_config).unwrap();
+    assert!(
+        config.ends_with("include=~/.config/mako/sway-things\n"),
+        "{config}"
+    );
+}

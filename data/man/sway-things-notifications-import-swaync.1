@@ -1,0 +1,31 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-notifications-import-swaync 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-notifications\-import\-swaync \- Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn\*(Aqt changed
+.SH SYNOPSIS
+\fBsway\-things notifications import\-swaync\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIFILE\fR] 
+.SH DESCRIPTION
+Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn\*(Aqt changed
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIFILE\fR]
+The config to read; by default ~/.config/swaync/config.json

@@ -276,10 +276,16 @@ swaybar via our sway include.
 
 ### Notifications
 
-- [ ] 🟢 Do Not Disturb toggle (`swaync-client -d`, `makoctl mode`)
-- [ ] 🟢 SwayFX: blur behind notifications (`layer_effects`)
-- **Maybe:** 🟡 choose the daemon (mako / swaync / dunst) · 🟡 position, timeout, max visible, width · 🟡 colors and
-  font synced with the window colors · 🟡 per-app rules
+- [x] 🟢 Do Not Disturb toggle (`swaync-client -d`, `makoctl mode`, `dunstctl set-paused`), also as
+      `sway-things notifications dnd`
+- [x] 🟢 SwayFX: blur behind notifications (`layer_effects`)
+- [x] 🟡 Which daemon runs and what starts it; start one from our include; two daemons reported; a test notification
+- [x] 🟡 Choose the daemon (mako / swaync / dunst) to start with sway
+- [x] 🟡 Position, timeout, max visible, width (mako and swaync; dunst not yet)
+- [x] 🟡 Colors synced with the window colors, or custom; font (mako)
+- [x] 🟡 swaync's panel: widgets, button grid, a frosted style preset; import of an existing swaync config
+- [x] 🟡 Clicking a notification shows its app
+- **Maybe:** 🟡 per-app rules · 🟡 dunst's look through a `dunstrc.d` drop-in
 
 ### Apps & Autostart
 
