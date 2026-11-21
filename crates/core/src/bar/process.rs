@@ -277,6 +277,26 @@ pub fn stop(files: &WaybarFiles) -> Result<usize, ProcessError> {
     signal(&ours(files), "TERM")
 }
 
+/// The version of the waybar that is installed, as `waybar --version` says it (`0.16.0`).
+/// Runs it: call it off the main loop.
+pub fn version() -> Option<String> {
+    let output = Command::new("waybar")
+        .arg("--version")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    version_in(&String::from_utf8_lossy(&output.stdout))
+}
+
+/// The version in what `waybar --version` printed: the word after `Waybar v`.
+fn version_in(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let (_, rest) = line.split_once("Waybar v")?;
+        rest.split_whitespace().next().map(str::to_owned)
+    })
+}
+
 /// What [`reload`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reloaded {
@@ -463,6 +483,15 @@ impl Drop for Lock {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_version_is_read_from_waybar_s_words() {
+        assert_eq!(
+            version_in("[2026-11-21] [info] no JOURNAL_STREAM\nWaybar v0.16.0\n").as_deref(),
+            Some("0.16.0")
+        );
+        assert_eq!(version_in("waybar: not found"), None);
+    }
 
     fn files() -> WaybarFiles {
         WaybarFiles {

@@ -96,14 +96,14 @@ impl Colors {
 }
 
 /// `color` as GTK 3 CSS, with `opacity` multiplied into its alpha.
-fn css_color(color: Color, opacity: f64) -> String {
+pub fn css_color(color: Color, opacity: f64) -> String {
     let [red, green, blue] = color.channels();
     let alpha = f64::from(color.alpha().unwrap_or(0xff)) / 255.0 * opacity.clamp(0.0, 1.0);
     format!("rgba({red}, {green}, {blue}, {alpha:.3})")
 }
 
 /// `text` as a CSS string in double quotes.
-fn css_string(text: &str) -> String {
+pub fn css_string(text: &str) -> String {
     let mut out = String::from("\"");
     for char in text.chars() {
         match char {
@@ -210,8 +210,19 @@ pub fn stylesheet(state: &State, sway: Option<&SwayConfig>) -> String {
         Value::Choice(id) => id,
         _ => String::new(),
     };
+    let font = match value(state, keys::FONT) {
+        Value::Text(font) => css_font(&font),
+        _ => None,
+    };
     let colors = match theme.as_str() {
-        "waybar" => return super::modules::WAYBAR_DEFAULT_STYLE.to_owned(),
+        "waybar" => {
+            // waybar's own look, with the font of the Bar page after it, so it wins.
+            let mut css = super::modules::WAYBAR_DEFAULT_STYLE.to_owned();
+            if let Some(font) = &font {
+                let _ = write!(css, "\n/* The font of the Bar page */\n{}", font_rule(font));
+            }
+            return css;
+        }
         "plain" => return String::new(),
         "sway" => Colors::sway(state, sway),
         _ => Colors::custom(state),
@@ -225,10 +236,6 @@ pub fn stylesheet(state: &State, sway: Option<&SwayConfig>) -> String {
         _ => 1.0,
     };
     let pills = matches!(value(state, keys::SHAPE), Value::Choice(id) if id == "pills");
-    let font = match value(state, keys::FONT) {
-        Value::Text(font) => css_font(&font),
-        _ => None,
-    };
     generated(&Look {
         colors,
         opacity,
@@ -256,6 +263,141 @@ pub struct Look {
     pub font: Option<CssFont>,
 }
 
+/// The declarations of `font`, one per line.
+fn font_declarations(font: &CssFont) -> String {
+    let mut css = String::new();
+    if !font.family.is_empty() {
+        let _ = writeln!(css, "    font-family: {};", css_string(&font.family));
+    }
+    if let Some((size, unit)) = font.size {
+        let _ = writeln!(css, "    font-size: {size}{unit};");
+    }
+    if let Some(weight) = font.weight {
+        let _ = writeln!(css, "    font-weight: {weight};");
+    }
+    if font.italic {
+        let _ = writeln!(css, "    font-style: italic;");
+    }
+    css
+}
+
+/// A rule that gives everything `font`.
+fn font_rule(font: &CssFont) -> String {
+    format!("* {{\n{}}}\n", font_declarations(font))
+}
+
+/// The size of the font `description` in pixels: `px` as it is, points at 96 dpi; `None`
+/// without a size.
+pub fn font_size_px(description: &str) -> Option<f64> {
+    let (size, unit) = css_font(description)?.size?;
+    Some(if unit == "px" { size } else { size * 4.0 / 3.0 })
+}
+
+/// The font `description` with its size set to `px` pixels, or without a size for `None`:
+/// `Noto Sans Bold 11` and 16 give `Noto Sans Bold 16px`.
+pub fn font_with_size(description: &str, px: Option<u32>) -> String {
+    let mut words: Vec<&str> = description.split_whitespace().collect();
+    if let Some(last) = words.last() {
+        let number = last.strip_suffix("px").unwrap_or(last);
+        if number
+            .parse::<f64>()
+            .is_ok_and(|size| size.is_finite() && size > 0.0)
+        {
+            words.pop();
+        }
+    }
+    let size = px.map(|px| format!("{px}px"));
+    if let Some(size) = &size {
+        words.push(size);
+    }
+    words.join(" ")
+}
+
+/// The look of the bar `state` sets, for a preview: the colors, shape and sizes of its
+/// stylesheet; waybar's own look in its colors, and none (only the user's stylesheet) in
+/// waybar's too, since nothing else can be known.
+pub fn preview(state: &State, sway: Option<&SwayConfig>) -> Look {
+    let theme = match value(state, keys::THEME) {
+        Value::Choice(id) => id,
+        _ => String::new(),
+    };
+    let integer = |key| match value(state, key) {
+        Value::Integer(number) => number,
+        _ => 0,
+    };
+    let font = match value(state, keys::FONT) {
+        Value::Text(font) => css_font(&font),
+        _ => None,
+    };
+    if theme == "waybar" || theme == "plain" {
+        // `window#waybar` and `#workspaces button.focused` in waybar's own `style.css`.
+        return Look {
+            colors: Colors {
+                background: keys::DEFAULT_BACKGROUND,
+                text: Color::rgb(0xff, 0xff, 0xff),
+                hover: Color::rgba(0, 0, 0, 0x33),
+                focused: Color::rgb(0x64, 0x72, 0x7d),
+                warning: Color::rgb(0xf0, 0x93, 0x2b),
+                critical: Color::rgb(0xf5, 0x3c, 0x3c),
+                urgent: Color::rgb(0xeb, 0x4d, 0x4b),
+            },
+            opacity: 0.5,
+            pills: false,
+            padding: 10,
+            radius: 0,
+            font,
+        };
+    }
+    let colors = if theme == "sway" {
+        Colors::sway(state, sway)
+    } else {
+        Colors::custom(state)
+    };
+    let opacity = match value(state, keys::OPACITY) {
+        Value::Decimal(opacity) => opacity,
+        _ => 1.0,
+    };
+    Look {
+        colors,
+        opacity,
+        pills: matches!(value(state, keys::SHAPE), Value::Choice(id) if id == "pills"),
+        padding: integer(keys::PADDING),
+        radius: integer(keys::RADIUS),
+        font,
+    }
+}
+
+/// `state` with preset `id` applied, as [`preset_values`] and [`PRESET_KEYS`] say: for its
+/// preview, and to tell whether it is the preset in use.
+pub fn with_preset(state: &State, id: &str) -> State {
+    let mut state = state.clone();
+    let values = preset_values(id);
+    for key in PRESET_KEYS {
+        // In memory only; the values a preset holds are checked by the tests.
+        let _ = match values.iter().find(|(preset_key, _)| preset_key == key) {
+            Some((_, value)) => state.set(key, None, value.clone(), None),
+            None => state.reset(key, None).map(|_| ()),
+        };
+    }
+    state
+}
+
+/// The preset whose values `state` has, if one has them all (blur aside where `swayfx` is
+/// false, since presets leave it be there).
+pub fn current_preset(state: &State, swayfx: bool) -> Option<&'static str> {
+    PRESETS
+        .iter()
+        .filter(|preset| swayfx || !preset.swayfx)
+        .find(|preset| {
+            let applied = with_preset(state, preset.id);
+            PRESET_KEYS
+                .iter()
+                .filter(|key| swayfx || **key != keys::BLUR)
+                .all(|key| value(&applied, key) == value(state, key))
+        })
+        .map(|preset| preset.id)
+}
+
 /// The rules of a generated stylesheet.
 pub fn generated(look: &Look) -> String {
     let Colors {
@@ -271,18 +413,7 @@ pub fn generated(look: &Look) -> String {
     let mut css = String::new();
     let _ = writeln!(css, "* {{\n    min-height: 0;");
     if let Some(font) = &look.font {
-        if !font.family.is_empty() {
-            let _ = writeln!(css, "    font-family: {};", css_string(&font.family));
-        }
-        if let Some((size, unit)) = font.size {
-            let _ = writeln!(css, "    font-size: {size}{unit};");
-        }
-        if let Some(weight) = font.weight {
-            let _ = writeln!(css, "    font-weight: {weight};");
-        }
-        if font.italic {
-            let _ = writeln!(css, "    font-style: italic;");
-        }
+        css.push_str(&font_declarations(font));
     }
     css.push_str("}\n\n");
     let modules =
@@ -347,7 +478,8 @@ pub fn generated(look: &Look) -> String {
     css
 }
 
-/// A preset of the page: values for several settings at once, stored as one change.
+/// A preset of the page: values for several style settings at once, stored as one change. A
+/// preset never changes which items the bar shows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Preset {
     /// Its id.
@@ -356,34 +488,150 @@ pub struct Preset {
     pub title: Msg,
     /// What it looks like, in a few words.
     pub description: Msg,
+    /// Whether it needs SwayFX (for the blur behind the bar).
+    pub swayfx: bool,
 }
 
-/// The presets of the page.
+/// The presets of the page, in the order the page shows them.
 pub const PRESETS: &[Preset] = &[
     Preset {
-        id: "glass",
-        title: msg!("Glass"),
-        description: msg!(
-            "Floating pills of dark glass on a transparent bar, blurred behind on SwayFX"
-        ),
+        id: "simple",
+        title: msg!("Simple"),
+        description: msg!("One calm dark bar"),
+        swayfx: false,
+    },
+    Preset {
+        id: "gnome",
+        title: msg!("GNOME-like"),
+        description: msg!("Black with white text, like GNOME's top bar"),
+        swayfx: false,
+    },
+    Preset {
+        id: "islands",
+        title: msg!("Floating islands"),
+        description: msg!("Rounded islands floating above your windows"),
+        swayfx: false,
+    },
+    Preset {
+        id: "minimal",
+        title: msg!("Minimal"),
+        description: msg!("Thin and quiet, the wallpaper shows through"),
+        swayfx: false,
+    },
+    Preset {
+        id: "contrast",
+        title: msg!("Large & high contrast"),
+        description: msg!("Big bold text, white on black"),
+        swayfx: false,
     },
     Preset {
         id: "sway",
-        title: msg!("Sway"),
+        title: msg!("Like your windows"),
         description: msg!("One bar in the colors of your windows"),
+        swayfx: false,
     },
     Preset {
         id: "waybar",
-        title: msg!("waybar"),
-        description: msg!("waybar's own look, as it ships"),
+        title: msg!("Classic Waybar"),
+        description: msg!("Waybar's own look, as it ships"),
+        swayfx: false,
+    },
+    Preset {
+        id: "glass",
+        title: msg!("Glass"),
+        description: msg!("Dark glass islands, blurred behind"),
+        swayfx: true,
     },
 ];
 
 /// The values preset `id` stores, by key. Settings it doesn't name are reset to their defaults
 /// by the caller, so a preset always looks the same.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the presets' values, read best as a list"
+)]
 pub fn preset_values(id: &str) -> Vec<(&'static str, Value)> {
     let choice = |id: &str| Value::Choice(id.to_owned());
+    let rgb = |red, green, blue| Value::Color(Color::rgb(red, green, blue));
+    let rgba = |red, green, blue, alpha| Value::Color(Color::rgba(red, green, blue, alpha));
     match id {
+        "simple" => vec![
+            (keys::THEME, choice("custom")),
+            (keys::SHAPE, choice("bar")),
+            (keys::HEIGHT, Value::Integer(30)),
+            (keys::PADDING, Value::Integer(10)),
+            (keys::BACKGROUND, rgb(0x1f, 0x23, 0x28)),
+            (keys::TEXT, rgb(0xe8, 0xe8, 0xe8)),
+            (keys::HOVER, rgba(0xff, 0xff, 0xff, 0x1f)),
+            (keys::FOCUSED, rgb(0x3a, 0x5f, 0x8a)),
+            (keys::WARNING, rgb(0xe5, 0xa5, 0x0a)),
+            (keys::CRITICAL, rgb(0xf6, 0x61, 0x51)),
+            (keys::URGENT, rgb(0xc0, 0x1c, 0x28)),
+        ],
+        "gnome" => vec![
+            (keys::THEME, choice("custom")),
+            (keys::SHAPE, choice("bar")),
+            (keys::HEIGHT, Value::Integer(32)),
+            (keys::PADDING, Value::Integer(12)),
+            (keys::RADIUS, Value::Integer(999)),
+            (keys::BACKGROUND, rgb(0, 0, 0)),
+            (keys::TEXT, rgb(0xff, 0xff, 0xff)),
+            (keys::HOVER, rgba(0xff, 0xff, 0xff, 0x26)),
+            (keys::FOCUSED, rgb(0x1a, 0x5f, 0xb4)),
+            (keys::WARNING, rgb(0xf8, 0xe4, 0x5c)),
+            (keys::CRITICAL, rgb(0xff, 0x7b, 0x63)),
+            (keys::URGENT, rgb(0xc0, 0x1c, 0x28)),
+        ],
+        "islands" => vec![
+            (keys::LAYER, choice("top")),
+            (keys::HEIGHT, Value::Integer(32)),
+            (keys::MARGIN_TOP, Value::Integer(6)),
+            (keys::MARGIN_LEFT, Value::Integer(8)),
+            (keys::MARGIN_RIGHT, Value::Integer(8)),
+            (keys::SPACING, Value::Integer(6)),
+            (keys::THEME, choice("custom")),
+            (keys::SHAPE, choice("pills")),
+            (keys::PADDING, Value::Integer(12)),
+            (keys::RADIUS, Value::Integer(999)),
+            (keys::OPACITY, Value::Decimal(0.9)),
+            (keys::BACKGROUND, rgb(0x1e, 0x1e, 0x2e)),
+            (keys::TEXT, rgb(0xcd, 0xd6, 0xf4)),
+            (keys::HOVER, rgba(0xff, 0xff, 0xff, 0x1a)),
+            (keys::FOCUSED, rgb(0x45, 0x47, 0x5a)),
+            (keys::WARNING, rgb(0xf9, 0xe2, 0xaf)),
+            (keys::CRITICAL, rgb(0xf3, 0x8b, 0xa8)),
+            (keys::URGENT, rgb(0xf3, 0x8b, 0xa8)),
+        ],
+        "minimal" => vec![
+            (keys::HEIGHT, Value::Integer(22)),
+            (keys::SPACING, Value::Integer(2)),
+            (keys::THEME, choice("custom")),
+            (keys::SHAPE, choice("bar")),
+            (keys::FONT, Value::Text("11px".to_owned())),
+            (keys::PADDING, Value::Integer(6)),
+            (keys::OPACITY, Value::Decimal(0.6)),
+            (keys::BACKGROUND, rgb(0, 0, 0)),
+            (keys::TEXT, rgb(0xff, 0xff, 0xff)),
+            (keys::HOVER, rgba(0xff, 0xff, 0xff, 0x1a)),
+            (keys::FOCUSED, rgb(0x40, 0x40, 0x40)),
+            (keys::WARNING, rgb(0xf8, 0xe4, 0x5c)),
+            (keys::CRITICAL, rgb(0xff, 0x7b, 0x63)),
+            (keys::URGENT, rgb(0xc0, 0x1c, 0x28)),
+        ],
+        "contrast" => vec![
+            (keys::HEIGHT, Value::Integer(44)),
+            (keys::THEME, choice("custom")),
+            (keys::SHAPE, choice("bar")),
+            (keys::FONT, Value::Text("Sans Bold 18px".to_owned())),
+            (keys::PADDING, Value::Integer(14)),
+            (keys::BACKGROUND, rgb(0, 0, 0)),
+            (keys::TEXT, rgb(0xff, 0xff, 0xff)),
+            (keys::HOVER, rgb(0x33, 0x33, 0x33)),
+            (keys::FOCUSED, rgb(0x1a, 0x5f, 0xb4)),
+            (keys::WARNING, rgb(0xff, 0xd7, 0x00)),
+            (keys::CRITICAL, rgb(0xff, 0x6e, 0x6e)),
+            (keys::URGENT, rgb(0xff, 0x6e, 0x6e)),
+        ],
         "glass" => vec![
             (keys::LAYER, choice("top")),
             (keys::HEIGHT, Value::Integer(30)),
@@ -397,13 +645,13 @@ pub fn preset_values(id: &str) -> Vec<(&'static str, Value)> {
             (keys::PADDING, Value::Integer(10)),
             (keys::RADIUS, Value::Integer(999)),
             (keys::OPACITY, Value::Decimal(0.45)),
-            (keys::BACKGROUND, Value::Color(Color::rgb(0x12, 0x12, 0x16))),
-            (keys::TEXT, Value::Color(Color::rgb(0xd4, 0xd4, 0xd8))),
-            (keys::HOVER, Value::Color(Color::rgba(0, 0, 0, 0x59))),
-            (keys::FOCUSED, Value::Color(Color::rgb(0xb1, 0x62, 0xd5))),
-            (keys::WARNING, Value::Color(Color::rgb(0xff, 0x9f, 0x1c))),
-            (keys::CRITICAL, Value::Color(Color::rgb(0xff, 0x3b, 0x30))),
-            (keys::URGENT, Value::Color(Color::rgb(0xff, 0x3b, 0x30))),
+            (keys::BACKGROUND, rgb(0x12, 0x12, 0x16)),
+            (keys::TEXT, rgb(0xd4, 0xd4, 0xd8)),
+            (keys::HOVER, rgba(0, 0, 0, 0x59)),
+            (keys::FOCUSED, rgb(0x7b, 0x3f, 0xa0)),
+            (keys::WARNING, rgb(0xff, 0x9f, 0x1c)),
+            (keys::CRITICAL, rgb(0xff, 0x3b, 0x30)),
+            (keys::URGENT, rgb(0xff, 0x3b, 0x30)),
             (keys::BLUR, Value::Bool(true)),
         ],
         "sway" => vec![(keys::THEME, choice("sway")), (keys::SHAPE, choice("bar"))],
@@ -499,6 +747,97 @@ mod tests {
             assert!(depth >= 0);
         }
         assert_eq!(depth, 0);
+    }
+
+    fn state(dir: &std::path::Path) -> State {
+        State::load(
+            Registry::builtin(),
+            crate::state::Paths::new(&dir.join("config"), &dir.join("state"), "host").unwrap(),
+        )
+    }
+
+    #[test]
+    fn font_sizes_are_read_and_set() {
+        assert_eq!(font_size_px("Noto Sans 12px"), Some(12.0));
+        assert_eq!(font_size_px("Noto Sans 12"), Some(16.0));
+        assert_eq!(font_size_px("Noto Sans"), None);
+        assert_eq!(
+            font_with_size("Noto Sans Bold 11", Some(16)),
+            "Noto Sans Bold 16px"
+        );
+        assert_eq!(font_with_size("", Some(13)), "13px");
+        assert_eq!(font_with_size("Mono 12px", None), "Mono");
+        assert_eq!(
+            css_font(&font_with_size("", Some(13))).unwrap().size,
+            Some((13.0, "px"))
+        );
+    }
+
+    #[test]
+    fn waybar_s_own_look_takes_the_font() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut state = state(dir.path());
+        assert_eq!(
+            stylesheet(&state, None),
+            super::super::modules::WAYBAR_DEFAULT_STYLE
+        );
+        state
+            .set(keys::FONT, None, Value::Text("Inter 15px".into()), None)
+            .unwrap();
+        let css = stylesheet(&state, None);
+        assert!(css.starts_with(super::super::modules::WAYBAR_DEFAULT_STYLE));
+        assert!(css.ends_with("* {\n    font-family: \"Inter\";\n    font-size: 15px;\n}\n"));
+    }
+
+    #[test]
+    fn a_preset_is_recognized_until_a_value_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = state(dir.path());
+        // The defaults are waybar's own look.
+        assert_eq!(current_preset(&state, false), Some("waybar"));
+        let mut islands = with_preset(&state, "islands");
+        assert_eq!(current_preset(&islands, false), Some("islands"));
+        assert!(preview(&islands, None).pills);
+        islands
+            .set(keys::RADIUS, None, Value::Integer(4), None)
+            .unwrap();
+        assert_eq!(current_preset(&islands, false), None);
+        // Glass needs SwayFX: on sway it isn't offered, and its blur isn't compared.
+        let glass = with_preset(&state, "glass");
+        assert_eq!(current_preset(&glass, true), Some("glass"));
+        assert_eq!(current_preset(&glass, false), None);
+        // Presets change the look, never the items.
+        for preset in PRESETS {
+            for (key, _) in preset_values(preset.id) {
+                assert!(!key.starts_with("bar.modules"), "{key}");
+            }
+        }
+    }
+
+    #[test]
+    fn presets_are_readable() {
+        use crate::theme::{Rgb, ratio};
+        let dir = tempfile::tempdir().unwrap();
+        let state = state(dir.path());
+        let rgb = |color: Color| {
+            let [red, green, blue] = color.channels();
+            Rgb::from_u8(red, green, blue)
+        };
+        for preset in PRESETS.iter().filter(|preset| preset.id != "waybar") {
+            let look = preview(&with_preset(&state, preset.id), None);
+            let text = rgb(look.colors.text);
+            for (name, fill) in [
+                ("background", look.colors.background),
+                ("focused", look.colors.focused),
+            ] {
+                let contrast = ratio(text, rgb(fill));
+                assert!(
+                    contrast >= 4.5,
+                    "{}: text on {name} is {contrast:.2}",
+                    preset.id
+                );
+            }
+        }
     }
 
     #[test]

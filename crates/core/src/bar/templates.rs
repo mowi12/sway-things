@@ -143,6 +143,24 @@ pub const TEMPLATES: &[Template] = &[
 ];
 
 impl Template {
+    /// The item picker's category of it.
+    pub fn category(&self) -> super::catalog::Category {
+        use super::catalog::Category;
+        match self.id {
+            "camera" => Category::Privacy,
+            "updates" | "battery-notify" | "system-load" => Category::System,
+            "vpn" => Category::NetworkAudio,
+            "power" | "notifications" => Category::Basics,
+            _ => Category::Custom,
+        }
+    }
+
+    /// Whether it may reach the network: the check for updates (`checkupdates` syncs a copy of
+    /// the package lists).
+    pub fn uses_network(&self) -> bool {
+        self.id == "updates"
+    }
+
     /// The name of its module, `custom/<id>`.
     pub fn module_name(&self) -> String {
         format!("custom/{}", self.id)

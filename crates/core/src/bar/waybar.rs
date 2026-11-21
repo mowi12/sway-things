@@ -84,6 +84,12 @@ pub fn config(state: &State, modules: &Modules) -> Value {
         "spacing".to_owned(),
         Value::from(integer(state, keys::SPACING)),
     );
+    // Shown while a key is held: waybar follows the bar config of that ID over sway's IPC
+    // (`75-bar.conf` makes it), which says when to show.
+    if super::hold_key(state).is_some() {
+        bar.insert("ipc".to_owned(), Value::from(true));
+        bar.insert("id".to_owned(), Value::from(crate::command::bar::WAYBAR_ID));
+    }
     let lists = lists(state);
     for (name, list) in ["modules-left", "modules-center", "modules-right"]
         .iter()
@@ -186,26 +192,28 @@ mod tests {
     }
 
     #[test]
-    fn the_default_bar_is_waybar_s_default_bar() {
+    fn a_fresh_bar_has_the_common_items_of_waybar_s_default_bar() {
         let dir = tempfile::tempdir().unwrap();
         let state = state(dir.path());
         let config = config(&state, &Modules::default());
         let default = jsonc::parse(super::super::modules::WAYBAR_DEFAULT_CONFIG).unwrap();
-        for key in [
-            "height",
-            "spacing",
-            "modules-left",
-            "modules-center",
-            "modules-right",
-        ] {
+        for key in ["height", "spacing"] {
             assert_eq!(config[key], default[key], "{key}");
         }
-        // Every module definition of the default config that the bar shows.
-        for (key, definition) in default.as_object().unwrap() {
-            if definition.is_object() && key != "niri/workspaces" {
-                assert_eq!(&config[key], definition, "{key}");
+        // A short bar of the common items, each with its definition of the default config.
+        assert_eq!(config["modules-left"], json!(keys::DEFAULT_LEFT));
+        assert_eq!(config["modules-center"], json!(keys::DEFAULT_CENTER));
+        assert_eq!(config["modules-right"], json!(keys::DEFAULT_RIGHT));
+        for name in keys::DEFAULT_LEFT
+            .iter()
+            .chain(keys::DEFAULT_CENTER)
+            .chain(keys::DEFAULT_RIGHT)
+        {
+            if let Some(definition) = default.get(*name) {
+                assert_eq!(&config[*name], definition, "{name}");
             }
         }
+        assert!(config.get("mpd").is_none(), "not shown, not written");
         assert_eq!(config["layer"], json!("bottom"));
         assert_eq!(config["position"], json!("top"));
         assert_eq!(config["exclusive"], json!(true));
@@ -214,6 +222,19 @@ mod tests {
             config.get("niri/workspaces").is_none(),
             "not shown, not written"
         );
+    }
+
+    #[test]
+    fn a_bar_shown_while_a_key_is_held_follows_sway_s_bar_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut state = state(dir.path());
+        assert!(config(&state, &Modules::default()).get("ipc").is_none());
+        state
+            .set(keys::VISIBILITY, None, Setting::Choice("hold".into()), None)
+            .unwrap();
+        let config = config(&state, &Modules::default());
+        assert_eq!(config["ipc"], json!(true));
+        assert_eq!(config["id"], json!("sway-things-waybar"));
     }
 
     #[test]

@@ -488,7 +488,30 @@ fn bar_lines(state: &State) -> Vec<Line> {
     use crate::registry::bar as keys;
     match Backend::of(state) {
         Backend::None => Vec::new(),
-        Backend::Waybar => vec![hook_line(command::Hook::Waybar, vec![keys::BACKEND])],
+        Backend::Waybar => {
+            let mut lines = vec![hook_line(command::Hook::Waybar, vec![keys::BACKEND])];
+            if let Some(key) = crate::bar::hold_key(state) {
+                for command in crate::command::bar::waybar_hold(key) {
+                    let source = Source {
+                        keys: vec![keys::VISIBILITY, keys::MODIFIER],
+                        device: None,
+                    };
+                    lines.push(match command.render(Target::Config) {
+                        Ok(text) => Line {
+                            text,
+                            source,
+                            skipped: None,
+                        },
+                        Err(error) => Line {
+                            text: format!("# {}: {error}", keys::VISIBILITY),
+                            source,
+                            skipped: Some(error.to_string()),
+                        },
+                    });
+                }
+            }
+            lines
+        }
         Backend::Swaybar => swaybar::lines(state, None)
             .into_iter()
             .map(|line| match line {

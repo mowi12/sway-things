@@ -27,7 +27,14 @@ pub enum Line {
 /// The lines that set up swaybar from `state`; `sway` is the user's sway config, for the colors
 /// of the windows when the style follows them.
 pub fn lines(state: &State, sway: Option<&SwayConfig>) -> Vec<Line> {
-    let mut lines = vec![Line::Command(keys::BACKEND, bar::mode(true))];
+    let mut lines = match super::hold_key(state) {
+        // `mode hide` lies over the windows while the key is held, and frees their space.
+        Some(key) => vec![
+            Line::Command(keys::VISIBILITY, bar::mode_hide()),
+            Line::Command(keys::MODIFIER, bar::modifier(key)),
+        ],
+        None => vec![Line::Command(keys::VISIBILITY, bar::mode(true))],
+    };
     match value(state, keys::POSITION) {
         Value::Choice(id) if id == "top" => {
             lines.push(Line::Command(keys::POSITION, bar::position(Position::Top)));

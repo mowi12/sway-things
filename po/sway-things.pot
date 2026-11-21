@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:04+0100\n"
+"POT-Creation-Date: 2026-11-26 22:06+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1246,6 +1246,27 @@ msgstr ""
 msgid "Size"
 msgstr ""
 
+#: crates/core/src/bar/catalog.rs
+msgid "Basics"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Sway"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
+#: crates/core/src/registry/page.rs crates/core/src/system.rs
+msgid "System"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Network & Audio"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
+msgid "Media"
+msgstr ""
+
 #: crates/core/src/bar/import.rs
 #, rust-format
 msgid "Can't read {path}: {error}"
@@ -1352,28 +1373,67 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/bar/style.rs
-msgid "Glass"
+msgid "Simple"
 msgstr ""
 
 #: crates/core/src/bar/style.rs
-msgid ""
-"Floating pills of dark glass on a transparent bar, blurred behind on SwayFX"
+msgid "One calm dark bar"
 msgstr ""
 
 #: crates/core/src/bar/style.rs
-msgid "Sway"
+msgid "GNOME-like"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Black with white text, like GNOME's top bar"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Floating islands"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Rounded islands floating above your windows"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Minimal"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Thin and quiet, the wallpaper shows through"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Large & high contrast"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Big bold text, white on black"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Like your windows"
 msgstr ""
 
 #: crates/core/src/bar/style.rs
 msgid "One bar in the colors of your windows"
 msgstr ""
 
-#: crates/core/src/bar/style.rs crates/core/src/registry/bar.rs
-msgid "waybar"
+#: crates/core/src/bar/style.rs
+msgid "Classic Waybar"
 msgstr ""
 
 #: crates/core/src/bar/style.rs
-msgid "waybar's own look, as it ships"
+msgid "Waybar's own look, as it ships"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Glass"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Dark glass islands, blurred behind"
 msgstr ""
 
 #: crates/core/src/bar/templates.rs
@@ -1485,15 +1545,6 @@ msgstr ""
 
 #: crates/core/src/bindings/command.rs crates/gui/src/widgets/sound/mod.rs
 msgid "Apps"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Media"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs crates/core/src/registry/page.rs
-#: crates/core/src/system.rs
-msgid "System"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
@@ -1755,17 +1806,18 @@ msgstr ""
 msgid "Super"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/behavior.rs
-#: crates/gui/src/widgets/xkb_options.rs
+#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/behavior.rs crates/gui/src/widgets/xkb_options.rs
 msgid "Ctrl"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/behavior.rs
-#: crates/core/src/registry/shortcuts.rs
+#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/shortcuts.rs
 msgid "Alt"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/behavior.rs
 msgid "Shift"
 msgstr ""
 
@@ -4616,11 +4668,27 @@ msgid "disable autostart"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Not set up here"
+msgid "None: keep your own bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Waybar"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "swaybar (built into sway)"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "Always"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "While a key is held"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/shortcuts.rs
+msgid "Super (the logo key)"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4644,7 +4712,15 @@ msgid "Above everything, also fullscreen"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "waybar's own"
+msgid "Waybar's own look"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Same as your windows"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Your own colors"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4652,19 +4728,15 @@ msgid "None: only your own stylesheet"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Sway's window colors"
+msgid "Connected bar"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Your colors"
+msgid "Islands"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
-msgid "One bar"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "A pill per module"
+#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
+msgid "Bar"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/workspaces.rs
@@ -4672,9 +4744,14 @@ msgstr ""
 msgid "Placement"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
-#: crates/core/src/registry/notifications.rs
-msgid "Style"
+#: crates/core/src/registry/bar.rs
+msgid "Look"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/wallpaper/mod.rs
+msgid "Colors"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
@@ -4690,12 +4767,16 @@ msgstr ""
 msgid "floating"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/layout.rs
-msgid "Modules"
+#: crates/core/src/registry/bar.rs
+msgid "Items"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "module"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "item"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/output.rs
@@ -4750,8 +4831,8 @@ msgstr ""
 msgid "custom"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
-msgid "Bar"
+#: crates/core/src/registry/bar.rs
+msgid "script"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4760,8 +4841,12 @@ msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid ""
-"waybar gets a config and stylesheet of its own from Sway Things; yours stay "
+"Waybar gets a config and stylesheet of its own from Sway Things; yours stay "
 "as they are. swaybar is set up in Sway Things' sway include"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "waybar"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4805,12 +4890,55 @@ msgstr ""
 msgid "vertical"
 msgstr ""
 
+#: crates/core/src/registry/bar.rs
+msgid "Show the bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"While a key is held, the bar lies over the windows and leaves them the whole "
+"screen otherwise"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/cursor.rs
+msgid "hide"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "auto-hide"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "autohide"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "visibility"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "modifier"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Key that shows it"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/input.rs
+#: crates/core/src/registry/shortcuts.rs
+msgid "super"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/input.rs
+msgid "alt"
+msgstr ""
+
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
 msgid "Height"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "0 fits the bar to its modules"
+msgid "0 fits the bar to its items"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
@@ -4826,30 +4954,9 @@ msgstr ""
 msgid "width"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
-#: crates/gui/src/widgets/wallpaper/preview.rs
-msgid "Displays"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "The displays that show the bar; none picked means all"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
-#: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
-#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
-msgid "monitor"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
-#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/shortcuts.rs crates/core/src/registry/workspaces.rs
-msgid "screen"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
-#: crates/core/src/registry/notifications.rs
-msgid "output"
+#: crates/core/src/registry/bar.rs crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/look.rs
+msgid "bigger"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4872,59 +4979,15 @@ msgstr ""
 msgid "on top"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
-msgid "Reserve space"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Windows stay clear of the bar; off, the bar lies over them"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "exclusive zone"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "overlap"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Margin above"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Margin right"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Margin below"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Margin left"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Space between modules"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
-msgid "spacing"
-msgstr ""
-
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
 #: crates/core/src/registry/windows.rs crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Center"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Look"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
 msgid ""
-"waybar's own stylesheet, or one Sway Things writes from the settings below, "
-"in the colors of your windows or your own"
+"Waybar's own look, the colors of your windows, or colors of your own; the "
+"rows below apply to the last two"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
@@ -4943,12 +5006,18 @@ msgstr ""
 msgid "colors"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
-msgid "Shape"
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/notifications.rs
+msgid "look"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/notifications.rs
+msgid "Style"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "A pill per module leaves the bar itself transparent"
+msgid "Islands leave the bar itself transparent"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -4959,54 +5028,16 @@ msgstr ""
 msgid "island"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Font"
+#: crates/core/src/registry/bar.rs
+msgid "shape"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "The default font"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
-msgid "font size"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
-#: crates/core/src/registry/windows.rs
-msgid "typeface"
+msgid "Opacity"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Padding"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Room left and right inside each module"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "room"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
-msgid "Rounded corners"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "radius"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "round"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Background opacity"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Below 1 the background is transparent"
+msgid "Below 1 your wallpaper shows through"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
@@ -5023,6 +5054,77 @@ msgid "alpha"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "Rounded corners"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "radius"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "round"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Room inside items"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Left and right of each item's text"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "padding"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "spacing"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "room"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Font"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Also with waybar's own look; the size buttons above set its size"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "The default font"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+msgid "font size"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/windows.rs
+msgid "typeface"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "text size"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Blur behind the bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Blurs what shows through a transparent background, not between islands"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
+msgid "frosted glass"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
 #: crates/core/src/registry/wallpaper.rs
 msgid "Background"
 msgstr ""
@@ -5033,6 +5135,10 @@ msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "foreground"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "contrast"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -5071,12 +5177,80 @@ msgstr ""
 msgid "Urgent workspace"
 msgstr ""
 
+#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
+#: crates/gui/src/widgets/wallpaper/preview.rs
+msgid "Displays"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "The displays that show the bar; none picked means all"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
+msgid "monitor"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/shortcuts.rs crates/core/src/registry/workspaces.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/notifications.rs
+msgid "output"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Reserve space"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Windows stay clear of the bar; off, the bar lies over them"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "exclusive zone"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "overlap"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin above"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin right"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin below"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin left"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Space between items"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Advanced"
+msgstr ""
+
 #: crates/core/src/registry/bar.rs
 msgid "Your own stylesheet"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Read after Sway Things' style, so its rules win; it stays yours"
+msgid ""
+"A CSS file read after Sway Things' style, so its rules win; it stays yours "
+"and isn't checked"
 msgstr ""
 
 #. TRANSLATORS: Sway Things starts no notification daemon itself.
@@ -5101,25 +5275,12 @@ msgid "import"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Blur behind the bar"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "Blurs what shows through a transparent background, not between pills"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
-#: crates/core/src/registry/notifications.rs
-msgid "frosted glass"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
 msgid "Status command"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid ""
-"Its output is the text at the right end of swaybar; sway runs it with sh"
+"swaybar only: its output is the text at the right end; sway runs it with sh"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -6025,19 +6186,11 @@ msgid "large cursor"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs crates/core/src/registry/look.rs
-msgid "bigger"
-msgstr ""
-
-#: crates/core/src/registry/cursor.rs crates/core/src/registry/look.rs
 msgid "accessibility"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs
 msgid "Hides the cursor while the mouse doesn't move"
-msgstr ""
-
-#: crates/core/src/registry/cursor.rs
-msgid "hide"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
@@ -7193,14 +7346,6 @@ msgid "compose"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
-msgid "alt"
-msgstr ""
-
-#: crates/core/src/registry/input.rs crates/core/src/registry/shortcuts.rs
-msgid "super"
-msgstr ""
-
-#: crates/core/src/registry/input.rs
 msgid "switch layout"
 msgstr ""
 
@@ -7392,10 +7537,6 @@ msgstr ""
 
 #: crates/core/src/registry/look.rs
 msgid "gtk"
-msgstr ""
-
-#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
-msgid "look"
 msgstr ""
 
 #: crates/core/src/registry/look.rs
@@ -7804,12 +7945,6 @@ msgstr ""
 
 #: crates/core/src/registry/notifications.rs
 msgid "blur without enable or disable"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-#: crates/gui/src/widgets/printers/scan.rs
-#: crates/gui/src/widgets/wallpaper/mod.rs
-msgid "Colors"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
@@ -8596,10 +8731,6 @@ msgid "K"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "Super (the logo key)"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid "Media keys"
 msgstr ""
 
@@ -9303,10 +9434,6 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
-msgid "Always"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
 msgid "Only with more than one window"
 msgstr ""
 
@@ -9391,10 +9518,6 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
-msgid "padding"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
 msgid "screen edge"
 msgstr ""
 
@@ -9416,10 +9539,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Font family and size, e.g. \"monospace 10\""
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "text size"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -10525,6 +10644,10 @@ msgstr ""
 #: crates/gui/src/widgets/bar/layout.rs
 #, rust-format
 msgid "{module}, {position} of {count}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/layout.rs
+msgid "Modules"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/layout.rs

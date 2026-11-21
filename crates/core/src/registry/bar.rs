@@ -5,9 +5,10 @@
 //!
 //! Only the blur behind waybar has a sway directive of its own (`layer_effects`, SwayFX). The
 //! others become waybar's config and stylesheet, which Sway Things writes to its own directory
-//! (handover, see [`crate::bar`]), or the `bar` lines of swaybar in `75-bar.conf`. The defaults
-//! are waybar's own default bar: the modules and layout of the `config.jsonc` waybar ships
-//! (0.16), and waybar's built-in values where that file sets nothing.
+//! (handover, see [`crate::bar`]), or the `bar` lines of swaybar in `75-bar.conf`. A fresh bar
+//! has the common items (workspaces, window title, volume, network, battery, clock, tray) with
+//! their definitions and layout from the `config.jsonc` waybar ships (0.16), and waybar's
+//! built-in values where that file sets nothing.
 
 use super::read::{self, ReadError};
 use super::{Apply, Choice, ConfigFile, Directive, Font, Page, Scope, Setting, Value, When};
@@ -22,6 +23,10 @@ pub const BACKEND: &str = "bar.backend";
 pub const POSITION: &str = "bar.position";
 /// The key of the height.
 pub const HEIGHT: &str = "bar.height";
+/// The key of when the bar shows: always, or while a key is held.
+pub const VISIBILITY: &str = "bar.visibility";
+/// The key of the key that shows the bar while held.
+pub const MODIFIER: &str = "bar.modifier";
 /// The key of the displays that show the bar.
 pub const OUTPUTS: &str = "bar.outputs";
 /// The key of the layer.
@@ -83,9 +88,23 @@ pub const WAYBAR_NAMESPACE: &str = "waybar";
 
 /// The bar programs.
 pub const BACKENDS: &[Choice] = &[
-    Choice::new("none", msg!("Not set up here")),
-    Choice::new("waybar", msg!("waybar")),
+    Choice::new("none", msg!("None: keep your own bar")),
+    Choice::new("waybar", msg!("Waybar")),
     Choice::new("swaybar", msg!("swaybar (built into sway)")),
+];
+
+/// When the bar shows.
+pub const VISIBILITIES: &[Choice] = &[
+    Choice::new("always", msg!("Always")),
+    Choice::new("hold", msg!("While a key is held")),
+];
+
+/// The keys that can show the bar while held, by sway's names.
+pub const MODIFIERS: &[Choice] = &[
+    Choice::new("Mod4", msg!("Super (the logo key)")),
+    Choice::new("Mod1", msg!("Alt")),
+    Choice::new("Control", msg!("Ctrl")),
+    Choice::new("Shift", msg!("Shift")),
 ];
 
 /// The edges a bar stands at.
@@ -105,46 +124,25 @@ pub const LAYERS: &[Choice] = &[
 
 /// The looks a style starts from.
 pub const THEMES: &[Choice] = &[
-    Choice::new("waybar", msg!("waybar's own")),
+    Choice::new("waybar", msg!("Waybar's own look")),
+    Choice::new("sway", msg!("Same as your windows")),
+    Choice::new("custom", msg!("Your own colors")),
     Choice::new("plain", msg!("None: only your own stylesheet")),
-    Choice::new("sway", msg!("Sway's window colors")),
-    Choice::new("custom", msg!("Your colors")),
 ];
 
 /// The shapes of a generated style.
 pub const SHAPES: &[Choice] = &[
-    Choice::new("bar", msg!("One bar")),
-    Choice::new("pills", msg!("A pill per module")),
+    Choice::new("bar", msg!("Connected bar")),
+    Choice::new("pills", msg!("Islands")),
 ];
 
-/// The modules on the left in waybar's default config.
-pub const DEFAULT_LEFT: &[&str] = &[
-    "sway/workspaces",
-    "sway/mode",
-    "sway/scratchpad",
-    "custom/media",
-];
-/// The modules in the center in waybar's default config.
+/// The items on the left of a fresh bar: the workspaces and the binding mode.
+pub const DEFAULT_LEFT: &[&str] = &["sway/workspaces", "sway/mode"];
+/// The item in the center of a fresh bar: the window title.
 pub const DEFAULT_CENTER: &[&str] = &["sway/window"];
-/// The modules on the right in waybar's default config.
-pub const DEFAULT_RIGHT: &[&str] = &[
-    "mpd",
-    "idle_inhibitor",
-    "pulseaudio",
-    "network",
-    "power-profiles-daemon",
-    "cpu",
-    "memory",
-    "temperature",
-    "backlight",
-    "keyboard-state",
-    "sway/language",
-    "battery",
-    "battery#bat2",
-    "clock",
-    "tray",
-    "custom/power",
-];
+/// The items on the right of a fresh bar: what most people look at, the tray at the end. The
+/// battery shows only where there is one.
+pub const DEFAULT_RIGHT: &[&str] = &["pulseaudio", "network", "battery", "clock", "tray"];
 
 /// The longest a module name, a font or a path may be.
 const MAX_LENGTH: usize = 512;
@@ -197,6 +195,13 @@ fn read_blur(args: &[String]) -> Result<Value, ReadError> {
     Ok(Value::Bool(read::boolean(read::first(args)?, true)))
 }
 
+fn bar_section(setting: super::SettingBuilder) -> super::SettingBuilder {
+    setting
+        .section(msg!("Bar"))
+        .apply(Apply::ToolReload)
+        .depends_on(BACKEND, When::NoneOf(&["none"]))
+}
+
 fn placement(setting: super::SettingBuilder) -> super::SettingBuilder {
     setting
         .section(msg!("Placement"))
@@ -213,14 +218,14 @@ fn waybar_only(setting: super::SettingBuilder, section: super::Msg) -> super::Se
 
 fn style(setting: super::SettingBuilder) -> super::SettingBuilder {
     setting
-        .section(msg!("Style"))
+        .section(msg!("Look"))
         .apply(Apply::ToolReload)
         .depends_on(THEME, When::NoneOf(&["waybar", "plain"]))
 }
 
 fn color(setting: super::SettingBuilder) -> super::SettingBuilder {
     setting
-        .section(msg!("Style"))
+        .section(msg!("Colors"))
         .apply(Apply::ToolReload)
         .depends_on(THEME, When::OneOf(&["custom"]))
 }
@@ -238,11 +243,12 @@ fn margin(key: &'static str, title: super::Msg) -> Setting {
 }
 
 fn modules(key: &'static str, default: &'static [&'static str], title: super::Msg) -> Setting {
-    waybar_only(Setting::list(key, Page::Bar, default), msg!("Modules"))
+    waybar_only(Setting::list(key, Page::Bar, default), msg!("Items"))
         .title(title)
         .check_text(check_module)
         .keywords(&[
             msg!("module"),
+            msg!("item"),
             msg!("layout"),
             msg!("clock"),
             msg!("battery"),
@@ -257,6 +263,7 @@ fn modules(key: &'static str, default: &'static [&'static str], title: super::Ms
             msg!("bluetooth"),
             msg!("workspaces"),
             msg!("custom"),
+            msg!("script"),
         ])
         .build()
 }
@@ -272,7 +279,7 @@ pub(super) fn settings() -> Vec<Setting> {
             .section(msg!("Bar"))
             .title(msg!("Bar program"))
             .subtitle(msg!(
-                "waybar gets a config and stylesheet of its own from Sway Things; yours stay as \
+                "Waybar gets a config and stylesheet of its own from Sway Things; yours stay as \
                  they are. swaybar is set up in Sway Things' sway include"
             ))
             .apply(Apply::ToolReload)
@@ -284,30 +291,52 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("taskbar"),
             ])
             .build(),
-        placement(Setting::choice(POSITION, Page::Bar, "top", POSITIONS))
+        bar_section(Setting::choice(POSITION, Page::Bar, "top", POSITIONS))
             .title(msg!("Position"))
             .subtitle(msg!("swaybar stands only at the top or the bottom"))
             .keywords(&[msg!("edge"), msg!("top"), msg!("bottom"), msg!("vertical")])
             .build(),
-        placement(Setting::integer(HEIGHT, Page::Bar, 30, 0, 500))
+        bar_section(Setting::choice(
+            VISIBILITY,
+            Page::Bar,
+            "always",
+            VISIBILITIES,
+        ))
+        .title(msg!("Show the bar"))
+        .subtitle(msg!(
+            "While a key is held, the bar lies over the windows and leaves them the whole screen \
+             otherwise"
+        ))
+        .keywords(&[
+            msg!("hide"),
+            msg!("auto-hide"),
+            msg!("autohide"),
+            msg!("visibility"),
+            msg!("modifier"),
+        ])
+        .build(),
+        Setting::choice(MODIFIER, Page::Bar, "Mod4", MODIFIERS)
+            .section(msg!("Bar"))
+            .title(msg!("Key that shows it"))
+            .apply(Apply::ToolReload)
+            .depends_on(VISIBILITY, When::OneOf(&["hold"]))
+            .keywords(&[msg!("modifier"), msg!("super"), msg!("alt")])
+            .build(),
+        bar_section(Setting::integer(HEIGHT, Page::Bar, 30, 0, 500))
             .title(msg!("Height"))
-            .subtitle(msg!("0 fits the bar to its modules"))
+            .subtitle(msg!("0 fits the bar to its items"))
             .slider(0.0, 80.0, 1.0)
             .unit(super::Unit::Pixels)
-            .keywords(&[msg!("size"), msg!("thickness"), msg!("width")])
-            .build(),
-        placement(Setting::list(OUTPUTS, Page::Bar, &[]))
-            .title(msg!("Displays"))
-            .subtitle(msg!(
-                "The displays that show the bar; none picked means all"
-            ))
-            .scope(Scope::PerHost)
-            .check_text(check_output_name)
-            .keywords(&[msg!("monitor"), msg!("screen"), msg!("output")])
+            .keywords(&[
+                msg!("size"),
+                msg!("thickness"),
+                msg!("width"),
+                msg!("bigger"),
+            ])
             .build(),
         waybar_only(
             Setting::choice(LAYER, Page::Bar, "bottom", LAYERS),
-            msg!("Placement"),
+            msg!("Bar"),
         )
         .title(msg!("Layer"))
         .subtitle(msg!(
@@ -315,38 +344,15 @@ pub(super) fn settings() -> Vec<Setting> {
         ))
         .keywords(&[msg!("overlay"), msg!("above"), msg!("on top")])
         .build(),
-        waybar_only(
-            Setting::toggle(EXCLUSIVE, Page::Bar, true),
-            msg!("Placement"),
-        )
-        .title(msg!("Reserve space"))
-        .subtitle(msg!(
-            "Windows stay clear of the bar; off, the bar lies over them"
-        ))
-        .keywords(&[msg!("exclusive zone"), msg!("overlap")])
-        .build(),
-        margin(MARGIN_TOP, msg!("Margin above")),
-        margin(MARGIN_RIGHT, msg!("Margin right")),
-        margin(MARGIN_BOTTOM, msg!("Margin below")),
-        margin(MARGIN_LEFT, msg!("Margin left")),
-        waybar_only(
-            Setting::integer(SPACING, Page::Bar, 4, 0, 200),
-            msg!("Placement"),
-        )
-        .title(msg!("Space between modules"))
-        .slider(0.0, 32.0, 1.0)
-        .unit(super::Unit::Pixels)
-        .keywords(&[msg!("spacing"), msg!("gap")])
-        .build(),
         modules(MODULES_LEFT, DEFAULT_LEFT, msg!("Left")),
         modules(MODULES_CENTER, DEFAULT_CENTER, msg!("Center")),
         modules(MODULES_RIGHT, DEFAULT_RIGHT, msg!("Right")),
         Setting::choice(THEME, Page::Bar, "waybar", THEMES)
-            .section(msg!("Style"))
-            .title(msg!("Look"))
+            .section(msg!("Look"))
+            .title(msg!("Colors"))
             .subtitle(msg!(
-                "waybar's own stylesheet, or one Sway Things writes from the settings below, in \
-                 the colors of your windows or your own"
+                "Waybar's own look, the colors of your windows, or colors of your own; the rows \
+                 below apply to the last two"
             ))
             .apply(Apply::ToolReload)
             .depends_on(BACKEND, When::NoneOf(&["none"]))
@@ -356,26 +362,24 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("stylesheet"),
                 msg!("preset"),
                 msg!("colors"),
+                msg!("look"),
             ])
             .build(),
         style(Setting::choice(SHAPE, Page::Bar, "bar", SHAPES))
-            .title(msg!("Shape"))
-            .subtitle(msg!("A pill per module leaves the bar itself transparent"))
-            .keywords(&[msg!("pill"), msg!("floating"), msg!("island")])
+            .title(msg!("Style"))
+            .subtitle(msg!("Islands leave the bar itself transparent"))
+            .keywords(&[
+                msg!("pill"),
+                msg!("floating"),
+                msg!("island"),
+                msg!("shape"),
+            ])
             .build(),
-        style(Setting::text(FONT, Page::Bar, ""))
-            .title(msg!("Font"))
-            .placeholder(msg!("The default font"))
-            .font(Font::Any)
-            .check_text(check_font)
-            .keywords(&[msg!("font size"), msg!("typeface")])
-            .build(),
-        style(Setting::integer(PADDING, Page::Bar, 10, 0, 100))
-            .title(msg!("Padding"))
-            .subtitle(msg!("Room left and right inside each module"))
-            .slider(0.0, 32.0, 1.0)
-            .unit(super::Unit::Pixels)
-            .keywords(&[msg!("spacing"), msg!("room")])
+        style(Setting::decimal(OPACITY, Page::Bar, 1.0, 0.0, 1.0))
+            .title(msg!("Opacity"))
+            .subtitle(msg!("Below 1 your wallpaper shows through"))
+            .slider(0.0, 1.0, 0.05)
+            .keywords(&[msg!("transparency"), msg!("transparent"), msg!("alpha")])
             .build(),
         style(Setting::integer(RADIUS, Page::Bar, 0, 0, 999))
             .title(msg!("Rounded corners"))
@@ -383,11 +387,55 @@ pub(super) fn settings() -> Vec<Setting> {
             .unit(super::Unit::Pixels)
             .keywords(&[msg!("radius"), msg!("round")])
             .build(),
-        style(Setting::decimal(OPACITY, Page::Bar, 1.0, 0.0, 1.0))
-            .title(msg!("Background opacity"))
-            .subtitle(msg!("Below 1 the background is transparent"))
-            .slider(0.0, 1.0, 0.05)
-            .keywords(&[msg!("transparency"), msg!("transparent"), msg!("alpha")])
+        style(Setting::integer(PADDING, Page::Bar, 10, 0, 100))
+            .title(msg!("Room inside items"))
+            .subtitle(msg!("Left and right of each item's text"))
+            .slider(0.0, 32.0, 1.0)
+            .unit(super::Unit::Pixels)
+            .keywords(&[msg!("padding"), msg!("spacing"), msg!("room")])
+            .build(),
+        Setting::text(FONT, Page::Bar, "")
+            .section(msg!("Look"))
+            .title(msg!("Font"))
+            .subtitle(msg!(
+                "Also with waybar's own look; the size buttons above set its size"
+            ))
+            .placeholder(msg!("The default font"))
+            .font(Font::Any)
+            .check_text(check_font)
+            .apply(Apply::ToolReload)
+            .depends_on(THEME, When::NoneOf(&["plain"]))
+            .keywords(&[msg!("font size"), msg!("typeface"), msg!("text size")])
+            .build(),
+        Setting::toggle(BLUR, Page::Bar, false)
+            .section(msg!("Look"))
+            .title(msg!("Blur behind the bar"))
+            .subtitle(msg!(
+                "Blurs what shows through a transparent background, not between islands"
+            ))
+            .keywords(&[msg!("frosted glass"), msg!("transparency")])
+            .swayfx_only(fx)
+            .depends_on(LAYER, When::OneOf(&["top", "overlay"]))
+            .sway(
+                Directive::top("layer_effects").arguments(&[WAYBAR_NAMESPACE, "blur"]),
+                ConfigFile::Effects,
+                |ctx| {
+                    let on = ctx.bool(BLUR)?;
+                    let mut commands = vec![effects::layer_blur(WAYBAR_NAMESPACE, on)];
+                    // Never `blur_ignore_transparent disable`: SwayFX 0.6 (scenefx 0.5) crashes
+                    // at the next frame when a mapped layer surface loses it, and a config line
+                    // reaches the mapped surfaces too when sway reloads. With blur off it changes
+                    // nothing, so it stays as it was.
+                    if on {
+                        commands.push(effects::layer_blur_ignore_transparent(
+                            WAYBAR_NAMESPACE,
+                            true,
+                        ));
+                    }
+                    Ok(commands)
+                },
+                read_blur,
+            )
             .build(),
         color(Setting::color(BACKGROUND, Page::Bar, DEFAULT_BACKGROUND))
             .title(msg!("Background"))
@@ -399,7 +447,7 @@ pub(super) fn settings() -> Vec<Setting> {
             Color::rgb(0xff, 0xff, 0xff),
         ))
         .title(msg!("Text"))
-        .keywords(&[msg!("color"), msg!("foreground")])
+        .keywords(&[msg!("color"), msg!("foreground"), msg!("contrast")])
         .build(),
         color(Setting::color(HOVER, Page::Bar, Color::rgba(0, 0, 0, 0x33)))
             .title(msg!("Under the pointer"))
@@ -438,50 +486,53 @@ pub(super) fn settings() -> Vec<Setting> {
         .title(msg!("Urgent workspace"))
         .keywords(&[msg!("color")])
         .build(),
-        waybar_only(Setting::text(EXTRA_CSS, Page::Bar, ""), msg!("Style"))
+        placement(Setting::list(OUTPUTS, Page::Bar, &[]))
+            .title(msg!("Displays"))
+            .subtitle(msg!(
+                "The displays that show the bar; none picked means all"
+            ))
+            .scope(Scope::PerHost)
+            .check_text(check_output_name)
+            .keywords(&[msg!("monitor"), msg!("screen"), msg!("output")])
+            .build(),
+        waybar_only(
+            Setting::toggle(EXCLUSIVE, Page::Bar, true),
+            msg!("Placement"),
+        )
+        .title(msg!("Reserve space"))
+        .subtitle(msg!(
+            "Windows stay clear of the bar; off, the bar lies over them"
+        ))
+        .keywords(&[msg!("exclusive zone"), msg!("overlap")])
+        .build(),
+        margin(MARGIN_TOP, msg!("Margin above")),
+        margin(MARGIN_RIGHT, msg!("Margin right")),
+        margin(MARGIN_BOTTOM, msg!("Margin below")),
+        margin(MARGIN_LEFT, msg!("Margin left")),
+        waybar_only(
+            Setting::integer(SPACING, Page::Bar, 4, 0, 200),
+            msg!("Placement"),
+        )
+        .title(msg!("Space between items"))
+        .slider(0.0, 32.0, 1.0)
+        .unit(super::Unit::Pixels)
+        .keywords(&[msg!("spacing"), msg!("gap")])
+        .build(),
+        waybar_only(Setting::text(EXTRA_CSS, Page::Bar, ""), msg!("Advanced"))
             .title(msg!("Your own stylesheet"))
             .subtitle(msg!(
-                "Read after Sway Things' style, so its rules win; it stays yours"
+                "A CSS file read after Sway Things' style, so its rules win; it stays yours and \
+                 isn't checked"
             ))
             .placeholder(msg!("None"))
             .check_text(check_path)
             .keywords(&[msg!("css"), msg!("style.css"), msg!("import")])
             .build(),
-        Setting::toggle(BLUR, Page::Bar, false)
-            .section(msg!("Style"))
-            .title(msg!("Blur behind the bar"))
-            .subtitle(msg!(
-                "Blurs what shows through a transparent background, not between pills"
-            ))
-            .keywords(&[msg!("frosted glass"), msg!("transparency")])
-            .swayfx_only(fx)
-            .depends_on(LAYER, When::OneOf(&["top", "overlay"]))
-            .sway(
-                Directive::top("layer_effects").arguments(&[WAYBAR_NAMESPACE, "blur"]),
-                ConfigFile::Effects,
-                |ctx| {
-                    let on = ctx.bool(BLUR)?;
-                    let mut commands = vec![effects::layer_blur(WAYBAR_NAMESPACE, on)];
-                    // Never `blur_ignore_transparent disable`: SwayFX 0.6 (scenefx 0.5) crashes
-                    // at the next frame when a mapped layer surface loses it, and a config line
-                    // reaches the mapped surfaces too when sway reloads. With blur off it changes
-                    // nothing, so it stays as it was.
-                    if on {
-                        commands.push(effects::layer_blur_ignore_transparent(
-                            WAYBAR_NAMESPACE,
-                            true,
-                        ));
-                    }
-                    Ok(commands)
-                },
-                read_blur,
-            )
-            .build(),
         Setting::text(STATUS_COMMAND, Page::Bar, "")
-            .section(msg!("swaybar"))
+            .section(msg!("Advanced"))
             .title(msg!("Status command"))
             .subtitle(msg!(
-                "Its output is the text at the right end of swaybar; sway runs it with sh"
+                "swaybar only: its output is the text at the right end; sway runs it with sh"
             ))
             .placeholder(msg!("None"))
             .apply(Apply::ToolReload)

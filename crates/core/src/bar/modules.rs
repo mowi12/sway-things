@@ -344,16 +344,21 @@ mod tests {
         assert_eq!(clock["format-alt"], json!("{:%Y-%m-%d}"));
         assert_eq!(default_option("height"), Some(json!(30)));
         assert_eq!(default_option("spacing"), Some(json!(4)));
-        // The registry's default lists are those of the file.
+        // The registry's default items are in the file's lists, with definitions there.
         let Value::Object(config) = jsonc::parse(WAYBAR_DEFAULT_CONFIG).unwrap() else {
             panic!("not an object");
         };
-        for (key, default) in [
-            ("modules-left", crate::registry::bar::DEFAULT_LEFT),
-            ("modules-center", crate::registry::bar::DEFAULT_CENTER),
-            ("modules-right", crate::registry::bar::DEFAULT_RIGHT),
-        ] {
-            assert_eq!(config[key], json!(default), "{key}");
+        let listed: Vec<&Value> = ["modules-left", "modules-center", "modules-right"]
+            .iter()
+            .filter_map(|key| config[*key].as_array())
+            .flatten()
+            .collect();
+        for name in crate::registry::bar::DEFAULT_LEFT
+            .iter()
+            .chain(crate::registry::bar::DEFAULT_CENTER)
+            .chain(crate::registry::bar::DEFAULT_RIGHT)
+        {
+            assert!(listed.contains(&&json!(name)), "{name}");
         }
     }
 

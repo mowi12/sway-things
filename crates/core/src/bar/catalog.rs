@@ -684,6 +684,171 @@ pub const MODULES: &[Module] = &[
     },
 ];
 
+/// The groups of the item picker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Category {
+    /// The clock, the tray, the session's buttons.
+    Basics,
+    /// What sway shows: workspaces, the window title, the binding mode, the keyboard layout.
+    Sway,
+    /// The machine: battery, processor, memory, disks, temperature, brightness, power.
+    System,
+    /// Network, Bluetooth and sound.
+    NetworkAudio,
+    /// What plays.
+    Media,
+    /// Camera, microphone and screen sharing.
+    Privacy,
+    /// Your own commands, pictures and groups.
+    Custom,
+}
+
+impl Category {
+    /// Every category, in the order the picker shows them.
+    pub const ALL: [Self; 7] = [
+        Self::Basics,
+        Self::Sway,
+        Self::System,
+        Self::NetworkAudio,
+        Self::Media,
+        Self::Privacy,
+        Self::Custom,
+    ];
+
+    /// Its name to show.
+    pub fn title(self) -> Msg {
+        match self {
+            Self::Basics => msg!("Basics"),
+            Self::Sway => msg!("Sway"),
+            Self::System => msg!("System"),
+            Self::NetworkAudio => msg!("Network & Audio"),
+            Self::Media => msg!("Media"),
+            Self::Privacy => msg!("Privacy"),
+            Self::Custom => msg!("Custom"),
+        }
+    }
+}
+
+/// The picker's category of module `name`.
+pub fn category(name: &str) -> Category {
+    match find(name).map_or("", |module| module.name) {
+        "clock" | "tray" | "idle_inhibitor" => Category::Basics,
+        "sway/workspaces" | "sway/mode" | "sway/window" | "sway/language" | "sway/scratchpad"
+        | "keyboard-state" => Category::Sway,
+        "battery"
+        | "cpu"
+        | "memory"
+        | "disk"
+        | "temperature"
+        | "backlight"
+        | "power-profiles-daemon" => Category::System,
+        "network" | "pulseaudio" | "wireplumber" | "bluetooth" => Category::NetworkAudio,
+        "mpris" | "mpd" => Category::Media,
+        "privacy" => Category::Privacy,
+        _ => Category::Custom,
+    }
+}
+
+/// The symbolic icon of module `name`, from the icon theme.
+pub fn icon(name: &str) -> &'static str {
+    match find(name).map_or("", |module| module.name) {
+        "clock" => "preferences-system-time-symbolic",
+        "battery" => "battery-good-symbolic",
+        "network" => "network-wireless-symbolic",
+        "pulseaudio" | "wireplumber" => "audio-volume-high-symbolic",
+        "tray" => "view-app-grid-symbolic",
+        "cpu" | "memory" | "temperature" => "utilities-system-monitor-symbolic",
+        "disk" => "drive-harddisk-symbolic",
+        "backlight" => "display-brightness-symbolic",
+        "bluetooth" => "bluetooth-active-symbolic",
+        "idle_inhibitor" => "weather-clear-night-symbolic",
+        "power-profiles-daemon" => "power-profile-balanced-symbolic",
+        "privacy" => "camera-web-symbolic",
+        "mpris" | "mpd" => "audio-x-generic-symbolic",
+        "keyboard-state" | "sway/language" => "input-keyboard-symbolic",
+        "sway/workspaces" => "view-grid-symbolic",
+        "sway/mode" => "preferences-desktop-keyboard-shortcuts-symbolic",
+        "sway/window" => "focus-windows-symbolic",
+        "sway/scratchpad" => "view-restore-symbolic",
+        "group" => "view-list-symbolic",
+        "image" => "image-x-generic-symbolic",
+        _ => "utilities-terminal-symbolic",
+    }
+}
+
+/// The options of `definition` that hold module `name`'s text, first the one it shows most of
+/// the time.
+fn format_keys(name: &str) -> &'static [&'static str] {
+    match find(name).map_or("", |module| module.name) {
+        "network" => &["format-wifi", "format", "format-ethernet"],
+        "bluetooth" => &["format-connected", "format", "format-on"],
+        _ => &["format"],
+    }
+}
+
+/// What module `name` shows when its definition sets no format: waybar's built-in format, or a
+/// sample where it shows no text of its own (the workspaces, the tray).
+fn built_in(name: &str) -> &'static str {
+    match find(name).map_or("", |module| module.name) {
+        "clock" => "{:%H:%M}",
+        "battery" => "{capacity}%",
+        "network" => "{essid}",
+        "pulseaudio" | "wireplumber" => "{volume}%",
+        "cpu" => "{usage}%",
+        "memory" => "{percentage}%",
+        "disk" => "{percentage_used}%",
+        "temperature" => "{temperatureC}°C",
+        "backlight" => "{percent}%",
+        "bluetooth" | "idle_inhibitor" => "{status}",
+        "sway/mode" | "sway/window" => "{}",
+        "sway/language" => "{short}",
+        "sway/scratchpad" => "{icon} {count}",
+        "sway/workspaces" | "keyboard-state" => "{name}",
+        "power-profiles-daemon" => "{profile}",
+        "mpris" => "{dynamic}",
+        "mpd" => "{title}",
+        _ => "",
+    }
+}
+
+/// What module `name` with `definition` shows in the preview: its format with sample values,
+/// the time `now` for a clock; `None` where it shows nothing of its own text (the tray, a
+/// custom command, an image).
+pub fn sample(
+    name: &str,
+    definition: Option<&serde_json::Map<String, serde_json::Value>>,
+    now: (u32, u32, u32),
+) -> Option<String> {
+    let kind = find(name).map_or("", |module| module.name);
+    if matches!(kind, "tray" | "image" | "group" | "privacy") {
+        return None;
+    }
+    let format = definition
+        .and_then(|definition| {
+            format_keys(name)
+                .iter()
+                .find_map(|key| definition.get(*key)?.as_str())
+        })
+        .unwrap_or_else(|| built_in(name));
+    if format.is_empty() {
+        return None;
+    }
+    // Placeholders without a sample (`{stateIcon}`) show as nothing, as waybar shows an empty
+    // value.
+    let mut shown = String::new();
+    let mut rest = preview(name, format, now);
+    while let Some(start) = rest.find('{') {
+        let Some(end) = rest[start..].find('}') else {
+            break;
+        };
+        shown.push_str(&rest[..start]);
+        rest = rest[start + end + 1..].to_owned();
+    }
+    shown.push_str(&rest);
+    let shown = shown.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!shown.is_empty()).then_some(shown)
+}
+
 /// The catalog entry for `name` (`battery#bat2` is a `battery`, `custom/media` a `custom`), if
 /// the catalog has one.
 pub fn find(name: &str) -> Option<&'static Module> {
@@ -827,6 +992,36 @@ mod tests {
             keys.sort_unstable();
             keys.dedup();
             assert_eq!(keys.len(), module.options.len(), "{}", module.name);
+        }
+    }
+
+    #[test]
+    fn every_module_has_a_category_and_a_sample() {
+        let now = (14, 32, 5);
+        assert_eq!(category("clock"), Category::Basics);
+        assert_eq!(category("battery#bat2"), Category::System);
+        assert_eq!(category("custom/media"), Category::Custom);
+        assert_eq!(icon("custom/x"), "utilities-terminal-symbolic");
+        assert_eq!(sample("clock", None, now).as_deref(), Some("14:32"));
+        let definition = serde_json::json!({"format": "{capacity}% {icon}"});
+        assert!(
+            sample("battery", definition.as_object(), now)
+                .is_some_and(|sample| sample.starts_with("76%"))
+        );
+        let wifi = serde_json::json!({"format-wifi": "{essid} ({signalStrength}%)"});
+        assert_eq!(
+            sample("network", wifi.as_object(), now).as_deref(),
+            Some("Home (71%)")
+        );
+        assert_eq!(sample("tray", None, now), None);
+        let mpd = serde_json::json!({"format": "{stateIcon} {title}  {volume}%"});
+        assert_eq!(
+            sample("mpd", mpd.as_object(), now).as_deref(),
+            Some("Song %")
+        );
+        assert_eq!(sample("custom/x", None, now), None);
+        for module in MODULES {
+            assert!(Category::ALL.contains(&category(module.name)));
         }
     }
 

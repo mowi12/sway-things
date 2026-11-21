@@ -22,8 +22,75 @@ use super::{Color, SwayCmd, SwayText, TextError};
 /// The ID of the bar Sway Things sets up.
 pub const ID: &str = "sway-things";
 
+/// The ID of the bar config waybar follows over IPC while it shows only while a key is held
+/// (`"ipc": true` and this `"id"` in its config). The bar config runs no swaybar of its own
+/// ([`waybar_hold`]).
+pub const WAYBAR_ID: &str = "sway-things-waybar";
+
 fn bar(subcommand: &'static str) -> SwayCmd {
-    SwayCmd::new("bar").keyword(ID).keyword(subcommand)
+    bar_of(ID, subcommand)
+}
+
+fn bar_of(id: &'static str, subcommand: &'static str) -> SwayCmd {
+    SwayCmd::new("bar").keyword(id).keyword(subcommand)
+}
+
+/// The key that shows a bar while it is held, as sway's `modifier` takes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Modifier {
+    /// `Mod4`: the Super (logo) key, sway's default.
+    Super,
+    /// `Mod1`: Alt.
+    Alt,
+    /// `Control`.
+    Control,
+    /// `Shift`.
+    Shift,
+}
+
+impl Modifier {
+    /// The modifier with sway's name `name` (`Mod4`, `Mod1`, `Control`, `Shift`).
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Mod4" => Some(Self::Super),
+            "Mod1" => Some(Self::Alt),
+            "Control" => Some(Self::Control),
+            "Shift" => Some(Self::Shift),
+            _ => None,
+        }
+    }
+
+    fn keyword(self) -> &'static str {
+        match self {
+            Self::Super => "Mod4",
+            Self::Alt => "Mod1",
+            Self::Control => "Control",
+            Self::Shift => "Shift",
+        }
+    }
+}
+
+/// `bar sway-things mode hide`: shown only while the modifier is held (or a workspace is
+/// urgent), lying over the windows then.
+pub fn mode_hide() -> SwayCmd {
+    bar("mode").keyword("hide")
+}
+
+/// `bar sway-things modifier <key>`: the key that shows a hidden bar while held.
+pub fn modifier(key: Modifier) -> SwayCmd {
+    bar("modifier").keyword(key.keyword())
+}
+
+/// The config lines of the bar waybar follows while it shows only while `key` is held: a bar
+/// config with the ID [`WAYBAR_ID`] whose `swaybar_command` is `true`, so sway starts no
+/// swaybar for it, in `hide` mode with the modifier. Only for the config: `swaybar_command` is
+/// config-only, and over IPC the first line would make the bar and start a swaybar.
+pub fn waybar_hold(key: Modifier) -> [SwayCmd; 3] {
+    [
+        bar_of(WAYBAR_ID, "swaybar_command").keyword("true"),
+        bar_of(WAYBAR_ID, "mode").keyword("hide"),
+        bar_of(WAYBAR_ID, "modifier").keyword(key.keyword()),
+    ]
 }
 
 /// Where swaybar stands: it takes only the top or the bottom.
@@ -150,6 +217,19 @@ mod tests {
         let render = |command: SwayCmd| command.render(Target::Config).unwrap();
         assert_eq!(render(height(30)), "bar sway-things height 30");
         assert_eq!(render(mode(false)), "bar sway-things mode invisible");
+        assert_eq!(render(mode_hide()), "bar sway-things mode hide");
+        assert_eq!(
+            render(modifier(Modifier::Alt)),
+            "bar sway-things modifier Mod1"
+        );
+        assert_eq!(
+            waybar_hold(Modifier::Super).map(render),
+            [
+                "bar sway-things-waybar swaybar_command true",
+                "bar sway-things-waybar mode hide",
+                "bar sway-things-waybar modifier Mod4",
+            ]
+        );
         assert_eq!(
             render(status_command("while date +'%X'; do sleep 1; done").unwrap()),
             "bar sway-things status_command \"while date +'%X'; do sleep 1; done\""

@@ -207,6 +207,8 @@ screencast_output = "HEADLESS-1"
 [bar]
 backend = "swaybar"
 position = "bottom"
+visibility = "hold"
+modifier = "Mod1"
 height = 28
 layer = "top"
 blur = true

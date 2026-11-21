@@ -364,6 +364,14 @@ pub(super) async fn hook_waybar<V: Validate>(session: &mut Session<V>, io: &mut 
             }
             Exit::Ok
         }
+        Ok(process::Ensured::Runs) if bar::hold_key(state).is_some() => {
+            // After a reload of sway, the bar config waybar follows while a key is held may be
+            // new: waybar only asks for it when it reads its files.
+            if let Err(error) = process::reload(&files).await {
+                io.error(error.text().translated());
+            }
+            Exit::Ok
+        }
         Ok(_) => Exit::Ok,
         Err(error) => {
             io.error(error.text().translated());

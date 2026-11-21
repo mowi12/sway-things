@@ -60,6 +60,8 @@ corner_radius = 8
 
 [bar]
 backend = "waybar"
+visibility = "hold"
+modifier = "Mod1"
 
 [windows]
 font = "Inter \"Display\" $11"
@@ -198,7 +200,13 @@ exec \"sway-things hook launch org.example.App.desktop\"
     );
     assert_eq!(
         text(&files, ConfigFile::Bar),
-        format!("{HEADER}exec_always sway-things hook waybar\n")
+        format!(
+            "{HEADER}exec_always sway-things hook waybar
+bar sway-things-waybar swaybar_command true
+bar sway-things-waybar mode hide
+bar sway-things-waybar modifier Mod1
+"
+        )
     );
     assert_eq!(
         text(&files, ConfigFile::Hooks),

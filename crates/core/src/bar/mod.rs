@@ -27,6 +27,7 @@ pub mod import;
 pub mod jsonc;
 pub mod modules;
 pub mod process;
+pub mod script;
 pub mod starter;
 pub mod style;
 pub mod swaybar;
@@ -91,6 +92,18 @@ impl Backend {
             Value::Choice(id) if id == "swaybar" => Self::Swaybar,
             _ => Self::None,
         }
+    }
+}
+
+/// The key that shows the bar while held, if `state` shows the bar only then.
+pub fn hold_key(state: &State) -> Option<crate::command::bar::Modifier> {
+    match value(state, keys::VISIBILITY) {
+        Value::Choice(id) if id == "hold" => match value(state, keys::MODIFIER) {
+            Value::Choice(name) => crate::command::bar::Modifier::from_name(&name),
+            _ => None,
+        }
+        .or(Some(crate::command::bar::Modifier::Super)),
+        _ => None,
     }
 }
 

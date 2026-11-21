@@ -138,6 +138,7 @@ impl<V: Validate> Applier<V> {
         };
         if backend == Backend::Waybar {
             self.keep_waybar(&files, access).await;
+            self.note_waybar_hold().await;
         } else if self.bar.processes && !self.bar_starter().is_elsewhere() {
             // Handed back: a waybar of ours that our include started ends.
             if let Err(error) = process::stop(&files) {
@@ -189,6 +190,42 @@ impl<V: Validate> Applier<V> {
             }
         }
         self.bar.sent = Some(sent);
+    }
+
+    /// While waybar shows only while a key is held, sway needs the bar config waybar follows
+    /// (`75-bar.conf` has it, but only a reload of sway reads it: over IPC its first line would
+    /// start a swaybar). Until sway has it, the change waits for a reload, so the reload banner
+    /// offers one; the hook has waybar ask for the bar config again then.
+    async fn note_waybar_hold(&mut self) {
+        use crate::registry::bar as keys;
+        if !self.bar.processes {
+            return;
+        }
+        let Some(client) = &mut self.client else {
+            return;
+        };
+        let hold = crate::bar::hold_key(&self.state);
+        let known = client
+            .bar_ids()
+            .await
+            .is_ok_and(|ids| ids.iter().any(|id| id == crate::command::bar::WAYBAR_ID));
+        if let (Some(key), true) = (hold, known) {
+            // The bar config is there: another key reaches it at once (its last line; the
+            // first one is config-only).
+            let [_, _, modifier] = crate::command::bar::waybar_hold(key);
+            let _ = client.run(&modifier).await;
+        }
+        if hold.is_some() && !known {
+            self.waiting.note(
+                keys::VISIBILITY,
+                None,
+                super::waiting::Until::Reload,
+                Some(crate::registry::ConfigFile::Bar),
+                Some(crate::registry::Value::Choice("always".to_owned())),
+            );
+        } else {
+            self.waiting.forget(keys::VISIBILITY, None);
+        }
     }
 
     /// Writes waybar's files and has ours read them, or has sway start it through the hook.
