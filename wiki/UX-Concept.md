@@ -364,7 +364,11 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 - **Wired:** a row per device with its state, speed and address and a switch. While the cable is unplugged the row only
   says _Cable unplugged_, without a switch.
 - **VPN:** shown when there are VPN or WireGuard connections: each with its type and state and a switch. A VPN that asks
-  for a password when it connects fails with an error saying so (nm-applet or a saved password helps).
+  for a password or code when it connects gets it through its plugin's auth dialog: the plugin's own window, or, when
+  the plugin supports it, a dialog of the page, _Sign in to VPN “Office”_ (_… again_ after a failed attempt), with the
+  plugin's text and its fields (a password field for a secret, a text field with the current value otherwise) and
+  _Cancel_ / _Connect_. Canceling gives up the connection. Without the plugin's dialog the switch fails with an error
+  that names the plugin and says its GNOME package provides the dialog.
 - **Advanced…:** in the header, while nm-connection-editor is installed.
 - **Not available:** a placeholder while NetworkManager isn't running or there is no adapter and no VPN at all, and
   _Networking is turned off_ with _Turn On_; the page updates by itself.

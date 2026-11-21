@@ -46,7 +46,9 @@ tests that need a running sway, a display or the stand-ins for D-Bus services an
   networks by SSID, saved networks out of range, VPNs), security from an access point's flags, signal levels and bands,
   SSIDs cleaned of control characters, the checks of SSIDs and passwords, the settings of a new connection (for every
   user, the password kept by NetworkManager, hidden), error mapping, the change stream's noise, which questions the
-  secret agent answers
+  secret agent answers; the VPN plugins' `.name` files (service and aliases, a missing or relative auth dialog, files
+  others may write), the auth dialog's arguments and input, a VPN's request from its settings, and the key file of
+  external UI mode
 
 ## Golden files
 
@@ -117,8 +119,10 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   it was sent): snapshot, NetworkManager stopping and starting (a new owner), Wi-Fi and networking on and off, scans and
   `LastScan` moving on after one, a new network with its password, a saved one connected, disconnected and forgotten, a
   hidden one, a failed connection's reason, a VPN without its password, wired and VPN connections, addresses, the change
-  stream without noise, and the secret agent asking again, being canceled, leaving other questions to others and
-  rejecting a stranger
+  stream without noise, and the secret agent asking again, being canceled, leaving other questions (802.1X, WireGuard)
+  to others and rejecting a stranger; with a fake VPN plugin (`stand_in::fake_vpn_plugin`, a shell script as auth
+  dialog) it runs the plugin's own window and sends `QUIT`, asks for the fields of external UI mode, cancels a canceled
+  dialog and ends one NetworkManager stopped waiting for, and reports a plugin without a dialog
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,
@@ -222,9 +226,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does
   after it, which ends with the new list, and switching back to automatic hides the button and scans again, connects to
   a saved network, asks for the password of a new one (refusing a short one) and sends it, answers the agent's "Wrong
-  password" question, switches the cable and the VPN on, shows an unplugged cable without a switch, shows the captive
-  portal note with its button, and stops scanning once Wi-Fi is off; test windows reach no NetworkManager but the
-  stand-in.
+  password" question and the fields of a fake VPN plugin's dialog, switches the cable and the VPN on, shows an unplugged
+  cable without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test
+  windows reach no NetworkManager but the stand-in.
 
 The window works on settings files in a temporary directory and a sway config in memory, without a session or in the
 session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a
