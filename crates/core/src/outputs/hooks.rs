@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The hooks that generated config runs, so nothing of Sway Things has to keep running:
-//! `sway-things hook displays`, `hook workspaces`, `hook mirror` and `hook new-display`. The command line only
-//! connects and prints; what each hook does is here, so the user's run and the tests run the same
-//! code.
+//! `sway-things hook displays`, `hook workspaces`, `hook mirror` and `hook new-display`. The
+//! command line only connects and prints; what each hook does is here, so the user's run and the
+//! tests run the same code.
 //!
 //! A hook reads the settings files and the remembered displays from [`HookEnv`] and talks to sway
 //! over the client it is given. It never writes the settings; it writes only kanshi's file of
@@ -14,7 +14,6 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::command::SwayCmd;
 use crate::i18n::Text;
 use crate::ipc::{Client, IpcError};
 use crate::msg;
@@ -77,8 +76,7 @@ pub async fn displays(client: &mut Client, env: &HookEnv) -> Result<Option<Strin
     if let Some(profiles) = env.profiles() {
         if refresh_kanshi(env, &profiles).await {
             async_io::Timer::after(Duration::from_millis(500)).await;
-            if !env.kanshi_runs() {
-                let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
+            if kanshi::start(client).await {
                 async_io::Timer::after(Duration::from_millis(500)).await;
             }
         }

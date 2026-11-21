@@ -16,7 +16,9 @@ use std::time::Duration;
 use super::profiles::Profiles;
 use super::workspaces::Placing;
 use crate::atomic;
+use crate::command::SwayCmd;
 use crate::i18n::Text;
+use crate::ipc::Client;
 use crate::msg;
 use crate::state::xdg_dir;
 use crate::sway_config::SwayConfig;
@@ -414,6 +416,17 @@ pub fn user_profiles(text: &str) -> Vec<(String, Vec<String>)> {
         .filter(|profile| !profile.outputs.is_empty())
         .map(|profile| (profile.name, profile.outputs))
         .collect()
+}
+
+/// Has sway start kanshi, unless one runs for this session already ([`super::kanshi_runs`]):
+/// started by sway, it runs in the session with sway's environment. Says whether sway was
+/// asked; what it answered doesn't matter, kanshi's own log says why it didn't start.
+pub async fn start(client: &mut Client) -> bool {
+    if super::kanshi_runs() {
+        return false;
+    }
+    let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
+    true
 }
 
 /// Whether `kanshi` is installed: an executable of that name in a directory of `$PATH`.

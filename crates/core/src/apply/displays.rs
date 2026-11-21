@@ -8,7 +8,6 @@
 use std::time::{Duration, Instant};
 
 use super::{Applier, ApplyError, Effect};
-use crate::command::SwayCmd;
 use crate::generate::{self, Validate};
 use crate::i18n::Text;
 use crate::include::WriteAccess;
@@ -39,16 +38,20 @@ impl<V: Validate> Applier<V> {
         // kanshi gave up over a missing file of ours: it can read its config now. Started once,
         // also where the user's config starts it (that is only at login).
         let ready = files.ours_is_written() && files.inclusion() == kanshi::Inclusion::Included;
-        if self.kanshi_file_missing
-            && ready
-            && !self.kanshi_started
-            && !crate::outputs::kanshi_runs()
-        {
+        if self.kanshi_file_missing && ready {
             self.kanshi_file_missing = false;
-            if let Some(client) = &mut self.client {
-                self.kanshi_started = true;
-                let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
-            }
+            self.start_kanshi_once().await;
+        }
+    }
+
+    /// Has sway start kanshi ([`kanshi::start`]), once per applier: a kanshi the user stopped,
+    /// or one that ends at once, isn't started again and again.
+    async fn start_kanshi_once(&mut self) {
+        if self.kanshi_started {
+            return;
+        }
+        if let Some(client) = &mut self.client {
+            self.kanshi_started = kanshi::start(client).await;
         }
     }
 
@@ -99,14 +102,8 @@ impl<V: Validate> Applier<V> {
         // here for the first time): sway starts it now, so the arrangement doesn't wait for the
         // next login to come back with the displays.
         let starts = matches!(self.displays, generate::Displays::Kanshi { start: true });
-        // Once: a kanshi the user stopped, or one that ends at once, isn't started again and again.
-        if self.displays_problem.is_none()
-            && starts
-            && !self.kanshi_started
-            && !crate::outputs::kanshi_runs()
-        {
-            self.kanshi_started = true;
-            let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
+        if self.displays_problem.is_none() && starts {
+            self.start_kanshi_once().await;
         }
         // Written: nothing more to remember until a setting of the displays changes; else tried
         // again at the next save.
