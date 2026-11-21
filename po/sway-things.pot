@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 17:54+0100\n"
+"POT-Creation-Date: 2026-11-21 18:12+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2086,7 +2086,7 @@ msgstr ""
 msgid "focus wrapping"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/wallpaper.rs
 msgid "cycle"
 msgstr ""
 
@@ -4218,6 +4218,12 @@ msgid "must be a font and size like \"Adwaita Sans 11\", without line breaks"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
+msgid ""
+"a collection name has 1 to 64 characters, no line breaks and no spaces at "
+"either end"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
 msgid "boolean"
 msgstr ""
 
@@ -4251,6 +4257,26 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "table"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "At login"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Daily"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "After the interval"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Shuffle"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "In order"
 msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
@@ -4348,6 +4374,99 @@ msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
 msgid "fallback"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Collection"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "The collection whose pictures take turns, in place of the image"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "No collection"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "collection"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "slideshow"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "rotate"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Collections"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Pictures"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid ""
+"Pictures and folders of the collection; a folder adds every picture in it"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "pictures"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "folder"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Change picture"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "When the next picture of the collection is shown; always at login too"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "daily"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "interval"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Interval"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Minutes until the next picture"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "minutes"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "hours"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Order"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "Which picture comes next"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "shuffle"
+msgstr ""
+
+#: crates/core/src/registry/wallpaper.rs
+msgid "random"
 msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
@@ -4864,6 +4983,16 @@ msgstr ""
 
 #: crates/core/src/state/mod.rs
 #, rust-format
+msgid "collection.{collection} is not a table for a collection name"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} isn't a setting of a collection (collection {collection})"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
 msgid "{key} can't be set for a single device or display"
 msgstr ""
 
@@ -4890,6 +5019,21 @@ msgstr ""
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "{key} is set for one display at a time; name it with --device"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} isn't a setting of a collection"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{key} is a setting of a collection; name it with --collection"
+msgstr ""
+
+#: crates/core/src/state/mod.rs
+#, rust-format
+msgid "{collection} can't be the name of a collection"
 msgstr ""
 
 #: crates/core/src/state/mod.rs
@@ -4999,6 +5143,24 @@ msgstr ""
 #: crates/core/src/view.rs
 #, rust-format
 msgid "Only with {title} set"
+msgstr ""
+
+#: crates/core/src/wallpaper/cycle.rs
+msgid "the output shows no collection"
+msgstr ""
+
+#: crates/core/src/wallpaper/cycle.rs
+msgid "the collection has no pictures"
+msgstr ""
+
+#: crates/core/src/wallpaper/cycle.rs
+#, rust-format
+msgid "the picture can't be changed: {error}"
+msgstr ""
+
+#: crates/core/src/wallpaper/cycle.rs
+#, rust-format
+msgid "the timer can't be started: {error}"
 msgstr ""
 
 #: crates/core/src/watch.rs

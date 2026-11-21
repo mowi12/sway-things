@@ -762,6 +762,25 @@ exec_always sway-things hook displays
 }
 
 #[test]
+fn collections_are_started_by_one_line_that_names_no_display() {
+    let (_dir, state) = state(
+        "[wallpaper]\ncollection = \"Nature\"\n",
+        "[display.\"Dell Inc. $(id) U2415\".wallpaper]\ncollection = \"Cities\"\n",
+    );
+    let files = generate(Registry::builtin(), &state, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    let starts: Vec<&str> = output
+        .lines()
+        .filter(|line| line.starts_with("exec"))
+        .collect();
+    assert_eq!(starts, ["exec sway-things hook wallpaper"], "{output}");
+    assert!(
+        output.ends_with("exec sway-things hook wallpaper\n"),
+        "{output}"
+    );
+}
+
+#[test]
 fn with_kanshi_the_displays_get_no_output_lines() {
     let (_dir, stored) = state(
         "[windows.gaps]\ninner = 8\n",

@@ -353,6 +353,10 @@ impl<V: Values> Values for Over<'_, V> {
     fn get(&self, key: &str) -> Option<&Value> {
         self.over.get(key).or_else(|| self.under.get(key))
     }
+
+    fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
+        self.under.wallpaper_picture(output)
+    }
 }
 
 #[cfg(test)]

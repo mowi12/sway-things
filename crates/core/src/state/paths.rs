@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Where the settings files and their history are.
+//! Where the settings files and their history are, and the links to the pictures of the
+//! wallpaper collections.
 
 use std::ffi::OsString;
 use std::fmt;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use super::Layer;
@@ -20,6 +22,9 @@ pub struct Paths {
     history: PathBuf,
     ui: PathBuf,
     displays: PathBuf,
+    wallpaper: PathBuf,
+    /// The home folder, which a `bg` line names the links by (`~/`); `None` in tests.
+    home: Option<PathBuf>,
 }
 
 impl Paths {
@@ -47,6 +52,8 @@ impl Paths {
             history: state_dir.join("history"),
             ui: state_dir.join("ui.toml"),
             displays: config_dir.join("displays.toml"),
+            wallpaper: state_dir.join("wallpaper"),
+            home: None,
         })
     }
 
@@ -70,11 +77,13 @@ impl Paths {
             .nodename()
             .to_str()
             .map_err(|_| PathsError::Hostname)?;
-        Self::new(
+        let mut paths = Self::new(
             &config_home.join("sway-things"),
             &state_home.join("sway-things"),
             hostname,
-        )
+        )?;
+        paths.home = home().map(PathBuf::from).filter(|home| home.is_absolute());
+        Ok(paths)
     }
 
     /// The file of `layer`.
@@ -111,6 +120,55 @@ impl Paths {
     pub fn displays(&self) -> &Path {
         &self.displays
     }
+
+    /// The link to the current picture of the wallpaper collection of `output`, or of every
+    /// output: `all` or `output-<identifier>`, the identifier [escaped](escape), in
+    /// `$XDG_STATE_HOME/sway-things/wallpaper`. The generated config names the link, so it stays
+    /// the same while the pictures change.
+    pub fn wallpaper_link(&self, output: Option<&str>) -> PathBuf {
+        self.wallpaper.join(match output {
+            None => "all".to_owned(),
+            Some(identifier) => format!("output-{}", escape(identifier)),
+        })
+    }
+
+    /// The link of [`Paths::wallpaper_link`] as a `bg` line names it: with `~/` for the home
+    /// folder, so the line doesn't change with the user name. `None` while the link points at no
+    /// picture: a `bg` line can't name it then.
+    pub fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
+        let link = self.wallpaper_link(output);
+        if !link.is_file() {
+            return None;
+        }
+        Some(
+            match self
+                .home
+                .as_deref()
+                .and_then(|home| link.strip_prefix(home).ok())
+            {
+                Some(rest) => Path::new("~").join(rest),
+                None => link,
+            },
+        )
+    }
+}
+
+/// `identifier` as part of a file or unit name, the way `systemd-escape` writes it: ASCII
+/// letters, digits, `:`, `_` and `.` (but not a leading `.`) stay, `/` becomes `-`, and every other
+/// byte is `\xNN`. An output's identifier is an external string (make, model and serial from the
+/// screen), so it can hold anything a file or unit name can't.
+pub fn escape(identifier: &str) -> String {
+    let mut escaped = String::with_capacity(identifier.len());
+    for (index, byte) in identifier.bytes().enumerate() {
+        match byte {
+            b'/' => escaped.push('-'),
+            b'.' if index > 0 => escaped.push('.'),
+            b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b':' | b'_' => escaped.push(char::from(byte)),
+            // Writing to a `String` can't fail.
+            _ => drop(write!(escaped, "\\x{byte:02x}")),
+        }
+    }
+    escaped
 }
 
 /// The XDG base directory in `variable` if it is an absolute path (the specification says to

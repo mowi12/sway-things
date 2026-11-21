@@ -308,6 +308,8 @@ pub enum ValueError {
     NotAThemeName,
     /// The text isn't a font description: empty, too long, or with a control character.
     NotAFont,
+    /// The text can't be the name of a wallpaper collection.
+    NotACollectionName,
 }
 
 impl ValueError {
@@ -359,6 +361,11 @@ impl ValueError {
             Self::NotAFont => {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
             }
+            Self::NotACollectionName => msg!(
+                "a collection name has 1 to 64 characters, no line breaks and no spaces at \
+                 either end"
+            )
+            .into(),
         }
     }
 }

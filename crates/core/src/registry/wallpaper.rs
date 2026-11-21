@@ -6,22 +6,69 @@
 //!
 //! The image, its fill mode and the color are one `output <name> bg …` line: an image with its
 //! mode and the color as fallback, or without an image the color alone (`solid_color`).
+//!
+//! An output can show a collection instead of one image: the `bg` line then names a link in the
+//! state folder that points at the current picture of the collection
+//! ([`Values::wallpaper_picture`]), and `exec sway-things hook wallpaper` changes the picture
+//! at login and starts the timer that changes it later. The settings of a collection are stored
+//! per collection, by its name.
+//!
+//! The keys and the check of a collection name are here, at the bottom of the core, and
+//! [`crate::wallpaper`] re-exports them.
 
 use std::path::Path;
 use std::str::FromStr;
 
+#[cfg(doc)]
+use super::Values;
 use super::read::ReadError;
 use super::{
-    Choice, ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Value, When,
+    Choice, ConfigFile, Context, Directive, Page, RenderError, Scope, Setting, Value, ValueError,
+    When,
 };
 use crate::command::output::Fill;
 use crate::command::{Color, SwayCmd};
 use crate::i18n::Text;
 use crate::msg;
 
-const IMAGE: &str = "wallpaper.image";
-const FILL: &str = "wallpaper.fill";
-const COLOR: &str = "wallpaper.color";
+/// The image of an output, with `~/` for the home folder; empty for none (per output).
+pub const IMAGE: &str = "wallpaper.image";
+/// How the image covers the output (per output).
+pub const FILL: &str = "wallpaper.fill";
+/// The color of an output without an image, and around an image that doesn't cover it.
+pub const COLOR: &str = "wallpaper.color";
+/// The collection an output shows, by name; empty for none (per output).
+pub const COLLECTION: &str = "wallpaper.collection";
+/// The pictures and folders of a collection, with `~/` for the home folder.
+pub const PICTURES: &str = "collection.pictures";
+/// When the next picture is shown: `login`, `daily` or `interval`.
+pub const CHANGE: &str = "collection.change";
+/// The minutes between two pictures, for `interval`.
+pub const INTERVAL: &str = "collection.interval";
+/// Which picture comes next: `shuffle` or `in_order`.
+pub const ORDER: &str = "collection.order";
+
+/// Whether `name` can name a collection: 1 to 64 characters, no control characters and no
+/// spaces at either end.
+pub fn is_collection_name(name: &str) -> bool {
+    (1..=64).contains(&name.chars().count())
+        && name.trim() == name
+        && !name.chars().any(char::is_control)
+}
+
+const CHANGE_CHOICES: &[Choice] = &[
+    Choice::new("login", msg!("At login")),
+    Choice::new("daily", msg!("Daily")),
+    Choice::new("interval", msg!("After the interval")),
+];
+
+const ORDER_CHOICES: &[Choice] = &[
+    Choice::new("shuffle", msg!("Shuffle")),
+    Choice::new("in_order", msg!("In order")),
+];
+
+/// The longest interval, in minutes: 30 days.
+const MAX_INTERVAL: i64 = 30 * 24 * 60;
 
 const FILL_CHOICES: &[Choice] = &[
     Choice::new("fill", msg!("Fill the screen, cut off what doesn’t fit")),
@@ -40,7 +87,7 @@ const KEYWORDS: &[crate::i18n::Msg] =
     &[msg!("background"), msg!("desktop picture"), msg!("swaybg")];
 
 pub(super) fn settings() -> Vec<Setting> {
-    vec![
+    [
         Setting::text(IMAGE, Page::Wallpaper, "")
             .section(SECTION)
             .group(GROUP.0, GROUP.1)
@@ -105,18 +152,103 @@ pub(super) fn settings() -> Vec<Setting> {
                 |args| Ok(Value::Color(read_background(args)?.color)),
             )
             .build(),
+        Setting::text(COLLECTION, Page::Wallpaper, "")
+            .section(SECTION)
+            .group(GROUP.0, GROUP.1)
+            .title(msg!("Collection"))
+            .subtitle(msg!(
+                "The collection whose pictures take turns, in place of the image"
+            ))
+            .placeholder(msg!("No collection"))
+            .keywords(&[
+                msg!("collection"),
+                msg!("slideshow"),
+                msg!("cycle"),
+                msg!("rotate"),
+            ])
+            .scope(Scope::PerOutput)
+            .requires_tools(&["swaybg"])
+            .check_text(check_collection)
+            .sway(
+                Directive::output("bg"),
+                ConfigFile::Output,
+                background,
+                // A `bg` line of the user's names a file, never a collection.
+                |args| read_background(args).map(|_| Value::Text(String::new())),
+            )
+            .build(),
+    ]
+    .into_iter()
+    .chain(collection_settings())
+    .collect()
+}
+
+/// The settings of a collection.
+fn collection_settings() -> Vec<Setting> {
+    vec![
+        Setting::list(PICTURES, Page::Wallpaper, &[])
+            .section(msg!("Collections"))
+            .title(msg!("Pictures"))
+            .subtitle(msg!(
+                "Pictures and folders of the collection; a folder adds every picture in it"
+            ))
+            .keywords(&[msg!("collection"), msg!("pictures"), msg!("folder")])
+            .scope(Scope::PerCollection)
+            .build(),
+        Setting::choice(CHANGE, Page::Wallpaper, "daily", CHANGE_CHOICES)
+            .section(msg!("Collections"))
+            .title(msg!("Change picture"))
+            .subtitle(msg!(
+                "When the next picture of the collection is shown; always at login too"
+            ))
+            .keywords(&[msg!("collection"), msg!("daily"), msg!("interval")])
+            .scope(Scope::PerCollection)
+            .build(),
+        Setting::integer(INTERVAL, Page::Wallpaper, 30, 1, MAX_INTERVAL)
+            .section(msg!("Collections"))
+            .title(msg!("Interval"))
+            .subtitle(msg!("Minutes until the next picture"))
+            .keywords(&[msg!("collection"), msg!("minutes"), msg!("hours")])
+            .scope(Scope::PerCollection)
+            .depends_on(CHANGE, When::OneOf(&["interval"]))
+            .build(),
+        Setting::choice(ORDER, Page::Wallpaper, "shuffle", ORDER_CHOICES)
+            .section(msg!("Collections"))
+            .title(msg!("Order"))
+            .subtitle(msg!("Which picture comes next"))
+            .keywords(&[msg!("collection"), msg!("shuffle"), msg!("random")])
+            .scope(Scope::PerCollection)
+            .build(),
     ]
 }
 
-/// `output <name> bg <image> <fill> <color>`, or `bg <color> solid_color` without an image.
+/// A collection name, or empty for none.
+fn check_collection(name: &str) -> Result<(), ValueError> {
+    if name.is_empty() || is_collection_name(name) {
+        Ok(())
+    } else {
+        Err(ValueError::NotACollectionName)
+    }
+}
+
+/// `output <name> bg <image> <fill> <color>`, or `bg <color> solid_color` without an image. With
+/// a collection, the image is the link to its current picture; the generated config also runs
+/// `sway-things hook wallpaper` then (see `generate`).
 fn background(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
     let output = ctx.output()?;
     let color = ctx.color(COLOR)?;
+    let fill = Fill::from_keyword(ctx.choice(FILL)?).unwrap_or(Fill::Fill);
+    if !ctx.text(COLLECTION)?.is_empty() {
+        // A collection without a picture has no link to name: the color fills the screen.
+        return Ok(vec![match ctx.wallpaper_picture() {
+            Some(link) => output.background_image(&link, fill, color)?,
+            None => output.background_color(color),
+        }]);
+    }
     let image = ctx.text(IMAGE)?;
     if image.is_empty() {
         return Ok(vec![output.background_color(color)]);
     }
-    let fill = Fill::from_keyword(ctx.choice(FILL)?).unwrap_or(Fill::Fill);
     Ok(vec![output.background_image(
         Path::new(&image),
         fill,

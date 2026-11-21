@@ -476,6 +476,16 @@ pub fn hook(hook: &'static str) -> SwayCmd {
         .config_only()
 }
 
+/// `exec sway-things hook <hook>`: runs a hook of the command line once, when sway starts, but
+/// not when it reloads its config. Only for generated files.
+pub fn hook_at_start(hook: &'static str) -> SwayCmd {
+    SwayCmd::new("exec")
+        .keyword("sway-things")
+        .keyword("hook")
+        .keyword(hook)
+        .config_only()
+}
+
 fn is_keyword(keyword: &str) -> bool {
     !keyword.is_empty()
         && keyword.bytes().all(|byte| {

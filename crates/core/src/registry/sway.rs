@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::PathBuf;
 
 use super::Registry;
 use super::read::ReadFn;
@@ -216,6 +217,16 @@ fn is_block(directive: &sway_config::Directive, kind: &str) -> bool {
 pub trait Values {
     /// The stored value of `key`, if any.
     fn get(&self, key: &str) -> Option<&Value>;
+
+    /// The current picture of the wallpaper collection of `output` (`None`: every output) as a
+    /// `bg` line names it: the link in the state folder that points at it
+    /// ([`Paths::wallpaper_picture`](crate::state::Paths::wallpaper_picture)). `None` while it
+    /// points at no picture, and for values that don't know where the links are; the color then
+    /// fills the screen.
+    fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
+        let _ = output;
+        None
+    }
 }
 
 /// No stored values: everything renders with its default.
@@ -249,6 +260,17 @@ impl Context<'_> {
     /// Where the commands go. A setting can need other commands over IPC than in a config file.
     pub fn target(&self) -> Target {
         self.target
+    }
+
+    /// The input device, output or collection the setting is rendered for; `None` for all.
+    pub fn instance(&self) -> Option<&str> {
+        self.device
+    }
+
+    /// The current picture of the wallpaper collection of the output the setting is rendered
+    /// for, as a `bg` line names it ([`Values::wallpaper_picture`]).
+    pub fn wallpaper_picture(&self) -> Option<PathBuf> {
+        self.values.wallpaper_picture(self.device)
     }
 
     /// The `input` command builder for the devices the setting is rendered for: the selected

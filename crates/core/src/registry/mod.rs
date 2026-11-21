@@ -49,7 +49,7 @@ mod sway;
 #[cfg(test)]
 mod tests;
 mod value;
-mod wallpaper;
+pub mod wallpaper;
 mod windows;
 pub mod words;
 pub mod workspaces;

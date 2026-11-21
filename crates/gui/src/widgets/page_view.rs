@@ -203,7 +203,7 @@ impl PageView {
             }
             let kind = match setting.scope() {
                 Scope::PerDevice(kind) => Some(kind),
-                Scope::Global | Scope::PerHost | Scope::PerOutput => None,
+                Scope::Global | Scope::PerHost | Scope::PerOutput | Scope::PerCollection => None,
             };
             let list = match &section {
                 Some((title, list)) if *title == setting.section() => list.clone(),
