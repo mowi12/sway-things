@@ -48,6 +48,19 @@ pub(crate) fn generated_state(
         .ok_or_else(|| format!("  no tab for {}", file.file_name()))
 }
 
+/// The state of `file`'s tab once `shown` holds for it: the window reads the files on disk on
+/// a thread of its own, so a refresh lands a moment later. The last state after five seconds.
+pub(crate) fn generated_state_when(
+    window: &Window,
+    file: ConfigFile,
+    shown: impl Fn(&(String, Option<String>, bool)) -> bool,
+) -> Result<(String, Option<String>, bool), String> {
+    run_until(Duration::from_secs(5), || {
+        generated_state(window, file).is_ok_and(|state| shown(&state))
+    });
+    generated_state(window, file)
+}
+
 /// The Show button of the Windows page footer opens 30-appearance.conf with the stored colors;
 /// a change shows at once.
 pub(crate) fn check_generated_footer() -> Outcome {
@@ -70,7 +83,10 @@ pub(crate) fn check_generated_footer() -> Outcome {
         generated.shown_file() == Some(ConfigFile::Appearance),
         &format!("  it opened at {:?}", generated.shown_file()),
     )?;
-    let (text, banner, _) = generated_state(&window, ConfigFile::Appearance)?;
+    let (text, banner, _) =
+        generated_state_when(&window, ConfigFile::Appearance, |(text, _, _)| {
+            text.contains("client.focused ")
+        })?;
     ensure(
         text.contains("client.focused ") && text.contains("#3b6e4f"),
         &format!("  30-appearance.conf shows {text:?}"),
@@ -108,7 +124,9 @@ pub(crate) fn check_generated_footer() -> Outcome {
         .model
         .set("windows.gaps.inner", None, Value::Integer(9));
     wait_for_model(&fixture.model)?;
-    let (text, _, _) = generated_state(&window, ConfigFile::Appearance)?;
+    let (text, _, _) = generated_state_when(&window, ConfigFile::Appearance, |(text, _, _)| {
+        text.contains("gaps inner 9")
+    })?;
     ensure(
         text.contains("gaps inner 9"),
         &format!("  after a change it shows {text:?}"),
@@ -176,7 +194,10 @@ pub(crate) fn check_generated_edited() -> Outcome {
         .generated()
         .ok_or_else(|| "  no generated window".to_owned())?;
     settle(&generated)?;
-    let (text, banner, can_overwrite) = generated_state(&window, ConfigFile::Appearance)?;
+    let (text, banner, can_overwrite) =
+        generated_state_when(&window, ConfigFile::Appearance, |(_, banner, _)| {
+            banner.is_some()
+        })?;
     ensure(
         banner
             .as_deref()
@@ -192,7 +213,9 @@ pub(crate) fn check_generated_edited() -> Outcome {
         .on_disk_button(ConfigFile::Appearance)
         .ok_or_else(|| "  no Show file on disk button".to_owned())?;
     on_disk.set_active(true);
-    let (text, _, _) = generated_state(&window, ConfigFile::Appearance)?;
+    let (text, _, _) = generated_state_when(&window, ConfigFile::Appearance, |(text, _, _)| {
+        *text == edited
+    })?;
     ensure(text == edited, &format!("  on disk it shows {text:?}"))?;
     on_disk.set_active(false);
 
@@ -203,7 +226,10 @@ pub(crate) fn check_generated_edited() -> Outcome {
         written.contains("client.focused ") && !written.contains("gaps inner 30"),
         &format!("  the file holds {written:?} after Overwrite"),
     )?;
-    let (_, banner, _) = generated_state(&window, ConfigFile::Appearance)?;
+    let (_, banner, _) =
+        generated_state_when(&window, ConfigFile::Appearance, |(_, banner, _)| {
+            banner.is_none()
+        })?;
     ensure(banner.is_none(), "the banner stays after Overwrite")?;
     window.destroy();
     Ok(())
@@ -219,7 +245,10 @@ pub(crate) fn check_generated_not_overwritten() -> Outcome {
     )?;
     let window = open(&foreign, Page::WindowBehavior)?;
     window.show_generated(Some(ConfigFile::Behavior));
-    let (_, banner, can_overwrite) = generated_state(&window, ConfigFile::Behavior)?;
+    let (_, banner, can_overwrite) =
+        generated_state_when(&window, ConfigFile::Behavior, |(_, banner, _)| {
+            banner.is_some()
+        })?;
     ensure(
         banner
             .as_deref()
@@ -240,7 +269,10 @@ pub(crate) fn check_generated_not_overwritten() -> Outcome {
     let window = open(&read_only, Page::MouseTouchpad)?;
     window.look_around();
     window.show_generated(Some(ConfigFile::Input));
-    let (_, banner, can_overwrite) = generated_state(&window, ConfigFile::Input)?;
+    let (_, banner, can_overwrite) =
+        generated_state_when(&window, ConfigFile::Input, |(_, banner, _)| {
+            banner.is_some()
+        })?;
     ensure(
         banner.is_some(),
         "an edited file has no banner while read-only",
