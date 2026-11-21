@@ -36,6 +36,9 @@
 #
 # Usage: scripts/check-integration.sh [--container NAME|all | --host | --build]
 #
+# The images are tagged sway-things-ci:NAME; SWAY_THINGS_CI_IMAGE names another repository than sway-things-ci, so
+# runs from several checkouts don't replace each other's images.
+#
 # Needs sway, swaymsg, cargo, dbus-daemon, python-dbusmock, pipewire, wireplumber, pipewire-pulse, pactl, pacat, cupsd
 # with its ipp backend and filters, and scanimage with SANE's test backend; for --container, docker or podman
 # (CONTAINER_ENGINE overrides the choice).
@@ -114,10 +117,10 @@ if [[ -n $container ]]; then
     context=$(mktemp -d)
     tar -c "ci/containers/$name/Dockerfile" ci/integration scripts/check-integration.sh scripts/lib.sh Cargo.toml \
       Cargo.lock crates po/sway-things.pot | tar -x -C "$context"
-    "$engine" build --quiet --tag "sway-things-ci:$name" --file "$context/ci/containers/$name/Dockerfile" "$context" \
-      >/dev/null
+    image=${SWAY_THINGS_CI_IMAGE:-sway-things-ci}:$name
+    "$engine" build --quiet --tag "$image" --file "$context/ci/containers/$name/Dockerfile" "$context" >/dev/null
     rm -rf "$context"
-    "$engine" run --rm "${devices[@]}" "sway-things-ci:$name"
+    "$engine" run --rm "${devices[@]}" "$image"
   done
   exit
 fi
