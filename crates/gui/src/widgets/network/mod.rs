@@ -20,6 +20,7 @@ mod rows;
 mod scan;
 mod text;
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use gtk::glib;
@@ -98,6 +99,7 @@ struct NetRow {
 mod imp {
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     use gtk::glib;
     use gtk::prelude::*;
@@ -105,7 +107,7 @@ mod imp {
     use sway_things_core::network::{NetworkManager, Snapshot};
 
     use super::NetRow;
-    use super::dialogs::Dialog;
+    use super::dialogs::Opened;
 
     #[derive(Default)]
     pub struct NetworkPage {
@@ -175,7 +177,9 @@ mod imp {
         /// What runs on which row (its key), as the row shows it.
         pub(super) running: RefCell<HashMap<String, &'static str>>,
         /// The open dialog of the secret agent, and the connection it is about.
-        pub prompt: RefCell<Option<(String, Dialog<String>)>>,
+        pub prompt: RefCell<Option<(String, Opened)>>,
+        /// Where the agent looks for the VPN plugins instead, set by tests.
+        pub vpn_plugins: RefCell<Option<Vec<PathBuf>>>,
         /// The open dialog of the page itself (a password, a hidden network, details).
         pub dialog: RefCell<Option<gtk::Window>>,
         /// Whether our agent is registered (or on its way).
@@ -360,6 +364,15 @@ impl NetworkPage {
     /// The switch of the row named `name`, for tests.
     pub fn row_switch(&self, name: &str) -> Option<gtk::Switch> {
         self.find_row(name).map(|row| row.switch)
+    }
+
+    /// Makes the agent look for the VPN plugins in `dirs`, for tests with fake plugins (see
+    /// `NetworkManager::use_vpn_plugin_dirs`).
+    pub fn use_vpn_plugin_dirs(&self, dirs: Vec<PathBuf>) {
+        if let Some(nm) = self.imp().nm.borrow().as_ref() {
+            nm.use_vpn_plugin_dirs(dirs.clone());
+        }
+        self.imp().vpn_plugins.replace(Some(dirs));
     }
 
     /// The window of the open dialog: the agent's, else the page's own; for tests.
@@ -622,6 +635,9 @@ impl NetworkPage {
             let Some(page) = weak.upgrade() else {
                 return;
             };
+            if let Some(dirs) = page.imp().vpn_plugins.borrow().clone() {
+                nm.use_vpn_plugin_dirs(dirs);
+            }
             page.imp().nm.replace(Some(nm.clone()));
             page.follow_agent(&nm);
             drop(page);
@@ -658,8 +674,7 @@ impl NetworkPage {
                 };
                 match event {
                     AgentEvent::Prompt(prompt) => page.prompt(prompt),
-                    // Not asked for yet: dropping the prompt cancels it.
-                    AgentEvent::Vpn(prompt) => drop(prompt),
+                    AgentEvent::Vpn(prompt) => page.vpn_prompt(prompt),
                     AgentEvent::Cancel(connection) => page.close_prompt_of(&connection),
                 }
             }

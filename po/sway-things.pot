@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 14:26+0100\n"
+"POT-Creation-Date: 2026-11-21 14:29+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6084,6 +6084,16 @@ msgstr ""
 #: crates/gui/src/widgets/network/prompts.rs
 #, rust-format
 msgid "Password for “{network}”"
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Sign in to VPN “{vpn}” again"
+msgstr ""
+
+#: crates/gui/src/widgets/network/prompts.rs
+#, rust-format
+msgid "Sign in to VPN “{vpn}”"
 msgstr ""
 
 #: crates/gui/src/widgets/network/rows.rs
