@@ -522,7 +522,10 @@ pub(super) fn fail(io: &mut Io<'_>, error: &ApplyError) -> Exit {
             | StateError::InvalidValue { .. }
             | StateError::NotPerDevice { .. }
             | StateError::InvalidDevice { .. }
-            | StateError::OneAtATime { .. },
+            | StateError::OneAtATime { .. }
+            | StateError::NotPerCollection { .. }
+            | StateError::NoCollection { .. }
+            | StateError::InvalidCollection { .. },
         )
         | ApplyError::Render(_) => Exit::Usage,
         ApplyError::Unsupported { .. }

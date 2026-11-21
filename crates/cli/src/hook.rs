@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The hooks generated config runs: `gsettings` in the session, and `displays`, `workspaces`,
-//! `mirror` and `new-display` through [`sway_things_core::outputs::hooks`].
+//! The hooks generated config runs: `gsettings` and `wallpaper` in the session, and `displays`,
+//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`].
 
 use std::io::Write;
 
@@ -80,7 +80,7 @@ pub(super) async fn run_display_hook(
         Hook::NewDisplay => return hook_new_display(client, env, err).await,
         Hook::Workspaces => hooks::workspaces(client, env).await,
         Hook::Mirror => hooks::mirror(client, env).await,
-        Hook::Gsettings => return Exit::Ok,
+        Hook::Gsettings | Hook::Wallpaper => return Exit::Ok,
     };
     match done {
         Ok(_) => Exit::Ok,
@@ -97,6 +97,7 @@ pub(super) async fn run_hook<V: Validate>(
 ) -> Exit {
     match hook {
         Hook::Gsettings => return hook_gsettings(session, io),
+        Hook::Wallpaper => return super::wallpaper::hook_wallpaper(session, io).await,
         // Asks the user through the notification server: only for the user's session.
         Hook::NewDisplay => return Exit::Ok,
         Hook::Displays | Hook::Workspaces | Hook::Mirror => {}

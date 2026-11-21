@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 18:12+0100\n"
+"POT-Creation-Date: 2026-11-21 18:13+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -291,7 +291,7 @@ msgid "can't start {program}: {error}"
 msgstr ""
 
 #. TRANSLATORS: Why `sway-things doctor` found no sway session.
-#: crates/cli/src/lib.rs
+#: crates/cli/src/lib.rs crates/cli/src/wallpaper.rs
 msgid "not in a sway session"
 msgstr ""
 
@@ -347,6 +347,13 @@ msgstr ""
 #: crates/cli/src/output.rs
 #, rust-format
 msgid "your config wins: {file}:{line}"
+msgstr ""
+
+#. TRANSLATORS: The heading of a wallpaper collection's settings in
+#. `sway-things get`.
+#: crates/cli/src/output.rs
+#, rust-format
+msgid "collection {collection}"
 msgstr ""
 
 #. TRANSLATORS: The heading of a display's settings in `sway-things get`.
