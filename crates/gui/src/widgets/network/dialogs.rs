@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The dialogs of the Network page: a Wi-Fi password (for a new network, or when the secret agent
-//! asks again), a VPN's sign-in (the fields its plugin asks for), a hidden network, a
-//! connection's details, and forgetting a network.
+//! asks again), a VPN's sign-in (the fields its plugin asks for, or the steps of an OpenConnect
+//! sign-in), a hidden network, a connection's details, and forgetting a network.
 //!
 //! Network names and what a VPN plugin says are untrusted: they only ever go into label text,
 //! window titles and dialog messages, which GTK shows as plain text.
@@ -293,6 +293,154 @@ pub fn vpn(
         first.grab_focus();
     }
     dialog
+}
+
+/// Reads the answer of the field a sign-in dialog shows.
+type Reading = Rc<RefCell<Option<Box<dyn Fn() -> String>>>>;
+
+/// The sign-in to an OpenConnect VPN: one dialog that walks through the steps, showing the field
+/// openconnect asks for with the server's message, then a spinner until the next one.
+#[derive(Clone)]
+pub struct SignInDialog {
+    dialog: Dialog<()>,
+    message: gtk::Label,
+    fields: gtk::Box,
+    status: gtk::Box,
+    status_label: gtk::Label,
+    accept: gtk::Button,
+    /// Reads the answer of the field shown.
+    current: Reading,
+}
+
+impl SignInDialog {
+    /// A sign-in dialog titled `title`: `answer` gets each answer, `done` gets `None` when it is
+    /// canceled (Cancel, Escape, closing it) and `Some` when it was [`finish`](Self::finish)ed.
+    pub fn new(
+        parent: Option<&gtk::Window>,
+        title: &str,
+        answer: impl Fn(String) + 'static,
+        done: impl FnOnce(Option<()>) + 'static,
+    ) -> Self {
+        let (dialog, content) = Dialog::new(parent, title, done);
+        let message = gtk::Label::new(None);
+        message.set_wrap(true);
+        message.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        message.set_justify(gtk::Justification::Center);
+        message.set_max_width_chars(40);
+        message.set_visible(false);
+        content.append(&message);
+        let fields = gtk::Box::new(gtk::Orientation::Vertical, 12);
+        content.append(&fields);
+        let status = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        status.set_halign(gtk::Align::Center);
+        let spinner = gtk::Spinner::new();
+        spinner.start();
+        let status_label = gtk::Label::new(None);
+        status_label.add_css_class(style::DIM);
+        status.append(&spinner);
+        status.append(&status_label);
+        content.append(&status);
+        let accept = dialog
+            .buttons(&content, Some(tr(msg!("Continue"))))
+            .unwrap_or_default();
+        let current: Reading = Rc::default();
+        let sign_in = Self {
+            dialog,
+            message,
+            fields,
+            status,
+            status_label,
+            accept,
+            current,
+        };
+        let answering = sign_in.clone();
+        sign_in.accept.connect_clicked(move |_| {
+            let value = answering.current.borrow_mut().take().map(|read| read());
+            if let Some(value) = value {
+                answering.working();
+                answer(value);
+            }
+        });
+        sign_in.working();
+        sign_in.dialog.window.present();
+        sign_in
+    }
+
+    /// Asks for `field`, with the server's `message` (may be empty) above it.
+    pub fn ask(&self, message: &str, field: &VpnField) {
+        self.message.set_text(message.trim());
+        self.message.set_visible(!message.trim().is_empty());
+        while let Some(child) = self.fields.first_child() {
+            self.fields.remove(&child);
+        }
+        let (widget, read): (gtk::Widget, Box<dyn Fn() -> String>) = if field.choices.is_empty() {
+            let entry: gtk::Editable = if field.secret {
+                gtk::PasswordEntry::builder()
+                    .show_peek_icon(true)
+                    .activates_default(true)
+                    .build()
+                    .upcast()
+            } else {
+                gtk::Entry::builder()
+                    .activates_default(true)
+                    .build()
+                    .upcast()
+            };
+            entry.set_text(&field.value);
+            let reading = entry.clone();
+            (entry.upcast(), Box::new(move || reading.text().to_string()))
+        } else {
+            let labels: Vec<&str> = field.choices.iter().map(String::as_str).collect();
+            let choice = gtk::DropDown::from_strings(&labels);
+            let choices = field.choices.clone();
+            let reading = choice.clone();
+            (
+                choice.upcast(),
+                Box::new(move || {
+                    usize::try_from(reading.selected())
+                        .ok()
+                        .and_then(|i| choices.get(i))
+                        .cloned()
+                        .unwrap_or_default()
+                }),
+            )
+        };
+        labeled(&self.fields, &field.label, &widget);
+        self.current.replace(Some(read));
+        self.fields.set_visible(true);
+        self.status.set_visible(false);
+        self.accept.set_sensitive(true);
+        widget.grab_focus();
+    }
+
+    /// Says that the sign-in continues in the browser.
+    pub fn browser(&self) {
+        self.waiting(tr(msg!("Continue the sign-in in your browser…")));
+    }
+
+    /// Shows the spinner while openconnect works.
+    fn working(&self) {
+        self.waiting(tr(msg!("Signing in…")));
+    }
+
+    fn waiting(&self, text: &str) {
+        self.current.replace(None);
+        self.message.set_visible(false);
+        self.fields.set_visible(false);
+        self.status_label.set_text(text);
+        self.status.set_visible(true);
+        self.accept.set_sensitive(false);
+    }
+
+    /// Closes the dialog once the sign-in ended.
+    pub fn finish(&self) {
+        self.dialog.finish(Some(()));
+    }
+
+    /// The dialog, to close it or find its window.
+    pub fn opened(&self) -> Opened {
+        self.dialog.opened()
+    }
 }
 
 /// The hidden network a user typed in: its SSID, security and password.

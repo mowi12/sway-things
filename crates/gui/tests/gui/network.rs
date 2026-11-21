@@ -228,6 +228,10 @@ pub(crate) fn check_network_pages() -> Vec<(String, Outcome)> {
             check_network(),
         ),
         (
+            "network: an OpenConnect sign-in walks through its steps".to_owned(),
+            check_network_openconnect(),
+        ),
+        (
             "network: scanning only with the Search button".to_owned(),
             check_network_manual(false),
         ),
@@ -568,4 +572,103 @@ async fn connection_named(stand_in: &NmStandIn, id: &str) -> Result<String, nm_s
         }
     }
     Err(format!("no connection called {id}").into())
+}
+
+/// An OpenConnect sign-in on the page: NetworkManager asks for the VPN "Uni", and one dialog walks
+/// through a fake openconnect's username, password and TOTP, whose answers go back.
+pub(crate) fn check_network_openconnect() -> Outcome {
+    let (stand_in, _) = network_stand_in()?;
+    let value = |text: &str| zbus::zvariant::Value::from(text.to_owned());
+    let settings = std::collections::HashMap::from([
+        (
+            "connection",
+            std::collections::HashMap::from([("id", value("Uni")), ("type", value("vpn"))]),
+        ),
+        (
+            "vpn",
+            std::collections::HashMap::from([
+                (
+                    "service-type",
+                    value("org.freedesktop.NetworkManager.openconnect"),
+                ),
+                (
+                    "data",
+                    zbus::zvariant::Value::from(std::collections::HashMap::from([(
+                        "gateway",
+                        "vpn.example.org",
+                    )])),
+                ),
+            ]),
+        ),
+    ]);
+    let vpn = async_io::block_on(stand_in.add_connection(&settings))
+        .map_err(|error| format!("  {error}"))?;
+    let dir = tempfile::tempdir().map_err(|error| format!("  {error}"))?;
+    let program = nm_stand_in::fake_openconnect(dir.path(), nm_stand_in::FakeSignIn::Totp)
+        .map_err(|error| format!("  {error}"))?;
+    let page = NetworkPage::new(&NetworkBus::Address(stand_in.address().to_owned()));
+    page.use_openconnect(program);
+    let window = gtk::Window::new();
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    ensure(
+        run_until(Duration::from_secs(10), || page.bus_name().is_some()),
+        "  the page didn't reach NetworkManager",
+    )?;
+    let name = page.bus_name().ok_or("  the page has no bus name")?;
+    async_io::block_on(stand_in.ask_secrets_of(&name, &vpn, "vpn", 0x1))
+        .map_err(|error| format!("  {error}"))?;
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            page.open_dialog()
+                .is_some_and(|d| find::<gtk::Entry>(d.upcast_ref()).is_some_and(|e| e.is_mapped()))
+        }),
+        "  the sign-in didn't ask for the username",
+    )?;
+    let dialog = page.open_dialog().ok_or("  no dialog")?;
+    ensure(
+        dialog.title().as_deref() == Some("Sign in to VPN “Uni”"),
+        &format!("  the dialog is titled {:?}", dialog.title()),
+    )?;
+    let continue_button =
+        button_labeled(dialog.upcast_ref(), "Continue").ok_or("  the dialog has no Continue")?;
+    find::<gtk::Entry>(dialog.upcast_ref())
+        .ok_or("  no username field")?
+        .set_text("alice");
+    continue_button.emit_clicked();
+    let password = || find::<gtk::PasswordEntry>(dialog.upcast_ref()).filter(WidgetExt::is_mapped);
+    ensure(
+        run_until(Duration::from_secs(5), || password().is_some()),
+        "  the sign-in didn't ask for the password",
+    )?;
+    password().ok_or("  no password field")?.set_text("secret");
+    continue_button.emit_clicked();
+    let message = || {
+        all::<gtk::Label>(dialog.upcast_ref()).iter().any(|label| {
+            label.is_mapped() && label.text() == "MFA: Enter your TOTP as the second factor"
+        })
+    };
+    ensure(
+        run_until(Duration::from_secs(5), || message() && password().is_some()),
+        "  the sign-in didn't show the server's TOTP question",
+    )?;
+    password().ok_or("  no TOTP field")?.set_text("123456");
+    continue_button.emit_clicked();
+    let reply =
+        async_io::block_on(stand_in.secrets_reply()).map_err(|error| format!("  {error}"))?;
+    ensure(
+        reply
+            == Ok(
+                "cookie=webvpn=fake;gateway=https://vpn.example.org/;gwcert=pin-sha256:fake="
+                    .to_owned(),
+            ),
+        &format!("  the agent answered {reply:?}"),
+    )?;
+    ensure(
+        run_until(Duration::from_secs(5), || page.open_dialog().is_none()),
+        "  the dialog stayed open after signing in",
+    )?;
+    window.destroy();
+    Ok(())
 }

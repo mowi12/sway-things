@@ -125,6 +125,11 @@ impl SignIn {
         self.steps.recv().await.ok()
     }
 
+    /// The steps, to wait for without holding the sign-in; the channel ends with the sign-in.
+    pub fn steps(&self) -> Receiver<SignInStep> {
+        self.steps.clone()
+    }
+
     /// Answers the field of the last [`SignInStep::Ask`].
     pub fn answer(&self, value: String) {
         let _ = self.answers.try_send(value);

@@ -1,12 +1,16 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The secret agent's questions as dialogs: a password that is wrong or changed, or the fields of
-//! a VPN's plugin, while the page is on screen or a connection it started is under way.
+//! The secret agent's questions as dialogs: a password that is wrong or changed, the fields of a
+//! VPN's plugin, or the steps of an OpenConnect sign-in, while the page is on screen or a
+//! connection it started is under way.
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::network::{SecretPrompt, Security, VpnPrompt};
+use sway_things_core::network::{SecretPrompt, Security, SignIn, SignInStep, VpnPrompt};
 
 use super::dialogs::PasswordSpec;
 use super::{NetworkPage, dialogs};
@@ -98,6 +102,54 @@ impl NetworkPage {
         self.imp()
             .prompt
             .replace(Some((connection, dialog.opened())));
+    }
+
+    /// Shows the steps of the agent's OpenConnect `sign_in` in one dialog until it ends.
+    pub(super) fn sign_in(&self, sign_in: SignIn) {
+        self.close_prompt();
+        let window = self.root().and_downcast::<gtk::Window>();
+        let title = trf(msg!("Sign in to VPN “{vpn}”"), &[("vpn", &sign_in.name)]);
+        let connection = sign_in.connection.clone();
+        // Dropping the sign-in cancels it: the dialog holds it until it closes.
+        let sign_in = Rc::new(RefCell::new(Some(sign_in)));
+        let answering = Rc::clone(&sign_in);
+        let closing = Rc::clone(&sign_in);
+        let weak = self.downgrade();
+        let dialog = dialogs::SignInDialog::new(
+            window.as_ref(),
+            &title,
+            move |value| {
+                if let Some(sign_in) = answering.borrow().as_ref() {
+                    sign_in.answer(value);
+                }
+            },
+            move |_| {
+                closing.replace(None);
+                if let Some(page) = weak.upgrade() {
+                    page.imp().prompt.replace(None);
+                }
+            },
+        );
+        self.imp()
+            .prompt
+            .replace(Some((connection, dialog.opened())));
+        let Some(steps) = sign_in.borrow().as_ref().map(SignIn::steps) else {
+            return;
+        };
+        let task = glib::spawn_future_local(async move {
+            loop {
+                match steps.recv().await {
+                    Ok(SignInStep::Ask { message, field }) => dialog.ask(&message, &field),
+                    Ok(SignInStep::Browser) => dialog.browser(),
+                    // Signed in, failed or canceled: the switch says how it went.
+                    Err(_) => {
+                        dialog.finish();
+                        return;
+                    }
+                }
+            }
+        });
+        self.imp().tasks.borrow_mut().push(task);
     }
 
     /// Closes the agent's dialog, if one is open.

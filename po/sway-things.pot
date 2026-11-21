@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 15:12+0100\n"
+"POT-Creation-Date: 2026-11-21 15:15+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5977,6 +5977,18 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
 msgid "Saved for all users of this computer."
+msgstr ""
+
+#: crates/gui/src/widgets/network/dialogs.rs
+msgid "Continue"
+msgstr ""
+
+#: crates/gui/src/widgets/network/dialogs.rs
+msgid "Continue the sign-in in your browser…"
+msgstr ""
+
+#: crates/gui/src/widgets/network/dialogs.rs
+msgid "Signing in…"
 msgstr ""
 
 #: crates/gui/src/widgets/network/dialogs.rs
