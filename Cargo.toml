@@ -41,7 +41,7 @@ clap_mangen = "0.3"
 colorchoice-clap = "1"
 futures-lite = { version = "2", default-features = false, features = ["std"] }
 # GLib 2.80 for ApplicationCommandLine::printerr_literal; GTK 4.18 needs GLib 2.82 anyway.
-gio = { version = "0.21", features = ["v2_80"] }
+gio = { version = "0.22", features = ["v2_80"] }
 glib-build-tools = "0.21"
 gtk = { package = "gtk4", version = "0.10", features = ["v4_18"] }
 # 0.7 is the line for gtk4 0.10; without its v1_3 feature it takes gtk4-layer-shell 1.0 (Debian 13).
