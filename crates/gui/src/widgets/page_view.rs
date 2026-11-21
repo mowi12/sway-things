@@ -266,7 +266,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in keyboard::below(model, &row) {
+            for widget in below(model, page, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
@@ -482,6 +482,15 @@ impl PageView {
             }
         ));
         imp.pointing.replace(Some(tick));
+    }
+}
+
+/// The page's own widgets below `row`: the Keyboard page's and the Bar page's.
+fn below(model: &Model, page: Page, row: &SettingRow) -> Vec<gtk::Widget> {
+    if page == Page::Bar {
+        super::bar::below(model, row)
+    } else {
+        keyboard::below(model, row)
     }
 }
 

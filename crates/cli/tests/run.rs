@@ -638,6 +638,7 @@ fn doctor_reports_a_setup_that_works() {
              ok       30-appearance.conf is up to date.\n  \
              ok       sway --validate accepts 30-appearance.conf.\n  \
              ok       40-behavior.conf isn't needed: no stored setting goes into it.\n  \
+             ok       75-bar.conf isn't needed: no stored setting goes into it.\n  \
              ok       80-hooks.conf isn't needed: no stored setting goes into it.\n  \
              ok       90-effects.conf isn't needed: no stored setting goes into it.\n\
              \n\
@@ -878,7 +879,7 @@ fn doctor_prints_json_for_scripts() {
     assert_eq!(json["fix"]["result"], "done");
     assert_eq!(json["fix"]["message"], serde_json::Value::Null);
     let files = json["fix"]["files"].as_array().unwrap();
-    assert_eq!(files.len(), 6);
+    assert_eq!(files.len(), 7);
     assert_eq!(files[1]["outcome"], "not_created");
     assert_eq!(files[2]["outcome"], "written");
     assert_eq!(files[0]["outcome"], "not_created");

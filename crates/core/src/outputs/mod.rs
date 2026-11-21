@@ -206,6 +206,16 @@ pub fn kanshi_runs_as_unit() -> bool {
 /// `WAYLAND_DISPLAY` in their environment, as far as this process has them): their `/proc`
 /// directories. Reads `/proc`; nothing is run.
 pub(crate) fn session_processes(name: &str) -> Vec<std::path::PathBuf> {
+    session_processes_where(|process| {
+        std::fs::read_to_string(process.join("comm")).is_ok_and(|comm| comm.trim_end() == name)
+    })
+}
+
+/// The processes of this user in this session for which `matches` holds, given their `/proc`
+/// directory: their `/proc` directories. Reads `/proc`; nothing is run.
+pub(crate) fn session_processes_where(
+    matches: impl Fn(&std::path::Path) -> bool,
+) -> Vec<std::path::PathBuf> {
     use std::os::unix::fs::MetadataExt;
     let Ok(me) = std::fs::metadata("/proc/self").map(|meta| meta.uid()) else {
         return Vec::new();
@@ -225,10 +235,7 @@ pub(crate) fn session_processes(name: &str) -> Vec<std::path::PathBuf> {
         .filter(|process| {
             let path = process.path();
             let mine = process.metadata().is_ok_and(|meta| meta.uid() == me);
-            let named = mine
-                && std::fs::read_to_string(path.join("comm"))
-                    .is_ok_and(|comm| comm.trim_end() == name);
-            named
+            mine && matches(&path)
                 && std::fs::read(path.join("environ")).is_ok_and(|environ| {
                     ours.iter().flatten().all(|entry| {
                         environ

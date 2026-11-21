@@ -21,6 +21,7 @@
 //! files are still validated with `sway --validate`: that is how to find out from a TTY why sway
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
 
+mod bar;
 #[cfg(test)]
 mod tests;
 
@@ -187,6 +188,14 @@ pub enum Code {
     FileInvalid,
     /// The generated files couldn't be validated, because sway can't be run.
     ValidationSkipped,
+    /// A file Sway Things writes for waybar, or the module definitions of the bar.
+    BarFile,
+    /// waybar is the bar, but isn't installed.
+    BarWaybarMissing,
+    /// Which bar runs: waybar with the files of Sway Things or with others, or none.
+    BarRunning,
+    /// A bar of the user's own sway config runs next to the one Sway Things sets up.
+    BarOther,
     /// No line of the user's config sets a stored setting.
     NoConflicts,
     /// A line of the user's config comes after the generated file and wins over a stored setting.
@@ -234,6 +243,10 @@ impl Code {
             Self::FileValid => "file_valid",
             Self::FileInvalid => "file_invalid",
             Self::ValidationSkipped => "validation_skipped",
+            Self::BarFile => "bar_file",
+            Self::BarWaybarMissing => "bar_waybar_missing",
+            Self::BarRunning => "bar_running",
+            Self::BarOther => "bar_other",
             Self::NoConflicts => "no_conflicts",
             Self::ConfigWins => "config_wins",
             Self::ConfigLineDead => "config_line_dead",
@@ -276,7 +289,11 @@ impl Code {
             | Self::FileUnchecked
             | Self::FileValid
             | Self::FileInvalid
-            | Self::ValidationSkipped => Section::Generated,
+            | Self::ValidationSkipped
+            | Self::BarFile
+            | Self::BarWaybarMissing
+            | Self::BarRunning
+            | Self::BarOther => Section::Generated,
             Self::NoConflicts | Self::ConfigWins | Self::ConfigLineDead => Section::Conflicts,
         }
     }
@@ -639,6 +656,7 @@ impl<V: Validate> Checkup<'_, V> {
         progress(Step::Section(Section::Generated));
         self.files(generated.as_deref(), &mut findings, &mut progress)
             .await;
+        self.bar(&mut findings);
         progress(Step::Section(Section::Conflicts));
         self.conflicts(&mut findings);
         Diagnosis { findings }
@@ -658,6 +676,7 @@ impl<V: Validate> Checkup<'_, V> {
         let files =
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays);
         let overwrite: &[ConfigFile] = if overwrite { &ConfigFile::ALL } else { &[] };
+        self.fix_bar(access);
         generate::write(&files, self.locations, self.validator, overwrite, access)
             .await
             .map_err(FixError::Write)

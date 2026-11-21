@@ -1,0 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Included by rich.jsonc: what the including config sets wins.
+{
+  "layer": "bottom",
+  "clock": { "interval": 30, "tooltip": true, "timezone": "UTC" },
+  "custom/from-include": { "exec": "echo hi" }
+}

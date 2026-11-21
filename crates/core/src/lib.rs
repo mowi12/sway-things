@@ -10,6 +10,7 @@
 
 pub mod apply;
 mod atomic;
+pub mod bar;
 pub mod bluetooth;
 pub mod command;
 pub mod conflict;

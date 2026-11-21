@@ -58,6 +58,9 @@ size = 32
 [effects]
 corner_radius = 8
 
+[bar]
+backend = "waybar"
+
 [windows]
 font = "Inter \"Display\" $11"
 
@@ -161,6 +164,10 @@ workspace_layout tabbed
         )
     );
     assert_eq!(
+        text(&files, ConfigFile::Bar),
+        format!("{HEADER}exec_always sway-things hook waybar\n")
+    );
+    assert_eq!(
         text(&files, ConfigFile::Hooks),
         format!("{HEADER}exec_always sway-things hook gsettings\n")
     );
@@ -214,7 +221,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
         text(&files, ConfigFile::Effects),
         format!("{HEADER}# effects.corner_radius: requires SwayFX 0.5 or newer\n")
     );
-    let effects = &files[5];
+    let effects = &files[6];
     assert!(!effects.is_empty());
     assert_eq!(
         effects.lines()[0].skipped.as_deref(),
@@ -365,11 +372,12 @@ impl Written {
     }
 }
 
-const ALL_FILES: [&str; 6] = [
+const ALL_FILES: [&str; 7] = [
     "10-input.conf",
     "20-output.conf",
     "30-appearance.conf",
     "40-behavior.conf",
+    "75-bar.conf",
     "80-hooks.conf",
     "90-effects.conf",
 ];
@@ -380,7 +388,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Written }; 6]
+        [const { Outcome::Written }; 7]
     );
     assert_eq!(written.names(), ALL_FILES);
     for file in &written.files {
@@ -390,7 +398,7 @@ fn files_are_validated_then_written_and_recorded() {
     }
     // Each file was staged under a name the include `*.conf` doesn't match, with its content.
     let staged = validator.staged.borrow();
-    assert_eq!(staged.len(), 6);
+    assert_eq!(staged.len(), 7);
     for ((name, content), file) in staged.iter().zip(&written.files) {
         assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
         assert!(name.ends_with(".staged"), "{name}");
@@ -402,7 +410,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Unchanged }; 6]
+        [const { Outcome::Unchanged }; 7]
     );
     assert!(validator.staged.borrow().is_empty());
 }
@@ -478,7 +486,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
 
     let outcomes = written.write(&FakeValidator::default(), &[]);
     assert_eq!(outcomes[0], Outcome::EditedOutside);
-    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 5]);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 6]);
     assert!(
         fs::read_to_string(&input)
             .unwrap()
@@ -493,7 +501,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
     assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
-        [const { Outcome::Unchanged }; 6]
+        [const { Outcome::Unchanged }; 7]
     );
 }
 
@@ -518,6 +526,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::EditedOutside,
             Outcome::Foreign,
             Outcome::Written,
+            Outcome::Written,
             Outcome::Written
         ]
     );
@@ -534,6 +543,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Unchanged,
             Outcome::Written,
             Outcome::Foreign,
+            Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Unchanged
         ]
@@ -556,6 +566,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
             not_created.clone(),
             not_created.clone(),
             Outcome::Written,
+            not_created.clone(),
             not_created.clone(),
             not_created.clone(),
             not_created.clone()
@@ -676,14 +687,14 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert!(before.iter().all(|file| file.content.is_none()));
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 6]
+        [const { Ok(super::Ownership::Absent) }; 7]
     );
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 6]
+        [const { Ok(super::Ownership::Current) }; 7]
     );
 
     let input = written.path(ConfigFile::Input);

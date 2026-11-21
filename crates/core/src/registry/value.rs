@@ -298,6 +298,10 @@ pub enum ValueError {
     NotAThemeName,
     /// The text isn't a font description: empty, too long, or with a control character.
     NotAFont,
+    /// The text isn't the name of a waybar module like `clock`, `custom/media` or `battery#bat2`.
+    NotAModule,
+    /// The text isn't an absolute path without control characters.
+    NotAPath,
 }
 
 impl ValueError {
@@ -347,6 +351,13 @@ impl ValueError {
             }
             Self::NotAFont => {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
+            }
+            Self::NotAModule => msg!(
+                "must be a module name like clock, custom/media or battery#bat2, without spaces"
+            )
+            .into(),
+            Self::NotAPath => {
+                msg!("must be a full path starting with /, without line breaks").into()
             }
         }
     }

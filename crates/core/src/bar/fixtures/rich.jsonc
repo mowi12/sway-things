@@ -1,0 +1,158 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// A rich waybar config for the import tests: nested groups with drawers, module instances
+// (`clock#date`), an image, privacy, a calendar with actions, custom modules with clicks,
+// signals and JSON output, comments everywhere, trailing commas and an include.
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 0,
+  // A floating bar.
+  "margin-top": 6,
+  "margin-left": 8,
+  "margin-right": 8,
+  "fixed-center": false,
+  "include": "extra.jsonc",
+
+  "modules-left": ["custom/launcher", "sway/workspaces", "sway/mode", "sway/window"],
+  "modules-center": ["group/time", "mpris"],
+  "modules-right": [
+    "custom/camera",
+    "privacy",
+    "group/net",
+    "group/audio",
+    "battery",
+    "group/extras",
+    "group/power", // trailing comma follows
+  ],
+
+  /* Groups (drawers) */
+  "group/time": {
+    "orientation": "inherit",
+    "modules": ["group/clock-drawer", "custom/pomodoro"]
+  },
+  "group/clock-drawer": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 250,
+      "children-class": "drawer-child",
+      "transition-left-to-right": false
+    },
+    "modules": ["clock", "clock#date"]
+  },
+  "group/net": {
+    "orientation": "inherit",
+    "drawer": { "transition-duration": 250, "transition-left-to-right": false },
+    "modules": ["network", "network#speed", "bluetooth"]
+  },
+  "group/audio": {
+    "orientation": "inherit",
+    "drawer": { "transition-duration": 250 },
+    "modules": ["pulseaudio", "pulseaudio#mic", "backlight"]
+  },
+  "group/extras": {
+    "orientation": "inherit",
+    "drawer": { "click-to-reveal": true },
+    "modules": ["image#expand", "tray"]
+  },
+  "group/power": {
+    "orientation": "inherit",
+    "drawer": { "transition-duration": 250 },
+    "modules": ["custom/lock", "custom/poweroff"]
+  },
+
+  "custom/launcher": {
+    "format": "<span size='125%'>☰</span>",
+    "tooltip-format": "Launcher",
+    "on-click": "fuzzel"
+  },
+  "sway/workspaces": { "all-outputs": false, "disable-scroll": true, "format": "{name}" },
+  "sway/mode": { "format": "<span style=\"italic\">{}</span>" },
+  "sway/window": { "max-length": 50, "tooltip": false },
+
+  "custom/pomodoro": {
+    "exec": "~/bin/timer",
+    "return-type": "json",
+    "interval": 1,
+    "signal": 16,
+    "on-click": "~/bin/timer toggle",
+    "on-click-right": "~/bin/timer reset",
+    "on-click-middle": "~/bin/timer skip",
+    "on-scroll-up": "~/bin/timer up",
+    "on-scroll-down": "~/bin/timer down",
+    "tooltip": true
+  },
+  "clock": { "interval": 1, "format": "{:%H:%M:%S}", "tooltip": false },
+  "clock#date": {
+    "interval": 60,
+    "format": "{:%A, %d %B %Y}",
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "calendar": {
+      "mode": "month",
+      "weeks-pos": "left",
+      "on-scroll": 1,
+      "format": {
+        "months": "<b>{}</b>",
+        "today": "<b><u>{}</u></b>"
+      }
+    },
+    "actions": {
+      "on-click-right": "mode",
+      "on-scroll-up": "shift_up",
+      "on-scroll-down": "shift_down"
+    }
+  },
+  "mpris": {
+    "format": "{player_icon}  {dynamic}",
+    "player-icons": { "default": "▶", "mpv": "🎵" },
+    "dynamic-order": ["title", "artist"],
+    "dynamic-len": 40
+  },
+  "privacy": {
+    "icon-spacing": 6,
+    "icon-size": 14,
+    "modules": [
+      { "type": "screenshare", "tooltip": true, "tooltip-icon-size": 20 },
+      { "type": "audio-in", "tooltip": true }
+    ]
+  },
+  "custom/camera": {
+    "exec": "exec ~/bin/camera-watch",
+    "return-type": "json",
+    "on-click": "~/bin/camera-watch show"
+  },
+  "network": { "interval": 5, "format-wifi": "{icon}", "format-icons": ["▁", "▃", "▅", "▇"] },
+  "network#speed": {
+    "interval": 5,
+    "format": "↓{bandwidthDownBytes:>9} ↑{bandwidthUpBytes:>9}",
+    "format-disconnected": ""
+  },
+  "bluetooth": { "format-on": "B", "on-click": "blueman-manager" },
+  "pulseaudio": {
+    "format": "{icon} {volume:>3}%",
+    "format-icons": { "headphone": "H", "default": "V" },
+    "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0"
+  },
+  "pulseaudio#mic": {
+    "format": "{format_source}",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+  },
+  "backlight": { "format": "{percent:>3}%", "on-scroll-up": "brightnessctl set 5%+" },
+  "battery": {
+    "states": { "good": 95, "warning": 30, "critical": 10 },
+    "format": "{icon} {capacity:>3}%",
+    "format-icons": ["▁", "▃", "▅", "▇"]
+  },
+  // The interval matters for image modules.
+  "image#expand": {
+    "exec": "echo \"$HOME/icons/chevron.svg\"",
+    "size": 14,
+    "interval": 86400,
+    "tooltip": false
+  },
+  "custom/lock": { "format": "L", "on-click": "loginctl lock-session" },
+  "custom/poweroff": { "format": "P", "on-click": "swaynag -t warning -m 'Shut down?' -B 'Yes' 'systemctl poweroff'" },
+  "custom/unused": { "exec": "true" },
+}

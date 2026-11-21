@@ -162,6 +162,10 @@ pub enum Hook {
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
     /// the mirrors of other combinations: run by kanshi when it applied a profile
     Mirror,
+    /// Write the config and stylesheet of Sway Things for waybar and start waybar with them,
+    /// unless one runs already or your sway config starts it: run at every start and reload of
+    /// sway while waybar is the bar
+    Waybar,
 }
 
 /// The binary of the app.
@@ -729,7 +733,7 @@ pub async fn run<V: Validate>(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::Waybar)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
@@ -837,6 +841,7 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
                 Exit::Failure
             }
         },
+        Hook::Waybar => hook_waybar(session, io).await,
         Hook::Displays => match session.applier.client() {
             Some(client) => match outputs::ensure_one_on(client).await {
                 Ok(_) => Exit::Ok,
@@ -847,6 +852,81 @@ async fn run_hook<V: Validate>(hook: Hook, session: &mut Session<V>, io: &mut Io
             },
             None => Exit::Ok,
         },
+    }
+}
+
+/// `hook waybar`: writes waybar's files of Sway Things (they may have come with the dotfiles
+/// from another machine) and starts waybar with them, unless one runs with them already or the
+/// user's sway config or a systemd unit starts waybar. Quiet when there is nothing to do.
+async fn hook_waybar<V: Validate>(session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
+    use sway_things_core::bar::{self, process};
+    let state = session.applier.state();
+    if bar::Backend::of(state) != bar::Backend::Waybar {
+        return Exit::Ok;
+    }
+    let Some(files) = bar::WaybarFiles::of(state) else {
+        return Exit::Ok;
+    };
+    if let Ok(access) = session.status.write_access() {
+        let modules = match session.applier.bar_modules() {
+            Ok(modules) => modules,
+            Err(error) => {
+                io.error(error_line(&error.text().translated()));
+                return Exit::Failure;
+            }
+        };
+        if let Err(error) = bar::waybar::write(
+            &files,
+            state,
+            &modules,
+            Some(session.status.config()),
+            &access,
+        ) {
+            io.error(error_line(&error.text().translated()));
+        }
+    }
+    let starter = process::Starter::detect(
+        session.status.config(),
+        session.applier.locations().directory(),
+        &process::running(),
+        &files,
+    );
+    let handover = process::handover(&starter, &files).unwrap_or_default();
+    match process::ensure(&files, &starter).await {
+        Ok(process::Ensured::Other(pid)) => {
+            // To sway's log: two bars would show.
+            io.warn(trf(
+                msg!(
+                    "A waybar with another config runs (process {pid}), so Sway Things doesn't \
+                     start a second one. To use the bar of the Bar page, start it with: {line}"
+                ),
+                &[
+                    ("pid", &pid),
+                    ("line", &format!("waybar {}", process::arguments(&files))),
+                ],
+            ));
+            Exit::Ok
+        }
+        Ok(process::Ensured::Elsewhere) => {
+            if let process::Starter::Maybe(line) = &starter {
+                io.warn(trf(
+                    msg!(
+                        "{place} may start waybar, so Sway Things doesn't start a second one. To \
+                         use the bar of the Bar page there, the line is: {line}"
+                    ),
+                    &[
+                        ("place", &format!("{}:{}", line.file.display(), line.line)),
+                        ("line", &handover),
+                    ],
+                ));
+            }
+            Exit::Ok
+        }
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            io.error(error_line(&error.text().translated()));
+            Exit::Failure
+        }
     }
 }
 

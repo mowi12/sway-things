@@ -118,6 +118,9 @@ pub enum ConfigFile {
     Appearance,
     /// `40-behavior.conf`
     Behavior,
+    /// `75-bar.conf`: what starts the bar: swaybar's `bar` lines, or the hook that starts
+    /// waybar with the config and stylesheet of Sway Things.
+    Bar,
     /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`.
     Hooks,
     /// `90-effects.conf`: SwayFX directives only, written only while SwayFX runs.
@@ -126,11 +129,12 @@ pub enum ConfigFile {
 
 impl ConfigFile {
     /// Every generated file, in the order of their names, which is the order sway reads them in.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Input,
         Self::Output,
         Self::Appearance,
         Self::Behavior,
+        Self::Bar,
         Self::Hooks,
         Self::Effects,
     ];
@@ -142,6 +146,7 @@ impl ConfigFile {
             Self::Output => "20-output.conf",
             Self::Appearance => "30-appearance.conf",
             Self::Behavior => "40-behavior.conf",
+            Self::Bar => "75-bar.conf",
             Self::Hooks => "80-hooks.conf",
             Self::Effects => "90-effects.conf",
         }

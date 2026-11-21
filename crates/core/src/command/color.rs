@@ -32,6 +32,11 @@ impl Color {
         [self.red, self.green, self.blue]
     }
 
+    /// The alpha channel, if the color has one (`#rrggbbaa`).
+    pub const fn alpha(self) -> Option<u8> {
+        self.alpha
+    }
+
     /// A color with alpha, rendered as `#rrggbbaa`.
     pub const fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self {
