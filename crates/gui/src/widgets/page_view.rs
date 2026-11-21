@@ -42,11 +42,12 @@ use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, SoundServer,
     TestArea, WorkspaceMap,
 };
-use super::{cursor, keyboard, look};
+use super::{cursor, keyboard, look, notifications};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
 use crate::style;
+use sway_things_core::notifications::Daemon;
 
 /// The widest a page's content gets, in pixels, with its margins.
 pub const MAXIMUM_WIDTH: i32 = 760;
@@ -204,8 +205,8 @@ impl PageView {
         let mut files = BTreeSet::new();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
-        let arrangement = (page == Page::Displays)
-            .then(|| arrangement_section(model, &body, std::mem::take(&mut first), &mut sections));
+        let (arrangement, daemon_shown) =
+            top_sections(model, page, &body, &mut first, &mut sections);
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
@@ -266,7 +267,7 @@ impl PageView {
                 group.rows.push(row.clone());
             }
             grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in keyboard::below(model, &row) {
+            for widget in below(model, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
@@ -277,6 +278,7 @@ impl PageView {
             group.follow(model);
         }
         add_page_parts(model, page, &body, &mut sections);
+        follow_daemon(&sections, daemon_shown.as_ref());
         let displays = arrangement.map(|shown| follow_displays(model, shown, &rows));
         if let Some(footer) = footer(model, files) {
             body.append(&footer);
@@ -552,6 +554,90 @@ fn arrangement_section(
     body.append(&section.body);
     sections.push(section);
     arrangement
+}
+
+/// Where the Notifications page's panel says which daemon the page is about.
+type ShowDaemon = Rc<RefCell<Option<Box<dyn Fn(Option<Daemon>)>>>>;
+
+/// The page's own widgets below `row`.
+fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
+    let mut widgets = keyboard::below(model, row);
+    widgets.extend(notifications::below(model, row));
+    widgets
+}
+
+/// The sections a page starts with before its rows: the arrangement of the displays, the Do Not
+/// Disturb section of the Notifications page.
+fn top_sections(
+    model: &Model,
+    page: Page,
+    body: &gtk::Box,
+    first: &mut bool,
+    sections: &mut Vec<Section>,
+) -> (Option<Arrangement>, Option<ShowDaemon>) {
+    let arrangement = (page == Page::Displays)
+        .then(|| arrangement_section(model, body, std::mem::take(first), sections));
+    let daemon = (page == Page::Notifications)
+        .then(|| dnd_section(model, body, std::mem::take(first), sections));
+    (arrangement, daemon)
+}
+
+/// The "Do Not Disturb" section at the top of the Notifications page, with the daemon that
+/// runs. Returns where the panel says which daemon the page is about.
+fn dnd_section(
+    model: &Model,
+    body: &gtk::Box,
+    first: bool,
+    sections: &mut Vec<Section>,
+) -> ShowDaemon {
+    let shown: ShowDaemon = Rc::default();
+    let title = msg!("Do Not Disturb");
+    let section = Section::new(model, Page::Notifications, title.msgid(), tr(title), first);
+    let target = Rc::clone(&shown);
+    section
+        .body
+        .append(&notifications::panel(model, move |daemon| {
+            if let Some(show) = target.borrow().as_ref() {
+                show(daemon);
+            }
+        }));
+    body.append(&section.header);
+    body.append(&section.body);
+    sections.push(section);
+    shown
+}
+
+/// Shows the sections of mako's and swaync's settings for the daemon the page is about: the
+/// one that runs, else the one chosen to start; all of them while neither is known.
+fn follow_daemon(sections: &[Section], shown: Option<&ShowDaemon>) {
+    let Some(shown) = shown else {
+        return;
+    };
+    let mako = ui_state::section_id(msg!("mako").msgid());
+    let swaync = ui_state::section_id("swaync");
+    let parts: Vec<(Daemon, gtk::Button, gtk::Box)> = sections
+        .iter()
+        .filter_map(|section| {
+            let daemon = if section.id == mako {
+                Daemon::Mako
+            } else if section.id.starts_with(&swaync) {
+                Daemon::Swaync
+            } else {
+                return None;
+            };
+            Some((daemon, section.header.clone(), section.body.clone()))
+        })
+        .collect();
+    shown.replace(Some(Box::new(move |daemon: Option<Daemon>| {
+        for (of, header, body) in &parts {
+            let visible = match daemon {
+                Some(Daemon::Mako | Daemon::Swaync) => daemon == Some(*of),
+                _ => true,
+            };
+            header.set_visible(visible);
+            body.set_visible(visible);
+        }
+    })));
 }
 
 /// Lets the Displays page follow its outputs: the picker before the rows.
