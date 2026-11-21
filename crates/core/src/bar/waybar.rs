@@ -118,7 +118,7 @@ pub fn config_text(state: &State, modules: &Modules) -> String {
 pub fn style_text(state: &State) -> String {
     let mut text = format!("/* {HEADER}\n   {HEADER_HINT} */\n\n");
     text.push_str("@import url(\"theme.css\");\n");
-    if let Setting::Text(path) = value(state, keys::EXTRA_CSS) {
+    if let Some(path) = style::extra_css_active(state) {
         if let Some(url) = style::file_url(&path) {
             let _ = writeln!(text, "@import url(\"{url}\");");
         }
@@ -127,9 +127,9 @@ pub fn style_text(state: &State) -> String {
 }
 
 /// The text of `theme.css`: waybar's own stylesheet, or one made from the style settings.
-pub fn theme_text(state: &State, sway: Option<&SwayConfig>) -> String {
+pub fn theme_text(state: &State, sway: Option<&SwayConfig>, modules: &Modules) -> String {
     let mut text = format!("/* {HEADER}\n   {HEADER_HINT} */\n\n");
-    text.push_str(&style::stylesheet(state, sway));
+    text.push_str(&style::stylesheet(state, sway, modules));
     text
 }
 
@@ -144,7 +144,11 @@ pub fn texts(
     vec![
         (files.config(), "//", config_text(state, modules)),
         (files.style(), "/*", style_text(state)),
-        (files.dir.join("theme.css"), "/*", theme_text(state, sway)),
+        (
+            files.dir.join("theme.css"),
+            "/*",
+            theme_text(state, sway, modules),
+        ),
     ]
 }
 

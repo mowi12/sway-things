@@ -9,7 +9,7 @@
 //! is shown, so a waybar that starts or ends shows soon. Lines of the user's config, paths and
 //! names are data: they go into labels as plain text.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -48,11 +48,25 @@ const IMPORT_NOTES: Msg = msg!("Imported, with notes");
 /// How often what runs is read again while the page is shown.
 const LOOK_EVERY: Duration = Duration::from_secs(3);
 
+/// What is told the state: the line, whether it needs attention, whether the details say more.
+type Tell = Box<dyn Fn(&str, bool, bool)>;
+
 /// The status box of the Bar page.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Status {
     root: gtk::Box,
     lines: gtk::Box,
+    /// Whether a line needs the user's attention, while the box is being filled.
+    attention: Rc<Cell<bool>>,
+    /// Told the state in one line, whether it needs attention, and whether the details say
+    /// more about it, after each look.
+    told: Rc<RefCell<Option<Tell>>>,
+}
+
+impl std::fmt::Debug for Status {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("Status").finish_non_exhaustive()
+    }
 }
 
 impl Status {
@@ -62,7 +76,12 @@ impl Status {
         root.add_css_class("st-bar-status");
         let lines = gtk::Box::new(gtk::Orientation::Vertical, 8);
         root.append(&lines);
-        let status = Self { root, lines };
+        let status = Self {
+            root,
+            lines,
+            attention: Rc::new(Cell::new(false)),
+            told: Rc::new(RefCell::new(None)),
+        };
         let shown = status.clone();
         super::follow(
             model,
@@ -115,8 +134,29 @@ impl Status {
         &self.root
     }
 
-    /// Shows how the bar runs now.
-    fn update(&self, model: &Model) {
+    /// Calls `tell` with the state in one line and whether something needs attention, now and
+    /// after each look.
+    pub fn connect_state(&self, tell: impl Fn(&str, bool, bool) + 'static) {
+        self.told.replace(Some(Box::new(tell)));
+    }
+
+    /// Whether the box shows anything.
+    pub fn is_empty(&self) -> bool {
+        self.lines.first_child().is_none()
+    }
+
+    /// Shows how the bar runs now, and tells the state in one line.
+    pub fn update(&self, model: &Model) {
+        let (state, missing) = self.fill(model);
+        let warned = self.attention.get();
+        if let Some(tell) = self.told.borrow().as_ref() {
+            tell(&state, warned || missing, warned);
+        }
+    }
+
+    /// Fills the box; the state in one line, and whether the bar program isn't installed.
+    fn fill(&self, model: &Model) -> (String, bool) {
+        self.attention.set(false);
         while let Some(child) = self.lines.first_child() {
             self.lines.remove(&child);
         }
@@ -132,7 +172,7 @@ impl Status {
         let (Some(status), Some(files), Some(locations)) =
             (model.status(), model.waybar_files(), model.locations())
         else {
-            return;
+            return (String::new(), false);
         };
         let generated = locations.directory().to_path_buf();
         for (file, line) in process::swaybars(status.config(), &generated) {
@@ -150,27 +190,36 @@ impl Status {
             }
         }
         match backend {
-            Backend::None => self.none(model, &files),
-            Backend::Swaybar => self.note(
+            Backend::None => {
+                self.none(model, &files);
+                (tr(msg!("Your own bar stays as it is.")).to_owned(), false)
+            }
+            Backend::Swaybar if self.attention.get() => (
                 tr(msg!(
-                    "swaybar is set up in Sway Things' sway include (75-bar.conf); a change \
-                     shows at once."
-                )),
+                    "Another swaybar of your config shows next to it: see Details."
+                ))
+                .to_owned(),
                 false,
             ),
+            Backend::Swaybar => {
+                self.note(
+                    tr(msg!(
+                        "swaybar is set up in Sway Things' sway include (75-bar.conf); a change \
+                         shows at once."
+                    )),
+                    false,
+                );
+                (
+                    tr(msg!("Built into sway; a change shows at once.")).to_owned(),
+                    false,
+                )
+            }
             Backend::Waybar => self.waybar(model, &status, &files, &generated),
         }
     }
 
     /// While no bar is set up here: what choosing one does, and the import.
     fn none(&self, model: &Model, files: &WaybarFiles) {
-        self.note(
-            tr(msg!(
-                "Choose waybar or swaybar to set up the bar here. Until then, your own bar stays \
-                 as it is."
-            )),
-            false,
-        );
         self.import_line(model, files);
     }
 
@@ -181,21 +230,22 @@ impl Status {
         status: &sway_things_core::include::IncludeStatus,
         files: &WaybarFiles,
         generated: &std::path::Path,
-    ) {
-        if !process::installed() {
-            self.note(
-                tr(msg!(
-                    "waybar isn't installed. Install the waybar package, or choose swaybar, \
-                     which comes with sway."
-                )),
-                true,
-            );
-        }
+    ) -> (String, bool) {
+        let installed = process::installed();
+        // The state line says it; the details have nothing to add.
+        let missing = !installed;
         let running = process::running();
         let ours = running.iter().any(|waybar| waybar.runs(files));
         let starter = Starter::detect(status.config(), generated, &running, files);
         self.starter_notes(&starter, files);
-        if let Some(problem) = process::last_problem() {
+        // The user's config or a unit starts Waybar, with a line to change there.
+        let elsewhere = match &starter {
+            Starter::Exec(line) | Starter::SwaybarCommand(line) => !line.ours,
+            Starter::Maybe(_) | Starter::Unit | Starter::UnitStart(_) => true,
+            Starter::Nothing => false,
+        };
+        let problem = process::last_problem();
+        if let Some(problem) = problem {
             self.note(&problem.text().translated(), true);
         }
         let state = if ours {
@@ -236,6 +286,20 @@ impl Status {
         written.set_wrap_mode(gtk::pango::WrapMode::WordChar);
         written.add_css_class(style::DIM);
         self.lines.append(&written);
+        let state = if !installed {
+            tr(msg!("Not installed: install the waybar package.")).to_owned()
+        } else if elsewhere {
+            tr(msg!("Your sway config starts Waybar itself: see Details.")).to_owned()
+        } else if ours {
+            tr(msg!("Runs with these settings.")).to_owned()
+        } else if let Some(problem) = problem {
+            problem.text().translated()
+        } else if running.is_empty() {
+            tr(msg!("Not running; it starts with sway.")).to_owned()
+        } else {
+            tr(msg!("Another Waybar runs: see Details.")).to_owned()
+        };
+        (state, missing)
     }
 
     /// What starts waybar, with the line to change there.
@@ -333,6 +397,9 @@ impl Status {
 
     /// A line of text; a warning with an icon.
     fn note(&self, text: &str, warning: bool) {
+        if warning {
+            self.attention.set(true);
+        }
         let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         if warning {
             let icon = gtk::Image::from_icon_name("dialog-warning-symbolic");

@@ -23,9 +23,11 @@
 //! `75-bar.conf`, built by the typed command builders.
 
 pub mod catalog;
+pub mod groups;
 pub mod import;
 pub mod jsonc;
 pub mod modules;
+pub mod preview;
 pub mod process;
 pub mod script;
 pub mod starter;

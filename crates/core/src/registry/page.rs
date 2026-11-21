@@ -235,7 +235,7 @@ impl Page {
             Self::Windows => msg!("Borders, colors, gaps and title bars of tiled windows"),
             Self::Wallpaper => msg!("Background image or color per output"),
             Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),
-            Self::Bar => msg!("Position, modules and style of the bar"),
+            Self::Bar => msg!("Where the bar stands, what it shows and how it looks"),
             Self::WindowBehavior => msg!("How focus, floating and tiling behave"),
             Self::Workspaces => msg!("Which display each workspace is on, and how new ones start"),
             Self::KeyboardShortcuts => msg!("All bindings, gestures and media keys"),

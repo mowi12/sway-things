@@ -232,8 +232,7 @@ fn main() -> ExitCode {
     results.extend(check_indicators());
     results.extend(check_look());
     results.extend(check_shortcuts());
-    results.extend(check_places());
-    results.extend(check_swayosd());
+    results.extend(check_places().into_iter().chain(check_swayosd()));
     results.extend(check_apps());
     results.extend(check_environment());
     results.extend(check_notifications());

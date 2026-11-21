@@ -1032,6 +1032,81 @@ impl Model {
         self.queue(Op::BarModules(modules));
     }
 
+    /// What the bar the settings set up looks like, for the preview on the Bar page; with
+    /// `preset`, what it would look like with that preset.
+    pub fn bar_look(&self, preset: Option<&str>) -> Option<sway_things_core::bar::style::Look> {
+        use sway_things_core::bar::style;
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let sway = Some(core.status.config());
+        Some(match preset {
+            Some(id) => style::preview(&style::with_preset(&core.state, id), sway),
+            None => style::preview(&core.state, sway),
+        })
+    }
+
+    /// The stylesheet of the Bar page's preview of waybar, under the class `root`: ours and the
+    /// user's own, confined to the preview.
+    pub fn bar_preview_css(
+        &self,
+        root: &str,
+    ) -> Option<sway_things_core::bar::preview::PreviewCss> {
+        self.bar_preset_css(None, root)
+    }
+
+    /// The stylesheet of a preview like [`Self::bar_preview_css`], with `preset` applied in
+    /// memory if one is given: what the bar would look like with that look.
+    pub fn bar_preset_css(
+        &self,
+        preset: Option<&str>,
+        root: &str,
+    ) -> Option<sway_things_core::bar::preview::PreviewCss> {
+        let modules = self.bar_modules().and_then(Result::ok).unwrap_or_default();
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let sway = Some(core.status.config());
+        Some(match preset {
+            Some(id) => sway_things_core::bar::preview::stylesheet(
+                &sway_things_core::bar::style::with_preset(&core.state, id),
+                sway,
+                &modules,
+                root,
+            ),
+            None => sway_things_core::bar::preview::stylesheet(&core.state, sway, &modules, root),
+        })
+    }
+
+    /// The preset whose values the bar has, if one has them all.
+    pub fn bar_preset(&self) -> Option<&'static str> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        sway_things_core::bar::style::current_preset(&core.state, core.compositor.is_swayfx())
+    }
+
+    /// The files Sway Things writes for waybar, with what it writes to them for the settings
+    /// now.
+    pub fn bar_texts(&self) -> Vec<(std::path::PathBuf, String)> {
+        let core = self.imp().core.borrow();
+        let Some(core) = core.as_ref() else {
+            return Vec::new();
+        };
+        let (Some(files), Some(Ok(modules))) = (
+            sway_things_core::bar::WaybarFiles::of(&core.state),
+            self.bar_modules(),
+        ) else {
+            return Vec::new();
+        };
+        sway_things_core::bar::waybar::texts(
+            &files,
+            &core.state,
+            &modules,
+            Some(core.status.config()),
+        )
+        .into_iter()
+        .map(|(path, _, text)| (path, text))
+        .collect()
+    }
+
     /// Has the waybar processes of the session that run our config read it again.
     pub fn reload_bar(&self) {
         self.queue(Op::ReloadBar);

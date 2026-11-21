@@ -169,6 +169,9 @@ pub fn read(found: &Found, files: &dyn Files) -> Result<Imported, ImportError> {
             imported
                 .values
                 .push((keys::THEME, Value::Choice("plain".to_owned())));
+            imported
+                .values
+                .push((keys::EXTRA_CSS_ON, Value::Bool(true)));
         }
     }
     imported.read = reader.read;

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:06+0100\n"
+"POT-Creation-Date: 2026-11-26 22:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -795,7 +795,7 @@ msgstr ""
 msgid "Needs power-profiles-daemon or tuned-ppd"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Format"
 msgstr ""
 
@@ -811,7 +811,7 @@ msgstr ""
 msgid "Tooltip format"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Update every (seconds)"
 msgstr ""
 
@@ -925,7 +925,7 @@ msgstr ""
 msgid "Microphone format when muted"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Scroll step (percent)"
 msgstr ""
 
@@ -945,11 +945,11 @@ msgstr ""
 msgid "The icons of running apps (StatusNotifierItem)"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Icon size"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Space between icons"
 msgstr ""
 
@@ -1140,7 +1140,7 @@ msgstr ""
 msgid "sway's workspaces, switched with a click"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Workspaces of every display"
 msgstr ""
 
@@ -1197,11 +1197,12 @@ msgstr ""
 msgid "Custom"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/bar/layout.rs
+#: crates/core/src/bar/catalog.rs
 msgid "The output of a command or script of yours"
 msgstr ""
 
 #: crates/core/src/bar/catalog.rs crates/gui/src/widgets/apps/dialogs.rs
+#: crates/gui/src/widgets/bar/script.rs
 #: crates/gui/src/widgets/shortcuts/parts.rs
 msgid "Command"
 msgstr ""
@@ -1243,6 +1244,7 @@ msgid "Command that prints the file"
 msgstr ""
 
 #: crates/core/src/bar/catalog.rs crates/core/src/registry/cursor.rs
+#: crates/gui/src/widgets/bar/mod.rs
 msgid "Size"
 msgstr ""
 
@@ -1947,12 +1949,14 @@ msgstr ""
 
 #: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
 #: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Left"
 msgstr ""
 
 #: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
 #: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Right"
 msgstr ""
@@ -4667,11 +4671,11 @@ msgstr ""
 msgid "disable autostart"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/backend.rs
 msgid "None: keep your own bar"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/backend.rs
 msgid "Waybar"
 msgstr ""
 
@@ -4835,7 +4839,7 @@ msgstr ""
 msgid "script"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/backend.rs
 msgid "Bar program"
 msgstr ""
 
@@ -4849,7 +4853,7 @@ msgstr ""
 msgid "waybar"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/backend.rs
 msgid "swaybar"
 msgstr ""
 
@@ -4868,10 +4872,6 @@ msgstr ""
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
 #: crates/core/src/registry/output.rs
 msgid "Position"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
-msgid "swaybar stands only at the top or the bottom"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
@@ -4964,10 +4964,6 @@ msgid "Layer"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "SwayFX blurs behind the bar only above floating windows or everything"
-msgstr ""
-
-#: crates/core/src/registry/bar.rs
 msgid "overlay"
 msgstr ""
 
@@ -4980,7 +4976,9 @@ msgid "on top"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
-#: crates/core/src/registry/windows.rs crates/gui/src/widgets/wallpaper/mod.rs
+#: crates/core/src/registry/windows.rs crates/gui/src/widgets/bar/lanes.rs
+#: crates/gui/src/widgets/bar/preview.rs
+#: crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Center"
 msgstr ""
 
@@ -5116,7 +5114,9 @@ msgid "Blur behind the bar"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
-msgid "Blurs what shows through a transparent background, not between islands"
+msgid ""
+"Blurs what shows through a transparent background, not between islands; only "
+"with the bar above floating windows"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
@@ -5243,7 +5243,7 @@ msgstr ""
 msgid "Advanced"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/presets.rs
 msgid "Your own stylesheet"
 msgstr ""
 
@@ -5272,6 +5272,20 @@ msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "import"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Use on top of the look"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"Reads your own stylesheet after the look's rules, so it overrides them; a "
+"look of the page turns it off, Your style on again"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "override"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -6201,7 +6215,7 @@ msgstr ""
 msgid "unclutter"
 msgstr ""
 
-#: crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/cursor.rs crates/gui/src/widgets/bar/script.rs
 msgid "Seconds"
 msgstr ""
 
@@ -7473,7 +7487,7 @@ msgstr ""
 msgid "Slight"
 msgstr ""
 
-#: crates/core/src/registry/look.rs
+#: crates/core/src/registry/look.rs crates/gui/src/widgets/bar/mod.rs
 msgid "Medium"
 msgstr ""
 
@@ -8470,7 +8484,7 @@ msgid "Theme, icons, fonts and dark mode for applications"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Position, modules and style of the bar"
+msgid "Where the bar stands, what it shows and how it looks"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -10347,7 +10361,7 @@ msgstr ""
 msgid "Start Now"
 msgstr ""
 
-#: crates/gui/src/widgets/apps/dialogs.rs
+#: crates/gui/src/widgets/apps/dialogs.rs crates/gui/src/widgets/bar/lanes.rs
 #: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
@@ -10513,47 +10527,77 @@ msgid ""
 "session, to have them started"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/bar/backend.rs
 #, rust-format
-msgid "{option}: must be a number from {min} to {max}"
+msgid "Installed: Waybar {version}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/bar/backend.rs
 #, rust-format
-msgid "Other options: {error}"
+msgid ""
+"Not shown by swaybar: {items}, islands, transparency, rounded corners and "
+"the space around the bar. They stay saved for when you switch back."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
-msgid "Other options must be one JSON object, in braces"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/dialog.rs
-msgid "The name can't be empty or have spaces, and no other module may have it"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/bar/backend.rs
 #, rust-format
-msgid "Shows as: {text}"
+msgid "Use {program}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
-msgid "New Custom Module"
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Many items, icons, tooltips, click actions and full styling. A program of "
+"its own; Sway Things writes its config, and yours stays as it is."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
-#, rust-format
-msgid "Module {name}"
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Built into sway and very light. Text only: the workspaces, the binding mode "
+"and the text of a status program, with little styling."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
-msgid "Reset to Default"
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Sway Things sets up no bar, and whatever bar your sway config starts stays "
+"as it is."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs
-msgid "Back to the module's definition in waybar's default config, or none"
+#: crates/gui/src/widgets/bar/backend.rs
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Details"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/dialog.rs crates/gui/src/widgets/bar/status.rs
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Bar program: Waybar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs crates/gui/src/widgets/region/time.rs
+msgid "Change…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Bar program: swaybar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "No bar is set up here"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Set Up a Bar…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Bar Program"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Which bar should Sway Things set up?"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs crates/gui/src/widgets/bar/dialog.rs
+#: crates/gui/src/widgets/bar/status.rs
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
 #: crates/gui/src/widgets/environment/variables.rs
@@ -10569,6 +10613,114 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/bar/backend.rs
+#: crates/gui/src/widgets/environment/portals.rs
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Installed"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "Not installed: install the waybar package first"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs crates/gui/src/window.rs
+msgid "Keep"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "This is the bar program set up now."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid "no items"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+#, rust-format
+msgid "{first} and {count} more item"
+msgid_plural "{first} and {count} more items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Kept: the position (top or bottom), height, font and colors, and the "
+"workspaces."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Waybar isn't installed yet: install the waybar package. Until then, the bar "
+"can't start; everything set here stays saved."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Waybar shows your items, look and placement. Sway Things starts it with its "
+"own files; your own Waybar config stays as it is."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/backend.rs
+msgid ""
+"Sway Things stops setting up a bar: a Waybar it started ends, and swaybar "
+"hides until sway reloads. Every setting here stays saved for later."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "{option}: must be a number from {min} to {max}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Other options: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Other options must be one JSON object, in braces"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "The name can't be empty or have spaces, and no other item may have it"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Shows as: {text}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+#, rust-format
+msgid "Your own: {format}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Your Own Command"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid ""
+"Shows what a program or script of yours prints. Waybar runs it; Sway Things "
+"runs it only when you press Test."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Name, without spaces"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Advanced: every option"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Reset to Default"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Back to the item's definition in waybar's default config, or none"
+msgstr ""
+
 #: crates/gui/src/widgets/bar/dialog.rs
 #: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/printers/scan.rs
@@ -10577,11 +10729,39 @@ msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/dialog.rs
-msgid "Name (custom/…)"
+msgid "Basic"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/dialog.rs
-msgid "Other options (JSON)"
+msgid "Shows"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Warn below"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Critical below"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "On Wi-Fi, shows"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Switch with the scroll wheel"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Longest title (characters, 0: any)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Show the app's icon"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Clock format"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/dialog.rs
@@ -10589,78 +10769,116 @@ msgid "waybar's default"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/dialog.rs
+msgid "Other options (JSON)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs crates/gui/src/widgets/bar/script.rs
 msgid "Plain text"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/files.rs
+msgid "Files Sway Things writes"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/files.rs
+msgid "Show Files…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/files.rs
+msgid "swaybar's lines, in 75-bar.conf"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/files.rs
+msgid "Waybar's Files"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/files.rs
+msgid "Copy Path"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/files.rs
 msgid ""
-"Drag to move. Alt+Left and Alt+Right move it in its area, Alt+Up and "
-"Alt+Down to another; Delete removes it, Enter opens its settings"
+"What Sway Things writes for the settings now. Change the bar on this page; "
+"hand edits of these files are overwritten. Your own Waybar config is never "
+"written."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "Your copy of the script stays"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/layout.rs
-#, rust-format
+#: crates/gui/src/widgets/bar/lanes.rs
 msgid ""
-"{file} isn't the script as Sway Things ships it, so it stays as it is and "
-"the new module runs it. Move it away to get the template's script."
+"Drag to move it. Alt+Up and Alt+Down move it in its lane, Alt+Left and "
+"Alt+Right to the lane beside it; Delete removes it, Enter opens its settings"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "The template couldn't be added"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "Modules: {area}"
+msgid "{item}, {position} of {count} in {lane}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "Add Module…"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "Add a module to the {area} area"
+msgid "{item} moved to {lane}, position {position} of {count}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "{group} (group of {count})"
+msgid "Removed {item} from the bar."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "Remove from the bar"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "Remove {module}"
+msgid "Move to {lane}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid ""
+"swaybar doesn't show these items: it shows the workspaces, the binding mode "
+"and the text of a status command. They stay saved for Waybar."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "{module}, {position} of {count}"
+msgid "Items on the {lane}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "Modules"
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Empty. Drag items here or add one."
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "Custom module…"
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Add Item…"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/layout.rs
-msgid "From a template"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/layout.rs
+#: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
-msgid "Needs {programs}"
+msgid "Add an item to the {lane}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "{count} item"
+msgid_plural "{count} items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Item menu"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Menu of {item}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Settings…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Move Up"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Move Down"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/mod.rs
@@ -10668,11 +10886,358 @@ msgid "Displays that show the bar"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/mod.rs
-msgid "Sets the style and the placement it needs at once"
+msgid "Small"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/mod.rs
-msgid "Presets"
+msgid "Large"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+msgid "Huge"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+msgid "The height and the text size together"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+#, rust-format
+msgid "Text on the background: {ratio}:1, easy to read"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/mod.rs
+#, rust-format
+msgid ""
+"Text on the background: {ratio}:1, hard to read. Pick a lighter text or a "
+"darker background, or the other way round."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid "Add an Item to the {lane}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid "Added {item} to the {lane}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Your copy of the script stays"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid ""
+"{file} isn't the script as Sway Things ships it, so it stays as it is and "
+"the new item runs it. Move it away to get the template's script."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "The template couldn't be added"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid "Shows: {sample}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Search items"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "No item matches the search."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Your own command…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid ""
+"Shows what a program or script of yours prints, every few seconds or as it "
+"goes"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid "Not available here: {reason}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+#, rust-format
+msgid "Needs {programs}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Uses the network"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "In the bar: adds another"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+#, rust-format
+msgid "Applied the look “{preset}”. Your items stay as they are."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+msgid "In use"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+#, rust-format
+msgid ""
+"Applied the look “{preset}”. Your own stylesheet is off now, so this look "
+"shows."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+msgid "Your own stylesheet is on again."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+msgid "Your style"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+msgid "Start from a look"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/presets.rs
+msgid "Looks"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{item}: {value}. Opens its settings"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{lane}: {items}."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{item} ({value})"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "nothing"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{group} (group of {count})"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "Bar preview"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "Scroll sideways to see all of it."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{count} items: {left} left, {center} center, {right} right."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "Your scripts don't run here: their items show a sample or their name."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "Your stylesheet {file} can't be read, so the preview leaves it out."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid ""
+"Its icons need Font Awesome or a Nerd Font, which isn't installed: Waybar "
+"shows boxes."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "The bar Sway Things would set up, with sample values."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "swaybar: workspaces and the status command's text."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "Sample values; select an item to change it."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "app icons"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Runs {count} times a minute."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid ""
+"Runs {count} times a minute: a slow command there costs battery and makes "
+"the bar lag."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid ""
+"This command uses the shell: {command}. Change it under Advanced; the test "
+"runs only a program with its arguments, so it is off here."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Exit code {code} after {time}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Ended after {time}: it ran longer than the test waits"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Its first line came after {time}; the bar shows a line per update"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid ""
+"It took longer ({time}) than it runs every ({interval} s): waybar would lag "
+"behind."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Program not found: {program}. Give its full path, or install it."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid ""
+"{file} can't be run: it isn't executable. Make it executable (chmod +x) "
+"first."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "It couldn't be started: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "JSON: {fields}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Not JSON waybar reads: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "It printed:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Errors:"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Running…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "It printed nothing."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "A program or the path of a script"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Program"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Choose…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Choose the program's file"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Arguments, one per line"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Choose the Program"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Every few seconds"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Once; it prints a line per update"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "When it gets a signal"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Signal (RTMIN+n)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Runs"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+#, rust-format
+msgid "Runs once at the start, then on: pkill -RTMIN+{signal} waybar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "JSON: text, tooltip, class"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "It prints"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Test"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Runs it once now, without a shell, and shows what it prints"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Waybar runs this command, never Sway Things: only Test does, once."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "The test couldn't run."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/script.rs
+msgid "Give a program first."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs crates/gui/src/widgets/bluetooth/mod.rs
@@ -10719,21 +11284,21 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
+msgid "Your own bar stays as it is."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Another swaybar of your config shows next to it: see Details."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
 msgid ""
 "swaybar is set up in Sway Things' sway include (75-bar.conf); a change shows "
 "at once."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
-msgid ""
-"Choose waybar or swaybar to set up the bar here. Until then, your own bar "
-"stays as it is."
-msgstr ""
-
-#: crates/gui/src/widgets/bar/status.rs
-msgid ""
-"waybar isn't installed. Install the waybar package, or choose swaybar, which "
-"comes with sway."
+msgid "Built into sway; a change shows at once."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
@@ -10755,6 +11320,26 @@ msgstr ""
 #: crates/gui/src/widgets/bar/status.rs
 #, rust-format
 msgid "Written to {config} and {style}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Not installed: install the waybar package."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Your sway config starts Waybar itself: see Details."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Runs with these settings."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Not running; it starts with sway."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/status.rs
+msgid "Another Waybar runs: see Details."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
@@ -10800,6 +11385,14 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/status.rs
 msgid "Reads your config; changes nothing in it"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/toast.rs
+msgid "Undo"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/toast.rs crates/gui/src/window.rs
+msgid "Dismiss"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/actions.rs
@@ -11796,12 +12389,6 @@ msgstr ""
 #: crates/gui/src/widgets/environment/portals.rs
 #, rust-format
 msgid "{package} is installed"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that is installed.
-#: crates/gui/src/widgets/environment/portals.rs
-#: crates/gui/src/widgets/page_view/about.rs
-msgid "Installed"
 msgstr ""
 
 #: crates/gui/src/widgets/environment/portals.rs
@@ -13253,11 +13840,6 @@ msgid "Save as"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/scan.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Details"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/scan.rs
 msgid "Show in Folder"
 msgstr ""
 
@@ -13542,10 +14124,6 @@ msgstr ""
 msgid ""
 "Changing the time zone and the clock needs systemd-timedated, which this "
 "system doesn't have."
-msgstr ""
-
-#: crates/gui/src/widgets/region/time.rs
-msgid "Change…"
 msgstr ""
 
 #: crates/gui/src/widgets/region/time.rs
@@ -14726,10 +15304,6 @@ msgid "All XKB options"
 msgstr ""
 
 #: crates/gui/src/window.rs
-msgid "Dismiss"
-msgstr ""
-
-#: crates/gui/src/window.rs
 msgid "Back to the pages"
 msgstr ""
 
@@ -14743,10 +15317,6 @@ msgstr ""
 
 #: crates/gui/src/window.rs
 msgid "Revert"
-msgstr ""
-
-#: crates/gui/src/window.rs
-msgid "Keep"
 msgstr ""
 
 #: crates/gui/src/window.rs

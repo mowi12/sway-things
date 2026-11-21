@@ -199,8 +199,9 @@ is on: it reads the switch from the settings files, asks geoclue for the locatio
 through timedated if the system has another (polkit may ask for the password). It needs no sway; it says on stderr which
 zone it set, or why it set none and the command that would. `hook waybar` runs from `75-bar.conf` while waybar is the
 bar: it writes waybar's files of Sway Things and starts waybar with them unless one runs already or the user's config or
-a systemd unit starts it (see [Bar](Backends.md#bar)). Like `hook gsettings` it runs in a session with the settings
-loaded (`hook.rs`, `hook_waybar`).
+a systemd unit starts it (see [Bar](Backends.md#bar)); while the bar shows only while a key is held, it has a running
+one read its files again, so it finds the bar config sway made at the reload. Like `hook gsettings` it runs in a session
+with the settings loaded (`hook.rs`, `hook_waybar`).
 
 The names of the hooks, and the switches of `hook quick`, are spelled out once, in `core::command::{Hook, QuickSwitch}`:
 the core builds every line that runs a hook from them (`command::hook` and `hook_at_start` for sway's `exec` lines,

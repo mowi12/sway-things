@@ -417,9 +417,13 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   `app.accent_source` asks for the theme's accent. Apps Look & Feel, with GSettings in memory: a theme set with another
   tool shows in its row as GSettings', _Dark_ goes to `color-scheme` as `prefer-dark` and a reset resets the key, and a
   font row shows the stored font in a button.
-- Bar: with waybar the page shows an area of chips per module list in waybar's default layout, Alt+→ moves a chip within
-  its area, Alt+↓ to the next area and Delete removes it, each stored through its row, a module's dialog shows its
-  format and _Save_ stores the definition, and the _Glass_ preset sets the style.
+- Bar: with Waybar the page says the bar in words and shows three lanes in Waybar's default layout; Alt+↓ moves a row
+  within its lane and keeps the focus on it, Alt+→ to the next lane, Ctrl+Z takes the move back, the ⋯ menu and a drop
+  move rows too, Delete removes one and the note's _Undo_ brings it back; the picker's search finds an item and Enter
+  adds it; the clock's dialog stores a picked format with an update every second; a command of the user's is tested
+  without a shell (`$USER` stays as typed) and stored as a quoted `exec`; a look's card sets the style, not the items,
+  is marked in use and its _Undo_ takes it back; _Change…_ says what swaybar can't show and switches, and the lanes
+  stay, greyed. Each part is shot in light and dark.
 - Editor: _Open config in editor_ in the ⋮ menu runs the editor command with the file and the line filled in (a quoted
   argument with a space stays one), the welcome screen's runs it with the config, a command with a quote that isn't
   closed isn't stored and its row says why, and an editor that ends with an error shows it, under the row and on the

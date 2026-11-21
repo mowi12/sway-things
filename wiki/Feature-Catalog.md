@@ -284,10 +284,36 @@ include.
       load, power menu, notification center)
 - [x] 🟡 Styling: colors (yours or sway's window colors), font, padding, rounded corners, transparency, a pill per
       module (generated `style.css`), presets, your own stylesheet read after ours
+- [x] 🟡 Looks style groups as one pill with the drawer's items inside, the item under the pointer inset in the pill's
+      shape, empty modules without room, the states of modules (warning, critical, ok) in the look's colors, tabular
+      figures, and no theme's frames or fills
 - [x] 🟢 Reload waybar (`SIGUSR2`, only to the waybar that runs our config)
 - [x] 🟡 "Import as starting point" from the user's existing waybar config (read-only, JSONC with `include`s)
 - [x] 🟢 swaybar alternative: `bar { position, colors, font, status_command }` as one-line `bar sway-things …` commands
 - [x] 🟢 SwayFX: blur behind the bar (`layer_effects`)
+- [x] 🟡 Preview of the bar in its colors, sizes and fonts with sample values, clickable items, and the bar in words
+- [x] 🟡 Preview drawn with Waybar's own stylesheet and the user's (confined to the preview), Waybar's widget names,
+      groups and drawers as Waybar shows them, over the wallpaper
+- [x] 🟡 Items in Left / Center / Right lanes: drag, Alt and the arrow keys, or a menu; Undo for removals, moves and
+      looks (Ctrl+Z)
+- [x] 🟡 Item picker with search, categories, a sample per item and badges (not available here, needs a program, uses
+      the network)
+- [x] 🟡 Basic settings per item in plain words (clock formats as examples, battery warning levels, …), every option
+      under Advanced
+- [x] 🟡 Your own command as a program and arguments, with a test run (no shell, time limit) and what it costs
+- [x] 🟢 Looks as cards (Simple, GNOME-like, Floating islands, Minimal, Large & high contrast, Like your windows,
+      Classic Waybar, Glass on SwayFX), style only, marked when in use
+- [x] 🟢 Size (height and text size together), contrast of the text on the background
+- [x] 🟢 Show the bar always or while a key is held (swaybar `mode hide`, waybar over sway's IPC)
+- [x] 🟢 Bar program in one card, a dialog that says what the other program can't show before switching
+- [x] 🟢 The files Sway Things writes for Waybar, read-only, with their paths
+- [ ] 🟡 Per-monitor bars: all screens as the base, overrides per display matched by make, model and serial
+- [ ] 🟡 Keep-or-revert after a change of the bar (15 s), and a history of the last applied bars
+- [ ] 🟡 Export and import of the bar as one file, also from the command line
+- [ ] 🟡 Thresholds with colored zones for CPU, memory, temperature and disk; a state simulator under the preview
+- [ ] 🟡 More items: microphone, media player filter, notifications (swaync, mako), power menu, privacy indicators
+- [ ] 🟢 Lanes named Start / End and mirrored for right-to-left languages
+- [ ] 🟢 Warning when an icon font (Nerd Font, Font Awesome) is missing
 - **Maybe:** 🟡 multiple bars
 
 ---

@@ -485,10 +485,11 @@ blur has a sway directive (`layer_effects waybar blur enable` and `… blur_igno
 `90-effects.conf`; switched off, only `… blur disable`, since `blur_ignore_transparent disable` crashes SwayFX 0.6, see
 [Sway Reference](Sway-Reference.md#swayfx); it depends on the layer above floating windows, since SwayFX doesn't blur
 behind the bottom layer); the others have none and apply as a tool reload (`Apply::ToolReload`,
-`Effect::AfterToolReload`). The defaults are waybar's own default bar: the module lists and module definitions of the
-`config.jsonc` waybar 0.16 ships, and waybar's built-in values where that file sets nothing (layer bottom, exclusive, no
-margins). That file and waybar's `style.css` are embedded (`bar/waybar-default/`, MIT); a fresh setup and a reset give
-exactly that bar.
+`Effect::AfterToolReload`). A fresh bar has the common items (workspaces and binding mode, window title, volume,
+network, battery, clock, tray) with the module definitions of the `config.jsonc` waybar 0.16 ships, its look, and
+waybar's built-in values where that file sets nothing (layer bottom, exclusive, no margins). That file and waybar's
+`style.css` are embedded (`bar/waybar-default/`, MIT); a module of it without a stored definition uses its definition
+there.
 
 - **Module definitions** (`bar::Modules`) live in `bar.jsonc` next to the settings files: version 1, `modules` with each
   definition changed here as a whole (the object waybar reads under the module's name), and `bar` with the options of
@@ -506,16 +507,49 @@ exactly that bar.
 - **waybar's files** (`bar::waybar`, `bar::WaybarFiles`): `config.jsonc` is made by `serde_json` from the settings and
   the definitions of every module the bar shows (members of groups too), so it is valid JSON by construction; waybar has
   no option to check a config without showing a bar, and one it can't read ends it, also at a reload. `style.css` only
-  imports `theme.css` and then the user's own stylesheet (`bar.style.extra_css`, an absolute path as a `file://` URL),
-  so the user's rules win; `theme.css` is waybar's own stylesheet, nothing (_only your own stylesheet_), or rules made
-  from the shape (one bar, or a pill per module on a transparent bar), font (a Pango description split into family,
-  weight, style and size), padding, corners, opacity and colors, either the user's or those of the windows
-  (`bar::style::Colors::sway`: the stored value, else the last line of the user's config, else sway's default). Values
-  are quoted and escaped, so none can end a rule. Each file starts with our header and is written only where it changed
-  and only over a file of ours (`WaybarFiles::write`).
-- **Presets** (`bar::style::PRESETS`): _Glass_ (dark glass pills on a transparent floating bar, blurred behind on
-  SwayFX), _Sway_ (one bar in the colors of the windows) and _waybar_ (its own look). A preset stores its values and
-  resets the other style settings, so it always looks the same.
+  imports `theme.css` and then the user's own stylesheet (`bar.style.extra_css`, an absolute path as a `file://` URL)
+  while `bar.style.extra_css_on` is on (`style::extra_css_active`), so the user's rules win; a look of the page turns it
+  off (`style::with_preset`, and `current_preset` is `style::OWN`, _Your style_, while it is on); `theme.css` is
+  waybar's own stylesheet, nothing (_only your own stylesheet_), or rules made from the shape (one bar, or a pill per
+  module on a transparent bar), font (a Pango description split into families, weight, style and size; a comma-separated
+  family list such as `Noto Sans, Symbols Nerd Font` becomes a CSS `font-family` list, so an icon font fills in the
+  glyphs), padding, corners, opacity and colors, either the user's or those of the windows (`bar::style::Colors::sway`:
+  the stored value, else the last line of the user's config, else sway's default). Digits are tabular
+  (`font-feature-settings: "tnum"`), so a clock doesn't shift its neighbors. With pills, each pill has a 1 px border in
+  the text color at 10 %, pills are 4 px apart, and the workspace buttons sit 3 px inside their pill in its shape, the
+  focused one wider. The text on a fill (focused or urgent workspace, mode, critical battery) is the text color where it
+  reaches 4.5:1, else white, else black (`style::text_on`). Values are quoted and escaped, so none can end a rule. Each
+  file starts with our header and is written only where it changed and only over a file of ours (`WaybarFiles::write`).
+- **The preview's stylesheet** (`bar::preview`): the rules of `theme.css` and then the user's own stylesheet (read, at
+  most 1 MiB of UTF-8), each confined to the preview: every selector is put under the preview's root class, and
+  `window#waybar` (or `window`, `#waybar`) at its start becomes that class; the colors a stylesheet defines get the
+  root's prefix, since GTK looks named colors up across the display. `@import`, `@keyframes`, every other at-rule and
+  animations are left out, and so is a declaration with a `url()` that isn't a file here (`http:`, `//host`); a relative
+  one is resolved against the stylesheet's folder. A rule with nested blocks or a selector that starts with a combinator
+  is left out. `css_name` gives a module waybar's id and class (`clock#date` → `#clock.date`, `custom/vpn#1` →
+  `#custom-vpn.1`, `group/net` → `#net`). `catalog::custom_sample` and `catalog::workspace_label` say what a command's
+  item and a workspace show without running anything.
+- **Presets** (`bar::style::PRESETS`): _Simple_, _GNOME-like_, _Floating islands_, _Minimal_, _Large & high contrast_,
+  _Like your windows_ (the colors of the windows), _Classic Waybar_ (its own look) and _Glass_ (dark glass islands,
+  blurred behind; SwayFX only; modeled on a SwayFX pill bar: 45 % dark pills, purple focused workspace with white text,
+  Noto Sans with the Nerd Font symbols at 12 px). A preset stores its values and resets the other style settings
+  (`PRESET_KEYS`), so it always looks the same; it never changes the items. `with_preset` applies one to a copy of the
+  state in memory, for its card's look (`preview`) and to tell which preset the bar has (`current_preset`). The tests
+  check that every preset's text reaches 4.5:1 on its background and its focused workspace (with the text `text_on`
+  gives it there).
+- **Size and visibility:** `style::font_with_size` sets only the size of the font description (the page's sizes set the
+  height and the text size together; Waybar's own look takes the font too, in a rule after its stylesheet).
+  `bar.visibility` _While a key is held_ is `mode hide` with `modifier` for swaybar. Waybar follows a bar config of
+  sway's over IPC for that (`"ipc": true`, `"id": "sway-things-waybar"`), which `75-bar.conf` makes with
+  `swaybar_command true`, so sway starts no swaybar for it. That line is config-only (over IPC the bar's first line
+  would start a swaybar), so until sway reloads the change waits in the reload banner (`Applier::note_waybar_hold`), and
+  the hook has Waybar read its files again after a reload, since Waybar asks for the bar config only then.
+- **A command's test** (`bar::script`): the page keeps a command item's `exec` as a program and its arguments; `join`
+  quotes each word for the shell Waybar runs it with, `split` reads such a text back and refuses anything else a shell
+  would do (a pipe, a variable, a glob, a redirection), which then stays text. `test` runs the words once as an argument
+  list (no shell), with no input, a time limit, at most 64 KiB of each output, and for a command that prints a line per
+  update until its first line; it reports the exit code, the time and the fields of JSON output. Only the user's click
+  runs it. `process::version` reads `waybar --version` for the program dialog.
 - **What runs** (`bar::process`): the waybar processes of this session are found in `/proc` as
   [`hook mirror`](Outputs.md#mirroring) finds its `wl-mirror`s, as waybar by their name, the first word of their command
   line or their executable (`waybar`, or nix's `.waybar-wrapped`), with the config of their command line (`-c`,
@@ -554,15 +588,16 @@ exactly that bar.
   (`GET_BAR_CONFIG`) and that isn't invisible is hidden (`bar sway-things mode invisible`) until sway reloads, and a
   waybar of ours ends (`SIGTERM`) while nothing else starts waybar. Processes are only looked at, and sway only asked
   about its bars, by the user's own applier (`Applier::open`), never by one made for tests.
-- **`75-bar.conf`**: with waybar `exec_always sway-things hook waybar`; the hook writes the files (they may have come
-  with the dotfiles from another machine), then runs `process::ensure`. With swaybar the one-line commands of
-  `command::bar` with the bar ID `sway-things` (`mode dock`, `position`, `height`, `output *` and then `output` per
-  display, `font "pango:…"`, `colors …`, `status_command "…"`); a position left or right is a comment, since swaybar
-  stands only at the top or the bottom. Each line also undoes what an earlier one set, so the running bar matches after
-  any change: `output *` empties sway's list of displays, which otherwise only grows; waybar's look and none send
-  swaybar's own colors; `status_command -` is none. Only a font taken away has no command (sway's font is no value of
-  the bar's): it waits for a reload of sway with the reload banner. The status command is the user's text, quoted as
-  sway text; sway runs it with `sh`.
+- **`75-bar.conf`**: with waybar `exec_always sway-things hook waybar`, and while the bar shows only while a key is held
+  the bar config it follows (`bar sway-things-waybar swaybar_command true`, `… mode hide`, `… modifier Mod4`); the hook
+  writes the files (they may have come with the dotfiles from another machine), then runs `process::ensure`. With
+  swaybar the one-line commands of `command::bar` with the bar ID `sway-things` (`mode dock` or `mode hide` with
+  `modifier`, `position`, `height`, `output *` and then `output` per display, `font "pango:…"`, `colors …`,
+  `status_command "…"`); a position left or right is a comment, since swaybar stands only at the top or the bottom. Each
+  line also undoes what an earlier one set, so the running bar matches after any change: `output *` empties sway's list
+  of displays, which otherwise only grows; waybar's look and none send swaybar's own colors; `status_command -` is none.
+  Only a font taken away has no command (sway's font is no value of the bar's): it waits for a reload of sway with the
+  reload banner. The status command is the user's text, quoted as sway text; sway runs it with `sh`.
 - **Import as starting point** (`bar::import`): the user's config is found as waybar finds it without `-c` (`config`,
   then `config.jsonc`, in `$WAYBAR_CONFIG_DIR`, `$XDG_CONFIG_HOME/waybar`, `~/.config/waybar`, `~/waybar`; not
   `/etc/xdg/waybar`, which holds waybar's default bar) and read as waybar reads it (`bar::jsonc`: `//` and `/* */`

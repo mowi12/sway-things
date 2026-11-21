@@ -80,6 +80,10 @@ pub(super) fn before_rows(
             sections.push(brightness_section(model, body, std::mem::take(first)));
             Before::default()
         }
+        Page::Bar => {
+            bar::before(model, body);
+            Before::default()
+        }
         _ => Before::default(),
     }
 }
@@ -140,6 +144,30 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     apps::follow(&row);
     environment::follow(model, &row);
     Some(row)
+}
+
+/// Whether `page` shows `setting` in a way of its own instead of its row: the Bar page's
+/// program (its card above the rows) and item lists (the lanes).
+pub(super) fn is_hidden(page: Page, setting: &Setting) -> bool {
+    page == Page::Bar && bar::is_hidden(setting.key())
+}
+
+/// The widgets that stand for the rows `page` doesn't show, by key, once the page is built.
+pub(super) fn anchors(page: Page) -> Vec<(&'static str, gtk::Widget)> {
+    if page == Page::Bar {
+        bar::finish()
+    } else {
+        Vec::new()
+    }
+}
+
+/// The widgets of `page` above `row`, in the row's list: the Bar page's sizes and presets.
+pub(super) fn above(model: &Model, page: Page, row: &SettingRow) -> Vec<gtk::Widget> {
+    if page == Page::Bar {
+        bar::above(model, row)
+    } else {
+        Vec::new()
+    }
 }
 
 /// The widgets of `page` below `row`, in the row's list: the Keyboard page's layout list and

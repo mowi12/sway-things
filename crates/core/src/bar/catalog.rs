@@ -304,7 +304,8 @@ pub const MODULES: &[Module] = &[
         samples: &[
             ("volume", "64"),
             ("icon", ""),
-            ("format_source", "40% "),
+            // The microphone, which is quiet in the sample.
+            ("format_source", ""),
             ("desc", "Speakers"),
         ],
     },
@@ -948,6 +949,80 @@ fn strftime(spec: &str, (hour, minute, second): (u32, u32, u32)) -> String {
     out
 }
 
+/// What workspace `name` shows with the workspaces' `definition`: its `format` (`{name}` by
+/// default) with `{name}`, `{value}` and `{index}` filled in, and `{icon}` from `format-icons`
+/// (the workspace's own, else `focused` for the focused one, else `default`, else its name), as
+/// waybar does; without markup.
+pub fn workspace_label(
+    definition: Option<&serde_json::Map<String, serde_json::Value>>,
+    name: &str,
+    focused: bool,
+) -> String {
+    let format = definition
+        .and_then(|definition| definition.get("format")?.as_str())
+        .unwrap_or("{name}");
+    let icons = definition.and_then(|definition| definition.get("format-icons")?.as_object());
+    let icon = icons
+        .and_then(|icons| {
+            icons
+                .get(name)
+                .or_else(|| focused.then(|| icons.get("focused")).flatten())
+                .or_else(|| icons.get("default"))?
+                .as_str()
+        })
+        .unwrap_or(name);
+    let text = format
+        .replace("{name}", name)
+        .replace("{value}", name)
+        .replace("{index}", name)
+        .replace("{icon}", icon);
+    let text = strip_markup(&text).trim().to_owned();
+    if text.is_empty() {
+        name.to_owned()
+    } else {
+        text
+    }
+}
+
+/// What the item of a command of the user's, `name`, shows in a preview, where its command
+/// doesn't run: its `format` with the command's text (`{}`, `{text}`, `{alt}`) as its name and
+/// the other placeholders as nothing, without markup; its name where that leaves nothing else.
+/// `custom/vpn#1` is named `vpn`.
+pub fn custom_sample(
+    name: &str,
+    definition: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> String {
+    let short = super::kind_of(name);
+    let short = short.strip_prefix("custom/").unwrap_or(short).to_owned();
+    let format = definition
+        .and_then(|definition| definition.get("format")?.as_str())
+        .unwrap_or("{}");
+    let mut out = String::new();
+    let mut rest = format;
+    let mut own = false;
+    while let Some(start) = rest.find('{') {
+        let before = &rest[..start];
+        own |= !strip_markup(before).trim().is_empty();
+        out.push_str(before);
+        let after = &rest[start + 1..];
+        let Some(end) = after.find('}') else {
+            break;
+        };
+        let key = after[..end].split(':').next().unwrap_or("");
+        if matches!(key, "" | "text" | "alt") {
+            out.push_str(&short);
+        }
+        rest = &after[end + 1..];
+    }
+    own |= !strip_markup(rest).trim().is_empty();
+    out.push_str(rest);
+    let text = strip_markup(&out)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if own && !text.is_empty() { text } else { short }
+}
+
 /// `text` without Pango markup tags, with the entities waybar's formats use resolved.
 fn strip_markup(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -970,6 +1045,44 @@ fn strip_markup(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspaces_show_their_format() {
+        let definition = serde_json::json!({
+            "format": "<b>{icon}</b>",
+            "format-icons": {"1": "one", "focused": "F", "default": "D"}
+        });
+        let definition = definition.as_object();
+        assert_eq!(workspace_label(None, "2", true), "2");
+        assert_eq!(workspace_label(definition, "1", true), "one");
+        assert_eq!(workspace_label(definition, "2", true), "F");
+        assert_eq!(workspace_label(definition, "3", false), "D");
+    }
+
+    #[test]
+    fn commands_show_their_format_or_their_name() {
+        let format = |format: &str| serde_json::json!({ "format": format });
+        assert_eq!(custom_sample("custom/claude", None), "claude");
+        assert_eq!(custom_sample("custom/vpn#1", None), "vpn");
+        assert_eq!(
+            custom_sample(
+                "custom/notify",
+                format("<span font_family='X'>{}</span>").as_object()
+            ),
+            "notify"
+        );
+        assert_eq!(
+            custom_sample(
+                "custom/launcher",
+                format("<span size='125%'>\u{f08c7}</span>").as_object()
+            ),
+            "\u{f08c7}"
+        );
+        assert_eq!(
+            custom_sample("custom/media", format("♪ {text} {icon}").as_object()),
+            "♪ media"
+        );
+    }
 
     #[test]
     fn modules_are_found_by_kind() {

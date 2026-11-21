@@ -77,6 +77,9 @@ pub const CRITICAL: &str = "bar.style.critical";
 pub const URGENT: &str = "bar.style.urgent";
 /// The key of the user's own stylesheet, imported after ours.
 pub const EXTRA_CSS: &str = "bar.style.extra_css";
+/// Whether the user's own stylesheet is read after the look's rules. Off, the path stays stored
+/// and a look of the page shows as it is; on, the stylesheet overrides the look.
+pub const EXTRA_CSS_ON: &str = "bar.style.extra_css_on";
 /// The key of the blur behind waybar (SwayFX).
 pub const BLUR: &str = "bar.blur";
 /// The key of swaybar's status command.
@@ -293,7 +296,6 @@ pub(super) fn settings() -> Vec<Setting> {
             .build(),
         bar_section(Setting::choice(POSITION, Page::Bar, "top", POSITIONS))
             .title(msg!("Position"))
-            .subtitle(msg!("swaybar stands only at the top or the bottom"))
             .keywords(&[msg!("edge"), msg!("top"), msg!("bottom"), msg!("vertical")])
             .build(),
         bar_section(Setting::choice(
@@ -339,9 +341,6 @@ pub(super) fn settings() -> Vec<Setting> {
             msg!("Bar"),
         )
         .title(msg!("Layer"))
-        .subtitle(msg!(
-            "SwayFX blurs behind the bar only above floating windows or everything"
-        ))
         .keywords(&[msg!("overlay"), msg!("above"), msg!("on top")])
         .build(),
         modules(MODULES_LEFT, DEFAULT_LEFT, msg!("Left")),
@@ -411,7 +410,8 @@ pub(super) fn settings() -> Vec<Setting> {
             .section(msg!("Look"))
             .title(msg!("Blur behind the bar"))
             .subtitle(msg!(
-                "Blurs what shows through a transparent background, not between islands"
+                "Blurs what shows through a transparent background, not between islands; only \
+                 with the bar above floating windows"
             ))
             .keywords(&[msg!("frosted glass"), msg!("transparency")])
             .swayfx_only(fx)
@@ -527,6 +527,17 @@ pub(super) fn settings() -> Vec<Setting> {
             .placeholder(msg!("None"))
             .check_text(check_path)
             .keywords(&[msg!("css"), msg!("style.css"), msg!("import")])
+            .build(),
+        Setting::toggle(EXTRA_CSS_ON, Page::Bar, true)
+            .section(msg!("Advanced"))
+            .title(msg!("Use on top of the look"))
+            .subtitle(msg!(
+                "Reads your own stylesheet after the look's rules, so it overrides them; a look \
+                 of the page turns it off, Your style on again"
+            ))
+            .apply(Apply::ToolReload)
+            .depends_on(EXTRA_CSS, When::Set)
+            .keywords(&[msg!("css"), msg!("override")])
             .build(),
         Setting::text(STATUS_COMMAND, Page::Bar, "")
             .section(msg!("Advanced"))

@@ -1,13 +1,22 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The settings of one module: a form built from the module's options in the catalog, with a
-//! preview under each format, and the options the catalog doesn't know as JSON, kept as they
-//! are. For a new custom module the form starts with its name.
+//! The settings of one item, in two levels:
 //!
-//! A field left empty leaves the option out, so waybar's default applies. A value whose type
-//! the field can't show (an `interval` of `"once"`) stays in the JSON. Commands are the user's
-//! data: they are stored and shown as written, and waybar runs them, never Sway Things.
+//! - **Basic**: a few rows in plain words, for the items most bars have: the clock's format as
+//!   examples with the time now, what the battery, volume and network show, the battery's
+//!   warning levels, the workspaces of every display, the window title's length; for a command
+//!   of the user's, the program, its arguments, how often it runs and a test run ([`script`]);
+//!   else the format with what it shows.
+//! - **Advanced** (an expander): every option the catalog knows as a field (format strings with
+//!   what they show, numbers checked against their range, choices with waybar's default first),
+//!   and the options it doesn't know as JSON, kept as they are.
+//!
+//! The basic rows fill in the advanced fields, so _Save_ stores one definition. A field left
+//! empty leaves the option out, so waybar's default applies. Commands are the user's data:
+//! they are stored and shown as written, and waybar runs them.
+//!
+//! [`script`]: super::script
 
 use std::rc::Rc;
 
@@ -16,45 +25,179 @@ use gtk::prelude::*;
 use serde_json::{Map, Number, Value as Json};
 use sway_things_core::bar::catalog::{self, Kind, Opt};
 use sway_things_core::bar::is_module_name;
-use sway_things_core::registry::{Value, bar as keys};
 
+use super::preview::{item_title, now};
+use super::{Ctx, lanes, script};
 use crate::i18n::{Msg, msg, tr, trf};
-use crate::model::Model;
 use crate::style;
-use crate::widgets::PageView;
 
-// Messages used inside `glib::clone!` blocks, which xgettext can't look into.
 /// A field whose value isn't a number.
 const NOT_A_NUMBER: Msg = msg!("{option}: must be a number from {min} to {max}");
 /// The JSON of the other options doesn't read.
 const BAD_JSON: Msg = msg!("Other options: {error}");
 /// The JSON isn't an object.
 const NOT_AN_OBJECT: Msg = msg!("Other options must be one JSON object, in braces");
-/// The name of a new custom module isn't one.
-const BAD_NAME: Msg =
-    msg!("The name can't be empty or have spaces, and no other module may have it");
+/// The name of a new command item isn't one.
+const BAD_NAME: Msg = msg!("The name can't be empty or have spaces, and no other item may have it");
 /// The preview of a format.
 const PREVIEW: Msg = msg!("Shows as: {text}");
+/// A format of the user's own, which only the advanced field shows.
+const OWN_FORMAT: Msg = msg!("Your own: {format}");
 
 /// A field of the form and how its value is read.
-enum Field {
+pub(crate) enum Field {
     Text(gtk::Entry),
     Number(gtk::Entry, Kind),
     Choice(gtk::DropDown, Vec<Option<Json>>),
 }
 
-/// What the form of a module holds.
-struct Form {
+/// What the form of an item holds: its advanced fields, the JSON of the other options, and the
+/// line that says what is wrong.
+pub(crate) struct Form {
     fields: Vec<(&'static str, Field)>,
     buffer: gtk::TextBuffer,
     error: gtk::Label,
     name_entry: Option<gtk::Entry>,
 }
 
-/// Opens the settings of module `name`, over the window of `anchor`. With `add_to` (a list
-/// key) and `name` `custom/`, it makes a new custom module and adds it to that list.
-pub fn open(anchor: &gtk::Widget, model: &Model, name: &str, add_to: Option<&'static str>) {
-    let modules = match model.bar_modules() {
+impl Form {
+    fn field(&self, key: &str) -> Option<&Field> {
+        self.fields
+            .iter()
+            .find(|(field, _)| *field == key)
+            .map(|(_, field)| field)
+    }
+
+    /// The text of the text or number field `key`.
+    pub(crate) fn text(&self, key: &str) -> String {
+        match self.field(key) {
+            Some(Field::Text(entry) | Field::Number(entry, _)) => entry.text().to_string(),
+            _ => String::new(),
+        }
+    }
+
+    /// Sets the text of the text or number field `key`.
+    pub(crate) fn set_text(&self, key: &str, text: &str) {
+        if let Some(Field::Text(entry) | Field::Number(entry, _)) = self.field(key) {
+            if entry.text() != text {
+                entry.set_text(text);
+            }
+        }
+    }
+
+    /// The value the choice field `key` has picked; `None` for waybar's default.
+    pub(crate) fn choice(&self, key: &str) -> Option<Json> {
+        match self.field(key) {
+            Some(Field::Choice(dropdown, values)) => usize::try_from(dropdown.selected())
+                .ok()
+                .and_then(|at| values.get(at))
+                .cloned()
+                .flatten(),
+            _ => None,
+        }
+    }
+
+    /// Picks `value` in the choice field `key` (`None`: waybar's default).
+    pub(crate) fn set_choice(&self, key: &str, value: Option<&Json>) {
+        if let Some(Field::Choice(dropdown, values)) = self.field(key) {
+            if let Some(at) = values
+                .iter()
+                .position(|candidate| candidate.as_ref() == value)
+                .and_then(|at| u32::try_from(at).ok())
+            {
+                dropdown.set_selected(at);
+            }
+        }
+    }
+
+    /// The other options as JSON, if they read.
+    fn others(&self) -> Option<Map<String, Json>> {
+        let buffer = &self.buffer;
+        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+        if text.trim().is_empty() {
+            return Some(Map::new());
+        }
+        match sway_things_core::bar::jsonc::parse(&text) {
+            Ok(Json::Object(map)) => Some(map),
+            _ => None,
+        }
+    }
+
+    /// The other option `key`.
+    pub(crate) fn other(&self, key: &str) -> Option<Json> {
+        self.others()?.get(key).cloned()
+    }
+
+    /// Sets the other option `key`, or with `None` takes it out. Nothing happens while the JSON
+    /// doesn't read: the user's text isn't replaced.
+    pub(crate) fn set_other(&self, key: &str, value: Option<Json>) {
+        let Some(mut others) = self.others() else {
+            return;
+        };
+        match value {
+            Some(value) => {
+                others.insert(key.to_owned(), value);
+            }
+            None => {
+                others.remove(key);
+            }
+        }
+        self.buffer.set_text(&pretty(&others));
+    }
+}
+
+/// `others` as the JSON field shows them.
+fn pretty(others: &Map<String, Json>) -> String {
+    if others.is_empty() {
+        "{}".to_owned()
+    } else {
+        serde_json::to_string_pretty(&Json::Object(others.clone())).unwrap_or_default()
+    }
+}
+
+/// A dialog window titled `title`, `width` by `height`, over the window of `anchor`, closed with
+/// Escape.
+pub(crate) fn window(anchor: &gtk::Widget, title: &str, width: i32, height: i32) -> gtk::Window {
+    let window = gtk::Window::builder()
+        .modal(true)
+        .destroy_with_parent(true)
+        .default_width(width)
+        .default_height(height)
+        .title(title)
+        .build();
+    window.set_transient_for(anchor.root().and_downcast::<gtk::Window>().as_ref());
+    window.add_css_class("st-dialog");
+    let escape = gtk::ShortcutController::new();
+    escape.add_shortcut(gtk::Shortcut::new(
+        gtk::ShortcutTrigger::parse_string("Escape"),
+        Some(gtk::CallbackAction::new(|widget, _| {
+            if let Some(window) = widget.downcast_ref::<gtk::Window>() {
+                window.close();
+            }
+            glib::Propagation::Stop
+        })),
+    ));
+    window.add_controller(escape);
+    window
+}
+
+/// Opens the settings of item `name`, over the window of `anchor`.
+pub fn open(ctx: &Rc<Ctx>, anchor: &gtk::Widget, name: &str) {
+    build(ctx, anchor, name, None);
+}
+
+/// Opens the form of a new item that shows a command of the user's, added to lane `key`.
+pub fn new_command(ctx: &Rc<Ctx>, anchor: &gtk::Widget, key: &'static str) {
+    build(ctx, anchor, "custom/", Some(key));
+}
+
+/// The dialog of item `name`, or with `add_to` of a new command item for that lane.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the parts of one dialog, read best in order"
+)]
+fn build(ctx: &Rc<Ctx>, anchor: &gtk::Widget, name: &str, add_to: Option<&'static str>) {
+    let modules = match ctx.model().bar_modules() {
         Some(Ok(modules)) => modules,
         Some(Err(error)) => {
             let window = anchor.root().and_downcast::<gtk::Window>();
@@ -74,121 +217,475 @@ pub fn open(anchor: &gtk::Widget, model: &Model, name: &str, add_to: Option<&'st
         modules.definition(name).unwrap_or_default()
     };
     let title = if creating {
-        tr(msg!("New Custom Module")).to_owned()
+        tr(msg!("Your Own Command")).to_owned()
     } else {
-        trf(msg!("Module {name}"), &[("name", &name)])
+        item_title(&modules, name)
     };
-    let (window, content) = window_for(anchor, &title);
-    let form = Rc::new(form(&content, &definition, name, creating));
+    let window = window(anchor, &title, 580, 680);
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    content.add_css_class("st-bar-dialog-content");
+    let heading = gtk::Label::new(Some(&title));
+    heading.add_css_class("title-2");
+    heading.set_xalign(0.0);
+    heading.set_accessible_role(gtk::AccessibleRole::Heading);
+    content.append(&heading);
+    let module = catalog::find(name);
+    let about = gtk::Label::new(Some(&match module {
+        Some(module) if !creating => {
+            let description = tr(module.description);
+            if name.contains('/') && module.name == "custom" {
+                format!("{description}. {name}")
+            } else {
+                description.to_owned()
+            }
+        }
+        _ => tr(msg!(
+            "Shows what a program or script of yours prints. Waybar runs it; Sway Things runs \
+             it only when you press Test."
+        ))
+        .to_owned(),
+    }));
+    about.set_xalign(0.0);
+    about.set_wrap(true);
+    about.add_css_class(style::DIM);
+    content.append(&about);
+    let name_entry = creating.then(|| {
+        let entry = gtk::Entry::new();
+        entry.set_placeholder_text(Some("updates"));
+        labeled(&content, tr(msg!("Name, without spaces")), &entry);
+        entry
+    });
+    let advanced = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    advanced.add_css_class("st-bar-advanced");
+    let form = Rc::new(form(&advanced, &definition, name, name_entry));
+    let basic = basic(&content, &form, name);
+    let expander = gtk::Expander::new(Some(tr(msg!("Advanced: every option"))));
+    expander.set_child(Some(&advanced));
+    expander.set_expanded(!basic);
+    content.append(&expander);
+    content.append(&form.error);
+    let scrolled = gtk::ScrolledWindow::new();
+    scrolled.set_hscrollbar_policy(gtk::PolicyType::Never);
+    scrolled.set_vexpand(true);
+    scrolled.set_child(Some(&content));
     let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    buttons.set_halign(gtk::Align::End);
-    buttons.set_margin_top(8);
+    buttons.add_css_class("st-bar-dialog-buttons");
     if !creating && modules.is_stored(name) {
         let reset = gtk::Button::with_label(tr(msg!("Reset to Default")));
         reset.set_tooltip_text(Some(tr(msg!(
-            "Back to the module's definition in waybar's default config, or none"
+            "Back to the item's definition in waybar's default config, or none"
         ))));
         let name = name.to_owned();
-        reset.connect_clicked(glib::clone!(
-            #[weak]
-            model,
-            #[weak]
-            window,
-            move |_| {
-                if let Some(Ok(mut modules)) = model.bar_modules() {
+        let weak = Rc::downgrade(ctx);
+        let closing = window.downgrade();
+        reset.connect_clicked(move |_| {
+            if let Some(ctx) = weak.upgrade() {
+                if let Some(Ok(mut modules)) = ctx.model().bar_modules() {
                     modules.reset(&name);
-                    model.set_bar_modules(modules);
+                    ctx.model().set_bar_modules(modules);
                 }
+            }
+            if let Some(window) = closing.upgrade() {
                 window.close();
             }
-        ));
+        });
         buttons.append(&reset);
     }
+    let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    spacer.set_hexpand(true);
+    buttons.append(&spacer);
     let cancel = gtk::Button::with_label(tr(msg!("Cancel")));
-    cancel.connect_clicked(glib::clone!(
-        #[weak]
-        window,
-        move |_| window.close()
-    ));
+    let closing = window.downgrade();
+    cancel.connect_clicked(move |_| {
+        if let Some(window) = closing.upgrade() {
+            window.close();
+        }
+    });
     buttons.append(&cancel);
     let save = gtk::Button::with_label(tr(if creating { msg!("Add") } else { msg!("Save") }));
     save.add_css_class("suggested-action");
     buttons.append(&save);
     window.set_default_widget(Some(&save));
-    content.append(&buttons);
+    let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root.append(&scrolled);
+    root.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    root.append(&buttons);
+    window.set_child(Some(&root));
     let name = name.to_owned();
-    let anchor = anchor.clone();
-    save.connect_clicked(glib::clone!(
-        #[weak]
-        model,
-        #[weak]
-        window,
-        move |_| {
-            if store(&form, &model, &anchor, &name, add_to) {
-                window.close();
-            }
+    let weak = Rc::downgrade(ctx);
+    let closing = window.downgrade();
+    save.connect_clicked(move |_| {
+        let (Some(ctx), Some(window)) = (weak.upgrade(), closing.upgrade()) else {
+            return;
+        };
+        if store(&form, &ctx, &name, add_to) {
+            window.close();
         }
-    ));
+    });
     window.present();
 }
 
-/// A dialog window titled `title` over the window of `anchor`, closed with Escape, and the box
-/// its content goes into.
-fn window_for(anchor: &gtk::Widget, title: &str) -> (gtk::Window, gtk::Box) {
-    let window = gtk::Window::builder()
-        .modal(true)
-        .destroy_with_parent(true)
-        .default_width(520)
-        .default_height(560)
-        .title(title)
-        .build();
-    window.set_transient_for(anchor.root().and_downcast::<gtk::Window>().as_ref());
-    window.add_css_class("st-dialog");
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    content.set_margin_top(20);
-    content.set_margin_bottom(16);
-    content.set_margin_start(20);
-    content.set_margin_end(20);
-    let heading = gtk::Label::new(Some(title));
-    heading.add_css_class("title-2");
-    heading.set_xalign(0.0);
-    heading.set_accessible_role(gtk::AccessibleRole::Heading);
-    content.append(&heading);
-    let scrolled = gtk::ScrolledWindow::new();
-    scrolled.set_hscrollbar_policy(gtk::PolicyType::Never);
-    scrolled.set_child(Some(&content));
-    window.set_child(Some(&scrolled));
-    let escape = gtk::ShortcutController::new();
-    escape.add_shortcut(gtk::Shortcut::new(
-        gtk::ShortcutTrigger::parse_string("Escape"),
-        Some(gtk::CallbackAction::new(|widget, _| {
-            if let Some(window) = widget.downcast_ref::<gtk::Window>() {
-                window.close();
+/// The basic rows of item `name`, which fill in the fields of `form`. Says whether it has any.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the rows of each kind of item, read best as a list"
+)]
+fn basic(content: &gtk::Box, form: &Rc<Form>, name: &str) -> bool {
+    let kind = catalog::find(name).map_or("", |module| module.name);
+    let list = crate::widgets::list::section_list(tr(msg!("Basic")));
+    list.add_css_class("st-bar-basic");
+    let rows: Vec<gtk::Widget> = match kind {
+        "clock" => clock(form),
+        "battery" => {
+            let mut rows = vec![shows(
+                form,
+                name,
+                "format",
+                msg!("Shows"),
+                &["{capacity}% {icon}", "{capacity}%", "{icon}"],
+            )];
+            rows.push(level(form, "warning", msg!("Warn below"), 30));
+            rows.push(level(form, "critical", msg!("Critical below"), 15));
+            rows
+        }
+        "pulseaudio" | "wireplumber" => vec![
+            shows(
+                form,
+                name,
+                "format",
+                msg!("Shows"),
+                &["{volume}% {icon}", "{volume}%", "{icon}"],
+            ),
+            number(
+                form,
+                "scroll-step",
+                msg!("Scroll step (percent)"),
+                1.0,
+                25.0,
+                1.0,
+            ),
+        ],
+        "network" => vec![shows(
+            form,
+            name,
+            "format-wifi",
+            msg!("On Wi-Fi, shows"),
+            &[
+                "{essid} ({signalStrength}%) {icon}",
+                "{essid}",
+                "{signalStrength}%",
+                "{icon}",
+            ],
+        )],
+        "sway/language" => vec![shows(
+            form,
+            name,
+            "format",
+            msg!("Shows"),
+            &["{short}", "{long}", "{flag}"],
+        )],
+        "sway/workspaces" => vec![
+            switch(
+                form,
+                "all-outputs",
+                msg!("Workspaces of every display"),
+                false,
+                false,
+            ),
+            switch(
+                form,
+                "disable-scroll",
+                msg!("Switch with the scroll wheel"),
+                true,
+                true,
+            ),
+        ],
+        "sway/window" => vec![
+            number(
+                form,
+                "max-length",
+                msg!("Longest title (characters, 0: any)"),
+                0.0,
+                1000.0,
+                0.0,
+            ),
+            switch(form, "icon", msg!("Show the app's icon"), false, false),
+        ],
+        "tray" => vec![
+            number(form, "icon-size", msg!("Icon size"), 8.0, 128.0, 16.0),
+            number(
+                form,
+                "spacing",
+                msg!("Space between icons"),
+                0.0,
+                64.0,
+                10.0,
+            ),
+        ],
+        "custom" => {
+            script::basic(content, form);
+            return true;
+        }
+        _ => {
+            let mut rows = Vec::new();
+            if form.field("format").is_some() {
+                rows.push(format_row(form, name));
             }
-            glib::Propagation::Stop
-        })),
-    ));
-    window.add_controller(escape);
-    (window, content)
+            if form.field("interval").is_some() {
+                rows.push(number(
+                    form,
+                    "interval",
+                    msg!("Update every (seconds)"),
+                    1.0,
+                    3600.0,
+                    10.0,
+                ));
+            }
+            rows
+        }
+    };
+    if rows.is_empty() {
+        return false;
+    }
+    for row in rows {
+        list.append(&crate::widgets::list::list_row(&row));
+    }
+    content.append(&list);
+    true
 }
 
-/// The form for module `name` with `definition`: its name for a new custom module, a field per
-/// option of the catalog, and the other options as JSON.
-fn form(content: &gtk::Box, definition: &Map<String, Json>, name: &str, creating: bool) -> Form {
-    let module = catalog::find(name);
-    if let Some(module) = module {
-        let about = gtk::Label::new(Some(tr(module.description)));
-        about.set_xalign(0.0);
-        about.set_wrap(true);
-        about.add_css_class(style::DIM);
-        content.append(&about);
+/// A row with `title` and `control` beside it.
+fn line(title: &str, control: &impl IsA<gtk::Widget>) -> gtk::Widget {
+    let label = gtk::Label::new(Some(title));
+    label.set_xalign(0.0);
+    label.set_wrap(true);
+    label.set_hexpand(true);
+    let control = control.as_ref();
+    control.set_valign(gtk::Align::Center);
+    control.update_property(&[gtk::accessible::Property::Label(title)]);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    row.add_css_class("st-bar-basic-row");
+    row.append(&label);
+    row.append(control);
+    row.upcast()
+}
+
+/// The clock's formats as examples with the time now, as radio buttons; seconds update every
+/// second.
+fn clock(form: &Rc<Form>) -> Vec<gtk::Widget> {
+    const FORMATS: [&str; 6] = [
+        "{:%H:%M}",
+        "{:%I:%M %p}",
+        "{:%H:%M:%S}",
+        "{:%a %d %b  %H:%M}",
+        "{:%a %d %b  %I:%M %p}",
+        "{:%Y-%m-%d  %H:%M}",
+    ];
+    let current = form.text("format");
+    // waybar's own format, when none is set.
+    let current = if current.is_empty() {
+        FORMATS[0].to_owned()
+    } else {
+        current
+    };
+    let title = gtk::Label::new(Some(tr(msg!("Shows"))));
+    title.set_xalign(0.0);
+    let choices = gtk::Box::new(gtk::Orientation::Vertical, 4);
+    choices.set_accessible_role(gtk::AccessibleRole::RadioGroup);
+    choices.update_property(&[gtk::accessible::Property::Label(tr(msg!("Clock format")))]);
+    let mut group: Option<gtk::CheckButton> = None;
+    let mut known = false;
+    for format in FORMATS {
+        let button = gtk::CheckButton::with_label(&catalog::preview("clock", format, now()));
+        if let Some(first) = &group {
+            button.set_group(Some(first));
+        } else {
+            group = Some(button.clone());
+        }
+        if format == current {
+            button.set_active(true);
+            known = true;
+        }
+        let weak = Rc::downgrade(form);
+        button.connect_toggled(move |button| {
+            let Some(form) = weak.upgrade() else { return };
+            if !button.is_active() {
+                return;
+            }
+            form.set_text("format", format);
+            // Seconds need an update every second; waybar's default is a minute.
+            if format.contains("%S") {
+                form.set_text("interval", "1");
+            } else if form.text("interval") == "1" {
+                form.set_text("interval", "");
+            }
+        });
+        choices.append(&button);
     }
-    let name_entry = creating.then(|| {
-        let entry = gtk::Entry::new();
-        entry.set_placeholder_text(Some("updates"));
-        labeled(content, tr(msg!("Name (custom/…)")), &entry);
-        entry
+    if !known {
+        let own = gtk::CheckButton::with_label(&trf(OWN_FORMAT, &[("format", &current)]));
+        own.set_group(group.as_ref());
+        own.set_active(true);
+        choices.append(&own);
+    }
+    let row = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    row.add_css_class("st-bar-basic-row");
+    row.append(&title);
+    row.append(&choices);
+    vec![row.upcast()]
+}
+
+/// A drop-down of what text field `key` shows, from `formats`, each shown as it would look; a
+/// format of the user's stays, as the last entry.
+fn shows(
+    form: &Rc<Form>,
+    name: &str,
+    key: &'static str,
+    title: Msg,
+    formats: &[&'static str],
+) -> gtk::Widget {
+    let current = form.text(key);
+    let mut labels: Vec<String> = formats
+        .iter()
+        .map(|format| {
+            let shown = catalog::preview(name, format, now());
+            let shown = shown.trim();
+            if shown.is_empty() {
+                (*format).to_owned()
+            } else {
+                shown.to_owned()
+            }
+        })
+        .collect();
+    let mut at = formats.iter().position(|format| *format == current);
+    if at.is_none() && !current.is_empty() {
+        labels.push(trf(OWN_FORMAT, &[("format", &current)]));
+        at = Some(formats.len());
+    }
+    let strings: Vec<&str> = labels.iter().map(String::as_str).collect();
+    let dropdown = gtk::DropDown::from_strings(&strings);
+    if let Some(at) = at.and_then(|at| u32::try_from(at).ok()) {
+        dropdown.set_selected(at);
+    } else {
+        dropdown.set_selected(gtk::INVALID_LIST_POSITION);
+    }
+    let formats: Vec<&'static str> = formats.to_vec();
+    let weak = Rc::downgrade(form);
+    dropdown.connect_selected_notify(move |dropdown| {
+        let Some(form) = weak.upgrade() else { return };
+        if let Some(format) = usize::try_from(dropdown.selected())
+            .ok()
+            .and_then(|at| formats.get(at))
+        {
+            form.set_text(key, format);
+        }
     });
+    line(tr(title), &dropdown)
+}
+
+/// A spin button for the warning level `state` of a battery (`states` in the other options).
+fn level(form: &Rc<Form>, state: &'static str, title: Msg, default: i64) -> gtk::Widget {
+    let current = form
+        .other("states")
+        .and_then(|states| states.get(state)?.as_i64())
+        .unwrap_or(default);
+    let spin = gtk::SpinButton::with_range(0.0, 100.0, 5.0);
+    #[expect(clippy::cast_precision_loss, reason = "a percentage")]
+    spin.set_value(current as f64);
+    let weak = Rc::downgrade(form);
+    spin.connect_value_changed(move |spin| {
+        let Some(form) = weak.upgrade() else { return };
+        let mut states = form
+            .other("states")
+            .and_then(|states| states.as_object().cloned())
+            .unwrap_or_default();
+        states.insert(state.to_owned(), Json::from(spin.value_as_int()));
+        form.set_other("states", Some(Json::Object(states)));
+    });
+    let unit = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    unit.append(&spin);
+    unit.append(&gtk::Label::new(Some("%")));
+    spin.update_property(&[gtk::accessible::Property::Label(tr(title))]);
+    line(tr(title), &unit)
+}
+
+/// A spin button for the number field `key`, from `min` to `max`; it shows `default` while the
+/// field is empty.
+fn number(
+    form: &Rc<Form>,
+    key: &'static str,
+    title: Msg,
+    min: f64,
+    max: f64,
+    default: f64,
+) -> gtk::Widget {
+    let spin = gtk::SpinButton::with_range(min, max, 1.0);
+    spin.set_value(form.text(key).parse::<f64>().unwrap_or(default));
+    let weak = Rc::downgrade(form);
+    spin.connect_value_changed(move |spin| {
+        if let Some(form) = weak.upgrade() {
+            form.set_text(key, &spin.value_as_int().to_string());
+        }
+    });
+    line(tr(title), &spin)
+}
+
+/// A switch for the on/off field `key`, which is `default` while not set; `inverted` where the
+/// option says the opposite of the row (`disable-scroll` for "Switch with the scroll wheel").
+fn switch(
+    form: &Rc<Form>,
+    key: &'static str,
+    title: Msg,
+    default: bool,
+    inverted: bool,
+) -> gtk::Widget {
+    let value = form
+        .choice(key)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(if inverted { !default } else { default });
+    let switch = gtk::Switch::new();
+    switch.set_active(value != inverted);
+    let weak = Rc::downgrade(form);
+    switch.connect_active_notify(move |switch| {
+        if let Some(form) = weak.upgrade() {
+            form.set_choice(key, Some(&Json::Bool(switch.is_active() != inverted)));
+        }
+    });
+    line(tr(title), &switch)
+}
+
+/// The format of an item in a field, with what it shows below it.
+fn format_row(form: &Rc<Form>, name: &str) -> gtk::Widget {
+    let entry = gtk::Entry::new();
+    entry.set_text(&form.text("format"));
+    entry.set_placeholder_text(Some(tr(msg!("waybar's default"))));
+    entry.set_hexpand(true);
+    entry.update_property(&[gtk::accessible::Property::Label(tr(msg!("Format")))]);
+    let weak = Rc::downgrade(form);
+    entry.connect_changed(move |entry| {
+        if let Some(form) = weak.upgrade() {
+            form.set_text("format", &entry.text());
+        }
+    });
+    let title = gtk::Label::new(Some(tr(msg!("Format"))));
+    title.set_xalign(0.0);
+    let row = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    row.add_css_class("st-bar-basic-row");
+    row.append(&title);
+    row.append(&entry);
+    row.append(&preview(&entry, name));
+    row.upcast()
+}
+
+/// The form of item `name` with `definition` in `content`: a field per option of the catalog,
+/// and the other options as JSON.
+fn form(
+    content: &gtk::Box,
+    definition: &Map<String, Json>,
+    name: &str,
+    name_entry: Option<gtk::Entry>,
+) -> Form {
+    let module = catalog::find(name);
     let options: &[Opt] = module.map_or(&[], |module| module.options);
     let mut others = definition.clone();
     let mut fields: Vec<(&'static str, Field)> = Vec::new();
@@ -198,7 +695,8 @@ fn form(content: &gtk::Box, definition: &Map<String, Json>, name: &str, creating
         if taken {
             others.remove(option.key);
         }
-        labeled(content, tr(option.title), field_widget(&field));
+        let shown = format!("{} ({})", tr(option.title), option.key);
+        labeled(content, &shown, field_widget(&field));
         if option.kind == Kind::Format {
             if let Field::Text(entry) = &field {
                 content.append(&preview(entry, name));
@@ -211,11 +709,7 @@ fn form(content: &gtk::Box, definition: &Map<String, Json>, name: &str, creating
     other.add_css_class("heading");
     content.append(&other);
     let buffer = gtk::TextBuffer::new(None);
-    buffer.set_text(&if others.is_empty() {
-        "{}".to_owned()
-    } else {
-        serde_json::to_string_pretty(&Json::Object(others)).unwrap_or_default()
-    });
+    buffer.set_text(&pretty(&others));
     let text = gtk::TextView::with_buffer(&buffer);
     text.add_css_class("monospace");
     text.set_monospace(true);
@@ -232,7 +726,6 @@ fn form(content: &gtk::Box, definition: &Map<String, Json>, name: &str, creating
     error.set_wrap(true);
     error.add_css_class("error");
     error.set_visible(false);
-    content.append(&error);
     Form {
         fields,
         buffer,
@@ -241,18 +734,14 @@ fn form(content: &gtk::Box, definition: &Map<String, Json>, name: &str, creating
     }
 }
 
-/// Stores what `form` holds as the definition of module `name` (or of the new custom module it
-/// names, added to the list `add_to`). Shows what is wrong and says `false` if it can't.
-fn store(
-    form: &Form,
-    model: &Model,
-    anchor: &gtk::Widget,
-    name: &str,
-    add_to: Option<&str>,
-) -> bool {
+/// Stores what `form` holds as the definition of item `name` (or of the new command item it
+/// names, added to the lane `add_to`). Shows what is wrong and says `false` if it can't.
+fn store(form: &Form, ctx: &Rc<Ctx>, name: &str, add_to: Option<&'static str>) -> bool {
     let fail = |message: &str| {
         form.error.set_text(message);
         form.error.set_visible(true);
+        form.error
+            .announce(message, gtk::AccessibleAnnouncementPriority::High);
         false
     };
     let definition = match collect(&form.fields, &form.buffer) {
@@ -262,20 +751,20 @@ fn store(
     let target = match &form.name_entry {
         Some(entry) => {
             let wanted = format!("custom/{}", entry.text().trim());
-            if !is_module_name(&wanted) || wanted == "custom/" || taken(anchor, &wanted) {
+            if !is_module_name(&wanted) || wanted == "custom/" || lanes::taken(ctx, &wanted) {
                 return fail(tr(BAD_NAME));
             }
             wanted
         }
         None => name.to_owned(),
     };
-    let Some(Ok(mut modules)) = model.bar_modules() else {
+    let Some(Ok(mut modules)) = ctx.model().bar_modules() else {
         return false;
     };
     modules.set(&target, definition);
-    model.set_bar_modules(modules);
+    ctx.model().set_bar_modules(modules);
     if let Some(key) = add_to {
-        add_to_list(anchor, key, &target);
+        lanes::add_item(ctx, key, &target);
     }
     true
 }
@@ -363,6 +852,7 @@ fn field_widget(field: &Field) -> &gtk::Widget {
 fn labeled(content: &gtk::Box, label: &str, widget: &impl IsA<gtk::Widget>) {
     let title = gtk::Label::new(Some(label));
     title.set_xalign(0.0);
+    title.set_wrap(true);
     content.append(&title);
     widget
         .as_ref()
@@ -377,26 +867,17 @@ fn preview(entry: &gtk::Entry, name: &str) -> gtk::Label {
     label.set_wrap(true);
     label.add_css_class(style::DIM);
     let name = name.to_owned();
-    let update = glib::clone!(
-        #[weak]
-        label,
-        move |entry: &gtk::Entry| {
-            let text = entry.text();
-            if text.is_empty() {
-                label.set_text("");
-                return;
-            }
-            let now = glib::DateTime::now_local().map_or((0, 0, 0), |now| {
-                (
-                    u32::try_from(now.hour()).unwrap_or(0),
-                    u32::try_from(now.minute()).unwrap_or(0),
-                    u32::try_from(now.second()).unwrap_or(0),
-                )
-            });
-            let shown = catalog::preview(&name, &text, now);
-            label.set_text(&trf(PREVIEW, &[("text", &shown)]));
+    let weak = label.downgrade();
+    let update = move |entry: &gtk::Entry| {
+        let Some(label) = weak.upgrade() else { return };
+        let text = entry.text();
+        if text.is_empty() {
+            label.set_text("");
+            return;
         }
-    );
+        let shown = catalog::preview(&name, &text, now());
+        label.set_text(&trf(PREVIEW, &[("text", &shown)]));
+    };
     update(entry);
     entry.connect_changed(update);
     label
@@ -425,7 +906,7 @@ fn collect(
                 let text = entry.text();
                 (!text.is_empty()).then(|| Json::String(text.to_string()))
             }
-            Field::Number(entry, kind) => number(entry, *kind, key)?,
+            Field::Number(entry, kind) => number_of(entry, *kind, key)?,
             Field::Choice(dropdown, values) => usize::try_from(dropdown.selected())
                 .ok()
                 .and_then(|at| values.get(at))
@@ -439,7 +920,7 @@ fn collect(
 }
 
 /// The number in `entry`, checked against `kind`; `None` while it is empty.
-fn number(entry: &gtk::Entry, kind: Kind, key: &str) -> Result<Option<Json>, String> {
+fn number_of(entry: &gtk::Entry, kind: Kind, key: &str) -> Result<Option<Json>, String> {
     let text = entry.text();
     let text = text.trim();
     if text.is_empty() {
@@ -474,35 +955,4 @@ fn number(entry: &gtk::Entry, kind: Kind, key: &str) -> Result<Option<Json>, Str
     Number::from_f64(value)
         .map(|number| Some(Json::Number(number)))
         .ok_or_else(wrong)
-}
-
-/// Whether a module list of the page `anchor` is on has `name` already.
-fn taken(anchor: &gtk::Widget, name: &str) -> bool {
-    let Some(page) = anchor
-        .ancestor(PageView::static_type())
-        .and_downcast::<PageView>()
-    else {
-        return false;
-    };
-    [keys::MODULES_LEFT, keys::MODULES_CENTER, keys::MODULES_RIGHT]
-        .iter()
-        .filter_map(|key| page.row(key))
-        .any(|row| matches!(row.value(), Some(Value::List(list)) if list.iter().any(|item| item == name)))
-}
-
-/// Adds `name` to the end of the list `key` on the page `anchor` is on.
-fn add_to_list(anchor: &gtk::Widget, key: &str, name: &str) {
-    let Some(row) = anchor
-        .ancestor(PageView::static_type())
-        .and_downcast::<PageView>()
-        .and_then(|page| page.row(key))
-    else {
-        return;
-    };
-    let mut list = match row.value() {
-        Some(Value::List(list)) => list,
-        _ => Vec::new(),
-    };
-    list.push(name.to_owned());
-    row.change(Value::List(list));
 }

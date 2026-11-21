@@ -225,22 +225,29 @@
   a hidden workspace) and after every change of the settings, one read at a time (asked during one, it reads once more
   after it), and tells the page which daemon it is about, so only that daemon's sections show
   ([Notifications](Backends.md#notifications)).
-- **Bar page** (`crates/gui/src/widgets/bar/`): below the bar program, how the bar runs (`status.rs`): waybar missing,
-  what starts it with the line to copy in its place (or the drop-in for its unit), whether ours runs with _Reload
-  waybar_, a swaybar of the user's next to ours, and the user's own waybar config with _Import as Starting Point…_,
-  which asks first and says what it couldn't take over. It looks at the processes again every three seconds while shown.
-  Below the displays a check button per display (none checked: every display). Below each module list its modules as
-  chips (`layout.rs`, a `FlowBox`): the catalog's title, the instance (`Battery (bat2)`), a warning icon where what the
-  module needs is missing, and ×. A chip is dragged within its area or onto another (`DragSource` with the list and
-  place, `DropTarget` on the area); Alt+←/→ move it within its area, Alt+↑/↓ to the end of the area above or below,
-  Delete removes it, Enter or a click opens its settings, and the focus follows a moved chip. Every change goes through
-  the list's row (`SettingRow::change`). _Add Module…_ is a popover with the catalog (a module already in the bar is
-  added as `name#2`, starting from its definition), _Custom module…_ and the templates. A module's settings
-  (`dialog.rs`) are a form from the catalog: an entry per format, text and command (empty leaves the option out), with a
-  preview under each format, numbers checked against their range, drop-downs for on/off and choices with waybar's
-  default first, and the options the catalog doesn't know (or a value of another type, like `"interval": "once"`) as
-  JSON. Below the look the presets. Module and file names, the user's config lines and waybar's options are only ever
-  set as plain label text.
+- **Bar page** (`crates/gui/src/widgets/bar/`): its parts share a `Ctx` while the page is built (the model and the steps
+  Ctrl+Z takes back, each the values of the settings it changed before). Above the rows (`parts::before_rows`) the
+  preview (`preview.rs`: for waybar, `mimic.rs` builds the widgets waybar builds, with its names and classes, a `widget`
+  node per module from a `Box` subclass, and draws them with the stylesheet waybar gets, ours and the user's own,
+  confined to the preview by `bar::preview` and loaded above the user's `gtk.css` after a rule that unsets every
+  property; for swaybar a CSS provider of its own from the look, `bar::style::preview`; over the wallpaper of the
+  Wallpaper page, drawn from a scaled copy read off the main loop; its text summary is the accessible description) and
+  the card of the bar program (`backend.rs`: its state in one line, the dialog that switches it and says what the other
+  program can't show, and in _Details_ how the bar runs, `status.rs`, read again every three seconds while shown). The
+  rows of the bar program and the item lists are built but not shown (`parts::is_hidden`); their widgets stand for them
+  in deep links (`parts::anchors`). In their place the lanes (`lanes.rs`): three `ListBox`es side by side, the same
+  width each; a row is dragged (`DragSource` with the lane and place, `DropTarget` on the lane with a line where it
+  lands), moved with Alt and the arrows, or from its ⋯ menu; the focus follows a moved row, a move is announced, and a
+  removal shows a note with _Undo_ (`toast.rs`). _Add Item…_ opens the picker (`picker.rs`: a search, the catalog and
+  the templates by category, badges for what is missing). An item's dialog (`dialog.rs`) has basic rows per item that
+  fill in the advanced form: a field per option of the catalog, numbers checked against their range, drop-downs with
+  waybar's default first, and the options the catalog doesn't know (or a value of another type, like
+  `"interval": "once"`) as JSON; a command of the user's has its own rows (`script.rs`) with _Test_, which runs it off
+  the main loop. Above the height the sizes, above the colors the looks as cards (`presets.rs`: each card's bar is
+  `mimic::mini_bar` of the first items, with the look's stylesheet from `Model::bar_preset_css` confined to a class of
+  its own in one provider, at real size, scaled down by a CSS `transform` and cut to the card), below the text color its
+  contrast, below the status command the files (`files.rs`). Module and file names, the user's config lines, Waybar's
+  options and a command's output are only ever set as plain label text.
 - **Workspaces page** (`crates/gui/src/widgets/workspaces.rs`): below the rows of `workspaces.count` and
   `workspaces.placement`, a map with a card per display that takes workspaces, holding the numbers the placement rule
   gives it (`Model::placement`). A click on a number sends it to the next display, a drag onto another card puts it

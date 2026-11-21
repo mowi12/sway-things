@@ -408,7 +408,9 @@ fn data() -> Vec<String> {
 }
 
 /// The names of waybar's modules on the Bar page: its default layout, with the names of custom
-/// modules and instances (`custom/media`, `battery#bat2`) on their own too.
+/// modules and instances (`custom/media`, `battery#bat2`) on their own too; and the sample values
+/// its preview and items show: a network's name, a window's title, a binding mode, a keyboard
+/// layout.
 fn bar_data() -> Vec<String> {
     let mut data = Vec::new();
     for name in sway_things_core::registry::bar::DEFAULT_LEFT
@@ -422,6 +424,9 @@ fn bar_data() -> Vec<String> {
             name.split_once('#')
                 .map(|(_, instance)| instance.to_owned()),
         );
+    }
+    for module in sway_things_core::bar::catalog::MODULES {
+        data.extend(module.samples.iter().map(|(_, value)| (*value).to_owned()));
     }
     data
 }

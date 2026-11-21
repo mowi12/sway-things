@@ -172,13 +172,15 @@ pub(crate) fn save_png(texture: &gtk::gdk::Texture, path: &Path) -> Outcome {
         .map_err(|error| format!("can't save {}: {error}", path.display()))
 }
 
-/// Where the insensitive widgets below `widget` are, in the coordinates of `window`: the topmost
-/// of each insensitive part of the tree.
+/// Where the insensitive widgets below `widget` are, and the pictures of text (the Bar page's
+/// preview of waybar), in the coordinates of `window`: the topmost of each such part of the tree.
 pub(crate) fn insensitive_areas(
     widget: &gtk::Widget,
     window: &gtk::Widget,
 ) -> Vec<gtk::graphene::Rect> {
-    if !widget.is_sensitive() {
+    // The Bar page's preview of waybar is a picture of the user's bar in the colors of their
+    // own stylesheet, not text of the app.
+    if !widget.is_sensitive() || widget.has_css_class("st-bar-picture") {
         return widget.compute_bounds(window).into_iter().collect();
     }
     let mut areas = Vec::new();

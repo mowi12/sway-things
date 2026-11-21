@@ -11,6 +11,7 @@
 
 use std::fmt::Write as _;
 
+use super::modules::Modules;
 use super::value;
 use crate::command::Color;
 use crate::i18n::Msg;
@@ -95,6 +96,31 @@ impl Colors {
     }
 }
 
+/// The text on `fill` (the focused workspace, the mode, an urgent workspace, a critical
+/// battery): `text` where it reads (4.5:1), else white where that reads, else black or white,
+/// whichever has more contrast. A light accent behind light text stays readable without a text
+/// color of its own.
+pub fn text_on(fill: Color, text: Color) -> Color {
+    use crate::theme::{NORMAL_TEXT, Rgb, ratio};
+    let rgb = |color: Color| {
+        let [red, green, blue] = color.channels();
+        Rgb::from_u8(red, green, blue)
+    };
+    let fill = rgb(fill);
+    if ratio(rgb(text), fill) >= NORMAL_TEXT {
+        return text;
+    }
+    let white = Color::rgb(0xff, 0xff, 0xff);
+    if ratio(Rgb::WHITE, fill) >= NORMAL_TEXT {
+        return white;
+    }
+    if crate::theme::text_on(fill) == Rgb::BLACK {
+        Color::rgb(0, 0, 0)
+    } else {
+        white
+    }
+}
+
 /// `color` as GTK 3 CSS, with `opacity` multiplied into its alpha.
 pub fn css_color(color: Color, opacity: f64) -> String {
     let [red, green, blue] = color.channels();
@@ -119,6 +145,19 @@ pub fn css_string(text: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// The families of a font description as a CSS `font-family` list: `Noto Sans, Symbols Nerd
+/// Font` (Pango's family list, comma-separated) gives `"Noto Sans", "Symbols Nerd Font"`, so the
+/// later ones fill in the glyphs the first lacks, such as the icons of an icon font.
+pub fn css_font_family(family: &str) -> String {
+    family
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(css_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The `file://` URL of the absolute `path`, with the bytes a URL can't hold percent-encoded, or
@@ -152,8 +191,9 @@ pub struct CssFont {
     pub size: Option<(f64, &'static str)>,
 }
 
-/// Splits a Pango font description such as `Noto Sans Bold 11` or `Mono 12px`: the size at the
-/// end, style and weight words before it, the rest the family.
+/// Splits a Pango font description such as `Noto Sans Bold 11`, `Mono 12px` or `Noto Sans,
+/// Symbols Nerd Font 12px`: the size at the end, style and weight words before it, the rest the
+/// family (or the families, comma-separated).
 pub fn css_font(description: &str) -> Option<CssFont> {
     let mut words: Vec<&str> = description.split_whitespace().collect();
     let mut size = None;
@@ -204,8 +244,8 @@ pub fn css_font(description: &str) -> Option<CssFont> {
 
 /// The stylesheet for the style settings of `state`: waybar's own, or one made from the shape,
 /// font, padding, corners, opacity and the colors (sway's or the user's own; `sway` is the
-/// user's sway config, for the colors it sets).
-pub fn stylesheet(state: &State, sway: Option<&SwayConfig>) -> String {
+/// user's sway config, for the colors it sets), with the groups and modules of `modules`.
+pub fn stylesheet(state: &State, sway: Option<&SwayConfig>, modules: &Modules) -> String {
     let theme = match value(state, keys::THEME) {
         Value::Choice(id) => id,
         _ => String::new(),
@@ -236,14 +276,19 @@ pub fn stylesheet(state: &State, sway: Option<&SwayConfig>) -> String {
         _ => 1.0,
     };
     let pills = matches!(value(state, keys::SHAPE), Value::Choice(id) if id == "pills");
-    generated(&Look {
-        colors,
-        opacity,
-        pills,
-        padding: integer(keys::PADDING),
-        radius: integer(keys::RADIUS),
-        font,
-    })
+    let lists = super::waybar::lists(state);
+    let groups = super::groups::styled(&lists, modules);
+    generated(
+        &Look {
+            colors,
+            opacity,
+            pills,
+            padding: integer(keys::PADDING),
+            radius: integer(keys::RADIUS),
+            font,
+        },
+        &groups,
+    )
 }
 
 /// What a generated stylesheet is made from.
@@ -266,8 +311,9 @@ pub struct Look {
 /// The declarations of `font`, one per line.
 fn font_declarations(font: &CssFont) -> String {
     let mut css = String::new();
-    if !font.family.is_empty() {
-        let _ = writeln!(css, "    font-family: {};", css_string(&font.family));
+    let families = css_font_family(&font.family);
+    if !families.is_empty() {
+        let _ = writeln!(css, "    font-family: {families};");
     }
     if let Some((size, unit)) = font.size {
         let _ = writeln!(css, "    font-size: {size}{unit};");
@@ -367,10 +413,38 @@ pub fn preview(state: &State, sway: Option<&SwayConfig>) -> Look {
     }
 }
 
+/// The id of the user's own style as a look: only their own stylesheet ([`keys::EXTRA_CSS`]),
+/// on.
+pub const OWN: &str = "own";
+
+/// The user's own stylesheet, if one is set.
+pub fn extra_css(state: &State) -> Option<String> {
+    match value(state, keys::EXTRA_CSS) {
+        Value::Text(path) if !path.trim().is_empty() => Some(path),
+        _ => None,
+    }
+}
+
+/// The user's own stylesheet, if one is set and on: what waybar reads after the look's rules.
+pub fn extra_css_active(state: &State) -> Option<String> {
+    let on = !matches!(value(state, keys::EXTRA_CSS_ON), Value::Bool(false));
+    extra_css(state).filter(|_| on)
+}
+
 /// `state` with preset `id` applied, as [`preset_values`] and [`PRESET_KEYS`] say: for its
 /// preview, and to tell whether it is the preset in use.
 pub fn with_preset(state: &State, id: &str) -> State {
     let mut state = state.clone();
+    if id == OWN {
+        // Only the user's own stylesheet, on.
+        let _ = state.set(keys::THEME, None, Value::Choice("plain".to_owned()), None);
+        let _ = state.set(keys::EXTRA_CSS_ON, None, Value::Bool(true), None);
+        return state;
+    }
+    // A look shows as it is: the user's own stylesheet goes off.
+    if extra_css(&state).is_some() {
+        let _ = state.set(keys::EXTRA_CSS_ON, None, Value::Bool(false), None);
+    }
     let values = preset_values(id);
     for key in PRESET_KEYS {
         // In memory only; the values a preset holds are checked by the tests.
@@ -385,6 +459,10 @@ pub fn with_preset(state: &State, id: &str) -> State {
 /// The preset whose values `state` has, if one has them all (blur aside where `swayfx` is
 /// false, since presets leave it be there).
 pub fn current_preset(state: &State, swayfx: bool) -> Option<&'static str> {
+    // The user's own stylesheet overrides any look.
+    if extra_css_active(state).is_some() {
+        return Some(OWN);
+    }
     PRESETS
         .iter()
         .filter(|preset| swayfx || !preset.swayfx)
@@ -398,82 +476,303 @@ pub fn current_preset(state: &State, swayfx: bool) -> Option<&'static str> {
         .map(|preset| preset.id)
 }
 
-/// The rules of a generated stylesheet.
-pub fn generated(look: &Look) -> String {
+/// The three lanes of waybar, each followed by `rest` (` > widget > *`, ` .warning`), as one
+/// selector list.
+fn lanes(rest: &str) -> String {
+    ["left", "center", "right"]
+        .map(|lane| format!(".modules-{lane}{rest}"))
+        .join(",\n")
+}
+
+/// The selectors of `lists` joined, one per line.
+fn join(lists: &[String]) -> String {
+    lists.join(",\n")
+}
+
+/// The color of good states (`.ok`) on `background`: a light green on a dark bar, a dark one on
+/// a light bar, each readable there.
+pub fn ok_on(background: Color) -> Color {
+    let [red, green, blue] = background.channels();
+    if crate::theme::Rgb::from_u8(red, green, blue).luminance() > 0.4 {
+        Color::rgb(0x1f, 0x7a, 0x2e)
+    } else {
+        Color::rgb(0x8a, 0xe5, 0x7c)
+    }
+}
+
+/// How far the items under the pointer and the buttons sit inside their pill or bar, top and
+/// bottom, in pixels: hover areas keep the shape of what holds them.
+pub const INSET: i64 = 3;
+
+/// The rules of a generated stylesheet for `look`, with the groups `groups` the bar shows (each
+/// one pill, its members inside it).
+#[expect(
+    clippy::too_many_lines,
+    reason = "the rules of one stylesheet, read best in order"
+)]
+pub fn generated(look: &Look, groups: &[super::groups::Styled]) -> String {
     let Colors {
-        background,
-        text,
-        hover,
-        focused,
-        warning,
-        critical,
-        urgent,
+        background, text, ..
     } = look.colors;
     let (padding, radius) = (look.padding, look.radius);
+    // The shape of what sits inside a pill (a member, a button, the area under the pointer):
+    // round in a round pill, else the pill's corner less the inset, and gently rounded on a bar
+    // without corners.
+    let inner = if radius >= 999 {
+        radius
+    } else if look.pills {
+        (radius - INSET).max(0)
+    } else {
+        (radius - INSET).max(6)
+    };
+    let member_padding = (padding - INSET).max(4);
     let mut css = String::new();
-    let _ = writeln!(css, "* {{\n    min-height: 0;");
+    // Tabular figures: a clock or a percentage keeps its width while its digits change, so
+    // nothing beside it moves.
+    let _ = writeln!(
+        css,
+        "* {{\n    min-height: 0;\n    font-feature-settings: \"tnum\";"
+    );
     if let Some(font) = &look.font {
         css.push_str(&font_declarations(font));
     }
     css.push_str("}\n\n");
-    let modules =
-        ".modules-left > widget > *,\n.modules-center > widget > *,\n.modules-right > widget > *";
+    // The GTK theme stops at the bar: many themes (and a gtk.css of the user's) fill every box
+    // and frame every button, which would show as gray squares behind the pills and under the
+    // pointer. Everything in the lanes starts clear, in the bar's text color.
+    let _ = write!(
+        css,
+        "window#waybar > box,\n.modules-left,\n.modules-center,\n.modules-right,\n{boxes} {{\n    \
+         background-color: transparent;\n    background-image: none;\n    border: none;\n    \
+         box-shadow: none;\n}}\n\n{all} {{\n    color: inherit;\n    text-shadow: none;\n    \
+         -gtk-icon-shadow: none;\n    outline-style: none;\n}}\n\n",
+        boxes = join(&[
+            lanes(" box"),
+            lanes(" revealer"),
+            lanes(" widget"),
+            lanes(" label"),
+            lanes(" image"),
+        ]),
+        all = lanes(" *"),
+    );
+    let top = lanes(" > widget > *");
+    // A module on its own: its label, also where waybar wraps a clickable one in a box.
+    let single = join(&[
+        lanes(" > widget > .module"),
+        lanes(" > widget > box > .module"),
+    ]);
+    // A member of a group: a module below another `widget` in the item.
+    let member = lanes(" > widget > * widget .module");
+    let border = css_color(text, 0.1);
+    let fill = css_color(background, look.opacity);
+    let hover = css_color(look.colors.hover, 1.0);
     if look.pills {
+        // A pill per item, 4 px apart, its frame drawn inside it (a pill whose modules are all
+        // empty takes no room). The label of a module on its own fills it, in its shape.
         let _ = write!(
             css,
             "window#waybar {{\n    background: transparent;\n    color: {text};\n}}\n\n\
-             {modules} {{\n    background-color: {background};\n    border: 1px solid {border};\n    \
-             border-radius: {radius}px;\n    margin: 0 2px;\n    padding: 0 {padding}px;\n}}\n\n",
+             {top} {{\n    background-color: {fill};\n    box-shadow: inset 0 0 0 1px {border};\n    \
+             border-radius: {radius}px;\n    margin: 0 2px;\n    padding: 0;\n    \
+             transition: background-color 180ms ease, color 180ms ease;\n}}\n\n\
+             {single} {{\n    padding: 0 {padding}px;\n    border-radius: {radius}px;\n}}\n\n\
+             window#waybar.empty #window {{\n    background-color: transparent;\n    \
+             box-shadow: none;\n}}\n\n",
             text = css_color(text, 1.0),
-            background = css_color(background, look.opacity),
-            border = css_color(text, 0.1),
         );
     } else {
         let _ = write!(
             css,
-            "window#waybar {{\n    background-color: {background};\n    border-radius: {radius}px;\n    \
-             color: {text};\n}}\n\n{modules} {{\n    padding: 0 {padding}px;\n    border-radius: {radius}px;\n}}\n\n",
-            background = css_color(background, look.opacity),
+            "window#waybar {{\n    background-color: {fill};\n    border-radius: {radius}px;\n    \
+             color: {text};\n}}\n\n{top} {{\n    padding: 0;\n    margin: 0;\n    \
+             border-radius: {inner}px;\n}}\n\n{single} {{\n    padding: 0 {padding}px;\n    \
+             margin: {INSET}px 0;\n    border-radius: {inner}px;\n    \
+             transition: background-color 180ms ease, color 180ms ease;\n}}\n\n",
             text = css_color(text, 1.0),
         );
     }
-    let hovered = ".modules-left > widget > *:hover,\n.modules-center > widget > *:hover,\n.modules-right > widget > *:hover";
+    // Groups: the members sit 3 px inside their group's pill, each in the pill's shape, so the
+    // area under the pointer is a smaller pill in the pill. A group in a group is only a part of
+    // the outer pill.
+    let member_padding_css = if look.pills { member_padding } else { padding };
     let _ = write!(
         css,
-        "{hovered} {{\n    background-color: {hover};\n}}\n\n\
-         button {{\n    border: none;\n    border-radius: {radius}px;\n    box-shadow: none;\n    min-height: 0;\n}}\n\n\
-         #workspaces {{\n    padding: 0;\n}}\n\n\
-         #workspaces button {{\n    padding: 0 {half}px;\n    background: transparent;\n    color: {text};\n}}\n\n\
-         #workspaces button:hover {{\n    background: {hover};\n}}\n\n\
-         #workspaces button.focused,\n#workspaces button.active,\n#mode {{\n    background-color: {focused};\n    color: {text};\n}}\n\n\
-         #workspaces button.urgent {{\n    background-color: {urgent};\n}}\n\n",
-        hover = css_color(hover, 1.0),
-        half = (padding / 2).max(2),
-        text = css_color(text, 1.0),
-        focused = css_color(focused, 1.0),
-        urgent = css_color(urgent, 1.0),
+        "{member} {{\n    padding: 0 {member_padding_css}px;\n    margin: {INSET}px 0;\n    \
+         border-radius: {inner}px;\n    transition: background-color 180ms ease, color 180ms ease;\n}}\n\n"
     );
-    let state = |class: &str| {
-        format!(
-            ".modules-left > widget > .{class},\n.modules-center > widget > .{class},\n.modules-right > widget > .{class}"
-        )
+    let outer: Vec<String> = groups
+        .iter()
+        .filter(|group| !group.nested)
+        .map(|group| format!("#{}", group.id))
+        .collect();
+    let nested: Vec<String> = groups
+        .iter()
+        .filter(|group| group.nested)
+        .map(|group| format!("#{}", group.id))
+        .collect();
+    if !outer.is_empty() && look.pills {
+        let _ = write!(
+            css,
+            "{} {{\n    padding: 0 {INSET}px;\n}}\n\n",
+            outer.join(",\n")
+        );
+    }
+    if !nested.is_empty() {
+        let _ = write!(
+            css,
+            "{} {{\n    padding: 0;\n    margin: 0;\n    background-color: transparent;\n    \
+             box-shadow: none;\n}}\n\n",
+            nested.join(",\n")
+        );
+    }
+    // What a drawer hides is a little quieter than what always shows.
+    let _ = write!(
+        css,
+        "{} {{\n    color: {};\n}}\n\n",
+        lanes(" .drawer-child"),
+        css_color(text, 0.72)
+    );
+    // Under the pointer: the module on its own or the member, never a whole group (an open
+    // drawer marks its group as under the pointer). waybar 0.16 marks the box it wraps a
+    // clickable module in, older versions the module itself.
+    let frame = if look.pills {
+        format!("\n    box-shadow: inset 0 0 0 1px {border};")
+    } else {
+        String::new()
     };
     let _ = write!(
         css,
-        "{warning_selector},\n#network.disconnected,\n#pulseaudio.muted,\n#wireplumber.muted {{\n    color: {warning};\n}}\n\n\
-         {critical_selector},\n#temperature.critical {{\n    color: {critical};\n}}\n\n\
-         #battery.critical:not(.charging) {{\n    background-color: {critical};\n    color: {text};\n}}\n\n\
-         tooltip {{\n    background-color: {tooltip};\n    border-radius: {tooltip_radius}px;\n}}\n\n\
-         tooltip label {{\n    color: {text};\n}}\n\n\
+        "{} {{\n    background-color: {hover};{frame}\n}}\n\n{} {{\n    background-color: {hover};\n}}\n\n",
+        join(&[
+            lanes(" > widget > .module:hover"),
+            lanes(" > widget > box:hover > .module"),
+        ]),
+        join(&[
+            lanes(" > widget > * widget .module:hover"),
+            lanes(" > widget > * widget box:hover > .module"),
+        ]),
+    );
+    css.push_str(&button_rules(look, inner));
+    css.push_str(&state_rules(look));
+    let _ = write!(
+        css,
+        "tooltip,\ntooltip.background {{\n    background-color: {tooltip};\n    \
+         border: 1px solid {border};\n    border-radius: {tooltip_radius}px;\n}}\n\n\
+         tooltip label {{\n    color: {text};\n    padding: 4px 6px;\n}}\n\n\
          #tray > .passive {{\n    -gtk-icon-effect: dim;\n}}\n\n\
          #tray > .needs-attention {{\n    -gtk-icon-effect: highlight;\n}}\n",
-        warning_selector = state("warning"),
-        critical_selector = state("critical"),
-        warning = css_color(warning, 1.0),
-        critical = css_color(critical, 1.0),
         text = css_color(text, 1.0),
         tooltip = css_color(background, look.opacity.max(0.9)),
         tooltip_radius = radius.min(12),
+    );
+    css
+}
+
+/// The buttons (the workspaces) and the binding mode of a generated stylesheet: every state of
+/// a button defined, so no theme's frame, gradient or shadow shows; the buttons sit 3 px inside
+/// their pill or bar, in its shape (`inner`).
+fn button_rules(look: &Look, inner: i64) -> String {
+    let Colors {
+        text,
+        hover,
+        focused,
+        urgent,
+        ..
+    } = look.colors;
+    let padding = look.padding;
+    let (workspaces, button, focused_padding) = if look.pills {
+        // 1 px of the pill's padding and 2 px margin: 3 px from the pill, 4 px between buttons,
+        // and the focused one is wider.
+        (
+            "padding: 0 1px;".to_owned(),
+            format!(
+                "padding: 0 {}px;\n    margin: {INSET}px 2px;\n    min-width: 8px;",
+                (padding - 2).max(2)
+            ),
+            format!("\n    padding: 0 {}px;", padding + 4),
+        )
+    } else {
+        (
+            "padding: 0 2px;".to_owned(),
+            format!(
+                "padding: 0 {}px;\n    margin: {INSET}px 1px;\n    min-width: 8px;",
+                (padding / 2).max(4)
+            ),
+            String::new(),
+        )
+    };
+    let reset = "background-color: transparent;\n    background-image: none;\n    border: none;\n    \
+                 box-shadow: none;\n    text-shadow: none;\n    outline-style: none;";
+    let mut css = String::new();
+    let _ = write!(
+        css,
+        "{buttons} {{\n    {reset}\n    border-radius: {inner}px;\n    min-height: 0;\n    \
+         transition: background-color 180ms ease, color 180ms ease;\n}}\n\n\
+         {states} {{\n    background-image: none;\n    border: none;\n    box-shadow: none;\n    \
+         text-shadow: none;\n    outline-style: none;\n}}\n\n\
+         #workspaces {{\n    {workspaces}\n}}\n\n\
+         #workspaces button {{\n    {button}\n    color: {text};\n}}\n\n\
+         #workspaces button label {{\n    padding: 0;\n    margin: 0;\n}}\n\n\
+         #workspaces button:hover {{\n    background-color: {hover};\n}}\n\n\
+         #workspaces button.focused,\n#workspaces button.active {{\n    background-color: {focused};\n    \
+         color: {on_focused};\n    font-weight: 600;{focused_padding}\n}}\n\n\
+         #mode {{\n    background-color: {focused};\n    color: {on_focused};\n}}\n\n\
+         #workspaces button.urgent {{\n    background-color: {urgent};\n    color: {on_urgent};\n}}\n\n",
+        buttons = lanes(" button"),
+        states = join(&[
+            lanes(" button:hover"),
+            lanes(" button:focus"),
+            lanes(" button:active"),
+            lanes(" button:checked"),
+        ]),
+        hover = css_color(hover, 1.0),
+        text = css_color(text, 1.0),
+        focused = css_color(focused, 1.0),
+        on_focused = css_color(text_on(focused, text), 1.0),
+        urgent = css_color(urgent, 1.0),
+        on_urgent = css_color(text_on(urgent, text), 1.0),
+    );
+    css
+}
+
+/// The colors of the states modules report as classes: waybar's own (`warning`, `critical` of
+/// the battery and others) and those of custom modules (`warn`, `crit`, `limited`, `ok`, and
+/// the quiet `down` and `paused`), also inside a drawer.
+fn state_rules(look: &Look) -> String {
+    let Colors {
+        background,
+        text,
+        warning,
+        critical,
+        ..
+    } = look.colors;
+    let state = |classes: &[&str]| {
+        let mut selectors = Vec::new();
+        for class in classes {
+            selectors.push(lanes(&format!(" .{class}")));
+            selectors.push(lanes(&format!(" .drawer-child .{class}")));
+        }
+        join(&selectors)
+    };
+    let mut css = String::new();
+    let _ = write!(
+        css,
+        "{quiet} {{\n    color: {dim};\n}}\n\n\
+         {ok} {{\n    color: {ok_color};\n}}\n\n\
+         {warning_selector},\n#network.disconnected,\n#pulseaudio.muted,\n#wireplumber.muted {{\n    \
+         color: {warning};\n}}\n\n\
+         {critical_selector},\n#temperature.critical {{\n    color: {critical};\n}}\n\n\
+         #battery.critical:not(.charging) {{\n    background-color: {critical};\n    \
+         box-shadow: none;\n    color: {on_critical};\n}}\n\n",
+        quiet = state(&["down", "paused"]),
+        ok = state(&["ok"]),
+        warning_selector = state(&["warning", "warn"]),
+        critical_selector = state(&["critical", "crit", "limited"]),
+        dim = css_color(text, 0.6),
+        ok_color = css_color(ok_on(background), 1.0),
+        warning = css_color(warning, 1.0),
+        critical = css_color(critical, 1.0),
+        on_critical = css_color(text_on(critical, text), 1.0),
     );
     css
 }
@@ -641,14 +940,18 @@ pub fn preset_values(id: &str) -> Vec<(&'static str, Value)> {
             (keys::SPACING, Value::Integer(0)),
             (keys::THEME, choice("custom")),
             (keys::SHAPE, choice("pills")),
-            (keys::FONT, Value::Text("Noto Sans 12px".to_owned())),
+            (
+                keys::FONT,
+                Value::Text("Noto Sans, Symbols Nerd Font 12px".to_owned()),
+            ),
             (keys::PADDING, Value::Integer(10)),
             (keys::RADIUS, Value::Integer(999)),
             (keys::OPACITY, Value::Decimal(0.45)),
             (keys::BACKGROUND, rgb(0x12, 0x12, 0x16)),
             (keys::TEXT, rgb(0xd4, 0xd4, 0xd8)),
             (keys::HOVER, rgba(0, 0, 0, 0x59)),
-            (keys::FOCUSED, rgb(0x7b, 0x3f, 0xa0)),
+            // #b162d5 a shade darker, so the white text on it reads (4.5:1).
+            (keys::FOCUSED, rgb(0xa7, 0x4e, 0xd0)),
             (keys::WARNING, rgb(0xff, 0x9f, 0x1c)),
             (keys::CRITICAL, rgb(0xff, 0x3b, 0x30)),
             (keys::URGENT, rgb(0xff, 0x3b, 0x30)),
@@ -727,7 +1030,7 @@ mod tests {
             radius: 999,
             font: css_font("Evil\"} * { color: red; } x 12"),
         };
-        let css = generated(&look);
+        let css = generated(&look, &[]);
         assert!(css.contains("font-family: \"Evil\\\"} * { color: red; } x\";"));
         assert!(css.contains("background-color: rgba(1, 2, 3, 0.500);"));
         assert!(css.contains("rgba(0, 0, 0, 0.200)"));
@@ -778,15 +1081,62 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut state = state(dir.path());
         assert_eq!(
-            stylesheet(&state, None),
+            stylesheet(&state, None, &Modules::default()),
             super::super::modules::WAYBAR_DEFAULT_STYLE
         );
         state
             .set(keys::FONT, None, Value::Text("Inter 15px".into()), None)
             .unwrap();
-        let css = stylesheet(&state, None);
+        let css = stylesheet(&state, None, &Modules::default());
         assert!(css.starts_with(super::super::modules::WAYBAR_DEFAULT_STYLE));
         assert!(css.ends_with("* {\n    font-family: \"Inter\";\n    font-size: 15px;\n}\n"));
+    }
+
+    #[test]
+    fn a_look_turns_the_user_s_stylesheet_off_and_their_style_on_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut state = state(dir.path());
+        let extra = dir.path().join("style.css");
+        std::fs::write(&extra, "#clock { color: rgb(1, 2, 3); }").unwrap();
+        let path = extra.to_string_lossy().into_owned();
+        state
+            .set(keys::EXTRA_CSS, None, Value::Text(path.clone()), None)
+            .unwrap();
+        state
+            .set(keys::THEME, None, Value::Choice("plain".to_owned()), None)
+            .unwrap();
+        // On by default: it overrides every look, so their own style is the one in use.
+        assert_eq!(extra_css_active(&state), Some(path.clone()));
+        assert_eq!(current_preset(&state, false), Some(OWN));
+        assert!(super::super::waybar::style_text(&state).contains("style.css"));
+        // A look shows as it is: their stylesheet goes off, its path stays.
+        let simple = with_preset(&state, "simple");
+        assert_eq!(extra_css_active(&simple), None);
+        assert_eq!(extra_css(&simple), Some(path.clone()));
+        assert_eq!(current_preset(&simple, false), Some("simple"));
+        assert!(!super::super::waybar::style_text(&simple).contains("style.css"));
+        let css = super::super::preview::stylesheet(&simple, None, &Modules::default(), "r");
+        assert_eq!(css.extra, super::super::preview::Extra::None);
+        assert!(!css.css.contains("rgb(1, 2, 3)"), "{}", css.css);
+        // Their own style again: only their stylesheet, on.
+        let own = with_preset(&simple, OWN);
+        assert_eq!(extra_css_active(&own), Some(path));
+        assert_eq!(value(&own, keys::THEME), Value::Choice("plain".to_owned()));
+        assert!(
+            super::super::preview::stylesheet(&own, None, &Modules::default(), "r")
+                .css
+                .contains("rgb(1, 2, 3)")
+        );
+        // Without a stylesheet of their own, nothing of this is stored.
+        let plain = state_without_extra(dir.path());
+        assert_eq!(
+            value(&with_preset(&plain, "simple"), keys::EXTRA_CSS_ON),
+            Value::Bool(true)
+        );
+    }
+
+    fn state_without_extra(dir: &std::path::Path) -> State {
+        state(&dir.join("plain"))
     }
 
     #[test]
@@ -825,12 +1175,17 @@ mod tests {
         };
         for preset in PRESETS.iter().filter(|preset| preset.id != "waybar") {
             let look = preview(&with_preset(&state, preset.id), None);
-            let text = rgb(look.colors.text);
-            for (name, fill) in [
-                ("background", look.colors.background),
-                ("focused", look.colors.focused),
+            let colors = look.colors;
+            // The focused workspace's text is the one the stylesheet gives it.
+            for (name, text, fill) in [
+                ("background", colors.text, colors.background),
+                (
+                    "focused",
+                    text_on(colors.focused, colors.text),
+                    colors.focused,
+                ),
             ] {
-                let contrast = ratio(text, rgb(fill));
+                let contrast = ratio(rgb(text), rgb(fill));
                 assert!(
                     contrast >= 4.5,
                     "{}: text on {name} is {contrast:.2}",
@@ -838,6 +1193,123 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn text_on_a_fill_reads() {
+        let light = Color::rgb(0xd4, 0xd4, 0xd8);
+        // Light text on a dark fill stays.
+        assert_eq!(text_on(Color::rgb(0x45, 0x47, 0x5a), light), light);
+        // On a lighter accent, white reads where the light gray doesn't.
+        assert_eq!(
+            text_on(Color::rgb(0xa7, 0x4e, 0xd0), light),
+            Color::rgb(0xff, 0xff, 0xff)
+        );
+        // On a bright red neither does; black reads.
+        assert_eq!(
+            text_on(Color::rgb(0xff, 0x3b, 0x30), light),
+            Color::rgb(0, 0, 0)
+        );
+    }
+
+    #[test]
+    fn a_font_list_becomes_a_css_family_list() {
+        let font = css_font("Noto Sans, Symbols Nerd Font 12px").unwrap();
+        assert_eq!(font.family, "Noto Sans, Symbols Nerd Font");
+        assert_eq!(
+            css_font_family(&font.family),
+            "\"Noto Sans\", \"Symbols Nerd Font\""
+        );
+        assert_eq!(css_font_family("Mono,"), "\"Mono\"");
+        assert_eq!(css_font_family(""), "");
+    }
+
+    /// Glass follows a SwayFX pill bar: a pill per item with a faint frame inside it, 4 px apart, the
+    /// workspace buttons 3 px inside their pill in its shape, the focused one wider, hover
+    /// darkens, tabular figures and an icon font after the text font.
+    #[test]
+    fn glass_draws_bordered_pills_with_inset_workspaces() {
+        let dir = tempfile::tempdir().unwrap();
+        let glass = with_preset(&state(dir.path()), "glass");
+        let css = stylesheet(&glass, None, &Modules::default());
+        for rule in [
+            "font-feature-settings: \"tnum\";",
+            "font-family: \"Noto Sans\", \"Symbols Nerd Font\";",
+            "font-size: 12px;",
+            "window#waybar {\n    background: transparent;",
+            "background-color: rgba(18, 18, 22, 0.450);\n    box-shadow: inset 0 0 0 1px rgba(212, 212, 216, 0.100);\n    \
+             border-radius: 999px;\n    margin: 0 2px;\n    padding: 0;",
+            ".modules-right > widget > box > .module {\n    padding: 0 10px;\n    border-radius: 999px;",
+            "#workspaces {\n    padding: 0 1px;\n}",
+            "#workspaces button {\n    padding: 0 8px;\n    margin: 3px 2px;\n    min-width: 8px;",
+            "window#waybar.empty #window {\n    background-color: transparent;",
+            "background-color: rgba(167, 78, 208, 1.000);\n    color: rgba(255, 255, 255, 1.000);\n    \
+             font-weight: 600;\n    padding: 0 14px;",
+            "background-color: rgba(0, 0, 0, 0.349);",
+        ] {
+            assert!(css.contains(rule), "{rule}\n---\n{css}");
+        }
+    }
+
+    /// Every look of ours draws a group as one pill with its members inset, the item under the
+    /// pointer in the shape of its pill, no frame or fill of the GTK theme, and the states in
+    /// its colors, also inside a drawer.
+    #[test]
+    fn every_look_styles_groups_states_and_the_pointer() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut modules = Modules::default();
+        let group = |members: &[&str]| {
+            let mut definition = serde_json::Map::new();
+            definition.insert("modules".to_owned(), serde_json::json!(members));
+            definition
+        };
+        modules.set(
+            "group/time",
+            group(&["group/clock-drawer", "custom/pomodoro"]),
+        );
+        modules.set("group/clock-drawer", group(&["clock", "clock#date"]));
+        let mut base = state(dir.path());
+        base.set(
+            keys::MODULES_CENTER,
+            None,
+            Value::List(vec!["group/time".to_owned()]),
+            None,
+        )
+        .unwrap();
+        for preset in PRESETS.iter().filter(|preset| preset.id != "waybar") {
+            let css = stylesheet(&with_preset(&base, preset.id), None, &modules);
+            for rule in [
+                "font-feature-settings: \"tnum\";",
+                // The theme's boxes and buttons stop at the bar.
+                ".modules-center box,",
+                "background-image: none;",
+                ".modules-center button:hover,",
+                "outline-style: none;",
+                // Members inset in their pill, the item under the pointer too.
+                ".modules-right > widget > * widget .module {\n    padding: 0 ",
+                "margin: 3px 0;",
+                ".modules-center > widget > * widget box:hover > .module",
+                "#clock-drawer {\n    padding: 0;\n    margin: 0;",
+                // States, also in a drawer.
+                ".modules-center .drawer-child .crit",
+                ".modules-center .limited",
+                ".modules-center .ok",
+            ] {
+                assert!(css.contains(rule), "{}: {rule}\n---\n{css}", preset.id);
+            }
+            let pills = preview(&with_preset(&base, preset.id), None).pills;
+            assert_eq!(
+                css.contains("#time {\n    padding: 0 3px;\n}"),
+                pills,
+                "{}: a group is one pill with pills",
+                preset.id
+            );
+        }
+        // A light bar gets a dark green.
+        assert_eq!(
+            ok_on(Color::rgb(255, 255, 255)),
+            Color::rgb(0x1f, 0x7a, 0x2e)
+        );
     }
 
     #[test]
