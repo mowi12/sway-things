@@ -96,6 +96,11 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   risky setting set and reset with `--yes`, and `doctor` validating the generated files and replacing a
   `90-effects.conf` with a SwayFX directive (which only SwayFX accepts) with `--fix --overwrite`
   (`crates/cli/tests/cli_sway.rs`, with `XDG_CONFIG_HOME` in another directory the sample config includes)
+- The workspaces placed while the user's own kanshi profile sets up the displays (`crates/cli/tests/kanshi_sway.rs`, in
+  a headless sway of its own with two displays and a real kanshi): `set workspaces.placement` copies the profile into
+  the file of ours without its `exec swaymsg workspace` lines, kanshi applies the user's display setup, the workspaces
+  stand round robin, also after a `reload` and after the user changed their profile (that step needs `kanshictl`); not
+  on SwayFX, which can't apply a display setup without a render node
 - The IPC client's tests (`crates/core/tests/ipc.rs`; all built in the containers, skipped by a plain `cargo test`):
   compositor detection, a command read back, sway's message for a rejected command, version gating, every typed reply,
   tick and workspace events, the device watch on a session without devices

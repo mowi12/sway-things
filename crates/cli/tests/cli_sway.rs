@@ -17,9 +17,17 @@ use std::process::{Command, Output, Stdio};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
+/// Runs the binary as an installed one: its directory first in `PATH`, where sway and kanshi
+/// find it for the hooks (doctor checks that once kanshi is installed).
 fn run(config_home: &Path, state_home: &Path, args: &[&str]) -> Result<Output> {
-    Ok(Command::new(env!("CARGO_BIN_EXE_sway-things"))
+    let bin = PathBuf::from(env!("CARGO_BIN_EXE_sway-things"));
+    let mut paths = vec![bin.parent().ok_or("no directory of the binary")?.to_owned()];
+    paths.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
+    Ok(Command::new(&bin)
         .args(args)
+        .env("PATH", std::env::join_paths(paths)?)
         .env("XDG_CONFIG_HOME", config_home)
         .env("XDG_STATE_HOME", state_home)
         .stdin(Stdio::null())
