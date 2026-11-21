@@ -21,13 +21,14 @@ with what the app reads.
 
 | Command | What it does |
 | --- | --- |
-| `get [<key>] [--device <id>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](Architecture.md#settings-registry), with `apply::in_effect` like the app: while kanshi sets up the displays, the value the connected displays share and no sway line): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device under it. |
-| `set <key> <value> [--device <id>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](Architecture.md#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
-| `reset <key> [--device <id>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
+| `get [<key>] [--device <id> \| --collection <name>] [--json]` | what a row of the app shows (`SettingView`, see [Settings registry](Architecture.md#settings-registry), with `apply::in_effect` like the app: while kanshi sets up the displays, the value the connected displays share and no sway line): the value in effect and where it comes from (`settings.toml`, `settings.d/<host>.toml`, the user's config with file:line, or the default), and the user's line that wins over a stored value. Without a key, every stored value, those of each device, display and collection under it. |
+| `set <key> <value> [--device <id> \| --collection <name>] [--host \| --shared] [--yes] [--overwrite]` | the change through the `Applier`, then `persist` at once. A new value goes to the [default file](Architecture.md#state) of the setting unless `--host` or `--shared` says otherwise (`Applier::move_to`). |
+| `reset <key> [--device <id> \| --collection <name>] [--yes] [--overwrite]` | removes the stored value and sends the default. A risky setting is reset through the safety net like `set`, with the value from the user's config if it sets one. |
+| `wallpaper next [--device <id>] [--due]` | the next picture of a [collection](Backends.md#wallpaper-collections), for one display by its identifier or in a session by its name, now; with `--due` (run by the timer) only when its time has come, and without a session it stops the timer. |
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](Architecture.md#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
-| `hook <gsettings\|displays\|workspaces\|mirror>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
   `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
@@ -131,10 +132,15 @@ is needed, generated config calls the CLI briefly:
   kanshi runs it from the profiles of our file with one display more than a remembered combination. It ends with the
   answer or after two minutes.
 
-These four are `outputs::hooks` in the core (`displays`, `workspaces`, `mirror`, `new_display`, with a `HookEnv` of the
-settings files and kanshi's files). The CLI only connects (`hooks::connect`: `$SWAYSOCK`, or for a hook kanshi runs
-without it, sway's newest socket) and prints, so the user's run and the in-process tests go through the same code. A
-`HookEnv` without kanshi's files leaves kanshi out, also one that runs, so tests never reach the machine's.
+- **`hook wallpaper`**: shows the next picture of each [collection](Backends.md#wallpaper-collections) whose time has
+  come and starts the timers of those that change daily or after an interval (`wallpaper::login`); `20-output.conf` runs
+  it with `exec`, once when sway starts, while a display shows a collection, since a reload would move on a collection
+  that changes at login.
+
+The four of the displays are `outputs::hooks` in the core (`displays`, `workspaces`, `mirror`, `new_display`, with a
+`HookEnv` of the settings files and kanshi's files). The CLI only connects (`hooks::connect`: `$SWAYSOCK`, or for a hook
+kanshi runs without it, sway's newest socket) and prints, so the user's run and the in-process tests go through the same
+code. A `HookEnv` without kanshi's files leaves kanshi out, also one that runs, so tests never reach the machine's.
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)
@@ -152,7 +158,8 @@ profile sway-things-5e6f7a8b {
 exec_always sway-things hook gsettings
 ```
 
-`hook gsettings` (see [GSettings](Backends.md#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there.
+`hook gsettings` (see [GSettings](Backends.md#gsettings)) runs from `80-hooks.conf`; lid hooks may follow there. It and
+`hook wallpaper` run in the session like the other commands, with the settings loaded.
 
 Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
 They're our files, so that needs no edit of the user's config.

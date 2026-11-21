@@ -164,13 +164,16 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   them (`StateError::OneAtATime`; such a value outside a device table is a problem of the file): an output's position
   for every output would stack them all on one spot, and a mode, a rotation or switching off for every output couldn't
   be tried and reverted safely. The Displays page offers only the scale for _All displays_.
-- **Per-output settings** (the Displays page) have `Scope::PerOutput`. Without a selected output they render for every
-  output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
+- **Per-output settings** (the Displays and Wallpaper pages) have `Scope::PerOutput`. Without a selected output they
+  render for every output (`output * scale 2`), with one for that output's identifier (make, model and serial; see
   [Outputs](Outputs.md)). `Setting::check_device` says whether a string can select a device or an output for a setting.
   Where sway decides by itself while nothing is set (the preferred mode, the position next to the other outputs, a scale
   for the pixel density), the default means "nothing set": an empty mode or position (`""`) and a scale that isn't
   stored render no command. sway has no command that hands such a value back to its own choice, so a reset of one takes
   effect after a reload of sway, live and through the safety net alike.
+- **Settings that set a display up** (mode, position, scale, rotation, on or off) are built with `.sets_up_display()`,
+  which also gives them `Scope::PerOutput`. Only these are left to kanshi while it runs, remembered per combination of
+  displays and bring the display guard; the wallpaper is per output too, but none of that applies to it.
 - **`output` lines with several settings:** sway reads `output DP-4 mode 2560x1440 pos 0 0 scale 1` subcommand by
   subcommand, each taking the words it needs (`registry/output_line.rs`, after `cmd_output` and its handlers in sway's
   `commands/output/`). `Setting::read` splits such a line and reads its own subcommand; aliases count as the registry's
@@ -201,9 +204,9 @@ Setting::toggle("input.touchpad.tap", Page::MouseTouchpad, false)
   turns repeating off at 0) and the repeat delay at least 100 ms (below that every key repeats almost at once).
 - **Preferences of Sway Things itself** (`app.safety_net_timeout`, `app.accent_source`, `app.editor_command`,
   `app.show_directives`, `app.remember_collapsed_sections`, `app.sound_above_100`, `app.bluetooth_search`,
-  `app.wifi_search`) are settings without a sway mapping. A text setting can have its own check beyond the type
-  (`SettingBuilder::check_text`; the editor command must split into words) and a hint for its empty field
-  (`SettingBuilder::placeholder`).
+  `app.wifi_search`, `app.wallpaper_folder`) are settings without a sway mapping, like the settings of a wallpaper
+  collection. A text setting can have its own check beyond the type (`SettingBuilder::check_text`; the editor command
+  must split into words) and a hint for its empty field (`SettingBuilder::placeholder`).
 - **Search:** `SearchIndex::new(registry, translate)` collects the texts of every page and setting once, in English and
   translated, in lowercase. Synonyms are keywords like any other (`dpi`, `sensitivity` → _Pointer speed_), and so is the
   title of a setting's group (_Focused window_ for its _Title bar border_). `search` needs every word of the query in
@@ -242,7 +245,8 @@ and in one section.
 The registry is the bottom layer of the core: it imports none of the modules that use it (outputs, GSettings, the
 editor, cursors). Keys and defaults other modules share with it are defined in the registry and re-exported there:
 `outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY` is
-`registry::app::EDITOR_COMMAND`, and the editor command's word splitting is `registry::words`.
+`registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
+the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`.
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
 (Bluetooth, Network, Sound); the bindings editor and the bar layout editor are planned. They still read and write
@@ -266,6 +270,7 @@ $XDG_CONFIG_HOME/sway-things/
 $XDG_STATE_HOME/sway-things/
 ├── manifest.toml          # every file we generated, with hash, for "changed outside Sway Things" detection
 ├── ui.toml                # which sections of which pages are collapsed (app state, not a setting)
+├── wallpaper/             # links to the current picture of each output's collection: all, output-<id>
 └── history/               # snapshots of the settings files (restore, undo)
     └── 20261110T142355Z/  # both files as they were before a save, named after the UTC time
         ├── settings.toml
@@ -299,8 +304,8 @@ position = "1920,0"
   strings (`#rrggbb`, `#rrggbbaa`), choices are their id, lists are arrays of strings, and a decimal setting also takes
   a whole number.
 - **Host overlay:** `settings.d/<hostname>.toml` overrides `settings.toml` key by key. The host name is the kernel's
-  (`uname -n`). New values go to the shared file, except those bound to this machine's hardware (a value for one device,
-  per-host and per-output settings), which go to the overlay. A changed value stays in the file it is in. The UI shows a
+  (`uname -n`). New values go to the shared file, except those bound to this machine's hardware (a value for one device
+  or one output, per-host settings), which go to the overlay. A changed value stays in the file it is in. The UI shows a
   "this machine only" toggle per setting, which moves the value between the two files. A value written to the shared
   file removes the one in the overlay, which would hide it otherwise.
 - **Per-device values** are stored below `device."<identifier>"` (the identifier from `GET_INPUTS`) at the same key as
@@ -308,14 +313,18 @@ position = "1920,0"
 - **Per-output values** are stored below `display."<identifier>"` at the same key as the value for every output
   (`[output] scale = 2`, which is why the table isn't called `output`). An output without a value of its own uses the
   value for every output.
+- **Per-collection values** (`Scope::PerCollection`) are stored below `collection."<name>"`, without the `collection.`
+  their keys start with: `collection.order` of the collection _Nature_ is `order` in `[collection.Nature]`. A collection
+  name has 1 to 64 characters, no control characters and no spaces at either end. There is no value for every
+  collection; the values go to the shared file.
 - **Hand edits allowed:** a file watcher reports when either file may have changed, and the state reloads the files
   whose content differs from what it last loaded or wrote. So its own saves cause no reload. A reload returns the
   settings whose value in effect changed, for the GUI and the generators. The file on disk wins: a change to that file
   that wasn't saved yet is dropped and is among the changed settings. Whatever doesn't fit the registry is reported with
   file and key, never silently dropped, and the rest still loads: unknown keys, values of the wrong type or out of
-  range, entries of `device` that aren't device identifiers (of `display` that can't name an output), and settings in a
-  device or display table that can't be set per device. The lines stay in the file. A save only changes the lines of the
-  settings that changed; comments, order, formatting and unknown keys survive.
+  range, entries of `device` that aren't device identifiers, of `display` that can't name an output or of `collection`
+  that aren't collection names, and settings in such a table that can't be set for it. The lines stay in the file. A
+  save only changes the lines of the settings that changed; comments, order, formatting and unknown keys survive.
 - **Schema version:** a top-level `version = 1` key, for migrations. A file without it loads as version 1, and the first
   save adds the line. A file with another version, a syntax error or one that can't be read is reported and left alone:
   nothing in it is in effect, and it is never written. The other file keeps working.
@@ -376,7 +385,7 @@ lines that come after the include and set the same thing win, and conflict detec
 ```text
 $XDG_CONFIG_HOME/sway/sway-things/
 ├── 10-input.conf
-├── 20-output.conf         # output lines only while kanshi doesn't run
+├── 20-output.conf         # the wallpapers; the displays' lines only while kanshi doesn't run
 ├── 30-appearance.conf
 ├── 40-behavior.conf
 ├── 50-bindings.conf       # planned

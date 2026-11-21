@@ -486,7 +486,7 @@ being dragged stays under the pointer when its first change stores a value.
 | **Needs another setting** | the setting only matters while another one is set (blur passes while blur is on) | the control is disabled, the reason under the line (_Turn on Blur first_) | none; the stored value stays |
 | **Requires SwayFX** / **Requires sway ≥ x.y** | the running compositor lacks the setting | badge with a lock; the control is disabled, with the reason as tooltip | none |
 | **Requires _tool_** | backend tool not installed | page stays visible but disabled, with install commands for zypper / dnf / apt / pacman | (comes with the pages that need backends) |
-| **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover | (comes with the pages that need backends) |
+| **Managed externally** | something else is in charge (e.g. a custom wallpaper script, file:line) | explanation + handover | Wallpaper: a notice per `exec` line that starts a wallpaper tool, with _Open config in editor_; other pages with their backends |
 
 - The ⋮ button appears only on a row with a conflict. _Let my config win_ isn't offered for risky settings; their reset
   goes through the safety net. _Open config in editor_ opens the file at the line in the
