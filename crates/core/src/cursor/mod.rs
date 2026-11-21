@@ -34,12 +34,7 @@ use std::path::{Path, PathBuf};
 
 use crate::sway_config::Files;
 
-/// The cursor size sway uses unless told otherwise.
-pub const DEFAULT_SIZE: u32 = 24;
-
-/// The name of sway's own default theme: with no `xcursor_theme`, wlroots loads the theme called
-/// `default` (often a link to the distribution's theme), and falls back to its built-in cursor.
-pub const DEFAULT_THEME: &str = "default";
+pub use crate::registry::cursor::{DEFAULT_SIZE, DEFAULT_THEME};
 
 /// The largest cursor file read; real ones are well below 4 MiB.
 pub const MAX_FILE_SIZE: usize = 16 * 1024 * 1024;

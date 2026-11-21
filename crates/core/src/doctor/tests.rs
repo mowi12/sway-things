@@ -7,8 +7,6 @@ use std::future::{Future, ready};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use async_io::block_on;
-
 use super::{
     Checkup, Code, Diagnosis, Finding, Fix, FixError, Found, Installed, Section, Severity, Step,
 };
@@ -22,6 +20,7 @@ use crate::registry::{ConfigFile, GSettingsKey, Registry, Value};
 use crate::state::{Paths, State};
 use crate::sway_config::Disk;
 use crate::version::SwayVersion;
+use async_io::block_on;
 
 /// Accepts every file, reports `errors` for each, or can't run at all; and records what it was
 /// asked to validate.

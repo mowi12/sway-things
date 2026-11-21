@@ -351,3 +351,130 @@ fn the_guard_runs_the_hook_at_every_start() {
         "exec_always sway-things hook displays"
     );
 }
+
+/// Settings files in `dir` with `shared` in settings.toml, for a hook without kanshi.
+fn hook_env(dir: &std::path::Path, shared: &str) -> super::hooks::HookEnv {
+    std::fs::write(dir.join("settings.toml"), shared).unwrap();
+    super::hooks::HookEnv {
+        paths: Some(Paths::new(dir, dir, "host").unwrap()),
+        kanshi: None,
+    }
+}
+
+/// A sway with the outputs of [`DESK`] and no open workspace, on which every command succeeds.
+fn desk_sway() -> crate::ipc::tests::FakeSway {
+    use crate::ipc::tests::{FakeSway, SWAY_1_10, message};
+    use crate::ipc::wire;
+    FakeSway::with_version(SWAY_1_10, |kind, _| match kind {
+        wire::GET_OUTPUTS => message(kind, DESK),
+        wire::GET_WORKSPACES => message(kind, "[]"),
+        _ => message(kind, r#"[{"success": true}]"#),
+    })
+}
+
+#[test]
+fn the_displays_hook_switches_a_display_on_and_starts_no_mirror_without_profiles() {
+    const ALL_OFF: &str = r#"[
+      {"name": "eDP-1", "active": false, "primary": false, "make": "A", "model": "B",
+       "serial": "C", "modes": []}
+    ]"#;
+    let dir = tempfile::tempdir().unwrap();
+    let env = hook_env(dir.path(), "version = 1\n");
+    let sway = with_outputs(&[ALL_OFF]);
+    let switched = block_on(super::hooks::displays(&mut sway.connect(), &env)).unwrap();
+    assert_eq!(switched.as_deref(), Some("eDP-1"));
+    assert_eq!(sway.commands(), [r#"output "eDP-1" enable"#]);
+    // Nothing of kanshi's was written: the hook had no kanshi files.
+    assert!(!dir.path().join("displays.toml").exists());
+
+    // Without settings files, only the display is seen to.
+    let env = super::hooks::HookEnv {
+        paths: None,
+        kanshi: None,
+    };
+    let sway = with_outputs(&[ALL_OFF]);
+    let switched = block_on(super::hooks::displays(&mut sway.connect(), &env)).unwrap();
+    assert_eq!(switched.as_deref(), Some("eDP-1"));
+}
+
+#[test]
+fn the_workspaces_hook_places_by_the_rule_and_leaves_sway_alone_without_one() {
+    let dir = tempfile::tempdir().unwrap();
+
+    // sway places the workspaces itself (the default): nothing is asked or sent.
+    let env = hook_env(dir.path(), "version = 1\n");
+    let sway = desk_sway();
+    let placed = block_on(super::hooks::workspaces(&mut sway.connect(), &env)).unwrap();
+    assert_eq!(placed, 0);
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+
+    // Round robin over the three desktops, left to right: workspace 1 goes on the leftmost.
+    let env = hook_env(
+        dir.path(),
+        "version = 1\n\n[workspaces]\nplacement = \"round_robin\"\ncount = 3\n",
+    );
+    let sway = desk_sway();
+    block_on(super::hooks::workspaces(&mut sway.connect(), &env)).unwrap();
+    // One message, each workspace with the other displays to fall back to.
+    assert_eq!(
+        sway.commands(),
+        [concat!(
+            r#"workspace "1" output "DP-4" "DP-5" "eDP-1"; "#,
+            r#"workspace "2" output "DP-5" "DP-4" "eDP-1"; "#,
+            r#"workspace "3" output "eDP-1" "DP-4" "DP-5""#
+        )]
+    );
+}
+
+#[test]
+fn the_mirror_hook_does_nothing_without_a_profile_that_mirrors() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = hook_env(dir.path(), "version = 1\n");
+    let sway = desk_sway();
+    let started = block_on(super::hooks::mirror(&mut sway.connect(), &env)).unwrap();
+    assert_eq!(started, 0);
+    assert_eq!(sway.commands(), [] as [&str; 0]);
+}
+
+#[test]
+fn an_output_has_the_brand_people_know_and_says_whether_it_is_built_in() {
+    let list = desk();
+    let panel = list.find("eDP-1").unwrap();
+    assert!(panel.is_built_in());
+    assert_eq!(panel.brand().as_deref(), Some("InfoVision"));
+    let samsung = list.find("DP-5").unwrap();
+    assert!(!samsung.is_built_in());
+    assert_eq!(samsung.brand().as_deref(), Some("Samsung"));
+    // A make that doesn't say: no brand.
+    assert_eq!(list.find("HDMI-A-1").unwrap().brand(), None);
+    // EDID names some makes after the company behind the brand.
+    let lg = Outputs::new(&outputs(
+        r#"[{"name": "DP-1", "active": true, "primary": false, "make": "Goldstar Company Ltd",
+             "model": "LG ULTRAFINE", "serial": "1", "modes": []}]"#,
+    ));
+    assert_eq!(lg.find("DP-1").unwrap().brand().as_deref(), Some("LG"));
+}
+
+#[test]
+fn modes_are_offered_a_size_at_a_time_then_a_rate_at_a_time() {
+    use super::modes;
+    let list = desk();
+    let samsung = list.find("DP-5");
+    let size = |mode: &Mode| (mode.width(), mode.height(), mode.refresh());
+    // A mode per size, largest first, each the fastest of its size.
+    let sizes: Vec<_> = modes::sizes(samsung, None).iter().map(size).collect();
+    assert_eq!(
+        sizes,
+        [(2560, 1440, Some(59951)), (1920, 1080, Some(60000))]
+    );
+    // The mode in use stands for its size, also when the output doesn't list it.
+    let slow = Mode::parse("1920x1080@50Hz").unwrap();
+    let sizes: Vec<_> = modes::sizes(samsung, Some(slow)).iter().map(size).collect();
+    assert_eq!(sizes[1], (1920, 1080, Some(50000)));
+    // The rates of one size, each once, fastest first.
+    let rates: Vec<_> = modes::rates(samsung, slow).iter().map(size).collect();
+    assert_eq!(
+        rates,
+        [(1920, 1080, Some(60000)), (1920, 1080, Some(50000))]
+    );
+}

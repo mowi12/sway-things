@@ -17,6 +17,7 @@ mod nm;
 #[cfg(any(test, feature = "test-support"))]
 pub mod stand_in;
 
+pub(crate) use crate::dbus::clean;
 use std::fmt;
 
 use crate::i18n::Text;
@@ -702,16 +703,6 @@ pub fn vpn_reason_text(reason: u32) -> Text {
         5 => msg!("The VPN gave no usable address").into(),
         other => Text::new(msg!("The VPN connection ended (reason {reason})")).arg("reason", other),
     }
-}
-
-/// `text` without control characters (newlines, escape sequences), which an SSID could carry,
-/// and without surrounding white space.
-pub(crate) fn clean(text: &str) -> String {
-    text.chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect::<String>()
-        .trim()
-        .to_owned()
 }
 
 #[cfg(test)]

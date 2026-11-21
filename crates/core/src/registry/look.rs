@@ -10,8 +10,10 @@
 //! only where GSettings can't be read.
 
 use super::{Choice, Font, Page, Setting, ValueError, When};
-use crate::gsettings::INTERFACE;
 use crate::msg;
+
+/// The schema of the keys GTK apps read for their look: cursor, theme, icons, fonts, style.
+pub const INTERFACE: &str = "org.gnome.desktop.interface";
 
 /// The longest theme name or font description taken; GSettings itself has no limit.
 const MAX_LENGTH: usize = 255;

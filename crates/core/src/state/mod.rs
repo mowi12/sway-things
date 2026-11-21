@@ -79,7 +79,7 @@ use file::{FileError, SettingsFile};
 
 pub use history::Snapshot;
 pub(crate) use paths::xdg_dir;
-pub use paths::{Paths, PathsError};
+pub use paths::{Locations, Paths, PathsError};
 
 /// One of the two settings files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

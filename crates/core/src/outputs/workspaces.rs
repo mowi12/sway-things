@@ -110,13 +110,6 @@ pub fn targets<'a>(outputs: &'a Outputs, mirrors: &[String]) -> Vec<&'a Output> 
         .collect()
 }
 
-/// Whether `output` is a laptop's or tablet's own panel, by its connector.
-fn is_built_in(output: &Output) -> bool {
-    ["eDP-", "LVDS-", "DSI-"]
-        .iter()
-        .any(|prefix| output.name().starts_with(prefix))
-}
-
 /// The display of each of the first `count` workspaces by `rule`, on the displays of `outputs`
 /// that aren't in `mirrors`, with `fixed` the user's placement for this combination. Nothing for
 /// [`Rule::Sway`] or without a display. A fixed placement that names a display that isn't one of
@@ -131,7 +124,7 @@ pub fn place(
     let displays = targets(outputs, mirrors);
     let built_in = displays
         .iter()
-        .position(|output| is_built_in(output))
+        .position(|output| output.is_built_in())
         .unwrap_or(0);
     let names: Vec<&str> = displays.iter().map(|output| output.identifier()).collect();
     place_on(rule, &names, built_in, count, fixed)

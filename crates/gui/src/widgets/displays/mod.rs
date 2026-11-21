@@ -25,7 +25,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::command::output::Mode;
 use sway_things_core::generate;
-use sway_things_core::outputs::kanshi;
+use sway_things_core::outputs::{kanshi, modes};
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
@@ -195,16 +195,16 @@ impl Arrangement {
         ) else {
             return;
         };
-        let (text, command, warns) = kanshi_says(model, outputs);
+        let (text, line, warns) = kanshi_says(model, outputs);
         icon.set_icon_name(Some(if warns {
             "dialog-warning-symbolic"
         } else {
             "dialog-information-symbolic"
         }));
-        copy.set_tooltip_text(command.as_deref());
-        copy.set_visible(command.is_some());
-        shown.set_text(command.as_deref().unwrap_or_default());
-        shown.set_visible(command.is_some());
+        copy.set_tooltip_text(line.as_deref());
+        copy.set_visible(line.is_some());
+        shown.set_text(line.as_deref().unwrap_or_default());
+        shown.set_visible(line.is_some());
         note.set_text(text.as_deref().unwrap_or_default());
         self.kanshi.set_visible(known && text.is_some());
     }
@@ -619,79 +619,29 @@ pub fn mode_choices(output: Option<&Output>) -> Vec<(String, String)> {
 }
 
 /// The resolutions to choose from for `output`: _Automatic_, then each size it offers, largest
-/// first, each standing for its mode with the highest refresh rate; the size of `current` stands
-/// for `current` itself, so the entry in use is the mode in use.
+/// first ([`modes::sizes`]), labeled with its size.
 fn mode_choices_with(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
-    let modes = known_modes(output, current);
     let current = current.and_then(|text| Mode::parse(text).ok());
-    let mut sizes: Vec<(u32, u32)> = Vec::new();
-    for mode in &modes {
-        if !sizes.contains(&(mode.width(), mode.height())) {
-            sizes.push((mode.width(), mode.height()));
-        }
-    }
     std::iter::once((String::new(), tr(msg!("Automatic")).to_owned()))
-        .chain(sizes.into_iter().filter_map(|(width, height)| {
-            let mode = current
-                .filter(|mode| (mode.width(), mode.height()) == (width, height))
-                .or_else(|| {
-                    modes
-                        .iter()
-                        .copied()
-                        .filter(|mode| (mode.width(), mode.height()) == (width, height))
-                        .max_by_key(|mode| mode.refresh().unwrap_or(0))
-                })?;
-            Some((mode.to_string(), format!("{width} \u{d7} {height}")))
+        .chain(modes::sizes(output, current).into_iter().map(|mode| {
+            (
+                mode.to_string(),
+                format!("{} \u{d7} {}", mode.width(), mode.height()),
+            )
         }))
         .collect()
 }
 
-/// The refresh rates to choose from for the resolution of `current` on `output`, highest first:
-/// each the whole mode, labeled with its rate. Empty for _Automatic_.
+/// The refresh rates to choose from for the resolution of `current` on `output`, highest first
+/// ([`modes::rates`]): each the whole mode, labeled with its rate. Empty for _Automatic_.
 fn refresh_choices(output: Option<&Output>, current: Option<&str>) -> Vec<(String, String)> {
     let Some(mode) = current.and_then(|text| Mode::parse(text).ok()) else {
         return Vec::new();
     };
-    let mut rates: Vec<Mode> = Vec::new();
-    for known in known_modes(output, Some(&mode.to_string())) {
-        let same_size = (known.width(), known.height()) == (mode.width(), mode.height());
-        if same_size && !rates.iter().any(|rate| rate.refresh() == known.refresh()) {
-            rates.push(known);
-        }
-    }
-    rates.sort_by_key(|rate| std::cmp::Reverse(rate.refresh().unwrap_or(0)));
-    rates
+    modes::rates(output, mode)
         .into_iter()
         .map(|rate| (rate.to_string(), refresh_label(rate)))
         .collect()
-}
-
-/// The modes of `output`, and `current` and the mode in use if it doesn't list them, largest
-/// and fastest first.
-fn known_modes(output: Option<&Output>, current: Option<&str>) -> Vec<Mode> {
-    let mut modes: Vec<Mode> = output
-        .map(|output| output.modes().to_vec())
-        .unwrap_or_default();
-    let extra = current
-        .and_then(|text| Mode::parse(text).ok())
-        .into_iter()
-        .chain(output.and_then(Output::mode));
-    for mode in extra {
-        let listed = modes
-            .iter()
-            .any(|known| known.to_string() == mode.to_string());
-        if !listed {
-            modes.push(mode);
-        }
-    }
-    modes.sort_by_key(|mode| {
-        std::cmp::Reverse((
-            u64::from(mode.width()) * u64::from(mode.height()),
-            mode.width(),
-            mode.refresh().unwrap_or(0),
-        ))
-    });
-    modes
 }
 
 /// A refresh rate as people read it: `59.951 Hz`, or `Any rate` for a mode without one.
@@ -1018,16 +968,16 @@ fn focused(outputs: &Outputs) -> Option<String> {
         .map(|output| output.identifier().to_owned())
 }
 
-/// The note about kanshi above the canvas, hidden: an icon, what is said with the command to
-/// paste on a line of its own under it, and the button that copies the command and says so for
-/// a moment.
+/// The note about kanshi above the canvas, hidden: an icon, what is said with the line to put
+/// in the kanshi config on a line of its own under it, and the button that copies the line and
+/// says so for a moment.
 fn kanshi_note() -> gtk::Box {
     let note = gtk::Label::new(None);
     note.set_wrap(true);
     note.set_xalign(0.0);
     note.set_hexpand(true);
     note.set_selectable(true);
-    let copy = gtk::Button::with_label(tr(msg!("Copy Command")));
+    let copy = gtk::Button::with_label(tr(msg!("Copy Line")));
     copy.set_valign(gtk::Align::Center);
     copy.set_visible(false);
     // Each click says "Copied" for a while; only the latest click's timeout restores the label.
@@ -1049,24 +999,24 @@ fn kanshi_note() -> gtk::Box {
                 clicks,
                 move || {
                     if clicks.get() == click {
-                        button.set_label(tr(msg!("Copy Command")));
+                        button.set_label(tr(msg!("Copy Line")));
                     }
                 }
             ),
         );
     });
-    // The command to paste, on a line of its own under what it is for.
-    let command = gtk::Label::new(None);
-    command.set_wrap(true);
-    command.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    command.set_xalign(0.0);
-    command.set_selectable(true);
-    command.add_css_class("monospace");
-    command.add_css_class(style::DIM);
+    // The line for the kanshi config, on a line of its own under what it is for.
+    let line = gtk::Label::new(None);
+    line.set_wrap(true);
+    line.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    line.set_xalign(0.0);
+    line.set_selectable(true);
+    line.add_css_class("monospace");
+    line.add_css_class(style::DIM);
     let said = gtk::Box::new(gtk::Orientation::Vertical, 6);
     said.set_hexpand(true);
     said.append(&note);
-    said.append(&command);
+    said.append(&line);
     let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     kanshi.add_css_class("st-display-warning");
     kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
@@ -1077,41 +1027,30 @@ fn kanshi_note() -> gtk::Box {
 }
 
 /// What the note says (`said`, with whether something is to do about it) with how to do it:
-/// the command to paste, or the line to move by hand where no command does it.
+/// the line to put at the top of the kanshi config, to copy. Sway Things never edits that file
+/// and gives no command for it either.
 fn with_the_way(
     said: Option<(String, bool)>,
     look: &crate::model::KanshiLook,
 ) -> (Option<String>, Option<String>) {
     match said {
-        Some((text, true)) => match &look.command {
-            Some(command) => (
-                Some(format!(
-                    "{text} {}",
-                    tr(msg!("This command puts the line at the top:"))
-                )),
-                Some(command.clone()),
-            ),
-            None => (
-                Some(format!(
-                    "{text} {}",
-                    trf(
-                        msg!(
-                            "Put the line \u{201c}{line}\u{201d} at the top by hand, and take \
-                             the line that includes it further down away."
-                        ),
-                        &[("line", &look.include_line)],
-                    )
-                )),
-                None,
-            ),
-        },
+        Some((text, true)) => (
+            Some(format!(
+                "{text} {}",
+                tr(msg!(
+                    "Put this line at the top of your kanshi config, above your profiles, and \
+                     take a line further down that includes it away:"
+                ))
+            )),
+            Some(look.include_line.clone()),
+        ),
         Some((text, false)) => (Some(text), None),
         None => (None, None),
     }
 }
 
-/// What the note about kanshi says for the displays `outputs` connected now, the command to
-/// paste with it, and whether it is a warning. From what the model saw when it last looked:
+/// What the note about kanshi says for the displays `outputs` connected now, the line for the
+/// kanshi config with it, and whether it is a warning. From what the model saw when it last looked:
 /// nothing is read from the machine here.
 fn kanshi_says(model: &Model, outputs: &Outputs) -> (Option<String>, Option<String>, bool) {
     // What the model saw when it last looked: nothing is read from the machine here.
@@ -1215,8 +1154,8 @@ fn kanshi_says(model: &Model, outputs: &Outputs) -> (Option<String>, Option<Stri
         )),
         generate::Displays::Sway => None,
     };
-    let (text, command) = with_the_way(said, &look);
-    (text, command, warns)
+    let (text, line) = with_the_way(said, &look);
+    (text, line, warns)
 }
 
 #[cfg(test)]

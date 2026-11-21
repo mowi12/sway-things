@@ -14,6 +14,7 @@ pub mod bluetooth;
 pub mod command;
 pub mod conflict;
 pub mod cursor;
+mod dbus;
 pub mod delegate;
 pub mod devices;
 pub mod doctor;

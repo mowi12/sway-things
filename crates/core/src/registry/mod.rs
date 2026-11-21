@@ -32,14 +32,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-mod app;
+pub mod app;
 mod behavior;
-mod cursor;
+pub mod cursor;
 mod effects;
 mod input;
 mod link;
-mod look;
-mod output;
+pub mod look;
+pub mod output;
 mod output_line;
 mod page;
 mod read;
@@ -50,6 +50,7 @@ mod sway;
 mod tests;
 mod value;
 mod windows;
+pub mod words;
 pub mod workspaces;
 
 use std::sync::LazyLock;

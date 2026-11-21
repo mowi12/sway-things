@@ -9,13 +9,11 @@ use std::path::PathBuf;
 use serde_json::{Value as Json, json};
 use sway_things_core::conflict::{Known, Report};
 use sway_things_core::generate::InvalidLine;
-use sway_things_core::gsettings::GSettingsStore;
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
-use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::registry::{Setting, Value};
-use sway_things_core::state::{Layer, Paths, State};
+use sway_things_core::state::{Layer, Paths};
 use sway_things_core::view::{Locked, SettingView, Source};
 
 /// A setting as `get` shows it: what a row of the app shows, and the line of the user's config
@@ -28,17 +26,14 @@ pub(crate) struct Shown {
 }
 
 impl Shown {
+    /// `view` of `setting` (for `device`) with the user's line that wins over a stored value.
     pub(crate) fn of(
         setting: &'static Setting,
         device: Option<&str>,
-        state: &State,
+        view: SettingView,
         status: &IncludeStatus,
-        compositor: Compositor,
         known: Known<'_>,
-        desktop: &dyn GSettingsStore,
     ) -> Self {
-        let view =
-            SettingView::with_desktop(setting, device, state, status, compositor, known, desktop);
         let overriding = if matches!(view.source, Source::Stored { .. }) {
             Report::check(status, setting, device, known).and_then(|report| {
                 report

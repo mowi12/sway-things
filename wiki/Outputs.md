@@ -33,6 +33,10 @@ The Cursor & Tablet page offers its connected outputs as the screens a drawing t
   stores it. A row shows it where nothing sets the value (`Source::Session`), and the safety net restores it.
 - **Last output:** `Outputs::lockout(output, enabled)` says whether switching an output (by its identifier or name) off
   would leave none on. Switching every output at once isn't offered: it is one at a time.
+- **Names and modes:** `Output::label` is make and model, `Output::brand` the brand people know (_LG_ for "Goldstar"),
+  `Output::is_built_in` a laptop's panel by its connector; the canvas, the picker and the workspace rule use them.
+  `outputs::modes` groups the modes as the mode row offers them: a mode per size (`sizes`, the mode in use standing for
+  its size), then the rates of one size (`rates`); the page only adds the labels.
 
 ## Display profiles with kanshi
 
@@ -107,15 +111,15 @@ settings meanwhile.
 `doctor` also checks that `sway-things` is in `$PATH` and is this build (`hook_program`), since sway and kanshi run the
 hooks by that name. `doctor` reports the file missing, out of date or someone else's; the Displays page and
 `sway-things set` say when it is someone else's, since nothing set reaches kanshi then. With kanshi installed, `doctor`
-reports a kanshi config without our include or with something before it (with `KanshiFiles::how_to_include`: the `sed`
-line of `include_command` for the user to run, which puts the include at the top, takes exactly the line that included
-ours away and follows a symlink, or what to do by hand where no command does it, as when ours is included through a
-pattern), a file of someone else's in the place of ours, and a profile of the user's before the include that covers a
-remembered combination (`kanshi::user_profiles`, with `output *` as one more display and `...output *` as any number),
-since kanshi applies the first that matches. A file included before ours isn't read: it counts as standing above the
-line. The Displays page and `sway-things set` warn of a profile that wins for the displays connected now
-(`kanshi::overriding`), and the page of anything above the line. The rows of the displays have no reset button and no
-machine toggle meanwhile: the values stand for the combination, not for every machine.
+reports a kanshi config without our include or with something before it (with `KanshiFiles::how_to_include`: in words,
+to put the include line at the top, above the user's profiles, and take a line further down that includes ours away;
+Sway Things gives no command to paste, since the user changes their own file), a file of someone else's in the place of
+ours, and a profile of the user's before the include that covers a remembered combination (`kanshi::user_profiles`, with
+`output *` as one more display and `...output *` as any number), since kanshi applies the first that matches. A file
+included before ours isn't read: it counts as standing above the line. The Displays page and `sway-things set` warn of a
+profile that wins for the displays connected now (`kanshi::overriding`), and the page of anything above the line. The
+rows of the displays have no reset button and no machine toggle meanwhile: the values stand for the combination, not for
+every machine.
 
 ## Workspace placement
 

@@ -85,10 +85,10 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
-| core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate` | the services and tools besides sway ([Backends](Backends.md)) |
+| core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
-| cli | `lib`, `main`, `doctor`, `output`, `prompt`, `spinner` | the commands, the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
+| cli | `lib`, `main`, `change`, `hook`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
 | gui | `app`, `args`, `window`, `model` | the application, its argument, the main window, the settings behind it ([UI Architecture](UI-Architecture.md)) |
 | gui | `widgets` | every building block and custom page, one module each |
 | gui | `theme`, `style`, `icons`, `contrast`, `i18n`, `xkb`, `editor` | colors, the style sheet, bundled icons, the runtime contrast check, translations, the XKB names, opening the editor |
@@ -239,6 +239,11 @@ may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-eff
 settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
 and in one section.
 
+The registry is the bottom layer of the core: it imports none of the modules that use it (outputs, GSettings, the
+editor, cursors). Keys and defaults other modules share with it are defined in the registry and re-exported there:
+`outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY` is
+`registry::app::EDITOR_COMMAND`, and the editor command's word splitting is `registry::words`.
+
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
 (Bluetooth, Network, Sound); the bindings editor and the bar layout editor are planned. They still read and write
 settings through the registry.
@@ -317,9 +322,10 @@ position = "1920,0"
 - **Saving needs the include line:** `State::save` takes the write permission that only an active
   [include status](Reading-Sway.md#include-detection) hands out. Loading, changing values in memory and reading need
   none.
-- **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it. If the file is a
-  symbolic link (into a dotfiles repository), the link stays and its target is replaced. File access is synchronous
-  (`std::fs`): the files are small, and only loading and saving touch the disk.
+- **Atomic saves:** a changed file is written to a temporary file next to it and renamed over it (`atomic`). If the file
+  is a symbolic link (into a dotfiles repository), the link stays and its target is replaced. The temporary name carries
+  the process id; a file of that name left by a crashed process is removed first, so it never blocks a save. File access
+  is synchronous (`std::fs`): the files are small, and only loading and saving touch the disk.
 - **App preferences** (accent source, safety-net timeout, editor command, …) live under `[app]` and are ordinary
   registry entries.
 - **Export / import (planned):** `settings.toml` (plus overlays) _is_ the export format.
@@ -405,7 +411,8 @@ that keeps a display on), see [No daemon](Command-Line.md#no-daemon-the-cli-as-a
   asked over IPC; without a session it is the installed one, read from `sway --version`.
 - **Validation:** a file whose content changed is staged next to its place, under a hidden name that `*.conf` doesn't
   match, and checked with `sway --validate --config <staged file>` as a main config of its own. sway runs through
-  `async-process` with an argument array. Only a valid file replaces the old one, atomically; a symbolic link stays one.
+  `async-process` with an argument array. Only a valid file replaces the old one: the staged file itself is renamed into
+  place, so exactly the bytes sway checked land there, and only then is the manifest updated; a symbolic link stays one.
   If sway rejects the file, the old one stays, and each error carries the line and the settings behind it. If sway can't
   be run, nothing is replaced.
 - **Manifest:** `manifest.toml` records the SHA-256 hash of each generated file by absolute path (the value `sha256sum`

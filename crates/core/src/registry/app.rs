@@ -3,9 +3,23 @@
 
 //! Preferences of Sway Things itself, stored under `[app]`.
 
-use super::{Choice, Page, Setting};
-use crate::editor;
+use super::{Choice, Page, Setting, ValueError};
 use crate::msg;
+
+/// The key of the preference that holds the editor command.
+pub const EDITOR_COMMAND: &str = "app.editor_command";
+
+/// Checks that `command` can be split into words ([`super::words::split`]): the check of the
+/// editor command's values.
+///
+/// # Errors
+///
+/// [`ValueError::NotACommand`] with the reason it can't.
+pub fn check_command(command: &str) -> Result<(), ValueError> {
+    super::words::split(command)
+        .map(drop)
+        .map_err(ValueError::NotACommand)
+}
 
 const ACCENT_SOURCES: &[Choice] = &[
     Choice::new("sway", msg!("Sway\u{2019}s focus color")),
@@ -35,7 +49,7 @@ pub(super) fn settings() -> Vec<Setting> {
             ))
             .keywords(&[msg!("theme"), msg!("highlight"), msg!("color")])
             .build(),
-        Setting::text(editor::KEY, Page::About, "")
+        Setting::text(EDITOR_COMMAND, Page::About, "")
             .section(msg!("Sway Things"))
             .title(msg!("Editor command"))
             .subtitle(msg!(
@@ -50,7 +64,7 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("vim"),
                 msg!("terminal"),
             ])
-            .check_text(editor::check)
+            .check_text(check_command)
             .build(),
         Setting::toggle("app.show_directives", Page::About, false)
             .section(msg!("Sway Things"))

@@ -1175,3 +1175,24 @@ fn the_cursor_reaches_gsettings_on_set_reset_and_with_the_hook() {
     assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
     assert_eq!(get("cursor-theme"), None);
 }
+
+#[test]
+fn the_display_hooks_run_the_cores_hooks_in_the_session() {
+    const ALL_OFF: &str = r#"[{"name": "eDP-1", "active": false, "primary": false, "make": "A",
+        "model": "B", "serial": "C", "modes": []}]"#;
+    let sway = sway_things_core::ipc::stand_in::with_outputs(&[ALL_OFF]);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+
+    // The same hook the user's sway runs: it switches the only display on and says so.
+    let ran = setup.run(&["hook", "displays"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(ran.err, "No display was on, so eDP-1 was switched on.\n");
+    assert_eq!(sway.commands(), [r#"output "eDP-1" enable"#]);
+
+    // No rule places the workspaces and no display mirrors: nothing more is sent.
+    for hook in ["workspaces", "mirror"] {
+        let ran = setup.run(&["hook", hook]);
+        assert_eq!((ran.exit, ran.err.as_str()), (Exit::Ok, ""), "{hook}");
+    }
+    assert_eq!(sway.commands(), [r#"output "eDP-1" enable"#]);
+}

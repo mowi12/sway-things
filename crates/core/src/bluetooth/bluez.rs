@@ -10,11 +10,12 @@ use async_channel::Receiver;
 use futures_lite::{Stream, StreamExt};
 use serde::Serialize;
 use zbus::message::Type;
-use zbus::zvariant::{DynamicType, ObjectPath, OwnedObjectPath, OwnedValue, Value};
+use zbus::zvariant::{DynamicType, ObjectPath, OwnedObjectPath, Value};
 use zbus::{Connection, MatchRule, Message, MessageStream};
 
 use super::agent::{self, Agent, AgentEvent};
 use super::{Adapter, Device, Error, Snapshot, check_alias, clean, sort};
+use crate::dbus::{self, Properties, flag, text};
 use crate::i18n::Text;
 use crate::msg;
 
@@ -47,7 +48,6 @@ const NOISY: &[&str] = &[
 ];
 
 /// The properties of one interface.
-type Properties = HashMap<String, OwnedValue>;
 /// The interfaces of one object with their properties.
 type Interfaces = HashMap<String, Properties>;
 
@@ -427,10 +427,7 @@ fn failure(error: zbus::Error) -> Error {
 
 /// The error for the D-Bus error `name` with its `description`.
 fn method_error(name: &str, description: Option<&str>) -> Error {
-    if matches!(
-        name,
-        "org.freedesktop.DBus.Error.ServiceUnknown" | "org.freedesktop.DBus.Error.NameHasNoOwner"
-    ) {
+    if dbus::is_gone(name) {
         return Error::Unavailable(msg!("BlueZ isn't running").into());
     }
     let description = description.map(clean).unwrap_or_default();
@@ -439,7 +436,7 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
         return Error::Blocked;
     }
     // `org.bluez.Error.AuthenticationFailed` → `AuthenticationFailed`
-    let short = name.rsplit('.').next().unwrap_or(name);
+    let short = dbus::short_name(name);
     if description.is_empty() {
         Error::Failed(Text::data(short))
     } else {
@@ -542,23 +539,10 @@ fn device(path: &str, interfaces: &Interfaces) -> Option<Device> {
     })
 }
 
-/// The string property `name`, cleaned of control characters; `None` if missing or empty.
-fn text(properties: &Properties, name: &str) -> Option<String> {
-    let value = properties.get(name)?;
-    let text = clean(<&str>::try_from(value).ok()?);
-    (!text.is_empty()).then_some(text)
-}
-
-/// The boolean property `name`; false if missing.
-fn flag(properties: &Properties, name: &str) -> bool {
-    properties
-        .get(name)
-        .and_then(|value| bool::try_from(value).ok())
-        .unwrap_or(false)
-}
-
 #[cfg(test)]
 mod tests {
+    use zbus::zvariant::OwnedValue;
+
     use super::*;
 
     fn value(value: impl Into<Value<'static>>) -> OwnedValue {

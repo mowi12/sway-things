@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::IncludeStatus;
-use crate::generate::Locations;
+use crate::state::Locations;
 use crate::sway_config::{Disk, default_path, default_paths};
 use crate::watch::{self, WatchError, Watcher};
 
@@ -173,8 +173,8 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{IncludeWatch, MainConfig};
-    use crate::generate::Locations;
     use crate::include::Inclusion;
+    use crate::state::Locations;
 
     const DEBOUNCE: Duration = Duration::from_millis(100);
 

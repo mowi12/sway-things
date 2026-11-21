@@ -10,7 +10,6 @@
 //! a terminal the desktop's default application for text files.
 
 use std::ffi::OsString;
-use std::fmt;
 use std::io;
 use std::path::Path;
 use std::process::Stdio;
@@ -18,113 +17,14 @@ use std::process::Stdio;
 use async_process::{Child, Command};
 
 use crate::delegate::find_program;
-use crate::i18n::Text;
-use crate::msg;
-use crate::registry::ValueError;
+pub use crate::registry::words::{SplitError, split};
 
 /// The key of the preference that holds the editor command.
-pub const KEY: &str = "app.editor_command";
+pub const KEY: &str = crate::registry::app::EDITOR_COMMAND;
 
 /// The program that starts a command in the user's terminal, from the proposed freedesktop.org
 /// default terminal specification.
 const TERMINAL_EXEC: &str = "xdg-terminal-exec";
-
-/// Why a command can't be split into words.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SplitError {
-    /// A single or double quote is opened and never closed.
-    UnclosedQuote,
-    /// The command ends in a backslash, which escapes nothing.
-    TrailingBackslash,
-}
-
-impl SplitError {
-    /// What is wrong with the command, to show after its name: "The editor command has a quote
-    /// that isn't closed".
-    pub fn text(&self) -> Text {
-        match self {
-            Self::UnclosedQuote => msg!("has a quote that isn't closed").into(),
-            Self::TrailingBackslash => msg!("ends in a backslash that escapes nothing").into(),
-        }
-    }
-}
-
-impl fmt::Display for SplitError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.text().english())
-    }
-}
-
-impl std::error::Error for SplitError {}
-
-/// Splits `command` into words like a POSIX shell, without expanding anything: whitespace
-/// separates words, single quotes keep everything up to the next one, double quotes keep
-/// everything but `\"`, `\\`, `\$` and `` \` ``, and a backslash outside quotes keeps the
-/// character after it. `$`, `~`, `*`, `;` and `|` are plain characters.
-///
-/// # Errors
-///
-/// [`SplitError`] for a quote that isn't closed or a backslash at the end.
-pub fn split(command: &str) -> Result<Vec<String>, SplitError> {
-    let mut words = Vec::new();
-    let mut word: Option<String> = None;
-    let mut chars = command.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '\'' => {
-                let word = word.get_or_insert_with(String::new);
-                loop {
-                    match chars.next() {
-                        Some('\'') => break,
-                        Some(c) => word.push(c),
-                        None => return Err(SplitError::UnclosedQuote),
-                    }
-                }
-            }
-            '"' => {
-                let word = word.get_or_insert_with(String::new);
-                loop {
-                    match chars.next() {
-                        Some('"') => break,
-                        Some('\\') => match chars.next() {
-                            Some(c @ ('"' | '\\' | '$' | '`')) => word.push(c),
-                            Some('\n') => {}
-                            Some(c) => {
-                                word.push('\\');
-                                word.push(c);
-                            }
-                            None => return Err(SplitError::UnclosedQuote),
-                        },
-                        Some(c) => word.push(c),
-                        None => return Err(SplitError::UnclosedQuote),
-                    }
-                }
-            }
-            '\\' => match chars.next() {
-                Some('\n') => {}
-                Some(c) => word.get_or_insert_with(String::new).push(c),
-                None => return Err(SplitError::TrailingBackslash),
-            },
-            c if c.is_whitespace() => {
-                if let Some(word) = word.take() {
-                    words.push(word);
-                }
-            }
-            c => word.get_or_insert_with(String::new).push(c),
-        }
-    }
-    words.extend(word);
-    Ok(words)
-}
-
-/// Checks that `command` can be split into words: the check of the preference's values.
-///
-/// # Errors
-///
-/// [`ValueError::NotACommand`] with the reason it can't.
-pub fn check(command: &str) -> Result<(), ValueError> {
-    split(command).map(drop).map_err(ValueError::NotACommand)
-}
 
 /// How to open a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,6 +163,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::*;
+    use crate::registry::ValueError;
+    use crate::registry::app::check_command;
 
     fn words(command: &str) -> Vec<String> {
         split(command).unwrap()
@@ -315,10 +217,10 @@ mod tests {
         assert_eq!(split(r#"nvim "x\"#), Err(SplitError::UnclosedQuote));
         assert_eq!(split(r"nvim x\"), Err(SplitError::TrailingBackslash));
         assert_eq!(
-            check("nvim 'x"),
+            check_command("nvim 'x"),
             Err(ValueError::NotACommand(SplitError::UnclosedQuote))
         );
-        assert_eq!(check("nvim +{line} {file}"), Ok(()));
+        assert_eq!(check_command("nvim +{line} {file}"), Ok(()));
     }
 
     fn env(vars: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {

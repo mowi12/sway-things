@@ -16,6 +16,7 @@ pub mod rfkill;
 #[cfg(any(test, feature = "test-support"))]
 pub mod stand_in;
 
+use crate::dbus::clean;
 use std::fmt;
 
 use crate::i18n::Text;
@@ -191,16 +192,6 @@ pub fn check_alias(name: &str) -> Result<String, NameError> {
     } else {
         Ok(name.to_owned())
     }
-}
-
-/// `text` without control characters (newlines, escape sequences), which an announced name could
-/// carry, and without surrounding white space.
-fn clean(text: &str) -> String {
-    text.chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect::<String>()
-        .trim()
-        .to_owned()
 }
 
 /// Sorts `devices`: connected first, then paired, then those with a name, each by name.
