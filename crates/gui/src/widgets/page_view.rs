@@ -637,8 +637,8 @@ fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
 }
 
 /// The "About" section of About & Maintenance: a row per line of the system details (Sway
-/// Things, the compositor, GTK, the distribution, NetworkManager, the kernel and the tools the
-/// pages delegate to), a button that copies them for a bug report, then the project's links,
+/// Things, the compositor, GTK, the distribution, NetworkManager, the sound server, the kernel
+/// and the tools the pages delegate to), a button that copies them for a bug report, then the project's links,
 /// which open in the default browser. The details are read again each time the section shows.
 fn about_section(model: &Model, body: &gtk::Box) -> Section {
     let title = msg!("About");

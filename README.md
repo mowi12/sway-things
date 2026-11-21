@@ -77,7 +77,7 @@ generated config and the app's own preferences. The other pages below are planne
 - **Mouse & Touchpad:** speed, acceleration, scrolling, tap to click, per-device settings, a test area
 - **Keyboard:** layouts and variants, layout switching shortcut, Caps Lock and other XKB options, key repeat
 - **Cursor & Tablet:** cursor theme and size, hiding the cursor, mapping a tablet or touchscreen to a display
-- **Displays:** drag-and-drop arrangement, resolution, scale, rotation, mirroring, profiles (kanshi), lid handling
+- **Displays:** drag-and-drop arrangement, resolution, scale, rotation, mirroring, profiles (kanshi)
 - **Sound:** output and input devices, volume, per-app volume, device profiles
 - **Bluetooth:** turning it on and off, finding, pairing and connecting devices
 - **Network:** Wi-Fi networks and their passwords, hidden networks, wired and VPN connections

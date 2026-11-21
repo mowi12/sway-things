@@ -49,12 +49,13 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **About** is the first section of About & Maintenance, part of the page (and so of search and deep links) instead of a
   dialog: a row per line of the system details, with the value selectable for bug reports: the versions of Sway Things,
   the running compositor (for SwayFX with the sway it is based on), GTK (the runtime version), the distribution
-  (`PRETTY_NAME`), NetworkManager (or _Not running_) and the kernel, then _Installed_ or _Not installed_ for
-  nm-connection-editor and blueman-manager. Below the rows, a centered _Copy System Details_ button copies them as a
-  plain-text block in the same order, the one `sway-things doctor` starts with, like GNOME Settings' System Details, and
-  then says _Copied_ for two seconds. They are read again each time the section shows. Below the button, a centered line
-  of links with a symbolic icon each: _Website_ (a globe), _Source Code (GitHub)_ (code brackets) and _Report a Bug_ (a
-  bug). They open in the default browser; the app itself makes no network request.
+  (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_) and the kernel, then
+  _Installed_ or _Not installed_ for nm-connection-editor, blueman-manager, pwvucontrol and pavucontrol. Below the rows,
+  a centered _Copy System Details_ button copies them as a plain-text block in the same order, the one
+  `sway-things doctor` starts with, like GNOME Settings' System Details, and then says _Copied_ for two seconds. They
+  are read again each time the section shows. Below the button, a centered line of links with a symbolic icon each:
+  _Website_ (a globe), _Source Code (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default
+  browser; the app itself makes no network request.
 - A **setting row** has a title, optional plain-language subtitle and the control on the right. For sway settings an app
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
@@ -266,7 +267,7 @@ Things, so it has no reset, no indicators and no generated file. Every change ap
 - **Not available:** without a sound server, a placeholder says how to start PipeWire's
   (`systemctl --user start pipewire-pulse`); the page looks again every three seconds and comes back by itself, also
   after the server restarts.
-- The volume of alert sounds isn't offered: see [Architecture → Backends](Architecture.md#backends).
+- The volume of alert sounds isn't offered: see [Architecture → Backends](Backends.md).
 
 ### Bluetooth
 
@@ -505,7 +506,8 @@ line is little to ask for it. On first run (or whenever the line is missing) it 
 
 ## Handover flows for companion tools
 
-When a tool is configured by a hand-written file that we may not write (e.g. `~/.config/waybar/config.jsonc`):
+Planned with the Bar, Notifications and Power & Lock pages. When a tool is configured by a hand-written file that we may
+not write (e.g. `~/.config/waybar/config.jsonc`):
 
 ```text
 Your waybar uses ~/.config/waybar/config.jsonc (not created by Sway Things).
@@ -516,7 +518,8 @@ To manage the bar here, Sway Things keeps its own copy:
                                 -s ~/.config/sway-things/waybar/style.css   [Copy]
 ```
 
-For tools with include support (sway, kanshi), the flow is the same as the first-run instructions: one line to paste.
+For tools with include support (sway, kanshi; both built), the flow is the same as the first-run instructions: one line
+to paste.
 
 ## Opening the config in an editor
 
@@ -553,7 +556,7 @@ preference:
 ## SwayFX
 
 With SwayFX detected, the Windows page gets the effect sections **Corners**, **Blur**, **Shadows**, **Dim inactive** and
-**Animations** (SwayFX ≥ 0.6). The Bar and Notifications pages get layer-effect toggles (blur behind waybar or
+**Animations** (SwayFX ≥ 0.6). The Bar and Notifications pages (planned) get layer-effect toggles (blur behind waybar or
 notifications). On vanilla sway these controls show "Requires SwayFX".
 
 ## Accessibility
