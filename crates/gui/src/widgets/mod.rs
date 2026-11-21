@@ -19,6 +19,7 @@ mod live;
 mod look;
 mod network;
 mod notice;
+mod notifications;
 mod page_header;
 mod page_view;
 mod panes;

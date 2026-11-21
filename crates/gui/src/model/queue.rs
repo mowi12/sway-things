@@ -493,6 +493,9 @@ impl Model {
         if let Some(problem) = applier.take_displays_problem() {
             self.emit_problem(&problem.translated());
         }
+        if let Some(problem) = applier.take_daemon_problem() {
+            self.emit_problem(&problem.translated());
+        }
         let pending = applier.pending().cloned();
         if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
             if was_pending != Some(countdown) {

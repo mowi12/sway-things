@@ -43,6 +43,7 @@ mod indicators;
 mod keyboard;
 mod look;
 mod network;
+mod notifications;
 mod place;
 mod printers;
 mod reload;
@@ -106,6 +107,7 @@ use self::indicators::*;
 use self::keyboard::*;
 use self::look::*;
 use self::network::*;
+use self::notifications::*;
 use self::place::*;
 use self::printers::*;
 use self::reload::*;
@@ -218,6 +220,7 @@ fn main() -> ExitCode {
     results.extend(check_places());
     results.extend(check_swayosd());
     results.extend(check_apps());
+    results.extend(check_notifications());
     results.extend(check_welcomes(&settings));
     report(&results)
 }
