@@ -180,5 +180,46 @@ pub fn animation_duration_ms(milliseconds: u16) -> Result<SwayCmd, OutOfRange> {
         .requires_swayfx(SwayFxVersion::new(0, 6, 0)))
 }
 
+/// The layer-shell surfaces of the notification daemons, by their namespace: mako and dunst
+/// call theirs `notifications`, swaync its popups `swaync-notification-window` and its panel
+/// `swaync-control-center`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Layer {
+    /// `notifications` (mako, dunst).
+    Notifications,
+    /// `swaync-notification-window` (swaync's popups).
+    SwayncNotifications,
+    /// `swaync-control-center` (swaync's panel).
+    SwayncControlCenter,
+}
+
+impl Layer {
+    /// Every layer of the notification daemons.
+    pub const NOTIFICATIONS: [Self; 3] = [
+        Self::Notifications,
+        Self::SwayncNotifications,
+        Self::SwayncControlCenter,
+    ];
+
+    /// The namespace, as the daemon gives it to `wlr-layer-shell`.
+    pub const fn namespace(self) -> &'static str {
+        match self {
+            Self::Notifications => "notifications",
+            Self::SwayncNotifications => "swaync-notification-window",
+            Self::SwayncControlCenter => "swaync-control-center",
+        }
+    }
+}
+
+/// `layer_effects <namespace> blur enable|disable`: blur behind the layer-shell surfaces of that
+/// namespace. SwayFX joins the arguments after the namespace into its list of effects, so the
+/// same words work in the config and over IPC.
+pub fn layer_blur(layer: Layer, enabled: bool) -> SwayCmd {
+    effect("layer_effects")
+        .keyword(layer.namespace())
+        .keyword("blur")
+        .bool(enabled, BoolStyle::EnableDisable)
+}
+
 #[cfg(test)]
 mod tests;

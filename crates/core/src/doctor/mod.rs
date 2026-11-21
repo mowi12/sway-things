@@ -21,6 +21,7 @@
 //! files are still validated with `sway --validate`: that is how to find out from a TTY why sway
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
 
+mod daemon;
 #[cfg(test)]
 mod tests;
 
@@ -29,6 +30,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use crate::conflict;
+
 use crate::generate::{
     self, ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Ownership, Report,
     Source, SwayValidator, Validate, WriteError,
@@ -42,6 +44,7 @@ use crate::state::{ProblemKind, State};
 use crate::sway_config::{Diagnostic, DiagnosticKind};
 use crate::version::{SwayFxVersion, SwayVersion};
 use crate::{msg, msg_plural};
+pub use daemon::DaemonLook;
 
 /// How bad a finding is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -153,6 +156,18 @@ pub enum Code {
     KanshiProfileOverlap,
     /// sway and kanshi can't run `sway-things` for the hooks, or run another build of it.
     HookProgram,
+    /// A notification daemon runs.
+    NotificationDaemon,
+    /// No notification daemon runs, and nothing starts one.
+    NoNotificationDaemon,
+    /// Two notification daemons are started; only one gets the notifications.
+    TwoNotificationDaemons,
+    /// mako's config doesn't include the file of Sway Things.
+    MakoIncludeMissing,
+    /// swaync runs without the files of Sway Things.
+    SwayncNotHandedOver,
+    /// swaync runs with the files of Sway Things while the user's own config was never imported.
+    SwayncOwnConfigUnused,
     /// The settings files load without problems.
     SettingsLoaded,
     /// A settings file can't be used at all.
@@ -222,6 +237,12 @@ impl Code {
             Self::KanshiFileForeign => "kanshi_file_foreign",
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
             Self::HookProgram => "hook_program",
+            Self::NotificationDaemon => "notification_daemon",
+            Self::NoNotificationDaemon => "no_notification_daemon",
+            Self::TwoNotificationDaemons => "two_notification_daemons",
+            Self::MakoIncludeMissing => "mako_include_missing",
+            Self::SwayncNotHandedOver => "swaync_not_handed_over",
+            Self::SwayncOwnConfigUnused => "swaync_own_config_unused",
             Self::SettingNotCopied => "setting_not_copied",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
@@ -260,7 +281,13 @@ impl Code {
             | Self::KanshiIncludeMissing
             | Self::KanshiFileForeign
             | Self::KanshiProfileOverlap
-            | Self::HookProgram => Section::Config,
+            | Self::HookProgram
+            | Self::NotificationDaemon
+            | Self::NoNotificationDaemon
+            | Self::TwoNotificationDaemons
+            | Self::MakoIncludeMissing
+            | Self::SwayncNotHandedOver
+            | Self::SwayncOwnConfigUnused => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
             | Self::SettingsEntry
@@ -595,6 +622,9 @@ pub struct Checkup<'a, V> {
     pub displays: generate::Displays,
     /// kanshi's files, if kanshi is installed: what is checked of them.
     pub kanshi: Option<crate::outputs::kanshi::KanshiFiles>,
+    /// The notification daemon that runs and the files for it; `None` for a checkup that
+    /// doesn't look at the machine.
+    pub notifications: Option<DaemonLook>,
     /// The `$PATH` sway and kanshi run `sway-things` from for the hooks; `None` for a checkup
     /// that doesn't look at the machine.
     pub path: Option<std::ffi::OsString>,
@@ -617,6 +647,7 @@ impl<V: Validate> Checkup<'_, V> {
         progress(Step::Section(Section::Config));
         self.config(&mut findings);
         self.kanshi(&mut findings);
+        self.notification_daemon(&mut findings);
         let generated = self.found.compositor().map(|compositor| {
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
         });

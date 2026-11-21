@@ -90,6 +90,93 @@ _arguments "${_arguments_options[@]}" : \
 '::link -- A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`:_default' \
 && ret=0
 ;;
+(notifications)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_sway-things__subcmd__notifications_commands" \
+"*::: :->notifications" \
+&& ret=0
+
+    case $state in
+    (notifications)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-notifications-command-$line[1]:"
+        case $line[1] in
+            (dnd)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'::state -- on, off or toggle; without, print the state (on or off):((on\:"Switch it on"
+off\:"Switch it off"
+toggle\:"Switch it to the other state"))' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(test)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(import-swaync)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::file -- The config to read; by default ~/.config/swaync/config.json:_files' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_sway-things__subcmd__notifications__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-notifications-help-command-$line[1]:"
+        case $line[1] in
+            (dnd)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(test)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(import-swaync)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
@@ -133,6 +220,37 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(notification-click)
+_arguments "${_arguments_options[@]}" : \
+'--mako=[The id of mako'\''s notification; mako runs the hook with it]:ID:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(notification-daemon)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(quick)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':which -- What to switch:((dnd\:"Do Not Disturb of the notification daemon"
+wifi\:"Wi-Fi (NetworkManager)"
+bluetooth\:"Bluetooth (the first adapter)"
+sound\:"The sound of the default output (on is not muted)"
+microphone\:"The default microphone (on is not muted)"))' \
+'::action -- on, off, toggle, or state to print true or false; without, the state swaync gives a toggle button, else toggle:((on\:"Switch it on"
+off\:"Switch it off"
+toggle\:"Switch it to the other state"
+state\:"Print true or false, for swaync'\''s update-command"))' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_sway-things__subcmd__hook__subcmd__help_commands" \
@@ -158,6 +276,18 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (mirror)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(notification-click)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(notification-daemon)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(quick)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -209,6 +339,38 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(notifications)
+_arguments "${_arguments_options[@]}" : \
+":: :_sway-things__subcmd__help__subcmd__notifications_commands" \
+"*::: :->notifications" \
+&& ret=0
+
+    case $state in
+    (notifications)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-help-notifications-command-$line[1]:"
+        case $line[1] in
+            (dnd)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(test)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(import-swaync)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 ":: :_sway-things__subcmd__help__subcmd__hook_commands" \
@@ -234,6 +396,18 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (mirror)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(notification-click)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(notification-daemon)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(quick)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -263,6 +437,7 @@ _sway-things_commands() {
 'show-generated:Print the generated sway config files as they would be written, without writing them' \
 'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
 'open:Start the app, or bring its window up if it runs, at a page or a setting' \
+'notifications:Do Not Disturb, the notification daemon that runs, and a test notification' \
 'hook:Run a hook; the generated sway config runs these' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -287,6 +462,7 @@ _sway-things__subcmd__help_commands() {
 'show-generated:Print the generated sway config files as they would be written, without writing them' \
 'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
 'open:Start the app, or bring its window up if it runs, at a page or a setting' \
+'notifications:Do Not Disturb, the notification daemon that runs, and a test notification' \
 'hook:Run a hook; the generated sway config runs these' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -314,6 +490,9 @@ _sway-things__subcmd__help__subcmd__hook_commands() {
 'displays:Switch a display on if none is on (and have kanshi apply its profile again, if it runs)\: run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one' \
 'workspaces:Put the workspaces on the displays connected now as the Workspaces page says\: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile' \
 'mirror:Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations\: run by kanshi when it applied a profile' \
+'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
+'notification-daemon:Start the notification daemon chosen on the Notifications page unless one runs\: run at every start and reload of sway while one is chosen' \
+'quick:Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone\: run by the buttons of swaync'\''s panel' \
     )
     _describe -t commands 'sway-things help hook commands' commands "$@"
 }
@@ -332,10 +511,55 @@ _sway-things__subcmd__help__subcmd__hook__subcmd__mirror_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things help hook mirror commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__notification-click_commands] )) ||
+_sway-things__subcmd__help__subcmd__hook__subcmd__notification-click_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help hook notification-click commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__notification-daemon_commands] )) ||
+_sway-things__subcmd__help__subcmd__hook__subcmd__notification-daemon_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help hook notification-daemon commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__quick_commands] )) ||
+_sway-things__subcmd__help__subcmd__hook__subcmd__quick_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help hook quick commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__workspaces_commands] )) ||
 _sway-things__subcmd__help__subcmd__hook__subcmd__workspaces_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things help hook workspaces commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__notifications_commands] )) ||
+_sway-things__subcmd__help__subcmd__notifications_commands() {
+    local commands; commands=(
+'dnd:Show whether Do Not Disturb is on, or switch it\: for mako, swaync and dunst' \
+'status:Show which notification daemon runs and whether Do Not Disturb is on' \
+'test:Send a test notification through the daemon that runs' \
+'import-swaync:Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn'\''t changed' \
+    )
+    _describe -t commands 'sway-things help notifications commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__notifications__subcmd__dnd_commands] )) ||
+_sway-things__subcmd__help__subcmd__notifications__subcmd__dnd_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help notifications dnd commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__notifications__subcmd__import-swaync_commands] )) ||
+_sway-things__subcmd__help__subcmd__notifications__subcmd__import-swaync_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help notifications import-swaync commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__notifications__subcmd__status_commands] )) ||
+_sway-things__subcmd__help__subcmd__notifications__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help notifications status commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__notifications__subcmd__test_commands] )) ||
+_sway-things__subcmd__help__subcmd__notifications__subcmd__test_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help notifications test commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__help__subcmd__open_commands] )) ||
 _sway-things__subcmd__help__subcmd__open_commands() {
@@ -364,6 +588,9 @@ _sway-things__subcmd__hook_commands() {
 'displays:Switch a display on if none is on (and have kanshi apply its profile again, if it runs)\: run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one' \
 'workspaces:Put the workspaces on the displays connected now as the Workspaces page says\: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile' \
 'mirror:Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations\: run by kanshi when it applied a profile' \
+'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
+'notification-daemon:Start the notification daemon chosen on the Notifications page unless one runs\: run at every start and reload of sway while one is chosen' \
+'quick:Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone\: run by the buttons of swaync'\''s panel' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sway-things hook commands' commands "$@"
@@ -385,6 +612,9 @@ _sway-things__subcmd__hook__subcmd__help_commands() {
 'displays:Switch a display on if none is on (and have kanshi apply its profile again, if it runs)\: run at every start and reload of sway while Sway Things stores anything for a display, so it never leaves you without one' \
 'workspaces:Put the workspaces on the displays connected now as the Workspaces page says\: run at every start and reload of sway while a rule places them, and by kanshi when it applied a profile' \
 'mirror:Show displays on others as remembered for the displays connected now (wl-mirror), and end the mirrors of other combinations\: run by kanshi when it applied a profile' \
+'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
+'notification-daemon:Start the notification daemon chosen on the Notifications page unless one runs\: run at every start and reload of sway while one is chosen' \
+'quick:Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone\: run by the buttons of swaync'\''s panel' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sway-things hook help commands' commands "$@"
@@ -409,6 +639,21 @@ _sway-things__subcmd__hook__subcmd__help__subcmd__mirror_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook help mirror commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__notification-click_commands] )) ||
+_sway-things__subcmd__hook__subcmd__help__subcmd__notification-click_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook help notification-click commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__notification-daemon_commands] )) ||
+_sway-things__subcmd__hook__subcmd__help__subcmd__notification-daemon_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook help notification-daemon commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__quick_commands] )) ||
+_sway-things__subcmd__hook__subcmd__help__subcmd__quick_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook help quick commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__workspaces_commands] )) ||
 _sway-things__subcmd__hook__subcmd__help__subcmd__workspaces_commands() {
     local commands; commands=()
@@ -419,10 +664,92 @@ _sway-things__subcmd__hook__subcmd__mirror_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook mirror commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__hook__subcmd__notification-click_commands] )) ||
+_sway-things__subcmd__hook__subcmd__notification-click_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook notification-click commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__hook__subcmd__notification-daemon_commands] )) ||
+_sway-things__subcmd__hook__subcmd__notification-daemon_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook notification-daemon commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__hook__subcmd__quick_commands] )) ||
+_sway-things__subcmd__hook__subcmd__quick_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook quick commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__hook__subcmd__workspaces_commands] )) ||
 _sway-things__subcmd__hook__subcmd__workspaces_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook workspaces commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications_commands] )) ||
+_sway-things__subcmd__notifications_commands() {
+    local commands; commands=(
+'dnd:Show whether Do Not Disturb is on, or switch it\: for mako, swaync and dunst' \
+'status:Show which notification daemon runs and whether Do Not Disturb is on' \
+'test:Send a test notification through the daemon that runs' \
+'import-swaync:Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn'\''t changed' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things notifications commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__dnd_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__dnd_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications dnd commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help_commands() {
+    local commands; commands=(
+'dnd:Show whether Do Not Disturb is on, or switch it\: for mako, swaync and dunst' \
+'status:Show which notification daemon runs and whether Do Not Disturb is on' \
+'test:Send a test notification through the daemon that runs' \
+'import-swaync:Read a swaync config.json (yours, by default) into the settings of the Notifications page as a starting point; your file isn'\''t changed' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things notifications help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help__subcmd__dnd_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help__subcmd__dnd_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications help dnd commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help__subcmd__help_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications help help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help__subcmd__import-swaync_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help__subcmd__import-swaync_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications help import-swaync commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help__subcmd__status_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications help status commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__help__subcmd__test_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__help__subcmd__test_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications help test commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__import-swaync_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__import-swaync_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications import-swaync commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__status_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications status commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__notifications__subcmd__test_commands] )) ||
+_sway-things__subcmd__notifications__subcmd__test_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things notifications test commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__open_commands] )) ||
 _sway-things__subcmd__open_commands() {

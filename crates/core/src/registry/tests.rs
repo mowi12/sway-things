@@ -429,9 +429,12 @@ fn app_preferences_have_no_sway_mapping() {
         let is_placement = setting.key().starts_with("workspaces.");
         // The settings of Apps Look & Feel live in GSettings only.
         let is_gsettings_only = setting.page() == Page::AppsLookFeel;
+        // The settings of the notification daemon go to its files, except the blur on SwayFX.
+        let is_daemon =
+            setting.page() == Page::Notifications && setting.key() != super::notifications::BLUR;
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement || is_gsettings_only,
+            is_app || is_placement || is_gsettings_only || is_daemon,
             "{}",
             setting.key()
         );

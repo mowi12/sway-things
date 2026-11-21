@@ -148,6 +148,9 @@ fn effect_commands() -> Result<Vec<SwayCmd>> {
         effects::dim_inactive_color(effects::DimClass::Unfocused, Color::rgba(0, 0, 0, 0xff)),
         effects::dim_inactive_color(effects::DimClass::Urgent, Color::rgba(0x90, 0, 0, 0xff)),
         effects::animation_duration_ms(300)?,
+        effects::layer_blur(effects::Layer::Notifications, true),
+        effects::layer_blur(effects::Layer::SwayncNotifications, false),
+        effects::layer_blur(effects::Layer::SwayncControlCenter, true),
     ])
 }
 

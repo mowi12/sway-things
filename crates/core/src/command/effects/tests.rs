@@ -115,3 +115,26 @@ fn ranges_are_checked() {
     assert!(super::corner_radius(99).is_ok());
     assert!(super::animation_duration_ms(5000).is_ok());
 }
+
+#[test]
+fn layer_blur_names_the_daemons_namespaces() {
+    use super::{Layer, layer_blur};
+    let lines: Vec<String> = Layer::NOTIFICATIONS
+        .iter()
+        .map(|layer| layer_blur(*layer, true).render(Target::Config).unwrap())
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            "layer_effects notifications blur enable",
+            "layer_effects swaync-notification-window blur enable",
+            "layer_effects swaync-control-center blur enable",
+        ]
+    );
+    let off = layer_blur(Layer::Notifications, false);
+    assert_eq!(
+        off.render(Target::Ipc).unwrap(),
+        "layer_effects notifications blur disable"
+    );
+    assert_eq!(off.min_swayfx(), Some(SwayFxVersion::OLDEST_SUPPORTED));
+}

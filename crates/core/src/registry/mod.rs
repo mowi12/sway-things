@@ -39,6 +39,7 @@ mod effects;
 mod input;
 mod link;
 mod look;
+pub mod notifications;
 mod output;
 mod output_line;
 mod page;
@@ -87,6 +88,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(behavior::settings());
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());
+    settings.extend(notifications::settings());
     settings.extend(app::settings());
     Registry { settings }
 });

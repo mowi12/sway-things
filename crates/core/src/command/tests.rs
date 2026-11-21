@@ -552,3 +552,18 @@ fn swayfx_requirement_keeps_the_highest_version() {
     let wrapped = SwayCmd::for_window(criteria, effect).unwrap();
     assert_eq!(wrapped.min_swayfx(), Some(SwayFxVersion::new(0, 6, 0)));
 }
+
+#[test]
+fn con_id_criteria_name_a_container_by_number() {
+    let focus = SwayCmd::with_criteria(Criteria::con_id(42), SwayCmd::new("focus")).unwrap();
+    assert_eq!(focus.render(Target::Ipc).unwrap(), "[con_id=42] focus");
+    let both = SwayCmd::with_criteria(
+        Criteria::con_id(7).exact(CriteriaKey::AppId, "a.b"),
+        SwayCmd::new("focus"),
+    )
+    .unwrap();
+    assert_eq!(
+        both.render(Target::Ipc).unwrap(),
+        "[con_id=7 app_id=\"^a\\x{2e}b\\z\"] focus"
+    );
+}

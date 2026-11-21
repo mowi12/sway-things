@@ -101,6 +101,9 @@ animation_duration_ms = 200
 [effects.dim_inactive_colors]
 urgent = "#880000"
 
+[notifications]
+blur = true
+
 [behavior]
 focus_follows_mouse = "always"
 mouse_warping = "container"

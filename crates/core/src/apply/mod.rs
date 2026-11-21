@@ -37,6 +37,7 @@
 //! # }
 //! ```
 
+mod daemon;
 mod risky;
 #[cfg(test)]
 mod tests;
@@ -193,6 +194,13 @@ pub struct Applier<V = SwayValidator> {
     combination_since: Option<Instant>,
     /// Whether sway was asked to start kanshi already ([`Applier::remember_displays`]).
     kanshi_started: bool,
+    /// The notification daemon's files and the session bus, or `None` for an applier made for
+    /// tests: then nothing is written for the daemon and nothing is asked on the bus.
+    daemon: Option<daemon::DaemonFiles>,
+    /// What changed for the notification daemon since its files were last written.
+    daemon_changes: daemon::Changes,
+    /// What went wrong with the files of the notification daemon, to tell the user once.
+    daemon_problem: Option<Text>,
 }
 
 impl Applier<SwayValidator> {
@@ -224,6 +232,10 @@ impl Applier<SwayValidator> {
             }
         }
         applier.kanshi_files = KanshiFiles::from_env().filter(|_| kanshi::installed());
+        if let Some(files) = crate::notifications::files::Files::from_env() {
+            let bus = crate::notifications::Notifications::session().await.ok();
+            applier.set_daemon_files(files, bus);
+        }
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -285,6 +297,9 @@ impl<V: Validate> Applier<V> {
             combination: None,
             combination_since: None,
             kanshi_started: false,
+            daemon: None,
+            daemon_changes: daemon::Changes::default(),
+            daemon_problem: None,
         }
     }
 
@@ -315,6 +330,9 @@ impl<V: Validate> Applier<V> {
             combination: None,
             combination_since: None,
             kanshi_started: false,
+            daemon: None,
+            daemon_changes: daemon::Changes::default(),
+            daemon_problem: None,
         }
     }
 
@@ -411,6 +429,14 @@ impl<V: Validate> Applier<V> {
     pub(crate) fn touch(&mut self, setting: &Setting) {
         if setting.scope() == Scope::PerOutput {
             self.displays_touched = true;
+        }
+        if setting.key() == crate::registry::notifications::START {
+            self.daemon_changes.start = true;
+        }
+        if setting.key().starts_with("notifications.")
+            || setting.key().starts_with("windows.focused.")
+        {
+            self.daemon_changes.settings = true;
         }
     }
 
@@ -787,6 +813,7 @@ impl<V: Validate> Applier<V> {
             // A setting a hook sends (the placement of the workspaces) can need a reload.
             return Ok(match setting.apply() {
                 Apply::Reload => Effect::AfterReload,
+                Apply::ToolReload => Effect::AfterToolReload,
                 _ => Effect::Preference,
             });
         }
@@ -893,6 +920,7 @@ impl<V: Validate> Applier<V> {
         self.state.save(access)?;
         self.remember_displays().await;
         self.keep_kanshi_file().await;
+        self.keep_daemon_files().await;
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
@@ -1553,6 +1581,7 @@ impl<V: Validate> Applier<V> {
             let Some(setting) = registry.get(changed.key) else {
                 continue;
             };
+            self.touch(setting);
             let directive = registry.group(setting).next().map(Setting::key);
             if !seen.insert((changed.device.clone(), directive)) {
                 continue;
