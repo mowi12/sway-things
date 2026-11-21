@@ -302,16 +302,19 @@ names it.
   quotes, so the shell gets exactly the command line (a test runs both renderings through the port of sway's parser). An
   app runs `sway-things hook launch <ID>`, which reads its desktop entry when it starts (an update of the app changes
   nothing here) and starts its arguments with `Path` as the working directory, in a terminal for `Terminal=true`
-  (`xdg-terminal-exec` first, else a known terminal whose option takes the command as separate arguments: `-e` of
-  Alacritty, Ghostty, Konsole and xterm, `--` of Console and GNOME Terminal, `-x` of Xfce Terminal; not Tilix, whose
-  `-e` takes one string). An app with `DBusActivatable=true` and no `Exec` is activated over the session bus
-  (`org.freedesktop.Application.Activate` on the ID's bus name and object path). A hidden app or one whose `TryExec`
-  program is missing is reported as such. The ID consists only of letters, digits, `-`, `_` and `.` (no `/`, so nothing
-  leads out of the directories), and an entry's command line can't start with `-`: an option of sway's `exec`
-  (`--no-startup-id`) would reach the shell as its command. _Start Now_ sends the same `exec` over IPC.
+  (`xdg-terminal-exec` first, so the terminal chosen on the page counts only where it is installed; else a known
+  terminal whose option takes the command as separate arguments: `-e` of Alacritty, Ghostty, Konsole and xterm, `--` of
+  Console and GNOME Terminal, `-x` of Xfce Terminal; not Tilix, whose `-e` takes one string). An app with
+  `DBusActivatable=true` and no `Exec` is activated over the session bus (`org.freedesktop.Application.Activate` on the
+  ID's bus name and object path). A hidden app or one whose `TryExec` program is missing is reported as such. The ID
+  consists only of letters, digits, `-`, `_` and `.` (no `/`, so nothing leads out of the directories), and an entry's
+  command line can't start with `-`: an option of sway's `exec` (`--no-startup-id`) would reach the shell as its
+  command. _Start Now_ and _Start Them Now_ save what isn't saved yet (the systemd unit, an entry just changed), then
+  send the same `exec` over IPC.
 - **The user's `exec` lines** (`hand_written`): every top-level `exec` and `exec_always` of the user's config with file
   and line, and the runner of XDG autostart entries one starts (`dex` with `-a`/`--autostart`, or a line naming
-  `xdg-desktop-autostart.target`, `sway-session.target` or `graphical-session.target`).
+  `xdg-desktop-autostart.target` or Sway Things' unit; a session target such as `sway-session.target` counts only
+  through `xdg-desktop-autostart.target` being active).
 - **XDG autostart entries** (`xdg_entries`): `$XDG_CONFIG_HOME/autostart`, then `autostart/` of `$XDG_CONFIG_DIRS`; the
   first file of a name counts, as for the runners. Each says whether it starts in this session: `Hidden=true`,
   `OnlyShowIn`/`NotShowIn`, a missing `TryExec` program, an `Exec` program that isn't installed, no `Exec`.

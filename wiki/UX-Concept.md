@@ -350,32 +350,50 @@ click away in the binding's dialog.
 
 ### Apps & Autostart
 
-Which apps open by keys and by file type, and everything that starts with the session, in one place.
+Which apps open by keys and by file type, and everything that starts with the session, in one place: three sections with
+a line per item. What is rare or technical is in a dialog or a tooltip, not on every row.
 
-- **Terminal and launcher:** _Terminal_ and _Launcher_ offer the installed ones (foot, Alacritty, kitty, …; fuzzel,
-  wofi, rofi, …) after _As your config binds it_, the default. Below each row, what the user's config binds to the keys
-  now (`exec foot at ~/.config/sway/config:5`) and its `$term` or `$menu`; a choice takes the keys (`$mod+Return` and
-  `$mod+d`, changed in _Keys of the terminal_ and _Keys of the launcher_), and the note then says whose binding it takes
-  the place of, or, for a line of the user's read after Sway Things' file, that that line keeps the keys, with _Open in
-  Editor_. It applies at once, without a reload. On Keyboard Shortcuts the binding has a lock that says _Terminal,
-  chosen on Apps & Autostart_; it can't be changed there, and its dialog has _Open Apps & Autostart_.
-- **Default apps:** a row each for web browser, file manager, mail, image viewer, PDF viewer, video player, music
-  player, text editor and terminal, with the installed apps that open its type and their icons, after _Not chosen here_.
-  Without a choice the row says what opens the type now and where that comes from
-  (`Now Chromium, from ~/.config/mimeapps.list`); with one, a warning if another list wins over it, the app isn't
-  installed or doesn't open the type. While `XDG_CURRENT_DESKTOP` doesn't name sway, a warning above the rows says that
-  no app reads the choices and how to set it.
-- **Autostart:** _Start XDG autostart entries with_ (_Nothing_, _systemd_, _dex_), and below it what runs them in this
-  session: systemd's target, a line of the user's (with _Open in Editor_), or Sway Things with _Start Them Now_. With
-  nothing, a warning and the button that has Sway Things start them (systemd if its target is there, else dex); with
-  two, a warning that each entry may start twice.
-- **What starts at login:** one list in three parts. _Started by Sway Things_: apps (with icon and name) and commands
-  added with _Add App…_ (the apps menus show, searchable) and _Add Command…_, each with a switch and a ⋮ menu with
-  _Start Now_ and _Remove_. _Started by your config_: every `exec` and `exec_always` line with file and line, read only,
-  with _Open in Editor_. _XDG autostart_: the entries of `~/.config/autostart` and `/etc/xdg/autostart` with icon, name
-  and whether they start here (_Starts at login_, _Doesn't start here: only for GNOME_, _Doesn't start: … isn't
-  installed_, _Switched off here_); a system entry that starts has a switch, which switches it off with Sway Things' own
-  file; the user's own entries open in the editor.
+- **Default apps** come first: a row each for web browser, file manager, mail, image viewer, PDF viewer, video player,
+  music player, text editor and _Terminal for apps_ (the terminal that opens the apps that run in one, through
+  `xdg-terminal-exec`; without it installed, the choice has no effect and its subtitle says so). Each is a drop-down of
+  the installed apps that open its type, with their icons; the drop-downs line up in a column. Without a choice it shows
+  the app that opens the type now, and in its open list that item says where that comes from (_Default now, from
+  ~/.config/mimeapps.list_). That app isn't listed a second time, so choosing it again means no choice (if it is the
+  stored choice too, the first item reads _Firefox (system default)_). Below a row only what goes wrong: the app chosen
+  isn't installed, doesn't open the type, or another list wins over the choice with another app. While
+  `XDG_CURRENT_DESKTOP` doesn't name sway, a framed warning above the rows says that no app reads the choices and how to
+  set it.
+- **Terminal and launcher:** _Terminal_ and _App launcher_ offer the installed ones (foot, Alacritty, kitty, …; Fuzzel,
+  Wofi, Rofi, …). Without a choice the drop-down shows what the user's config binds to the keys now, by the name of a
+  known one (_foot_, _Wofi_), and its open list says where (_From your config, ~/.config/sway/config:5_); _Nothing_
+  without such a binding. A choice takes the keys, and the drop-down's tooltip says whose binding it takes the place of.
+  _Terminal keys_ and _Launcher keys_ (`$mod+Return` and `$mod+d`) are buttons that show the keys as people read them
+  (_Super + Enter_) and take new ones as they are pressed, like those of Screenshots & Clipboard. Below a row only what
+  keeps the keys from the choice, such as a line of the user's read after Sway Things' file, with _Open in Editor_. It
+  applies at once, without a reload. On Keyboard Shortcuts the binding has a lock that says _Terminal, chosen on Apps &
+  Autostart_; it can't be changed there, and its dialog has _Open Apps & Autostart_.
+- **Autostart:** a line that says what the list is, with _Add App…_, then one list, a line per entry: its icon (a
+  terminal sign for a command line), its name or command line, and where it comes from in a few words (_Added here_,
+  _Command added here_, _System autostart_, _Your autostart folder_, _Your config, line 6_, _Your config, line 8, and at
+  every reload_). At its end a switch where Sway Things can switch it off (its own entries, and the system's XDG
+  autostart entries, switched off with Sway Things' own file), else a lock whose tooltip says why (_In your config:
+  change it there_). A warning sign marks an entry that won't start: an app that isn't installed, or nothing runs the
+  XDG autostart entries. Sway Things' entries come first, then the XDG autostart entries, then the `exec` and
+  `exec_always` lines of the user's config. The XDG autostart entries that don't start in this session at all (only for
+  GNOME, their program missing, switched off by their own file) are folded away below the list, in _Not started in this
+  session (4)_, each with why.
+- **Details:** a click on a line opens a dialog with the icon, the name, whether it starts, where it comes from, its
+  command line, its app and its file and line (selectable), and a sentence each for what else to know: `exec_always`
+  runs it again at every reload, a line starts the XDG autostart entries, Sway Things doesn't change the user's config
+  or files, a system entry is switched off with a file of Sway Things, `X-GNOME-Autostart-enabled=false` is only read by
+  GNOME. Sway Things' entries have _Remove_ and _Start Now_, the user's own lines and files _Open in Editor_.
+- **Add App…** lists the apps menus show, searchable by name, the ones added already marked _Added already_. Its first
+  item, _Run a Command…_, asks for a command line instead, which sway runs with the shell at login.
+- **Start autostart entries with** (_Your session or config_, _systemd_, _dex_) below the list: sway doesn't start the
+  XDG autostart entries itself. Below it a line for what runs them in this session: systemd's target, a line of the
+  user's (with _Open in Editor_), or Sway Things, with _Start Them Now_. With nothing, a warning with the button that
+  has Sway Things start them (systemd if its target is there, else dex); with two, a warning that each entry may start
+  twice.
 - **Takes effect** at the next login for autostart entries and the runner, at once for the terminal and launcher keys,
   and when an app is next opened for the default apps.
 
