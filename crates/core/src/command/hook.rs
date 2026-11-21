@@ -40,11 +40,13 @@ pub enum Hook {
     Timezone,
     /// `quick <switch> [action]`: a button of swaync's panel ([`QuickSwitch`]).
     Quick,
+    /// `waybar`: writes waybar's files of Sway Things and starts waybar with them.
+    Waybar,
 }
 
 impl Hook {
     /// Every hook.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Gsettings,
         Self::Displays,
         Self::Workspaces,
@@ -59,6 +61,7 @@ impl Hook {
         Self::NotificationDaemon,
         Self::Timezone,
         Self::Quick,
+        Self::Waybar,
     ];
 
     /// Its name on the command line: `night-light`.
@@ -78,6 +81,7 @@ impl Hook {
             Self::NotificationDaemon => "notification-daemon",
             Self::Timezone => "timezone",
             Self::Quick => "quick",
+            Self::Waybar => "waybar",
         }
     }
 

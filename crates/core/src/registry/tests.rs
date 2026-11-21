@@ -461,6 +461,9 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // Region & Time: the hook of the automatic time zone and, for the language and formats,
         // our environment.d file.
         let is_region = setting.page() == Page::RegionTime;
+        // The bar's settings go to waybar's files or to swaybar's lines; only the blur behind
+        // waybar is a sway directive.
+        let is_bar = setting.page() == Page::Bar && setting.key() != "bar.blur";
         assert_eq!(
             setting.sway().is_none(),
             is_app
@@ -473,7 +476,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
                 || is_daemon
                 || is_night_light
                 || is_environment
-                || is_region,
+                || is_region
+                || is_bar,
             "{}",
             setting.key()
         );

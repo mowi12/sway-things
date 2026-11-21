@@ -101,3 +101,17 @@ path = "crates/core/src/notifications/swaync-config.json"
 precedence = "override"
 SPDX-FileCopyrightText = "2021 Erik Reider and the SwayNotificationCenter contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# waybar's own default config and stylesheet (resources/ of waybar 0.16), the default bar of the Bar page. One path
+# each, so scripts/debian-copyright.sh lists them.
+[[annotations]]
+path = "crates/core/src/bar/waybar-default/config.jsonc"
+precedence = "override"
+SPDX-FileCopyrightText = "2025 Alex"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "crates/core/src/bar/waybar-default/style.css"
+precedence = "override"
+SPDX-FileCopyrightText = "2025 Alex"
+SPDX-License-Identifier = "MIT"

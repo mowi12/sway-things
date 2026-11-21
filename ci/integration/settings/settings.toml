@@ -203,6 +203,22 @@ pass_session_variables = true
 portal_config = true
 screencast_chooser = "output"
 screencast_output = "HEADLESS-1"
+# swaybar from our include, with every setting it has; the blur behind waybar only on SwayFX.
+[bar]
+backend = "swaybar"
+position = "bottom"
+height = 28
+layer = "top"
+blur = true
+
+[bar.style]
+theme = "custom"
+font = "Noto Sans Bold 11"
+background = "#202020e0"
+focused = "#3b6e4f"
+
+[bar.swaybar]
+status_command = "while date +'%Y-%m-%d %X $USER \"now\"'; do sleep 1; done"
 
 [app]
 safety_net_timeout = 20

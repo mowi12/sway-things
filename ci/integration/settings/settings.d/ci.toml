@@ -32,3 +32,6 @@ enabled = false
 [display."HEADLESS-1".wallpaper]
 image = "/etc/passwd"
 fill = "fit"
+
+[bar]
+outputs = ["HEADLESS-1", "Dell \"U2415\" $1"]

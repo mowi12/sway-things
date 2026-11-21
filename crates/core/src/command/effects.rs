@@ -212,13 +212,22 @@ impl Layer {
 }
 
 /// `layer_effects <namespace> blur enable|disable`: blur behind the layer surfaces of a program,
-/// such as mako (`notifications`). SwayFX ignores it for surfaces on the bottom layer. It adds to the
-/// effects already set for the namespace. SwayFX joins the arguments after the namespace into its
-/// list of effects, so the same words work in the config and over IPC.
+/// such as mako (`notifications`) or waybar (`waybar`). SwayFX ignores it for surfaces on the
+/// bottom layer. It adds to the effects already set for the namespace. SwayFX joins the arguments
+/// after the namespace into its list of effects, so the same words work in the config and over IPC.
 pub fn layer_blur(namespace: &'static str, enabled: bool) -> SwayCmd {
     effect("layer_effects")
         .keyword(namespace)
         .keyword("blur")
+        .bool(enabled, BoolStyle::EnableDisable)
+}
+
+/// `layer_effects <namespace> blur_ignore_transparent enable|disable`: no blur behind the fully
+/// transparent parts of the surfaces, such as the space between a bar's pills.
+pub fn layer_blur_ignore_transparent(namespace: &'static str, enabled: bool) -> SwayCmd {
+    effect("layer_effects")
+        .keyword(namespace)
+        .keyword("blur_ignore_transparent")
         .bool(enabled, BoolStyle::EnableDisable)
 }
 

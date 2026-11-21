@@ -114,7 +114,7 @@ top-level module fails the test until it has a layer there and here.
 | 1 sway | `command`, `sway_config`, `ipc` |
 | 2 registry | `registry` |
 | 3 state | `state`, `include`, `ui_state` |
-| 4 features | `apps`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
+| 4 features | `apps`, `bar`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
 | 5 assembly | `generate`, `view` |
 | 6 use cases | `apply`, `doctor` |
 

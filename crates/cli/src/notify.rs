@@ -197,7 +197,8 @@ pub(super) async fn run_notification_hook(
         | Hook::Timezone
         | Hook::Launch { .. }
         | Hook::Autostart
-        | Hook::Wallpaper => Exit::Ok,
+        | Hook::Wallpaper
+        | Hook::Waybar => Exit::Ok,
     }
 }
 

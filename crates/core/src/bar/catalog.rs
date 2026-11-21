@@ -1,0 +1,865 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The common waybar modules: what each one shows, whether it works on this machine, and the
+//! options the page's form offers for it.
+//!
+//! Options and their types follow waybar's man pages (`waybar-<module>(5)`, 0.16). A module's
+//! options that aren't listed here stay as they are in its definition and are shown as JSON. The
+//! format strings get a preview ([`preview`]) with sample values for the placeholders a module
+//! fills in.
+
+use std::fmt::Write as _;
+use std::path::Path;
+
+use crate::i18n::Msg;
+use crate::msg;
+
+/// The type of an option's value, as waybar reads it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Kind {
+    /// A format string with `{placeholders}` and Pango markup.
+    Format,
+    /// Any text: a device, a path, a time zone.
+    Text,
+    /// A command waybar runs with `sh -c` on a click or to get the module's text. The user's own
+    /// data: Sway Things stores and shows it, never runs it.
+    Command,
+    /// A whole number within a range.
+    Integer {
+        /// The smallest value.
+        min: i64,
+        /// The largest value.
+        max: i64,
+    },
+    /// A decimal number within a range.
+    Decimal {
+        /// The smallest value.
+        min: f64,
+        /// The largest value.
+        max: f64,
+    },
+    /// On or off.
+    Bool,
+    /// One of some words.
+    Choice(&'static [&'static str]),
+}
+
+/// An option of a module the form offers.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Opt {
+    /// The key in the module's definition, e.g. `format-alt`.
+    pub key: &'static str,
+    /// The label of its field.
+    pub title: Msg,
+    /// The type of its value.
+    pub kind: Kind,
+}
+
+const fn opt(key: &'static str, title: Msg, kind: Kind) -> Opt {
+    Opt { key, title, kind }
+}
+
+/// What a module needs to work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Need {
+    /// Nothing beyond waybar.
+    Nothing,
+    /// A battery (`/sys/class/power_supply/*/type` is `Battery`).
+    Battery,
+    /// A backlight that can be dimmed (`/sys/class/backlight/*`).
+    Backlight,
+    /// A Bluetooth adapter (`/sys/class/bluetooth/*`).
+    Bluetooth,
+    /// A thermal zone (`/sys/class/thermal/thermal_zone*`).
+    Thermal,
+    /// A program in `$PATH`.
+    Program(&'static str),
+    /// A sound server that speaks the PulseAudio protocol (pipewire-pulse or PulseAudio).
+    Pulse,
+    /// power-profiles-daemon or tuned-ppd on the system bus.
+    PowerProfiles,
+}
+
+/// Whether a module works here, as far as can be told without running it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Works {
+    /// What it needs is there.
+    Yes,
+    /// What it needs isn't there: it would stay empty or hidden.
+    No(Need),
+}
+
+impl Need {
+    /// Whether what is needed is there, looking at the system's files and `$PATH`.
+    pub fn check(self) -> Works {
+        self.check_in(Path::new("/"), std::env::var_os("PATH").as_deref())
+    }
+
+    /// [`Need::check`] with the system's files under `root` and `$PATH` given, for tests.
+    pub fn check_in(self, root: &Path, path: Option<&std::ffi::OsStr>) -> Works {
+        let any_in = |dir: &str, test: &dyn Fn(&Path) -> bool| {
+            std::fs::read_dir(root.join(dir)).is_ok_and(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .any(|entry| test(&entry.path()))
+            })
+        };
+        let there = match self {
+            Self::Nothing => true,
+            Self::Battery => any_in("sys/class/power_supply", &|entry| {
+                std::fs::read_to_string(entry.join("type"))
+                    .is_ok_and(|kind| kind.trim() == "Battery")
+            }),
+            Self::Backlight => any_in("sys/class/backlight", &|_| true),
+            Self::Bluetooth => any_in("sys/class/bluetooth", &|_| true),
+            Self::Thermal => any_in("sys/class/thermal", &|entry| {
+                entry
+                    .file_name()
+                    .is_some_and(|name| name.to_string_lossy().starts_with("thermal_zone"))
+            }),
+            Self::Program(name) => crate::delegate::find_program(name, path).is_some(),
+            Self::Pulse => ["pipewire-pulse", "pulseaudio"]
+                .iter()
+                .any(|name| crate::delegate::find_program(name, path).is_some()),
+            Self::PowerProfiles => [
+                "usr/share/dbus-1/system-services/net.hadess.PowerProfiles.service",
+                "usr/share/dbus-1/system-services/org.freedesktop.UPower.PowerProfiles.service",
+            ]
+            .iter()
+            .any(|file| root.join(file).exists()),
+        };
+        if there { Works::Yes } else { Works::No(self) }
+    }
+
+    /// What is missing, to show.
+    pub fn missing(self) -> Msg {
+        match self {
+            Self::Nothing => msg!("Nothing is missing"),
+            Self::Battery => msg!("No battery here"),
+            Self::Backlight => msg!("No backlight here that can be dimmed"),
+            Self::Bluetooth => msg!("No Bluetooth adapter here"),
+            Self::Thermal => msg!("No temperature sensor here"),
+            Self::Program(_) => msg!("Needs a program that isn't installed"),
+            Self::Pulse => msg!("Needs PipeWire's pipewire-pulse or PulseAudio"),
+            Self::PowerProfiles => msg!("Needs power-profiles-daemon or tuned-ppd"),
+        }
+    }
+}
+
+/// A module of the catalog.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Module {
+    /// Its name in the module lists, e.g. `clock`; `custom` and `group` stand for
+    /// `custom/<name>` and `group/<name>`.
+    pub name: &'static str,
+    /// Its name to show.
+    pub title: Msg,
+    /// What it shows, in a few words.
+    pub description: Msg,
+    /// What it needs.
+    pub need: Need,
+    /// The options of its form, in order.
+    pub options: &'static [Opt],
+    /// The placeholders its format strings fill in, with sample values for the preview.
+    pub samples: &'static [(&'static str, &'static str)],
+}
+
+const FORMAT: Opt = opt("format", msg!("Format"), Kind::Format);
+const FORMAT_ALT: Opt = opt("format-alt", msg!("Format after a click"), Kind::Format);
+const TOOLTIP: Opt = opt("tooltip", msg!("Tooltip"), Kind::Bool);
+const TOOLTIP_FORMAT: Opt = opt("tooltip-format", msg!("Tooltip format"), Kind::Format);
+const INTERVAL: Opt = opt(
+    "interval",
+    msg!("Update every (seconds)"),
+    Kind::Integer {
+        min: 1,
+        max: 86_400,
+    },
+);
+const MAX_LENGTH: Opt = opt(
+    "max-length",
+    msg!("Longest text (characters)"),
+    Kind::Integer { min: 0, max: 1000 },
+);
+const ON_CLICK: Opt = opt("on-click", msg!("On click"), Kind::Command);
+const ON_CLICK_RIGHT: Opt = opt("on-click-right", msg!("On right click"), Kind::Command);
+const ON_CLICK_MIDDLE: Opt = opt("on-click-middle", msg!("On middle click"), Kind::Command);
+const ON_SCROLL_UP: Opt = opt("on-scroll-up", msg!("On scroll up"), Kind::Command);
+const ON_SCROLL_DOWN: Opt = opt("on-scroll-down", msg!("On scroll down"), Kind::Command);
+
+/// The modules of the catalog, in the order the page lists them.
+pub const MODULES: &[Module] = &[
+    Module {
+        name: "clock",
+        title: msg!("Clock"),
+        description: msg!("The time and date, with a calendar as tooltip"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            FORMAT_ALT,
+            TOOLTIP_FORMAT,
+            opt("timezone", msg!("Time zone"), Kind::Text),
+            opt("locale", msg!("Locale"), Kind::Text),
+            INTERVAL,
+            ON_CLICK,
+        ],
+        samples: &[("calendar", "▦")],
+    },
+    Module {
+        name: "battery",
+        title: msg!("Battery"),
+        description: msg!("Charge, time left and whether it charges"),
+        need: Need::Battery,
+        options: &[
+            opt("bat", msg!("Battery"), Kind::Text),
+            FORMAT,
+            opt(
+                "format-charging",
+                msg!("Format while charging"),
+                Kind::Format,
+            ),
+            opt(
+                "format-plugged",
+                msg!("Format while plugged in"),
+                Kind::Format,
+            ),
+            opt("format-full", msg!("Format when full"), Kind::Format),
+            FORMAT_ALT,
+            TOOLTIP_FORMAT,
+            INTERVAL,
+            ON_CLICK,
+        ],
+        samples: &[
+            ("capacity", "76"),
+            ("icon", ""),
+            ("time", "3 h 12 min"),
+            ("timeTo", "3 h 12 min until empty"),
+            ("power", "8.2"),
+        ],
+    },
+    Module {
+        name: "network",
+        title: msg!("Network"),
+        description: msg!("Wi-Fi or cable, address and speed"),
+        need: Need::Nothing,
+        options: &[
+            opt("interface", msg!("Network interface"), Kind::Text),
+            opt("format-wifi", msg!("Format on Wi-Fi"), Kind::Format),
+            opt("format-ethernet", msg!("Format on a cable"), Kind::Format),
+            opt(
+                "format-disconnected",
+                msg!("Format when offline"),
+                Kind::Format,
+            ),
+            FORMAT_ALT,
+            TOOLTIP_FORMAT,
+            INTERVAL,
+            ON_CLICK,
+            ON_CLICK_RIGHT,
+        ],
+        samples: &[
+            ("essid", "Home"),
+            ("signalStrength", "71"),
+            ("ifname", "wlan0"),
+            ("ipaddr", "192.168.1.20"),
+            ("cidr", "24"),
+            ("gwaddr", "192.168.1.1"),
+            ("bandwidthDownBits", "1.2 Mb/s"),
+            ("bandwidthUpBits", "80 kb/s"),
+            ("icon", ""),
+        ],
+    },
+    Module {
+        name: "pulseaudio",
+        title: msg!("Volume (PulseAudio)"),
+        description: msg!("Volume and mute of the default output, and the microphone"),
+        need: Need::Pulse,
+        options: &[
+            FORMAT,
+            opt("format-muted", msg!("Format when muted"), Kind::Format),
+            opt(
+                "format-bluetooth",
+                msg!("Format on Bluetooth"),
+                Kind::Format,
+            ),
+            opt("format-source", msg!("Microphone format"), Kind::Format),
+            opt(
+                "format-source-muted",
+                msg!("Microphone format when muted"),
+                Kind::Format,
+            ),
+            opt(
+                "scroll-step",
+                msg!("Scroll step (percent)"),
+                Kind::Decimal {
+                    min: 0.0,
+                    max: 100.0,
+                },
+            ),
+            TOOLTIP_FORMAT,
+            ON_CLICK,
+            ON_CLICK_RIGHT,
+        ],
+        samples: &[
+            ("volume", "64"),
+            ("icon", ""),
+            ("format_source", "40% "),
+            ("desc", "Speakers"),
+        ],
+    },
+    Module {
+        name: "wireplumber",
+        title: msg!("Volume (WirePlumber)"),
+        description: msg!("Volume and mute of the default output, from WirePlumber"),
+        need: Need::Program("wireplumber"),
+        options: &[
+            FORMAT,
+            opt("format-muted", msg!("Format when muted"), Kind::Format),
+            opt(
+                "scroll-step",
+                msg!("Scroll step (percent)"),
+                Kind::Decimal {
+                    min: 0.0,
+                    max: 100.0,
+                },
+            ),
+            TOOLTIP_FORMAT,
+            ON_CLICK,
+            ON_CLICK_RIGHT,
+        ],
+        samples: &[("volume", "64"), ("icon", ""), ("node_name", "Speakers")],
+    },
+    Module {
+        name: "tray",
+        title: msg!("Tray"),
+        description: msg!("The icons of running apps (StatusNotifierItem)"),
+        need: Need::Nothing,
+        options: &[
+            opt(
+                "icon-size",
+                msg!("Icon size"),
+                Kind::Integer { min: 8, max: 128 },
+            ),
+            opt(
+                "spacing",
+                msg!("Space between icons"),
+                Kind::Integer { min: 0, max: 64 },
+            ),
+        ],
+        samples: &[],
+    },
+    Module {
+        name: "cpu",
+        title: msg!("CPU"),
+        description: msg!("How busy the processor is"),
+        need: Need::Nothing,
+        options: &[FORMAT, TOOLTIP, INTERVAL, ON_CLICK],
+        samples: &[("usage", "12"), ("load", "0.42"), ("avg_frequency", "2.1")],
+    },
+    Module {
+        name: "memory",
+        title: msg!("Memory"),
+        description: msg!("How much memory is in use"),
+        need: Need::Nothing,
+        options: &[FORMAT, TOOLTIP_FORMAT, INTERVAL, ON_CLICK],
+        samples: &[
+            ("", "38"),
+            ("percentage", "38"),
+            ("used", "6.1"),
+            ("total", "16"),
+        ],
+    },
+    Module {
+        name: "disk",
+        title: msg!("Disk"),
+        description: msg!("Free space of a file system"),
+        need: Need::Nothing,
+        options: &[
+            opt("path", msg!("Mount point"), Kind::Text),
+            FORMAT,
+            TOOLTIP_FORMAT,
+            INTERVAL,
+            ON_CLICK,
+        ],
+        samples: &[("percentage_used", "54"), ("free", "210 GB"), ("path", "/")],
+    },
+    Module {
+        name: "temperature",
+        title: msg!("Temperature"),
+        description: msg!("A temperature sensor, such as the processor's"),
+        need: Need::Thermal,
+        options: &[
+            opt(
+                "thermal-zone",
+                msg!("Thermal zone"),
+                Kind::Integer { min: 0, max: 64 },
+            ),
+            opt("hwmon-path", msg!("hwmon file"), Kind::Text),
+            opt(
+                "critical-threshold",
+                msg!("Critical from (°C)"),
+                Kind::Integer { min: 0, max: 200 },
+            ),
+            FORMAT,
+            opt(
+                "format-critical",
+                msg!("Format when critical"),
+                Kind::Format,
+            ),
+            INTERVAL,
+        ],
+        samples: &[
+            ("temperatureC", "48"),
+            ("temperatureF", "118"),
+            ("icon", ""),
+        ],
+    },
+    Module {
+        name: "backlight",
+        title: msg!("Backlight"),
+        description: msg!("The brightness of the built-in display"),
+        need: Need::Backlight,
+        options: &[
+            opt("device", msg!("Device"), Kind::Text),
+            FORMAT,
+            TOOLTIP_FORMAT,
+            opt(
+                "scroll-step",
+                msg!("Scroll step (percent)"),
+                Kind::Decimal {
+                    min: 0.0,
+                    max: 100.0,
+                },
+            ),
+            ON_SCROLL_UP,
+            ON_SCROLL_DOWN,
+        ],
+        samples: &[("percent", "60"), ("icon", "")],
+    },
+    Module {
+        name: "bluetooth",
+        title: msg!("Bluetooth"),
+        description: msg!("Whether Bluetooth is on and what is connected"),
+        need: Need::Bluetooth,
+        options: &[
+            FORMAT,
+            opt("format-on", msg!("Format when on"), Kind::Format),
+            opt("format-off", msg!("Format when off"), Kind::Format),
+            opt(
+                "format-connected",
+                msg!("Format when connected"),
+                Kind::Format,
+            ),
+            TOOLTIP_FORMAT,
+            ON_CLICK,
+        ],
+        samples: &[
+            ("status", "on"),
+            ("num_connections", "1"),
+            ("device_alias", "Headphones"),
+            ("controller_alias", "laptop"),
+        ],
+    },
+    Module {
+        name: "idle_inhibitor",
+        title: msg!("Keep awake"),
+        description: msg!("A switch that keeps the screen from blanking"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            opt("start-activated", msg!("On at start"), Kind::Bool),
+            opt(
+                "timeout",
+                msg!("Turn off after (minutes)"),
+                Kind::Decimal {
+                    min: 0.0,
+                    max: 1440.0,
+                },
+            ),
+            TOOLTIP_FORMAT,
+        ],
+        samples: &[("icon", ""), ("status", "deactivated")],
+    },
+    Module {
+        name: "power-profiles-daemon",
+        title: msg!("Power profile"),
+        description: msg!("The power profile, switched with a click"),
+        need: Need::PowerProfiles,
+        options: &[FORMAT, TOOLTIP_FORMAT],
+        samples: &[("icon", ""), ("profile", "balanced")],
+    },
+    Module {
+        name: "privacy",
+        title: msg!("Privacy"),
+        description: msg!("Shows while the screen is shared or the microphone records"),
+        need: Need::Program("pipewire"),
+        options: &[
+            opt(
+                "icon-size",
+                msg!("Icon size"),
+                Kind::Integer { min: 8, max: 128 },
+            ),
+            opt(
+                "icon-spacing",
+                msg!("Space between icons"),
+                Kind::Integer { min: 0, max: 64 },
+            ),
+        ],
+        samples: &[],
+    },
+    Module {
+        name: "mpris",
+        title: msg!("Media player"),
+        description: msg!("What a media player plays, with play and pause"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            opt("format-paused", msg!("Format when paused"), Kind::Format),
+            opt("player", msg!("Player"), Kind::Text),
+            opt(
+                "dynamic-len",
+                msg!("Longest title (characters)"),
+                Kind::Integer { min: 0, max: 1000 },
+            ),
+            ON_CLICK,
+            ON_CLICK_RIGHT,
+        ],
+        samples: &[
+            ("player_icon", "▶"),
+            ("status_icon", "⏸"),
+            ("dynamic", "Song – Artist"),
+            ("title", "Song"),
+            ("artist", "Artist"),
+        ],
+    },
+    Module {
+        name: "mpd",
+        title: msg!("Music Player Daemon"),
+        description: msg!("What mpd plays"),
+        need: Need::Program("mpd"),
+        options: &[
+            opt("server", msg!("Server"), Kind::Text),
+            opt(
+                "port",
+                msg!("Port"),
+                Kind::Integer {
+                    min: 1,
+                    max: 65_535,
+                },
+            ),
+            FORMAT,
+            opt("format-stopped", msg!("Format when stopped"), Kind::Format),
+            INTERVAL,
+        ],
+        samples: &[("artist", "Artist"), ("title", "Song"), ("album", "Album")],
+    },
+    Module {
+        name: "keyboard-state",
+        title: msg!("Lock keys"),
+        description: msg!("Whether Caps Lock and Num Lock are on"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            opt("capslock", msg!("Show Caps Lock"), Kind::Bool),
+            opt("numlock", msg!("Show Num Lock"), Kind::Bool),
+            opt("scrolllock", msg!("Show Scroll Lock"), Kind::Bool),
+        ],
+        samples: &[("name", "Caps"), ("icon", "")],
+    },
+    Module {
+        name: "sway/workspaces",
+        title: msg!("Workspaces"),
+        description: msg!("sway's workspaces, switched with a click"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            opt(
+                "all-outputs",
+                msg!("Workspaces of every display"),
+                Kind::Bool,
+            ),
+            opt(
+                "disable-scroll",
+                msg!("No switching by scrolling"),
+                Kind::Bool,
+            ),
+            opt("active-only", msg!("Only the active workspace"), Kind::Bool),
+        ],
+        samples: &[("name", "1"), ("index", "1"), ("icon", "")],
+    },
+    Module {
+        name: "sway/mode",
+        title: msg!("Binding mode"),
+        description: msg!("sway's binding mode, such as resize, while one is on"),
+        need: Need::Nothing,
+        options: &[FORMAT, MAX_LENGTH],
+        samples: &[("", "resize")],
+    },
+    Module {
+        name: "sway/window",
+        title: msg!("Window title"),
+        description: msg!("The title of the focused window"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            MAX_LENGTH,
+            opt("icon", msg!("App icon"), Kind::Bool),
+            TOOLTIP,
+        ],
+        samples: &[
+            ("", "Sway Things"),
+            ("title", "Sway Things"),
+            ("app_id", "foot"),
+        ],
+    },
+    Module {
+        name: "sway/language",
+        title: msg!("Keyboard layout"),
+        description: msg!("The keyboard layout in use"),
+        need: Need::Nothing,
+        options: &[FORMAT, TOOLTIP_FORMAT, ON_CLICK],
+        samples: &[("short", "us"), ("long", "English (US)"), ("flag", "🇺🇸")],
+    },
+    Module {
+        name: "sway/scratchpad",
+        title: msg!("Scratchpad"),
+        description: msg!("How many windows are in the scratchpad"),
+        need: Need::Nothing,
+        options: &[
+            FORMAT,
+            opt("show-empty", msg!("Show when empty"), Kind::Bool),
+            TOOLTIP_FORMAT,
+        ],
+        samples: &[("count", "2"), ("icon", "")],
+    },
+    Module {
+        name: "custom",
+        title: msg!("Custom"),
+        description: msg!("The output of a command or script of yours"),
+        need: Need::Nothing,
+        options: &[
+            opt("exec", msg!("Command"), Kind::Command),
+            opt("return-type", msg!("Output"), Kind::Choice(&["", "json"])),
+            INTERVAL,
+            opt(
+                "signal",
+                msg!("Update on signal (RTMIN+n)"),
+                Kind::Integer { min: 1, max: 30 },
+            ),
+            FORMAT,
+            TOOLTIP,
+            ON_CLICK,
+            ON_CLICK_RIGHT,
+            ON_CLICK_MIDDLE,
+            ON_SCROLL_UP,
+            ON_SCROLL_DOWN,
+        ],
+        samples: &[("", "text"), ("text", "text"), ("icon", "")],
+    },
+    Module {
+        name: "group",
+        title: msg!("Group"),
+        description: msg!("Several modules as one, optionally in a drawer that opens on hover"),
+        need: Need::Nothing,
+        options: &[opt(
+            "orientation",
+            msg!("Orientation"),
+            Kind::Choice(&["inherit", "horizontal", "vertical", "orthogonal"]),
+        )],
+        samples: &[],
+    },
+    Module {
+        name: "image",
+        title: msg!("Image"),
+        description: msg!("A picture from a file or a command"),
+        need: Need::Nothing,
+        options: &[
+            opt("path", msg!("File"), Kind::Text),
+            opt("exec", msg!("Command that prints the file"), Kind::Command),
+            opt("size", msg!("Size"), Kind::Integer { min: 1, max: 512 }),
+            INTERVAL,
+        ],
+        samples: &[],
+    },
+];
+
+/// The catalog entry for `name` (`battery#bat2` is a `battery`, `custom/media` a `custom`), if
+/// the catalog has one.
+pub fn find(name: &str) -> Option<&'static Module> {
+    let kind = super::kind_of(name);
+    let kind = if kind.starts_with("custom/") {
+        "custom"
+    } else if kind.starts_with("group/") {
+        "group"
+    } else {
+        kind
+    };
+    MODULES.iter().find(|module| module.name == kind)
+}
+
+/// `format` as the module `name` would show it with sample values: each `{placeholder}` the
+/// module fills in replaced (`{}` and `{:…}` too), `{:%H:%M}` and the like as a clock shows the
+/// time `now` (hour, minute, second), and Pango markup left out. Unknown placeholders stay.
+pub fn preview(name: &str, format: &str, now: (u32, u32, u32)) -> String {
+    let samples = find(name).map_or(&[][..], |module| module.samples);
+    let mut out = String::new();
+    let mut rest = format;
+    while let Some(start) = rest.find('{') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 1..];
+        let Some(end) = after.find('}') else {
+            out.push_str(&rest[start..]);
+            rest = "";
+            break;
+        };
+        let inner = &after[..end];
+        let (key, spec) = inner.split_once(':').unwrap_or((inner, ""));
+        let value = samples
+            .iter()
+            .find(|(sample, _)| *sample == key)
+            .map(|(_, value)| (*value).to_owned())
+            .or_else(|| (key.is_empty() && spec.contains('%')).then(|| strftime(spec, now)));
+        if let Some(value) = value {
+            out.push_str(&value);
+        } else {
+            out.push('{');
+            out.push_str(inner);
+            out.push('}');
+        }
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    strip_markup(&out)
+}
+
+/// The time `now` in `spec`'s `%H`, `%M`, `%S`, `%I`, `%p`, `%R` and `%T`; the date as a fixed
+/// sample (`%Y-%m-%d` is 2026-11-21, a Saturday).
+fn strftime(spec: &str, (hour, minute, second): (u32, u32, u32)) -> String {
+    let mut out = String::new();
+    let mut chars = spec.chars();
+    while let Some(char) = chars.next() {
+        if char != '%' {
+            out.push(char);
+            continue;
+        }
+        let twelve = if hour % 12 == 0 { 12 } else { hour % 12 };
+        match chars.next() {
+            Some('H') => {
+                let _ = write!(out, "{hour:02}");
+            }
+            Some('M') => {
+                let _ = write!(out, "{minute:02}");
+            }
+            Some('S') => {
+                let _ = write!(out, "{second:02}");
+            }
+            Some('I') => {
+                let _ = write!(out, "{twelve:02}");
+            }
+            Some('p') => out.push_str(if hour < 12 { "AM" } else { "PM" }),
+            Some('R') => {
+                let _ = write!(out, "{hour:02}:{minute:02}");
+            }
+            Some('T') => {
+                let _ = write!(out, "{hour:02}:{minute:02}:{second:02}");
+            }
+            Some('Y') => out.push_str("2026"),
+            Some('y') => out.push_str("26"),
+            Some('m') => out.push_str("11"),
+            Some('d' | 'e') => out.push_str("21"),
+            Some('a') => out.push_str("Sat"),
+            Some('A') => out.push_str("Saturday"),
+            Some('b') => out.push_str("Nov"),
+            Some('B') => out.push_str("November"),
+            Some('F') => out.push_str("2026-11-21"),
+            Some('%') | None => out.push('%'),
+            Some(other) => {
+                out.push('%');
+                out.push(other);
+            }
+        }
+    }
+    out
+}
+
+/// `text` without Pango markup tags, with the entities waybar's formats use resolved.
+fn strip_markup(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut in_tag = false;
+    for char in text.chars() {
+        match char {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            _ if !in_tag => out.push(char),
+            _ => {}
+        }
+    }
+    out.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modules_are_found_by_kind() {
+        assert_eq!(
+            find("battery#bat2").map(|module| module.name),
+            Some("battery")
+        );
+        assert_eq!(
+            find("custom/claude#detail").map(|module| module.name),
+            Some("custom")
+        );
+        assert_eq!(find("group/net").map(|module| module.name), Some("group"));
+        assert_eq!(find("cava"), None);
+        let mut names: Vec<&str> = MODULES.iter().map(|module| module.name).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), MODULES.len(), "names are unique");
+        for module in MODULES {
+            let mut keys: Vec<&str> = module.options.iter().map(|opt| opt.key).collect();
+            keys.sort_unstable();
+            keys.dedup();
+            assert_eq!(keys.len(), module.options.len(), "{}", module.name);
+        }
+    }
+
+    #[test]
+    fn formats_preview_with_samples() {
+        assert_eq!(preview("battery", "{capacity}% {icon}", (9, 5, 0)), "76% ");
+        assert_eq!(preview("clock", "{:%H:%M}", (9, 5, 7)), "09:05");
+        assert_eq!(
+            preview("clock", "<big>{:%Y %B}</big> {unknown}", (0, 0, 0)),
+            "2026 November {unknown}"
+        );
+        assert_eq!(
+            preview("sway/mode", "<span style=\"italic\">{}</span>", (0, 0, 0)),
+            "resize"
+        );
+        assert_eq!(preview("custom/x", "a &amp; b {", (0, 0, 0)), "a & b {");
+    }
+
+    #[test]
+    fn needs_are_checked_against_the_system_files() {
+        let root = tempfile::tempdir().unwrap();
+        assert_eq!(
+            Need::Battery.check_in(root.path(), None),
+            Works::No(Need::Battery)
+        );
+        let bat = root.path().join("sys/class/power_supply/BAT0");
+        std::fs::create_dir_all(&bat).unwrap();
+        std::fs::write(bat.join("type"), "Battery\n").unwrap();
+        assert_eq!(Need::Battery.check_in(root.path(), None), Works::Yes);
+        assert_eq!(Need::Nothing.check_in(root.path(), None), Works::Yes);
+        assert_eq!(
+            Need::Program("waybar").check_in(root.path(), None),
+            Works::No(Need::Program("waybar"))
+        );
+    }
+}

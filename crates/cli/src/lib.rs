@@ -313,6 +313,10 @@ pub enum Hook {
         /// toggle button, else toggle
         action: Option<QuickAction>,
     },
+    /// Write the config and stylesheet of Sway Things for waybar and start waybar with them,
+    /// unless one runs already or your sway config starts it: run at every start and reload of
+    /// sway while waybar is the bar
+    Waybar,
 }
 
 impl Hook {
@@ -333,6 +337,7 @@ impl Hook {
             Self::NotificationDaemon => command::Hook::NotificationDaemon,
             Self::Timezone => command::Hook::Timezone,
             Self::Quick { .. } => command::Hook::Quick,
+            Self::Waybar => command::Hook::Waybar,
         }
     }
 }
@@ -616,6 +621,7 @@ fn reports_its_own_problems(command: &Command) -> bool {
                     | Hook::NotificationClick { .. }
                     | Hook::NotificationDaemon
                     | Hook::Quick { .. }
+                    | Hook::Waybar
             )
             | Command::Screenshot { .. }
             | Command::Record { .. }

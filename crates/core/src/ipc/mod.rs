@@ -273,6 +273,32 @@ impl Client {
             .await
     }
 
+    /// `GET_BAR_CONFIG` without a payload: the IDs of the bars.
+    ///
+    /// # Errors
+    ///
+    /// See [`Client::version`].
+    pub async fn bar_ids(&mut self) -> Result<Vec<String>, IpcError> {
+        self.query(wire::GET_BAR_CONFIG, b"", "GET_BAR_CONFIG")
+            .await
+    }
+
+    /// `GET_BAR_CONFIG` of the bar with `id`: its `mode` (`dock`, `hide`, `invisible`, `overlay`).
+    ///
+    /// # Errors
+    ///
+    /// See [`Client::version`].
+    pub async fn bar_mode(&mut self, id: &str) -> Result<String, IpcError> {
+        #[derive(Deserialize)]
+        struct BarConfig {
+            mode: String,
+        }
+        let config: BarConfig = self
+            .query(wire::GET_BAR_CONFIG, id.as_bytes(), "GET_BAR_CONFIG")
+            .await?;
+        Ok(config.mode)
+    }
+
     /// `GET_BINDING_STATE`: the name of the active binding mode.
     ///
     /// # Errors

@@ -113,6 +113,7 @@ pub const CORE_LAYERS: &[Layer] = &[
         name: "features",
         modules: &[
             "apps",
+            "bar",
             "bindings",
             "bluetooth",
             "brightness",

@@ -22,6 +22,7 @@
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
 
 pub mod apps;
+mod bar;
 mod capture;
 mod daemon;
 pub mod environment;
@@ -143,6 +144,7 @@ impl<V: Validate> Checkup<'_, V> {
         progress(Step::Section(Section::Generated));
         self.files(generated.as_deref(), &mut findings, &mut progress)
             .await;
+        self.bar(&mut findings);
         progress(Step::Section(Section::Conflicts));
         self.conflicts(&mut findings);
         if let Some(check) = self.apps {
@@ -180,6 +182,7 @@ impl<V: Validate> Checkup<'_, V> {
         let files =
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays);
         let overwrite: &[ConfigFile] = if overwrite { &ConfigFile::ALL } else { &[] };
+        self.fix_bar(access);
         generate::write(&files, self.locations, self.validator, overwrite, access)
             .await
             .map_err(FixError::Write)

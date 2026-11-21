@@ -29,6 +29,7 @@ pub(crate) const GET_WORKSPACES: u32 = 1;
 pub(super) const SUBSCRIBE: u32 = 2;
 pub(crate) const GET_OUTPUTS: u32 = 3;
 pub(super) const GET_TREE: u32 = 4;
+pub(super) const GET_BAR_CONFIG: u32 = 6;
 pub(super) const GET_VERSION: u32 = 7;
 pub(super) const GET_BINDING_MODES: u32 = 8;
 pub(super) const GET_CONFIG: u32 = 9;

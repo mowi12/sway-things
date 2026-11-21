@@ -37,6 +37,7 @@
 //! # }
 //! ```
 
+mod bar;
 mod daemon;
 mod displays;
 mod error;
@@ -228,6 +229,8 @@ pub struct Applier<V = SwayValidator> {
     daemon_changes: daemon::Changes,
     /// What went wrong with the files of the notification daemon, to tell the user once.
     daemon_problem: Option<Text>,
+    /// What the bar was last set up with, and what it needs to be set up.
+    bar: bar::BarRun,
 }
 
 impl Applier<SwayValidator> {
@@ -268,6 +271,7 @@ impl Applier<SwayValidator> {
             let bus = crate::notifications::Notifications::session().await.ok();
             applier.set_daemon_files(files, bus);
         }
+        applier.bar.processes = true;
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -335,6 +339,7 @@ impl<V: Validate> Applier<V> {
             daemon: None,
             daemon_changes: daemon::Changes::default(),
             daemon_problem: None,
+            bar: bar::BarRun::default(),
         }
     }
 
@@ -371,6 +376,7 @@ impl<V: Validate> Applier<V> {
             daemon: None,
             daemon_changes: daemon::Changes::default(),
             daemon_problem: None,
+            bar: bar::BarRun::default(),
         }
     }
 
@@ -907,10 +913,23 @@ impl<V: Validate> Applier<V> {
     ) -> Result<Effect, ApplyError> {
         if setting.sway().is_none() {
             // A setting a hook sends (the placement of the workspaces) can need a reload.
+            // swaybar has no font that means "sway's own": one taken away applies when sway
+            // reloads.
+            let font = crate::registry::bar::FONT;
+            let empty = |value: Option<&Value>| {
+                value.is_none_or(|value| matches!(value, Value::Text(text) if text.is_empty()))
+            };
+            if setting.key() == font
+                && crate::bar::Backend::of(&self.state) == crate::bar::Backend::Swaybar
+                && empty(over.get(font).or_else(|| self.state.get(font, None)))
+                && !empty(previous.and_then(|state| state.get(font, None)))
+            {
+                return Ok(Effect::AfterReload);
+            }
             return Ok(match setting.apply() {
                 Apply::Reload => Effect::AfterReload,
-                // A program's settings (the notification daemon's): it reads them again when
-                // they are saved.
+                // A program's settings (the notification daemon's, the bar's): it reads them
+                // again when they are saved.
                 Apply::ToolReload => Effect::AfterToolReload,
                 // An environment variable: sway and its apps get it at the next login.
                 Apply::Relogin => Effect::AfterRelogin,
@@ -1047,6 +1066,7 @@ impl<V: Validate> Applier<V> {
             files,
             others,
         };
+        self.keep_bar(access).await;
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)

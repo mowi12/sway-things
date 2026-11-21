@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 13:53+0100\n"
+"POT-Creation-Date: 2026-11-26 22:02+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -380,6 +380,20 @@ msgid ""
 "Sway Things starts none"
 msgstr ""
 
+#: crates/cli/src/hook.rs
+#, rust-format
+msgid ""
+"A waybar with another config runs (process {pid}), so Sway Things doesn't "
+"start a second one. To use the bar of the Bar page, start it with: {line}"
+msgstr ""
+
+#: crates/cli/src/hook.rs
+#, rust-format
+msgid ""
+"{place} may start waybar, so Sway Things doesn't start a second one. To use "
+"the bar of the Bar page there, the line is: {line}"
+msgstr ""
+
 #: crates/cli/src/lib.rs
 msgid "Loading the settings files…"
 msgstr ""
@@ -613,6 +627,12 @@ msgstr ""
 msgid "y|yes"
 msgstr ""
 
+#: crates/core/src/apply/bar.rs
+msgid ""
+"waybar ended when it read its config again, and was started again; if it "
+"ends again, a module option may be one it can't take"
+msgstr ""
+
 #: crates/core/src/apply/daemon.rs
 #, rust-format
 msgid ""
@@ -743,6 +763,689 @@ msgstr ""
 msgid "Launcher"
 msgstr ""
 
+#: crates/core/src/bar/catalog.rs
+msgid "Nothing is missing"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "No battery here"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "No backlight here that can be dimmed"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "No Bluetooth adapter here"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "No temperature sensor here"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Needs a program that isn't installed"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Needs PipeWire's pipewire-pulse or PulseAudio"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Needs power-profiles-daemon or tuned-ppd"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format after a click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Tooltip"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Tooltip format"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Update every (seconds)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Longest text (characters)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On right click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On middle click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On scroll up"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On scroll down"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Clock"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The time and date, with a calendar as tooltip"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/region/time.rs
+#: crates/gui/src/widgets/region/zones.rs
+msgid "Time zone"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Locale"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Battery"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Charge, time left and whether it charges"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format while charging"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format while plugged in"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when full"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/page.rs
+#: crates/core/src/scanners/list.rs crates/gui/src/widgets/printers/dialogs.rs
+msgid "Network"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Wi-Fi or cable, address and speed"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Network interface"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format on Wi-Fi"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format on a cable"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when offline"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Volume (PulseAudio)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Volume and mute of the default output, and the microphone"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when muted"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format on Bluetooth"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Microphone format"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Microphone format when muted"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Scroll step (percent)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Volume (WirePlumber)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Volume and mute of the default output, from WirePlumber"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Tray"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The icons of running apps (StatusNotifierItem)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Icon size"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Space between icons"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "CPU"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "How busy the processor is"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Memory"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "How much memory is in use"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Disk"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Free space of a file system"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Mount point"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Temperature"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "A temperature sensor, such as the processor's"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Thermal zone"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "hwmon file"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Critical from (°C)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when critical"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Backlight"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The brightness of the built-in display"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Device"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/page.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/notifications.rs
+msgid "Bluetooth"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Whether Bluetooth is on and what is connected"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when on"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when off"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when connected"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Keep awake"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "A switch that keeps the screen from blanking"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "On at start"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Turn off after (minutes)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Power profile"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The power profile, switched with a click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Privacy"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Shows while the screen is shared or the microphone records"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/notifications.rs
+msgid "Media player"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "What a media player plays, with play and pause"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when paused"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Player"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Longest title (characters)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Music Player Daemon"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "What mpd plays"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Server"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Port"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Format when stopped"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Lock keys"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Whether Caps Lock and Num Lock are on"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Show Caps Lock"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Show Num Lock"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Show Scroll Lock"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
+#: crates/core/src/registry/page.rs
+msgid "Workspaces"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "sway's workspaces, switched with a click"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Workspaces of every display"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "No switching by scrolling"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Only the active workspace"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Binding mode"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "sway's binding mode, such as resize, while one is on"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Window title"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The title of the focused window"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "App icon"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Keyboard layout"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The keyboard layout in use"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Scratchpad"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "How many windows are in the scratchpad"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Show when empty"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/notifications.rs
+msgid "Custom"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "The output of a command or script of yours"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/apps/dialogs.rs
+#: crates/gui/src/widgets/shortcuts/parts.rs
+msgid "Command"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/sound/mod.rs
+msgid "Output"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Update on signal (RTMIN+n)"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Group"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Several modules as one, optionally in a drawer that opens on hover"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Orientation"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/wallpaper.rs
+msgid "Image"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "A picture from a file or a command"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/gui/src/widgets/apps/dialogs.rs
+msgid "File"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs
+msgid "Command that prints the file"
+msgstr ""
+
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/cursor.rs
+msgid "Size"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "Can't read {path}: {error}"
+msgstr ""
+
+#: crates/core/src/bar/import.rs crates/core/src/bar/modules.rs
+#, rust-format
+msgid "Can't read {path}: {reason}"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+msgid "the files read are larger than 16 MiB together"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "The config has {count} bars; the first one is taken over"
+msgstr ""
+
+#: crates/core/src/bar/import.rs crates/core/src/bar/modules.rs
+msgid "expected an object"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "Includes go too deep; {name} isn't read"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "More than 64 files are included; {file} isn't read"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "The include {name} needs a shell to be found, so it isn't read"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid "The include {name} wasn't found"
+msgstr ""
+
+#: crates/core/src/bar/import.rs
+#, rust-format
+msgid ""
+"The displays {outputs} can't be picked here; the bar shows on the others "
+"named, or on all"
+msgstr ""
+
+#: crates/core/src/bar/jsonc.rs
+msgid "The file is larger than 4 MiB"
+msgstr ""
+
+#: crates/core/src/bar/jsonc.rs
+#, rust-format
+msgid "A comment that starts on line {line} doesn't end"
+msgstr ""
+
+#: crates/core/src/bar/jsonc.rs
+#, rust-format
+msgid "Line {line}, column {column}: {reason}"
+msgstr ""
+
+#: crates/core/src/bar/mod.rs
+#, rust-format
+msgid ""
+"{path} wasn't written by Sway Things, so it stays as it is. Move it away to "
+"let Sway Things write the bar's file there"
+msgstr ""
+
+#: crates/core/src/bar/mod.rs crates/core/src/capture/mod.rs
+#, rust-format
+msgid "Can't write {path}: {error}"
+msgstr ""
+
+#: crates/core/src/bar/modules.rs
+#, rust-format
+msgid "Can't use {path}: {error}"
+msgstr ""
+
+#: crates/core/src/bar/modules.rs
+#, rust-format
+msgid "{path} wasn't written by Sway Things, so the modules can't be changed"
+msgstr ""
+
+#: crates/core/src/bar/modules.rs
+msgid "expected version 1"
+msgstr ""
+
+#: crates/core/src/bar/process.rs
+msgid "waybar isn't installed"
+msgstr ""
+
+#: crates/core/src/bar/process.rs
+#, rust-format
+msgid "{program} couldn't be run"
+msgstr ""
+
+#: crates/core/src/bar/process.rs
+msgid ""
+"waybar ended right after it read the config of Sway Things; run waybar -c "
+"with it in a terminal to see why"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Glass"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid ""
+"Floating pills of dark glass on a transparent bar, blurred behind on SwayFX"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "Sway"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "One bar in the colors of your windows"
+msgstr ""
+
+#: crates/core/src/bar/style.rs crates/core/src/registry/bar.rs
+msgid "waybar"
+msgstr ""
+
+#: crates/core/src/bar/style.rs
+msgid "waybar's own look, as it ships"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Pomodoro timer"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"Work and break phases; click to start or pause, right click to reset, scroll "
+"to change the time"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Camera in use"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "A camera icon while any program has a camera open"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Updates available"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "How many package updates there are, hidden while there are none"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Low battery warning"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "No text; a notification at 15 % and at 5 % while discharging"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "VPN status"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "The VPN and WireGuard connections that are up; click to edit them"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Highest system load"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"The highest of processor, memory, temperature and disk use, all four in the "
+"tooltip"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Power menu"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Lock, suspend, log out, restart or shut down, asked first with swaynag"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Notification center"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"swaync's bell with the number of notifications; click to open, right click "
+"for Do Not Disturb"
+msgstr ""
+
 #: crates/core/src/bindings/command.rs
 msgid "the command is empty"
 msgstr ""
@@ -778,10 +1481,6 @@ msgstr ""
 
 #: crates/core/src/bindings/command.rs crates/core/src/registry/page.rs
 msgid "Windows"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs crates/core/src/registry/page.rs
-msgid "Workspaces"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs crates/gui/src/widgets/sound/mod.rs
@@ -1194,14 +1893,14 @@ msgstr ""
 msgid "Page Down"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/input.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Left"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/input.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Right"
 msgstr ""
@@ -1405,11 +2104,6 @@ msgstr ""
 msgid ""
 "The file name pattern can't be used. Change it on the Screenshots & "
 "Clipboard page."
-msgstr ""
-
-#: crates/core/src/capture/mod.rs
-#, rust-format
-msgid "Can't write {path}: {error}"
 msgstr ""
 
 #: crates/core/src/capture/mod.rs
@@ -1660,6 +2354,96 @@ msgstr ""
 #: crates/core/src/doctor/apps.rs
 #, rust-format
 msgid "Keep one: remove the line from your config, or set {key} to none."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid ""
+"Your sway config sets up a swaybar of its own, next to the bar of Sway "
+"Things."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "Remove that bar block, or set the bar program to “Not set up here”."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "swaybar is set up in 75-bar.conf."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "waybar is the bar, but it isn't installed."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "Install the waybar package, or choose swaybar on the Bar page."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "Run {command} to start it again."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid ""
+"A line of your sway config may start waybar; Sway Things can't tell, so it "
+"doesn't start a second one."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "To use the bar of the Bar page there: {line}"
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "waybar runs with the config of Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "No waybar runs."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "It starts with sway; or run {command}."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "Start waybar with -c and -s pointing at the files of Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "Change the line that starts it to: {line}"
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "waybar runs, but with another config than the one of Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "{file} is up to date."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid ""
+"{file} wasn't written by Sway Things, so waybar doesn't get the bar of the "
+"Bar page."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+msgid "Move it away, so Sway Things can write it."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "{file} doesn't hold the bar as it is set."
+msgstr ""
+
+#: crates/core/src/doctor/bar.rs
+#, rust-format
+msgid "{file} is missing."
 msgstr ""
 
 #: crates/core/src/doctor/capture.rs
@@ -3360,8 +4144,8 @@ msgstr ""
 msgid "The color of switches, sliders and selections in this app"
 msgstr ""
 
-#: crates/core/src/registry/app.rs crates/core/src/registry/look.rs
-#: crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
 #: crates/core/src/registry/windows.rs
 msgid "theme"
 msgstr ""
@@ -3370,8 +4154,8 @@ msgstr ""
 msgid "highlight"
 msgstr ""
 
-#: crates/core/src/registry/app.rs crates/core/src/registry/value.rs
-#: crates/core/src/registry/windows.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/bar.rs
+#: crates/core/src/registry/value.rs crates/core/src/registry/windows.rs
 msgid "color"
 msgstr ""
 
@@ -3506,7 +4290,7 @@ msgstr ""
 msgid "scan"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/bar.rs
 msgid "bluetooth"
 msgstr ""
 
@@ -3831,6 +4615,525 @@ msgstr ""
 msgid "disable autostart"
 msgstr ""
 
+#: crates/core/src/registry/bar.rs
+msgid "Not set up here"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "swaybar (built into sway)"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Top"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Bottom"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Below floating windows"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Above floating windows"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Above everything, also fullscreen"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "waybar's own"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "None: only your own stylesheet"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Sway's window colors"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Your colors"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "One bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "A pill per module"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/workspaces.rs
+#: crates/gui/src/widgets/page_view.rs
+msgid "Placement"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/notifications.rs
+msgid "Style"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "margin"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "gap"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/windows.rs
+msgid "floating"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Modules"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "module"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/output.rs
+msgid "layout"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
+msgid "clock"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "battery"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "network"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "pulseaudio"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "wireplumber"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "tray"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "cpu"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "memory"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "temperature"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/shortcuts.rs
+msgid "backlight"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "workspaces"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "custom"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
+msgid "Bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Bar program"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"waybar gets a config and stylesheet of its own from Sway Things; yours stay "
+"as they are. swaybar is set up in Sway Things' sway include"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "swaybar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "panel"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "status bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "taskbar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/output.rs
+msgid "Position"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "swaybar stands only at the top or the bottom"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+msgid "edge"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "top"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "bottom"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+msgid "vertical"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "Height"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "0 fits the bar to its modules"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/output.rs
+msgid "size"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "thickness"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "width"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/page.rs
+#: crates/gui/src/widgets/wallpaper/preview.rs
+msgid "Displays"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "The displays that show the bar; none picked means all"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/cursor.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
+msgid "monitor"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/shortcuts.rs crates/core/src/registry/workspaces.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/capture.rs
+#: crates/core/src/registry/notifications.rs
+msgid "output"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Layer"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "SwayFX blurs behind the bar only above floating windows or everything"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "overlay"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "above"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "on top"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Reserve space"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Windows stay clear of the bar; off, the bar lies over them"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "exclusive zone"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "overlap"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin above"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin right"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin below"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Margin left"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Space between modules"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "spacing"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/windows.rs crates/gui/src/widgets/wallpaper/mod.rs
+msgid "Center"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Look"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"waybar's own stylesheet, or one Sway Things writes from the settings below, "
+"in the colors of your windows or your own"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "css"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "stylesheet"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "preset"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "colors"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Shape"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "A pill per module leaves the bar itself transparent"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "pill"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "island"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/setting_row.rs
+msgid "Font"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "The default font"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+msgid "font size"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/look.rs
+#: crates/core/src/registry/windows.rs
+msgid "typeface"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Padding"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Room left and right inside each module"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "room"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "Rounded corners"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "radius"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "round"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Background opacity"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Below 1 the background is transparent"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
+msgid "transparency"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "transparent"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "alpha"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/wallpaper.rs
+msgid "Background"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "Text"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "foreground"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Under the pointer"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+msgid "hover"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Focused workspace"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/windows.rs
+msgid "active"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/notifications.rs
+msgid "accent"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Warning"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "A battery running low, a hot CPU"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Critical"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Urgent workspace"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Your own stylesheet"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Read after Sway Things' style, so its rules win; it stays yours"
+msgstr ""
+
+#. TRANSLATORS: Sway Things starts no notification daemon itself.
+#. TRANSLATORS: The security of a Wi-Fi network: none.
+#. TRANSLATORS: How good the signal of a Wi-Fi network is: no signal.
+#. TRANSLATORS: The security of a Wi-Fi network: none.
+#. TRANSLATORS: No keys switch the layout.
+#: crates/core/src/registry/bar.rs crates/core/src/registry/input.rs
+#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/windows.rs
+#: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/network/text.rs crates/gui/src/widgets/xkb_options.rs
+msgid "None"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "style.css"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "import"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Blur behind the bar"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Blurs what shows through a transparent background, not between pills"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/effects.rs
+#: crates/core/src/registry/notifications.rs
+msgid "frosted glass"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "Status command"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid ""
+"Its output is the text at the right end of swaybar; sway runs it with sh"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "i3status"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "i3blocks"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs
+msgid "status_command"
+msgstr ""
+
 #: crates/core/src/registry/behavior.rs
 msgid "When the pointer enters a window"
 msgstr ""
@@ -3941,11 +5244,6 @@ msgid "No limit"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
-#: crates/core/src/registry/notifications.rs
-msgid "Custom"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
 msgid "Smallest floating window"
 msgstr ""
 
@@ -4048,10 +5346,6 @@ msgstr ""
 msgid "width and height have different kinds of limit"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/windows.rs
-msgid "floating"
-msgstr ""
-
 #: crates/core/src/registry/behavior.rs
 msgid "window size"
 msgstr ""
@@ -4088,10 +5382,6 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/cursor.rs
 msgid "pointer"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "hover"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
@@ -4132,10 +5422,6 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/wallpaper.rs
 msgid "cycle"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
-msgid "edge"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
@@ -4351,10 +5637,6 @@ msgid "horizontal"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
-msgid "vertical"
-msgstr ""
-
-#: crates/core/src/registry/behavior.rs
 msgid "Back and forth"
 msgstr ""
 
@@ -4474,23 +5756,6 @@ msgstr ""
 
 #: crates/core/src/registry/capture.rs
 msgid "The display with the focused window"
-msgstr ""
-
-#: crates/core/src/registry/capture.rs
-#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/shortcuts.rs crates/core/src/registry/workspaces.rs
-msgid "screen"
-msgstr ""
-
-#: crates/core/src/registry/capture.rs crates/core/src/registry/cursor.rs
-#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/workspaces.rs
-msgid "monitor"
-msgstr ""
-
-#: crates/core/src/registry/capture.rs
-#: crates/core/src/registry/notifications.rs
-msgid "output"
 msgstr ""
 
 #: crates/core/src/registry/capture.rs crates/gui/src/widgets/displays/mod.rs
@@ -4629,10 +5894,6 @@ msgstr ""
 msgid "The oldest entries go when there are more"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs crates/core/src/registry/output.rs
-msgid "size"
-msgstr ""
-
 #: crates/core/src/registry/capture.rs
 msgid "history"
 msgstr ""
@@ -4752,10 +6013,6 @@ msgstr ""
 
 #: crates/core/src/registry/cursor.rs
 msgid "arrow"
-msgstr ""
-
-#: crates/core/src/registry/cursor.rs
-msgid "Size"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs
@@ -4945,16 +6202,6 @@ msgstr ""
 
 #: crates/core/src/registry/effects.rs
 msgid "Blurs what is behind transparent windows"
-msgstr ""
-
-#: crates/core/src/registry/effects.rs
-#: crates/core/src/registry/notifications.rs
-msgid "transparency"
-msgstr ""
-
-#: crates/core/src/registry/effects.rs
-#: crates/core/src/registry/notifications.rs
-msgid "frosted glass"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs
@@ -5460,19 +6707,6 @@ msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "Flat"
-msgstr ""
-
-#. TRANSLATORS: Sway Things starts no notification daemon itself.
-#. TRANSLATORS: The security of a Wi-Fi network: none.
-#. TRANSLATORS: How good the signal of a Wi-Fi network is: no signal.
-#. TRANSLATORS: The security of a Wi-Fi network: none.
-#. TRANSLATORS: No keys switch the layout.
-#: crates/core/src/registry/input.rs crates/core/src/registry/look.rs
-#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/windows.rs
-#: crates/gui/src/widgets/network/dialogs.rs
-#: crates/gui/src/widgets/network/text.rs crates/gui/src/widgets/xkb_options.rs
-msgid "None"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
@@ -6116,10 +7350,6 @@ msgstr ""
 msgid "Vertical BGR"
 msgstr ""
 
-#: crates/core/src/registry/look.rs crates/core/src/registry/notifications.rs
-msgid "Style"
-msgstr ""
-
 #: crates/core/src/registry/look.rs
 msgid "Light or dark, for the apps that follow it"
 msgstr ""
@@ -6210,10 +7440,6 @@ msgstr ""
 msgid "font"
 msgstr ""
 
-#: crates/core/src/registry/look.rs crates/core/src/registry/windows.rs
-msgid "typeface"
-msgstr ""
-
 #: crates/core/src/registry/look.rs crates/core/src/registry/value.rs
 msgid "text"
 msgstr ""
@@ -6276,10 +7502,6 @@ msgstr ""
 
 #: crates/core/src/registry/look.rs
 msgid "text scaling"
-msgstr ""
-
-#: crates/core/src/registry/look.rs
-msgid "font size"
 msgstr ""
 
 #: crates/core/src/registry/look.rs crates/core/src/registry/output.rs
@@ -6556,11 +7778,6 @@ msgstr ""
 msgid "Bottom left"
 msgstr ""
 
-#: crates/core/src/registry/notifications.rs
-#: crates/core/src/registry/windows.rs crates/gui/src/widgets/wallpaper/mod.rs
-msgid "Center"
-msgstr ""
-
 #. TRANSLATORS: The notification daemon's own colors.
 #: crates/core/src/registry/notifications.rs
 msgid "The daemon’s own"
@@ -6640,10 +7857,6 @@ msgstr ""
 msgid "jump to app"
 msgstr ""
 
-#: crates/core/src/registry/notifications.rs crates/core/src/registry/output.rs
-msgid "Position"
-msgstr ""
-
 #: crates/core/src/registry/notifications.rs
 msgid "Where on the display notifications show"
 msgstr ""
@@ -6657,14 +7870,6 @@ msgid "anchor"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
-msgid "top"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-msgid "bottom"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
 msgid "The name of the display, like DP-1; empty for the focused one"
 msgstr ""
 
@@ -6672,19 +7877,6 @@ msgstr ""
 msgid ""
 "Like the focused window follows the Windows page, with its border as the "
 "accent"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-msgid "accent"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-#: crates/core/src/registry/wallpaper.rs
-msgid "Background"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-msgid "Text"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
@@ -6753,16 +7945,7 @@ msgid "grouping"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
-#: crates/gui/src/widgets/setting_row.rs
-msgid "Font"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
 msgid "Border width"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-msgid "Rounded corners"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
@@ -6792,23 +7975,11 @@ msgid "Frosted glass looks best with blur behind notifications"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
-msgid "css"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
 msgid "swaync: Control center"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
-msgid "panel"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
 msgid "notification center"
-msgstr ""
-
-#: crates/core/src/registry/notifications.rs
-msgid "Height"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
@@ -6986,10 +8157,6 @@ msgid "arrange"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
-msgid "layout"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
 msgid "left"
 msgstr ""
 
@@ -7069,22 +8236,8 @@ msgstr ""
 msgid "Cursor & Tablet"
 msgstr ""
 
-#: crates/core/src/registry/page.rs crates/gui/src/widgets/wallpaper/preview.rs
-msgid "Displays"
-msgstr ""
-
 #: crates/core/src/registry/page.rs crates/gui/src/widgets/notifications.rs
 msgid "Sound"
-msgstr ""
-
-#: crates/core/src/registry/page.rs crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/notifications.rs
-msgid "Bluetooth"
-msgstr ""
-
-#: crates/core/src/registry/page.rs crates/core/src/scanners/list.rs
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Network"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -7097,10 +8250,6 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "Apps Look & Feel"
-msgstr ""
-
-#: crates/core/src/registry/page.rs
-msgid "Bar"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -7281,10 +8430,6 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "timezone"
-msgstr ""
-
-#: crates/core/src/registry/page.rs
-msgid "clock"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -7532,10 +8677,6 @@ msgid "brightness"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "backlight"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid ""
 "The brightness keys show the brightness as they change it, with swayosd-"
 "client in place of brightnessctl"
@@ -7739,6 +8880,16 @@ msgid "must be a UTF-8 locale like de_DE.UTF-8 or sr_RS.UTF-8@latin, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
+msgid ""
+"must be a module name like clock, custom/media or battery#bat2, without "
+"spaces"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a full path starting with /, without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
 msgid "boolean"
 msgstr ""
 
@@ -7824,10 +8975,6 @@ msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
 msgid "swaybg"
-msgstr ""
-
-#: crates/core/src/registry/wallpaper.rs
-msgid "Image"
 msgstr ""
 
 #: crates/core/src/registry/wallpaper.rs
@@ -8017,10 +9164,6 @@ msgstr ""
 
 #: crates/core/src/registry/windows.rs
 msgid "Focused window"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "active"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
@@ -8236,14 +9379,6 @@ msgid "Space between windows, in pixels"
 msgstr ""
 
 #: crates/core/src/registry/windows.rs
-msgid "spacing"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
-msgid "margin"
-msgstr ""
-
-#: crates/core/src/registry/windows.rs
 msgid "Outer gaps"
 msgstr ""
 
@@ -8352,10 +9487,6 @@ msgstr ""
 
 #: crates/core/src/registry/workspaces.rs
 msgid "Fixed, as you arrange them"
-msgstr ""
-
-#: crates/core/src/registry/workspaces.rs crates/gui/src/widgets/page_view.rs
-msgid "Placement"
 msgstr ""
 
 #: crates/core/src/registry/workspaces.rs
@@ -9116,16 +10247,7 @@ msgid "Close"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
-#: crates/gui/src/widgets/shortcuts/parts.rs
-msgid "Command"
-msgstr ""
-
-#: crates/gui/src/widgets/apps/dialogs.rs
 msgid "App"
-msgstr ""
-
-#: crates/gui/src/widgets/apps/dialogs.rs
-msgid "File"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
@@ -11294,10 +12416,6 @@ msgstr ""
 msgid "Title and Clear All"
 msgstr ""
 
-#: crates/gui/src/widgets/notifications.rs
-msgid "Media player"
-msgstr ""
-
 #: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/sound/mod.rs
 msgid "Volume"
 msgstr ""
@@ -12060,10 +13178,6 @@ msgstr ""
 msgid "Set…"
 msgstr ""
 
-#: crates/gui/src/widgets/region/time.rs crates/gui/src/widgets/region/zones.rs
-msgid "Time zone"
-msgstr ""
-
 #: crates/gui/src/widgets/region/time.rs
 msgid "Change the time zone"
 msgstr ""
@@ -12623,10 +13737,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs
 msgid "Sound cards"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/mod.rs
-msgid "Output"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/mod.rs

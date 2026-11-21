@@ -773,7 +773,7 @@ const SAMPLE_HOOKS: [&str; 4] = [
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
-    for (main, expected_files) in [("sway.conf", 19), ("swayfx.conf", 22)] {
+    for (main, expected_files) in [("sway.conf", 20), ("swayfx.conf", 23)] {
         let config = parse(&integration.join(main), &Disk);
         // parser.conf includes one file twice and one that doesn't exist, on purpose. The last
         // two includes of sway.conf (lines 43 and 46) only match while the integration tests run.
@@ -807,7 +807,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 103);
+    assert_eq!(generated.len(), 118);
     // The quotes for `wordexp` stay; sway removes them when it expands the path.
     let bg = find(&["output", "HEADLESS-1"], "bg");
     assert_eq!(bg.as_deref(), Some("'/etc/passwd' fit #285577"));

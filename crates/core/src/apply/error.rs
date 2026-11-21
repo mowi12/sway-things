@@ -87,6 +87,8 @@ pub enum ApplyError {
         /// The files.
         files: Vec<ConfigFile>,
     },
+    /// The module definitions of the bar (`bar.jsonc`) can't be read or written.
+    BarModules(crate::bar::ModulesError),
 }
 
 impl From<StateError> for ApplyError {
@@ -158,6 +160,7 @@ impl ApplyError {
             Self::ReloadWithoutSession => {
                 msg!("sway isn't running, so it can't reload its config").into()
             }
+            Self::BarModules(error) => error.text(),
             Self::Unwritten { files } => {
                 let names: Vec<&str> = files.iter().map(|file| file.file_name()).collect();
                 Text::new(msg!(
@@ -185,6 +188,7 @@ impl std::error::Error for ApplyError {
             Self::Command(error) => Some(error),
             Self::Ipc(error) => Some(error),
             Self::Write(error) => Some(error),
+            Self::BarModules(error) => Some(error),
             Self::NoCompositor(error) => error
                 .as_ref()
                 .map(|error| error as &(dyn std::error::Error + 'static)),
