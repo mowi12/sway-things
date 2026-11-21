@@ -42,7 +42,7 @@ use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, ShortcutList,
     SoundServer, TestArea, WorkspaceMap,
 };
-use super::{cursor, keyboard, look, shortcuts};
+use super::{capture, cursor, keyboard, look, shortcuts};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
@@ -194,7 +194,7 @@ impl PageView {
         let mut first = leading_sections(model, page, &body, &mut sections);
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
-        let mut files = BTreeSet::new();
+        let mut files: BTreeSet<ConfigFile> = capture::files(page).into_iter().collect();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
         let arrangement = (page == Page::Displays)
@@ -262,6 +262,7 @@ impl PageView {
             for widget in keyboard::below(model, &row)
                 .into_iter()
                 .chain(shortcuts::below(model, &row))
+                .chain(capture::below(model, &row))
             {
                 list.append(&list_row(&widget));
             }
@@ -676,6 +677,7 @@ fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
     }?;
     cursor::follow(model, &row);
     look::follow(&row);
+    capture::follow(model, &row);
     Some(row)
 }
 

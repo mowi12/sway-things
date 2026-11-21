@@ -164,6 +164,10 @@ pub enum Code {
     SettingSkipped,
     /// A stored setting can't be copied to GSettings, so apps that read it there don't get it.
     SettingNotCopied,
+    /// A part of Screenshots & Clipboard is switched on, but a program it runs isn't installed.
+    ToolMissing,
+    /// The clipboard history is on, and the user's config starts one of its own too.
+    HistoryTwice,
     /// A generated file holds what Sway Things generates.
     FileCurrent,
     /// A generated file doesn't exist and isn't needed.
@@ -223,6 +227,8 @@ impl Code {
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
             Self::HookProgram => "hook_program",
             Self::SettingNotCopied => "setting_not_copied",
+            Self::ToolMissing => "tool_missing",
+            Self::HistoryTwice => "history_twice",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
             Self::FileMissing => "file_missing",
@@ -265,7 +271,9 @@ impl Code {
             | Self::SettingsUnusable
             | Self::SettingsEntry
             | Self::SettingSkipped
-            | Self::SettingNotCopied => Section::Settings,
+            | Self::SettingNotCopied
+            | Self::ToolMissing
+            | Self::HistoryTwice => Section::Settings,
             Self::FileCurrent
             | Self::FileNotNeeded
             | Self::FileMissing
@@ -636,6 +644,14 @@ impl<V: Validate> Checkup<'_, V> {
         }
         progress(Step::Section(Section::Settings));
         self.settings(generated.as_deref(), &mut findings);
+        Self::tools(
+            crate::capture::tools::missing_for(
+                self.state,
+                crate::capture::tools::Program::installed,
+            ),
+            &mut findings,
+        );
+        self.history_twice(&mut findings);
         progress(Step::Section(Section::Generated));
         self.files(generated.as_deref(), &mut findings, &mut progress)
             .await;
@@ -1271,6 +1287,64 @@ impl<V: Validate> Checkup<'_, V> {
                 .with_hint(files.how_to_include()),
             );
         }
+    }
+
+    /// The parts of Screenshots & Clipboard that are on while a program they run is missing
+    /// ([`crate::capture::tools::missing_for`]): their keys do nothing but say so.
+    fn tools(
+        missing: Vec<(&'static str, Vec<crate::capture::tools::Program>)>,
+        findings: &mut Vec<Finding>,
+    ) {
+        for (key, programs) in missing {
+            let names: Vec<&str> = programs.iter().map(|program| program.name).collect();
+            let packages = crate::capture::tools::packages(&programs);
+            findings.push(
+                Finding::new(
+                    Code::ToolMissing,
+                    Severity::Problem,
+                    Text::new(msg!("{key} is on, but {programs} isn't installed."))
+                        .arg("key", key)
+                        .arg("programs", names.join(", ")),
+                )
+                .with_hint(
+                    Text::new(msg!(
+                        "Install the packages {packages} with your package manager."
+                    ))
+                    .arg("packages", packages.join(", ")),
+                )
+                .for_setting(key, None),
+            );
+        }
+    }
+
+    /// The clipboard history is on while a line of the user's config starts one of its own:
+    /// Sway Things then starts none, and the page's settings don't apply to it.
+    fn history_twice(&self, findings: &mut Vec<Finding>) {
+        let key = crate::capture::HISTORY;
+        if !crate::capture::is_on(self.state, key) {
+            return;
+        }
+        let Some(line) = crate::capture::clipboard::own_history(&self.status.config().directives)
+        else {
+            return;
+        };
+        findings.push(
+            Finding::new(
+                Code::HistoryTwice,
+                Severity::Warning,
+                Text::new(msg!(
+                    "{key} is on, but your config starts a clipboard history of its own at \
+                     {place}, so Sway Things starts none."
+                ))
+                .arg("key", key)
+                .arg("place", place(&line.file, line.line)),
+            )
+            .with_hint(msg!(
+                "Remove that line to have Sway Things keep the history, or switch the history off."
+            ))
+            .at(&line.file, line.line)
+            .for_setting(key, None),
+        );
     }
 
     fn conflicts(&self, findings: &mut Vec<Finding>) {

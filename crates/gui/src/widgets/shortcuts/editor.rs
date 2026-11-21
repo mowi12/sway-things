@@ -733,7 +733,7 @@ fn conflict_text(other: &Row, same: bool, fixed: bool) -> String {
 }
 
 /// The keysym of the first level of `keycode` in `layout`.
-fn first_level(display: &gdk::Display, keycode: u32, layout: u32) -> Option<String> {
+pub(crate) fn first_level(display: &gdk::Display, keycode: u32, layout: u32) -> Option<String> {
     display
         .map_keycode(keycode)?
         .into_iter()

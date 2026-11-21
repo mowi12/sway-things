@@ -12,6 +12,7 @@ pub mod apply;
 mod atomic;
 pub mod bindings;
 pub mod bluetooth;
+pub mod capture;
 pub mod command;
 pub mod conflict;
 pub mod cursor;

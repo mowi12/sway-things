@@ -16,6 +16,9 @@ _sway__things() {
             ",$1")
                 cmd="sway__things"
                 ;;
+            sway__things,clipboard)
+                cmd="sway__things__subcmd__clipboard"
+                ;;
             sway__things,doctor)
                 cmd="sway__things__subcmd__doctor"
                 ;;
@@ -31,14 +34,41 @@ _sway__things() {
             sway__things,open)
                 cmd="sway__things__subcmd__open"
                 ;;
+            sway__things,record)
+                cmd="sway__things__subcmd__record"
+                ;;
             sway__things,reset)
                 cmd="sway__things__subcmd__reset"
+                ;;
+            sway__things,screenshot)
+                cmd="sway__things__subcmd__screenshot"
                 ;;
             sway__things,set)
                 cmd="sway__things__subcmd__set"
                 ;;
             sway__things,show-generated)
                 cmd="sway__things__subcmd__show__subcmd__generated"
+                ;;
+            sway__things__subcmd__clipboard,clear)
+                cmd="sway__things__subcmd__clipboard__subcmd__clear"
+                ;;
+            sway__things__subcmd__clipboard,help)
+                cmd="sway__things__subcmd__clipboard__subcmd__help"
+                ;;
+            sway__things__subcmd__clipboard,pick)
+                cmd="sway__things__subcmd__clipboard__subcmd__pick"
+                ;;
+            sway__things__subcmd__clipboard__subcmd__help,clear)
+                cmd="sway__things__subcmd__clipboard__subcmd__help__subcmd__clear"
+                ;;
+            sway__things__subcmd__clipboard__subcmd__help,help)
+                cmd="sway__things__subcmd__clipboard__subcmd__help__subcmd__help"
+                ;;
+            sway__things__subcmd__clipboard__subcmd__help,pick)
+                cmd="sway__things__subcmd__clipboard__subcmd__help__subcmd__pick"
+                ;;
+            sway__things__subcmd__help,clipboard)
+                cmd="sway__things__subcmd__help__subcmd__clipboard"
                 ;;
             sway__things__subcmd__help,doctor)
                 cmd="sway__things__subcmd__help__subcmd__doctor"
@@ -55,14 +85,29 @@ _sway__things() {
             sway__things__subcmd__help,open)
                 cmd="sway__things__subcmd__help__subcmd__open"
                 ;;
+            sway__things__subcmd__help,record)
+                cmd="sway__things__subcmd__help__subcmd__record"
+                ;;
             sway__things__subcmd__help,reset)
                 cmd="sway__things__subcmd__help__subcmd__reset"
+                ;;
+            sway__things__subcmd__help,screenshot)
+                cmd="sway__things__subcmd__help__subcmd__screenshot"
                 ;;
             sway__things__subcmd__help,set)
                 cmd="sway__things__subcmd__help__subcmd__set"
                 ;;
             sway__things__subcmd__help,show-generated)
                 cmd="sway__things__subcmd__help__subcmd__show__subcmd__generated"
+                ;;
+            sway__things__subcmd__help__subcmd__clipboard,clear)
+                cmd="sway__things__subcmd__help__subcmd__clipboard__subcmd__clear"
+                ;;
+            sway__things__subcmd__help__subcmd__clipboard,pick)
+                cmd="sway__things__subcmd__help__subcmd__clipboard__subcmd__pick"
+                ;;
+            sway__things__subcmd__help__subcmd__hook,clipboard)
+                cmd="sway__things__subcmd__help__subcmd__hook__subcmd__clipboard"
                 ;;
             sway__things__subcmd__help__subcmd__hook,displays)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__displays"
@@ -75,6 +120,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__help__subcmd__hook,workspaces)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__workspaces"
+                ;;
+            sway__things__subcmd__hook,clipboard)
+                cmd="sway__things__subcmd__hook__subcmd__clipboard"
                 ;;
             sway__things__subcmd__hook,displays)
                 cmd="sway__things__subcmd__hook__subcmd__displays"
@@ -90,6 +138,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__hook,workspaces)
                 cmd="sway__things__subcmd__hook__subcmd__workspaces"
+                ;;
+            sway__things__subcmd__hook__subcmd__help,clipboard)
+                cmd="sway__things__subcmd__hook__subcmd__help__subcmd__clipboard"
                 ;;
             sway__things__subcmd__hook__subcmd__help,displays)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__displays"
@@ -113,8 +164,118 @@ _sway__things() {
 
     case "${cmd}" in
         sway__things)
-            opts="-h -V --color --help --version get set reset show-generated doctor open hook help"
+            opts="-h -V --color --help --version get set reset show-generated doctor open hook screenshot record clipboard help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard)
+            opts="-h --color --help pick clear help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__clear)
+            opts="-h --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__help)
+            opts="pick clear help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__help__subcmd__clear)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__help__subcmd__pick)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__clipboard__subcmd__pick)
+            opts="-h --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -171,8 +332,50 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help)
-            opts="get set reset show-generated doctor open hook help"
+            opts="get set reset show-generated doctor open hook screenshot record clipboard help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__clipboard)
+            opts="pick clear"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__clipboard__subcmd__clear)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__clipboard__subcmd__pick)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -227,8 +430,22 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook)
-            opts="gsettings displays workspaces mirror"
+            opts="gsettings displays workspaces mirror clipboard"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__clipboard)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -310,7 +527,35 @@ _sway__things() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        sway__subcmd__things__subcmd__help__subcmd__record)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         sway__subcmd__things__subcmd__help__subcmd__reset)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__screenshot)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -353,8 +598,26 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook)
-            opts="-h --color --help gsettings displays workspaces mirror help"
+            opts="-h --color --help gsettings displays workspaces mirror clipboard help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__clipboard)
+            opts="-h --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -407,8 +670,22 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__help)
-            opts="gsettings displays workspaces mirror help"
+            opts="gsettings displays workspaces mirror clipboard help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__clipboard)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -544,6 +821,24 @@ _sway__things() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        sway__subcmd__things__subcmd__record)
+            opts="-h --color --help region display"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         sway__subcmd__things__subcmd__reset)
             opts="-h --device --yes --overwrite --color --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -555,6 +850,24 @@ _sway__things() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__screenshot)
+            opts="-h --color --help region window display all"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
                 --color)
                     COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0

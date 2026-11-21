@@ -842,7 +842,7 @@ fn check_generated_footer() -> Outcome {
 
 /// The texts About & Maintenance shows besides the versions: the labels of the system details,
 /// their value for what doesn't run in tests (no bus, no sound server) and the project's links.
-const ABOUT_TEXTS: [&str; 15] = [
+const ABOUT_TEXTS: [&str; 23] = [
     "Sway Things",
     "Compositor",
     "GTK",
@@ -855,6 +855,14 @@ const ABOUT_TEXTS: [&str; 15] = [
     "blueman-manager",
     "pwvucontrol",
     "pavucontrol",
+    "grim",
+    "slurp",
+    "wl-copy",
+    "cliphist",
+    "swappy",
+    "satty",
+    "wf-recorder",
+    "wl-screenrec",
     "Website",
     "Source Code (GitHub)",
     "Report a Bug",
