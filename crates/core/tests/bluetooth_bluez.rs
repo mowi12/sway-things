@@ -14,7 +14,8 @@ use async_io::{Timer, block_on};
 use futures_lite::{StreamExt, future};
 use sway_things_core::bluetooth::stand_in::StandIn;
 use sway_things_core::bluetooth::{
-    Adapter, AgentEvent, Answer, Bluez, Error as BtError, Request, Snapshot,
+    Adapter, AgentEvent, Answer, Battery, Bluez, Charge, ChargeSource, Error as BtError, Level,
+    Request, Snapshot,
 };
 use zbus::zvariant::Value;
 
@@ -253,7 +254,213 @@ fn the_battery_level_is_read() -> Result<()> {
             )
             .await?;
         let snapshot = bluez.snapshot().await?;
-        assert_eq!(snapshot.device(&phone).and_then(|d| d.battery), Some(42));
+        // Only BlueZ: the percentage, and nothing about charging.
+        assert_eq!(
+            snapshot.device(&phone).and_then(|d| d.battery),
+            Some(Battery {
+                level: Level::Percent(42),
+                charge: Charge::Unknown
+            })
+        );
+        assert_eq!(snapshot.charge_source, ChargeSource::None);
+        Ok(())
+    })
+}
+
+const MOUSE: &str = "DF:54:EE:3C:AC:81";
+const KEYBOARD: &str = "CA:5D:65:B1:7F:7A";
+
+/// The stand-in with UPower: a mouse whose kernel driver reports its battery (charging), a
+/// keyboard that UPower knows from BlueZ (fully charged), the headset discharging, and the phone
+/// with a battery only in BlueZ, all connected, and the laptop's own battery. Our connection, the
+/// paths of the mouse's and the laptop's UPower devices, and of the BlueZ devices: mouse,
+/// keyboard, headset, phone.
+async fn with_batteries() -> Result<(StandIn, Bluez, [String; 2], [String; 4])> {
+    let (mut stand_in, bluez, phone) = with_phone().await?;
+    stand_in.start_upower().await?;
+    let mouse = stand_in.add_device("hci0", MOUSE, "Mouse").await?;
+    let keyboard = stand_in.add_device("hci0", KEYBOARD, "Keyboard").await?;
+    let headset = stand_in.add_device("hci0", HEADSET, "Headset").await?;
+    // Only a connected device's battery is live.
+    for device in [&mouse, &keyboard, &headset, &phone] {
+        stand_in
+            .update(
+                device,
+                "org.bluez.Device1",
+                &[("Connected", Value::from(true))],
+            )
+            .await?;
+    }
+    for (device, percent) in [(&mouse, 55u8), (&keyboard, 100), (&phone, 42)] {
+        stand_in
+            .add_properties(
+                device,
+                "org.bluez.Battery1",
+                &[("Percentage", Value::from(percent))],
+            )
+            .await?;
+    }
+    // As UPower 1.91 reports a Logitech mouse driven by hid-logitech-hidpp.
+    let mouse_battery = stand_in
+        .add_upower_device(
+            "mouse_hidpp_battery_7",
+            &[
+                ("NativePath", Value::from("hidpp_battery_7")),
+                ("Serial", Value::from(MOUSE.to_lowercase())),
+                ("Type", Value::from(5u32)),
+                ("State", Value::from(1u32)),
+                ("Percentage", Value::from(60.0f64)),
+                ("BatteryLevel", Value::from(1u32)),
+            ],
+        )
+        .await?;
+    stand_in
+        .add_upower_device(
+            "keyboard_dev_CA_5D_65_B1_7F_7A",
+            &[
+                ("NativePath", Value::from(keyboard.as_str())),
+                ("Serial", Value::from(KEYBOARD)),
+                ("Type", Value::from(6u32)),
+                ("State", Value::from(4u32)),
+                ("Percentage", Value::from(100.0f64)),
+                ("BatteryLevel", Value::from(1u32)),
+            ],
+        )
+        .await?;
+    stand_in
+        .add_upower_device(
+            "headset_dev_AA_BB_CC_DD_EE_FF",
+            &[
+                ("NativePath", Value::from(headset.as_str())),
+                ("Serial", Value::from(HEADSET)),
+                ("Type", Value::from(17u32)),
+                ("State", Value::from(2u32)),
+                ("Percentage", Value::from(40.4f64)),
+                ("BatteryLevel", Value::from(1u32)),
+            ],
+        )
+        .await?;
+    // The laptop's own battery, which is no device's even with a matching serial.
+    let laptop = stand_in
+        .add_upower_device(
+            "battery_BAT0",
+            &[
+                ("NativePath", Value::from("BAT0")),
+                ("Serial", Value::from(PHONE)),
+                ("Type", Value::from(2u32)),
+                ("State", Value::from(1u32)),
+                ("Percentage", Value::from(90.0f64)),
+                ("PowerSupply", Value::from(true)),
+            ],
+        )
+        .await?;
+    Ok((
+        stand_in,
+        bluez,
+        [mouse_battery, laptop],
+        [mouse, keyboard, headset, phone],
+    ))
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn upower_says_which_devices_charge() -> Result<()> {
+    run(async {
+        let (stand_in, bluez, _, [mouse, keyboard, headset, phone]) = with_batteries().await?;
+        let snapshot = bluez.snapshot().await?;
+        assert_eq!(snapshot.charge_source, ChargeSource::UPower);
+        let battery = |path: &str| snapshot.device(path).and_then(|d| d.battery);
+        let expected = |percent, charge| {
+            Some(Battery {
+                level: Level::Percent(percent),
+                charge,
+            })
+        };
+        assert_eq!(battery(&mouse), expected(60, Charge::Charging));
+        assert_eq!(battery(&keyboard), expected(100, Charge::Full));
+        assert_eq!(battery(&headset), expected(40, Charge::Discharging));
+        assert_eq!(battery(&phone), expected(42, Charge::Unknown));
+        // Disconnected, the mouse keeps only BlueZ's battery.
+        stand_in
+            .update(
+                &mouse,
+                "org.bluez.Device1",
+                &[("Connected", Value::from(false))],
+            )
+            .await?;
+        let snapshot = until(&bluez, |snapshot| {
+            snapshot.device(&mouse).is_some_and(|d| !d.connected)
+        })
+        .await?;
+        assert_eq!(
+            snapshot.device(&mouse).and_then(|d| d.battery),
+            expected(55, Charge::Unknown)
+        );
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn charging_changes_and_upower_going_away_are_reported() -> Result<()> {
+    run(async {
+        let (mut stand_in, bluez, [mouse_battery, laptop], [mouse, ..]) = with_batteries().await?;
+        // Read once, so the laptop's battery is known as the computer's.
+        bluez.snapshot().await?;
+        let mut changes = bluez.changes().await?;
+        // A change UPower makes all the time, one of the laptop's battery, then one the page
+        // shows.
+        stand_in
+            .update_upower_device(&mouse_battery, &[("UpdateTime", Value::from(1u64))])
+            .await?;
+        stand_in
+            .update_upower_device(&laptop, &[("Percentage", Value::from(89.0f64))])
+            .await?;
+        stand_in
+            .update_upower_device(
+                &mouse_battery,
+                &[
+                    ("State", Value::from(2u32)),
+                    ("Percentage", Value::from(41.0f64)),
+                ],
+            )
+            .await?;
+        changes.next().await.ok_or("the stream ended")?;
+        // Only one item: the update of the time was noise.
+        let extra = future::or(async { changes.next().await.is_some() }, async {
+            Timer::after(Duration::from_millis(500)).await;
+            false
+        })
+        .await;
+        assert!(
+            !extra,
+            "a change of UpdateTime only or of the laptop's battery was reported"
+        );
+        let snapshot = until(&bluez, |snapshot| {
+            snapshot.device(&mouse).and_then(|d| d.battery)
+                == Some(Battery {
+                    level: Level::Percent(41),
+                    charge: Charge::Discharging,
+                })
+        })
+        .await?;
+        assert_eq!(snapshot.charge_source, ChargeSource::UPower);
+
+        stand_in.stop_upower();
+        changes.next().await.ok_or("the stream ended")?;
+        // Without UPower (and on a bus that isn't the system's, without the kernel's supplies):
+        // BlueZ's percentage, nothing about charging.
+        let snapshot = until(&bluez, |snapshot| {
+            snapshot.charge_source == ChargeSource::None
+        })
+        .await?;
+        assert_eq!(
+            snapshot.device(&mouse).and_then(|d| d.battery),
+            Some(Battery {
+                level: Level::Percent(55),
+                charge: Charge::Unknown
+            })
+        );
         Ok(())
     })
 }

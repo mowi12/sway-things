@@ -4,8 +4,9 @@
 //! The Bluetooth page: the adapter's power, the paired devices and the ones around, live from
 //! BlueZ.
 //!
-//! The page reads a new snapshot whenever BlueZ reports a change, at most every [`THROTTLE`], and
-//! updates its rows in place. By default it looks for devices the whole time it is on screen and
+//! The page reads a new snapshot whenever BlueZ or UPower report a change, at most every
+//! [`THROTTLE`], and updates its rows in place; while the charging state comes from the kernel's
+//! power supplies, which report nothing, also every [`KERNEL_POLL`]. By default it looks for devices the whole time it is on screen and
 //! the radio is on; with the preference set to manual, only for [`SEARCH_FOR`] after _Search_,
 //! which shows only then. A search stops once the page leaves the screen, the radio goes off or
 //! another adapter is chosen.
@@ -22,12 +23,14 @@ mod search;
 
 use std::time::Duration;
 
+use futures_lite::StreamExt;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 use sway_things_core::bluetooth::rfkill::{self, Rfkill};
 use sway_things_core::bluetooth::{
-    AgentEvent, Bluez, Device, Error, Request, Snapshot, check_alias, parse_passkey, valid_pin,
+    AgentEvent, Bluez, ChargeSource, Device, Error, Request, Snapshot, check_alias, parse_passkey,
+    valid_pin,
 };
 use sway_things_core::delegate;
 
@@ -40,6 +43,9 @@ use crate::widgets::live::follow_changes;
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
+/// How often to read the snapshot again while the charging state comes from the kernel's power
+/// supplies, which don't report changes.
+const KERNEL_POLL: Duration = Duration::from_secs(30);
 /// How long to give the kernel after lifting the soft block before powering the adapter.
 const UNBLOCK_SETTLE: Duration = Duration::from_millis(500);
 /// How long a search started with _Search_ looks for devices.
@@ -110,6 +116,8 @@ struct DeviceRow {
     icon: gtk::Image,
     name: gtk::Label,
     status: gtk::Label,
+    /// The battery's level and whether it charges, as an icon; hidden without a battery.
+    battery: gtk::Image,
     button: gtk::Button,
     menu: gtk::MenuButton,
     /// Whether the row is in the list of paired devices.
@@ -342,6 +350,25 @@ impl BluetoothPage {
             child = widget.next_sibling();
         }
         out
+    }
+
+    /// The battery icon of the device named `name` and the note on its status, while the icon
+    /// shows; for tests.
+    pub fn device_battery(&self, name: &str) -> Option<(String, String)> {
+        let rows = self.imp().rows.borrow();
+        let row = rows.values().find(|row| row.name.text() == name)?;
+        row.battery.is_visible().then(|| {
+            (
+                row.battery
+                    .icon_name()
+                    .map(|icon| icon.to_string())
+                    .unwrap_or_default(),
+                row.status
+                    .tooltip_text()
+                    .map(|note| note.to_string())
+                    .unwrap_or_default(),
+            )
+        })
     }
 
     /// The action button of the device named `name`, for tests.
@@ -621,6 +648,25 @@ impl BluetoothPage {
                     return;
                 }
             };
+            // The kernel's power supplies report nothing: while they say whether devices charge,
+            // a tick now and then reads them again.
+            let ticks = futures_lite::stream::unfold(weak.clone(), |weak| async move {
+                loop {
+                    glib::timeout_future(KERNEL_POLL).await;
+                    let page = weak.upgrade()?;
+                    let polls = page
+                        .imp()
+                        .snapshot
+                        .borrow()
+                        .as_ref()
+                        .is_some_and(|snapshot| snapshot.charge_source == ChargeSource::Kernel);
+                    drop(page);
+                    if polls {
+                        return Some(((), weak));
+                    }
+                }
+            });
+            let changes = changes.or(Box::pin(ticks));
             follow_changes(changes, THROTTLE, || refresh(&weak, &bluez)).await;
         });
         self.imp().tasks.borrow_mut().push(task);
@@ -984,13 +1030,26 @@ fn update_row(
     } else {
         tr(msg!("Not paired · no name")).to_owned()
     };
-    row.status.set_text(&match device.battery {
-        Some(percent) if device.paired => trf(
-            msg!("{state} · Battery {percent} %"),
-            &[("state", &state), ("percent", &percent)],
+    let battery = device.battery.filter(|_| device.paired);
+    row.status.set_text(&match battery {
+        Some(battery) => trf(
+            // TRANSLATORS: A device's status: "Connected · Charging, 60 %".
+            msg!("{state} · {battery}"),
+            &[("state", &state), ("battery", &rows::battery_text(battery))],
         ),
-        _ => state,
+        None => state,
     });
+    let icon = battery.and_then(rows::battery_icon);
+    row.battery.set_icon_name(icon.as_deref());
+    row.battery.set_visible(icon.is_some());
+    let note = battery.map(|_| {
+        tr(msg!(
+            "The device estimates its battery level itself, so it can jump while charging and \
+             right after."
+        ))
+    });
+    row.status.set_tooltip_text(note);
+    row.battery.set_tooltip_text(note);
     let cancelable = running.is_some_and(Action::cancelable);
     let label = match running {
         Some(_) if cancelable => tr(msg!("Cancel")),

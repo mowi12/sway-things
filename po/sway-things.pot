@@ -9533,9 +9533,16 @@ msgstr ""
 msgid "Not paired · no name"
 msgstr ""
 
+#. TRANSLATORS: A device's status: "Connected · Charging, 60 %".
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #, rust-format
-msgid "{state} · Battery {percent} %"
+msgid "{state} · {battery}"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/mod.rs
+msgid ""
+"The device estimates its battery level itself, so it can jump while charging "
+"and right after."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
@@ -9655,6 +9662,44 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/network/rows.rs
 msgid "Forget…"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Fully charged"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#, rust-format
+msgid "Charging, {percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Charging"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#, rust-format
+msgid "Battery {percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Battery critical"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Battery low"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Battery normal"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Battery high"
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+msgid "Battery full"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/search.rs

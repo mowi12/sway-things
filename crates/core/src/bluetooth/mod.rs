@@ -11,6 +11,7 @@
 //! BlueZ's own state, which it keeps across reboots.
 
 mod agent;
+pub mod battery;
 mod bluez;
 pub mod rfkill;
 #[cfg(any(test, feature = "test-support"))]
@@ -23,6 +24,7 @@ use crate::i18n::Text;
 use crate::msg;
 
 pub use agent::{AgentEvent, Answer, Prompt, Request, parse_passkey, passkey_text, valid_pin};
+pub use battery::{Battery, Charge, ChargeSource, Coarse, Level};
 pub use bluez::Bluez;
 
 /// A Bluetooth adapter: the radio of the machine (a built-in chip or a USB dongle).
@@ -78,8 +80,9 @@ pub struct Device {
     pub connected: bool,
     /// Whether it may connect without asking.
     pub trusted: bool,
-    /// Its battery charge in percent, if it reports one.
-    pub battery: Option<u8>,
+    /// Its battery, if it reports one: BlueZ's percentage, or what UPower or the kernel report
+    /// with whether it charges (see [`battery`]).
+    pub battery: Option<Battery>,
 }
 
 /// What BlueZ reports right now: the adapters and their devices.
@@ -90,6 +93,8 @@ pub struct Snapshot {
     /// The devices of all adapters: connected ones first, then the paired ones, then those with a
     /// name, each by name.
     pub devices: Vec<Device>,
+    /// Where the devices' charging state comes from.
+    pub charge_source: ChargeSource,
 }
 
 impl Snapshot {
@@ -265,6 +270,7 @@ mod tests {
         let snapshot = Snapshot {
             adapters: Vec::new(),
             devices: vec![device("mine", false, true, true), other],
+            charge_source: ChargeSource::None,
         };
         let mine: Vec<&str> = snapshot
             .devices_of("/org/bluez/hci0")

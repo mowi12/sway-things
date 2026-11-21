@@ -36,6 +36,8 @@ anstyle = "1"
 async-channel = "2"
 async-io = "2"
 async-process = "2"
+# A thread pool for blocking reads (sysfs) off the main loop; async-process uses it already.
+blocking = "1"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4.6"
 clap_mangen = "0.3"

@@ -1604,6 +1604,7 @@ dependencies = [
  "async-channel",
  "async-io",
  "async-process",
+ "blocking",
  "futures-lite",
  "gio",
  "jiff",

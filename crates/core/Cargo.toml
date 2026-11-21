@@ -20,6 +20,7 @@ test-support = ["dep:tempfile"]
 async-channel.workspace = true
 async-io.workspace = true
 async-process.workspace = true
+blocking.workspace = true
 futures-lite.workspace = true
 gio.workspace = true
 jiff.workspace = true
