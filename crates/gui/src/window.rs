@@ -15,7 +15,7 @@ use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
 use crate::widgets::{
     BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
-    Placeholder, Sidebar, SoundPage, SoundServer, Welcome,
+    Placeholder, PrintService, PrintersPage, Sidebar, SoundPage, SoundServer, Welcome,
 };
 
 /// The width of the sidebar, in pixels.
@@ -38,7 +38,9 @@ mod imp {
     use sway_things_core::registry::Page;
 
     use crate::model::Model;
-    use crate::widgets::{BluetoothBus, NetworkBus, Panes, Sidebar, SoundServer, Welcome};
+    use crate::widgets::{
+        BluetoothBus, NetworkBus, Panes, PrintService, Sidebar, SoundServer, Welcome,
+    };
 
     #[derive(Debug, Default)]
     pub struct Window {
@@ -71,6 +73,8 @@ mod imp {
         pub network_bus: RefCell<NetworkBus>,
         /// Where the Sound page finds the sound server.
         pub sound_server: RefCell<SoundServer>,
+        /// Where the Printers page finds CUPS.
+        pub print_service: RefCell<PrintService>,
         /// The banner of the safety net: keep or revert the risky change that waits.
         pub safety: gtk::Revealer,
         pub safety_text: gtk::Label,
@@ -129,6 +133,7 @@ impl Window {
         window.imp().bluetooth_bus.replace(BluetoothBus::Off);
         window.imp().network_bus.replace(NetworkBus::Off);
         window.imp().sound_server.replace(SoundServer::Off);
+        window.imp().print_service.replace(PrintService::Off);
         window.build(model);
         window
     }
@@ -843,6 +848,17 @@ impl Window {
         self.imp().sound_server.replace(server);
     }
 
+    /// Points the Printers page at another CUPS than this computer's, for tests. Takes effect
+    /// when the page is built next.
+    pub fn use_print_service(&self, service: PrintService) {
+        self.imp().print_service.replace(service);
+    }
+
+    /// Where the Printers page finds CUPS; the About section asks it there too.
+    pub fn print_service(&self) -> PrintService {
+        self.imp().print_service.borrow().clone()
+    }
+
     /// Where the Sound page finds the sound server; the About section asks it there too.
     pub fn sound_server(&self) -> SoundServer {
         self.imp().sound_server.borrow().clone()
@@ -904,6 +920,15 @@ impl Window {
             let view = PageView::new(tr(page.title()), tr(page.description()), &body);
             if let (Some(header), Some(advanced)) = (view.header(), body.advanced_button()) {
                 header.set_end(&advanced);
+            }
+            return view;
+        }
+        // Live state from CUPS: nothing of it comes from the model.
+        if page == Page::Printers {
+            let body = PrintersPage::new(&self.imp().print_service.borrow());
+            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
+            if let Some(header) = view.header() {
+                header.set_end(&body.advanced_button());
             }
             return view;
         }

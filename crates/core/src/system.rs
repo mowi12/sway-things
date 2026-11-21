@@ -5,8 +5,9 @@
 //! `sway-things doctor`.
 //!
 //! Only what helps sorting out a bug and can be read cheaply and reliably: the versions of Sway
-//! Things, the compositor, GTK, the distribution, NetworkManager, the sound server and the kernel,
-//! and whether the tools the pages delegate to are installed. Not BlueZ (no version on D-Bus, and
+//! Things, the compositor, GTK, the distribution, NetworkManager, the sound server, CUPS and the
+//! kernel, whether cups-pk-helper is there, and whether the tools the pages delegate to are
+//! installed. Not BlueZ (no version on D-Bus, and
 //! `bluetoothd` lives in a different place per distribution) and not wlroots (neither sway's IPC
 //! nor `sway --version` report it).
 
@@ -18,6 +19,7 @@ use crate::i18n::{Msg, Text};
 use crate::ipc::Compositor;
 use crate::msg;
 use crate::network::{NetworkManager, clean};
+use crate::printers::Cups;
 use crate::sound::Sound;
 
 /// The version of Sway Things.
@@ -30,11 +32,18 @@ const OS_RELEASE: [&str; 2] = ["/etc/os-release", "/usr/lib/os-release"];
 const KERNEL_RELEASE: &str = "/proc/sys/kernel/osrelease";
 
 /// The tools the pages delegate to, in the order they are listed.
-pub const TOOLS: [Tool; 4] = [
+pub const TOOLS: [Tool; 5] = [
     delegate::NM_CONNECTION_EDITOR,
     delegate::BLUEMAN,
     delegate::PWVUCONTROL,
     delegate::PAVUCONTROL,
+    delegate::SYSTEM_CONFIG_PRINTER,
+];
+
+/// Where D-Bus finds the system services it starts on demand, cups-pk-helper among them.
+const SYSTEM_SERVICES: [&str; 2] = [
+    "/usr/share/dbus-1/system-services",
+    "/usr/local/share/dbus-1/system-services",
 ];
 
 /// The heading of the details in `doctor`.
@@ -56,6 +65,11 @@ pub struct Details {
     /// The sound server's name with its version (`PulseAudio (on PipeWire 1.6.9)`); `None` while
     /// none runs.
     pub sound_server: Option<String>,
+    /// CUPS's version (`2.4`); `None` while it isn't running.
+    pub cups: Option<String>,
+    /// Whether cups-pk-helper is installed, which makes printer changes for users CUPS doesn't
+    /// let make them.
+    pub cups_pk_helper: bool,
     /// The kernel release.
     pub kernel: Option<String>,
     /// Whether each of [`TOOLS`] is installed, in that order.
@@ -99,13 +113,14 @@ impl Value {
 
 impl Details {
     /// Reads the details. `compositor` and `gtk` come from the caller, which knows them;
-    /// NetworkManager is asked on `network_manager`'s bus and the sound server on the `sound`
-    /// connection, if there are those.
+    /// NetworkManager is asked on `network_manager`'s bus, the sound server on the `sound`
+    /// connection and CUPS through `cups`, if there are those.
     pub async fn read(
         compositor: Option<Compositor>,
         gtk: Option<String>,
         network_manager: Option<&NetworkManager>,
         sound: Option<&Sound>,
+        cups: Option<&Cups>,
     ) -> Self {
         let network_manager = match network_manager {
             Some(nm) => nm.version().await,
@@ -115,12 +130,23 @@ impl Details {
             Some(sound) => sound.server().await.ok().map(|server| server.label()),
             None => None,
         };
+        let cups = match cups {
+            Some(cups) => cups.version().await,
+            None => None,
+        };
+        let cups_pk_helper = SYSTEM_SERVICES.iter().any(|dir| {
+            Path::new(dir)
+                .join("org.opensuse.CupsPkHelper.Mechanism.service")
+                .exists()
+        });
         Self {
             compositor,
             gtk,
             distribution: distribution(&OS_RELEASE.map(Path::new)),
             network_manager,
             sound_server,
+            cups,
+            cups_pk_helper,
             kernel: kernel(Path::new(KERNEL_RELEASE)),
             tools: TOOLS
                 .iter()
@@ -163,6 +189,18 @@ impl Details {
                 self.sound_server
                     .clone()
                     .map_or(Value::NotRunning, Value::Text),
+            ),
+            (
+                Text::data("CUPS"),
+                self.cups.clone().map_or(Value::NotRunning, Value::Text),
+            ),
+            (
+                Text::data("cups-pk-helper"),
+                if self.cups_pk_helper {
+                    Value::Installed
+                } else {
+                    Value::NotInstalled
+                },
             ),
             (
                 // TRANSLATORS: A label of the system details: the version of the Linux kernel.
@@ -265,6 +303,8 @@ mod tests {
             distribution: Some("openSUSE Tumbleweed".to_owned()),
             network_manager: Some("1.52.0".to_owned()),
             sound_server: Some("PulseAudio (on PipeWire 1.6.9)".to_owned()),
+            cups: Some("2.4".to_owned()),
+            cups_pk_helper: true,
             kernel: Some("6.17.7-1-default".to_owned()),
             tools: vec![
                 (delegate::NM_CONNECTION_EDITOR, true),
@@ -284,6 +324,8 @@ mod tests {
                  Distribution: openSUSE Tumbleweed\n\
                  NetworkManager: 1.52.0\n\
                  Sound server: PulseAudio (on PipeWire 1.6.9)\n\
+                 CUPS: 2.4\n\
+                 cups-pk-helper: installed\n\
                  Kernel: 6.17.7-1-default\n\
                  nm-connection-editor: installed\n\
                  blueman-manager: not installed\n"
@@ -299,6 +341,8 @@ mod tests {
             distribution: None,
             network_manager: None,
             sound_server: None,
+            cups: None,
+            cups_pk_helper: false,
             kernel: None,
             ..details()
         };
@@ -311,6 +355,8 @@ mod tests {
                  Distribution: unknown\n\
                  NetworkManager: not running\n\
                  Sound server: not running\n\
+                 CUPS: not running\n\
+                 cups-pk-helper: not installed\n\
                  Kernel: unknown\n\
                  nm-connection-editor: installed\n\
                  blueman-manager: not installed\n"

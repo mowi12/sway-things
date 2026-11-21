@@ -34,9 +34,9 @@ single hand-written line changes.
 2. **Cover the companion tools** (kanshi, waybar/swaybar, swayidle, swaylock, notification daemons, night light,
    wallpaper, launchers) through **pluggable, auto-detected backends**: sway users choose their tools deliberately, so
    the app adapts to the ones they run and never fights a script of their own.
-3. **Cover the system basics natively** (sound, Bluetooth, Wi-Fi, power profile, battery, time zone), which is what
-   makes it feel like a complete settings app. "Advanced…" buttons hand off to specialist tools instead of duplicating
-   them.
+3. **Cover the system basics natively** (sound, Bluetooth, Wi-Fi, printers, power profile, battery, time zone), which is
+   what makes it feel like a complete settings app. "Advanced…" buttons hand off to specialist tools instead of
+   duplicating them.
 4. **Be safe**: memory-safe code, no privileged code, no shell strings, never write user files, a 15 s revert for risky
    changes.
 5. **Be transparent**: every generated line is visible, every conflict points to file:line, every setting can be reset.
@@ -53,7 +53,7 @@ single hand-written line changes.
 | A resident daemon | Smaller attack surface. Runtime behavior goes to existing tools |
 | Root helpers or setuid code | Only polkit-guarded D-Bus services |
 | Flatpak | The sandbox would need holes that make it pointless |
-| Full network, printer or user-account editors | Delegate to nm-connection-editor, system-config-printer, … |
+| Full network or user-account editors, printer drivers | Delegate to nm-connection-editor, system-config-printer, … |
 | Magnifier, sticky keys, color inversion | Not supported by sway/wlroots |
 | Comment-preserving edits of user config files | Unnecessary, because we never edit user files |
 | A "desktop shell" (own bar, launcher, notification daemon) | We configure existing tools, we don't replace them |
@@ -62,10 +62,16 @@ single hand-written line changes.
 
 | Group | Pages | Depth |
 | --- | --- | --- |
-| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network | sway-native pages are complete; Sound, Bluetooth and Network cover the basics natively, then delegate |
+| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network · Printers | sway-native pages are complete; Sound, Bluetooth, Network and Printers cover the basics natively, then delegate |
 | **Appearance** | Windows (incl. SwayFX effects) · Wallpaper · Apps Look & Feel · Bar | complete, through backends |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard | complete, through backends |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance | basics natively; anything that needs a root file edit is read-only with instructions |
+
+**Printers** are in scope: the page reads and changes CUPS's own state (the queues, the default printer, the jobs), adds
+driverless printers (IPP Everywhere, AirPrint, IPP over USB) and leaves printers that need a driver to
+system-config-printer through _Advanced…_. It needs no root: CUPS lets the members of its administrator group make
+changes over its socket, and for everyone else cups-pk-helper (polkit) does. Sway Things never asks for a password
+itself and never contacts a printer; CUPS and Avahi do.
 
 The item-level scope is in the [Feature Catalog](Feature-Catalog.md).
 
