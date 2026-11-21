@@ -231,6 +231,48 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
 - **New workspaces:** _Layout of new workspaces_, _Split of new workspaces_ and _Back and forth_, which were on Window
   Behavior.
 
+### Bar
+
+waybar, the bar most sway users run, set up without editing JSON and CSS by hand; swaybar as the alternative.
+
+- **Bar program:** _Not set up here_ (the default: whatever bar the user runs stays as it is), _waybar_ or _swaybar
+  (built into sway)_. The other rows are locked until a program is chosen; waybar's own options (layer, margins,
+  modules, stylesheet) until it is waybar.
+- **How it runs**, below the choice, in plain sentences: who starts waybar. Without a line of the user's, Sway Things
+  starts it with its own files when sway starts, and right away the first time. If the user's sway config starts waybar
+  (an `exec` line, or `swaybar_command waybar` in a `bar` block), the page shows the file and line and the line to put
+  there instead, with _Copy_; for a waybar that runs as a systemd service (or that a line starts with `systemctl`), the
+  drop-in to add. A line that runs a script naming waybar may start it: the page says it can't tell, starts no second
+  bar, and offers the line to use instead. Whether ours runs, with _Reload waybar_, and what went wrong when it was last
+  started (not installed, or it ended at once). A `bar` block of the user's that starts swaybar next to ours is a
+  warning with its line. If waybar isn't installed, the page says to install it or choose swaybar.
+- **Import as Starting Point…**: shown while the user has a waybar config of their own. It asks first, then the bar set
+  up here becomes the user's (where it stands, the module lists, every module with all its options, the user's
+  stylesheet read after ours with no look of ours under it), and says in a dialog what couldn't be taken over (a second
+  bar, an include that needs a shell, displays picked with `!`). The user's files are only read.
+- **Placement:** position (swaybar only top or bottom), height (0 fits the modules), a check button per display (none
+  checked: all), layer, margins, _Reserve space_ and the space between modules.
+- **Modules:** three areas (_Left_, _Center_, _Right_; top to bottom for a vertical bar) with the modules as chips. A
+  chip shows the module's name as the catalog has it (_Battery (bat2)_ for an instance), a warning icon where what it
+  needs isn't there (no battery, no backlight, a program that isn't installed), and ×. Drag it within or between areas;
+  with the keyboard, Alt+←/→ move it in its area, Alt+↑/↓ to the area above or below, Delete removes it, Enter opens its
+  settings. _Add Module…_ in each area offers the catalog (with what each needs), _Custom module…_ (a name and the
+  command, its interval or signal, plain text or JSON output; the command is stored and shown as written, waybar runs
+  it) and the templates. A template's script that is there already and was changed stays as it is, and the page says so.
+  The unofficial usage modules of command line agents are a group of their own with a note that they use the tool's own
+  login and an undocumented endpoint that may change or break.
+- **A module's settings:** a dialog with a field per option the page knows (format strings with _Shows as_ below them,
+  numbers, on/off, choices; empty means waybar's default) and the rest of its options as JSON, kept as they are. _Reset
+  to Default_ goes back to waybar's default definition.
+- **Style:** _Look_ is waybar's own stylesheet (the default), _None: only your own stylesheet_, _Sway's window colors_
+  (follows the colors of the Windows page and the user's config) or _Your colors_ (background, text, under the pointer,
+  focused workspace, warning, critical, urgent workspace). The shape (one bar or a pill per module), font, padding,
+  rounded corners and background opacity apply to the generated looks. _Your own stylesheet_ is read after ours, so its
+  rules win, and stays the user's. Presets set several at once: _Glass_, _Sway_, _waybar_. On SwayFX, _Blur behind the
+  bar_ (with the bar above floating windows).
+- **Applied:** at once: waybar reads its files again (only the waybar that runs ours), swaybar changes live. Handing the
+  bar back hides swaybar until sway reloads, and ends the waybar Sway Things started.
+
 ### Sound
 
 The Sound page shows the sound server's live state (pipewire-pulse or PulseAudio); nothing of it is stored by Sway
@@ -508,13 +550,14 @@ line is little to ask for it. On first run (or whenever the line is missing) it 
 When a tool is configured by a hand-written file that we may not write (e.g. `~/.config/waybar/config.jsonc`):
 
 ```text
-Your waybar uses ~/.config/waybar/config.jsonc (not created by Sway Things).
+Your sway config starts waybar with its own config (~/.config/sway/config:334). To use the bar set up
+here, change that line to:
+  swaybar_command waybar -c ~/.config/sway-things/waybar/config.jsonc -s ~/.config/sway-things/waybar/style.css  [Copy]
 
-To manage the bar here, Sway Things keeps its own copy:
-  1. [Import as starting point]  (reads your file, changes nothing)
-  2. Start waybar with:  waybar -c ~/.config/sway-things/waybar/config.jsonc \
-                                -s ~/.config/sway-things/waybar/style.css   [Copy]
+Your waybar config: ~/.config/waybar/config.jsonc        [Import as Starting Point…]
 ```
+
+Without a line of the user's that starts the tool, our include starts it with our files.
 
 For tools with include support (sway, kanshi), the flow is the same as the first-run instructions: one line to paste.
 
