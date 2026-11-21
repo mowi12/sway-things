@@ -260,27 +260,74 @@ The numbered workspaces you reach with `$mod+1` … `$mod+0`, and where they are
 
 ### Keyboard Shortcuts
 
-- **One list of every binding:** the user's, with file and line, and those of Sway Things, grouped by what they do
-  (windows, workspaces, apps, media, system, other) and then by mode. A row shows the keys as keycaps the way people
-  read them (`Super` + `Shift` + `E`, `Enter` for `Return`, `Volume Up`, a keycode by the key the keyboard gives it),
-  what the binding does in words for common commands with the command below, its options in words (_also on the lock
-  screen_, _the same key in every layout_, _by keycode_, _on release_) and where it comes from: a file and line, _Added
-  here_, _Changed here_ with what the config binds, _Removed here_.
-- **Search** matches keys (also as shown), commands, descriptions and modes; every word must match.
-- **Clashes** show on the row with a warning sign: a later line on the same keys takes the place of an earlier one (both
-  rows say so, with file and line), an unbind of the user's removes it, a keycode binding wins over a keysym binding of
-  the same key (the keyboard's keymap tells), a `--locked` binding only runs on the lock screen next to one without it.
-- **Add, change, remove:** _Add Shortcut…_ and each row's ⋮ menu (_Change…_, _Remove_, _Back to Your Config's Binding_,
-  _Open in Editor_) open a dialog: a field that takes the keys as they are pressed (sway passes every key to it
-  meanwhile; Esc stops, Backspace clears), what the binding does (open an app, run a command, focus or move a window, go
-  to or move to a workspace, close, fullscreen, floating, or a sway command, which must start with a command sway
-  knows), _Also on the lock screen_ and _The same key in every keyboard layout_. A key that types (a letter, Enter)
-  needs Super, Ctrl or Alt; F1, Print and the media keys work alone. AltGr counts as `Mod5`. Keys in use say by what;
-  saving puts the new binding in their place. Keys of a media key group or of a line read after Sway Things' file can't
-  be taken, and the dialog says why. The change applies at once, without a reload.
+GNOME Settings' _Keyboard Shortcuts_ is the model: a quiet list to find a key and what it does, with everything else one
+click away in the binding's dialog.
+
+```text
+ SHORTCUTS                                                             ⌄
+ ┌ 🔍 Search by action or keys ──────────────────┐ ┌ + Add Shortcut… ┐
+
+ Windows
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ Close the window                          [Super] + [Shift] + [Q] │
+ │ Split horizontally            Removed  ↶        [Super] + [B]     │
+ │ Toggle fullscreen                       ⚠     [Super] + [F]       │
+ └──────────────────────────────────────────────────────────────────┘
+ Media
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ Raise the volume                         🔒       [Volume Up]     │
+ └──────────────────────────────────────────────────────────────────┘
+```
+
+- **One list of every binding, one line each:** the user's and those of Sway Things, in few groups by what they do
+  (_Windows_, _Workspaces_, _Apps_, _Media_, _System and Other_) and then one per mode (_Mode “resize”_); empty groups
+  are left out. A row says what the binding does in words on the left (_Close the window_, _Raise the volume_, _Lock the
+  screen_, _Take a screenshot of an area_; a command without words shows as it is, in monospace, cut off with its whole
+  text as the tooltip) and its keys as keycaps on the right, right-aligned so they form a column, the way people read
+  them (`Super` + `Shift` + `E`, `Enter` for `Return`, `Volume Up`, `−` for `minus`, a keycode by the key the keyboard
+  gives it). Nothing else is on the row unless there is something to say, and then only as a small sign before the keys,
+  with the reason as its tooltip (and its accessible description):
+  - a **warning sign** when the binding isn't in effect, or only on the lock screen: a later line on the same keys takes
+    its place, an unbind of the user's removes it, a keycode binding of the same key wins (the keyboard's keymap tells),
+    or a `--locked` binding runs only on the lock screen next to one without it;
+  - a **lock** when it can't be changed here: a line read after Sway Things' file, a binding of a mode, keys that need
+    quotes, a key of a media key group (_Part of the volume keys, switched on below._);
+  - _Removed_ and the keys struck through for a binding of the user's that Sway Things removes;
+  - a round **↶ button** (_Back to Your Config's Binding_) on a binding of the user's that Sway Things changed or
+    removes, which puts it back at once, like GNOME's reset of a changed shortcut.
+- **Search** sits above the list, as wide as it: it matches what a binding does (in the user's language and in English),
+  its command, its mode and its keys, as written and as shown, so _super enter_, _super+shift+q_ and _Super + Shift + Q_
+  all find theirs; every word must match. Without a match the list gives way to _No Shortcuts Found_ with a hint (_No
+  Shortcuts Yet_ when nothing binds any key).
+- **A click on a row opens its dialog** (Enter and Space too: the rows are activatable). _Add Shortcut…_ opens the same
+  dialog empty. It shows, from top to bottom:
+  - the **keys** as large keycaps in a field; a click (or, for a new shortcut, opening the dialog) makes it listen:
+    outlined in the accent, _Press the new shortcut…_ with _Esc to cancel · Backspace to clear_. Sway passes every key
+    to it meanwhile. While modifiers are held, a box below the field lists the **keys taken** with exactly those
+    modifiers, as small keycaps with what each does as its tooltip (_Taken with Super:_ `1` `2` `D` `Space` …), so a
+    free key is easy to pick; without a modifier held it says to hold one;
+  - once keys are pressed, a line says whether they are **free** (a check, _These keys are free._), **in use** (a
+    warning sign, _In use by “Close the window” (file:line). Saving puts this in its place._) or **taken** by a binding
+    that can't be replaced here (an error sign; Save stays off). The binding's own keys say nothing;
+  - the binding's **clashes** in words, each with a warning sign (_Takes the place of fullscreen at file:line_);
+  - _Action_: what the binding does (open an app, run a command, focus or move a window, go to or move to a workspace,
+    close, fullscreen, floating, or a sway command, which must start with a command sway knows), _Also on the lock
+    screen_ and _The same key in every keyboard layout_. A key that types (a letter, Enter) needs Super, Ctrl or Alt;
+    F1, Print and the media keys work alone. AltGr counts as `Mod5`. Why it can't be saved shows in the line below the
+    keys, with an error sign;
+  - _Details_, collapsed: the command (monospace, selectable), its options in words (_also on the lock screen_, _the
+    same key in every layout_, _by keycode_, _on release_), _Defined in_ with the file and line and _Open in Editor_,
+    and what Sway Things made of it (_Added here_, _Changed here; your config binds …_, _Removed here_). For a binding
+    of the user's, a note says their config stays as it is;
+  - the buttons: _Remove_ and _Back to Your Config's Binding_ at the start, _Cancel_ and _Save_ at the end. Enter saves,
+    Esc closes (while the field listens, Esc only stops it). The change applies at once, without a reload.
+- **A binding that can't be changed here** opens the same dialog to look at: its title is what it does, the keys show
+  without listening, a lock says why (_Read after Sway Things' file, so it can only be changed in your config._), the
+  details are expanded with _Open in Editor_ as the main button, and _Close_. A binding of another setting links to it:
+  a key of a media key group has _Show Switch_, which closes the dialog and points to its switch; a key that a setting
+  of another page owns gets _Open_ and the name of that page, which opens it at the setting.
 - **Never in the user's file:** a binding of the config is removed with `unbindsym` in Sway Things' file and, for a
-  change, bound again there; _Back to Your Config's Binding_ undoes it. Lines read after the include line, bindings of
-  modes and keys that need quotes can't be changed here; their row says so and offers the editor.
+  change, bound again there; _Back to Your Config's Binding_ undoes it.
 - **Main modifier:** _Super_ or _Alt_ for what `$mod` means in the bindings Sway Things writes. The user's own lines
   keep the `$mod` they were read with, since sway replaces a variable when it reads a line; the row says so.
 - **Media keys:** a switch each for the volume (`wpctl`), brightness (`brightnessctl`) and media player keys

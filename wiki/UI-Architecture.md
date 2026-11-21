@@ -94,16 +94,21 @@
   all keyboards, the first usable one) and switches them (`Model::switch_layout`, only in a session). The keyboard model
   is a drop-down of the rules' models, and _Try it_ is a field to type in at the end of the section.
 - **Keyboard Shortcuts page** (`crates/gui/src/widgets/shortcuts/`): `PageView` starts the page with a `ShortcutList`
-  section: a search field, _Add Shortcut…_, and a list per category and per mode of the rows of `Model::bindings` (the
-  core's `Listing` for the model's status and state, with a `GdkKeymap` from `gdk::Display::map_keycode`), rebuilt when
-  the model changes. A row has the keys as keycaps, the description and command, its options and origin, its clashes
-  with a warning sign, and a ⋮ popover (_Change…_, _Remove_, _Back to Your Config's Binding_, _Open in Editor_), whose
-  changes store the list `bindings::edit` makes (`Model::set` of `shortcuts.bindings`). The `Editor` dialog is a modal
-  `gtk::Window`; its key field listens with an `EventControllerKey` in the capture phase and asks for every key
-  (`gdk::Toplevel::inhibit_system_shortcuts`) while it does, taking the keysym of the key's first level in the event's
-  layout, so Shift+1 is `Shift+1` as sway's raw keysyms see it. The apps it offers are `gio::AppInfo::all()` with the
-  field codes of their command lines left out. The list item has no row; a media key switch has one only while its
-  program is installed or it is stored, with what its keys clash with below it.
+  section: a search field, _Add Shortcut…_, and a `ListBox` per group (the categories, "other" under "system", then one
+  per mode) of the rows of `Model::bindings` (the core's `Listing` for the model's status and state, with a `GdkKeymap`
+  from `gdk::Display::map_keycode`), rebuilt when the model changes. A row (`row.rs`) is an activatable `ListBoxRow`
+  with one line: what the binding does (`Row::description`, else the command) and the keycaps, between them only a
+  warning sign (not in effect), a lock (`locked_reason`) or the ↶ button (`bindings::edit::restore`), the reasons as
+  tooltips and accessible descriptions. Activating a row opens the `Editor` dialog for it, a modal `gtk::Window` with
+  the keys, the line that says whether they are free, the clashes, the action, the details (`gtk::Expander`) and
+  _Remove_ / _Back to Your Config's Binding_ / _Save_; their changes store the list `bindings::edit` makes (`Model::set`
+  of `shortcuts.bindings`). A binding that isn't `Row::editable` opens it read only, with a button to the setting that
+  owns it (`owner`, opened through `Window::open_link`). Its key field listens with an `EventControllerKey` in the
+  capture phase and asks for every key (`gdk::Toplevel::inhibit_system_shortcuts`) while it does, taking the keysym of
+  the key's first level in the event's layout, so Shift+1 is `Shift+1` as sway's raw keysyms see it; the modifiers held
+  meanwhile list the keys taken with them. The apps it offers are `gio::AppInfo::all()` with the field codes of their
+  command lines left out. The list item has no row; a media key switch has one only while its program is installed or it
+  is stored, with what its keys clash with below it.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
