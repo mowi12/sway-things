@@ -120,6 +120,9 @@ pub enum ConfigFile {
     Behavior,
     /// `50-bindings.conf`: the key bindings of the Keyboard Shortcuts page.
     Bindings,
+    /// `70-autostart.conf`: the autostart entries of the Apps & Autostart page and the runner of
+    /// the XDG autostart entries.
+    Autostart,
     /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`.
     Hooks,
     /// `90-effects.conf`: SwayFX directives only, written only while SwayFX runs.
@@ -128,12 +131,13 @@ pub enum ConfigFile {
 
 impl ConfigFile {
     /// Every generated file, in the order of their names, which is the order sway reads them in.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Input,
         Self::Output,
         Self::Appearance,
         Self::Behavior,
         Self::Bindings,
+        Self::Autostart,
         Self::Hooks,
         Self::Effects,
     ];
@@ -146,6 +150,7 @@ impl ConfigFile {
             Self::Appearance => "30-appearance.conf",
             Self::Behavior => "40-behavior.conf",
             Self::Bindings => "50-bindings.conf",
+            Self::Autostart => "70-autostart.conf",
             Self::Hooks => "80-hooks.conf",
             Self::Effects => "90-effects.conf",
         }

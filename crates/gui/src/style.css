@@ -375,3 +375,32 @@ button.st-shortcut-capture {
   padding: 10px;
   font-weight: bold;
 }
+
+/* Apps & Autostart: the notes below a row, the list of what starts at login. */
+.st-apps-note {
+  padding: 0 0 4px 0;
+}
+
+.st-apps-warning > image {
+  margin-top: 2px;
+}
+
+.st-apps-desktop {
+  margin: 0 4px 10px 4px;
+}
+
+.st-autostart {
+  margin-top: 14px;
+}
+
+.st-autostart .st-apps-bar {
+  margin: 0 2px;
+}
+
+.st-autostart .st-apps-heading {
+  margin: 14px 0 6px 2px;
+}
+
+.st-autostart-row {
+  padding: 4px 0;
+}

@@ -440,7 +440,7 @@ fn labels(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Vec<Stri
 }
 
 /// The keys as keycaps: a framed label per key.
-fn keycaps(labels: &[String]) -> gtk::Box {
+pub(crate) fn keycaps(labels: &[String]) -> gtk::Box {
     let keys = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     keys.add_css_class("st-keycaps");
     for (index, text) in labels.iter().enumerate() {
@@ -467,7 +467,7 @@ fn label(text: &str, classes: &[&str]) -> gtk::Label {
 }
 
 /// Where a binding is, to show: the user's file and line, or what of Sway Things it is.
-fn place(source: &Source) -> String {
+pub(crate) fn place(source: &Source) -> String {
     match source.origin {
         Origin::User => format!("{}:{}", tilde(&source.file), source.line),
         Origin::Group(key) => Group::of(key).map_or_else(String::new, |group| {
@@ -479,7 +479,18 @@ fn place(source: &Source) -> String {
         Origin::Item(_) | Origin::Placeholder(_) => {
             tr(msg!("a shortcut of Sway Things")).to_owned()
         }
+        Origin::App(key) => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("the {app} binding of Sway Things"),
+                &[("app", &tr(title).to_lowercase())],
+            )
+        }),
     }
+}
+
+/// What the binding of the Apps & Autostart page with the setting `key` opens.
+fn app_title(key: &str) -> Option<Msg> {
+    sway_things_core::apps::launchers::Binding::of(key).map(|binding| binding.title)
 }
 
 /// The options of a binding in words.
@@ -554,12 +565,18 @@ fn status_lines(row: &Row, listing: &Listing, keymap: Option<&dyn Keymap>) -> Ve
                 &[("group", &tr(group.title))],
             )
         }),
+        RowKind::App { key } => app_title(key).map_or_else(String::new, |title| {
+            trf(
+                msg!("{app}, chosen on Apps & Autostart"),
+                &[("app", &tr(title))],
+            )
+        }),
     });
     lines
 }
 
 /// The line that says how a binding clashes with another, with a warning sign.
-fn clash_line(clash: &Clash) -> gtk::Box {
+pub(crate) fn clash_line(clash: &Clash) -> gtk::Box {
     let place = place(&clash.source);
     let command = clash.command.as_deref().unwrap_or_default();
     let args: &[(&str, &dyn std::fmt::Display)] = &[("place", &place), ("command", &command)];

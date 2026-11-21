@@ -153,7 +153,9 @@ pub fn change(
                 items
             }
         }
-        RowKind::Removed { .. } | RowKind::Group { .. } => return items.to_vec(),
+        RowKind::Removed { .. } | RowKind::Group { .. } | RowKind::App { .. } => {
+            return items.to_vec();
+        }
     };
     // The bindings it takes the place of: Sway Things' go, the user's are removed. Their unbinds
     // are plain items, not changes.
@@ -184,7 +186,7 @@ pub fn remove(listing: &Listing, items: &[String], index: usize) -> Vec<String> 
                 *slot = item_text(&original.unbinding());
             }
         }
-        RowKind::Removed { .. } | RowKind::Group { .. } => {}
+        RowKind::Removed { .. } | RowKind::Group { .. } | RowKind::App { .. } => {}
     }
     items
 }

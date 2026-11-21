@@ -51,6 +51,12 @@ pub enum RowKind {
         /// The key of the switch.
         key: &'static str,
     },
+    /// The binding of the terminal or the launcher of the Apps & Autostart page, by the key of
+    /// its command's setting.
+    App {
+        /// The key of the setting.
+        key: &'static str,
+    },
 }
 
 /// How a binding clashes with another one.
@@ -129,7 +135,7 @@ impl Row {
                         .is_ok()
             }
             RowKind::Added { .. } | RowKind::Changed { .. } => true,
-            RowKind::Removed { .. } | RowKind::Group { .. } => false,
+            RowKind::Removed { .. } | RowKind::Group { .. } | RowKind::App { .. } => false,
         }
     }
 
@@ -305,6 +311,7 @@ impl Listing {
                 Origin::Item(item) if is_change(item) && removed.contains_key(&item) => continue,
                 Origin::Item(item) => self.row(index, RowKind::Added { item }),
                 Origin::Group(key) => self.row(index, RowKind::Group { key }),
+                Origin::App(key) => self.row(index, RowKind::App { key }),
                 Origin::User => {
                     let unbind = removed
                         .iter()

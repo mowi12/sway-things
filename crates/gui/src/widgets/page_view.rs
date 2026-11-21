@@ -42,7 +42,7 @@ use super::{
     Clamp, DeviceSelector, GroupRow, NetworkBus, PageHeader, Placeholder, SettingRow, ShortcutList,
     SoundServer, TestArea, WorkspaceMap,
 };
-use super::{cursor, keyboard, look, shortcuts};
+use super::{apps, cursor, keyboard, look, shortcuts};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::icons;
 use crate::model::Model;
@@ -262,6 +262,7 @@ impl PageView {
             for widget in keyboard::below(model, &row)
                 .into_iter()
                 .chain(shortcuts::below(model, &row))
+                .chain(apps::below(model, &row))
             {
                 list.append(&list_row(&widget));
             }
@@ -566,7 +567,25 @@ fn add_page_parts(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec
     match page {
         Page::MouseTouchpad => sections.push(test_area_section(model, body)),
         Page::Workspaces => add_workspace_map(model, sections),
+        Page::AppsAutostart => add_apps_parts(model, sections),
         _ => {}
+    }
+}
+
+/// The note above the default apps while no app reads them, and the list of everything that
+/// starts with the session below the rows of Apps & Autostart's "Autostart" section.
+fn add_apps_parts(model: &Model, sections: &[Section]) {
+    let find = |title: Msg| {
+        let id = ui_state::section_id(title.msgid());
+        sections.iter().find(|section| section.id == id)
+    };
+    if let Some(section) = find(msg!("Default apps")) {
+        section.body.prepend(&apps::desktop_note());
+    }
+    if let Some(section) = find(msg!("Autostart")) {
+        section
+            .body
+            .append(apps::AutostartList::new(model).widget());
     }
 }
 
@@ -661,7 +680,7 @@ const COPIED_FOR: Duration = Duration::from_secs(2);
 /// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
 /// themes, the screens), following what they depend on.
 fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
-    if !shortcuts::has_row(model, setting) {
+    if !shortcuts::has_row(model, setting) || !apps::has_row(setting) {
         return None;
     }
     if setting.key() == outputs::MODE {
@@ -669,13 +688,15 @@ fn setting_row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
     }
     let choices = keyboard::choices(setting)
         .or_else(|| cursor::choices(model, setting))
-        .or_else(|| look::choices(setting));
+        .or_else(|| look::choices(setting))
+        .or_else(|| apps::choices(setting));
     let row = match choices {
         Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
         None => SettingRow::new(model, setting, None),
     }?;
     cursor::follow(model, &row);
     look::follow(&row);
+    apps::follow(&row);
     Some(row)
 }
 

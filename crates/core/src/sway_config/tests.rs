@@ -765,7 +765,7 @@ fn the_default_config_is_found_in_sways_order() {
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
-    for (main, expected_files) in [("sway.conf", 18), ("swayfx.conf", 21)] {
+    for (main, expected_files) in [("sway.conf", 19), ("swayfx.conf", 22)] {
         let config = parse(&integration.join(main), &Disk);
         // parser.conf includes one file twice and one that doesn't exist, on purpose. The last
         // two includes of sway.conf (lines 43 and 46) only match while the integration tests run.
@@ -799,7 +799,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 84);
+    assert_eq!(generated.len(), 91);
     assert_eq!(
         find(&["seat", "*"], "xcursor_theme").as_deref(),
         Some("Adwaita 32")
@@ -929,6 +929,40 @@ proptest! {
 }
 
 #[test]
+fn the_generated_autostart_lines_parse_back() {
+    let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
+    let config = parse(&integration.join("sway.conf"), &Disk);
+    let generated: Vec<&Directive> = config
+        .directives
+        .iter()
+        .filter(|directive| {
+            directive
+                .file
+                .to_string_lossy()
+                .ends_with("/generated/sway/70-autostart.conf")
+        })
+        .collect();
+    // The autostart entries come back as `exec` with their command line as one argument (the
+    // parser replaces `$$` as `config_command` does; sway runs the line it deferred, which still
+    // has `$$`, through `execute_command`, which replaces it once).
+    let execs: Vec<String> = generated
+        .iter()
+        .filter(|directive| directive.is(&[], "exec"))
+        .map(|directive| directive.args.join(" "))
+        .collect();
+    assert_eq!(
+        execs,
+        [
+            "\"sway-things hook autostart\"",
+            "\"nm-applet --indicator\"",
+            r#""swaybg -c '#333333' & echo "'"$HOME; a, b"'"#,
+            r#"'notify-send "a # b" '"'#c' # d""#,
+            "\"sway-things hook launch org.gnome.Nautilus.desktop\"",
+        ]
+    );
+}
+
+#[test]
 fn the_generated_bindings_parse_back() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
     let config = parse(&integration.join("sway.conf"), &Disk);
@@ -959,6 +993,11 @@ fn the_generated_bindings_parse_back() {
     assert_eq!(
         commands,
         [
+            (
+                "Mod1+Shift+Return",
+                Some(r#"exec "alacritty -e 'tmux new -A -s "'"main"'"'""#)
+            ),
+            ("Mod1+d", Some("exec \"wofi --show drun\"")),
             ("Mod1+Return", Some("exec \"foot\"")),
             ("Mod1+Shift+p", Some("exec 'notify-send \"a b\" $HOME'")),
             ("Mod4+38", Some("focus left")),

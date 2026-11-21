@@ -145,6 +145,9 @@ enum Op {
     SwayReloaded,
     /// Writes a generated file that was changed outside Sway Things.
     Overwrite(ConfigFile),
+    /// Runs a command in the session now: an autostart entry started by hand. It stores
+    /// nothing, so it needs no include line.
+    Run(sway_things_core::command::SwayCmd),
 }
 
 /// What the model saw of kanshi when it last looked, for the note of the Displays page: read
@@ -262,6 +265,9 @@ mod imp {
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
+        /// The files of the Apps & Autostart page that weren't written when last saved, so each
+        /// is told once.
+        pub(super) apps_problems: RefCell<Vec<sway_things_core::apps::files::Problem>>,
     }
 
     #[glib::object_subclass]
@@ -693,6 +699,12 @@ impl Model {
         self.queue(Op::ReloadSway);
     }
 
+    /// Runs `command` in the session now, after what is queued: an autostart entry started by
+    /// hand. Without a session, the window says so.
+    pub fn run_command(&self, command: sway_things_core::command::SwayCmd) {
+        self.queue(Op::Run(command));
+    }
+
     /// What Sway Things writes to each generated file for the current settings, and the file as
     /// it is on disk, read now. Nothing is written. `None` if the settings couldn't be loaded.
     pub fn generated(&self) -> Option<Vec<(GeneratedFile, OnDisk)>> {
@@ -913,7 +925,12 @@ impl Model {
 
     /// The items of `shortcuts.bindings` stored now, or that a change in progress stores.
     pub fn binding_items(&self) -> Vec<String> {
-        let key = sway_things_core::bindings::ours::BINDINGS;
+        self.list(sway_things_core::bindings::ours::BINDINGS)
+    }
+
+    /// The items of the list setting `key` stored now (for the whole session), or that a change
+    /// in progress stores: what a page that edits the list item by item starts from.
+    pub fn list(&self, key: &'static str) -> Vec<String> {
         let queued = self
             .imp()
             .queue
@@ -935,7 +952,10 @@ impl Model {
             .core
             .borrow()
             .as_ref()
-            .map(|core| sway_things_core::bindings::ours::items(&core.state))
+            .and_then(|core| match core.state.get(key, None) {
+                Some(Value::List(items)) => Some(items.clone()),
+                _ => None,
+            })
             .unwrap_or_default()
     }
 
@@ -1077,6 +1097,7 @@ impl Model {
             | Op::FollowCombination
             | Op::MoveAlong(_)
             | Op::Overwrite(_)
+            | Op::Run(_)
             | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,
         })
@@ -1232,6 +1253,7 @@ impl Model {
             }
             (Op::ReloadSway, Ok(access)) => self.reload_sway_now(&mut applier, &access).await,
             (Op::SwayReloaded, _) => applier.reloaded(),
+            (Op::Run(command), _) => self.run_now(&mut applier, &command).await,
             (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
                 self.displays_now(&mut applier, op).await;
             }
@@ -1255,6 +1277,17 @@ impl Model {
         match applier.persist(overwrite, access).await {
             Ok(persisted) => self.emit_persisted(&persisted),
             Err(error) => self.emit_problem(&error.text().translated()),
+        }
+    }
+
+    /// Runs `command` in the session, and tells the window if it can't.
+    async fn run_now(&self, applier: &mut Applier, command: &sway_things_core::command::SwayCmd) {
+        let Some(client) = applier.client() else {
+            self.emit_problem(tr(msg!("Only in a running sway session")));
+            return;
+        };
+        if let Err(error) = client.run(command).await {
+            self.emit_problem(&error.text().translated());
         }
     }
 
@@ -1715,6 +1748,13 @@ impl Model {
         for (file, outcome) in persisted.problems() {
             if let Some(problem) = outcome.problem(file) {
                 self.emit_problem(&problem.translated());
+            }
+        }
+        // A file of the Apps & Autostart page that isn't Sway Things' own stays so: told once.
+        let known = self.imp().apps_problems.replace(persisted.apps.clone());
+        for problem in &persisted.apps {
+            if !known.contains(problem) {
+                self.emit_problem(&problem.text().translated());
             }
         }
     }

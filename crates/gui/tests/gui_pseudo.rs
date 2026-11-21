@@ -314,6 +314,35 @@ fn data() -> Vec<String> {
             data.push((*default).to_owned());
         }
     }
+    // The apps and autostart entries of this machine, which Apps & Autostart names: names, IDs,
+    // desktops and programs are values, not text.
+    if let Some(dirs) = sway_things_core::apps::Dirs::from_env() {
+        for app in sway_things_core::apps::installed::installed(&dirs) {
+            data.push(app.name);
+            data.push(app.id);
+        }
+        for entry in sway_things_core::apps::autostart::xdg_entries(&dirs) {
+            data.push(entry.name);
+            data.push(entry.id);
+            match entry.starts {
+                sway_things_core::apps::autostart::Starts::OnlyIn(desktops)
+                | sway_things_core::apps::autostart::Starts::NotIn(desktops) => {
+                    data.push(desktops.join(", "));
+                }
+                sway_things_core::apps::autostart::Starts::NotInstalled(program) => {
+                    data.push(program);
+                }
+                _ => {}
+            }
+        }
+    }
+    for known in sway_things_core::apps::launchers::TERMINALS
+        .iter()
+        .chain(sway_things_core::apps::launchers::LAUNCHERS)
+    {
+        data.push(known.name.to_owned());
+        data.push(known.command.to_owned());
+    }
     // The system details About shows: the distribution and the kernel of this machine.
     let system = async_io::block_on(Details::read(None, None, None, None));
     data.extend(system.distribution);

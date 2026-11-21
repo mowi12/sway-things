@@ -160,6 +160,9 @@ fn step_message(step: Step) -> Cow<'static, str> {
         Step::Section(Section::Conflicts) => {
             tr(msg!("Comparing your config with the stored settings…")).into()
         }
+        Step::Section(Section::Apps) => {
+            tr(msg!("Checking the default apps and what starts at login…")).into()
+        }
     }
 }
 

@@ -300,6 +300,13 @@ pub enum ValueError {
     NotAFont,
     /// The text isn't a binding line Sway Things can write (`bindsym $mod+Return exec foot`).
     NotABinding(crate::bindings::LineErrorKind),
+    /// The keys type a character: a key that types needs Super, Ctrl or Alt.
+    TypingKeys,
+    /// The text isn't a desktop file ID like `org.mozilla.firefox.desktop`.
+    NotADesktopId,
+    /// The text isn't an autostart entry of Sway Things: `exec <command>` or `app <desktop file
+    /// ID>`, switched off with `# ` in front.
+    NotAnAutostartEntry,
 }
 
 impl ValueError {
@@ -351,6 +358,17 @@ impl ValueError {
                 msg!("must be a font and size like \"Adwaita Sans 11\", without line breaks").into()
             }
             Self::NotABinding(kind) => kind.text(),
+            Self::TypingKeys => msg!("keys that type a character need Super, Ctrl or Alt").into(),
+            Self::NotADesktopId => msg!(
+                "must be a desktop file ID like org.mozilla.firefox.desktop: letters, digits, \
+                 -, _ and . ending in .desktop"
+            )
+            .into(),
+            Self::NotAnAutostartEntry => msg!(
+                "must be exec and a command line, or app and a desktop file ID; # in front \
+                 switches it off"
+            )
+            .into(),
         }
     }
 }
