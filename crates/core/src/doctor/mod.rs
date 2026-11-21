@@ -27,6 +27,7 @@ mod found;
 mod kanshi;
 #[cfg(test)]
 mod tests;
+mod wallpaper;
 
 pub use finding::{Code, Diagnosis, Finding, Fix, Section, Severity, Step};
 pub use found::{FixError, Found, Installed};
@@ -87,6 +88,7 @@ impl<V: Validate> Checkup<'_, V> {
         self.compositor(&mut findings);
         progress(Step::Section(Section::Config));
         self.config(&mut findings);
+        self.swaybg(&mut findings);
         self.kanshi(&mut findings);
         let generated = self.found.compositor().map(|compositor| {
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays)

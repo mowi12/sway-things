@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 18:19+0100\n"
+"POT-Creation-Date: 2026-11-21 18:28+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1165,6 +1165,25 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{place}: the config is too big; the rest wasn't read."
+msgstr ""
+
+#: crates/core/src/doctor/wallpaper.rs
+#, rust-format
+msgid ""
+"Your config sets swaybg_command - ({place}), so sway starts no program for "
+"the wallpaper and doesn't show the one set in Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/wallpaper.rs
+#, rust-format
+msgid ""
+"Your config sets swaybg_command {program} ({place}), but it can't be found, "
+"so sway doesn't show the wallpaper set in Sway Things."
+msgstr ""
+
+#: crates/core/src/doctor/wallpaper.rs
+msgid ""
+"Take the line out, so sway uses swaybg, or name a program that is installed."
 msgstr ""
 
 #: crates/core/src/generate/write.rs

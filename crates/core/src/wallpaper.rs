@@ -112,6 +112,14 @@ pub fn starters(config: &SwayConfig) -> Vec<External> {
         .collect()
 }
 
+/// The `swaybg_command` line of `config` that is in effect: the last one at the top level. sway
+/// draws the backgrounds of `output … bg` with this program; `swaybg_command -` starts none.
+pub fn swaybg_command(config: &SwayConfig) -> Option<&Directive> {
+    config.directives.iter().rfind(|directive| {
+        directive.block.is_empty() && directive.name.eq_ignore_ascii_case("swaybg_command")
+    })
+}
+
 /// Whether `word` runs Sway Things, which the generated config does to change the pictures of
 /// a collection: the rest of the line is its arguments, not a wallpaper program.
 fn is_own(word: &str) -> bool {
