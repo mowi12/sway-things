@@ -38,6 +38,10 @@ pub(crate) fn check_screens(screenshots: Option<&Path>, scheme: &str) -> Vec<(St
         format!("contrast: keyboard shortcuts with bindings ({scheme})"),
         check_shortcut_screen(screenshots, scheme),
     ));
+    results.push((
+        format!("contrast: apps and autostart with entries ({scheme})"),
+        check_apps_screen(screenshots, scheme),
+    ));
     results
 }
 

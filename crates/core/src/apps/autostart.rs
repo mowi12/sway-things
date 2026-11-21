@@ -270,6 +270,9 @@ pub struct XdgEntry {
     /// `X-GNOME-Autostart-enabled=false`, which only GNOME's session reads: dex and systemd
     /// start the entry anyway.
     pub gnome_disabled: bool,
+    /// Its command line (`Exec`) as written, on one line, of the system entry for Sway Things'
+    /// override; `None` without one. Only to show.
+    pub exec: Option<String>,
 }
 
 /// Whether the text of a file is Sway Things' own override (or another file it made).
@@ -353,6 +356,10 @@ pub fn xdg_entries(dirs: &Dirs) -> Vec<XdgEntry> {
                 icon: shown.string("Icon").filter(|icon| !icon.is_empty()),
                 starts: starts(&entry, &path, dirs),
                 gnome_disabled: entry.is_false("X-GNOME-Autostart-enabled"),
+                exec: shown
+                    .string("Exec")
+                    .map(|exec| single_line(&exec))
+                    .filter(|exec| !exec.is_empty()),
                 id,
                 path,
                 place,

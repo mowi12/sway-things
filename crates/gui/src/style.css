@@ -637,31 +637,81 @@ button.st-capture-keys {
   font-weight: bold;
 }
 
-/* Apps & Autostart: the notes below a row, the list of what starts at login. */
-.st-apps-note {
-  padding: 0 0 4px 0;
+/* Apps & Autostart: the apps in the drop-downs, the notes below a row (only when something goes
+   wrong), the list of what starts with the session and its dialogs. */
+.st-app-pick-detail {
+  font-size: 0.85em;
+}
+
+/* The drop-downs of apps line up in a column. */
+dropdown.st-app-dropdown > button {
+  min-width: 180px;
 }
 
 .st-apps-warning > image {
   margin-top: 2px;
+  color: @warning_color;
 }
 
 .st-apps-desktop {
-  margin: 0 4px 10px 4px;
+  margin: 0 0 10px 0;
+  padding: 10px 12px;
+  border: 1px solid @borders;
+  border-radius: 10px;
 }
 
 .st-autostart {
-  margin-top: 14px;
+  margin-bottom: 14px;
 }
 
-.st-autostart .st-apps-bar {
-  margin: 0 2px;
+.st-autostart-bar {
+  margin: 0 2px 2px 4px;
 }
 
-.st-autostart .st-apps-heading {
-  margin: 14px 0 6px 2px;
+st-page list.st-autostart-list > row {
+  padding: 0;
 }
 
 .st-autostart-row {
-  padding: 4px 0;
+  min-height: 36px;
+  padding: 8px 16px 8px 14px;
+}
+
+.st-autostart-subtitle {
+  font-size: 0.9em;
+}
+
+.st-autostart-command-icon {
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  background-color: alpha(currentColor, 0.08);
+}
+
+.st-autostart-warning {
+  color: @warning_color;
+}
+
+expander.st-autostart-more {
+  margin-top: 4px;
+}
+
+expander.st-autostart-more > title {
+  padding: 4px 4px;
+}
+
+expander.st-autostart-more > box > list {
+  margin-top: 6px;
+}
+
+.st-autostart-picker > row {
+  padding: 6px 12px;
+}
+
+.st-autostart-picker > row:not(:last-child) {
+  border-bottom: 1px solid @borders;
+}
+
+.st-autostart-note {
+  margin-top: 2px;
 }

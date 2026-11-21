@@ -40,8 +40,8 @@ pub const RUNNER: &str = "autostart.runner";
 
 /// What starts the XDG autostart entries from Sway Things' file, by the id of its choice.
 pub const RUNNERS: &[Choice] = &[
-    Choice::new("none", msg!("Nothing (your session or config may)")),
-    Choice::new("systemd", msg!("systemd (xdg-desktop-autostart.target)")),
+    Choice::new("none", msg!("Your session or config")),
+    Choice::new("systemd", msg!("systemd")),
     Choice::new("dex", msg!("dex")),
 ];
 
@@ -113,7 +113,7 @@ impl Kind {
             Self::VideoPlayer => msg!("Video player"),
             Self::MusicPlayer => msg!("Music player"),
             Self::TextEditor => msg!("Text editor"),
-            Self::Terminal => msg!("Terminal"),
+            Self::Terminal => msg!("Terminal for apps"),
         }
     }
 }
@@ -331,18 +331,22 @@ const fn keywords(kind: Kind) -> &'static [Msg] {
 }
 
 pub(super) fn settings() -> Vec<Setting> {
-    let mut settings = terminal_and_launcher();
+    let mut settings = Vec::new();
     for kind in Kind::ALL {
-        settings.push(
-            Setting::text(kind.key(), Page::AppsAutostart, "")
-                .section(msg!("Default apps"))
-                .title(kind.title())
-                .placeholder(msg!("Not chosen here"))
-                .check_text(check_id)
-                .keywords(keywords(kind))
-                .build(),
-        );
+        let mut setting = Setting::text(kind.key(), Page::AppsAutostart, "")
+            .section(msg!("Default apps"))
+            .title(kind.title())
+            .placeholder(msg!("Not chosen here"))
+            .check_text(check_id)
+            .keywords(keywords(kind));
+        if kind == Kind::Terminal {
+            setting = setting.subtitle(msg!(
+                "Opens the apps that run in a terminal, where xdg-terminal-exec is installed"
+            ));
+        }
+        settings.push(setting.build());
     }
+    settings.extend(terminal_and_launcher());
     settings.extend(autostart());
     settings
 }
@@ -352,27 +356,19 @@ fn terminal_and_launcher() -> Vec<Setting> {
         Setting::text(TERMINAL, Page::AppsAutostart, "")
             .section(msg!("Terminal and launcher"))
             .title(msg!("Terminal"))
-            .subtitle(msg!(
-                "What its keys open. Your config's $term only reaches its own lines, so Sway \
-                 Things binds the keys itself once you choose"
-            ))
             .placeholder(msg!("As your config binds it"))
             .check_text(check_command)
             .keywords(&[msg!("$term"), msg!("terminal emulator"), msg!("shell")])
             .build(),
         Setting::text(TERMINAL_KEYS, Page::AppsAutostart, "$mod+Return")
             .section(msg!("Terminal and launcher"))
-            .title(msg!("Keys of the terminal"))
-            .subtitle(msg!("$mod is the main modifier of Keyboard Shortcuts"))
+            .title(msg!("Terminal keys"))
             .check_text(check_keys)
             .keywords(&[msg!("shortcut"), msg!("bindsym")])
             .build(),
         Setting::text(LAUNCHER, Page::AppsAutostart, "")
             .section(msg!("Terminal and launcher"))
-            .title(msg!("Launcher"))
-            .subtitle(msg!(
-                "The app menu its keys open. Your config's $menu only reaches its own lines"
-            ))
+            .title(msg!("App launcher"))
             .placeholder(msg!("As your config binds it"))
             .check_text(check_command)
             .keywords(&[
@@ -386,8 +382,7 @@ fn terminal_and_launcher() -> Vec<Setting> {
             .build(),
         Setting::text(LAUNCHER_KEYS, Page::AppsAutostart, "$mod+d")
             .section(msg!("Terminal and launcher"))
-            .title(msg!("Keys of the launcher"))
-            .subtitle(msg!("$mod is the main modifier of Keyboard Shortcuts"))
+            .title(msg!("Launcher keys"))
             .check_text(check_keys)
             .keywords(&[msg!("shortcut"), msg!("bindsym")])
             .build(),
@@ -398,11 +393,8 @@ fn autostart() -> [Setting; 3] {
     [
         Setting::choice(RUNNER, Page::AppsAutostart, "none", RUNNERS)
             .section(msg!("Autostart"))
-            .title(msg!("Start XDG autostart entries with"))
-            .subtitle(msg!(
-                "sway doesn't start the entries of ~/.config/autostart and /etc/xdg/autostart \
-                 itself. Takes effect at the next login"
-            ))
+            .title(msg!("Start autostart entries with"))
+            .subtitle(msg!("sway doesn't start them by itself"))
             .keywords(&[
                 msg!("dex"),
                 msg!("xdg-desktop-autostart.target"),

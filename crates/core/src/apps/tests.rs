@@ -641,6 +641,8 @@ fn xdg_autostart_entries_say_whether_they_start() {
     let gnome_off = entries.iter().find(|entry| entry.id == "gnome-off.desktop");
     assert!(gnome_off.is_some_and(|entry| entry.gnome_disabled));
     assert_eq!(entries[0].icon.as_deref(), Some("geo"));
+    // Sway Things' override shows the command of the system entry it switches off.
+    assert_eq!(entries[0].exec.as_deref(), Some("applet"));
 }
 
 #[test]
