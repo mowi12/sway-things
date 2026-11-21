@@ -53,6 +53,10 @@ tests that need a running sway, a display or the stand-ins for D-Bus services an
 Every generator: state in → exact file out (`ci/integration/settings/` → `ci/integration/generated/`), for the oldest
 supported sway and SwayFX.
 
+The file for kanshi: a user's own kanshi config in (`ci/integration/kanshi/config`, modeled on a real one with a profile
+per combination and its own `exec swaymsg workspace` lines) → `ci/integration/generated/kanshi/sway-things.conf` with
+nothing set up on the Displays page and the workspaces placed round robin (`kanshi_fixtures.rs`).
+
 ## Fuzzing
 
 The sway config parser with `cargo-fuzz` (`fuzz/`, `scripts/fuzz.sh`), on the stable toolchain without a sanitizer (the
