@@ -5,7 +5,8 @@
 //! rows built from the registry:
 //!
 //! - the keys as a button that takes them as they are pressed, like the field of the Keyboard
-//!   Shortcuts page's dialog, in place of a text field; below each, what it takes the place of;
+//!   Shortcuts page's dialog, in place of a text field (the keys of the terminal and the launcher
+//!   of Apps & Autostart too); below each, what it takes the place of;
 //! - below each switch, the programs it needs that aren't installed and the packages that have
 //!   them, or what it works with;
 //! - below the file names, the name of the next file;
@@ -22,15 +23,16 @@ use std::rc::Rc;
 use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
+use sway_things_core::apps::launchers;
 use sway_things_core::bindings::ours::MODIFIER;
-use sway_things_core::bindings::{Keymap, Modifiers, RowKind};
+use sway_things_core::bindings::{Keymap, Line, Modifiers, RowKind, keys};
 use sway_things_core::capture::shortcuts::{Shortcut, check_keys};
 use sway_things_core::capture::tools::{self, Program};
 use sway_things_core::capture::{
     AFTERWARDS, FILE_NAME, FOLDER, HISTORY, MAX_ENTRIES, RECORDING, RECORDING_FILE_NAME,
     SCREENSHOTS, clipboard, name, record, shot,
 };
-use sway_things_core::registry::{ConfigFile, Page, Registry, Value};
+use sway_things_core::registry::{ConfigFile, Page, Registry, Value, ValueError};
 
 use super::SettingRow;
 use super::shortcuts::{self, Captured, GdkKeymap};
@@ -63,12 +65,42 @@ pub fn files(page: Page) -> Vec<ConfigFile> {
     }
 }
 
-/// Puts the button of keys in place of the text field of a row of keys.
+/// Whether `key` is the keys of the terminal or the launcher of Apps & Autostart, whose rows
+/// take keys as they are pressed too.
+fn is_app_keys(key: &str) -> bool {
+    launchers::BINDINGS
+        .iter()
+        .any(|binding| binding.keys_key == key)
+}
+
+/// The binding the keys `text` of the setting `key` make, with `$mod` as `modifier`, to show
+/// them; `None` for no keys or keys that can't be bound.
+fn keys_line(key: &str, text: &str, modifier: Modifiers) -> Option<Line> {
+    if let Some(shortcut) = Shortcut::of(key) {
+        return shortcut.line(text, modifier);
+    }
+    if !is_app_keys(key) || text.is_empty() {
+        return None;
+    }
+    launchers::line(&keys::with_mod(text, modifier), "true").ok()
+}
+
+/// The check of new keys for the setting `key`.
+fn check_keys_of(key: &str, keys: &str) -> Result<(), ValueError> {
+    if is_app_keys(key) {
+        launchers::check_keys(keys)
+    } else {
+        check_keys(keys)
+    }
+}
+
+/// Puts the button of keys in place of the text field of a row of keys: those of the page, and
+/// those of the terminal and the launcher of Apps & Autostart.
 pub fn follow(model: &Model, row: &SettingRow) {
     let Some(setting) = row.setting() else {
         return;
     };
-    if Shortcut::of(setting.key()).is_none() {
+    if Shortcut::of(setting.key()).is_none() && !is_app_keys(setting.key()) {
         return;
     }
     let Some(entry) = row
@@ -573,8 +605,7 @@ impl KeyButton {
         let labels = self
             .row
             .setting()
-            .and_then(|setting| Shortcut::of(setting.key()))
-            .and_then(|shortcut| shortcut.line(&text, self.main_modifier()))
+            .and_then(|setting| keys_line(setting.key(), &text, self.main_modifier()))
             .map_or_else(
                 || tr(NO_KEY).to_owned(),
                 |line| {
@@ -641,8 +672,9 @@ impl KeyButton {
             Captured::Keys(keys) => Some(keys),
         };
         self.listen(false);
+        let key = self.row.setting().map_or("", |setting| setting.key());
         if let Some(keys) = keys {
-            match check_keys(&keys) {
+            match check_keys_of(key, &keys) {
                 Ok(()) => {
                     self.row.set_error(None);
                     self.row.change(Value::Text(keys));
