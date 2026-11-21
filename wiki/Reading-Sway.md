@@ -291,7 +291,10 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
   runs a single quoted argument of `exec` without its quotes, so the shell gets the line as typed), `focus`/`move` in a
   direction, `workspace number N`, `move container to workspace number N`, `kill`, `fullscreen toggle`,
   `floating toggle`, or a sway command whose first word must be a command sway 1.12 knows. `describe` and `Category` say
-  what common commands do, for the rows.
+  what common commands do, for the rows: sway's own (focus, move, workspaces, layouts, resizing a window in a mode) and
+  the programs people bind most, by their command line (volume and mute with `wpctl` or `pactl`, brightness with
+  `brightnessctl`, `playerctl`, a lock screen, `grim` with or without `slurp`, `swaynag` before `swaymsg exit`); any
+  other `exec` is _Run …_.
 - **Settings** (`registry/shortcuts.rs`, `bindings::ours`, `bindings::item`): `shortcuts.bindings` is a list of lines in
   sway's syntax, as people write them (`bindsym $mod+Return exec foot`, `unbindsym Mod4+d`), each checked by
   `ours::parse` (keys and device without quotes, a command that can be written back, no `mode` prefix). A command whose

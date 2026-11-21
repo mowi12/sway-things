@@ -595,7 +595,10 @@ pub fn describe(command: &str) -> Option<Text> {
         return None;
     }
     if let Action::Run(line) = Action::of(&command) {
-        return Some(Text::new(msg!("Run {command}")).arg("command", line));
+        return Some(describe_run(&line).map_or_else(
+            || Text::new(msg!("Run {command}")).arg("command", line),
+            Text::from,
+        ));
     }
     let words: Vec<String> = parts
         .first()?
@@ -635,6 +638,10 @@ pub fn describe(command: &str) -> Option<Text> {
         ["layout", "toggle", "split"] => msg!("Toggle the split layout").into(),
         ["splith"] | ["split", "h" | "horizontal"] => msg!("Split horizontally").into(),
         ["splitv"] | ["split", "v" | "vertical"] => msg!("Split vertically").into(),
+        ["resize", "shrink", "width", ..] => msg!("Make the window narrower").into(),
+        ["resize", "grow", "width", ..] => msg!("Make the window wider").into(),
+        ["resize", "shrink", "height", ..] => msg!("Make the window shorter").into(),
+        ["resize", "grow", "height", ..] => msg!("Make the window taller").into(),
         ["reload"] => msg!("Reload the sway config").into(),
         ["exit"] => msg!("Exit sway").into(),
         ["mode", "default"] => msg!("Leave the mode").into(),
@@ -644,6 +651,64 @@ pub fn describe(command: &str) -> Option<Text> {
         _ => return None,
     };
     Some(text)
+}
+
+/// What the command line `line` of `exec` does, in words, for the programs people bind most to
+/// media keys, the lock screen, screenshots and leaving sway; `None` for others.
+fn describe_run(line: &str) -> Option<Msg> {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let program = words.first()?.rsplit('/').next()?;
+    let has = |word: &str| words.contains(&word);
+    // The step of a volume or brightness: "5%+" and "+5%" go up, "5%-" and "-5%" down.
+    let step = words.last().and_then(|last| {
+        let digit_after = |sign: char| {
+            last.strip_prefix(sign)
+                .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+        };
+        if last.ends_with('+') || digit_after('+') {
+            Some(true)
+        } else if last.ends_with('-') || digit_after('-') {
+            Some(false)
+        } else {
+            None
+        }
+    });
+    let volume = |step: Option<bool>| {
+        Some(if step? {
+            msg!("Raise the volume")
+        } else {
+            msg!("Lower the volume")
+        })
+    };
+    Some(match program {
+        "wpctl" if has("set-volume") => volume(step)?,
+        "pactl" if has("set-sink-volume") => volume(step)?,
+        "wpctl" if has("set-mute") && line.contains("SOURCE") => {
+            msg!("Mute or unmute the microphone")
+        }
+        "pactl" if has("set-source-mute") => msg!("Mute or unmute the microphone"),
+        "wpctl" if has("set-mute") => msg!("Mute or unmute the sound"),
+        "pactl" if has("set-sink-mute") => msg!("Mute or unmute the sound"),
+        "brightnessctl" if has("set") => {
+            if step? {
+                msg!("Brighten the screen")
+            } else {
+                msg!("Dim the screen")
+            }
+        }
+        "playerctl" => match words.get(1).copied()? {
+            "play-pause" | "play" | "pause" => msg!("Play or pause"),
+            "next" => msg!("Next track"),
+            "previous" => msg!("Previous track"),
+            "stop" => msg!("Stop playing"),
+            _ => return None,
+        },
+        "swaylock" | "gtklock" | "waylock" => msg!("Lock the screen"),
+        "swaynag" if line.contains("swaymsg exit") => msg!("Exit sway, after asking"),
+        "grim" if line.contains("slurp") => msg!("Take a screenshot of an area"),
+        "grim" => msg!("Take a screenshot"),
+        _ => return None,
+    })
 }
 
 /// "Focus the window to the left" (`focus` true) or "Move the window left".

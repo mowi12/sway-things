@@ -266,6 +266,40 @@ fn commands_are_described_and_grouped() {
         Some("Move the window to workspace 4")
     );
     assert_eq!(described("exec \"foot\"").as_deref(), Some("Run foot"));
+    for (command, text) in [
+        (
+            "exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+",
+            "Raise the volume",
+        ),
+        (
+            "exec pactl set-sink-volume @DEFAULT_SINK@ -5%",
+            "Lower the volume",
+        ),
+        (
+            "exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+            "Mute or unmute the microphone",
+        ),
+        (
+            "exec pactl set-sink-mute @DEFAULT_SINK@ toggle",
+            "Mute or unmute the sound",
+        ),
+        ("exec brightnessctl --min-value=1 set 5%-", "Dim the screen"),
+        ("exec playerctl play-pause", "Play or pause"),
+        ("exec swaylock -f", "Lock the screen"),
+        (
+            "exec swaynag -t warning -m 'Exit?' -B 'Yes' 'swaymsg exit'",
+            "Exit sway, after asking",
+        ),
+        ("exec grim -g \"$(slurp)\"", "Take a screenshot of an area"),
+        ("resize shrink width 10px", "Make the window narrower"),
+    ] {
+        assert_eq!(described(command).as_deref(), Some(text), "{command}");
+    }
+    // A step the words don't tell stays the command.
+    assert_eq!(
+        described("exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.5").as_deref(),
+        Some("Run wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.5")
+    );
     assert_eq!(
         described("mode \"resize\"").as_deref(),
         Some("Enter the mode resize")

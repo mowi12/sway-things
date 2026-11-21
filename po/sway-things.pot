@@ -610,6 +610,22 @@ msgid "Split vertically"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
+msgid "Make the window narrower"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Make the window wider"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Make the window shorter"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Make the window taller"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
 msgid "Reload the sway config"
 msgstr ""
 
@@ -624,6 +640,62 @@ msgstr ""
 #: crates/core/src/bindings/command.rs
 #, rust-format
 msgid "Enter the mode {mode}"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Raise the volume"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Lower the volume"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Mute or unmute the microphone"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Mute or unmute the sound"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Brighten the screen"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Dim the screen"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Play or pause"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Next track"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Previous track"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Stop playing"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Lock the screen"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Exit sway, after asking"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Take a screenshot of an area"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Take a screenshot"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
