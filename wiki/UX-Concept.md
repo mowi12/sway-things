@@ -495,6 +495,10 @@ being dragged stays under the pointer when its first change stores a value.
   the question names them and says to reset them from their rows, so a page reset never needs the safety net. The button
   can't be pressed while there is nothing it would remove.
 - Indicators follow the state, the user's config and the include status live.
+- **Notices** say something about a page as a whole rather than one row: the captive portal (Network), kanshi and
+  displays that overlap (Displays), apps that can't read the settings (Apps Look & Feel). Every page draws them alike,
+  as a framed box like a section with an icon (information, or a warning when something keeps the page from working),
+  the text and, where there is something to do, one button.
 
 ## First run: instructions only
 

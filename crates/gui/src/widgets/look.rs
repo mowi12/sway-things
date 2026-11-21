@@ -22,8 +22,9 @@ use sway_things_core::registry::Setting;
 use sway_things_core::sway_config::Disk;
 
 use super::SettingRow;
+use super::notice::{self, Tone};
 use crate::i18n::{msg, tr};
-use crate::{style, theme};
+use crate::theme;
 
 /// The key of the GTK theme.
 const GTK_THEME: &str = "look.gtk_theme";
@@ -111,32 +112,29 @@ pub fn note() -> gtk::Widget {
     }
 }
 
-/// A note above the page's rows.
-fn note_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::new(Some(text));
-    label.set_wrap(true);
-    label.set_xalign(0.0);
-    label.add_css_class(style::DIM);
-    label.set_margin_bottom(12);
-    label
+/// A note above the page's rows: a warning, since something keeps the page from reaching apps.
+fn note_label(text: &str) -> gtk::Box {
+    let note = notice::notice(Tone::Warning, &notice::text(text), None);
+    note.set_margin_bottom(12);
+    note
 }
 
 /// A note that the style can't reach apps, shown once it is known that no Settings portal
 /// reports it. Hidden until then, and for good if one does.
 fn portal_note() -> gtk::Widget {
-    let label = note_label(tr(msg!(
+    let note = note_label(tr(msg!(
         "Apps can't learn the style: no desktop portal tells them. Install \
          xdg-desktop-portal-gtk, then log in again."
     )));
-    label.set_visible(false);
+    note.set_visible(false);
     glib::spawn_future_local(glib::clone!(
         #[weak]
-        label,
+        note,
         async move {
-            label.set_visible(!theme::portal_has_color_scheme().await);
+            note.set_visible(!theme::portal_has_color_scheme().await);
         }
     ));
-    label.upcast()
+    note.upcast()
 }
 
 fn draw_samples(row: &SettingRow) {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 15:15+0100\n"
+"POT-Creation-Date: 2026-11-21 17:53+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6047,11 +6047,11 @@ msgid "VPN"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
-msgid "This network wants you to sign in."
+msgid "Open Login Page"
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs
-msgid "Open Login Page"
+msgid "This network wants you to sign in."
 msgstr ""
 
 #: crates/gui/src/widgets/network/mod.rs

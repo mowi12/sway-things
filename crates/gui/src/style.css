@@ -127,6 +127,13 @@ st-page .st-section-hint {
   margin: 0 4px;
 }
 
+/* A notice about the page as a whole (widgets/notice.rs): framed like a section list */
+.st-notice {
+  padding: 10px 12px;
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
 /* Test area of the Mouse & Touchpad page */
 st-test-area {
   border: 1px solid @borders;
@@ -296,13 +303,6 @@ st-display-canvas > .st-display-grip:hover {
 
 .st-workspace-card > flowbox > flowboxchild > button {
   min-width: 32px;
-}
-
-/* The warning about displays that overlap or don't touch */
-.st-display-warning {
-  padding: 10px 12px;
-  border: 1px solid @borders;
-  border-radius: 8px;
 }
 
 /* The guide lines while a display is dragged: the accent, like a selection */

@@ -39,6 +39,7 @@ use crate::widgets::list::{
     heading, hint, labels_in, list_row, plain_row, row, section, style_heading,
 };
 use crate::widgets::live::follow_changes;
+use crate::widgets::notice::{self, Tone};
 
 /// How long to collect a burst of changes before reading the snapshot again.
 const THROTTLE: Duration = Duration::from_millis(200);
@@ -529,27 +530,21 @@ impl NetworkPage {
     /// The note about a captive portal, with the button that opens the login page.
     fn build_portal(&self) {
         let imp = self.imp();
-        imp.portal.set_orientation(gtk::Orientation::Horizontal);
-        imp.portal.set_spacing(12);
+        imp.portal_open.set_label(tr(msg!("Open Login Page")));
+        notice::fill(
+            &imp.portal,
+            Tone::Info,
+            &notice::text(tr(msg!("This network wants you to sign in."))),
+            Some(&imp.portal_open),
+        );
         imp.portal.set_margin_bottom(16);
         imp.portal.set_visible(false);
-        let icon = gtk::Image::from_icon_name("dialog-information-symbolic");
-        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
-        imp.portal.append(&icon);
-        let text = gtk::Label::new(Some(tr(msg!("This network wants you to sign in."))));
-        text.set_xalign(0.0);
-        text.set_wrap(true);
-        text.set_hexpand(true);
-        imp.portal.append(&text);
-        imp.portal_open.set_label(tr(msg!("Open Login Page")));
-        imp.portal_open.set_valign(gtk::Align::Center);
         let weak = self.downgrade();
         imp.portal_open.connect_clicked(move |_| {
             if let Some(page) = weak.upgrade() {
                 page.open_portal();
             }
         });
-        imp.portal.append(&imp.portal_open);
     }
 
     /// The Wi-Fi section: the adapter drop-down and the switch.

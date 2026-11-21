@@ -14,18 +14,17 @@ use sway_things_core::outputs::{Output, Outputs, kanshi};
 use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
+use crate::widgets::notice::{self, Tone};
 
-/// The note about kanshi above the canvas, hidden: an icon, what is said with the line to put
-/// in the kanshi config on a line of its own under it, and the button that copies the line and
-/// says so for a moment.
+/// The note about kanshi above the canvas, a [notice](notice::notice), hidden: an icon, what is
+/// said with the line to put in the kanshi config on a line of its own under it, and the button
+/// that copies the line and says so for a moment.
 pub(super) fn kanshi_note() -> gtk::Box {
     let note = gtk::Label::new(None);
     note.set_wrap(true);
     note.set_xalign(0.0);
-    note.set_hexpand(true);
     note.set_selectable(true);
     let copy = gtk::Button::with_label(tr(msg!("Copy Line")));
-    copy.set_valign(gtk::Align::Center);
     copy.set_visible(false);
     // Each click says "Copied" for a while; only the latest click's timeout restores the label.
     let clicks = Rc::new(Cell::new(0_u32));
@@ -61,14 +60,9 @@ pub(super) fn kanshi_note() -> gtk::Box {
     line.add_css_class("monospace");
     line.add_css_class(style::DIM);
     let said = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    said.set_hexpand(true);
     said.append(&note);
     said.append(&line);
-    let kanshi = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    kanshi.add_css_class("st-display-warning");
-    kanshi.append(&gtk::Image::from_icon_name("dialog-information-symbolic"));
-    kanshi.append(&said);
-    kanshi.append(&copy);
+    let kanshi = notice::notice(Tone::Info, &said, Some(&copy));
     kanshi.set_visible(false);
     kanshi
 }
