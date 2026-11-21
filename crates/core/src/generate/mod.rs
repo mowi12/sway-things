@@ -48,7 +48,7 @@ use std::collections::BTreeSet;
 use crate::command::{self, Target};
 use crate::ipc::Compositor;
 use crate::outputs;
-use crate::registry::{ConfigFile, Registry, Scope, Setting};
+use crate::registry::{ConfigFile, Registry, Setting};
 use crate::state::State;
 
 pub use manifest::{Manifest, Ownership};
@@ -212,7 +212,7 @@ pub fn generate_for(
             let Some(mapping) = setting.sway() else {
                 continue;
             };
-            if displays.is_kanshi() && setting.scope() == Scope::PerOutput {
+            if displays.is_kanshi() && setting.sets_up_display() {
                 continue;
             }
             // The settings of one directive make one command, at the place of the first one.
@@ -257,7 +257,7 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
     let for_displays = state
         .entries()
         .iter()
-        .any(|entry| entry.setting.scope() == Scope::PerOutput);
+        .any(|entry| entry.setting.sets_up_display());
     if displays.is_kanshi() && for_displays {
         lines.push(Line {
             text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
@@ -315,6 +315,19 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
         })?
     });
     lines.extend(guard);
+    // One line for every output with a collection: it names none, see `wallpaper::start_command`.
+    if let Some(first) = crate::wallpaper::shown(state).first() {
+        if let Ok(text) = crate::wallpaper::start_command().render(Target::Config) {
+            lines.push(Line {
+                text,
+                source: Source {
+                    keys: vec![crate::wallpaper::COLLECTION],
+                    device: first.output.clone(),
+                },
+                skipped: None,
+            });
+        }
+    }
     lines
 }
 
@@ -369,7 +382,7 @@ fn display_guard(state: &State) -> Option<Line> {
     let entries = state.entries();
     let first = entries
         .iter()
-        .find(|entry| entry.setting.scope() == Scope::PerOutput)?;
+        .find(|entry| entry.setting.sets_up_display())?;
     let text = outputs::guard_command().render(Target::Config).ok()?;
     Some(Line {
         text,

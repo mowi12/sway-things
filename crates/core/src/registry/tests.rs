@@ -44,7 +44,8 @@ fn samples(setting: &Setting) -> Vec<Value> {
                     .map(|choice| Value::Choice(choice.id.to_owned())),
             );
         }
-        Kind::Color { .. } => samples.push(Value::Color(Color::rgba(1, 2, 3, 4))),
+        Kind::Color { alpha: true, .. } => samples.push(Value::Color(Color::rgba(1, 2, 3, 4))),
+        Kind::Color { alpha: false, .. } => samples.push(Value::Color(Color::rgb(1, 2, 3))),
         Kind::Text { .. } | Kind::List { .. } => {}
     }
     // Texts whose default is "sway decides" also need a value that renders.
@@ -91,6 +92,7 @@ fn holding(key: &str, when: When) -> Value {
         (When::Above(_), Kind::Decimal { max, .. }) => Value::Decimal(*max),
         (When::Above(_), Kind::Integer { max, .. }) => Value::Integer(*max),
         (When::Above(_), kind) => panic!("{key}: Above for {kind:?}"),
+        (When::Set, _) => Value::Text("/usr/share/backgrounds/default.png".to_owned()),
     };
     assert!(when.holds(&value), "{key}: {value:?}");
     value
@@ -422,16 +424,19 @@ fn every_stored_value_changes_the_commands() {
 }
 
 #[test]
-fn app_preferences_have_no_sway_mapping() {
+fn app_preferences_and_collections_have_no_sway_mapping() {
     for setting in registry().iter() {
         let is_app = setting.key().starts_with("app.");
         // The placement of the workspaces depends on the displays connected: a hook sends it.
         let is_placement = setting.key().starts_with("workspaces.");
         // The settings of Apps Look & Feel live in GSettings only.
         let is_gsettings_only = setting.page() == Page::AppsLookFeel;
+        // The settings of a wallpaper collection reach sway through the output that shows it.
+        let is_collection = setting.scope() == Scope::PerCollection;
+        assert_eq!(is_collection, setting.key().starts_with("collection."));
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement || is_gsettings_only,
+            is_app || is_placement || is_gsettings_only || is_collection,
             "{}",
             setting.key()
         );
@@ -503,30 +508,42 @@ fn the_editor_command_must_split_into_words() {
 }
 
 #[test]
-fn input_settings_are_per_device() {
-    let device = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
+fn input_settings_are_per_device_and_output_settings_per_output() {
+    const DEVICE: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";
     for (setting, mapping) in sway_settings() {
-        let per_device = matches!(setting.scope(), Scope::PerDevice(_));
-        assert_eq!(
-            mapping.directive().block == Block::Input,
-            per_device,
-            "{}",
-            setting.key()
-        );
-        if setting.scope() == Scope::PerOutput {
-            continue;
-        }
-        let rendered = registry().render(setting, &Defaults, Some(device), Target::Config);
-        if per_device {
-            for command in rendered.unwrap() {
-                let line = command.render(Target::Config).unwrap();
-                assert!(
-                    line.starts_with("input \"1267:12377:ELAN1300:00_04F3:3059_Touchpad\" "),
-                    "{line}"
-                );
+        let block = mapping.directive().block;
+        let (instance, start) = match setting.scope() {
+            Scope::PerDevice(_) => {
+                assert_eq!(block, Block::Input, "{}", setting.key());
+                (DEVICE, format!("input \"{DEVICE}\" "))
             }
-        } else {
-            assert_eq!(rendered, Err(RenderError::NotPerDevice));
+            Scope::PerOutput => {
+                assert_eq!(block, Block::Output, "{}", setting.key());
+                ("HDMI-A-1", "output \"HDMI-A-1\" ".to_owned())
+            }
+            Scope::PerCollection => panic!("{} is a sway setting of a collection", setting.key()),
+            Scope::Global | Scope::PerHost => {
+                assert!(
+                    matches!(block, Block::Top | Block::Seat),
+                    "{}",
+                    setting.key()
+                );
+                let rendered = registry().render(setting, &Defaults, Some(DEVICE), Target::Config);
+                assert_eq!(
+                    rendered,
+                    Err(RenderError::NotPerDevice),
+                    "{}",
+                    setting.key()
+                );
+                continue;
+            }
+        };
+        for command in registry()
+            .render(setting, &Defaults, Some(instance), Target::Config)
+            .unwrap()
+        {
+            let line = command.render(Target::Config).unwrap();
+            assert!(line.starts_with(&start), "{line}");
         }
     }
 }
@@ -1328,7 +1345,8 @@ fn dependencies_name_an_earlier_setting_of_the_page_with_values_it_can_take() {
             assert_eq!(other.page(), setting.page(), "{}", setting.key());
             let fits = match (dependency.when, other.kind()) {
                 (When::On, Kind::Bool { .. })
-                | (When::Above(_), Kind::Integer { .. } | Kind::Decimal { .. }) => true,
+                | (When::Above(_), Kind::Integer { .. } | Kind::Decimal { .. })
+                | (When::Set, Kind::Text { .. }) => true,
                 (When::OneOf(ids) | When::NoneOf(ids), Kind::Choice { choices, .. }) => {
                     !ids.is_empty()
                         && ids

@@ -393,3 +393,46 @@ fn every_known_output_gets_a_report() {
         ]
     );
 }
+
+#[test]
+fn output_lines_merge_per_output_like_sway() {
+    let status = status(&format!(
+        "output * bg ~/a.png fill\n\
+         output eDP-1 {{\n  scale 2\n  background ~/b.png fit #102030\n}}\n\
+         {INCLUDE}\n\
+         output HDMI-A-1 scale 1 bg #285577 solid_color\n\
+         output \"Dell Inc. U2415 7MT0\" bg ~/c.png tile\n\
+         output eDP-1 bg x.png\n"
+    ));
+    let text = |path: &str| Ok(Value::Text(path.to_owned()));
+
+    // For every output, a line for a single one is listed with that output and decides nothing.
+    let all = report(&status, "wallpaper.image", None);
+    // sway rejects `bg` without a fill mode, so the last line sets nothing.
+    assert_eq!(numbers(all.lines()), [1, 4, 7, 8]);
+    assert_eq!(all.user_value().map(UserLine::line), Some(1));
+    assert_eq!(all.user_value().unwrap().value, text("~/a.png"));
+    assert_eq!(all.overriding().map(UserLine::line), None);
+    assert_eq!(all.lines()[2].reach, Reach::Device("HDMI-A-1".to_owned()));
+    assert_eq!(numbers(all.for_devices()), [4, 7, 8]);
+
+    // For one output: `*` and its name, in config order; the later line wins.
+    let laptop = report(&status, "wallpaper.image", Some("eDP-1"));
+    assert_eq!(numbers(laptop.lines()), [1, 4]);
+    assert_eq!(laptop.user_value().map(UserLine::line), Some(4));
+    assert_eq!(numbers(laptop.overridden()), [1, 4]);
+    assert_eq!(laptop.overriding(), None);
+    let color = report(&status, "wallpaper.color", Some("eDP-1"));
+    assert_eq!(
+        color.user_value().unwrap().value,
+        Ok(Value::Color(Color::rgb(0x10, 0x20, 0x30)))
+    );
+
+    // After the include, a line for the output wins, also after other subcommands.
+    let external = report(&status, "wallpaper.color", Some("HDMI-A-1"));
+    assert_eq!(external.overriding().map(UserLine::line), Some(7));
+    assert_eq!(
+        external.overriding().unwrap().value,
+        Ok(Value::Color(Color::rgb(0x28, 0x55, 0x77)))
+    );
+}

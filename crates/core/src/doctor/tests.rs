@@ -731,6 +731,57 @@ fn no_config_and_unreadable_files_are_problems() {
 }
 
 #[test]
+fn a_swaybg_command_that_draws_no_wallpaper_is_a_problem() {
+    const WALLPAPER: &str = "version = 1\n\n[wallpaper]\ncolor = \"#285577\"\n";
+    let config = setup_config("swaybg_command -");
+    let setup = Setup::new(WALLPAPER, &config);
+    let diagnosis = setup.diagnose();
+    let found = one(&diagnosis, Code::SwaybgCommand);
+    assert_eq!(found.severity, Severity::Problem);
+    assert_eq!(
+        (found.file.as_deref(), found.line),
+        (Some(setup.config().as_path()), Some(2))
+    );
+    assert!(
+        found
+            .message
+            .english()
+            .starts_with("Your config sets swaybg_command - ("),
+        "{}",
+        found.message.english()
+    );
+
+    // A program that isn't in $PATH, for a checkup that looks at the machine.
+    let setup = Setup::new(WALLPAPER, &setup_config("swaybg_command no-such-swaybg"));
+    let dir = setup.dir.path().as_os_str().to_owned();
+    let checkup = Checkup {
+        path: Some(dir),
+        ..setup.checkup()
+    };
+    let diagnosis = block_on(checkup.diagnose());
+    assert!(
+        one(&diagnosis, Code::SwaybgCommand)
+            .message
+            .english()
+            .contains("swaybg_command no-such-swaybg (")
+    );
+
+    // Nothing without a stored wallpaper, and nothing for a later line that names swaybg.
+    let setup = Setup::new(GAPS, &setup_config("swaybg_command -"));
+    none(&setup.diagnose(), Code::SwaybgCommand);
+    let setup = Setup::new(
+        WALLPAPER,
+        &setup_config("swaybg_command -\nswaybg_command /usr/bin/env"),
+    );
+    none(&setup.diagnose(), Code::SwaybgCommand);
+}
+
+/// A sway config with `lines` after the include line.
+fn setup_config(lines: &str) -> String {
+    format!("{INCLUDE}{lines}\n")
+}
+
+#[test]
 fn ids_are_stable() {
     assert_eq!(Code::FileOutOfDate.id(), "file_out_of_date");
     assert_eq!(Code::ConfigWins.section().id(), "conflicts");

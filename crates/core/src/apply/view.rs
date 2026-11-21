@@ -6,9 +6,11 @@
 //! waits to be kept and the displays kanshi sets up. One function, so the app and the command
 //! line show the same.
 
+use std::path::PathBuf;
+
 use super::Pending;
 use crate::outputs::{Outputs, POSITION};
-use crate::registry::{Scope, Setting, Value, Values};
+use crate::registry::{Setting, Value, Values};
 use crate::state::State;
 use crate::view::SettingView;
 
@@ -62,7 +64,7 @@ pub fn in_effect(
         }
     }
     if let Some(outputs) = effect.kanshi {
-        if setting.scope() == Scope::PerOutput {
+        if setting.sets_up_display() {
             view.line = None;
             if device.is_none() {
                 let mut each = outputs
@@ -93,6 +95,10 @@ impl<V: Values> Values for Tried<'_, V> {
             .find(|(tried, _)| *tried == key)
             .map(|(_, value)| *value)
             .or_else(|| self.under.get(key))
+    }
+
+    fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
+        self.under.wallpaper_picture(output)
     }
 }
 

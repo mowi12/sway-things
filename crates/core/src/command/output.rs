@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Builders for `output <name> …` commands (`man 5 sway-output`), used by the Displays page.
+//! Builders for `output <name> …` commands (`man 5 sway-output`), used by the Displays and
+//! Wallpaper pages.
 //!
 //! An output is selected by its name (the connector, `DP-4`) or by its identifier, make, model
 //! and serial separated by spaces (`Dell Inc. DELL U2723QE ABC123`), which stays the same when a
@@ -9,8 +10,9 @@
 //! command as text.
 //!
 //! ```
-//! use sway_things_core::command::Target;
-//! use sway_things_core::command::output::{Mode, Output, OutputSelector, Transform};
+//! use std::path::Path;
+//! use sway_things_core::command::output::{Fill, Mode, Output, OutputSelector, Transform};
+//! use sway_things_core::command::{Color, Target};
 //!
 //! let dell = Output::new(OutputSelector::output("Dell Inc. DELL U2723QE ABC123")?);
 //! assert_eq!(
@@ -22,12 +24,28 @@
 //!     Output::new(OutputSelector::All).transform(Transform::R90).render(Target::Ipc)?,
 //!     "output * transform 90"
 //! );
+//!
+//! let laptop = Output::new(OutputSelector::output("eDP-1")?);
+//! assert_eq!(
+//!     laptop.background_color(Color::rgb(0x28, 0x55, 0x77)).render(Target::Ipc)?,
+//!     r#"output "eDP-1" bg #285577 solid_color"#
+//! );
+//! let image = laptop.background_image(
+//!     Path::new("/home/me/Pictures/Wallpapers/lake.jpg"),
+//!     Fill::Fill,
+//!     Color::rgb(0, 0, 0),
+//! )?;
+//! assert_eq!(
+//!     image.render(Target::Config)?,
+//!     r#"output "eDP-1" bg "'/home/me/Pictures/Wallpapers/lake.jpg'" fill #000000"#
+//! );
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 use std::fmt;
+use std::path::Path;
 
-use super::{BoolStyle, OutOfRange, SwayCmd, SwayText, TextError};
+use super::{BoolStyle, Color, OutOfRange, SwayCmd, SwayText, TextError};
 use crate::i18n::Text;
 use crate::msg;
 
@@ -231,6 +249,50 @@ impl Transform {
     }
 }
 
+/// How a background image covers an output (`bg <file> <mode>`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Fill {
+    /// `fill`: scaled to cover the output, cut off where the aspect ratios differ.
+    Fill,
+    /// `fit`: scaled to fit the output, with the fallback color around it.
+    Fit,
+    /// `stretch`: scaled to the size of the output, distorted where the aspect ratios differ.
+    Stretch,
+    /// `center`: unscaled, in the middle of the output.
+    Center,
+    /// `tile`: unscaled, repeated.
+    Tile,
+}
+
+impl Fill {
+    /// Every mode, in the order of the Wallpaper page.
+    pub const ALL: [Self; 5] = [
+        Self::Fill,
+        Self::Fit,
+        Self::Stretch,
+        Self::Center,
+        Self::Tile,
+    ];
+
+    /// The keyword sway takes.
+    pub const fn keyword(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Fit => "fit",
+            Self::Stretch => "stretch",
+            Self::Center => "center",
+            Self::Tile => "tile",
+        }
+    }
+
+    /// The mode with this [keyword](Fill::keyword), without regard to case, as sway reads it.
+    pub fn from_keyword(keyword: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|mode| mode.keyword().eq_ignore_ascii_case(keyword))
+    }
+}
+
 /// The smallest scale the builder accepts. sway takes any scale above 0, but below this nothing
 /// on the output can be read.
 pub const MIN_SCALE: f64 = 0.25;
@@ -293,6 +355,64 @@ impl Output {
     pub fn enable(&self, enabled: bool) -> SwayCmd {
         self.selected().bool(enabled, BoolStyle::EnableDisable)
     }
+
+    /// `bg <color> solid_color`: the output is filled with one color. sway only takes opaque
+    /// colors, so an alpha is dropped.
+    pub fn background_color(&self, color: Color) -> SwayCmd {
+        self.command("bg")
+            .color(color.opaque())
+            .keyword("solid_color")
+    }
+
+    /// `bg <file> <mode> <fallback>`: the image at `path`, covering the output as `mode` says,
+    /// with `fallback` where it doesn't. The fallback is always given: sway 1.11 and later also
+    /// show it if the file can't be read, instead of rejecting the command.
+    ///
+    /// `path` is absolute, or starts with `~/` for the home folder of whoever runs sway, so the
+    /// same settings work for every user name.
+    ///
+    /// sway passes the file to `wordexp(3)`, which treats it like a word of a shell command line
+    /// and runs `$(…)` in it. The path is therefore quoted in single quotes for `wordexp`, an
+    /// inner `'` as `"'"`, before it is quoted as text for the target; only a leading `~` stays
+    /// outside the quotes, so `wordexp` replaces it.
+    ///
+    /// # Errors
+    ///
+    /// [`OutputError::NotAbsolute`] if `path` is relative otherwise (sway would look for it next
+    /// to the config file), [`OutputError::NotUtf8`] if it isn't valid UTF-8,
+    /// [`OutputError::DoubleSpace`] if it has two spaces in a row (sway escapes those before
+    /// `wordexp`, which breaks the quoting), and [`OutputError::Text`] for a control character or
+    /// a backslash.
+    pub fn background_image(
+        &self,
+        path: &Path,
+        mode: Fill,
+        fallback: Color,
+    ) -> Result<SwayCmd, OutputError> {
+        let word = wordexp_word(path)?;
+        Ok(self
+            .command("bg")
+            .text(SwayText::new(word)?)
+            .keyword(mode.keyword())
+            .color(fallback.opaque()))
+    }
+}
+
+/// `path` as one word that `wordexp(3)` reads back unchanged, except for a leading `~`, which
+/// it replaces with the home folder.
+fn wordexp_word(path: &Path) -> Result<String, OutputError> {
+    let path = path.to_str().ok_or(OutputError::NotUtf8)?;
+    let (home, rest) = match path.strip_prefix("~/") {
+        Some(rest) => ("~/", rest),
+        None if path.starts_with('/') => ("", path),
+        None => return Err(OutputError::NotAbsolute),
+    };
+    if path.contains("  ") {
+        return Err(OutputError::DoubleSpace);
+    }
+    // Checked here too, so the error points into the path, not into the quoted word.
+    SwayText::new(path)?;
+    Ok(format!("{home}'{}'", rest.replace('\'', r#"'"'"'"#)))
 }
 
 /// Why an `output` command can't be built.
@@ -306,6 +426,12 @@ pub enum OutputError {
     InvalidPosition,
     /// A number is outside the range sway accepts (or NaN).
     OutOfRange(OutOfRange),
+    /// The image path is relative, and doesn't start with `~/` either.
+    NotAbsolute,
+    /// The image path isn't valid UTF-8.
+    NotUtf8,
+    /// The image path has two spaces in a row.
+    DoubleSpace,
     /// A string can't be used as text.
     Text(TextError),
 }
@@ -332,6 +458,13 @@ impl OutputError {
             }
             Self::InvalidPosition => msg!("expected a position like 1920,0").into(),
             Self::OutOfRange(error) => error.text(),
+            Self::NotAbsolute => {
+                msg!("the image needs an absolute path or one in your home folder (~/…)").into()
+            }
+            Self::NotUtf8 => msg!("the path of the image isn't valid UTF-8").into(),
+            Self::DoubleSpace => {
+                msg!("sway can't read an image path with two spaces in a row").into()
+            }
             Self::Text(error) => error.text(),
         }
     }
@@ -348,7 +481,12 @@ impl std::error::Error for OutputError {
         match self {
             Self::OutOfRange(error) => Some(error),
             Self::Text(error) => Some(error),
-            Self::Reserved | Self::InvalidMode | Self::InvalidPosition => None,
+            Self::Reserved
+            | Self::InvalidMode
+            | Self::InvalidPosition
+            | Self::NotAbsolute
+            | Self::NotUtf8
+            | Self::DoubleSpace => None,
         }
     }
 }

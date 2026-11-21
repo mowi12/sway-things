@@ -898,6 +898,10 @@ impl Window {
         let Some(model) = self.imp().model.get() else {
             return PageView::unbuilt(page);
         };
+        if page == Page::Wallpaper && model.error().is_none() {
+            let body = crate::widgets::wallpaper_page(model);
+            return PageView::new(tr(page.title()), tr(page.description()), &body);
+        }
         if let Some(error) = model.error() {
             let placeholder = Placeholder::new(
                 "dialog-error-symbolic",

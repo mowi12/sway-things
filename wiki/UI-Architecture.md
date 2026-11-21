@@ -53,6 +53,27 @@
   the type is listed (connected or with stored values) and nothing is stored for the type, the run shows its first
   heading and a hint instead of the lists. The Mouse & Touchpad page ends with a `TestArea` (a pad that names the last
   click, a strip to scroll).
+- **Per-output sections:** a run of sections of per-output settings that don't set a display up starts with the same
+  selector for the outputs (`DeviceSelector::of(Instances::Outputs)`: all displays, or one of `Model::outputs` by its
+  identifier, shown by name and model), and a row for one output notes that it uses the value of all displays. The
+  Displays page picks its output on the arrangement instead. The value for all displays applies to screens plugged in
+  later, so these sections never give way to a hint.
+- **Wallpaper page** (`crates/gui/src/widgets/wallpaper/`: `preview`, `pictures`, `collections`, `colors`, `images` and
+  `notices` around the state in `mod.rs`), a page of its own rather than rows: the notices about wallpaper tools; a
+  preview with a tile per output, sized and placed like the layout (a `gtk::Fixed`), with its wallpaper; _Same wallpaper
+  on all displays_, which edits the values for every output, or while off those of the tile clicked (switching back
+  removes the values of single outputs, after asking); what the edited output shows, with an icon and a line for its
+  kind (picture, collection or color), _Next Picture_ for a collection, the fit as linked toggle buttons and the color.
+  The tiles draw the fit as swaybg does: `center` and `tile` show the picture at its own size against the output's
+  pixels (a `gtk::DrawingArea` with cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG pictures
+  folder, `~/Pictures`) and of its subfolders, which become filter chips, with _Choose Image…_; the collections as
+  cards, with the settings and pictures of the open one (_Add Pictures…_, _Add Folder…_, a click removes one, _Delete
+  Collection…_); and colors. The tab's buttons sit at the end of the row of the tabs (a `RowLayout`). Every tile of the
+  grids is a 16:10 frame that the picture fills, cut off where it doesn't fit; a folder or an empty collection shows the
+  background color of the edited output (`images::frame`, one style sheet swapped when the color changes). Folders are
+  listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf can't leave its thread, so
+  its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored with `~/` for the home folder;
+  picking one, or a color, stops a collection on that output.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the
@@ -101,13 +122,13 @@
   button, which starts the specialist tool, in the page header. Each page follows the service's change stream on the
   main loop (`glib::spawn_future_local`, holding the page by a `WeakRef`), reads a new snapshot at most every 200 ms
   (Sound 100 ms, `live::follow_changes`) and updates its rows in place; the tasks end in `dispose`. The sections, rows
-  and hints are the shared ones of `widgets/list.rs`, the forget dialog is `live::confirm_forget`, and
-  `window::live_view` puts each page under its title with its _Advanced…_ button. Bluetooth and Network search only
-  while the page is on screen and the radio is on, or after _Search_ with the preference set to manual. Their dialogs
-  (`dialogs.rs`) take the pairing agent's and the secret agent's questions (Wi-Fi passwords, a VPN plugin's fields, the
-  steps of an OpenConnect sign-in), renaming, passwords, hidden networks and forgetting. Device, network and app names
-  are untrusted and only ever set as plain label text. The tests run the pages against the stand-ins of
-  `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
+  and hints are the shared ones of `widgets/list.rs` (the notices of every page are `widgets/notice.rs`), the forget
+  dialog is `live::confirm_forget`, and `window::live_view` puts each page under its title with its _Advanced…_ button.
+  Bluetooth and Network search only while the page is on screen and the radio is on, or after _Search_ with the
+  preference set to manual. Their dialogs (`dialogs.rs`) take the pairing agent's and the secret agent's questions
+  (Wi-Fi passwords, a VPN plugin's fields, the steps of an OpenConnect sign-in), renaming, passwords, hidden networks
+  and forgetting. Device, network and app names are untrusted and only ever set as plain label text. The tests run the
+  pages against the stand-ins of `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
 - **Workspaces page** (`crates/gui/src/widgets/workspaces.rs`): below the rows of `workspaces.count` and
   `workspaces.placement`, a map with a card per display that takes workspaces, holding the numbers the placement rule
   gives it (`Model::placement`). A click on a number sends it to the next display, a drag onto another card puts it

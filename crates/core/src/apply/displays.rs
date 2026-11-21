@@ -15,7 +15,7 @@ use crate::msg;
 use crate::outputs::kanshi::{self, KanshiFiles};
 use crate::outputs::profiles::{Profile, Profiles};
 use crate::outputs::{ENABLED, MODE, Outputs, POSITION, SCALE, TRANSFORM};
-use crate::registry::{Scope, Value, workspaces};
+use crate::registry::{Value, workspaces};
 
 impl<V: Validate> Applier<V> {
     /// While kanshi sets up the displays: has the file of ours for kanshi there and saying what
@@ -171,7 +171,7 @@ impl<V: Validate> Applier<V> {
             .state
             .entries()
             .into_iter()
-            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter(|entry| entry.setting.sets_up_display())
             .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
             .filter(|(_, device)| !combination.contains(device))
             // Only what a remembered combination holds: it comes back with it. The values of a
@@ -464,7 +464,7 @@ impl<V: Validate> Applier<V> {
             .state
             .entries()
             .into_iter()
-            .filter(|entry| entry.setting.scope() == Scope::PerOutput)
+            .filter(|entry| entry.setting.sets_up_display())
             .filter_map(|entry| Some((entry.setting.key(), entry.device?.to_owned())))
             .filter(|(_, device)| connected.contains(device))
             .collect();

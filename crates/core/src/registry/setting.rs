@@ -59,8 +59,22 @@ pub enum Scope {
     /// Every input device of a type, or one device. The value for the type is stored in the shared
     /// file by default, a value for one device in the host overlay.
     PerDevice(InputType),
-    /// One output. Stored in the host overlay by default.
+    /// Every output, or one output. The value for all outputs is stored in the shared file by
+    /// default, a value for one output in the host overlay.
     PerOutput,
+    /// One wallpaper collection, by its name. A value is always stored for one collection, in the
+    /// shared file by default.
+    PerCollection,
+}
+
+impl Scope {
+    /// Whether a value can be stored for one input device, output or collection.
+    pub const fn has_instances(self) -> bool {
+        matches!(
+            self,
+            Self::PerDevice(_) | Self::PerOutput | Self::PerCollection
+        )
+    }
 }
 
 /// How a changed value takes effect.
@@ -130,6 +144,8 @@ pub enum When {
     NoneOf(&'static [&'static str]),
     /// A number is above this.
     Above(f64),
+    /// A text isn't empty.
+    Set,
 }
 
 impl When {
@@ -145,6 +161,7 @@ impl When {
             )]
             (Self::Above(limit), Value::Integer(number)) => *number as f64 > limit,
             (Self::Above(limit), Value::Decimal(number)) => *number > limit,
+            (Self::Set, Value::Text(text)) => !text.is_empty(),
             _ => false,
         }
     }
@@ -216,6 +233,7 @@ pub struct Setting {
     unit: Option<Unit>,
     one_at_a_time: bool,
     font: Option<Font>,
+    sets_up_display: bool,
 }
 
 /// What kind of font a text setting holds ([`Setting::font`]).
@@ -256,6 +274,7 @@ impl Setting {
             unit: None,
             one_at_a_time: false,
             font: None,
+            sets_up_display: false,
         })
     }
 
@@ -296,9 +315,28 @@ impl Setting {
         Self::builder(key, Kind::Choice { default, choices }, page)
     }
 
-    /// A color.
+    /// A color, translucent or not.
     pub fn color(key: &'static str, page: Page, default: Color) -> SettingBuilder {
-        Self::builder(key, Kind::Color { default }, page)
+        Self::builder(
+            key,
+            Kind::Color {
+                default,
+                alpha: true,
+            },
+            page,
+        )
+    }
+
+    /// An opaque color (`#rrggbb`; `#rrggbbff` is the same color).
+    pub fn opaque_color(key: &'static str, page: Page, default: Color) -> SettingBuilder {
+        Self::builder(
+            key,
+            Kind::Color {
+                default,
+                alpha: false,
+            },
+            page,
+        )
     }
 
     /// Free text.
@@ -408,7 +446,8 @@ impl Setting {
 
     /// Checks that a value of the setting can be stored for `device`: the identifier of an input
     /// device for a setting with [`Scope::PerDevice`], the identifier or name of an output for
-    /// one with [`Scope::PerOutput`].
+    /// one with [`Scope::PerOutput`], the name of a collection for one with
+    /// [`Scope::PerCollection`].
     ///
     /// # Errors
     ///
@@ -418,6 +457,7 @@ impl Setting {
         let fits = match self.scope {
             Scope::PerDevice(_) => InputSelector::device(device).is_ok(),
             Scope::PerOutput => OutputSelector::output(device).is_ok(),
+            Scope::PerCollection => super::wallpaper::is_collection_name(device),
             Scope::Global | Scope::PerHost => return Err(DeviceError::NotPerDevice),
         };
         if fits {
@@ -433,12 +473,22 @@ impl Setting {
         self.one_at_a_time
     }
 
-    /// The table of a settings file that holds values for one device or output: `device` or
-    /// `display` (`output` is taken by the values for every output, `output.scale`). `None` for a setting that isn't stored per device.
+    /// Whether the setting sets a display up: its mode, position, scale, rotation, or whether it
+    /// is on. kanshi takes these over while it runs, they are remembered per combination of
+    /// displays, and a stored one brings the display guard. Other settings of outputs, like the
+    /// wallpaper, don't.
+    pub fn sets_up_display(&self) -> bool {
+        self.sets_up_display
+    }
+
+    /// The table of a settings file that holds values for one device, output or collection:
+    /// `device`, `display` (`output` is taken by the values for every output, `output.scale`) or
+    /// `collection`. `None` for a setting that isn't stored per device.
     pub fn device_table(&self) -> Option<&'static str> {
         match self.scope {
             Scope::PerDevice(_) => Some("device"),
             Scope::PerOutput => Some("display"),
+            Scope::PerCollection => Some("collection"),
             Scope::Global | Scope::PerHost => None,
         }
     }
@@ -647,6 +697,14 @@ impl SettingBuilder {
     /// [`Setting::is_one_at_a_time`]).
     pub fn one_at_a_time(mut self) -> Self {
         self.0.one_at_a_time = true;
+        self
+    }
+
+    /// Makes the setting one of outputs that sets a display up: [`Scope::PerOutput`] and
+    /// [`Setting::sets_up_display`].
+    pub fn sets_up_display(mut self) -> Self {
+        self.0.scope = Scope::PerOutput;
+        self.0.sets_up_display = true;
         self
     }
 

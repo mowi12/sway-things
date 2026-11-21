@@ -238,6 +238,139 @@ fn get_without_a_key_lists_every_stored_value_by_device() {
 }
 
 #[test]
+fn a_value_for_one_display_is_set_and_listed_by_display() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    let ran = setup.run(&["set", "wallpaper.color", "#285577"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let ran = setup.run(&[
+        "set",
+        "wallpaper.image",
+        "~/Pictures/lake.jpg",
+        "--device",
+        "eDP-1",
+    ]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(
+        ran.out,
+        "Set wallpaper.image --device eDP-1 to ~/Pictures/lake.jpg.\n"
+    );
+    assert_eq!(
+        sway.commands(),
+        [
+            "output * bg #285577 solid_color",
+            "output \"eDP-1\" bg \"~/'Pictures/lake.jpg'\" fill #285577"
+        ]
+    );
+    assert_eq!(
+        setup
+            .generated("20-output.conf")
+            .lines()
+            .skip(2)
+            .collect::<Vec<_>>(),
+        [
+            "output * bg #285577 solid_color",
+            "output \"eDP-1\" bg \"~/'Pictures/lake.jpg'\" fill #285577"
+        ]
+    );
+
+    let ran = setup.run(&["get"]);
+    assert_eq!(
+        ran.out,
+        "wallpaper.color = #285577  (settings.toml)\n\
+         \n\
+         display eDP-1\n  \
+         wallpaper.image = ~/Pictures/lake.jpg  (settings.d/laptop.toml)\n"
+    );
+    let ran = setup.run(&["get", "wallpaper.color", "--device", "eDP-1"]);
+    assert_eq!(
+        ran.out,
+        "wallpaper.color --device eDP-1 = #285577  (settings.toml, for every display)\n"
+    );
+    let ran = setup.run(&["get", "--device", "eDP-1", "--json"]);
+    let json: serde_json::Value = serde_json::from_str(&ran.out).unwrap();
+    assert_eq!(json.as_array().unwrap().len(), 1);
+    assert_eq!(json[0]["device"], "eDP-1");
+
+    // `*` stands for every display, not for one.
+    let ran = setup.run(&["reset", "wallpaper.image", "--device", "*"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+}
+
+#[test]
+fn the_settings_of_a_collection_are_named_with_collection() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    let ran = setup.run(&[
+        "set",
+        "collection.order",
+        "in_order",
+        "--collection",
+        "Nature",
+    ]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(
+        ran.out,
+        "Set collection.order --collection Nature to in_order.\n"
+    );
+    let ran = setup.run(&["get"]);
+    assert_eq!(
+        ran.out,
+        "\ncollection Nature\n  collection.order = in_order  (settings.toml)\n"
+    );
+
+    // A collection only for the settings of one, and always for them.
+    let ran = setup.run(&["set", "wallpaper.fill", "fit", "--collection", "Nature"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    let ran = setup.run(&["reset", "collection.order"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    assert_eq!(
+        ran.err,
+        "error: collection.order is a setting of a collection; name it with --collection\n"
+    );
+}
+
+#[test]
+fn the_wallpaper_hook_shows_a_picture_of_each_collection_at_login() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(EMPTY, INCLUDE, Some(&sway));
+    let pictures = setup.path("pictures");
+    fs::create_dir_all(&pictures).unwrap();
+    for name in ["a.png", "b.png"] {
+        fs::write(pictures.join(name), b"").unwrap();
+    }
+    let folder = pictures.display().to_string();
+    for (key, value) in [
+        ("collection.pictures", folder.as_str()),
+        ("collection.order", "in_order"),
+        ("collection.change", "login"),
+    ] {
+        let ran = setup.run(&["set", key, value, "--collection", "Nature"]);
+        assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    }
+    let ran = setup.run(&["set", "wallpaper.collection", "Nature"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let link = setup.path("state/sway-things/wallpaper/all");
+    assert!(
+        setup
+            .generated("20-output.conf")
+            .ends_with("exec sway-things hook wallpaper\n")
+    );
+    let before = fs::read_link(&link).unwrap();
+
+    // Each login moves on to the next picture and shows it.
+    let ran = setup.run(&["hook", "wallpaper"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    let after = fs::read_link(&link).unwrap();
+    assert_ne!(after, before);
+    assert!(after.starts_with(&pictures), "{after:?}");
+    assert_eq!(
+        sway.commands().last().map(String::as_str),
+        Some(format!("output * bg \"'{}'\" fill #000000", link.display()).as_str())
+    );
+}
+
+#[test]
 fn get_shows_the_users_config_and_where_it_wins() {
     let mut setup = Setup::new(
         "version = 1\n\n[windows.gaps]\ninner = 8\n",
@@ -590,6 +723,7 @@ fn commands_parse_as_documented() {
         Some(Command::Get {
             key: None,
             device: None,
+            collection: None,
             json: true
         })
     );

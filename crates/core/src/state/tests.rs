@@ -489,6 +489,88 @@ fn a_position_mode_or_switch_is_only_for_one_display() {
 }
 
 #[test]
+fn collection_tables_hold_the_settings_of_a_collection() {
+    const PICTURES: &str = "collection.pictures";
+    const ORDER: &str = "collection.order";
+    let fixture = Fixture::new(
+        Some(
+            r#"
+[collection.Nature]
+pictures = ["~/Pictures/Nature", "~/Pictures/lake.jpg"]
+order = "in_order"
+
+[collection." spaced "]
+order = "shuffle"
+
+[collection.Cities]
+image = "~/a.png"
+"#,
+        ),
+        None,
+    );
+    let mut state = fixture.load();
+    assert_eq!(
+        problems(&state),
+        [
+            (
+                Layer::Shared,
+                ProblemKind::InvalidCollection {
+                    collection: " spaced ".to_owned()
+                }
+            ),
+            (
+                Layer::Shared,
+                ProblemKind::UnknownKey {
+                    key: "collection.image".to_owned(),
+                    device: Some("Cities".to_owned())
+                }
+            ),
+        ]
+    );
+    assert_eq!(
+        state.get(PICTURES, Some("Nature")).cloned(),
+        Some(Value::List(vec![
+            "~/Pictures/Nature".to_owned(),
+            "~/Pictures/lake.jpg".to_owned()
+        ]))
+    );
+    assert_eq!(
+        state.get(ORDER, Some("Nature")).cloned(),
+        Some(Value::Choice("in_order".to_owned()))
+    );
+
+    // A collection's settings are shared, and always for one collection.
+    let setting = Registry::builtin().get(ORDER).unwrap();
+    assert_eq!(Layer::default_for(setting, Some("Space")), Layer::Shared);
+    assert!(matches!(
+        state.set(ORDER, None, Value::Choice("shuffle".to_owned()), None),
+        Err(StateError::NoCollection { .. })
+    ));
+    assert!(matches!(
+        state.set(ORDER, Some(""), Value::Choice("shuffle".to_owned()), None),
+        Err(StateError::InvalidCollection { .. })
+    ));
+    state
+        .set(
+            ORDER,
+            Some("Space"),
+            Value::Choice("shuffle".to_owned()),
+            None,
+        )
+        .unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
+    assert!(
+        fixture
+            .text(Layer::Shared)
+            .contains("\n[collection.Space]\norder = \"shuffle\"\n"),
+        "{}",
+        fixture.text(Layer::Shared)
+    );
+    assert!(state.reset(ORDER, Some("Space")).unwrap());
+    assert_eq!(state.get(ORDER, Some("Space")), None);
+}
+
+#[test]
 fn values_render_through_the_registry() {
     let fixture = Fixture::new(
         Some("[input.touchpad]\ntap = true\n[windows.focused]\nchild_border = \"#3b6e4f\"\n"),
@@ -623,6 +705,39 @@ fn a_new_value_goes_to_the_file_of_its_scope() {
     assert_eq!(reloaded.problems(), []);
     assert_eq!(reloaded.get(GAPS, None), Some(&Value::Integer(8)));
     assert_eq!(reloaded.get(TAP, Some(TOUCHPAD)), Some(&Value::Bool(false)));
+}
+
+#[test]
+fn a_wallpaper_for_every_display_is_shared_and_one_for_a_display_this_machines() {
+    const IMAGE: &str = "wallpaper.image";
+    const LAPTOP: &str = "eDP-1";
+    let registry = Registry::builtin();
+    let default = |key: &str, device| Layer::default_for(registry.get(key).unwrap(), device);
+    assert_eq!(default(IMAGE, None), Layer::Shared);
+    assert_eq!(default(IMAGE, Some(LAPTOP)), Layer::Host);
+    // The scale of every display fits this machine's displays.
+    assert_eq!(default("output.scale", None), Layer::Host);
+
+    let fixture = Fixture::new(None, None);
+    let mut state = fixture.load();
+    let text = |path: &str| Value::Text(path.to_owned());
+    state.set(IMAGE, None, text("~/a.png"), None).unwrap();
+    state
+        .set(IMAGE, Some(LAPTOP), text("~/b.png"), None)
+        .unwrap();
+    state.save(&WriteAccess::for_tests()).unwrap();
+    assert_eq!(
+        fixture.text(Layer::Shared),
+        "version = 1\n\n[wallpaper]\nimage = \"~/a.png\"\n"
+    );
+    assert_eq!(
+        fixture.text(Layer::Host),
+        "version = 1\n\n[display.eDP-1.wallpaper]\nimage = \"~/b.png\"\n"
+    );
+    let reloaded = fixture.load();
+    assert_eq!(reloaded.problems(), []);
+    assert_eq!(reloaded.get(IMAGE, None), Some(&text("~/a.png")));
+    assert_eq!(reloaded.get(IMAGE, Some(LAPTOP)), Some(&text("~/b.png")));
 }
 
 #[test]

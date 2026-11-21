@@ -53,6 +53,7 @@ pub use view::{InEffect, in_effect};
 pub use waiting::{Until, Waiting, WaitingChange};
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -420,7 +421,7 @@ impl<V: Validate> Applier<V> {
     /// Notes that `setting` changed, so the displays are remembered at the next save if it is
     /// one of theirs.
     pub(crate) fn touch(&mut self, setting: &Setting) {
-        if setting.scope() == Scope::PerOutput {
+        if setting.sets_up_display() {
             self.displays_touched = true;
         }
     }
@@ -501,8 +502,7 @@ impl<V: Validate> Applier<V> {
     /// would take it, and the next look at the displays would put back what they run with.
     fn displays_need_session(&self, key: &str) -> Result<(), ApplyError> {
         let setting = self.setting(key)?;
-        if self.displays.is_kanshi() && setting.scope() == Scope::PerOutput && self.client.is_none()
-        {
+        if self.displays.is_kanshi() && setting.sets_up_display() && self.client.is_none() {
             return Err(ApplyError::DisplaysNeedSession { key: setting.key() });
         }
         Ok(())
@@ -519,7 +519,7 @@ impl<V: Validate> Applier<V> {
         // A position, a mode or switching off is for one display at a time anyway.
         let for_each = device.is_none()
             && self.displays.is_kanshi()
-            && setting.scope() == Scope::PerOutput
+            && setting.sets_up_display()
             && !setting.is_one_at_a_time();
         let Some(client) = self.client.as_mut().filter(|_| for_each) else {
             return Ok(None);
@@ -808,6 +808,9 @@ impl<V: Validate> Applier<V> {
         {
             return Ok(Effect::Unsupported(unmet));
         }
+        // The `bg` line of a collection names the link to its current picture, which must exist.
+        // A link that can't be made leaves the color in place of the picture.
+        let _ = crate::wallpaper::prepare(&self.state);
         // What goes into the generated file must be a command too.
         let config = render(&self.state, over, setting, device, Target::Config)?;
         if let Some(unmet) = config
@@ -824,7 +827,7 @@ impl<V: Validate> Applier<V> {
             Apply::Relogin => return Ok(Effect::AfterRelogin),
         }
         let commands = render(&self.state, over, setting, device, Target::Ipc)?;
-        if commands.is_empty() && setting.scope() == Scope::PerOutput {
+        if commands.is_empty() && setting.sets_up_display() {
             // sway has no command that hands an output's mode, position or scale back to its own
             // choice: that happens when it reads its config again.
             return Ok(Effect::AfterReload);
@@ -904,6 +907,7 @@ impl<V: Validate> Applier<V> {
         self.state.save(access)?;
         self.remember_displays().await;
         self.keep_kanshi_file().await;
+        let _ = crate::wallpaper::prepare(&self.state);
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
@@ -1046,6 +1050,10 @@ struct Over<'a, V> {
 impl<V: Values> Values for Over<'_, V> {
     fn get(&self, key: &str) -> Option<&Value> {
         self.over.get(key).or_else(|| self.under.get(key))
+    }
+
+    fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
+        self.under.wallpaper_picture(output)
     }
 }
 

@@ -32,13 +32,14 @@ use sway_things_core::outputs::modes;
 
 use sway_things_core::outputs::layout::{self, overlaps};
 use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
-use sway_things_core::registry::{Scope, Value};
+use sway_things_core::registry::{Setting, Value};
 
 pub use canvas::Canvas;
 pub(crate) use canvas::short_label;
 pub use mirroring::Mirroring;
 
 use super::SettingRow;
+use super::notice::{self, Tone};
 use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
@@ -103,20 +104,12 @@ impl Arrangement {
         below.append(&hint);
         below.append(&identify);
 
-        let warning = gtk::Label::new(Some(tr(msg!(
+        let warning = notice::text(tr(msg!(
             "Some displays overlap or don\u{2019}t touch, so the pointer can\u{2019}t reach every \
              one."
-        ))));
-        warning.set_wrap(true);
-        warning.set_xalign(0.0);
-        warning.set_hexpand(true);
+        )));
         let fix = gtk::Button::with_label(tr(msg!("Arrange Side by Side")));
-        fix.set_valign(gtk::Align::Center);
-        let gaps = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        gaps.add_css_class("st-display-warning");
-        gaps.append(&gtk::Image::from_icon_name("dialog-warning-symbolic"));
-        gaps.append(&warning);
-        gaps.append(&fix);
+        let gaps = notice::notice(Tone::Warning, &warning, Some(&fix));
         gaps.set_visible(false);
         fix.connect_clicked(glib::clone!(
             #[weak]
@@ -181,17 +174,16 @@ impl Arrangement {
     /// it takes for that (the include line for kanshi's config, above the user's own profiles,
     /// or kanshi itself). `outputs` are the displays connected now.
     fn show_kanshi(&self, model: &Model, known: bool, outputs: &Outputs) {
+        // The children of the notice: the icon, what is said and the copy button.
         let mut parts = std::iter::successors(self.kanshi.first_child(), WidgetExt::next_sibling);
-        let (Some(icon), Some(said), Some(copy)) = (parts.next(), parts.next(), parts.next())
-        else {
+        let (Some(said), Some(copy)) = (parts.nth(1), parts.next()) else {
             return;
         };
         let lines = (said.first_child(), said.last_child());
         let (Some(note), Some(shown)) = lines else {
             return;
         };
-        let (Ok(icon), Ok(note), Ok(shown), Ok(copy)) = (
-            icon.downcast::<gtk::Image>(),
+        let (Ok(note), Ok(shown), Ok(copy)) = (
             note.downcast::<gtk::Label>(),
             shown.downcast::<gtk::Label>(),
             copy.downcast::<gtk::Button>(),
@@ -199,11 +191,7 @@ impl Arrangement {
             return;
         };
         let (text, line, warns) = kanshi_says(model, outputs);
-        icon.set_icon_name(Some(if warns {
-            "dialog-warning-symbolic"
-        } else {
-            "dialog-information-symbolic"
-        }));
+        notice::set_tone(&self.kanshi, if warns { Tone::Warning } else { Tone::Info });
         copy.set_tooltip_text(line.as_deref());
         copy.set_visible(line.is_some());
         shown.set_text(line.as_deref().unwrap_or_default());
@@ -570,10 +558,7 @@ fn insert_picker(
 ) -> Vec<glib::WeakRef<SettingRow>> {
     let rows: Vec<&SettingRow> = rows
         .iter()
-        .filter(|row| {
-            row.setting()
-                .is_some_and(|setting| setting.scope() == Scope::PerOutput)
-        })
+        .filter(|row| row.setting().is_some_and(Setting::sets_up_display))
         .collect();
     let list = rows
         .first()

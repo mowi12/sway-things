@@ -57,7 +57,7 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::Compositor;
 use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::profiles::Profiles;
-use sway_things_core::registry::{Apply, ConfigFile, Page, Scope, Setting, Value};
+use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value};
 use sway_things_core::state::{Layer, State};
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
@@ -519,6 +519,15 @@ impl Model {
             .collect()
     }
 
+    /// A copy of the stored settings. `None` if they couldn't be loaded.
+    pub fn state(&self) -> Option<State> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| core.state.clone())
+    }
+
     /// The risky change that waits to be kept or reverted, if there is one.
     pub fn pending_change(&self) -> Option<Pending> {
         self.imp()
@@ -623,7 +632,7 @@ impl Model {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;
         // kanshi sets up the displays: no line of ours competes with the user's.
-        if self.kanshi_runs() && setting.scope() == Scope::PerOutput {
+        if self.kanshi_runs() && setting.sets_up_display() {
             return None;
         }
         Report::check(&core.status, setting, device, core.known())

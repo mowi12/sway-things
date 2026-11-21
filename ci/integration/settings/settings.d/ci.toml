@@ -26,3 +26,9 @@ position = "1920,0"
 
 [display."DP-99".output]
 enabled = false
+
+# sway only checks that the image exists (`access`), and sway 1.10 rejects the line without it, so the image is a file
+# that every container has.
+[display."HEADLESS-1".wallpaper]
+image = "/etc/passwd"
+fill = "fit"

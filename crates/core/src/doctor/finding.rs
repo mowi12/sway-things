@@ -123,6 +123,9 @@ pub enum Code {
     KanshiProfileCopy,
     /// sway and kanshi can't run `sway-things` for the hooks, or run another build of it.
     HookProgram,
+    /// The user's config sets `swaybg_command` to none or to a program that can't be found, so
+    /// the stored wallpaper isn't drawn.
+    SwaybgCommand,
     /// The settings files load without problems.
     SettingsLoaded,
     /// A settings file can't be used at all.
@@ -193,6 +196,7 @@ impl Code {
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
             Self::KanshiProfileCopy => "kanshi_profile_copy",
             Self::HookProgram => "hook_program",
+            Self::SwaybgCommand => "swaybg_command",
             Self::SettingNotCopied => "setting_not_copied",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
@@ -232,7 +236,8 @@ impl Code {
             | Self::KanshiFileForeign
             | Self::KanshiProfileOverlap
             | Self::KanshiProfileCopy
-            | Self::HookProgram => Section::Config,
+            | Self::HookProgram
+            | Self::SwaybgCommand => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
             | Self::SettingsEntry

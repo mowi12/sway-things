@@ -127,5 +127,8 @@ mode = "custom"
 width = 1600
 height = 900
 
+[wallpaper]
+color = "#285577"
+
 [app]
 safety_net_timeout = 20

@@ -74,6 +74,9 @@ repeat_delay = 300
 
 [input.touchpad]
 tap = true
+
+[wallpaper]
+color = "#285577"
 "##,
         &format!(
             r#"version = 1
@@ -87,6 +90,10 @@ tap = false
 [display."{DELL}".output]
 scale = 1.5
 position = "1920,0"
+
+[display."eDP-1".wallpaper]
+image = "~/Pictures/lake.jpg"
+fill = "fit"
 "#
         ),
     )
@@ -130,17 +137,21 @@ input \"{TOUCHPAD}\" tap disabled
 "
         )
     );
-    // One line for the two stored colors of `client.focused`, the others at their defaults.
+    // The lines for every output before those for single outputs; the wallpaper of one falls
+    // back to the color of every output.
     assert_eq!(
         text(&files, ConfigFile::Output),
         format!(
             "{HEADER}\
+output * bg #285577 solid_color
 output \"{DELL}\" scale 1.5
 output \"{DELL}\" pos 1920 0
+output \"eDP-1\" bg \"~/'Pictures/lake.jpg'\" fit #285577
 exec_always sway-things hook displays
 "
         )
     );
+    // One line for the two stored colors of `client.focused`, the others at their defaults.
     assert_eq!(
         text(&files, ConfigFile::Appearance),
         format!(
@@ -279,10 +290,17 @@ fn a_line_number_leads_back_to_its_settings() {
     assert_eq!(source(0, 9), None);
     // Only the stored values of the directive, in the order of the registry.
     assert_eq!(
-        source(1, 4),
+        source(1, 5),
         Some(Source {
             keys: vec!["output.position"],
             device: Some(DELL.to_owned())
+        })
+    );
+    assert_eq!(
+        source(1, 6),
+        Some(Source {
+            keys: vec!["wallpaper.image", "wallpaper.fill"],
+            device: Some("eDP-1".to_owned())
         })
     );
     assert_eq!(
@@ -735,13 +753,39 @@ exec_always sway-things hook displays
     let (_dir, none) = state("[windows.gaps]\ninner = 8\n", "");
     let files = generate(Registry::builtin(), &none, SWAY_1_10);
     assert!(!text(&files, ConfigFile::Output).contains("hook"));
+    // A wallpaper sets no display up: no guard either.
+    let (_dir, wallpaper) = state("", "[display.\"A B C\".wallpaper]\ncolor = \"#102030\"\n");
+    let files = generate(Registry::builtin(), &wallpaper, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    assert!(output.contains("bg #102030 solid_color"), "{output}");
+    assert!(!output.contains("hook"), "{output}");
+}
+
+#[test]
+fn collections_are_started_by_one_line_that_names_no_display() {
+    let (_dir, state) = state(
+        "[wallpaper]\ncollection = \"Nature\"\n",
+        "[display.\"Dell Inc. $(id) U2415\".wallpaper]\ncollection = \"Cities\"\n",
+    );
+    let files = generate(Registry::builtin(), &state, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    let starts: Vec<&str> = output
+        .lines()
+        .filter(|line| line.starts_with("exec"))
+        .collect();
+    assert_eq!(starts, ["exec sway-things hook wallpaper"], "{output}");
+    assert!(
+        output.ends_with("exec sway-things hook wallpaper\n"),
+        "{output}"
+    );
 }
 
 #[test]
 fn with_kanshi_the_displays_get_no_output_lines() {
     let (_dir, stored) = state(
         "[windows.gaps]\ninner = 8\n",
-        "[display.\"A B C\".output]\nscale = 2.0\nenabled = false\n",
+        "[display.\"A B C\".output]\nscale = 2.0\nenabled = false\n\n\
+         [display.\"A B C\".wallpaper]\ncolor = \"#102030\"\n",
     );
     let files = super::generate_for(
         Registry::builtin(),
@@ -750,7 +794,15 @@ fn with_kanshi_the_displays_get_no_output_lines() {
         super::Displays::Kanshi { start: false },
     );
     let output = text(&files, ConfigFile::Output);
-    assert!(!output.contains("output \""), "{output}");
+    // kanshi doesn't set backgrounds: the wallpaper stays.
+    assert_eq!(
+        output
+            .lines()
+            .filter(|line| line.starts_with("output \""))
+            .collect::<Vec<_>>(),
+        ["output \"A B C\" bg #102030 solid_color"],
+        "{output}"
+    );
     assert!(output.contains("# kanshi sets up the displays"), "{output}");
     // The guard stays: kanshi switches nothing on for a combination without a profile.
     assert!(output.contains("hook displays"), "{output}");
