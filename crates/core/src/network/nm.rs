@@ -472,21 +472,31 @@ impl NetworkManager {
         self.vpn.use_dirs(dirs);
     }
 
+    /// Makes the agent sign in to OpenConnect VPNs with `program` instead of the installed
+    /// openconnect; for tests, with a fake one.
+    pub fn use_openconnect(&self, program: PathBuf) {
+        self.vpn.use_openconnect(program);
+    }
+
     /// Connects the VPN with the saved connection at `connection` and waits until it is up
     /// (see [`activate`](Self::activate) and [`wait_connected`](Self::wait_connected)).
     ///
     /// # Errors
     ///
-    /// As [`wait_connected`](Self::wait_connected), and [`Error::NoAuthDialog`] if it failed
-    /// for want of secrets that our agent couldn't ask for, as the plugin has no auth dialog.
+    /// As [`wait_connected`](Self::wait_connected); if it failed for want of secrets, why our
+    /// agent couldn't give them: [`Error::NoAuthDialog`], [`Error::NoOpenConnect`],
+    /// [`Error::UntrustedCertificate`] or [`Error::SignIn`].
     pub async fn connect_vpn(&self, connection: &str) -> Result<(), Error> {
-        self.vpn.take_missing(connection);
+        self.vpn.take_failure(connection);
+        // Without this NetworkManager drops the secrets of our sign-in; a profile it can't
+        // change still gets its chance.
+        let _ = self.prepare_openconnect(connection).await;
         let active = self.activate(connection, None).await?;
         match self.wait_connected(&active, None).await {
             Err(Error::Vpn(NO_SECRETS)) => Err(self
                 .vpn
-                .take_missing(connection)
-                .map_or(Error::Vpn(NO_SECRETS), Error::NoAuthDialog)),
+                .take_failure(connection)
+                .unwrap_or(Error::Vpn(NO_SECRETS))),
             other => other,
         }
     }
@@ -643,6 +653,67 @@ impl NetworkManager {
                 Some(PROPERTIES),
                 "GetAll",
                 &(interface,),
+            )
+            .await
+            .map_err(failure)?;
+        reply.body().deserialize().map_err(failure)
+    }
+
+    /// Marks the secrets of our OpenConnect sign-in (`cookie`, `gateway`, `gwcert`, `resolve`) as
+    /// not saved (flags 2) in the saved connection at `path`, as the plugin's editor does, if it
+    /// is an OpenConnect VPN that lacks the flags (made with nmcli, say): NetworkManager drops
+    /// secrets an agent gives for keys it takes to be stored. Its other secrets are kept.
+    async fn prepare_openconnect(&self, path: &str) -> Result<(), Error> {
+        let mut settings = self.settings(path).await?;
+        let Some(vpn) = settings.get_mut("vpn") else {
+            return Ok(());
+        };
+        let service = vpn
+            .get("service-type")
+            .and_then(|value| <&str>::try_from(value).ok());
+        if service != Some(super::openconnect::SERVICE) {
+            return Ok(());
+        }
+        let mut data: HashMap<String, String> = vpn
+            .get("data")
+            .and_then(|value| value.try_clone().ok())
+            .and_then(|value| HashMap::try_from(value).ok())
+            .unwrap_or_default();
+        let mut changed = false;
+        for key in super::openconnect::SECRETS {
+            if let std::collections::hash_map::Entry::Vacant(flags) =
+                data.entry(format!("{key}-flags"))
+            {
+                flags.insert("2".to_owned());
+                changed = true;
+            }
+        }
+        if !changed {
+            return Ok(());
+        }
+        let data = OwnedValue::try_from(Value::from(data)).map_err(|e| failure(e.into()))?;
+        vpn.insert("data".to_owned(), data);
+        // Update replaces the secrets too: the ones NetworkManager keeps go along.
+        if let Ok(mut secrets) = self.secrets(path, "vpn").await {
+            if let Some(kept) = secrets.get_mut("vpn").and_then(|vpn| vpn.remove("secrets")) {
+                vpn.insert("secrets".to_owned(), kept);
+            }
+        }
+        self.call(path, SETTINGS_CONNECTION, "Update", &(settings,))
+            .await
+    }
+
+    /// The secrets of `setting` in the saved connection at `path` that NetworkManager keeps.
+    async fn secrets(&self, path: &str, setting: &str) -> Result<Settings, Error> {
+        let path = object_path(path)?;
+        let reply = self
+            .connection
+            .call_method(
+                Some(SERVICE),
+                path,
+                Some(SETTINGS_CONNECTION),
+                "GetSecrets",
+                &(setting,),
             )
             .await
             .map_err(failure)?;

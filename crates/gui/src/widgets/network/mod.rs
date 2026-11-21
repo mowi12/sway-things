@@ -675,6 +675,8 @@ impl NetworkPage {
                 match event {
                     AgentEvent::Prompt(prompt) => page.prompt(prompt),
                     AgentEvent::Vpn(prompt) => page.vpn_prompt(prompt),
+                    // Not shown yet: dropping the sign-in cancels it.
+                    AgentEvent::SignIn(sign_in) => drop(sign_in),
                     AgentEvent::Cancel(connection) => page.close_prompt_of(&connection),
                 }
             }

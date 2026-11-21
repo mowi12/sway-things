@@ -14,10 +14,10 @@ use std::time::Duration;
 
 use async_io::{Timer, block_on};
 use futures_lite::{StreamExt, future};
-use sway_things_core::network::stand_in::{self, FakeDialog, StandIn};
+use sway_things_core::network::stand_in::{self, FakeDialog, FakeSignIn, StandIn};
 use sway_things_core::network::{
     ActiveState, AgentEvent, Connectivity, DeviceKind, DeviceState, Error as NetError,
-    NetworkManager, SecretPrompt, Security, Snapshot, VpnField, VpnPrompt,
+    NetworkManager, SecretPrompt, Security, SignIn, SignInStep, Snapshot, VpnField, VpnPrompt,
 };
 use zbus::zvariant::{ObjectPath, OwnedValue, Value};
 
@@ -117,6 +117,60 @@ async fn with_vpn(
     nm.use_vpn_plugin_dirs(vec![plugins.path().to_owned()]);
     let agent = nm.unique_name().ok_or("no unique name")?;
     Ok((stand_in, nm, vpn, agent, plugins))
+}
+
+/// The next sign-in of the agent.
+async fn next_sign_in(nm: &NetworkManager) -> Result<SignIn> {
+    match nm.agent_events().recv().await? {
+        AgentEvent::SignIn(sign_in) => Ok(sign_in),
+        other => Err(format!("not a sign-in: {other:?}").into()),
+    }
+}
+
+/// The message and field of the next step of `sign_in`, which must ask.
+async fn next_ask(sign_in: &SignIn) -> Result<(String, VpnField)> {
+    match sign_in.next().await {
+        Some(SignInStep::Ask { message, field }) => Ok((message, field)),
+        other => Err(format!("not a question: {other:?}").into()),
+    }
+}
+
+/// A stand-in with the OpenConnect VPN "Uni" and a fake openconnect that signs in as `kind`
+/// says, in the returned directory: the stand-in, our connection, the VPN's path, the agent's
+/// name.
+async fn with_openconnect(
+    kind: FakeSignIn,
+) -> Result<(StandIn, NetworkManager, String, String, tempfile::TempDir)> {
+    let (stand_in, nm, _) = with_wifi().await?;
+    let vpn = stand_in
+        .add_connection(&openconnect_settings("Uni"))
+        .await?;
+    let dir = tempfile::tempdir()?;
+    nm.use_openconnect(stand_in::fake_openconnect(dir.path(), kind)?);
+    let agent = nm.unique_name().ok_or("no unique name")?;
+    Ok((stand_in, nm, vpn, agent, dir))
+}
+
+/// The data of the `vpn` setting of the saved connection at `path`.
+async fn connection_data(stand_in: &StandIn, path: &str) -> Result<HashMap<String, String>> {
+    let settings: HashMap<String, HashMap<String, OwnedValue>> = stand_in
+        .connection()
+        .call_method(
+            Some("org.freedesktop.NetworkManager"),
+            path,
+            Some("org.freedesktop.NetworkManager.Settings.Connection"),
+            "GetSettings",
+            &(),
+        )
+        .await?
+        .body()
+        .deserialize()?;
+    let data = settings
+        .get("vpn")
+        .and_then(|vpn| vpn.get("data"))
+        .ok_or("no vpn data")?
+        .try_clone()?;
+    Ok(data.try_into()?)
 }
 
 /// Makes the stand-in's `ActivateConnection` start the active connection that `FailVpn` (see
@@ -548,6 +602,146 @@ fn a_vpn_whose_plugin_has_no_dialog_says_what_is_missing() -> Result<()> {
 
 #[test]
 #[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn openconnect_signs_in_through_our_steps() -> Result<()> {
+    run(async {
+        let (stand_in, nm, vpn, agent, dir) = with_openconnect(FakeSignIn::Totp).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let sign_in = next_sign_in(&nm).await?;
+        assert_eq!(
+            (sign_in.connection.as_str(), sign_in.name.as_str()),
+            (vpn.as_str(), "Uni")
+        );
+        let (message, field) = next_ask(&sign_in).await?;
+        assert_eq!(
+            (message.as_str(), field.label.as_str(), field.secret),
+            ("", "Username", false)
+        );
+        sign_in.answer("alice".to_owned());
+        let (_, field) = next_ask(&sign_in).await?;
+        assert_eq!((field.label.as_str(), field.secret), ("Password", true));
+        sign_in.answer("secret".to_owned());
+        let (message, field) = next_ask(&sign_in).await?;
+        assert_eq!(message, "MFA: Enter your TOTP as the second factor");
+        assert_eq!((field.label.as_str(), field.secret), ("Response", true));
+        // A line break would answer a next question too: it is taken out.
+        sign_in.answer("123\n456".to_owned());
+        assert_eq!(sign_in.next().await, None);
+        assert_eq!(
+            stand_in.secrets_reply().await?,
+            Ok(
+                "cookie=webvpn=fake;gateway=https://vpn.example.org/;gwcert=pin-sha256:fake="
+                    .to_owned()
+            )
+        );
+        let read = |name: &str| std::fs::read_to_string(dir.path().join(name));
+        assert_eq!(read("answers.txt")?, "alice\nsecret\n123456\n");
+        assert_eq!(
+            read("openconnect-args.txt")?,
+            "--authenticate\n--external-browser=xdg-open\n--protocol=anyconnect\n--\n\
+             vpn.example.org\n"
+        );
+
+        // A choice.
+        let (stand_in, nm, vpn, agent, dir) = with_openconnect(FakeSignIn::Group).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let sign_in = next_sign_in(&nm).await?;
+        let (_, field) = next_ask(&sign_in).await?;
+        assert_eq!(field.choices, ["Students", "Staff"]);
+        sign_in.answer("Staff".to_owned());
+        assert_eq!(sign_in.next().await, None);
+        assert!(stand_in.secrets_reply().await?.is_ok());
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("answers.txt"))?,
+            "Staff\n"
+        );
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
+fn a_failed_or_canceled_openconnect_sign_in_says_why() -> Result<()> {
+    run(async {
+        let canceled = Err("org.freedesktop.NetworkManager.SecretAgent.UserCanceled".to_owned());
+        let no_secrets = Err("org.freedesktop.NetworkManager.SecretAgent.NoSecrets".to_owned());
+
+        // The server refuses: the switch says what it said.
+        let (stand_in, nm, vpn, agent, _dir) = with_openconnect(FakeSignIn::Fails).await?;
+        failing_vpn(&stand_in).await?;
+        let (result, signed) = future::zip(nm.connect_vpn(&vpn), async {
+            stand_in
+                .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+                .await?;
+            let sign_in = next_sign_in(&nm).await?;
+            next_ask(&sign_in).await?;
+            sign_in.answer("alice".to_owned());
+            next_ask(&sign_in).await?;
+            sign_in.answer("wrong".to_owned());
+            assert_eq!(sign_in.next().await, None);
+            let reply = stand_in.secrets_reply().await?;
+            fail_vpn(&stand_in).await?;
+            Ok::<_, Box<dyn Error + Send + Sync>>(reply)
+        })
+        .await;
+        assert_eq!(signed?, no_secrets);
+        assert_eq!(
+            result.map_err(|error| error.text().english()),
+            Err("The sign-in to the VPN failed: Login failed.".to_owned())
+        );
+
+        // The profile, made without the flags of the sign-in's secrets, got them first, so
+        // NetworkManager keeps what the agent gives.
+        let data = connection_data(&stand_in, &vpn).await?;
+        for key in ["cookie", "gateway", "gwcert", "resolve"] {
+            assert_eq!(
+                data.get(&format!("{key}-flags")).map(String::as_str),
+                Some("2"),
+                "{key}"
+            );
+        }
+        assert_eq!(
+            data.get("gateway").map(String::as_str),
+            Some("vpn.example.org")
+        );
+
+        // A certificate that failed verification is refused, never accepted.
+        let (stand_in, nm, vpn, agent, dir) = with_openconnect(FakeSignIn::Certificate).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let sign_in = next_sign_in(&nm).await?;
+        assert_eq!(sign_in.next().await, None);
+        assert_eq!(stand_in.secrets_reply().await?, no_secrets);
+        assert!(!dir.path().join("answers.txt").exists());
+
+        // The user cancels.
+        let (stand_in, nm, vpn, agent, _dir) = with_openconnect(FakeSignIn::Totp).await?;
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        let sign_in = next_sign_in(&nm).await?;
+        next_ask(&sign_in).await?;
+        drop(sign_in);
+        assert_eq!(stand_in.secrets_reply().await?, canceled);
+
+        // Without openconnect, no sign-in starts.
+        let (stand_in, nm, vpn, agent, _dir) = with_openconnect(FakeSignIn::Totp).await?;
+        nm.use_openconnect("/nonexistent/openconnect".into());
+        stand_in
+            .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
+            .await?;
+        assert_eq!(stand_in.secrets_reply().await?, no_secrets);
+        assert!(nm.agent_events().is_empty());
+        Ok(())
+    })
+}
+
+#[test]
+#[ignore = "needs dbus-daemon and python-dbusmock; run scripts/check-integration.sh"]
 fn the_agent_runs_the_vpn_plugins_own_dialog() -> Result<()> {
     run(async {
         let (stand_in, nm, vpn, agent, plugins) = with_vpn(FakeDialog::Window).await?;
@@ -611,12 +805,14 @@ fn the_agent_asks_for_the_fields_of_an_external_ui_dialog() -> Result<()> {
                     label: "Username".to_owned(),
                     value: "alice".to_owned(),
                     secret: false,
+                    choices: Vec::new(),
                 },
                 VpnField {
                     key: "password".to_owned(),
                     label: "Password".to_owned(),
                     value: String::new(),
                     secret: true,
+                    choices: Vec::new(),
                 },
             ]
         );
@@ -856,6 +1052,37 @@ fn ethernet_settings(name: &str) -> HashMap<&'static str, HashMap<&'static str, 
             ("type", Value::from("802-3-ethernet")),
         ]),
     )])
+}
+
+/// The settings of a saved OpenConnect connection called `name` with Cisco's protocol.
+fn openconnect_settings(
+    name: &str,
+) -> HashMap<&'static str, HashMap<&'static str, Value<'static>>> {
+    HashMap::from([
+        (
+            "connection",
+            HashMap::from([
+                ("id", Value::from(name.to_owned())),
+                ("type", Value::from("vpn")),
+            ]),
+        ),
+        (
+            "vpn",
+            HashMap::from([
+                (
+                    "service-type",
+                    Value::from("org.freedesktop.NetworkManager.openconnect"),
+                ),
+                (
+                    "data",
+                    Value::from(HashMap::from([
+                        ("gateway", "vpn.example.org"),
+                        ("protocol", "anyconnect"),
+                    ])),
+                ),
+            ]),
+        ),
+    ])
 }
 
 /// The settings of a saved WireGuard connection called `name`.

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 14:29+0100\n"
+"POT-Creation-Date: 2026-11-21 15:12+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1378,6 +1378,26 @@ msgstr ""
 msgid ""
 "The VPN asks for a password, but the password dialog of its plugin "
 "“{plugin}” isn't installed. It comes with the plugin's GNOME package"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid ""
+"The VPN needs the openconnect program to sign in, and it isn't installed"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid ""
+"The VPN server's certificate couldn't be verified, so Sway Things didn't "
+"sign in"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+msgid "The sign-in to the VPN failed"
+msgstr ""
+
+#: crates/core/src/network/mod.rs
+#, rust-format
+msgid "The sign-in to the VPN failed: {reason}"
 msgstr ""
 
 #: crates/core/src/network/mod.rs
