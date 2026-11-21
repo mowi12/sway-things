@@ -96,6 +96,61 @@ pub(super) fn with_the_way(
     }
 }
 
+/// The identifier of the display `criteria` names among `outputs`, or `criteria` itself.
+fn identified(outputs: &Outputs, criteria: &str) -> String {
+    outputs.find(criteria).map_or_else(
+        || criteria.to_owned(),
+        |output| output.identifier().to_owned(),
+    )
+}
+
+/// The note while sway sets up the displays: what kanshi would add, if anything, and whether
+/// it is a warning.
+fn without_kanshi(look: &crate::model::KanshiLook) -> Option<(String, bool)> {
+    if look.installed && look.include_missing {
+        Some((
+            tr(msg!(
+                "So that each combination of displays is remembered, your kanshi config needs \
+                 the line of Sway Things at its top, above your own profiles."
+            ))
+            .to_owned(),
+            true,
+        ))
+    } else if !look.installed {
+        Some((
+            tr(msg!(
+                "With kanshi installed, each combination of displays is remembered and comes \
+                 back on its own."
+            ))
+            .to_owned(),
+            false,
+        ))
+    } else {
+        None
+    }
+}
+
+/// The note for displays that the user's own kanshi profile `name` (quoted) sets up.
+fn set_up_by_theirs(model: &Model, name: &str) -> String {
+    if model.adopts_profiles() {
+        trf(
+            msg!(
+                "These displays are set up by your kanshi profile {name}, and Sway Things places \
+                 the workspaces on them. Change something here to arrange them here instead."
+            ),
+            &[("name", &name)],
+        )
+    } else {
+        trf(
+            msg!(
+                "These displays are set up by your kanshi profile {name}. Change something here \
+                 to arrange them here instead."
+            ),
+            &[("name", &name)],
+        )
+    }
+}
+
 /// What the note about kanshi says for the displays `outputs` connected now, the line for the
 /// kanshi config with it, and whether it is a warning. From what the model saw when it last looked:
 /// nothing is read from the machine here.
@@ -113,11 +168,19 @@ pub(super) fn kanshi_says(
         .map(Output::identifier)
         .collect();
     let overriding = kanshi::overriding(&look.before_ours, &connected, |criteria| {
-        outputs.find(criteria).map_or_else(
-            || criteria.to_owned(),
-            |output| output.identifier().to_owned(),
-        )
+        identified(outputs, criteria)
     });
+    // Without a combination set up here, the first of the user's profiles after the line that
+    // matches sets the displays up.
+    let theirs: Option<String> = (model.arranged_here() == Some(false))
+        .then(|| {
+            kanshi::overriding(&look.after_ours, &connected, |criteria| {
+                identified(outputs, criteria)
+            })
+            .into_iter()
+            .next()
+        })
+        .flatten();
     // The line belongs at the very top: any profile above it wins where it matches.
     let above: Vec<&str> = look
         .before_ours
@@ -171,6 +234,11 @@ pub(super) fn kanshi_says(
                 true,
             ))
         }
+        // Nothing set up here for these displays: the user's own profile does it.
+        generate::Displays::Kanshi { .. } if theirs.is_some() => Some((
+            set_up_by_theirs(model, &quoted(&[theirs.as_deref().unwrap_or_default()])),
+            false,
+        )),
         generate::Displays::Kanshi { start } => {
             let text = if start && !look.runs {
                 msg!(
@@ -186,23 +254,7 @@ pub(super) fn kanshi_says(
             };
             Some((tr(text).to_owned(), false))
         }
-        generate::Displays::Sway if look.installed && look.include_missing => Some((
-            tr(msg!(
-                "So that each combination of displays is remembered, your kanshi config needs \
-                 the line of Sway Things at its top, above your own profiles."
-            ))
-            .to_owned(),
-            true,
-        )),
-        generate::Displays::Sway if !look.installed => Some((
-            tr(msg!(
-                "With kanshi installed, each combination of displays is remembered and comes \
-                 back on its own."
-            ))
-            .to_owned(),
-            false,
-        )),
-        generate::Displays::Sway => None,
+        generate::Displays::Sway => without_kanshi(&look),
     };
     let (text, line) = with_the_way(said, &look);
     (text, line, warns)

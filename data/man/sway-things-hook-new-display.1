@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-new-display 1 "" "Sway Things 0.3.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-new\-display \- Ask once whether a display plugged in to a combination set up on the Displays page shows the same picture or extends the desktop, and remember the answer: run by kanshi when one display more than such a combination is connected
+.SH SYNOPSIS
+\fBsway\-things hook new\-display\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Ask once whether a display plugged in to a combination set up on the Displays page shows the same picture or extends the desktop, and remember the answer: run by kanshi when one display more than such a combination is connected
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

@@ -196,6 +196,10 @@ impl Model {
                     )),
                 }
             }
+            // Best effort, quietly: the hooks of kanshi and sway try again.
+            Op::HealMirrors => {
+                let _ = applier.heal_mirrors().await;
+            }
             Op::FollowCombination => {
                 if let Err(error) = applier.follow_combination().await {
                     self.emit_problem(&trf(
@@ -401,6 +405,7 @@ impl Model {
             (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
                 self.displays_now(&mut applier, op).await;
             }
+            (Op::HealMirrors, _) => self.displays_now(&mut applier, Op::HealMirrors).await,
             (Op::FixPlacement { workspace, display }, access) => {
                 self.fix_placement_now(&mut applier, &workspace, &display, access)
                     .await;

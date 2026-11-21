@@ -194,6 +194,10 @@ pub struct Applier<V = SwayValidator> {
     combination_since: Option<Instant>,
     /// Whether sway was asked to start kanshi already ([`Applier::remember_displays`]).
     kanshi_started: bool,
+    /// Whether the file of ours for kanshi was missing (or empty) when the applier opened: a
+    /// kanshi started before rejected its whole config over it and gave up, so it is started
+    /// once the file is there ([`Applier::keep_kanshi_file`]).
+    kanshi_file_missing: bool,
 }
 
 impl Applier<SwayValidator> {
@@ -225,6 +229,10 @@ impl Applier<SwayValidator> {
             }
         }
         applier.kanshi_files = KanshiFiles::from_env().filter(|_| kanshi::installed());
+        applier.kanshi_file_missing = applier
+            .kanshi_files
+            .as_ref()
+            .is_some_and(|files| !files.ours_is_written());
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -286,6 +294,7 @@ impl<V: Validate> Applier<V> {
             combination: None,
             combination_since: None,
             kanshi_started: false,
+            kanshi_file_missing: false,
         }
     }
 
@@ -316,6 +325,7 @@ impl<V: Validate> Applier<V> {
             combination: None,
             combination_since: None,
             kanshi_started: false,
+            kanshi_file_missing: false,
         }
     }
 

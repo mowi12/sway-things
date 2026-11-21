@@ -8,12 +8,11 @@
 use std::time::{Duration, Instant};
 
 use super::{Applier, ApplyError, Effect};
-use crate::command::SwayCmd;
 use crate::generate::{self, Validate};
 use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::msg;
-use crate::outputs::kanshi::KanshiFiles;
+use crate::outputs::kanshi::{self, KanshiFiles};
 use crate::outputs::profiles::{Profile, Profiles};
 use crate::outputs::{ENABLED, MODE, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::registry::{Scope, Value, workspaces};
@@ -34,6 +33,25 @@ impl<V: Validate> Applier<V> {
         };
         if let Some(problem) = Self::write_kanshi(Some(files), profiles, places).await {
             self.displays_problem = Some(problem);
+            return;
+        }
+        // kanshi gave up over a missing file of ours: it can read its config now. Started once,
+        // also where the user's config starts it (that is only at login).
+        let ready = files.ours_is_written() && files.inclusion() == kanshi::Inclusion::Included;
+        if self.kanshi_file_missing && ready {
+            self.kanshi_file_missing = false;
+            self.start_kanshi_once().await;
+        }
+    }
+
+    /// Has sway start kanshi ([`kanshi::start`]), once per applier: a kanshi the user stopped,
+    /// or one that ends at once, isn't started again and again.
+    async fn start_kanshi_once(&mut self) {
+        if self.kanshi_started {
+            return;
+        }
+        if let Some(client) = &mut self.client {
+            self.kanshi_started = kanshi::start(client).await;
         }
     }
 
@@ -84,14 +102,8 @@ impl<V: Validate> Applier<V> {
         // here for the first time): sway starts it now, so the arrangement doesn't wait for the
         // next login to come back with the displays.
         let starts = matches!(self.displays, generate::Displays::Kanshi { start: true });
-        // Once: a kanshi the user stopped, or one that ends at once, isn't started again and again.
-        if self.displays_problem.is_none()
-            && starts
-            && !self.kanshi_started
-            && !crate::outputs::kanshi_runs()
-        {
-            self.kanshi_started = true;
-            let _ = client.run(&SwayCmd::new("exec").keyword("kanshi")).await;
+        if self.displays_problem.is_none() && starts {
+            self.start_kanshi_once().await;
         }
         // Written: nothing more to remember until a setting of the displays changes; else tried
         // again at the next save.
@@ -143,10 +155,12 @@ impl<V: Validate> Applier<V> {
             self.displays_touched = false;
         }
         let names: Vec<&str> = combination.iter().map(String::as_str).collect();
+        // Only a combination whose displays were set up here: for one with only a placement of
+        // its workspaces, what sets them up (a profile of the user's) is what runs.
         let profile = self
             .profiles
             .as_ref()
-            .and_then(|profiles| profiles.of(&names))
+            .and_then(|profiles| profiles.arranged(&names))
             .cloned()
             .or_else(|| Profile::capture(&outputs));
         let Some(profile) = profile else {
@@ -287,7 +301,9 @@ impl<V: Validate> Applier<V> {
             .find(|(name, _)| *name == target)
             .and_then(|(_, setup)| setup.position);
         let names: Vec<&str> = combination.iter().map(String::as_str).collect();
-        if profiles.of(&names).is_none() {
+        // A picture is set up here with the displays: the combination is arranged here from now
+        // on, also where only the placement of its workspaces was.
+        if profiles.arranged(&names).is_none() {
             profiles.remember(captured);
         }
         let gone = !names.contains(&target);
@@ -347,7 +363,7 @@ impl<V: Validate> Applier<V> {
             .run(&crate::outputs::mirror::no_focus_command())
             .await;
         // Idempotent: kanshi's own `hook mirror` after the reload changes nothing more.
-        crate::outputs::mirror::apply(profiles, &outputs);
+        let _ = crate::outputs::mirror::apply_keeping_focus(client, profiles, &outputs).await;
         // Its own content again: its workspaces come back.
         if ending {
             let _ =
@@ -371,6 +387,24 @@ impl<V: Validate> Applier<V> {
             }
         }
         Ok(())
+    }
+
+    /// Starts a picture again that the combination connected now asks for but that doesn't run
+    /// (its `wl-mirror` crashed or its window was closed), as [`crate::outputs::mirror::heal`];
+    /// the app calls it when it opens and when displays come and go. Nothing happens while
+    /// every picture runs. Says how many pictures it started.
+    ///
+    /// # Errors
+    ///
+    /// The IPC errors of asking sway and of the commands.
+    pub async fn heal_mirrors(&mut self) -> Result<usize, ApplyError> {
+        self.reread_profiles();
+        let (Some(client), Some(profiles)) = (&mut self.client, &mut self.profiles) else {
+            return Ok(0);
+        };
+        crate::outputs::mirror::heal(client, profiles)
+            .await
+            .map_err(ApplyError::Ipc)
     }
 
     /// Forgets everything set here for the displays connected now, while kanshi sets them up:
@@ -519,7 +553,20 @@ impl<V: Validate> Applier<V> {
             &crate::outputs::workspaces::fixed(Some(profiles), &outputs),
         );
         placement.insert(workspace.to_owned(), display.to_owned());
-        let Some(mut profile) = Profile::stored(&outputs, &self.state) else {
+        // Only the placement where a profile of the user's own sets the displays up, so that it
+        // stays what sets them up; else the displays as they are, so that a profile of ours
+        // brings the placement back with them.
+        let theirs = self
+            .kanshi_files
+            .as_ref()
+            .is_some_and(|files| files.sets_up(&outputs));
+        let Some(mut profile) = Profile::stored(&outputs, &self.state).map(|profile| {
+            if theirs {
+                profile.placement_only()
+            } else {
+                profile
+            }
+        }) else {
             return Ok(());
         };
         let names: Vec<&str> = profile.combination();

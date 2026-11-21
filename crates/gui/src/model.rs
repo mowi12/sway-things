@@ -137,6 +137,9 @@ enum Op {
     FollowCombination,
     /// Moves other displays along with the trial of a display's new size, to these places.
     MoveAlong(Vec<(String, Value)>),
+    /// Starts a picture of the combination connected now again that doesn't run
+    /// ([`Applier::heal_mirrors`]).
+    HealMirrors,
     /// Loads the settings files that changed on disk.
     Reload,
     /// Saves, then asks sway to reload its config.
@@ -217,6 +220,8 @@ mod imp {
         /// depend on the machine they run on.
         pub(super) looks_for_kanshi: Cell<bool>,
         pub(super) save_planned: Cell<bool>,
+        /// Counts the changes of the outputs, so only the last one has the pictures looked at.
+        pub(super) outputs_seen: Cell<u64>,
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
@@ -819,6 +824,35 @@ impl Model {
         )
     }
 
+    /// Whether the displays connected now were set up here: a remembered combination with its
+    /// displays, not only a placement of its workspaces. `None` if that isn't known.
+    pub fn arranged_here(&self) -> Option<bool> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        let profiles = core.profiles.as_ref()?;
+        let names: Vec<&str> = core
+            .outputs
+            .iter()
+            .filter(|output| output.is_connected())
+            .map(sway_things_core::outputs::Output::identifier)
+            .collect();
+        Some(profiles.arranged(&names).is_some())
+    }
+
+    /// Whether the file for kanshi holds copies of the user's own profiles: while Sway Things
+    /// places the workspaces, or a combination shows a picture.
+    pub fn adopts_profiles(&self) -> bool {
+        let core = self.imp().core.borrow();
+        core.as_ref().is_some_and(|core| {
+            sway_things_core::outputs::workspaces::Placing::of(&core.state).is_some()
+                || core.profiles.as_ref().is_some_and(|profiles| {
+                    profiles
+                        .iter()
+                        .any(sway_things_core::outputs::profiles::Profile::mirrors)
+                })
+        })
+    }
+
     /// Has the display `target` show `mirror`, or with `None` its own content again.
     pub fn set_mirror(
         &self,
@@ -873,6 +907,7 @@ impl Model {
             | Op::SwayReloaded
             | Op::FollowCombination
             | Op::MoveAlong(_)
+            | Op::HealMirrors
             | Op::Overwrite(_)
             | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,

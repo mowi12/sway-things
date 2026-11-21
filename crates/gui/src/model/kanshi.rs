@@ -83,8 +83,10 @@ impl Model {
                     let theirs = changed.contains(&files.config);
                     model.look_at_kanshi();
                     // kanshi doesn't follow its config by itself: the line the user just put
-                    // there counts at once, and the arrangement made here comes back.
+                    // there counts at once, and the arrangement made here comes back. Ours is
+                    // written again first: it holds copies of the user's profiles.
                     if theirs && model.kanshi_runs() {
+                        model.queue(Op::Persist);
                         sway_things_core::outputs::kanshi::reload().await;
                     }
                 }
@@ -107,6 +109,9 @@ pub struct KanshiLook {
     pub include_line: String,
     /// The user's profiles before the include, which kanshi tries before ours.
     pub before_ours: Vec<(String, Vec<String>)>,
+    /// The user's profiles after the include: what sets up the displays where nothing set them
+    /// up here (as a copy in ours, while Sway Things places the workspaces).
+    pub after_ours: Vec<(String, Vec<String>)>,
     /// The file of ours for kanshi, if someone else's file stands in its place: nothing can be
     /// written there.
     pub foreign: Option<String>,
@@ -125,6 +130,11 @@ impl KanshiLook {
             include_missing: files.inclusion() == kanshi::Inclusion::Missing,
             include_line: files.include_line(),
             before_ours: files.before_ours(),
+            after_ours: files
+                .after_ours()
+                .into_iter()
+                .map(|profile| (profile.name, profile.outputs))
+                .collect(),
             foreign: files
                 .ours_is_foreign()
                 .then(|| files.ours.display().to_string()),

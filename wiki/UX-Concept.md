@@ -183,6 +183,15 @@ new mode, a rotation and switching an output off go through the safety net.
   connected (their profile with its pictures and placement, and their stored values): what set them up before, a kanshi
   profile of the user's own or sway, applies again. Our file for kanshi shows per combination where each display stands
   and, in comment lines, which workspaces go on it. Any one display alone always comes on, so no combination stays dark.
+- **The user's own kanshi profiles:** displays that a profile of the user's sets up stay theirs, and the workspaces are
+  still placed (and pictures mirrored) on them. While a rule places workspaces or a display mirrors another, our file
+  holds a copy of each of the user's profiles, kept current with their config: their display lines as they wrote them,
+  without the lines that place workspaces, and with the hook that places them as the Workspaces page says. The note
+  above the canvas says so ("These displays are set up by your kanshi profile Desk, and Sway Things places the
+  workspaces on them. Change something here to arrange them here instead."). A workspace moved on the map is remembered
+  for the combination without taking over its displays. `sway-things doctor` warns of a line in one of their profiles
+  that may move workspaces too (a script of theirs), and of profiles in a file they include after ours, which can't be
+  copied.
 - **Workspaces:** which workspace goes on which display is set on the [Workspaces](#workspaces) page.
 - **Mirroring (with kanshi and wl-mirror):** the last row of a display's settings, _Show_, says what it shows: _Its own
   content_ or _Picture of …_ another display, and for a picture how it fits (_Fit_, _Cover_, _Exact Multiples_). It is
@@ -195,7 +204,25 @@ new mode, a rotation and switching an output off go through the safety net.
   (at the next start, reload or kanshi profile), and go back (the first of them shown again, the display at its place
   again) when it shows its own content again; a display that mirrors takes no workspaces, also not from the placement.
   Without kanshi or wl-mirror the row says what it needs, and a remembered picture that can't start (wl-mirror gone)
-  leaves its display and its workspaces as they are.
+  leaves its display and its workspaces as they are. A picture that went (its window closed, `wl-mirror` crashed) comes
+  back by itself where Sway Things runs anyway: when the app opens and three seconds after displays came or went, when
+  kanshi applies a profile, and at each start and reload of sway. A key can bring it back at once:
+  `bindsym $mod+Shift+p exec sway-things hook mirror` in the user's config. While it starts, the focus stays where the
+  user works.
+- **A new display asks once (with kanshi and wl-mirror):** when exactly one display Sway Things has never seen is
+  plugged in to a combination set up on the page (the projector or the TV at a meeting), a notification asks: _New
+  display: …_ with _Mirror_ (also a click on the notification, as mako has no buttons) and _Extend_. _Mirror_ shows the
+  laptop's own panel on it (else the display with the focus, else the leftmost one), with _Fit_; either answer is
+  remembered for the new combination, so the next time it comes back as answered without a question. A dismissed or
+  ignored notification (it goes after two minutes) changes nothing: the display extends the desktop, as it would anyway,
+  and is asked about again the next time it is plugged in, not before. No question for several displays at once (a dock
+  with two monitors, also when they come one after the other within a moment), for a display alone (a laptop with its
+  lid closed), for a combination a profile of the user's own may set up, or without a notification server that shows
+  actions. A display seen before in another combination shows again the picture it showed there, if that display is
+  connected; one that extended the desktop there does so again. A display is known by its make, model and serial, so a
+  second unit of a model already seen that reports the same serial (some projectors report one for every unit) counts as
+  seen and isn't asked about; plugged in again while its question waits, it isn't asked a second time. Without a
+  notification server, or one without buttons, kanshi's log says why nothing was asked.
 
 ### Workspaces
 

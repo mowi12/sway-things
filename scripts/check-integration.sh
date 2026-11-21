@@ -10,10 +10,12 @@
 # the write path of the generators (crates/core/tests/generate_sway.rs), the config parser, which must find the modes
 # of ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs), and a setting that is changed
 # end to end and must survive a reload (crates/core/tests/apply_sway.rs), and the `sway-things` binary changing settings
-# (crates/cli/tests/cli_sway.rs). The BlueZ and NetworkManager backends run against python-dbusmock on a private bus
-# (crates/core/tests/bluetooth_bluez.rs, crates/core/tests/network_nm.rs), and the sound backend against a private
-# PipeWire with pipewire-pulse and virtual devices (crates/core/tests/sound_pulse.rs). The files generated from the
-# sample settings (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
+# (crates/cli/tests/cli_sway.rs) and placing the workspaces while the user's own kanshi profile sets up the displays, in
+# a headless sway of its own with two displays and kanshi, not on SwayFX (crates/cli/tests/kanshi_sway.rs). The BlueZ
+# and NetworkManager backends run against python-dbusmock on a private bus (crates/core/tests/bluetooth_bluez.rs,
+# crates/core/tests/network_nm.rs), and the sound backend against a private PipeWire with pipewire-pulse and virtual
+# devices (crates/core/tests/sound_pulse.rs). The files generated from the sample settings (ci/integration/generated/)
+# must pass `sway --validate` too, and the sample configs include them.
 # Last, the GUI tests (crates/gui/tests/gui/: contrast in light and dark, keyboard navigation) open their windows on
 # the headless sway (not on SwayFX, see below).
 #
@@ -45,11 +47,11 @@ usage() {
 # The tests that need a running sway, so a plain `cargo test` skips them.
 sway_tests=(cargo test --locked --package sway-things-core --test ipc --test generate_sway --test sway_config_sway
   --test apply_sway)
-cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway)
+cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway --test kanshi_sway)
 # The tests that need stand-ins for services, but no sway: dbus-daemon and python-dbusmock (BlueZ and
 # NetworkManager), PipeWire, WirePlumber and pipewire-pulse with pactl and pacat (the sound server).
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
-  --test network_nm --test sound_pulse)
+  --test network_nm --test sound_pulse --test notifications_dbus)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 

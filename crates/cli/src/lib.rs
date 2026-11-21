@@ -162,8 +162,13 @@ pub enum Hook {
     /// profile
     Workspaces,
     /// Show displays on others as remembered for the displays connected now (wl-mirror), and end
-    /// the mirrors of other combinations: run by kanshi when it applied a profile
+    /// the mirrors of other combinations: run by kanshi when it applied a profile, and from a key
+    /// binding of yours to bring back a picture that went
     Mirror,
+    /// Ask once whether a display plugged in to a combination set up on the Displays page shows
+    /// the same picture or extends the desktop, and remember the answer: run by kanshi when one
+    /// display more than such a combination is connected
+    NewDisplay,
 }
 
 /// The binary of the app.
@@ -240,7 +245,9 @@ pub async fn run_for_user(command: &Command) -> Exit {
     match command {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
-        Command::Hook(hook @ (Hook::Displays | Hook::Workspaces | Hook::Mirror)) => {
+        Command::Hook(
+            hook @ (Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::NewDisplay),
+        ) => {
             return hook_for_user(*hook, &mut err).await;
         }
         _ => {}
@@ -363,7 +370,7 @@ pub async fn run<V: Validate>(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
-            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror)
+            | Command::Hook(Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::NewDisplay)
     ) {
         for problem in session.applier.state().problems() {
             io.warn(problem);

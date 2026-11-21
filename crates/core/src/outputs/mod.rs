@@ -35,9 +35,11 @@
 
 pub mod hooks;
 pub mod kanshi;
+pub mod kanshi_config;
 pub mod layout;
 pub mod mirror;
 pub mod modes;
+pub mod new_display;
 pub mod profiles;
 #[cfg(test)]
 mod tests;
@@ -232,6 +234,120 @@ pub(crate) fn session_processes(name: &str) -> Vec<std::path::PathBuf> {
         })
         .map(|process| process.path())
         .collect()
+}
+
+/// A lock of the session, so two hooks (or a hook and the app) don't do one thing at once: a
+/// file in `$XDG_RUNTIME_DIR`, made only if it isn't there, holding a token of its own (the
+/// process number and a stamp). It is removed when dropped, only while it still holds that token.
+/// One whose process is gone, or that is older than [`SessionLock::STALE`], was left behind and is
+/// taken over: moved aside first (only one process can move a file), and put back if what was
+/// moved was another, newer lock.
+#[derive(Debug)]
+pub struct SessionLock {
+    path: std::path::PathBuf,
+    token: String,
+}
+
+impl SessionLock {
+    /// How old a lock may get before it counts as left behind, whoever holds it.
+    pub const STALE: std::time::Duration = std::time::Duration::from_secs(600);
+
+    /// Takes the lock named `name`; `None` while another process holds it, or without
+    /// `$XDG_RUNTIME_DIR`.
+    pub fn take(name: &str) -> Option<Self> {
+        let dir = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from)?;
+        Self::take_in(&dir, name)
+    }
+
+    /// Takes the lock named `name`, waiting for it while another process holds it, at most
+    /// `wait`. `None` if it wasn't free by then, or without `$XDG_RUNTIME_DIR`.
+    pub async fn wait_for(name: &str, wait: std::time::Duration) -> Option<Self> {
+        let until = std::time::Instant::now() + wait;
+        loop {
+            if let Some(lock) = Self::take(name) {
+                return Some(lock);
+            }
+            if std::env::var_os("XDG_RUNTIME_DIR").is_none() || std::time::Instant::now() >= until {
+                return None;
+            }
+            async_io::Timer::after(std::time::Duration::from_millis(100)).await;
+        }
+    }
+
+    /// [`Self::take`] with the lock in `dir`.
+    pub(crate) fn take_in(dir: &std::path::Path, name: &str) -> Option<Self> {
+        use std::io::Write as _;
+        static TAKEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let path = dir.join(name);
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_nanos());
+        let count = TAKEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let token = format!("{} {stamp} {count}", std::process::id());
+        // Twice: once more after a lock left behind was moved aside.
+        for _ in 0..2 {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                if file.write_all(token.as_bytes()).is_err() {
+                    let _ = std::fs::remove_file(&path);
+                    return None;
+                }
+                return Some(Self { path, token });
+            }
+            let held = std::fs::read_to_string(&path).ok()?;
+            if !Self::left_behind(&path, &held) {
+                return None;
+            }
+            let aside = dir.join(format!("{name}.{}", token.replace(' ', "-")));
+            if std::fs::rename(&path, &aside).is_err() {
+                // Someone else moved it first.
+                continue;
+            }
+            let moved = std::fs::read_to_string(&aside).unwrap_or_default();
+            if moved != held {
+                // Another process took it over and made a new lock meanwhile: put back (never
+                // over a lock that is there again).
+                let _ = std::fs::hard_link(&aside, &path);
+                let _ = std::fs::remove_file(&aside);
+                return None;
+            }
+            let _ = std::fs::remove_file(&aside);
+        }
+        None
+    }
+
+    /// Whether the lock at `path` holding `held` was left behind: its process is gone, or it is
+    /// older than [`Self::STALE`] (or empty and older than ten seconds: its process ended before
+    /// it wrote its token).
+    fn left_behind(path: &std::path::Path, held: &str) -> bool {
+        let age = std::fs::metadata(path)
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .unwrap_or_default();
+        if age > Self::STALE {
+            return true;
+        }
+        match held.split(' ').next().filter(|pid| !pid.is_empty()) {
+            Some(pid) => {
+                pid.bytes().all(|byte| byte.is_ascii_digit())
+                    && !std::path::Path::new("/proc").join(pid).exists()
+            }
+            None => age > std::time::Duration::from_secs(10),
+        }
+    }
+}
+
+impl Drop for SessionLock {
+    fn drop(&mut self) {
+        // Only while it is still ours: a lock taken over meanwhile belongs to someone else.
+        if std::fs::read_to_string(&self.path).is_ok_and(|held| held == self.token) {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
 }
 
 /// sway writes an output's identifier into a buffer of 128 bytes, so a longer one is cut off and

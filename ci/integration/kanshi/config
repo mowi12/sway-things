@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Sway Things contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A kanshi config of a user who set up their displays before Sway Things, modeled on a real one
+# with the names changed: a profile per combination, each placing the workspaces with its own
+# `exec swaymsg workspace` lines. crates/core/tests/kanshi_fixtures.rs copies its profiles into
+# generated/kanshi/sway-things.conf.
+include ~/.config/kanshi/sway-things.conf
+
+profile "laptop" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 0,0
+}
+
+profile "home-full" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 274,1080
+    output "Example Displays E24 SN-LEFT-0001" enable scale 1.00 mode 1920x1080@60.000Hz transform normal position 0,0
+    output "Example Displays P24 SN-RIGHT-0002" enable scale 1.00 mode 1920x1080@60.000Hz transform 90 position 1920,0
+
+    exec swaymsg workspace 9 output '"Example Displays P24 SN-RIGHT-0002"', workspace 9, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 8 output '"Example Displays E24 SN-LEFT-0001"', workspace 8, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 7 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 7, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 6 output '"Example Displays P24 SN-RIGHT-0002"', workspace 6, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 5 output '"Example Displays E24 SN-LEFT-0001"', workspace 5, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 4 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 4, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 3 output '"Example Displays P24 SN-RIGHT-0002"', workspace 3, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 2 output '"Example Displays E24 SN-LEFT-0001"', workspace 2, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 1 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 1, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 1
+}
+
+profile "home-left" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 140,1080
+    output "Example Displays E24 SN-LEFT-0001" enable scale 1.00 mode 1920x1080@60.000Hz transform normal position 0,0
+
+    exec swaymsg workspace 6 output '"Example Displays E24 SN-LEFT-0001"', workspace 6, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 5 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 5, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 4 output '"Example Displays E24 SN-LEFT-0001"', workspace 4, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 3 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 3, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 2 output '"Example Displays E24 SN-LEFT-0001"', workspace 2, move workspace to output '"Example Displays E24 SN-LEFT-0001"'
+    exec swaymsg workspace 1 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 1, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 1
+}
+
+profile "home-right" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 274,1080
+    output "Example Displays P24 SN-RIGHT-0002" enable scale 1.00 mode 1920x1080@60.000Hz transform 90 position 1920,0
+
+    exec swaymsg workspace 6 output '"Example Displays P24 SN-RIGHT-0002"', workspace 6, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 5 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 5, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 4 output '"Example Displays P24 SN-RIGHT-0002"', workspace 4, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 3 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 3, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 2 output '"Example Displays P24 SN-RIGHT-0002"', workspace 2, move workspace to output '"Example Displays P24 SN-RIGHT-0002"'
+    exec swaymsg workspace 1 output '"Acme Panels AP140Q 0x0000A1B2"', workspace 1, move workspace to output '"Acme Panels AP140Q 0x0000A1B2"'
+    exec swaymsg workspace 1
+}
+
+profile "home-tv" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 150,1080
+    output "Fake TV Co Big TV 0x00000001" enable scale 2.00 mode 3840x2160@60.000Hz transform normal position 0,0
+
+    exec swaymsg workspace 6 output '"Fake TV Co Big TV 0x00000001"', workspace 6, move workspace to output '"Fake TV Co Big TV 0x00000001"'
+    exec swaymsg workspace 5 output '"eDP-1"', workspace 5, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 4 output '"Fake TV Co Big TV 0x00000001"', workspace 4, move workspace to output '"Fake TV Co Big TV 0x00000001"'
+    exec swaymsg workspace 3 output '"eDP-1"', workspace 3, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 2 output '"Fake TV Co Big TV 0x00000001"', workspace 2, move workspace to output '"Fake TV Co Big TV 0x00000001"'
+    exec swaymsg workspace 1 output '"eDP-1"', workspace 1, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 1
+    exec pactl set-default-sink tv
+}
+
+profile "visiting" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 457,1440
+    output "HDMI-A-1" enable scale 1.00 transform normal position 0,0
+
+    exec swaymsg workspace 6 output '"HDMI-A-1"', workspace 6, move workspace to output '"HDMI-A-1"'
+    exec swaymsg workspace 5 output '"eDP-1"', workspace 5, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 4 output '"HDMI-A-1"', workspace 4, move workspace to output '"HDMI-A-1"'
+    exec swaymsg workspace 3 output '"eDP-1"', workspace 3, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 2 output '"HDMI-A-1"', workspace 2, move workspace to output '"HDMI-A-1"'
+    exec swaymsg workspace 1 output '"eDP-1"', workspace 1, move workspace to output '"eDP-1"'
+    exec swaymsg workspace 1
+}
+
+profile "fallback" {
+    output "Acme Panels AP140Q 0x0000A1B2" enable scale 1.75 mode 2880x1800@60.001Hz transform normal position 457,1440
+    output "*" enable scale 1.00 transform normal position 0,0
+}
