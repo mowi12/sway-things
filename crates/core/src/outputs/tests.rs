@@ -478,3 +478,47 @@ fn modes_are_offered_a_size_at_a_time_then_a_rate_at_a_time() {
         [(1920, 1080, Some(60000)), (1920, 1080, Some(50000))]
     );
 }
+
+#[test]
+fn a_profile_of_the_users_after_ours_sets_up_the_displays_it_matches() {
+    let dir = tempfile::tempdir().unwrap();
+    let files = super::kanshi::KanshiFiles::in_dir(dir.path());
+    let ours = files.ours.display().to_string();
+    let with = |profiles: &str| {
+        std::fs::write(&files.config, format!("include {ours}\n{profiles}")).unwrap();
+        files.sets_up(&desk())
+    };
+    // Only the panel: the monitors are connected too, so it doesn't match.
+    assert!(!with("profile Laptop {\n    output eDP-1 enable\n}\n"));
+    // Any number of displays matches whatever is connected.
+    assert!(with("profile Any {\n    ...output * enable\n}\n"));
+    // Before ours it isn't one of those whose displays Sway Things leaves to it.
+    std::fs::write(
+        &files.config,
+        format!("profile Any {{\n    ...output * enable\n}}\ninclude {ours}\n"),
+    )
+    .unwrap();
+    assert!(!files.sets_up(&desk()));
+}
+
+#[test]
+fn a_session_lock_is_held_once_and_taken_over_only_when_left_behind() {
+    use super::SessionLock;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.lock");
+    let held = SessionLock::take_in(dir.path(), "test.lock").unwrap();
+    // A live holder (this process): nobody else gets it.
+    assert!(SessionLock::take_in(dir.path(), "test.lock").is_none());
+    drop(held);
+    assert!(!path.exists());
+    // Left behind by a process that is gone: taken over.
+    std::fs::write(&path, "4294967295 1 0").unwrap();
+    let taken = SessionLock::take_in(dir.path(), "test.lock").unwrap();
+    assert_ne!(std::fs::read_to_string(&path).unwrap(), "4294967295 1 0");
+    // Taken over meanwhile by someone else: dropping ours leaves theirs.
+    std::fs::write(&path, "1 2 3").unwrap();
+    drop(taken);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "1 2 3");
+    // Nothing else is left in the directory.
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+}

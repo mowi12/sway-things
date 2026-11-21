@@ -195,6 +195,10 @@ pub struct Profile {
     outputs: BTreeMap<String, Setup>,
     /// Which workspace goes on which display, by name ([`super::workspaces`]); empty for none.
     workspaces: BTreeMap<String, String>,
+    /// Whether only the placement of the workspaces was set here for the combination, not the
+    /// displays: kanshi gets no profile of ours for it then, and what sets the displays up (a
+    /// profile of the user's own) stays. The displays are kept only to know the combination.
+    placement_only: bool,
 }
 
 impl Profile {
@@ -211,6 +215,7 @@ impl Profile {
         (any_on).then_some(Self {
             outputs: connected,
             workspaces: BTreeMap::new(),
+            placement_only: false,
         })
     }
 
@@ -227,6 +232,7 @@ impl Profile {
         any_on.then_some(Self {
             outputs: connected,
             workspaces: BTreeMap::new(),
+            placement_only: false,
         })
     }
 
@@ -247,6 +253,7 @@ impl Profile {
         any_on.then_some(Self {
             outputs,
             workspaces: BTreeMap::new(),
+            placement_only: false,
         })
     }
 
@@ -282,14 +289,10 @@ impl Profile {
             .collect();
         displays.sort_by_key(|(_, position)| position.unwrap_or((i32::MAX, i32::MAX)));
         let names: Vec<&str> = displays.iter().map(|(name, _)| *name).collect();
-        let how = match placing.rule {
-            Rule::Sway => return Vec::new(),
-            Rule::RoundRobin => "round robin, left to right",
-            Rule::Blocks => "a block per display",
-            Rule::OneDisplay => "all on one display",
-            Rule::Fixed => "fixed, as arranged on the Workspaces page",
+        let Some(heading) = placing.heading() else {
+            return Vec::new();
         };
-        let mut lines = vec![format!("Workspaces 1 to {}: {how}", placing.count)];
+        let mut lines = vec![heading];
         if placing.rule == Rule::OneDisplay {
             lines.push("  all on the laptop's own display, or the leftmost one".to_owned());
             return lines;
@@ -314,6 +317,23 @@ impl Profile {
     /// The placement of the workspaces of this combination.
     pub fn set_workspaces(&mut self, workspaces: BTreeMap<String, String>) {
         self.workspaces = workspaces;
+    }
+
+    /// Whether the displays of this combination were set up here (not only the placement of its
+    /// workspaces): then kanshi gets a profile of ours for it.
+    pub fn is_arranged(&self) -> bool {
+        !self.placement_only
+    }
+
+    /// This profile, keeping only the placement of the workspaces: the displays are no longer
+    /// set up here. Its pictures end with it.
+    #[must_use]
+    pub fn placement_only(mut self) -> Self {
+        self.placement_only = true;
+        for setup in self.outputs.values_mut() {
+            setup.mirror = None;
+        }
+        self
     }
 
     /// Has the display `target` show `mirror` instead of its own content, or with `None` its
@@ -441,17 +461,41 @@ impl Profile {
     /// The name kanshi knows the profile by: `sway-things-` and the start of a hash of the
     /// combination, so it stays the same however the displays are set up.
     pub fn name(&self) -> String {
+        self.named("sway-things-")
+    }
+
+    /// The name kanshi knows the profile of this combination with one display more by, which
+    /// asks about that display ([`kanshi_config_with`]): `sway-things-new-` and the same hash.
+    pub fn one_more_name(&self) -> String {
+        self.named("sway-things-new-")
+    }
+
+    fn named(&self, prefix: &str) -> String {
         let mut hash = Sha256::new();
         for name in self.combination() {
             hash.update(name.as_bytes());
             hash.update([0]);
         }
         let digest = hash.finalize();
-        let mut name = String::from("sway-things-");
+        let mut name = String::from(prefix);
         for byte in digest.iter().take(4) {
             let _ = write!(name, "{byte:02x}");
         }
         name
+    }
+
+    /// This combination with `output` as one display more, set up as it runs now: the
+    /// displays of this one stay as they are set up here, with their pictures and the
+    /// placement of the workspaces. Arranged, also if this one was only a placement.
+    #[must_use]
+    pub fn with_one_more(&self, output: &Output) -> Self {
+        let mut outputs = self.outputs.clone();
+        outputs.insert(output.identifier().to_owned(), Setup::of(output));
+        Self {
+            outputs,
+            workspaces: self.workspaces.clone(),
+            placement_only: false,
+        }
     }
 }
 
@@ -513,10 +557,15 @@ impl Profiles {
                 .flat_map(Table::iter)
                 .filter_map(|(name, item)| Some((name.to_owned(), item.as_str()?.to_owned())))
                 .collect();
+            let placement_only = table
+                .get("placement_only")
+                .and_then(Item::as_bool)
+                .unwrap_or(false);
             if !outputs.is_empty() {
                 profiles.push(Profile {
                     outputs,
                     workspaces,
+                    placement_only,
                 });
             }
         }
@@ -569,6 +618,11 @@ impl Profiles {
         if profile.workspaces.is_empty() {
             profile.workspaces.clone_from(&known.workspaces);
         }
+        // Only a placement: the displays stay as they were set up here, if they were.
+        if profile.placement_only && !known.placement_only {
+            profile.outputs.clone_from(&known.outputs);
+            profile.placement_only = false;
+        }
         for (name, setup) in &mut profile.outputs {
             if setup.mirror.is_none() {
                 setup.mirror = known
@@ -584,13 +638,54 @@ impl Profiles {
         true
     }
 
-    /// Forgets the profile of the combination `names`; says whether there was one.
+    /// Forgets how the displays of the combination `names` were set up here, with their
+    /// pictures; a placement of its workspaces stays, so the Workspaces page keeps it. Says
+    /// whether anything was forgotten.
     pub fn forget(&mut self, names: &[&str]) -> bool {
         let mut sorted: Vec<&str> = names.to_vec();
         sorted.sort_unstable();
-        let before = self.list.len();
-        self.list.retain(|profile| profile.combination() != sorted);
-        self.list.len() != before
+        let Some(at) = self
+            .list
+            .iter()
+            .position(|profile| profile.combination() == sorted)
+        else {
+            return false;
+        };
+        let profile = self.list.remove(at);
+        if !profile.workspaces.is_empty() {
+            if profile.placement_only {
+                self.list.insert(at, profile);
+                return false;
+            }
+            self.list.insert(at, profile.placement_only());
+        }
+        true
+    }
+
+    /// The profile of the combination of `names`, if its displays were set up here (not only
+    /// the placement of its workspaces).
+    pub fn arranged(&self, names: &[&str]) -> Option<&Profile> {
+        self.of(names).filter(|profile| profile.is_arranged())
+    }
+
+    /// Whether the display `name` is part of any remembered combination: it was seen here
+    /// before, and how it was set up then is known.
+    pub fn seen(&self, name: &str) -> bool {
+        self.list
+            .iter()
+            .any(|profile| profile.outputs.contains_key(name))
+    }
+
+    /// The display the display `name` showed the picture of in the combination remembered last
+    /// in which it showed one, if any: the answer given for it before.
+    pub fn mirrored(&self, name: &str) -> Option<&str> {
+        self.list.iter().rev().find_map(|profile| {
+            profile
+                .outputs
+                .get(name)
+                .and_then(|setup| setup.mirror.as_ref())
+                .map(|mirror| mirror.of.as_str())
+        })
     }
 
     /// The profile of the combination of `names`, to change, if one is remembered.
@@ -628,6 +723,9 @@ impl Profiles {
                 outputs.insert(name, Item::Table(write_setup(setup)));
             }
             let mut table = Table::new();
+            if profile.placement_only {
+                table.insert("placement_only", value(true));
+            }
             table.insert("output", Item::Table(outputs));
             if !profile.workspaces.is_empty() {
                 let mut workspaces = Table::new();
@@ -754,7 +852,163 @@ fn write_setup(setup: &Setup) -> Table {
 /// again. A display whose name can't be quoted for kanshi (with a `"` or a line break in it)
 /// leaves out its whole combination, since kanshi would match it otherwise.
 pub fn kanshi_config(profiles: &Profiles, placing: Option<Placing>) -> String {
-    kanshi_config_for(profiles, placing, super::mirror::installed())
+    kanshi_config_with(profiles, placing, &[], "", false)
+}
+
+/// [`kanshi_config`] with a copy of each of `theirs`, the user's own profiles (from the file
+/// `from`), after the remembered combinations: kanshi tries ours first, so a combination set up
+/// here keeps its profile, and every other one is set up by the user's own profile as they wrote
+/// it, but with the workspaces placed by `placing` and the pictures of other combinations ended
+/// ([`super::kanshi_config::UserProfile::copy`]). The copies are made only while a rule places
+/// the workspaces or a combination mirrors. With `ask`, each remembered combination also gets a
+/// profile with one display more, which asks about that display ([`ask_profiles`]). The profiles
+/// of a display alone come last, for what neither knows.
+pub fn kanshi_config_with(
+    profiles: &Profiles,
+    placing: Option<Placing>,
+    theirs: &[super::kanshi_config::UserProfile],
+    from: &str,
+    ask: bool,
+) -> String {
+    let mut text = kanshi_config_for(profiles, placing, super::mirror::installed());
+    let mirrors = profiles.iter().any(Profile::mirrors);
+    let mut extra = Vec::new();
+    if let Some(placing) = placing {
+        extra.extend(placing.heading().map(|heading| format!("# {heading}")));
+        extra.push("exec sway-things hook workspaces".to_owned());
+    }
+    if mirrors {
+        extra.push("exec sway-things hook mirror".to_owned());
+    }
+    // Before the profiles of a display alone, which would otherwise win where the user's own
+    // profile names one display.
+    let alone = |text: &str| {
+        text.find("\n# A display alone: on.\n")
+            .unwrap_or(text.len())
+    };
+    // Nothing of ours to run on their displays: their own profiles apply as they are.
+    let copies: Vec<String> = if extra.is_empty() {
+        Vec::new()
+    } else {
+        theirs
+            .iter()
+            .filter_map(|profile| profile.copy(from, &extra, placing.is_some()))
+            .collect()
+    };
+    if !copies.is_empty() {
+        let mut block = String::from(
+            "\n# The profiles of your own kanshi config, for the displays not set up here.\n",
+        );
+        for copy in copies {
+            block.push('\n');
+            block.push_str(&copy);
+        }
+        let at = alone(&text);
+        text.insert_str(at, &block);
+    }
+    if ask {
+        // After the copies: a profile of the user's for these displays and one more wins.
+        let block = ask_profiles(profiles, theirs);
+        let at = alone(&text);
+        text.insert_str(at, &block);
+    }
+    text
+}
+
+/// The profiles that ask about a display plugged in to a remembered combination (a projector at
+/// a meeting): for each combination set up here, its displays, left as they are (kanshi 1.9
+/// changes nothing of a display named without directives: one that is off stays off, and its
+/// mode, place and scale stay), and `output *`,
+/// which kanshi matches with exactly one display more, running `sway-things hook new-display`.
+/// kanshi tries the profile of a remembered combination first, so a display whose combination is
+/// known never comes here; two displays at once (a dock) or a display alone match none of these.
+/// A combination for which a profile of the user's (`theirs`, after the include of ours) may set
+/// up one display more has none: kanshi would apply ours in its place.
+fn ask_profiles(profiles: &Profiles, theirs: &[super::kanshi_config::UserProfile]) -> String {
+    let mut block = String::new();
+    for profile in profiles.iter().filter(|profile| profile.is_arranged()) {
+        if !profile.outputs.values().any(|setup| setup.enabled) {
+            continue;
+        }
+        let names = profile.combination();
+        if theirs
+            .iter()
+            .any(|their| may_take_one_more(&their.outputs, &names))
+        {
+            continue;
+        }
+        let Some(lines) = names
+            .iter()
+            .map(|name| kanshi_quote(name).map(|quoted| format!("    output {quoted}\n")))
+            .collect::<Option<String>>()
+        else {
+            continue;
+        };
+        let _ = write!(
+            block,
+            "\nprofile {} {{\n{lines}    output *\n    exec sway-things hook new-display\n}}\n",
+            profile.one_more_name()
+        );
+    }
+    if block.is_empty() {
+        return block;
+    }
+    format!(
+        "\n# One display more than a combination set up here: Sway Things asks once whether it \
+         shows\n# the same picture or extends the desktop.\n{block}"
+    )
+}
+
+/// Whether a profile of the user's that names the displays `criteria` (as written, with the
+/// wildcards [`super::kanshi_config::ONE`] and [`super::kanshi_config::ANY`]) may match the
+/// displays `names` with one display more. A criteria that is no identifier of `names` may still
+/// be one of them (a connector, an alias, a pattern): only one with a space (make, model and
+/// serial) that matches none of them surely names another display.
+fn may_take_one_more(criteria: &[String], names: &[&str]) -> bool {
+    use super::kanshi_config::{ANY, ONE};
+    let any = criteria.iter().any(|criteria| criteria == ANY);
+    let taken = criteria.iter().filter(|criteria| *criteria != ANY).count();
+    let wanted = names.len() + 1;
+    let fits = taken == wanted || (any && taken <= wanted);
+    let others = criteria
+        .iter()
+        .filter(|criteria| *criteria != ANY && *criteria != ONE)
+        .filter(|criteria| {
+            criteria.contains(' ')
+                && !criteria.starts_with('$')
+                && !criteria.contains('[')
+                && !names.iter().any(|name| glob(criteria, name))
+        })
+        .count();
+    fits && others <= 1
+}
+
+/// Whether `text` matches the pattern `pattern` as kanshi matches a display (`fnmatch`), with
+/// `*`, `?` and `\` escapes; `[` counts as itself (the caller treats such patterns as unknown).
+fn glob(pattern: &str, text: &str) -> bool {
+    fn go(pattern: &[char], text: &[char]) -> bool {
+        match (pattern.split_first(), text.split_first()) {
+            (None, None) => true,
+            (Some(('*', rest)), _) => {
+                go(rest, text)
+                    || text
+                        .split_first()
+                        .is_some_and(|(_, tail)| go(pattern, tail))
+            }
+            (Some(('?', rest)), Some((_, tail))) => go(rest, tail),
+            (Some(('\\', rest)), _) if !rest.is_empty() => {
+                match (rest.split_first(), text.split_first()) {
+                    (Some((want, rest)), Some((have, tail))) => want == have && go(rest, tail),
+                    _ => false,
+                }
+            }
+            (Some((want, rest)), Some((have, tail))) => want == have && go(rest, tail),
+            _ => false,
+        }
+    }
+    let pattern: Vec<char> = pattern.chars().collect();
+    let text: Vec<char> = text.chars().collect();
+    go(&pattern, &text)
 }
 
 /// [`kanshi_config`] with `pictures`: whether a display can show another one's picture at all
@@ -766,7 +1020,7 @@ pub fn kanshi_config_for(profiles: &Profiles, placing: Option<Placing>, pictures
     );
     // Once any combination mirrors, every profile has the mirrors ended or started.
     let mirrors = profiles.iter().any(Profile::mirrors);
-    for profile in profiles.iter() {
+    for profile in profiles.iter().filter(|profile| profile.is_arranged()) {
         if let Some(block) = kanshi_profile(profile, placing, mirrors, pictures) {
             text.push('\n');
             text.push_str(&block);
@@ -774,8 +1028,9 @@ pub fn kanshi_config_for(profiles: &Profiles, placing: Option<Placing>, pictures
     }
     let mut alone: Vec<&str> = profiles
         .iter()
+        .filter(|profile| profile.is_arranged())
         .flat_map(Profile::combination)
-        .filter(|name| profiles.of(&[name]).is_none())
+        .filter(|name| profiles.arranged(&[name]).is_none())
         .collect();
     alone.sort_unstable();
     alone.dedup();
@@ -793,6 +1048,7 @@ pub fn kanshi_config_for(profiles: &Profiles, placing: Option<Placing>, pictures
             ))
             .collect(),
             workspaces: BTreeMap::new(),
+            placement_only: false,
         };
         // The mirrors of another combination end here too.
         if let Some(block) = kanshi_profile(&profile, placing, mirrors, pictures) {
@@ -1100,6 +1356,154 @@ mod tests {
         dell.mirror = None;
         dell.enabled = false;
         assert!(!profile.mirror_runs("eDP-1"));
+    }
+
+    #[test]
+    fn the_users_own_profiles_are_copied_after_ours_and_before_a_display_alone() {
+        let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
+        profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
+        let theirs = crate::outputs::kanshi_config::profiles(
+            "profile Home {\n    output eDP-1 enable\n    output \"Dell U27 ABC\" enable position 1920,0\n\
+             \x20   exec swaymsg workspace 1 output eDP-1, workspace 1\n}\n",
+        );
+        let text = super::kanshi_config_with(
+            &profiles,
+            PLACING,
+            &theirs,
+            "~/.config/kanshi/config",
+            false,
+        );
+        let ours = text.find(&profiles.iter().next().unwrap().name()).unwrap();
+        let copy = text.find(&theirs[0].copy_name()).unwrap();
+        let alone = text.find("# A display alone: on.").unwrap();
+        assert!(ours < copy && copy < alone, "{text}");
+        // Their displays as they wrote them, our placement in place of their own.
+        assert!(
+            text.contains(&format!(
+                "profile {} {{\n    output eDP-1 enable\n    output \"Dell U27 ABC\" enable position \
+                 1920,0\n    # Workspaces 1 to 10: round robin, left to right\n    exec sway-things \
+                 hook workspaces\n}}\n",
+                theirs[0].copy_name()
+            )),
+            "{text}"
+        );
+        assert!(!text.contains("swaymsg"), "{text}");
+        // Without anything to place, nothing is copied.
+        assert!(
+            !super::kanshi_config_with(&profiles, None, &theirs, "x", false)
+                .contains("sway-things-of-")
+        );
+    }
+
+    #[test]
+    fn a_display_more_than_a_combination_set_up_here_is_asked_about() {
+        let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
+        profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
+        let profile = profiles.iter().next().unwrap().clone();
+        let asking = profile.one_more_name();
+        let text = super::kanshi_config_with(&profiles, PLACING, &[], "x", true);
+        // The displays of the combination as they are, and exactly one more.
+        assert!(
+            text.contains(&format!(
+                "profile {asking} {{\n    output \"Dell U27 ABC\"\n    output \"eDP-1\"\n    \
+                 output *\n    exec sway-things hook new-display\n}}\n"
+            )),
+            "{text}"
+        );
+        // After the combination itself, which kanshi tries first, and before a display alone.
+        let ours = text.find(&format!("profile {} ", profile.name())).unwrap();
+        let ask = text.find(&asking).unwrap();
+        let alone = text.find("# A display alone: on.").unwrap();
+        assert!(ours < ask && ask < alone, "{text}");
+        // Not without `ask` (no wl-mirror, or profiles of the user's that aren't read).
+        assert!(!kanshi_config(&profiles, PLACING).contains("hook new-display"));
+        // After the copies of the user's own profiles, which win for their displays.
+        let theirs = crate::outputs::kanshi_config::profiles(
+            "profile Home {\n    output eDP-1 enable\n    output \"Dell U27 ABC\" enable\n}\n",
+        );
+        let text = super::kanshi_config_with(&profiles, PLACING, &theirs, "x", true);
+        let copy = text.find(&theirs[0].copy_name()).unwrap();
+        assert!(copy < text.find(&asking).unwrap(), "{text}");
+    }
+
+    #[test]
+    fn a_profile_of_the_users_for_one_display_more_keeps_its_displays() {
+        let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
+        profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
+        let asks = |config: &str| {
+            let theirs = crate::outputs::kanshi_config::profiles(config);
+            super::kanshi_config_with(&profiles, None, &theirs, "x", true)
+                .contains("hook new-display")
+        };
+        // Their profile for these two displays and a third: kanshi would apply ours instead.
+        assert!(!asks(
+            "profile Meeting {\n output eDP-1\n output \"Dell U27 ABC\"\n output \"Epson PJ *\"\n}\n"
+        ));
+        assert!(!asks(
+            "profile Any {\n output eDP-1\n output * \n output *\n}\n"
+        ));
+        assert!(!asks("profile Any {\n ...output *\n}\n"));
+        // A connector or an alias may be one of these displays.
+        assert!(!asks(
+            "profile Ports {\n output DP-4\n output HDMI-A-1\n output eDP-1\n}\n"
+        ));
+        // A pattern that matches one of these.
+        assert!(!asks(
+            "profile Glob {\n output \"Dell U27 *\"\n output eDP-1\n output \"Epson PJ 1\"\n}\n"
+        ));
+        // Not for one display more: two other displays, or another number of them.
+        assert!(asks(
+            "profile Desk {\n output eDP-1\n output \"LG A 1\"\n output \"LG B 2\"\n}\n"
+        ));
+        assert!(asks("profile Laptop {\n output eDP-1\n}\n"));
+        assert!(asks(
+            "profile Dock {\n output eDP-1\n output \"Dell U27 ABC\"\n}\n"
+        ));
+    }
+
+    #[test]
+    fn displays_match_patterns_as_kanshi_matches_them() {
+        assert!(super::glob("Dell U27 *", "Dell U27 ABC"));
+        assert!(super::glob("Dell U?7 ABC", "Dell U27 ABC"));
+        assert!(super::glob(r"A\*B *", "A*B 1"));
+        assert!(!super::glob(r"A\*B *", "AxB 1"));
+        assert!(!super::glob("Dell U27", "Dell U27 ABC"));
+    }
+
+    #[test]
+    fn a_placement_alone_leaves_the_displays_to_whoever_sets_them_up() {
+        let mut profiles = Profiles::empty(std::path::Path::new("/nonexistent"));
+        let mut placed = Profile::capture(&outputs(DOCK)).unwrap().placement_only();
+        placed.set_workspaces([("1".to_owned(), "eDP-1".to_owned())].into());
+        profiles.remember(placed);
+        let names = ["eDP-1", "Dell U27 ABC"];
+        // Remembered for the workspaces, not for kanshi.
+        assert!(profiles.of(&names).is_some());
+        assert!(profiles.arranged(&names).is_none());
+        assert!(!kanshi_config(&profiles, PLACING).contains("profile "));
+        // Saved and loaded as it is.
+        let dir = tempfile::tempdir().unwrap();
+        let mut saved = Profiles::empty(&dir.path().join("displays.toml"));
+        saved.remember(profiles.of(&names).unwrap().clone());
+        saved.save().unwrap();
+        let loaded = Profiles::load(saved.path()).unwrap();
+        assert!(loaded.arranged(&names).is_none());
+        assert_eq!(loaded.of(&names).unwrap().workspaces().len(), 1);
+        // Arranged here later: the displays are set up here, the placement stays.
+        profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
+        assert!(profiles.arranged(&names).is_some());
+        assert_eq!(profiles.of(&names).unwrap().workspaces().len(), 1);
+        // Forgotten: the displays go back to whoever set them up, the placement stays.
+        assert!(profiles.forget(&names));
+        assert!(profiles.arranged(&names).is_none());
+        assert_eq!(profiles.of(&names).unwrap().workspaces().len(), 1);
+        assert!(!profiles.forget(&names));
+        // A placement made where the displays are set up here keeps them so.
+        profiles.remember(Profile::capture(&outputs(DOCK)).unwrap());
+        let mut only = Profile::capture(&outputs(DOCK)).unwrap().placement_only();
+        only.set_workspaces([("2".to_owned(), "eDP-1".to_owned())].into());
+        profiles.remember(only);
+        assert!(profiles.arranged(&names).is_some());
     }
 
     #[test]

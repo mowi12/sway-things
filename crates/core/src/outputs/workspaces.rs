@@ -173,6 +173,19 @@ pub struct Placing {
 }
 
 impl Placing {
+    /// What the file for kanshi says of it: "Workspaces 1 to 10: round robin, left to right";
+    /// `None` while sway places them.
+    pub fn heading(self) -> Option<String> {
+        let how = match self.rule {
+            Rule::Sway => return None,
+            Rule::RoundRobin => "round robin, left to right",
+            Rule::Blocks => "a block per display",
+            Rule::OneDisplay => "all on one display",
+            Rule::Fixed => "fixed, as arranged on the Workspaces page",
+        };
+        Some(format!("Workspaces 1 to {}: {how}", self.count))
+    }
+
     /// What places the workspaces by the settings in `state`; `None` while sway does.
     pub fn of(state: &State) -> Option<Self> {
         let rule = Rule::of(state);
@@ -407,9 +420,10 @@ pub async fn settled(
         let outputs = Outputs::new(&client.outputs().await?);
         let now = places(&outputs);
         let names: Vec<&str> = now.iter().map(|(name, _)| name.as_str()).collect();
-        // Where the profile of this combination puts the displays that show their own content.
+        // Where the profile of this combination puts the displays that show their own content
+        // (one of ours that sets them up; a profile of the user's says where in its own words).
         let wanted = profiles
-            .and_then(|profiles| profiles.of(&names))
+            .and_then(|profiles| profiles.arranged(&names))
             .map(|profile| {
                 profile
                     .outputs()

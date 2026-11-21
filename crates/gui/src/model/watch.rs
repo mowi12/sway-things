@@ -16,6 +16,10 @@ use sway_things_core::outputs::{OutputWatch, Outputs};
 use super::{Model, NO_DEVICES, NO_DISPLAYS, NO_RELOADS, Op};
 use crate::i18n::trf;
 
+/// How long the displays stand unchanged before the app looks whether a picture went
+/// ([`Model::heal_mirrors_later`]): kanshi has set them up and run its hooks by then.
+const HEAL_AFTER: std::time::Duration = std::time::Duration::from_secs(3);
+
 impl Model {
     pub(super) fn watch_config(&self, mut watch: IncludeWatch) {
         glib::spawn_future_local(glib::clone!(
@@ -126,7 +130,29 @@ impl Model {
         }
         // While kanshi sets up the displays, the stored values follow what it set up.
         self.queue(Op::FollowCombination);
+        self.heal_mirrors_later();
         self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// Once the displays stand (no change for [`HEAL_AFTER`]: kanshi sets them up and runs its
+    /// hooks meanwhile), starts a remembered picture of the combination again that doesn't run,
+    /// as when its window was closed. When the app opens, too.
+    fn heal_mirrors_later(&self) {
+        let seen = self.imp().outputs_seen.get().wrapping_add(1);
+        self.imp().outputs_seen.set(seen);
+        if !self.imp().looks_for_kanshi.get() {
+            return;
+        }
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = model)]
+            self,
+            async move {
+                glib::timeout_future(HEAL_AFTER).await;
+                if model.imp().outputs_seen.get() == seen {
+                    model.queue(Op::HealMirrors);
+                }
+            }
+        ));
     }
 
     /// Follows the reloads of sway's config in the session on `socket`, whoever asks for them, so

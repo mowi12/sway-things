@@ -91,6 +91,12 @@ kanshi, static `output` lines in our include (no profiles).
       sway switches one on if none is
 - [x] 🟢 Identify displays (numbers flashed on each screen)
 - [x] 🟡 Mirror one output onto another (`wl-mirror`), with a scaling mode, remembered per combination
+- [x] 🟡 A picture that went comes back by itself, without a daemon: when the app opens and when displays come and go,
+      in kanshi's hooks and at each start and reload of sway; `sway-things hook mirror` for a key binding
+- [x] 🟡 A display never seen before, plugged in to a remembered combination, asks once (a notification with _Mirror_
+      and _Extend_) and the answer is remembered for the new combination
+- [ ] 🟡 Recognize a projector again by make and model where its serial is generic (`0x00000001`, `0x01010101`) or it
+      comes through another port; needs checking with real projectors and adapters (see Sway-Reference)
 
 #### Profiles (kanshi backend)
 
@@ -101,6 +107,8 @@ kanshi, static `output` lines in our include (no profiles).
 - [x] 🟢 Our include goes above the user's own kanshi profiles, so the arrangement made here comes first; a warning with
       the command to move it while one of theirs wins for the displays connected
 - [x] 🟢 Generate `exec kanshi` into **our** sway include when the user's config doesn't start kanshi
+- [x] 🟡 The user's own profiles keep setting up their displays while Sway Things places the workspaces and mirrors on
+      them: a copy of each in our include, kept current, without their lines that place workspaces
 
 Workspace placement: see [Workspaces](#workspaces).
 
@@ -255,6 +263,8 @@ swaybar via our sway include.
 - [x] 🟢 Number of workspaces placed (1–20)
 - [x] 🟡 Applied at every start and reload of sway and each kanshi profile (`sway-things hook workspaces`), and at once
       from the page
+- [x] 🟡 Also where the user's own kanshi profiles set up the displays: a copy of each runs the placement in place of
+      their own `exec swaymsg workspace` lines (see [Profiles](#profiles-kanshi-backend))
 - [x] 🟢 Layout, split and back-and-forth of new workspaces (moved from Window Behavior)
 - [ ] 🟡 Keys for workspaces 11–20 and to move a workspace to another display, with conflict detection for the user's
       own bindings (→ shares the binding parser with Keyboard Shortcuts)

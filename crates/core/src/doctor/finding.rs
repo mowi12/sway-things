@@ -118,6 +118,9 @@ pub enum Code {
     /// A profile of the user's kanshi config covers a combination Sway Things remembers, and
     /// comes first.
     KanshiProfileOverlap,
+    /// A profile of the user's kanshi config that Sway Things copies to place the workspaces
+    /// keeps a line that may place them too, or is in a file the copies don't reach.
+    KanshiProfileCopy,
     /// sway and kanshi can't run `sway-things` for the hooks, or run another build of it.
     HookProgram,
     /// The settings files load without problems.
@@ -188,6 +191,7 @@ impl Code {
             Self::KanshiIncludeMissing => "kanshi_include_missing",
             Self::KanshiFileForeign => "kanshi_file_foreign",
             Self::KanshiProfileOverlap => "kanshi_profile_overlap",
+            Self::KanshiProfileCopy => "kanshi_profile_copy",
             Self::HookProgram => "hook_program",
             Self::SettingNotCopied => "setting_not_copied",
             Self::FileCurrent => "file_current",
@@ -227,6 +231,7 @@ impl Code {
             | Self::KanshiIncludeMissing
             | Self::KanshiFileForeign
             | Self::KanshiProfileOverlap
+            | Self::KanshiProfileCopy
             | Self::HookProgram => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
