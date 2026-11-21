@@ -204,6 +204,18 @@ pub fn parse(text: &str) -> Vec<Item> {
     items
 }
 
+/// The path of the `include` line `line` as kanshi reads it: the word after `include`, with
+/// its quotes and escapes undone, so `include '~/My Displays.conf'` and
+/// `include ~/My\ Displays.conf` both name `~/My Displays.conf`. `None` for another line.
+pub fn include_path(line: &str) -> Option<String> {
+    let mut reader = Reader::new(line.trim());
+    if reader.word()? != "include" {
+        return None;
+    }
+    reader.skip_blank(false);
+    reader.word()
+}
+
 /// The profiles of the kanshi config `text`, in order.
 pub fn profiles(text: &str) -> Vec<UserProfile> {
     parse(text)
@@ -586,7 +598,7 @@ impl<'a> Reader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ANY, Item, Kind, ONE, parse, profiles};
+    use super::{ANY, Item, Kind, ONE, include_path, parse, profiles};
 
     #[test]
     fn profiles_are_read_with_their_displays_and_statements() {
@@ -760,5 +772,24 @@ mod tests {
         );
         assert_eq!(profiles(""), Vec::new());
         assert_eq!(profiles("profile\n"), Vec::new());
+    }
+
+    #[test]
+    fn the_path_of_an_include_is_read_as_kanshi_reads_it() {
+        for line in [
+            "include ~/My\\ Displays.conf",
+            "include \"~/My Displays.conf\"",
+            "include '~/My Displays.conf'",
+            "  include '~/My Displays.conf' # mine",
+        ] {
+            assert_eq!(
+                include_path(line).as_deref(),
+                Some("~/My Displays.conf"),
+                "{line}"
+            );
+        }
+        assert_eq!(include_path("included ~/a.conf"), None);
+        assert_eq!(include_path("profile a {"), None);
+        assert_eq!(include_path("include"), None);
     }
 }

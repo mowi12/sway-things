@@ -193,12 +193,10 @@ impl KanshiFiles {
     /// Whether the files the `include` line `line` names may hold profiles: those of a plain
     /// path that can be read are looked at, a pattern or a file that can't be read counts.
     fn has_profiles(line: &str) -> bool {
-        let path = line
-            .strip_prefix("include")
-            .unwrap_or(line)
-            .trim()
-            .trim_matches('"');
-        let expanded = expand(path);
+        let Some(path) = super::kanshi_config::include_path(line) else {
+            return false;
+        };
+        let expanded = expand(&path);
         if expanded.contains(['*', '?', '[']) {
             return true;
         }
@@ -251,15 +249,10 @@ impl KanshiFiles {
     /// `~` and `$HOME`/`$XDG_CONFIG_HOME`, or a pattern with `*` and `?` that matches it.
     fn includes_ours(&self, text: &str) -> bool {
         text.lines().any(|line| {
-            let line = line.trim();
-            let Some(rest) = line.strip_prefix("include") else {
+            let Some(path) = super::kanshi_config::include_path(line) else {
                 return false;
             };
-            if !rest.starts_with(char::is_whitespace) {
-                return false;
-            }
-            let path = rest.trim().trim_matches('"');
-            let expanded = expand(path);
+            let expanded = expand(&path);
             expanded == self.ours.to_string_lossy()
                 || matches(&expanded, &self.ours.to_string_lossy())
         })
@@ -515,6 +508,8 @@ mod tests {
         let ours = files.ours.display().to_string();
         std::fs::write(&files.config, format!("include \"{ours}\"\n")).unwrap();
         assert_eq!(files.inclusion(), Inclusion::Included);
+        std::fs::write(&files.config, format!("include '{ours}'\n")).unwrap();
+        assert_eq!(files.inclusion(), Inclusion::Included);
         let pattern = format!("include {}/*.conf\n", dir.path().display());
         std::fs::write(&files.config, pattern).unwrap();
         assert_eq!(files.inclusion(), Inclusion::Included);
@@ -536,6 +531,27 @@ mod tests {
             "{how}"
         );
         assert!(!matches("/a/*.conf", "/a/b/c.conf"));
+    }
+
+    #[test]
+    fn an_include_after_ours_counts_only_where_its_file_may_hold_profiles() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = KanshiFiles::in_dir(dir.path());
+        let outputs = dir.path().join("My Outputs.conf");
+        std::fs::write(&outputs, "output eDP-1 scale 2\n").unwrap();
+        let profiles = dir.path().join("My Profiles.conf");
+        std::fs::write(&profiles, "profile a {\n    output eDP-1 enable\n}\n").unwrap();
+        let config = format!(
+            "include {}\ninclude '{}'\ninclude '{}'\n",
+            files.ours.display(),
+            outputs.display(),
+            profiles.display()
+        );
+        std::fs::write(&files.config, config).unwrap();
+        assert_eq!(
+            files.includes_after_ours(),
+            [format!("include '{}'", profiles.display())]
+        );
     }
 
     #[test]
