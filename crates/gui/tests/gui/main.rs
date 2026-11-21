@@ -48,6 +48,7 @@ mod safety_net;
 mod sections;
 mod shell;
 mod sound;
+mod wallpaper;
 mod welcome;
 
 use std::fmt::Write as _;
@@ -104,6 +105,7 @@ use self::safety_net::*;
 use self::sections::*;
 use self::shell::*;
 use self::sound::*;
+use self::wallpaper::*;
 use self::welcome::*;
 
 fn main() -> ExitCode {
@@ -188,6 +190,7 @@ fn main() -> ExitCode {
     ));
     results.extend(check_devices());
     results.extend(check_displays());
+    results.extend(check_wallpaper());
     results.extend(check_bluetooth_pages());
     results.extend(check_sound_pages());
     results.extend(check_network_pages());
