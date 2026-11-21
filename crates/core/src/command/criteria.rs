@@ -44,6 +44,7 @@ impl CriteriaKey {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Criteria {
     all: bool,
+    con_id: Option<i64>,
     matches: Vec<(CriteriaKey, String)>,
 }
 
@@ -57,6 +58,16 @@ impl Criteria {
     pub fn all() -> Self {
         Self {
             all: true,
+            con_id: None,
+            matches: Vec::new(),
+        }
+    }
+
+    /// `[con_id=<id>]`: the container with this id from `GET_TREE`. sway reads it as a number.
+    pub fn con_id(id: i64) -> Self {
+        Self {
+            all: false,
+            con_id: Some(id),
             matches: Vec::new(),
         }
     }
@@ -69,7 +80,7 @@ impl Criteria {
     }
 
     pub(super) fn is_empty(&self) -> bool {
-        !self.all && self.matches.is_empty()
+        !self.all && self.con_id.is_none() && self.matches.is_empty()
     }
 
     /// Renders the criteria as one argument. Config lines are unescaped by sway, so their
@@ -83,8 +94,13 @@ impl Criteria {
         if self.all {
             out.push_str("all");
         }
+        if let Some(id) = self.con_id {
+            out.push_str("con_id=");
+            out.push_str(&id.to_string());
+        }
+        let lead = self.all || self.con_id.is_some();
         for (index, (key, value)) in self.matches.iter().enumerate() {
-            if self.all || index > 0 {
+            if lead || index > 0 {
                 out.push(' ');
             }
             out.push_str(key.name());

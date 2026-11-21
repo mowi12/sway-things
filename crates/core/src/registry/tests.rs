@@ -442,6 +442,9 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // The apps' settings are bindings, lines of 70-autostart.conf or files of other
         // programs.
         let is_apps = setting.page() == Page::AppsAutostart;
+        // The settings of the notification daemon go to its files, except the blur on SwayFX.
+        let is_daemon =
+            setting.page() == Page::Notifications && setting.key() != super::notifications::BLUR;
         assert_eq!(
             setting.sway().is_none(),
             is_app
@@ -450,7 +453,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
                 || is_collection
                 || is_binding
                 || is_capture
-                || is_apps,
+                || is_apps
+                || is_daemon,
             "{}",
             setting.key()
         );

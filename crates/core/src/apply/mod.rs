@@ -37,6 +37,7 @@
 //! # }
 //! ```
 
+mod daemon;
 mod displays;
 mod error;
 mod page;
@@ -209,6 +210,13 @@ pub struct Applier<V = SwayValidator> {
     /// The XDG directories the files of the Apps & Autostart page go to
     /// ([`crate::apps::files`]); `None` for an applier made for tests, which writes none.
     apps_dirs: Option<crate::apps::Dirs>,
+    /// The notification daemon's files and the session bus, or `None` for an applier made for
+    /// tests: then nothing is written for the daemon and nothing is asked on the bus.
+    daemon: Option<daemon::DaemonFiles>,
+    /// What changed for the notification daemon since its files were last written.
+    daemon_changes: daemon::Changes,
+    /// What went wrong with the files of the notification daemon, to tell the user once.
+    daemon_problem: Option<Text>,
 }
 
 impl Applier<SwayValidator> {
@@ -245,6 +253,10 @@ impl Applier<SwayValidator> {
             .as_ref()
             .is_some_and(|files| !files.ours_is_written());
         applier.apps_dirs = crate::apps::Dirs::from_env();
+        if let Some(files) = crate::notifications::files::Files::from_env() {
+            let bus = crate::notifications::Notifications::session().await.ok();
+            applier.set_daemon_files(files, bus);
+        }
         let main = match applier.client() {
             Some(client) => match client.version().await {
                 Ok(version) if !version.loaded_config_file_name.is_empty() => {
@@ -309,6 +321,9 @@ impl<V: Validate> Applier<V> {
             kanshi_file_missing: false,
             user_config: None,
             apps_dirs: None,
+            daemon: None,
+            daemon_changes: daemon::Changes::default(),
+            daemon_problem: None,
         }
     }
 
@@ -342,6 +357,9 @@ impl<V: Validate> Applier<V> {
             kanshi_file_missing: false,
             user_config: None,
             apps_dirs: None,
+            daemon: None,
+            daemon_changes: daemon::Changes::default(),
+            daemon_problem: None,
         }
     }
 
@@ -455,6 +473,14 @@ impl<V: Validate> Applier<V> {
     pub(crate) fn touch(&mut self, setting: &Setting) {
         if setting.sets_up_display() {
             self.displays_touched = true;
+        }
+        if setting.key() == crate::registry::notifications::START {
+            self.daemon_changes.start = true;
+        }
+        if setting.key().starts_with("notifications.")
+            || setting.key().starts_with("windows.focused.")
+        {
+            self.daemon_changes.settings = true;
         }
     }
 
@@ -869,6 +895,9 @@ impl<V: Validate> Applier<V> {
             // A setting a hook sends (the placement of the workspaces) can need a reload.
             return Ok(match setting.apply() {
                 Apply::Reload => Effect::AfterReload,
+                // A program's settings (the notification daemon's): it reads them again when
+                // they are saved.
+                Apply::ToolReload => Effect::AfterToolReload,
                 _ => Effect::Preference,
             });
         }
@@ -979,6 +1008,7 @@ impl<V: Validate> Applier<V> {
         self.remember_displays().await;
         self.keep_kanshi_file().await;
         let _ = crate::wallpaper::prepare(&self.state);
+        self.keep_daemon_files().await;
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
@@ -1098,6 +1128,7 @@ impl<V: Validate> Applier<V> {
             let Some(setting) = registry.get(changed.key) else {
                 continue;
             };
+            self.touch(setting);
             let directive = registry.group(setting).next().map(Setting::key);
             if !seen.insert((changed.device.clone(), directive)) {
                 continue;

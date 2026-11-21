@@ -3,8 +3,10 @@
 
 //! The hooks generated config runs: `gsettings` and `wallpaper` in the session, `displays`,
 //! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`],
-//! `clipboard` through [`sway_things_core::capture::clipboard`], and `launch` and `autostart`
-//! through [`sway_things_core::apps`], which need neither the settings nor sway.
+//! `clipboard` through
+//! [`sway_things_core::capture::clipboard`], `launch` and `autostart` through
+//! [`sway_things_core::apps`], which need neither the settings nor sway, and the hooks of the
+//! notification daemon through [`notify::run_notification_hook`].
 
 use std::io::Write;
 
@@ -20,7 +22,7 @@ use sway_things_core::outputs::{self};
 use sway_things_core::registry::Registry;
 use sway_things_core::state::{Paths, State};
 
-use super::{Exit, Hook, Io, Session, fail_with};
+use super::{Exit, Hook, Io, Session, fail_with, notify};
 
 /// `hook displays`: switches a display on if none is on ([`hooks::displays`]). Quiet when there
 /// is nothing to do; it says on stderr which display it switched on, for sway's log.
@@ -94,7 +96,10 @@ async fn run_app_hook(hook: &Hook, err: &mut dyn Write) -> Option<Exit> {
         | Hook::Mirror
         | Hook::NewDisplay
         | Hook::Clipboard
-        | Hook::Wallpaper => None,
+        | Hook::Wallpaper
+        | Hook::NotificationClick { .. }
+        | Hook::NotificationDaemon
+        | Hook::Quick { .. } => None,
     }
 }
 
@@ -134,7 +139,10 @@ pub(super) async fn run_display_hook(
         | Hook::Wallpaper
         | Hook::Clipboard
         | Hook::Launch { .. }
-        | Hook::Autostart => {
+        | Hook::Autostart
+        | Hook::NotificationClick { .. }
+        | Hook::NotificationDaemon
+        | Hook::Quick { .. } => {
             return Exit::Ok;
         }
     };
@@ -156,6 +164,10 @@ pub(super) async fn run_hook<V: Validate>(
         Hook::Wallpaper => return super::wallpaper::hook_wallpaper(session, io).await,
         // Asks the user through the notification server: only for the user's session.
         Hook::NewDisplay => return Exit::Ok,
+        Hook::NotificationClick { .. } | Hook::NotificationDaemon | Hook::Quick { .. } => {
+            let client = session.applier.client();
+            return notify::run_notification_hook(hook, client, io.out, io.err).await;
+        }
         Hook::Clipboard => {
             let state = session.applier.state();
             let history = (

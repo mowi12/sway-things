@@ -124,7 +124,8 @@ pub enum ConfigFile {
     /// `70-autostart.conf`: the autostart entries of the Apps & Autostart page and the runner of
     /// the XDG autostart entries.
     Autostart,
-    /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`.
+    /// `80-hooks.conf`: the lines that run hooks of the command line, `sway-things hook …`, and
+    /// the notification daemon Sway Things starts.
     Hooks,
     /// `90-effects.conf`: SwayFX directives only, written only while SwayFX runs.
     Effects,

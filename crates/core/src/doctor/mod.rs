@@ -23,6 +23,7 @@
 
 pub mod apps;
 mod capture;
+mod daemon;
 mod files;
 mod finding;
 mod found;
@@ -48,6 +49,7 @@ use crate::state::{ProblemKind, State};
 use crate::sway_config::{Diagnostic, DiagnosticKind};
 use crate::version::{SwayFxVersion, SwayVersion};
 use crate::{msg, msg_plural};
+pub use daemon::DaemonLook;
 
 /// What the checkup looks at.
 #[derive(Debug)]
@@ -69,6 +71,9 @@ pub struct Checkup<'a, V> {
     pub displays: generate::Displays,
     /// kanshi's files, if kanshi is installed: what is checked of them.
     pub kanshi: Option<crate::outputs::kanshi::KanshiFiles>,
+    /// The notification daemon that runs and the files for it; `None` for a checkup that
+    /// doesn't look at the machine.
+    pub notifications: Option<DaemonLook>,
     /// The `$PATH` sway and kanshi run `sway-things` from for the hooks; `None` for a checkup
     /// that doesn't look at the machine.
     pub path: Option<std::ffi::OsString>,
@@ -95,6 +100,7 @@ impl<V: Validate> Checkup<'_, V> {
         self.config(&mut findings);
         self.swaybg(&mut findings);
         self.kanshi(&mut findings);
+        self.notification_daemon(&mut findings);
         let generated = self.found.compositor().map(|compositor| {
             generate::generate_for(self.state.registry(), self.state, compositor, self.displays)
         });

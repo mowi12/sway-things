@@ -35,3 +35,13 @@ fn refuses_what_sway_would_change() {
     assert!(xcursor_theme(&theme, 0).is_err());
     assert!(xcursor_theme(&theme, 513).is_err());
 }
+
+#[test]
+fn the_cursor_moves_over_ipc_only() {
+    let set = super::cursor_set(960, -20);
+    assert_eq!(
+        set.render(Target::Ipc).unwrap(),
+        "seat - cursor set 960 -20"
+    );
+    assert!(set.render(Target::Config).is_err());
+}

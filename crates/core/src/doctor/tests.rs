@@ -97,6 +97,7 @@ impl Setup {
             outputs: None,
             displays: crate::generate::Displays::Sway,
             kanshi: None,
+            notifications: None,
             path: None,
             gsettings: &NoGSettings,
             apps: None,
@@ -978,4 +979,191 @@ fn the_default_apps_and_the_autostart_runner_are_checked() {
         },
     };
     one(&diagnose(&check, &twice), Code::AutostartTwice);
+}
+
+/// What a checkup of `setup` sees of the notification daemon: `server` runs (`None`: none),
+/// mako is installed, nothing is activatable, and its files are below the setup's directory.
+fn daemon_look(setup: &Setup, server: Option<crate::notifications::Daemon>) -> super::DaemonLook {
+    use crate::notifications::{Daemon, Server, files::Files};
+    let files = Files::new(
+        Some(setup.dir.path().to_owned()),
+        &setup.dir.path().join("config"),
+    );
+    let server = server.map(|daemon| Server {
+        daemon,
+        name: daemon.program().to_owned(),
+        version: "1.0".to_owned(),
+        owner: zbus::names::OwnedUniqueName::try_from(":1.7").unwrap(),
+        pid: None,
+    });
+    super::DaemonLook {
+        files,
+        server,
+        installed: vec![Daemon::Mako],
+        activatable: Vec::new(),
+        running_config: None,
+    }
+}
+
+fn diagnose_with(setup: &Setup, look: super::DaemonLook) -> Diagnosis {
+    let mut checkup = setup.checkup();
+    checkup.notifications = Some(look);
+    block_on(checkup.diagnose())
+}
+
+fn with_daemon(setup: &Setup, server: Option<crate::notifications::Daemon>) -> Diagnosis {
+    diagnose_with(setup, daemon_look(setup, server))
+}
+
+const MAKO_CHOSEN: &str = "version = 1\n\n[notifications]\nstart = \"mako\"\n";
+
+#[test]
+fn a_missing_notification_daemon_is_reported() {
+    let setup = Setup::new("", INCLUDE);
+    let diagnosis = with_daemon(&setup, None);
+    assert_eq!(
+        one(&diagnosis, Code::NoNotificationDaemon).severity,
+        Severity::Warning
+    );
+    // One the config starts is on its way.
+    let setup = Setup::new("", &format!("exec mako\n{INCLUDE}"));
+    let diagnosis = with_daemon(&setup, None);
+    none(&diagnosis, Code::NoNotificationDaemon);
+    // Stopping or restarting one starts none.
+    let setup = Setup::new("", &format!("exec pkill mako\n{INCLUDE}"));
+    let diagnosis = with_daemon(&setup, None);
+    one(&diagnosis, Code::NoNotificationDaemon);
+    // One the bus starts with the first notification is fine.
+    let mut look = daemon_look(&setup, None);
+    look.activatable = vec![crate::notifications::Daemon::Mako];
+    let diagnosis = diagnose_with(&setup, look);
+    none(&diagnosis, Code::NoNotificationDaemon);
+    assert!(
+        one(&diagnosis, Code::NotificationDaemon)
+            .message
+            .english()
+            .contains("the bus starts mako")
+    );
+}
+
+#[test]
+fn two_notification_daemons_started_are_reported_with_their_lines() {
+    let setup = Setup::new(MAKO_CHOSEN, &format!("exec swaync\n{INCLUDE}"));
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Swaync));
+    let two = one(&diagnosis, Code::TwoNotificationDaemons);
+    assert!(
+        two.message
+            .english()
+            .contains("mako, SwayNotificationCenter")
+    );
+    assert_eq!(two.details.len(), 1);
+    let running = one(&diagnosis, Code::NotificationDaemon);
+    assert!(
+        running.message.english().contains("started by"),
+        "{running:?}"
+    );
+    // Ending one and starting it again is one.
+    let setup = Setup::new(
+        "",
+        &format!("exec_always killall swaync; swaync\n{INCLUDE}"),
+    );
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Swaync));
+    none(&diagnosis, Code::TwoNotificationDaemons);
+}
+
+#[test]
+fn mako_without_the_include_is_reported_with_the_line() {
+    // Not about mako as long as it isn't chosen and nothing is set for it.
+    let setup = Setup::new("", INCLUDE);
+    let mako = setup.dir.path().join("config/mako/config");
+    fs::create_dir_all(mako.parent().unwrap()).unwrap();
+    fs::write(&mako, "font=x\n[urgency=low]\ninvisible=1\n").unwrap();
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Mako));
+    none(&diagnosis, Code::MakoIncludeMissing);
+    let setup = Setup::new(MAKO_CHOSEN, INCLUDE);
+    let mako = setup.dir.path().join("config/mako/config");
+    fs::create_dir_all(mako.parent().unwrap()).unwrap();
+    fs::write(&mako, "font=x\n[urgency=low]\ninvisible=1\n").unwrap();
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Mako));
+    let missing = one(&diagnosis, Code::MakoIncludeMissing);
+    assert!(missing.message.english().contains("Do Not Disturb"));
+    let hint = missing.hint.as_ref().unwrap().english();
+    assert!(hint.contains("include=~/config/mako/sway-things"), "{hint}");
+    fs::write(&mako, "include = ~/config/mako/sway-things\n").unwrap();
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Mako));
+    assert!(
+        one(&diagnosis, Code::MakoIncludeMissing)
+            .message
+            .english()
+            .contains("refuses")
+    );
+    fs::write(
+        &mako,
+        "font=x\ninclude=~/config/mako/sway-things\n[urgency=low]\n",
+    )
+    .unwrap();
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Mako));
+    none(&diagnosis, Code::MakoIncludeMissing);
+    // A mako started with `-c` reads that config, which includes ours.
+    fs::write(&mako, "font=x\n").unwrap();
+    let given = setup.dir.path().join("given.conf");
+    fs::write(&given, "include=~/config/mako/sway-things\n").unwrap();
+    let mut look = daemon_look(&setup, Some(crate::notifications::Daemon::Mako));
+    look.running_config = Some(given);
+    let diagnosis = diagnose_with(&setup, look);
+    none(&diagnosis, Code::MakoIncludeMissing);
+}
+
+#[test]
+fn swaync_without_our_files_is_reported_while_something_is_set_for_it() {
+    let setup = Setup::new(
+        "version = 1\n\n[notifications.swaync]\ntimeout = 3\n",
+        &format!("exec swaync\n{INCLUDE}"),
+    );
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Swaync));
+    let hint = one(&diagnosis, Code::SwayncNotHandedOver)
+        .hint
+        .clone()
+        .unwrap();
+    assert!(
+        hint.english()
+            .contains("swaync -c ~/config/sway-things/swaync/config.json")
+    );
+    // Running with ours, as its command line says, it is fine.
+    let mut look = daemon_look(&setup, Some(crate::notifications::Daemon::Swaync));
+    look.running_config = Some(look.files.swaync_config.clone());
+    let diagnosis = diagnose_with(&setup, look);
+    none(&diagnosis, Code::SwayncNotHandedOver);
+    // Choosing it to start alone sets nothing for it.
+    let setup = Setup::new(
+        "version = 1\n\n[notifications]\nstart = \"swaync\"\n",
+        &format!("exec swaync\n{INCLUDE}"),
+    );
+    let diagnosis = with_daemon(&setup, Some(crate::notifications::Daemon::Swaync));
+    none(&diagnosis, Code::SwayncNotHandedOver);
+}
+
+#[test]
+fn a_swaync_config_of_the_user_s_left_out_is_reported() {
+    let setup = Setup::new(
+        "version = 1\n\n[notifications]\nstart = \"swaync\"\n",
+        INCLUDE,
+    );
+    let mut look = daemon_look(&setup, Some(crate::notifications::Daemon::Swaync));
+    look.running_config = Some(look.files.swaync_config.clone());
+    let user = look.files.swaync_user_config.clone();
+    fs::create_dir_all(user.parent().unwrap()).unwrap();
+    fs::write(&user, "{}").unwrap();
+    let diagnosis = diagnose_with(&setup, look.clone());
+    let hint = one(&diagnosis, Code::SwayncOwnConfigUnused)
+        .hint
+        .clone()
+        .unwrap();
+    assert!(hint.english().contains("import-swaync"));
+    let setup = Setup::new(
+        "version = 1\n\n[notifications]\nstart = \"swaync\"\n\n[notifications.swaync]\nother = \"{}\"\n",
+        INCLUDE,
+    );
+    let diagnosis = diagnose_with(&setup, look);
+    none(&diagnosis, Code::SwayncOwnConfigUnused);
 }

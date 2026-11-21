@@ -22,3 +22,6 @@ default_dim_inactive 0.1
 dim_inactive_colors.unfocused #000000ff
 dim_inactive_colors.urgent #900000ff
 animation_duration_ms 300
+layer_effects notifications blur enable
+layer_effects swaync-notification-window blur disable
+layer_effects swaync-control-center blur enable
