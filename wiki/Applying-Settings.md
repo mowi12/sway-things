@@ -204,11 +204,12 @@ on numbers taken from sway's and SwayFX's own checks:
   `floating_minimum_size` and `floating_maximum_size` take each dimension as no limit (`-1`), sway's automatic value
   (`0`) or pixels. `inhibit_idle`, like `opacity`, is wrapped in `for_window` or leading criteria for per-app rules.
 - `command::output` also builds `output <selector> bg …` for every output or one: an image with a fill mode and a
-  fallback color, or a color alone (`solid_color`), without alpha. sway passes the image path to `wordexp(3)`, which
-  runs `$(…)` and expands variables, so the path is quoted in single quotes for `wordexp` (an inner `'` as `"'"`) before
-  it is quoted as text for the target; only a leading `~/` stays outside, for `wordexp` to replace with the home folder.
-  Relative paths and two spaces in a row (which sway escapes before `wordexp`) are refused. The fallback color is always
-  written: sway 1.11 and later show it for an image they can't find.
+  fallback color, or a color alone (`solid_color`), without alpha. A fit stored without an image, color or collection
+  (for the output, or for all of them) makes no line, so the user's own `bg` line stays. sway passes the image path to
+  `wordexp(3)`, which runs `$(…)` and expands variables, so the path is quoted in single quotes for `wordexp` (an inner
+  `'` as `"'"`) before it is quoted as text for the target; only a leading `~/` stays outside, for `wordexp` to replace
+  with the home folder. Relative paths and two spaces in a row (which sway escapes before `wordexp`) are refused. The
+  fallback color is always written: sway 1.11 and later show it for an image they can't find.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
 arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)
