@@ -30,8 +30,12 @@
 - **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
   user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
 - **A page reset** (`Applier::reset_page`) resets every stored value of the page, as `PageReset::plan` lists them,
-  except the risky ones, which only the safety net changes; while kanshi sets up the displays, a reset of Displays also
-  forgets the profile of the displays connected. The app's confirmation counts from the same plan.
+  except the risky ones, which only the safety net changes, and the wallpaper collections, which the user made rather
+  than set. Where a line of the user's config sets a value, the page reset lets it win as _Let my config win_ does (all
+  settings of the directive at once, the user's value sent at once), unless a setting of the directive is risky or on
+  another page, or kanshi sets up the display; else it resets the value, which sends sway's default. While kanshi sets
+  up the displays, a reset of Displays also forgets the profile of the displays connected. The app's confirmation counts
+  from the same plan.
 - **Refused:** risky settings (they change and reset only through the [safety net](#risky-settings-safety-net)), and a
   `set` of a setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is
   always allowed, so such a value can be removed.

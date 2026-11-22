@@ -614,6 +614,18 @@ fn changes_on_disk_are_sent_and_regenerated_except_risky_ones() {
 
 /// The conflict report of `key` for a user's config with these lines and the include at the end.
 fn users(key: &str, lines: &str) -> crate::conflict::Report {
+    let setting = crate::registry::Registry::builtin().get(key).unwrap();
+    crate::conflict::Report::check(
+        &users_config(lines),
+        setting,
+        None,
+        crate::conflict::Known::default(),
+    )
+    .unwrap()
+}
+
+/// A user's config with `lines` and then the include line, as read.
+fn users_config(lines: &str) -> crate::include::IncludeStatus {
     let main = "/home/me/.config/sway/config";
     let files = crate::sway_config::MemoryFiles::new()
         .var("HOME", "/home/me")
@@ -625,17 +637,38 @@ fn users(key: &str, lines: &str) -> crate::conflict::Report {
         std::path::Path::new("/home/me/.config/sway/sway-things"),
         std::path::Path::new("/home/me/.local/state/sway-things"),
     );
-    let status =
-        crate::include::IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations);
-    let setting = crate::registry::Registry::builtin().get(key).unwrap();
-    crate::conflict::Report::check(&status, setting, None, crate::conflict::Known::default())
-        .unwrap()
+    crate::include::IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations)
 }
 
 impl Setup {
     fn let_config_win(&mut self, report: &crate::conflict::Report) -> Result<Applied, ApplyError> {
         block_on(self.applier.let_config_win(report, &self.access))
     }
+}
+
+#[test]
+fn a_page_reset_sends_the_users_values_and_else_the_defaults() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[windows]\nsmart_gaps = \"on\"\n\n[windows.gaps]\ninner = 8\n",
+    );
+    let errors = block_on(setup.applier.reset_page(
+        crate::registry::Page::Windows,
+        &users_config("gaps inner 4\n"),
+        crate::conflict::Known::default(),
+        &setup.access,
+    ));
+    assert!(errors.failed.is_empty() && errors.displays.is_none());
+    let mut sent = sway.commands();
+    sent.sort();
+    // The user's gaps, and sway's default for what their config doesn't set.
+    assert_eq!(
+        sent,
+        ["gaps inner 4", "gaps inner all set 4", "smart_gaps off"]
+    );
+    assert_eq!(setup.applier.state().get(GAPS, None), None);
+    assert_eq!(setup.applier.state().get("windows.smart_gaps", None), None);
 }
 
 #[test]

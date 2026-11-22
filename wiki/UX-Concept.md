@@ -493,7 +493,8 @@ being dragged stays under the pointer when its first change stores a value.
   [user's editor](#opening-the-config-in-an-editor).
 - **Reset page…** in the page header removes every stored value of the page after asking. Values of risky settings stay:
   the question names them and says to reset them from their rows, so a page reset never needs the safety net. The button
-  can't be pressed while there is nothing it would remove.
+  can't be pressed while there is nothing it would remove. What the user's config sets comes back at once, as with _Let
+  my config win_; the wallpaper collections stay.
 - Indicators follow the state, the user's config and the include status live.
 - **Notices** say something about a page as a whole rather than one row: the captive portal (Network), kanshi and
   displays that overlap (Displays), apps that can't read the settings (Apps Look & Feel). Every page draws them alike,

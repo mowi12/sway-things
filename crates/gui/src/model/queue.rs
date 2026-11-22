@@ -10,6 +10,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
 use sway_things_core::command::input::{InputSelector, XkbSwitch};
+use sway_things_core::conflict::Known;
 use sway_things_core::devices::switch_layout;
 use sway_things_core::gsettings::GSettingsError;
 use sway_things_core::include::{IncludeStatus, ReadOnly, WriteAccess};
@@ -217,9 +218,20 @@ impl Model {
         &self,
         applier: &mut Applier,
         page: Page,
+        status: &IncludeStatus,
         access: &WriteAccess,
     ) {
-        let errors = applier.reset_page(page, access).await;
+        // Copies, so nothing stays borrowed while the reset runs.
+        let (devices, outputs) = {
+            let core = self.imp().core.borrow();
+            let Some(core) = core.as_ref() else { return };
+            (core.devices.clone(), core.outputs.clone())
+        };
+        let known = Known {
+            devices: Some(&devices),
+            outputs: Some(&outputs),
+        };
+        let errors = applier.reset_page(page, status, known, access).await;
         for (key, device, error) in errors.failed {
             self.emit_failed(key, device.as_deref(), &error.text().translated());
         }
@@ -370,7 +382,8 @@ impl Model {
                 }
             }
             (Op::ResetPage(page), Ok(access)) => {
-                self.reset_page_now(&mut applier, page, &access).await;
+                self.reset_page_now(&mut applier, page, &status, &access)
+                    .await;
             }
             (Op::Set { key, device, value }, Ok(access)) => {
                 self.set_now(
