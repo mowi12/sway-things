@@ -206,6 +206,9 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Folder browser with thumbnails (`~/Pictures` by default, subfolders as filters)
 - [x] 🟢 Preview of the displays as laid out, one or all edited at a time
 - [x] 🟢 "Managed externally" detection when a custom wallpaper script runs (handover)
+- [x] 🟢 Back to the default: the user's own wallpaper as the first tile, _Use Default_ per display or for all, and
+      _Reset page…_
+- [x] 🟢 Warning for a picture that can't be read (no gdk-pixbuf loader for WebP and others)
 - [x] 🟡 Collections: named sets of pictures and folders whose pictures take turns at login, daily or after an interval,
       shuffled or in order (systemd user timer, no daemon)
 

@@ -11,6 +11,7 @@ url='https://github.com/mowi12/sway-things'
 license=(GPL-3.0-or-later)
 depends=(cairo glib2 glibc graphene gtk4 gtk4-layer-shell libgcc libpulse pango sway)
 makedepends=(cargo git)
+optdepends=('webp-pixbuf-loader: WebP wallpapers')
 provides=("sway-things=${pkgver%%.r*}")
 conflicts=(sway-things)
 source=("$pkgname::git+$url.git")

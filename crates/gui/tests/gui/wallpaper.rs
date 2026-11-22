@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Wallpaper page: the preview of the displays, the pictures of the wallpaper folder and the
-//! notice about wallpaper tools that the user's config starts.
+//! The Wallpaper page: the preview of the displays, the pictures of the wallpaper folder, the
+//! way back to the default, and the notice about wallpaper tools that the user's config starts.
 
 use super::*;
 
@@ -11,6 +11,19 @@ pub(crate) fn check_wallpaper() -> Vec<(String, Outcome)> {
         (
             "wallpaper: a picture for one display".to_owned(),
             check_wallpaper_picker(),
+        ),
+        (
+            "wallpaper: the config's PNG comes back by its tile, Use Default and Reset page"
+                .to_owned(),
+            check_wallpaper_default("png"),
+        ),
+        (
+            "wallpaper: the config's WebP comes back, and says it can't be read".to_owned(),
+            check_wallpaper_default("webp"),
+        ),
+        (
+            "wallpaper: a fit alone keeps the config's picture".to_owned(),
+            check_wallpaper_fit_alone(),
         ),
         (
             "wallpaper: a tool of the config is managed externally".to_owned(),
@@ -76,13 +89,7 @@ fn check_wallpaper_picker() -> Outcome {
         shown && names == ["BOE 0x0BCA · eDP-1"],
         &format!("  the preview shows {names:?}"),
     )?;
-    // The pictures: their tiles hold a box with the picture and its name.
-    let pictures_shown = || -> Vec<gtk::FlowBoxChild> {
-        all::<gtk::FlowBoxChild>(&content)
-            .into_iter()
-            .filter(|child| child.child().and_downcast::<gtk::Box>().is_some())
-            .collect()
-    };
+    let pictures_shown = || pictures_of(&content);
     let loaded = run_until(Duration::from_secs(5), || pictures_shown().len() == 3);
     ensure(
         loaded,
@@ -143,6 +150,260 @@ fn check_wallpaper_picker() -> Outcome {
     ensure(title, "  the picture in use isn't named")?;
     window.destroy();
     Ok(())
+}
+
+/// The pictures of the grid, after the _Default_ tile: their tiles hold a box with the picture
+/// and its name.
+fn pictures_of(content: &gtk::Widget) -> Vec<gtk::FlowBoxChild> {
+    all::<gtk::FlowBoxChild>(content)
+        .into_iter()
+        .filter(|child| {
+            child
+                .child()
+                .and_downcast::<gtk::Box>()
+                .is_some_and(|tile| tile.widget_name() != DEFAULT_TILE)
+        })
+        .collect()
+}
+
+/// The widget name of the _Default_ tile.
+const DEFAULT_TILE: &str = "st-wallpaper-default";
+
+/// A picture of 16×10 pixels as PNG at `path`.
+fn write_png(path: &Path) -> Outcome {
+    let pixbuf = gtk::gdk_pixbuf::Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, false, 8, 16, 10)
+        .ok_or_else(|| "  no pixbuf".to_owned())?;
+    pixbuf.fill(0x2855_77ff);
+    pixbuf
+        .savev(path, "png", &[])
+        .map_err(|error| format!("  the PNG wasn't written: {error}"))
+}
+
+/// The user's config sets a picture outside the wallpaper folder (`extension`: a PNG that can be
+/// read, or a WebP that can't). It shows as the default, selected, with where it comes from;
+/// after another picture is picked, the _Default_ tile, _Use Default_ and _Reset page…_ each
+/// bring it back and send the user's line.
+fn check_wallpaper_default(extension: &str) -> Outcome {
+    let pictures = wallpaper_folder()?;
+    let backgrounds = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let original = backgrounds.path().join(format!("original.{extension}"));
+    if extension == "png" {
+        write_png(&original)?;
+    } else {
+        // No loader reads an empty file, like swaybg without the WebP loader.
+        std::fs::write(&original, b"").map_err(|error| error.to_string())?;
+    }
+    let sway = with_outputs(&[LAPTOP_SCREEN]);
+    let stored = format!(
+        "{STORED}\n[app]\nwallpaper_folder = {:?}\n",
+        pictures.path().display().to_string()
+    );
+    let users = format!("{USERS}output * bg {} fill #102030\n", original.display());
+    let fixture = fixture_in(SWAY, &stored, &users, true, Some(&sway))?;
+    let known = run_until(Duration::from_secs(5), || fixture.model.outputs_known());
+    ensure(known, "  the outputs weren't read within 5 s")?;
+    let window = open(&fixture, Page::Wallpaper)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let loaded = run_until(Duration::from_secs(5), || pictures_of(&content).len() == 3);
+    ensure(loaded, "  the pictures weren't listed within 5 s")?;
+    let page = DefaultPage {
+        use_default: button_labeled(&content, "Use Default")
+            .ok_or_else(|| "  no Use Default button".to_owned())?,
+        reset_page: page_view(&window)
+            .and_then(|view| view.reset_button().cloned())
+            .ok_or_else(|| "  no Reset page button".to_owned())?,
+        name: format!("original.{extension}"),
+        users_line: format!("output * bg \"'{}'\" fill #102030", original.display()),
+        window: &window,
+        content,
+        fixture: &fixture,
+        sway: &sway,
+    };
+
+    page.shows_default("at first")?;
+    // The warning that the picture can't be read comes once it was tried.
+    let warned = run_until(Duration::from_secs(5), || {
+        page.labeled("warning")
+            .iter()
+            .any(|text| text.starts_with(&format!("{} can’t be read", page.name)))
+            == (extension == "webp")
+    });
+    ensure(
+        warned,
+        &format!("  the warning shows {:?}", page.labeled("warning")),
+    )?;
+
+    page.pick_another("tile")?;
+    page.default_tile()
+        .ok_or_else(|| "  no Default tile".to_owned())?
+        .emit_activate();
+    page.back("the Default tile")?;
+
+    page.pick_another("button")?;
+    page.use_default.emit_clicked();
+    page.back("Use Default")?;
+
+    page.pick_another("page")?;
+    fixture.model.reset_page(Page::Wallpaper);
+    page.back("Reset page")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The user's config sets a picture, and only the fit is changed on the page: the picture stays,
+/// drawn with the new fit, and _Use Default_ goes back to the user's line.
+fn check_wallpaper_fit_alone() -> Outcome {
+    let backgrounds = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let original = backgrounds.path().join("original.png");
+    write_png(&original)?;
+    let sway = with_outputs(&[LAPTOP_SCREEN]);
+    let users = format!("{USERS}output * bg {} fill #102030\n", original.display());
+    let fixture = fixture_in(SWAY, STORED, &users, true, Some(&sway))?;
+    let known = run_until(Duration::from_secs(5), || fixture.model.outputs_known());
+    ensure(known, "  the outputs weren't read within 5 s")?;
+    let window = open(&fixture, Page::Wallpaper)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let fit = all::<gtk::ToggleButton>(&content)
+        .into_iter()
+        .find(|button| button.label().as_deref() == Some("Fit"))
+        .ok_or_else(|| "  no Fit button".to_owned())?;
+    fit.set_active(true);
+    wait_for_model(&fixture.model)?;
+    settle(&window)?;
+    let expected = format!("output * bg \"'{}'\" fit #102030", original.display());
+    ensure(
+        sway.commands().last() == Some(&expected),
+        &format!("  sent {:?}", sway.commands()),
+    )?;
+    let image = Registry::builtin()
+        .get("wallpaper.image")
+        .ok_or_else(|| "  no wallpaper image".to_owned())?;
+    let view = fixture
+        .model
+        .view(image, None)
+        .map(|view| (view.source, view.value));
+    ensure(
+        matches!(&view, Some((Source::Stored { .. }, Value::Text(text))) if *text == original.display().to_string()),
+        &format!("  the image is {view:?}"),
+    )?;
+    let use_default = button_labeled(&content, "Use Default")
+        .ok_or_else(|| "  no Use Default button".to_owned())?;
+    ensure(use_default.is_drawable(), "  Use Default isn't offered")?;
+    use_default.emit_clicked();
+    wait_for_model(&fixture.model)?;
+    let users_line = format!("output * bg \"'{}'\" fill #102030", original.display());
+    ensure(
+        sway.commands().last() == Some(&users_line),
+        &format!("  Use Default sent {:?}", sway.commands().last()),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The Wallpaper page of [`check_wallpaper_default`], with the user's picture.
+struct DefaultPage<'a> {
+    window: &'a Window,
+    content: gtk::Widget,
+    fixture: &'a Fixture,
+    sway: &'a FakeSway,
+    use_default: gtk::Button,
+    reset_page: gtk::Button,
+    /// The file name of the user's picture.
+    name: String,
+    /// The command of the user's `bg` line.
+    users_line: String,
+}
+
+impl DefaultPage<'_> {
+    /// The _Default_ tile of the grid.
+    fn default_tile(&self) -> Option<gtk::FlowBoxChild> {
+        all::<gtk::FlowBoxChild>(&self.content)
+            .into_iter()
+            .find(|child| {
+                child
+                    .child()
+                    .is_some_and(|tile| tile.widget_name() == DEFAULT_TILE)
+            })
+    }
+
+    /// The texts of the labels shown with `class`.
+    fn labeled(&self, class: &str) -> Vec<String> {
+        all::<gtk::Label>(&self.content)
+            .into_iter()
+            .filter(|label| label.has_css_class(class) && label.is_drawable())
+            .map(|label| label.text().into())
+            .collect()
+    }
+
+    /// The user's picture shows, from their config, with the _Default_ tile selected.
+    fn shows_default(&self, step: &str) -> Outcome {
+        settle(self.window)?;
+        let image = Registry::builtin()
+            .get("wallpaper.image")
+            .ok_or_else(|| "  no wallpaper image".to_owned())?;
+        let source = self.fixture.model.view(image, None).map(|view| view.source);
+        ensure(
+            matches!(source, Some(Source::Config { .. })),
+            &format!("  {step}: the image comes from {source:?}"),
+        )?;
+        let title = self.labeled("st-wallpaper-title");
+        ensure(
+            title == [self.name.as_str()],
+            &format!("  {step}: the title is {title:?}"),
+        )?;
+        let origin = self
+            .labeled("st-dim")
+            .iter()
+            .any(|text| text.starts_with("Default · from your config, "));
+        ensure(
+            origin,
+            &format!("  {step}: nothing says where it comes from"),
+        )?;
+        ensure(
+            self.default_tile().is_some_and(|tile| tile.is_selected())
+                && !self.use_default.is_drawable(),
+            &format!("  {step}: the Default tile isn't selected, or Use Default shows"),
+        )?;
+        ensure(
+            !self.reset_page.is_sensitive(),
+            &format!("  {step}: Reset page can be pressed with nothing stored"),
+        )
+    }
+
+    /// Picks the second picture of the folder, b.jpg.
+    fn pick_another(&self, step: &str) -> Outcome {
+        let second = pictures_of(&self.content)
+            .into_iter()
+            .nth(1)
+            .ok_or_else(|| "  no second picture".to_owned())?;
+        second.emit_activate();
+        wait_for_model(&self.fixture.model)?;
+        settle(self.window)?;
+        let title = self.labeled("st-wallpaper-title");
+        ensure(
+            title == ["b.jpg"] && self.use_default.is_drawable() && self.reset_page.is_sensitive(),
+            &format!("  {step}: after picking b.jpg the title is {title:?}"),
+        )?;
+        ensure(
+            !self.default_tile().is_some_and(|tile| tile.is_selected()),
+            &format!("  {step}: the Default tile stays selected"),
+        )
+    }
+
+    /// After `step`, the user's picture is back, and their line was sent.
+    fn back(&self, step: &str) -> Outcome {
+        wait_for_model(&self.fixture.model)?;
+        self.shows_default(&format!("after {step}"))?;
+        let last = self.sway.commands().last().cloned();
+        ensure(
+            last.as_ref() == Some(&self.users_line),
+            &format!("  {step}: sent {last:?}"),
+        )
+    }
 }
 
 /// A wallpaper tool that the user's config starts is named with its line.

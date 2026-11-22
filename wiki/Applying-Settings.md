@@ -30,8 +30,12 @@
 - **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
   user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
 - **A page reset** (`Applier::reset_page`) resets every stored value of the page, as `PageReset::plan` lists them,
-  except the risky ones, which only the safety net changes; while kanshi sets up the displays, a reset of Displays also
-  forgets the profile of the displays connected. The app's confirmation counts from the same plan.
+  except the risky ones, which only the safety net changes, and the wallpaper collections, which the user made rather
+  than set. Where a line of the user's config sets a value, the page reset lets it win as _Let my config win_ does (all
+  settings of the directive at once, the user's value sent at once), unless a setting of the directive is risky or on
+  another page, or kanshi sets up the display; else it resets the value, which sends sway's default. While kanshi sets
+  up the displays, a reset of Displays also forgets the profile of the displays connected. The app's confirmation counts
+  from the same plan.
 - **Refused:** risky settings (they change and reset only through the [safety net](#risky-settings-safety-net)), and a
   `set` of a setting or value the compositor doesn't support, with what it needs. Nothing is stored then. A reset is
   always allowed, so such a value can be removed.
@@ -200,11 +204,12 @@ on numbers taken from sway's and SwayFX's own checks:
   `floating_minimum_size` and `floating_maximum_size` take each dimension as no limit (`-1`), sway's automatic value
   (`0`) or pixels. `inhibit_idle`, like `opacity`, is wrapped in `for_window` or leading criteria for per-app rules.
 - `command::output` also builds `output <selector> bg …` for every output or one: an image with a fill mode and a
-  fallback color, or a color alone (`solid_color`), without alpha. sway passes the image path to `wordexp(3)`, which
-  runs `$(…)` and expands variables, so the path is quoted in single quotes for `wordexp` (an inner `'` as `"'"`) before
-  it is quoted as text for the target; only a leading `~/` stays outside, for `wordexp` to replace with the home folder.
-  Relative paths and two spaces in a row (which sway escapes before `wordexp`) are refused. The fallback color is always
-  written: sway 1.11 and later show it for an image they can't find.
+  fallback color, or a color alone (`solid_color`), without alpha. A fit stored without an image, color or collection
+  (for the output, or for all of them) makes no line, so the user's own `bg` line stays. sway passes the image path to
+  `wordexp(3)`, which runs `$(…)` and expands variables, so the path is quoted in single quotes for `wordexp` (an inner
+  `'` as `"'"`) before it is quoted as text for the target; only a leading `~/` stays outside, for `wordexp` to replace
+  with the home folder. Relative paths and two spaces in a row (which sway escapes before `wordexp`) are refused. The
+  fallback color is always written: sway 1.11 and later show it for an image they can't find.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
 arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)

@@ -4,7 +4,7 @@
 //! The preview of the displays, each a tile with its wallpaper placed like the output layout,
 //! and what the edited display shows: its picture, collection or color, the fit and the color.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use gtk::prelude::*;
@@ -18,7 +18,7 @@ use sway_things_core::wallpaper::{self, Collection, Moment};
 
 use super::collections::describe;
 use super::colors::{color_of, rgba, solid};
-use super::images::{own_size_into, set_frame_color, thumbnail_into};
+use super::images::{own_size_into, set_frame_color, thumbnail_into, when_readable};
 use super::{FITS, Kind, Look, NAME_HEIGHT, PREVIEW, Placed, Timers, Ui, float, px};
 use crate::i18n::{msg, tr, trf};
 
@@ -57,10 +57,13 @@ impl Ui {
         text.append(&self.title);
         text.append(&self.detail);
         text.append(&self.more);
+        text.append(&self.origin);
         info.append(&self.kind);
         info.append(&text);
         info.append(&self.next);
+        info.append(&self.use_default);
         card.append(&info);
+        card.append(&self.warning);
 
         let controls = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         let fits = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -88,11 +91,18 @@ impl Ui {
                 ui.next_picture();
             }
         });
+        let weak = Rc::downgrade(self);
+        self.use_default.connect_clicked(move |_| {
+            if let Some(ui) = weak.upgrade() {
+                ui.use_default();
+            }
+        });
         for (fit, (id, _)) in self.fits.iter().zip(FITS) {
             let weak = Rc::downgrade(self);
             fit.connect_toggled(move |button| {
                 if let (Some(ui), true) = (weak.upgrade(), button.is_active()) {
                     if !ui.syncing.get() {
+                        ui.take_over();
                         ui.set(FILL, Value::Choice(id.to_owned()));
                     }
                 }
@@ -102,6 +112,7 @@ impl Ui {
         self.color.connect_rgba_notify(move |button| {
             if let Some(ui) = weak.upgrade() {
                 if !ui.syncing.get() {
+                    ui.take_over();
                     ui.set(COLOR, Value::Color(color_of(&button.rgba())));
                 }
             }
@@ -172,11 +183,7 @@ impl Ui {
                 Some((i32::try_from(width).ok()?, i32::try_from(height).ok()?))
             })
             .unwrap_or((1920, 1080));
-        let path = match self.look(shows) {
-            Look::Picture(image) => Some(wallpaper::expand(&image, Some(&glib::home_dir()))),
-            Look::Collection(_, current) => current,
-            Look::Color => None,
-        };
+        let path = self.picture_of(shows);
         let screen = gtk::Overlay::new();
         screen.set_child(Some(&picture));
         screen.set_overflow(gtk::Overflow::Hidden);
@@ -234,7 +241,7 @@ impl Ui {
     }
 
     /// The name and details of what the edited output shows, the fit and the color.
-    pub(super) fn refresh_current(&self, target: Option<&str>) {
+    pub(super) fn refresh_current(self: &Rc<Self>, target: Option<&str>) {
         let look = self.look(target);
         let color = self.color_value(target);
         let (kind, title, detail, more) = match &look {
@@ -290,6 +297,17 @@ impl Ui {
         self.more.set_text(&more);
         self.more.set_visible(!more.is_empty());
         self.next.set_visible(matches!(look, Look::Collection(..)));
+        // The default is shown: say where it comes from; else offer to go back to it.
+        let own = !self.own_keys(target).is_empty();
+        self.origin.set_visible(!own);
+        self.use_default.set_visible(own);
+        if own {
+            self.use_default
+                .set_tooltip_text(Some(&self.fallback_origin(target)));
+        } else {
+            self.origin.set_text(&self.fallback_origin(target));
+        }
+        self.check_picture(self.picture_of(target));
         let fill = match self.value(FILL, target) {
             Some(Value::Choice(fill)) => fill,
             _ => "fill".to_owned(),
@@ -300,6 +318,45 @@ impl Ui {
         }
         self.color.set_rgba(&rgba(color));
         set_frame_color(color);
+    }
+
+    /// Says below what the edited output shows if its picture `path` doesn't exist or can't be
+    /// read, so swaybg can't show it either.
+    fn check_picture(self: &Rc<Self>, path: Option<PathBuf>) {
+        if *self.checked.borrow() == path {
+            return;
+        }
+        self.checked.replace(path.clone());
+        self.warning.set_visible(false);
+        let Some(path) = path else { return };
+        let name = path.file_name().map_or_else(
+            || path.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+        if !path.exists() {
+            self.warning.set_text(&trf(
+                msg!("{picture} doesn\u{2019}t exist, so the screen stays black."),
+                &[("picture", &name)],
+            ));
+            self.warning.set_visible(true);
+            return;
+        }
+        let weak = Rc::downgrade(self);
+        when_readable(&path.clone(), move |readable| {
+            let Some(ui) = weak.upgrade() else { return };
+            if readable || ui.checked.borrow().as_ref() != Some(&path) {
+                return;
+            }
+            ui.warning.set_text(&trf(
+                msg!(
+                    "{picture} can\u{2019}t be read, so swaybg likely can\u{2019}t show it \
+                     either. Pictures in WebP, AVIF or JPEG XL need an image loader for \
+                     gdk-pixbuf, like webp-pixbuf-loader."
+                ),
+                &[("picture", &name)],
+            ));
+            ui.warning.set_visible(true);
+        });
     }
 
     /// Switches between editing every output and one output at a time. Back to every output,

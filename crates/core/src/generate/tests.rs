@@ -762,6 +762,31 @@ exec_always sway-things hook displays
 }
 
 #[test]
+fn a_fit_alone_makes_no_background_line() {
+    // The user's config sets the picture; only the fit is stored.
+    let (_dir, fit) = state("[wallpaper]\nfill = \"fit\"\n", "");
+    let files = generate(Registry::builtin(), &fit, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    assert!(!output.contains(" bg "), "{output}");
+    // For one display too, while nothing is stored for all of them.
+    let (_dir, one) = state("", "[display.\"eDP-1\".wallpaper]\nfill = \"center\"\n");
+    let files = generate(Registry::builtin(), &one, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    assert!(!output.contains(" bg "), "{output}");
+    // A fit of one display goes with the picture of all of them.
+    let (_dir, both) = state(
+        "[wallpaper]\nimage = \"/a.png\"\n",
+        "[display.\"eDP-1\".wallpaper]\nfill = \"center\"\n",
+    );
+    let files = generate(Registry::builtin(), &both, SWAY_1_10);
+    let output = text(&files, ConfigFile::Output);
+    assert!(
+        output.contains("output \"eDP-1\" bg \"'/a.png'\" center #000000"),
+        "{output}"
+    );
+}
+
+#[test]
 fn collections_are_started_by_one_line_that_names_no_display() {
     let (_dir, state) = state(
         "[wallpaper]\ncollection = \"Nature\"\n",

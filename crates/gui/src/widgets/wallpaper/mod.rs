@@ -8,11 +8,16 @@
 //! - The preview: every display as a tile with its wallpaper, placed like the output layout.
 //!   _Same wallpaper on all displays_ edits the values for every output; switched off, a click on
 //!   a tile picks the display whose values are edited.
-//! - What the edited display shows (a picture, a collection or a color), _Next Picture_ for a
-//!   collection, the fit and the background color.
+//! - What the edited display shows (a picture, a collection or a color) and where it comes from,
+//!   _Next Picture_ for a collection, _Use Default_, the fit and the background color.
 //! - Three tabs to pick from: the pictures of the wallpaper folder (`app.wallpaper_folder`, else
-//!   `~/Pictures`) with its subfolders as chips; the collections, with the settings and pictures
-//!   of the open one; and colors.
+//!   `~/Pictures`) with its subfolders as chips, after the _Default_ tile; the collections, with
+//!   the settings and pictures of the open one; and colors.
+//!
+//! The default of a display is what it shows once Sway Things stores no wallpaper for it
+//! ([`Fallback`]): for one display, what all of them show if Sway Things stores that; else the
+//! `bg` line of the user's config; else sway's, no wallpaper. _Use Default_ and the _Default_
+//! tile remove the stored values of the edited display (or of all of them), so it comes back.
 //!
 //! A picked picture is stored with `~/` for the home folder, so settings shared through dotfiles
 //! work for every user name. File and collection names are external strings: they are only shown
@@ -34,9 +39,10 @@ use sway_things_core::registry::{Registry, Value};
 use sway_things_core::wallpaper::{self, CHANGE, COLLECTION, Change, INTERVAL, ORDER, PICTURES};
 
 use super::RowLayout;
-use crate::i18n::{Msg, msg, tr};
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
+use crate::widgets::setting_row::tilde;
 
 mod collections;
 mod colors;
@@ -134,6 +140,25 @@ enum Look {
     Color,
 }
 
+/// What an output shows once Sway Things stores no wallpaper for it.
+#[derive(Debug, Clone, PartialEq)]
+enum Fallback {
+    /// What every output shows, as Sway Things stores it: for an output of its own.
+    AllDisplays,
+    /// What the `bg` line of the user's config sets: the picture (`None` for the color alone,
+    /// or a path the page can't follow, like one with a variable), the fit and the color, with
+    /// the file and number of the line.
+    Config {
+        image: Option<String>,
+        fill: Option<String>,
+        color: Color,
+        file: PathBuf,
+        line: usize,
+    },
+    /// No `bg` line: sway starts no swaybg, and the screen stays black.
+    Sway,
+}
+
 /// What an output shows, as the page names it with an icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kind {
@@ -167,7 +192,12 @@ struct Ui {
     title: gtk::Label,
     detail: gtk::Label,
     more: gtk::Label,
+    /// Where what the edited output shows comes from, while it is the default.
+    origin: gtk::Label,
+    /// Why the edited output's picture can't be shown, if it can't.
+    warning: gtk::Label,
     next: gtk::Button,
+    use_default: gtk::Button,
     fits: Vec<gtk::ToggleButton>,
     color: gtk::ColorDialogButton,
     folder_button: gtk::Button,
@@ -192,6 +222,8 @@ struct Ui {
     shown_pictures: RefCell<Vec<PathBuf>>,
     /// The collections of the grid, in order.
     shown_collections: RefCell<Vec<String>>,
+    /// The picture of the edited output whose readability is checked.
+    checked: RefCell<Option<PathBuf>>,
     /// The collections that change by a timer, as last scheduled.
     timers: RefCell<Option<Timers>>,
     /// Set while the widgets are brought to the model, so their signals change nothing.
@@ -235,8 +267,13 @@ impl Ui {
         let title = label("st-wallpaper-title");
         let detail = label(style::DIM);
         let more = label(style::DIM);
+        let origin = label(style::DIM);
+        let warning = label("warning");
+        warning.set_visible(false);
         let next = gtk::Button::with_label(tr(msg!("Next Picture")));
         next.set_valign(gtk::Align::Center);
+        let use_default = gtk::Button::with_label(tr(msg!("Use Default")));
+        use_default.set_valign(gtk::Align::Center);
         let fits: Vec<gtk::ToggleButton> = FITS
             .iter()
             .map(|(_, name)| gtk::ToggleButton::with_label(tr(*name)))
@@ -283,7 +320,10 @@ impl Ui {
             title,
             detail,
             more,
+            origin,
+            warning,
             next,
+            use_default,
             fits,
             color,
             folder_button,
@@ -301,6 +341,7 @@ impl Ui {
             chip: RefCell::new(None),
             shown_pictures: RefCell::new(Vec::new()),
             shown_collections: RefCell::new(Vec::new()),
+            checked: RefCell::new(None),
             timers: RefCell::new(None),
             syncing: Cell::new(false),
         });
@@ -397,6 +438,158 @@ impl Ui {
         }
     }
 
+    /// The wallpaper settings Sway Things stores for exactly `output` (`None`: every output).
+    fn own_keys(&self, output: Option<&str>) -> Vec<&'static str> {
+        self.model
+            .state()
+            .map(|state| {
+                state
+                    .entries()
+                    .into_iter()
+                    .filter(|entry| {
+                        entry.setting.key().starts_with("wallpaper.") && entry.device == output
+                    })
+                    .map(|entry| entry.setting.key())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// What `output` (`None`: every output) shows once Sway Things stores no wallpaper for it.
+    fn fallback(&self, output: Option<&str>) -> Fallback {
+        if output.is_some() && !self.own_keys(None).is_empty() {
+            return Fallback::AllDisplays;
+        }
+        let registry = Registry::builtin();
+        let line = registry
+            .get(IMAGE)
+            .and_then(|image| self.model.report(image, output))
+            .and_then(|report| report.user_value().cloned());
+        let Some(line) = line else {
+            return Fallback::Sway;
+        };
+        let image = match &line.value {
+            Ok(Value::Text(image)) if !image.is_empty() => Some(image.clone()),
+            _ => None,
+        };
+        let fill = match registry
+            .get(FILL)
+            .and_then(|fill| fill.read(&line.directive))
+        {
+            Some(Ok(Value::Choice(fill))) => Some(fill),
+            _ => None,
+        };
+        let color = match registry
+            .get(COLOR)
+            .and_then(|color| color.read(&line.directive))
+        {
+            Some(Ok(Value::Color(color))) => color,
+            _ => Color::rgb(0, 0, 0),
+        };
+        Fallback::Config {
+            image,
+            fill,
+            color,
+            file: line.file().to_path_buf(),
+            line: line.line(),
+        }
+    }
+
+    /// The picture and color `output` shows once Sway Things stores no wallpaper for it.
+    fn fallback_look(&self, output: Option<&str>) -> (Option<PathBuf>, Color) {
+        match self.fallback(output) {
+            Fallback::AllDisplays => (self.picture_of(None), self.color_value(None)),
+            Fallback::Config { image, color, .. } => (
+                image.map(|image| wallpaper::expand(&image, Some(&gtk::glib::home_dir()))),
+                color,
+            ),
+            Fallback::Sway => (None, Color::rgb(0, 0, 0)),
+        }
+    }
+
+    /// Where the default of `output` comes from, for a line below its name.
+    fn fallback_origin(&self, output: Option<&str>) -> String {
+        match self.fallback(output) {
+            Fallback::AllDisplays => tr(msg!("Default · the wallpaper of all displays")).to_owned(),
+            Fallback::Config { file, line, .. } => trf(
+                // TRANSLATORS: Where the wallpaper comes from: a line of the user's sway config,
+                // {place} like ~/.config/sway/config:12.
+                msg!("Default · from your config, {place}"),
+                &[("place", &format!("{}:{line}", tilde(&file)))],
+            ),
+            Fallback::Sway => tr(msg!(
+                "Default · sway draws no wallpaper, the screen stays black"
+            ))
+            .to_owned(),
+        }
+    }
+
+    /// Before the fit or the color of the edited output changes while it shows the picture of
+    /// the user's `bg` line: stores that line's picture, fit and color, so the line Sway Things
+    /// generates draws the same picture with the change instead of replacing it with a color.
+    /// _Use Default_ goes back to the user's line.
+    fn take_over(&self) {
+        let target = self.target();
+        if !self.own_keys(target.as_deref()).is_empty() {
+            return;
+        }
+        let Fallback::Config {
+            image: Some(image),
+            fill,
+            color,
+            ..
+        } = self.fallback(target.as_deref())
+        else {
+            return;
+        };
+        // The picture first, so what shows meanwhile is the user's.
+        self.model.set(IMAGE, target.as_deref(), Value::Text(image));
+        if let Some(fill) = fill {
+            self.model.set(FILL, target.as_deref(), Value::Choice(fill));
+        }
+        self.model
+            .set(COLOR, target.as_deref(), Value::Color(color));
+    }
+
+    /// Removes what Sway Things stores for the wallpaper of the edited output, so its default
+    /// shows again, and sends the default to the session: for an output that falls back to all
+    /// of them, their wallpaper; else the `bg` line of the user's config (one line sets the
+    /// picture, fit, color and collection together), or without one sway's default.
+    fn use_default(&self) {
+        self.error.set_visible(false);
+        let target = self.target();
+        let own = self.own_keys(target.as_deref());
+        if own.is_empty() {
+            return;
+        }
+        if self.fallback(target.as_deref()) == Fallback::AllDisplays {
+            for key in own {
+                self.model.reset(key, target.as_deref());
+            }
+            return;
+        }
+        let report = Registry::builtin()
+            .get(IMAGE)
+            .and_then(|image| self.model.report(image, target.as_deref()));
+        match report {
+            Some(report) => self.model.let_config_win(report),
+            None => {
+                for key in own {
+                    self.model.reset(key, target.as_deref());
+                }
+            }
+        }
+    }
+
+    /// The picture `output` shows now, if any: its own, or the current one of its collection.
+    fn picture_of(&self, output: Option<&str>) -> Option<PathBuf> {
+        match self.look(output) {
+            Look::Picture(image) => Some(wallpaper::expand(&image, Some(&gtk::glib::home_dir()))),
+            Look::Collection(_, current) => current,
+            Look::Color => None,
+        }
+    }
+
     /// What `output` shows (`None`: every output).
     fn look(&self, output: Option<&str>) -> Look {
         let text = |key| match self.value(key, output) {
@@ -458,6 +651,7 @@ impl Ui {
         self.refresh_preview(&outputs, separate);
         self.refresh_current(target.as_deref());
         self.refresh_folder();
+        self.refresh_default(target.as_deref());
         self.select_picture(target.as_deref());
         self.refresh_collections(target.as_deref());
         self.syncing.set(false);

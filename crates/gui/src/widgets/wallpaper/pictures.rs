@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Pictures tab: the pictures of the wallpaper folder, with its subfolders as chips, and
-//! _Choose Image…_.
+//! The Pictures tab: the _Default_ tile, then the pictures of the wallpaper folder, with its
+//! subfolders as chips, and _Choose Image…_.
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -14,6 +14,7 @@ use sway_things_core::registry::wallpaper::IMAGE;
 use sway_things_core::registry::{Registry, Value};
 use sway_things_core::wallpaper::{self, EXTENSIONS};
 
+use super::colors::solid;
 use super::images::frame;
 use super::{Listing, Look, MAX_PICTURES, Ui, index};
 use crate::i18n::{msg, tr, trf};
@@ -53,8 +54,14 @@ impl Ui {
         let weak = Rc::downgrade(self);
         self.pictures.connect_child_activated(move |_, child| {
             let Some(ui) = weak.upgrade() else { return };
-            let picture =
-                index(child).and_then(|index| ui.shown_pictures.borrow().get(index).cloned());
+            if is_default(child) {
+                ui.use_default();
+                return;
+            }
+            // The pictures come after the default.
+            let picture = index(child)
+                .and_then(|index| index.checked_sub(1))
+                .and_then(|index| ui.shown_pictures.borrow().get(index).cloned());
             if let Some(picture) = picture {
                 ui.pick_picture(&picture);
             }
@@ -170,6 +177,8 @@ impl Ui {
     /// The pictures of the folder, or of the chosen subfolder.
     pub(super) fn fill_pictures(self: &Rc<Self>) {
         self.pictures.remove_all();
+        let target = self.target();
+        self.pictures.append(&self.default_tile(target.as_deref()));
         let chip = self.chip.borrow().clone();
         let pictures: Vec<PathBuf> = self
             .listed
@@ -191,12 +200,50 @@ impl Ui {
         }
         self.pictures_empty.set_visible(pictures.is_empty());
         self.shown_pictures.replace(pictures);
-        let target = self.target();
         self.select_picture(target.as_deref());
     }
 
-    /// Selects the picture `target` shows in the grid.
+    /// Puts the _Default_ tile for `target` first in the grid, in place of the one there.
+    pub(super) fn refresh_default(&self, target: Option<&str>) {
+        if let Some(first) = self.pictures.child_at_index(0).filter(is_default) {
+            self.pictures.remove(&first);
+        }
+        self.pictures.insert(&self.default_tile(target), 0);
+    }
+
+    /// The tile of what `target` shows once Sway Things stores no wallpaper for it.
+    fn default_tile(&self, target: Option<&str>) -> gtk::Box {
+        let (picture, color) = self.fallback_look(target);
+        let tile = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        tile.set_widget_name(DEFAULT);
+        let (frame, inside) = frame(picture.as_deref());
+        if picture.is_none() {
+            let solid = gtk::Picture::for_paintable(&solid(color));
+            solid.set_content_fit(gtk::ContentFit::Fill);
+            inside.set_child(Some(&solid));
+        }
+        let origin = self.fallback_origin(target);
+        frame.update_property(&[gtk::accessible::Property::Label(&origin)]);
+        let caption = gtk::Label::new(Some(tr(msg!("Default"))));
+        caption.add_css_class(style::DIM);
+        caption.add_css_class("st-wallpaper-caption");
+        caption.set_xalign(0.0);
+        tile.append(&frame);
+        tile.append(&caption);
+        tile.set_tooltip_text(Some(&origin));
+        tile
+    }
+
+    /// Selects the picture `target` shows in the grid: the default while Sway Things stores no
+    /// wallpaper for it.
     pub(super) fn select_picture(&self, target: Option<&str>) {
+        if self.own_keys(target).is_empty() {
+            match self.pictures.child_at_index(0).filter(is_default) {
+                Some(child) => self.pictures.select_child(&child),
+                None => self.pictures.unselect_all(),
+            }
+            return;
+        }
         let current = match self.look(target) {
             Look::Picture(image) => Some(wallpaper::expand(&image, Some(&glib::home_dir()))),
             Look::Collection(..) | Look::Color => None,
@@ -208,7 +255,7 @@ impl Ui {
                 .position(|picture| *picture == current)
         });
         match index
-            .and_then(|index| i32::try_from(index).ok())
+            .and_then(|index| i32::try_from(index + 1).ok())
             .and_then(|index| self.pictures.child_at_index(index))
         {
             Some(child) => self.pictures.select_child(&child),
@@ -263,6 +310,16 @@ impl Ui {
             }
         });
     }
+}
+
+/// The widget name of the _Default_ tile.
+const DEFAULT: &str = "st-wallpaper-default";
+
+/// Whether `child` of the grid is the _Default_ tile.
+fn is_default(child: &gtk::FlowBoxChild) -> bool {
+    child
+        .child()
+        .is_some_and(|tile| tile.widget_name() == DEFAULT)
 }
 
 /// A picture of the folder in the grid, with its name below.

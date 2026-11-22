@@ -5,7 +5,8 @@
 //! swaybg. Without a `bg` line sway starts no swaybg, and the screen stays black.
 //!
 //! The image, its fill mode and the color are one `output <name> bg …` line: an image with its
-//! mode and the color as fallback, or without an image the color alone (`solid_color`).
+//! mode and the color as fallback, or without an image the color alone (`solid_color`). A fit
+//! stored without an image, color or collection makes no line, so the user's own stays.
 //!
 //! An output can show a collection instead of one image: the `bg` line then names a link in the
 //! state folder that points at the current picture of the collection
@@ -235,6 +236,14 @@ fn check_collection(name: &str) -> Result<(), ValueError> {
 /// a collection, the image is the link to its current picture; the generated config also runs
 /// `sway-things hook wallpaper` then (see `generate`).
 fn background(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
+    // A fit alone draws nothing of its own: a line with sway's black would replace the `bg` line
+    // of the user's config.
+    if ![IMAGE, COLOR, COLLECTION]
+        .iter()
+        .any(|key| ctx.is_stored(key))
+    {
+        return Ok(Vec::new());
+    }
     let output = ctx.output()?;
     let color = ctx.color(COLOR)?;
     let fill = Fill::from_keyword(ctx.choice(FILL)?).unwrap_or(Fill::Fill);

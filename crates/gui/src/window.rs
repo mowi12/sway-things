@@ -900,7 +900,9 @@ impl Window {
         };
         if page == Page::Wallpaper && model.error().is_none() {
             let body = crate::widgets::wallpaper_page(model);
-            return PageView::new(tr(page.title()), tr(page.description()), &body);
+            let view = PageView::new(tr(page.title()), tr(page.description()), &body);
+            view.add_page_reset(model, page);
+            return view;
         }
         if let Some(error) = model.error() {
             let placeholder = Placeholder::new(

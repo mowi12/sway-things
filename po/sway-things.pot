@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-21 18:28+0100\n"
+"POT-Creation-Date: 2026-11-22 09:56+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5724,6 +5724,7 @@ msgid "Blueman can't be started: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/cursor.rs
+#: crates/gui/src/widgets/wallpaper/pictures.rs
 msgid "Default"
 msgstr ""
 
@@ -7371,6 +7372,10 @@ msgid "Next Picture"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper/mod.rs
+msgid "Use Default"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Background color"
 msgstr ""
 
@@ -7382,6 +7387,21 @@ msgstr ""
 
 #: crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Colors"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper/mod.rs
+msgid "Default · the wallpaper of all displays"
+msgstr ""
+
+#. TRANSLATORS: Where the wallpaper comes from: a line of the user's sway config,
+#. {place} like ~/.config/sway/config:12.
+#: crates/gui/src/widgets/wallpaper/mod.rs
+#, rust-format
+msgid "Default · from your config, {place}"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper/mod.rs
+msgid "Default · sway draws no wallpaper, the screen stays black"
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper/notices.rs
@@ -7452,6 +7472,19 @@ msgstr ""
 #: crates/gui/src/widgets/wallpaper/preview.rs
 #, rust-format
 msgid "Color · {color}"
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper/preview.rs
+#, rust-format
+msgid "{picture} doesn’t exist, so the screen stays black."
+msgstr ""
+
+#: crates/gui/src/widgets/wallpaper/preview.rs
+#, rust-format
+msgid ""
+"{picture} can’t be read, so swaybg likely can’t show it either. Pictures in "
+"WebP, AVIF or JPEG XL need an image loader for gdk-pixbuf, like webp-pixbuf-"
+"loader."
 msgstr ""
 
 #: crates/gui/src/widgets/wallpaper/preview.rs

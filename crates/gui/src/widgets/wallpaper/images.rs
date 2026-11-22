@@ -84,14 +84,32 @@ pub(super) fn set_frame_color(color: Color) {
     });
 }
 
-/// Shows the thumbnail of `path` in `image`: at once if it was read before, else once it is.
+/// Shows the thumbnail of `path` in `image`: at once if it was read before, else once it is. A
+/// picture that can't be read shows an icon instead, at its own size.
 pub(super) fn thumbnail_into(image: &gtk::Picture, path: &Path) {
+    let weak = image.downgrade();
+    read(path, move |texture| {
+        if let Some(image) = weak.upgrade() {
+            show(&image, texture);
+        }
+    });
+}
+
+/// Calls `done` with whether `path` can be read as a picture: at once if it was read before,
+/// else once it is. swaybg reads pictures with the same loaders (gdk-pixbuf), so a picture that
+/// can't be read here likely can't be shown as a wallpaper either.
+pub(super) fn when_readable(path: &Path, done: impl FnOnce(bool) + 'static) {
+    read(path, move |texture| done(texture.is_some()));
+}
+
+/// Calls `done` with the thumbnail of `path`, `None` if it can't be read: from the cache, else
+/// read off the main loop.
+fn read(path: &Path, done: impl FnOnce(Option<&gdk::Texture>) + 'static) {
     let known = THUMBNAILS.with(|cache| cache.borrow().get(path).cloned());
     if let Some(texture) = known {
-        image.set_paintable(texture.as_ref());
+        done(texture.as_ref());
         return;
     }
-    let weak = image.downgrade();
     let path = path.to_path_buf();
     glib::spawn_future_local(async move {
         let read = {
@@ -100,10 +118,27 @@ pub(super) fn thumbnail_into(image: &gtk::Picture, path: &Path) {
         };
         let texture = read.ok().flatten().map(|pixels| texture(&pixels));
         THUMBNAILS.with(|cache| cache.borrow_mut().insert(path, texture.clone()));
-        if let Some(image) = weak.upgrade() {
-            image.set_paintable(texture.as_ref());
-        }
+        done(texture.as_ref());
     });
+}
+
+/// Shows `texture` in `image`, or without one the icon of a picture that can't be read.
+fn show(image: &gtk::Picture, texture: Option<&gdk::Texture>) {
+    if let Some(texture) = texture {
+        image.set_paintable(Some(texture));
+        return;
+    }
+    let icon = gtk::IconTheme::for_display(&image.display()).lookup_icon(
+        "image-missing-symbolic",
+        &[],
+        32,
+        image.scale_factor(),
+        gtk::TextDirection::None,
+        gtk::IconLookupFlags::empty(),
+    );
+    image.set_content_fit(gtk::ContentFit::ScaleDown);
+    image.add_css_class("st-wallpaper-unreadable");
+    image.set_paintable(Some(&icon));
 }
 
 /// Draws `path` in `area` at its own size on a screen of `pixels`, as swaybg does for `center`

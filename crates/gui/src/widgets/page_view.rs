@@ -276,8 +276,9 @@ impl PageView {
     }
 
     /// Adds "Reset page…" to the header: after asking, it removes every stored value of `page`
-    /// that can't lock the user out. It can only be pressed while there is such a value.
-    fn add_page_reset(&self, model: &Model, page: Page) {
+    /// that can't lock the user out. It can only be pressed while there is such a value. Pages
+    /// with a body of their own add it themselves.
+    pub fn add_page_reset(&self, model: &Model, page: Page) {
         let button = gtk::Button::with_label(tr(msg!("Reset page…")));
         button.connect_clicked(glib::clone!(
             #[weak]
@@ -318,7 +319,7 @@ impl PageView {
             .map(|(picker, _)| picker.clone())
     }
 
-    /// The "Reset page…" button, on a page built from the registry.
+    /// The "Reset page…" button, on a page that has one.
     pub fn reset_button(&self) -> Option<&gtk::Button> {
         self.imp().reset.get()
     }
