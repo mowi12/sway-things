@@ -284,6 +284,9 @@ include.
       load, power menu, notification center)
 - [x] 🟡 Styling: colors (yours or sway's window colors), font, padding, rounded corners, transparency, a pill per
       module (generated `style.css`), presets, your own stylesheet read after ours
+- [x] 🟡 Groups: drag an item onto another to make one pill of both, a card in the lane with its items inside; rename in
+      place, drawer (the others only on hover) with its direction, move in and out by drag, keyboard and menu, Ungroup;
+      generated as Waybar's `group/<name>` (swaybar shows no groups)
 - [x] 🟡 Looks style groups as one pill with the drawer's items inside, the item under the pointer inset in the pill's
       shape, empty modules without room, the states of modules (warning, critical, ok) in the look's colors, tabular
       figures, and no theme's frames or fills

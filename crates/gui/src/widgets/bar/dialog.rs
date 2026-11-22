@@ -24,6 +24,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use serde_json::{Map, Number, Value as Json};
 use sway_things_core::bar::catalog::{self, Kind, Opt};
+use sway_things_core::bar::groups::{self, Drawer};
 use sway_things_core::bar::is_module_name;
 
 use super::preview::{item_title, now};
@@ -270,7 +271,8 @@ fn build(ctx: &Rc<Ctx>, anchor: &gtk::Widget, name: &str, add_to: Option<&'stati
     scrolled.set_child(Some(&content));
     let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     buttons.add_css_class("st-bar-dialog-buttons");
-    if !creating && modules.is_stored(name) {
+    // A group's definition holds its members: it has no default to go back to.
+    if !creating && modules.is_stored(name) && !groups::is_group(name) {
         let reset = gtk::Button::with_label(tr(msg!("Reset to Default")));
         reset.set_tooltip_text(Some(tr(msg!(
             "Back to the item's definition in waybar's default config, or none"
@@ -426,6 +428,7 @@ fn basic(content: &gtk::Box, form: &Rc<Form>, name: &str) -> bool {
             script::basic(content, form);
             return true;
         }
+        "group" => group_rows(form),
         _ => {
             let mut rows = Vec::new();
             if form.field("format").is_some() {
@@ -607,6 +610,109 @@ fn level(form: &Rc<Form>, state: &'static str, title: Msg, default: i64) -> gtk:
     unit.append(&gtk::Label::new(Some("%")));
     spin.update_property(&[gtk::accessible::Property::Label(tr(title))]);
     line(tr(title), &unit)
+}
+
+/// The drawer the form of a group holds, if it is one.
+fn drawer_of(form: &Form) -> Option<Drawer> {
+    let mut definition = Map::new();
+    definition.insert("drawer".to_owned(), form.other("drawer")?);
+    groups::drawer(&definition)
+}
+
+/// Makes the group of the form a drawer like `drawer`, or a plain pill.
+fn set_drawer(form: &Form, drawer: Option<Drawer>) {
+    let mut definition = Map::new();
+    if let Some(options) = form.other("drawer") {
+        definition.insert("drawer".to_owned(), options);
+    }
+    groups::set_drawer(&mut definition, drawer);
+    form.set_other("drawer", definition.get("drawer").cloned());
+}
+
+/// The rows of a group: its items, whether it is a drawer that shows the others only on hover,
+/// where and how fast it opens, and whether on a click.
+fn group_rows(form: &Rc<Form>) -> Vec<gtk::Widget> {
+    let members: Vec<String> = form
+        .other("modules")
+        .and_then(|members| members.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Json::as_str)
+        .map(|member| item_title(&sway_things_core::bar::Modules::default(), member))
+        .collect();
+    let items = gtk::Label::new(Some(&if members.is_empty() {
+        tr(msg!("No items yet")).to_owned()
+    } else {
+        members.join(", ")
+    }));
+    items.set_xalign(1.0);
+    items.set_wrap(true);
+    items.add_css_class(style::DIM);
+    let current = drawer_of(form);
+    let drawer = gtk::Switch::new();
+    drawer.set_active(current.is_some());
+    let direction =
+        gtk::DropDown::from_strings(&[tr(msg!("Toward the left")), tr(msg!("Toward the right"))]);
+    direction.set_selected(u32::from(!current.unwrap_or_default().to_left));
+    let duration = gtk::SpinButton::with_range(0.0, f64::from(groups::MAX_DURATION), 50.0);
+    duration.set_value(f64::from(current.unwrap_or_default().duration));
+    let click = gtk::Switch::new();
+    click.set_active(current.is_some_and(|drawer| drawer.on_click));
+    let dependent: Vec<gtk::Widget> = vec![
+        direction.clone().upcast(),
+        duration.clone().upcast(),
+        click.clone().upcast(),
+    ];
+    let sync = {
+        let form = Rc::downgrade(form);
+        let (drawer, direction, duration, click) = (
+            drawer.downgrade(),
+            direction.downgrade(),
+            duration.downgrade(),
+            click.downgrade(),
+        );
+        move || {
+            let (Some(form), Some(drawer), Some(direction), Some(duration), Some(click)) = (
+                form.upgrade(),
+                drawer.upgrade(),
+                direction.upgrade(),
+                duration.upgrade(),
+                click.upgrade(),
+            ) else {
+                return;
+            };
+            for widget in [
+                direction.upcast_ref::<gtk::Widget>(),
+                duration.upcast_ref(),
+                click.upcast_ref(),
+            ] {
+                widget.set_sensitive(drawer.is_active());
+            }
+            let wanted = drawer.is_active().then(|| Drawer {
+                duration: u32::try_from(duration.value_as_int()).unwrap_or(250),
+                to_left: direction.selected() == 0,
+                on_click: click.is_active(),
+            });
+            set_drawer(&form, wanted);
+        }
+    };
+    for widget in &dependent {
+        widget.set_sensitive(current.is_some());
+    }
+    let on_drawer = sync.clone();
+    drawer.connect_active_notify(move |_| on_drawer());
+    let on_direction = sync.clone();
+    direction.connect_selected_notify(move |_| on_direction());
+    let on_duration = sync.clone();
+    duration.connect_value_changed(move |_| on_duration());
+    click.connect_active_notify(move |_| sync());
+    vec![
+        line(tr(msg!("Items")), &items),
+        line(tr(msg!("Show the others only on hover")), &drawer),
+        line(tr(msg!("The others slide out")), &direction),
+        line(tr(msg!("Slide time (milliseconds)")), &duration),
+        line(tr(msg!("Open on a click instead of on hover")), &click),
+    ]
 }
 
 /// A spin button for the number field `key`, from `min` to `max`; it shows `default` while the

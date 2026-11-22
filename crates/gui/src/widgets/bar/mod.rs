@@ -35,7 +35,7 @@ use std::rc::Rc;
 
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::bar::style;
+use sway_things_core::bar::{Modules, style};
 use sway_things_core::registry::{Registry, Value, bar as keys};
 use sway_things_core::theme;
 use sway_things_core::view::Source;
@@ -48,14 +48,23 @@ use crate::model::Model;
 /// nothing was stored.
 type Step = Vec<(&'static str, Option<Value>)>;
 
+/// The class of the item of the preview the lanes point at.
+pub(crate) const MARKED: &str = "st-bar-marked";
+
 /// What the parts of one Bar page share.
 #[derive(Debug)]
 pub(crate) struct Ctx {
     model: Model,
-    undo: RefCell<Vec<Step>>,
+    /// The steps Ctrl+Z takes back, each with the module definitions before it, where it
+    /// changed them too (groups).
+    undo: RefCell<Vec<(Step, Option<Modules>)>>,
     anchors: RefCell<Vec<(&'static str, gtk::Widget)>>,
     /// The widget that says what happened to a screen reader: the lanes.
     voice: RefCell<glib::WeakRef<gtk::Widget>>,
+    /// The items of the preview by name, to mark the one the lanes point at.
+    shown: RefCell<Vec<(String, glib::WeakRef<gtk::Widget>)>>,
+    /// The item the lanes point at (a group under the pointer or with the focus there).
+    marked: RefCell<Option<String>>,
 }
 
 thread_local! {
@@ -75,6 +84,8 @@ impl Ctx {
                         undo: RefCell::new(Vec::new()),
                         anchors: RefCell::new(Vec::new()),
                         voice: RefCell::new(glib::WeakRef::new()),
+                        shown: RefCell::new(Vec::new()),
+                        marked: RefCell::new(None),
                     })
                 })
                 .clone()
@@ -127,8 +138,13 @@ impl Ctx {
 
     /// Remembers `step` for Ctrl+Z.
     pub(crate) fn remember(&self, step: Step) {
+        self.remember_with(step, None);
+    }
+
+    /// Remembers `step` for Ctrl+Z, with `modules`, the module definitions before it.
+    pub(crate) fn remember_with(&self, step: Step, modules: Option<Modules>) {
         let mut undo = self.undo.borrow_mut();
-        undo.push(step);
+        undo.push((step, modules));
         // A long session of changes needs no endless history.
         if undo.len() > 50 {
             undo.remove(0);
@@ -137,9 +153,13 @@ impl Ctx {
 
     /// Takes the last change back. Says whether there was one.
     pub(crate) fn undo(&self) -> bool {
-        let Some(step) = self.undo.borrow_mut().pop() else {
+        let Some((step, modules)) = self.undo.borrow_mut().pop() else {
             return false;
         };
+        // The definitions first: the lists may name groups only they define.
+        if let Some(modules) = modules {
+            self.model.set_bar_modules(modules);
+        }
         for (key, value) in step {
             match value {
                 Some(value) => self.model.set(key, None, value),
@@ -158,6 +178,44 @@ impl Ctx {
     pub(crate) fn announce(&self, text: &str) {
         if let Some(widget) = self.voice.borrow().upgrade() {
             widget.announce(text, gtk::AccessibleAnnouncementPriority::Medium);
+        }
+    }
+
+    /// The module definitions of the bar; none while `bar.jsonc` can't be read.
+    pub(crate) fn modules(&self) -> Modules {
+        self.model
+            .bar_modules()
+            .and_then(Result::ok)
+            .unwrap_or_default()
+    }
+
+    /// Notes the items the preview shows now, by name.
+    pub(crate) fn set_shown(&self, shown: Vec<(String, gtk::Widget)>) {
+        self.shown.replace(
+            shown
+                .into_iter()
+                .map(|(name, widget)| (name, widget.downgrade()))
+                .collect(),
+        );
+        let marked = self.marked.borrow().clone();
+        self.mark(marked.as_deref());
+    }
+
+    /// Marks item `name` in the preview (a drawer opens), or with `None` none.
+    pub(crate) fn mark(&self, name: Option<&str>) {
+        self.marked.replace(name.map(ToOwned::to_owned));
+        for (shown, widget) in self.shown.borrow().iter() {
+            if let Some(widget) = widget.upgrade() {
+                let on = Some(shown.as_str()) == name;
+                if on {
+                    widget.add_css_class(MARKED);
+                } else {
+                    widget.remove_css_class(MARKED);
+                }
+                if let Some(revealer) = mimic::drawer_of(&widget) {
+                    revealer.set_reveal_child(on);
+                }
+            }
         }
     }
 

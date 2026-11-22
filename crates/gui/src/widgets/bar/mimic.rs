@@ -7,8 +7,8 @@
 //! waybar puts each module in a `widget` (an event box) in the box of its lane
 //! (`.modules-left`); a module is a label named after it (`#clock`, `#custom-media`, with the part
 //! after `#` as its class), the workspaces a box of buttons, a group a box named after it with
-//! the `widget`s of its members. A drawer shows only its first member until it opens, so the
-//! preview shows that one. Items that only show while something happens (the binding mode, the
+//! the `widget`s of its members; a drawer has all but its first member in a revealer, which opens
+//! while the pointer is over it or while the lanes point at the group. Items that only show while something happens (the binding mode, the
 //! privacy dots) are left out, as on a quiet desktop. A command of the user's never runs here:
 //! its item shows its format, or its name.
 //!
@@ -25,7 +25,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use sway_things_core::bar::preview::css_name;
-use sway_things_core::bar::{Modules, catalog, kind_of, modules::members};
+use sway_things_core::bar::{Modules, catalog, groups, kind_of, modules::members};
 use sway_things_core::registry::wallpaper::IMAGE;
 use sway_things_core::registry::{Registry, Value};
 use sway_things_core::wallpaper::{self, COLLECTION};
@@ -111,7 +111,9 @@ pub(super) fn reset(root: &str) -> String {
 pub(super) fn focus_ring(root: &str) -> String {
     format!(
         ".{root} widget:focus-visible {{ outline: 2px solid alpha(white, 0.9); \
-         outline-offset: -2px; }}\n"
+         outline-offset: -2px; }}\n.{root} widget.{marked} {{ outline: 2px dashed alpha(white, 0.9); \
+         outline-offset: 1px; border-radius: 999px; }}\n",
+        marked = super::MARKED
     )
 }
 
@@ -250,27 +252,7 @@ fn module(
     let (id, class) = css_name(name);
     let outer = ModuleBox::new();
     let (content, shown): (gtk::Widget, String) = if kind.starts_with("group/") {
-        let group = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        let members = definition.as_ref().map(members).unwrap_or_default();
-        // A drawer shows its first member until it opens.
-        let drawer = definition
-            .as_ref()
-            .is_some_and(|definition| definition.contains_key("drawer"));
-        let shown_members = if drawer {
-            &members[..members.len().min(1)]
-        } else {
-            &members[..]
-        };
-        let mut words = Vec::new();
-        for member in shown_members {
-            if let Some((widget, text)) = module(modules, member, depth + 1, iconless) {
-                group.append(&widget);
-                if !text.is_empty() {
-                    words.push(text);
-                }
-            }
-        }
-        (group.upcast(), words.join(" "))
+        group(modules, definition.as_ref(), depth, iconless)
     } else {
         match kind {
             "sway/workspaces" => workspaces(definition.as_ref(), iconless),
@@ -326,6 +308,106 @@ fn module(
     }
     outer.append(&content);
     Some((outer, shown))
+}
+
+/// A group's box with the `widget`s of its members (at `depth`) and the text they show, as waybar
+/// builds it: a drawer puts all members but the first in a revealer with the class `drawer`,
+/// before the first one when it opens toward the left, and gives them its children's class. The
+/// drawer opens while the pointer is over the group.
+fn group(
+    modules: &Modules,
+    definition: Option<&serde_json::Map<String, serde_json::Value>>,
+    depth: u8,
+    iconless: &mut bool,
+) -> (gtk::Widget, String) {
+    let group = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    let members = definition.map(members).unwrap_or_default();
+    let drawer = definition.and_then(groups::drawer);
+    let mut words = Vec::new();
+    let mut add = |into: &gtk::Box, member: &str, class: Option<&str>| {
+        if let Some((widget, text)) = module(modules, member, depth + 1, iconless) {
+            if let Some(class) = class {
+                widget.add_css_class(class);
+            }
+            into.append(&widget);
+            if !text.is_empty() {
+                words.push(text);
+            }
+        }
+    };
+    let Some(drawer) = drawer else {
+        for member in &members {
+            add(&group, member, None);
+        }
+        return (group.upcast(), words.join(" "));
+    };
+    let class = definition
+        .and_then(|definition| definition.get("drawer")?.get("children-class")?.as_str())
+        .unwrap_or(groups::CHILDREN_CLASS)
+        .to_owned();
+    let revealer = gtk::Revealer::new();
+    revealer.add_css_class("drawer");
+    revealer.set_transition_type(if drawer.to_left {
+        gtk::RevealerTransitionType::SlideLeft
+    } else {
+        gtk::RevealerTransitionType::SlideRight
+    });
+    revealer.set_transition_duration(drawer.duration.min(groups::MAX_DURATION));
+    let hidden = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    revealer.set_child(Some(&hidden));
+    let leader = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    if let Some(first) = members.first() {
+        add(&leader, first, None);
+    }
+    for member in members.iter().skip(1) {
+        add(&hidden, member, Some(&class));
+    }
+    if drawer.to_left {
+        group.append(&revealer);
+    }
+    while let Some(child) = leader.first_child() {
+        leader.remove(&child);
+        group.append(&child);
+    }
+    if !drawer.to_left {
+        group.append(&revealer);
+    }
+    let motion = gtk::EventControllerMotion::new();
+    {
+        let revealer = revealer.downgrade();
+        motion.connect_enter(move |_, _, _| {
+            if let Some(revealer) = revealer.upgrade() {
+                revealer.set_reveal_child(true);
+            }
+        });
+    }
+    {
+        let revealer = revealer.downgrade();
+        motion.connect_leave(move |motion| {
+            let marked = motion
+                .widget()
+                .and_then(|widget| widget.parent())
+                .is_some_and(|outer| outer.has_css_class(super::MARKED));
+            if let Some(revealer) = revealer.upgrade() {
+                revealer.set_reveal_child(marked);
+            }
+        });
+    }
+    group.add_controller(motion);
+    (group.upcast(), words.join(" "))
+}
+
+/// The revealer of the drawer of item `widget` of the preview (its `widget` box), if it is one.
+pub(super) fn drawer_of(widget: &gtk::Widget) -> Option<gtk::Revealer> {
+    let group = widget.first_child()?;
+    let mut child = group.first_child();
+    while let Some(current) = child {
+        if let Ok(revealer) = current.clone().downcast::<gtk::Revealer>() {
+            return Some(revealer);
+        }
+        child = current.next_sibling();
+    }
+    None
 }
 
 /// The workspaces: three buttons, the first one focused, each as the definition's format shows
