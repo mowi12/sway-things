@@ -50,7 +50,7 @@ msgstr ""
 msgid "Paste it where you need it"
 msgstr ""
 
-#: crates/cli/src/capture.rs
+#: crates/cli/src/capture.rs crates/gui/src/widgets/printers/scan.rs
 msgid "Open"
 msgstr ""
 
@@ -1860,6 +1860,7 @@ msgid "Apps & Autostart"
 msgstr ""
 
 #: crates/core/src/doctor/finding.rs
+#: crates/gui/src/widgets/printers/scanners.rs
 msgid "Scanners"
 msgstr ""
 
@@ -4672,6 +4673,7 @@ msgid "depth"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs crates/core/src/registry/wallpaper.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Color"
 msgstr ""
 
@@ -5773,6 +5775,7 @@ msgid "blur without enable or disable"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Colors"
 msgstr ""
@@ -7456,7 +7459,7 @@ msgstr ""
 msgid "Network, driverless ({protocol})"
 msgstr ""
 
-#: crates/core/src/scanners/list.rs
+#: crates/core/src/scanners/list.rs crates/gui/src/widgets/printers/scanners.rs
 msgid "USB, driverless"
 msgstr ""
 
@@ -7575,7 +7578,7 @@ msgstr ""
 msgid "The scanner didn't answer in time."
 msgstr ""
 
-#: crates/core/src/scanners/mod.rs
+#: crates/core/src/scanners/mod.rs crates/gui/src/widgets/printers/scan.rs
 msgid "Canceled."
 msgstr ""
 
@@ -8157,6 +8160,7 @@ msgstr ""
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close"
 msgstr ""
@@ -8343,6 +8347,7 @@ msgstr ""
 #: crates/gui/src/widgets/page_view.rs
 #: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
 #: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
@@ -8443,6 +8448,7 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/mod.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scanners.rs
 msgid "Searching"
 msgstr ""
 
@@ -10084,6 +10090,7 @@ msgid "Couldn't cancel the job: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/actions.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Canceling…"
 msgstr ""
 
@@ -10340,6 +10347,219 @@ msgid_plural "{count} jobs"
 msgstr[0] ""
 msgstr[1] ""
 
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scan with {scanner}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview of the scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Put the document on the glass, then preview it here."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Source"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Resolution"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Paper size"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save as"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Details"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Show in Folder"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Discard"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan Another Page"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Reading what the scanner can do…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Gray"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Black and white"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "{dpi} dpi"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Whole area"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid ""
+"This scanimage doesn't write {formats}: it was built without them. PDF needs "
+"JPEG."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview needs the glass"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid ""
+"Every sheet in the feeder goes into the PDF; scan more with Scan Another "
+"Page."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "An image holds one page; save as PDF for several."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan Again"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "The page is scanned. Save it, or scan it again."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "{count} page scanned. Save it, or scan another."
+msgid_plural "{count} pages scanned. Save them, or scan another."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Previewing…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scanning…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scanning page {page}… {percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scanned. The page can't be shown here."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scan {date}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save the Scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Saved as “{file}”."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "It can't be opened: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Glass (flatbed)"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Document feeder"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Document feeder, both sides"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "Search Again"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "Open {app}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid ""
+"For what scanning here doesn't do: several pages from the glass, editing, OCR"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid ""
+"Looking for scanners on USB and on the network… This takes a few seconds."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "The scanners can't be listed: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "No scanner found. Make sure it is on and connected, then search again."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "Scan with {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "Network, driverless"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "SANE doesn't see it yet"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "See the hint below the list"
+msgstr ""
+
 #: crates/gui/src/widgets/printers/supplies.rs
 msgid "Supply"
 msgstr ""
@@ -10516,16 +10736,8 @@ msgid "The same key in every keyboard layout"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Details"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/shortcuts/row.rs
 msgid "Back to Your Config's Binding"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs

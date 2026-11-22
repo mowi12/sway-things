@@ -15,7 +15,7 @@ use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
 use crate::widgets::{
     BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
-    Placeholder, PrintService, PrintersPage, Sidebar, SoundPage, SoundServer, Welcome,
+    Placeholder, PrintService, PrintersPage, ScanService, Sidebar, SoundPage, SoundServer, Welcome,
 };
 
 /// The width of the sidebar, in pixels.
@@ -39,7 +39,7 @@ mod imp {
 
     use crate::model::Model;
     use crate::widgets::{
-        BluetoothBus, NetworkBus, Panes, PrintService, Sidebar, SoundServer, Welcome,
+        BluetoothBus, NetworkBus, Panes, PrintService, ScanService, Sidebar, SoundServer, Welcome,
     };
 
     #[derive(Debug, Default)]
@@ -73,8 +73,10 @@ mod imp {
         pub network_bus: RefCell<NetworkBus>,
         /// Where the Sound page finds the sound server.
         pub sound_server: RefCell<SoundServer>,
-        /// Where the Printers page finds CUPS.
+        /// Where Printers & Scanners finds CUPS.
         pub print_service: RefCell<PrintService>,
+        /// Where Printers & Scanners finds SANE.
+        pub scan_service: RefCell<ScanService>,
         /// The banner of the safety net: keep or revert the risky change that waits.
         pub safety: gtk::Revealer,
         pub safety_text: gtk::Label,
@@ -134,6 +136,7 @@ impl Window {
         window.imp().network_bus.replace(NetworkBus::Off);
         window.imp().sound_server.replace(SoundServer::Off);
         window.imp().print_service.replace(PrintService::Off);
+        window.imp().scan_service.replace(ScanService::Off);
         window.build(model);
         window
     }
@@ -848,13 +851,19 @@ impl Window {
         self.imp().sound_server.replace(server);
     }
 
-    /// Points the Printers page at another CUPS than this computer's, for tests. Takes effect
+    /// Points Printers & Scanners at another CUPS than this computer's, for tests. Takes effect
     /// when the page is built next.
     pub fn use_print_service(&self, service: PrintService) {
         self.imp().print_service.replace(service);
     }
 
-    /// Where the Printers page finds CUPS; the About section asks it there too.
+    /// Points Printers & Scanners at another SANE than this computer's, for tests. Takes effect
+    /// when the page is built next.
+    pub fn use_scan_service(&self, service: ScanService) {
+        self.imp().scan_service.replace(service);
+    }
+
+    /// Where Printers & Scanners finds CUPS; the About section asks it there too.
     pub fn print_service(&self) -> PrintService {
         self.imp().print_service.borrow().clone()
     }
@@ -911,9 +920,12 @@ impl Window {
             }
             return live_view(page, &body, body.advanced_button());
         }
-        // Live state from CUPS: nothing of it comes from the model.
+        // Live state from CUPS and SANE: nothing of it comes from the model.
         if page == Page::PrintersScanners {
-            let body = PrintersPage::new(&self.imp().print_service.borrow());
+            let body = PrintersPage::with_scanners(
+                &self.imp().print_service.borrow(),
+                &self.imp().scan_service.borrow(),
+            );
             return live_view(page, &body, Some(body.advanced_button()));
         }
         let Some(model) = self.imp().model.get() else {

@@ -72,8 +72,9 @@ pub(crate) fn printers_window(page: &PrintersPage, rows: usize) -> Result<gtk::W
     Ok(window)
 }
 
+/// The checks of Printers & Scanners: the printers', then the scanners'.
 pub(crate) fn check_printers_pages() -> Vec<(String, Outcome)> {
-    vec![
+    let mut checks = vec![
         (
             "printers: states, supplies, the default and the queue".to_owned(),
             check_printers(),
@@ -102,7 +103,9 @@ pub(crate) fn check_printers_pages() -> Vec<(String, Outcome)> {
             "printers: the page, the details and Add Printer, light and dark".to_owned(),
             check_printers_screens(),
         ),
-    ]
+    ];
+    checks.extend(check_scanners_pages());
+    checks
 }
 
 /// [`shoot_printers`] in light and dark: each screen's contrast is checked, and saved as a
@@ -582,15 +585,47 @@ pub(crate) fn shoot_printers(scheme: &str) -> Outcome {
         socket: stand_in.socket().to_owned(),
         bus: Some(services.address().to_owned()),
     });
+    let sane = SaneFixture::new("test\n")?;
+    if let Ok(program) = scanimage() {
+        window.use_scan_service(sane.service(&program, Some(services.address())));
+    }
+    async_io::block_on(services.announce(
+        "Hall Scanner",
+        "_uscan._tcp",
+        0,
+        &["ty=Brother ADS-1700W"],
+    ))
+    .map_err(|error| format!("  announcing: {error}"))?;
     window.present();
     window.show_page(Page::PrintersScanners);
     settle(&window)?;
     let page = widget::<PrintersPage>(&window)?;
     ensure(
-        run_until(Duration::from_secs(10), || page.rows().len() == 4),
+        run_until(Duration::from_secs(30), || {
+            page.rows().len() == 4 && !page.searching_scanners() && !page.scanner_hints().is_empty()
+        }),
         &format!("  the printers didn't show: {:?}", page.rows()),
     )?;
     shoot_checked(window.upcast_ref(), &format!("print-page-{scheme}"))?;
+    if scanimage().is_ok() {
+        let dialog = scan_dialog(&page, "test:0")?;
+        let [preview, ..] = dialog.buttons();
+        preview.emit_clicked();
+        run_until(Duration::from_secs(30), || !dialog.is_scanning());
+        shoot_checked(&dialog.window, &format!("scan-dialog-{scheme}"))?;
+        // Two pages of a PDF, waiting to be saved; then saved.
+        dialog.choose(2, "75 dpi");
+        let [_, primary, another, ..] = dialog.buttons();
+        primary.emit_clicked();
+        run_until(Duration::from_secs(30), || !dialog.is_scanning());
+        another.emit_clicked();
+        run_until(Duration::from_secs(30), || !dialog.is_scanning());
+        shoot_checked(&dialog.window, &format!("scan-pages-{scheme}"))?;
+        let out = tempfile::tempdir().map_err(|error| error.to_string())?;
+        dialog.save_to(&out.path().join("Scan 2026-11-22 09.31.pdf"));
+        shoot_checked(&dialog.window, &format!("scan-saved-{scheme}"))?;
+        dialog.close();
+    }
     page.activate_row("Seeded");
     let details = page.details_dialog().ok_or("  no details")?;
     settle(&details.window)?;

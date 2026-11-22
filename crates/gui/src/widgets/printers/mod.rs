@@ -17,9 +17,13 @@ mod actions;
 mod details;
 mod dialogs;
 mod rows;
+mod scan;
+mod scanners;
 mod supplies;
 
 pub use details::DetailsDialog;
+pub use scan::ScanDialog;
+pub use scanners::ScanService;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -30,7 +34,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
 use sway_things_core::printers::{Bus, Cups, Endpoint, Error, Snapshot};
 
-use super::list::{heading, hint, labels_in, section};
+use super::list::{heading, hint, labels_in, remove_row, section};
 use super::{Placeholder, search_button};
 use crate::i18n::{msg, tr};
 use crate::style;
@@ -67,6 +71,27 @@ impl Service {
             Self::At { bus: None, .. } | Self::Off => Bus::Off,
         }
     }
+}
+
+/// The widgets of the section of the scanners, and what it shows.
+#[derive(Debug, Default)]
+pub(super) struct ScanParts {
+    /// The section, hidden without SANE to ask ([`ScanService::Off`]).
+    root: gtk::Box,
+    list: gtk::ListBox,
+    /// What the search says: that it runs, or found nothing, or failed.
+    status: gtk::Label,
+    /// The hints for what is missing.
+    hints: gtk::Box,
+    again: gtk::Button,
+    spinner: gtk::Spinner,
+    /// _Open Document Scanner_, or another scan app.
+    app: gtk::Button,
+    searching: std::cell::Cell<bool>,
+    /// What the last search found.
+    found: std::cell::RefCell<Option<scanners::Searched>>,
+    /// The scan dialog, while it is open.
+    dialog: std::cell::RefCell<Option<ScanDialog>>,
 }
 
 /// The widgets of a printer's row, kept across refreshes so focus and state stay.
@@ -137,6 +162,10 @@ mod imp {
         pub(super) details: RefCell<Option<super::DetailsDialog>>,
         /// The dialog for adding a printer, while it is open.
         pub(super) adding: RefCell<Option<super::dialogs::AddDialog>>,
+        /// Where the page finds SANE.
+        pub(super) scan_service: RefCell<super::ScanService>,
+        /// The section of the scanners.
+        pub(super) scan: super::ScanParts,
     }
 
     #[glib::object_subclass]
@@ -168,6 +197,9 @@ mod imp {
             if let Some(adding) = self.adding.take() {
                 adding.window.destroy();
             }
+            if let Some(dialog) = self.scan.dialog.take() {
+                dialog.close();
+            }
             if let Some((window, handler)) = self.window.take() {
                 window.disconnect(handler);
             }
@@ -193,6 +225,7 @@ mod imp {
             self.own_default
                 .replace(sway_things_core::printers::own_default());
             self.obj().update_poll();
+            self.obj().search_scanners();
         }
 
         fn unmap(&self) {
@@ -213,10 +246,18 @@ glib::wrapper! {
 }
 
 impl PrintersPage {
-    /// The page for the CUPS of `service`, which reads it right away.
+    /// The page for the CUPS of `service`, which reads it right away, without scanners.
     pub fn new(service: &Service) -> Self {
+        Self::with_scanners(service, &ScanService::Off)
+    }
+
+    /// The page for the CUPS of `service` and the SANE of `scan`, which reads CUPS right away
+    /// and SANE when the page comes on screen.
+    pub fn with_scanners(service: &Service, scan: &ScanService) -> Self {
         let page: Self = glib::Object::new();
         page.imp().service.replace(service.clone());
+        page.imp().scan_service.replace(scan.clone());
+        page.imp().scan.root.set_visible(*scan != ScanService::Off);
         page.connect();
         page
     }
@@ -366,11 +407,9 @@ impl PrintersPage {
     fn build(&self) {
         let imp = self.imp();
         imp.content.set_orientation(gtk::Orientation::Vertical);
-        imp.content.append(&imp.missing);
         imp.content.append(&imp.controls);
         imp.missing.set_orientation(gtk::Orientation::Vertical);
         imp.missing.set_visible(false);
-        imp.controls.set_visible(false);
         imp.controls.set_orientation(gtk::Orientation::Vertical);
 
         for (label, class) in [(&imp.error, "error"), (&imp.note, style::DIM)] {
@@ -404,6 +443,7 @@ impl PrintersPage {
         });
         let overlay = search_button::over(&line, &title, &imp.add);
         imp.controls.append(&overlay);
+        imp.controls.append(&imp.missing);
         section(&imp.printers, tr(msg!("Printers")));
         imp.printers.add_css_class("st-device-list");
         imp.printers.set_activate_on_single_click(true);
@@ -416,6 +456,7 @@ impl PrintersPage {
         imp.controls.append(&imp.printers);
         hint(&imp.printers_hint);
         imp.controls.append(&imp.printers_hint);
+        self.build_scanners();
     }
 
     /// Finds CUPS and reads its state.
@@ -478,7 +519,7 @@ impl PrintersPage {
                 snapshot.set_user_default(imp.own_default.borrow().as_deref());
                 imp.snapshot.replace(Some(snapshot));
                 imp.missing.set_visible(false);
-                imp.controls.set_visible(true);
+                imp.add.set_visible(true);
                 self.render();
             }
             Err(error) => {
@@ -509,9 +550,9 @@ impl PrintersPage {
         }
     }
 
-    /// Shows the placeholder with `icon`, `title` and `text` instead of the page. It is only
-    /// built again when one of them changes, so every poll doesn't make a screen reader read
-    /// it again.
+    /// Shows the placeholder with `icon`, `title` and `text` instead of the printers; the
+    /// scanners stay. It is only built again when one of them changes, so every poll doesn't
+    /// make a screen reader read it again.
     pub(super) fn show_missing(&self, icon: &str, title: &str, text: &str) {
         let imp = self.imp();
         let wanted = (icon.to_owned(), title.to_owned(), text.to_owned());
@@ -524,8 +565,18 @@ impl PrintersPage {
             imp.missing.append(&placeholder);
             imp.missing_shown.replace(Some(wanted));
         }
-        imp.controls.set_visible(false);
         imp.missing.set_visible(true);
+        imp.add.set_visible(false);
+        imp.printers.set_visible(false);
+        imp.printers_hint.set_visible(false);
+        imp.note.set_visible(false);
+        for row in imp.rows.borrow().values() {
+            remove_row(&row.row);
+        }
+        imp.rows.borrow_mut().clear();
+        if let Some(details) = imp.details.take() {
+            details.window.destroy();
+        }
     }
 
     /// Shows `message` at the top, and in the open details, or hides it when empty.

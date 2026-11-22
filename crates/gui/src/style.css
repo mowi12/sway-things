@@ -774,3 +774,20 @@ window.st-dialog list.st-printer-picker > row {
 .st-section-bar {
   margin-bottom: 8px;
 }
+
+/* The scan dialog: the preview in a frame on the left, the options and what goes on on the right */
+.st-scan-preview {
+  border: 1px solid @borders;
+  border-radius: 8px;
+  background-color: alpha(currentColor, 0.04);
+  padding: 6px;
+}
+
+/* An error in the text color, bold, as the error color is too faint in some themes */
+.st-scan-error {
+  font-weight: bold;
+}
+
+.st-scan-note {
+  font-size: 0.9em;
+}
