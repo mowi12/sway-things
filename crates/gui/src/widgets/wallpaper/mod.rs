@@ -146,10 +146,11 @@ enum Fallback {
     /// What every output shows, as Sway Things stores it: for an output of its own.
     AllDisplays,
     /// What the `bg` line of the user's config sets: the picture (`None` for the color alone,
-    /// or a path the page can't follow, like one with a variable) and the color, with the file
-    /// and number of the line.
+    /// or a path the page can't follow, like one with a variable), the fit and the color, with
+    /// the file and number of the line.
     Config {
         image: Option<String>,
+        fill: Option<String>,
         color: Color,
         file: PathBuf,
         line: usize,
@@ -471,6 +472,13 @@ impl Ui {
             Ok(Value::Text(image)) if !image.is_empty() => Some(image.clone()),
             _ => None,
         };
+        let fill = match registry
+            .get(FILL)
+            .and_then(|fill| fill.read(&line.directive))
+        {
+            Some(Ok(Value::Choice(fill))) => Some(fill),
+            _ => None,
+        };
         let color = match registry
             .get(COLOR)
             .and_then(|color| color.read(&line.directive))
@@ -480,6 +488,7 @@ impl Ui {
         };
         Fallback::Config {
             image,
+            fill,
             color,
             file: line.file().to_path_buf(),
             line: line.line(),
@@ -513,6 +522,33 @@ impl Ui {
             ))
             .to_owned(),
         }
+    }
+
+    /// Before the fit or the color of the edited output changes while it shows the picture of
+    /// the user's `bg` line: stores that line's picture, fit and color, so the line Sway Things
+    /// generates draws the same picture with the change instead of replacing it with a color.
+    /// _Use Default_ goes back to the user's line.
+    fn take_over(&self) {
+        let target = self.target();
+        if !self.own_keys(target.as_deref()).is_empty() {
+            return;
+        }
+        let Fallback::Config {
+            image: Some(image),
+            fill,
+            color,
+            ..
+        } = self.fallback(target.as_deref())
+        else {
+            return;
+        };
+        // The picture first, so what shows meanwhile is the user's.
+        self.model.set(IMAGE, target.as_deref(), Value::Text(image));
+        if let Some(fill) = fill {
+            self.model.set(FILL, target.as_deref(), Value::Choice(fill));
+        }
+        self.model
+            .set(COLOR, target.as_deref(), Value::Color(color));
     }
 
     /// Removes what Sway Things stores for the wallpaper of the edited output, so its default

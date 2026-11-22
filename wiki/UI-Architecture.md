@@ -69,20 +69,21 @@
   the wallpaper of all of them if that is stored; else the `bg` line of the user's config (`Model::report`); else
   sway's, none. While it shows, a dim line says where it comes from; else _Use Default_ (its tooltip names the default)
   removes the display's stored values, with `Model::let_config_win` so the user's line is sent at once, or for a display
-  that falls back to all of them with `Model::reset`. A picture whose file is missing or can't be decoded
-  (`images::when_readable`; swaybg reads pictures with the same gdk-pixbuf loaders) gets a warning below, naming
-  `webp-pixbuf-loader`; such a tile shows an icon in place of the thumbnail. The tiles draw the fit as swaybg does:
-  `center` and `tile` show the picture at its own size against the output's pixels (a `gtk::DrawingArea` with cairo).
-  Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG pictures folder, `~/Pictures`) and of its
-  subfolders, which become filter chips, after the _Default_ tile (the default's picture or color, selected while it
-  shows; a click does what _Use Default_ does), with _Choose Image…_; the collections as cards, with the settings and
-  pictures of the open one (_Add Pictures…_, _Add Folder…_, a click removes one, _Delete Collection…_); and colors. The
-  tab's buttons sit at the end of the row of the tabs (a `RowLayout`). Every tile of the grids is a 16:10 frame that the
-  picture fills, cut off where it doesn't fit; a folder or an empty collection shows the background color of the edited
-  output (`images::frame`, one style sheet swapped when the color changes). Folders are listed and thumbnails decoded
-  and scaled off the main loop (`gio::spawn_blocking`; a pixbuf can't leave its thread, so its pixels become a
-  `gdk::MemoryTexture`), once per picture. A picked picture is stored with `~/` for the home folder; picking one, or a
-  color, stops a collection on that output.
+  that falls back to all of them with `Model::reset`. A change of the fit or the color while the user's picture shows
+  first stores the picture, fit and color of their line (`take_over`), so the generated line draws their picture with
+  the change. A picture whose file is missing or can't be decoded (`images::when_readable`; swaybg reads pictures with
+  the same gdk-pixbuf loaders) gets a warning below, naming `webp-pixbuf-loader`; such a tile shows an icon in place of
+  the thumbnail. The tiles draw the fit as swaybg does: `center` and `tile` show the picture at its own size against the
+  output's pixels (a `gtk::DrawingArea` with cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG
+  pictures folder, `~/Pictures`) and of its subfolders, which become filter chips, after the _Default_ tile (the
+  default's picture or color, selected while it shows; a click does what _Use Default_ does), with _Choose Image…_; the
+  collections as cards, with the settings and pictures of the open one (_Add Pictures…_, _Add Folder…_, a click removes
+  one, _Delete Collection…_); and colors. The tab's buttons sit at the end of the row of the tabs (a `RowLayout`). Every
+  tile of the grids is a 16:10 frame that the picture fills, cut off where it doesn't fit; a folder or an empty
+  collection shows the background color of the edited output (`images::frame`, one style sheet swapped when the color
+  changes). Folders are listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf
+  can't leave its thread, so its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored
+  with `~/` for the home folder; picking one, or a color, stops a collection on that output.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the

@@ -497,7 +497,8 @@ being dragged stays under the pointer when its first change stores a value.
   my config win_; the wallpaper collections stay.
 - **Back to the default** on the Wallpaper page: the default (the user's own `bg` line, else none; for one display, the
   wallpaper of all displays) is always the first tile of the pictures, wherever its file lies, and _Use Default_ beside
-  what the edited display shows goes back to it. Trying a picture never loses the way back.
+  what the edited display shows goes back to it. Trying a picture never loses the way back. A fit or color chosen while
+  the user's own picture shows changes how that picture is drawn; it never replaces the picture with a color.
 - Indicators follow the state, the user's config and the include status live.
 - **Notices** say something about a page as a whole rather than one row: the captive portal (Network), kanshi and
   displays that overlap (Displays), apps that can't read the settings (Apps Look & Feel). Every page draws them alike,

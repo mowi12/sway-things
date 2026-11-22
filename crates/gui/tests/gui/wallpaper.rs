@@ -22,6 +22,10 @@ pub(crate) fn check_wallpaper() -> Vec<(String, Outcome)> {
             check_wallpaper_default("webp"),
         ),
         (
+            "wallpaper: a fit alone keeps the config's picture".to_owned(),
+            check_wallpaper_fit_alone(),
+        ),
+        (
             "wallpaper: a tool of the config is managed externally".to_owned(),
             check_wallpaper_notice(),
         ),
@@ -244,6 +248,58 @@ fn check_wallpaper_default(extension: &str) -> Outcome {
     page.pick_another("page")?;
     fixture.model.reset_page(Page::Wallpaper);
     page.back("Reset page")?;
+    window.destroy();
+    Ok(())
+}
+
+/// The user's config sets a picture, and only the fit is changed on the page: the picture stays,
+/// drawn with the new fit, and _Use Default_ goes back to the user's line.
+fn check_wallpaper_fit_alone() -> Outcome {
+    let backgrounds = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let original = backgrounds.path().join("original.png");
+    write_png(&original)?;
+    let sway = with_outputs(&[LAPTOP_SCREEN]);
+    let users = format!("{USERS}output * bg {} fill #102030\n", original.display());
+    let fixture = fixture_in(SWAY, STORED, &users, true, Some(&sway))?;
+    let known = run_until(Duration::from_secs(5), || fixture.model.outputs_known());
+    ensure(known, "  the outputs weren't read within 5 s")?;
+    let window = open(&fixture, Page::Wallpaper)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let fit = all::<gtk::ToggleButton>(&content)
+        .into_iter()
+        .find(|button| button.label().as_deref() == Some("Fit"))
+        .ok_or_else(|| "  no Fit button".to_owned())?;
+    fit.set_active(true);
+    wait_for_model(&fixture.model)?;
+    settle(&window)?;
+    let expected = format!("output * bg \"'{}'\" fit #102030", original.display());
+    ensure(
+        sway.commands().last() == Some(&expected),
+        &format!("  sent {:?}", sway.commands()),
+    )?;
+    let image = Registry::builtin()
+        .get("wallpaper.image")
+        .ok_or_else(|| "  no wallpaper image".to_owned())?;
+    let view = fixture
+        .model
+        .view(image, None)
+        .map(|view| (view.source, view.value));
+    ensure(
+        matches!(&view, Some((Source::Stored { .. }, Value::Text(text))) if *text == original.display().to_string()),
+        &format!("  the image is {view:?}"),
+    )?;
+    let use_default = button_labeled(&content, "Use Default")
+        .ok_or_else(|| "  no Use Default button".to_owned())?;
+    ensure(use_default.is_drawable(), "  Use Default isn't offered")?;
+    use_default.emit_clicked();
+    wait_for_model(&fixture.model)?;
+    let users_line = format!("output * bg \"'{}'\" fill #102030", original.display());
+    ensure(
+        sway.commands().last() == Some(&users_line),
+        &format!("  Use Default sent {:?}", sway.commands().last()),
+    )?;
     window.destroy();
     Ok(())
 }

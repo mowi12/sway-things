@@ -102,6 +102,7 @@ impl Ui {
             fit.connect_toggled(move |button| {
                 if let (Some(ui), true) = (weak.upgrade(), button.is_active()) {
                     if !ui.syncing.get() {
+                        ui.take_over();
                         ui.set(FILL, Value::Choice(id.to_owned()));
                     }
                 }
@@ -111,6 +112,7 @@ impl Ui {
         self.color.connect_rgba_notify(move |button| {
             if let Some(ui) = weak.upgrade() {
                 if !ui.syncing.get() {
+                    ui.take_over();
                     ui.set(COLOR, Value::Color(color_of(&button.rgba())));
                 }
             }
