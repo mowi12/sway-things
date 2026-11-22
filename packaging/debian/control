@@ -30,6 +30,8 @@ Depends:
  sway (>= 1.10) | swayfx,
  ${misc:Depends},
  ${shlibs:Depends},
+Recommends:
+ webp-pixbuf-loader,
 Description: settings app for the sway Wayland compositor and SwayFX
  Sway Things is a settings app for the sway Wayland compositor and SwayFX: a
  searchable sidebar of pages, controls that apply instantly, and a safety net

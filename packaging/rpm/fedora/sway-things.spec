@@ -54,6 +54,8 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  appstream
 # Either compositor; Fedora only has sway.
 Requires:       (sway or swayfx)
+# WebP wallpapers: swaybg and the Wallpaper page read pictures with gdk-pixbuf.
+Recommends:     webp-pixbuf-loader
 
 %description
 Sway Things is a settings app for the sway Wayland compositor and SwayFX: a

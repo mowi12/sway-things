@@ -90,6 +90,8 @@ Two specs, each following its distribution's guidelines, from the same tarball:
   (unit, golden-file and binary tests, and the freshness test of the committed man pages and completions; the ones that
   need sway or a display are `#[ignore]`d), then `desktop-file-validate` and `appstreamcli validate`.
 - `Requires: (sway or swayfx)`, a rich dependency both rpm families support; Fedora has no SwayFX package.
+- Fedora `Recommends: webp-pixbuf-loader`, so swaybg and the Wallpaper page read WebP pictures; openSUSE's main
+  repository has no such loader.
 - Hardening flags and debug info come from the distribution macros; `Cargo.toml` sets no profile that would override
   them.
 - **License tags:** `License` is every license expression of the crates linked into the binaries (as Fedora's
@@ -126,7 +128,8 @@ Two specs, each following its distribution's guidelines, from the same tarball:
   which the crates' checksums cover. `dh_auto_test` runs `cargo test --workspace --offline --locked` (skipped with
   `nocheck`); the install step validates the desktop entry and metainfo and moves the zsh completion to
   `/usr/share/zsh/vendor-completions/`.
-- **Maintainer:** `Sway Things Maintainers <packaging@sway-things.org>`. `Depends: sway (>= 1.10) | swayfx`.
+- **Maintainer:** `Sway Things Maintainers <packaging@sway-things.org>`. `Depends: sway (>= 1.10) | swayfx`,
+  `Recommends: webp-pixbuf-loader` (WebP wallpapers).
 - Debian 13's rustc is exactly the MSRV (1.85), so raising the MSRV needs trixie-backports in the OBS repository.
 
 ## openSUSE Build Service
@@ -225,8 +228,8 @@ website serves it as `/install` and `/install.sh`, see [Website](Website.md)).
   - `pkgver()` counts from the last annotated release tag (`0.1.0.r5.g1a2b3c4`); before the first one it is
     `0.0.0.r<commits>.g<hash>`, so every snapshot sorts below the release.
   - It `provides` `sway-things=<the release part of pkgver>` and conflicts with `sway-things`, the release package.
-    `depends` lists the libraries the binaries link (namcap checks that) and `sway`, which SwayFX from the AUR provides.
-    `arch=(x86_64)` only.
+    `depends` lists the libraries the binaries link (namcap checks that) and `sway`, which SwayFX from the AUR provides;
+    `optdepends` names `webp-pixbuf-loader` for WebP wallpapers. `arch=(x86_64)` only.
 - `scripts/build-packages.sh --container NAME` builds a package in a clean container from `ci/packages/NAME/` and runs
   itself inside it. For `arch-git`, the container is a digest-pinned `archlinux:base` with only `base-devel` and an
   unprivileged user who may run `pacman`, like a clean chroot: it compares `.SRCINFO` with `makepkg --printsrcinfo` (but
