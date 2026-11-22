@@ -65,6 +65,15 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest when
   CUPS refuses a change (the first of `lpadmin`, `wheel` and `sys` that exists), and the user's default from
   `~/.cups/lpoptions`
+- Scanners: the lines of `scanimage -f` and `-L` (sane-airscan eSCL and WSD, escl through ipp-usb, USB and network
+  backends, a webcam, none, a backend's noise, a broken line, a device twice, names with control characters), how a
+  scanner is connected and its title, the options of `-A` (SANE's test backend, sane-airscan with a feeder, a vendor
+  backend with `Binary`, inactive and broken options), the paper sizes that fit and the locale's paper, the formats of
+  `--help`, the problems from exit statuses and messages, the PDF writer (JPEG frame headers, PNM bitmaps, gray and
+  broken files, run-length round trips, the cross-reference table), the private scan directory and saving next to the
+  file, which scanners Avahi finds SANE lists, the hints against fake installations (nothing, scanimage without
+  sane-airscan, sane-airscan in a multiarch directory, an IPP-over-USB device with and without ipp-usb, a USB scanner in
+  the hwdb without access, udev rules and hwdb lines, `os-release` families) and `doctor`'s _Scanners_ findings
 
 ## Golden files
 
@@ -302,12 +311,18 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   password, the server's TOTP question) in one dialog, switches the cable and the VPN on, shows an unplugged cable
   without a switch, shows the captive portal note with its button, and stops scanning once Wi-Fi is off; test windows
   reach no NetworkManager but the stand-in.
-- Printers: the page against CUPS's stand-in with two printers shows them by title with model, location, state (_Paused
-  · Toner low_), supplies (_Black Toner: 7 %, low_), the default and _Resume_ only where it belongs, and the test page
-  waiting in the queue; _Cancel_ empties the queue, _Resume_, _Pause_, _Print Test Page_ and _Set as Default_ reach
-  CUPS; without rights and without cups-pk-helper, the error names cups-pk-helper and the group; _Add Printer…_ checks
-  the address and adds the fake printer by it; _Add Printer…_ and _Details…_ close by their button, Escape and the
-  window's close request and open again with their content; without CUPS the page shows its placeholder.
+- Printers: without rights and without cups-pk-helper, the error names cups-pk-helper and the group; _Add Printer…_
+  checks the address and adds the fake printer by it, and closes by its button, Escape and the window's close request
+  and opens again with its content; without CUPS the page shows its placeholder.
+- Printers & Scanners: the lines of the printers (state with the jobs, the default's badge, the ink as a tooltip,
+  _Resume_ where it belongs); the details with the job, the supplies and the right buttons; _Cancel_, _Resume_, _Pause_,
+  _Print Test Page_ and _Set as Default_ in the details reach CUPS, and a description changed there is saved when they
+  close; the details close by _Close_, Escape and the close request. The scanners against scanimage with SANE's test
+  backend and Avahi's stand-in: the two test devices and a driverless scanner SANE doesn't list, with the sane-airscan
+  hint; none found; scanimage missing, with Debian's package. The scan dialog against the test backend: the options it
+  offers, a preview, a scan into PNG, a feeder into a PDF of ten pages plus one from the glass, a cancel mid-scan, a
+  scanner that is gone, and the files written (only the one picked). Screenshots of the page, the details, _Add
+  Printer…_ and the scan dialog, light and dark.
 
 The window works on settings files in a temporary directory and a sway config in memory, without a session or in the
 session of the stand-in for sway (the safety net, the devices, the reload). It never saves by itself, and the files of a
