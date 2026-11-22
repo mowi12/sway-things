@@ -272,6 +272,10 @@ msgid "Checking the default apps and what starts at login…"
 msgstr ""
 
 #: crates/cli/src/doctor.rs
+msgid "Checking what scanners need…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
 msgid "Writing the generated files and validating them with sway…"
 msgstr ""
 
@@ -1855,6 +1859,10 @@ msgstr ""
 msgid "Apps & Autostart"
 msgstr ""
 
+#: crates/core/src/doctor/finding.rs
+msgid "Scanners"
+msgstr ""
+
 #: crates/core/src/doctor/found.rs
 msgid "SWAYSOCK isn't set"
 msgstr ""
@@ -2291,6 +2299,22 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{place}: the config is too big; the rest wasn't read."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid "sane-airscan isn't installed, so SANE doesn't see driverless scanners."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid ""
+"Most scanners today are driverless (eSCL, also on USB through ipp-usb): "
+"install the package sane-airscan."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid ""
+"SANE's scanimage is installed; the Printers & Scanners page lists the "
+"scanners."
 msgstr ""
 
 #: crates/core/src/doctor/wallpaper.rs
@@ -3114,7 +3138,7 @@ msgstr ""
 msgid "discovery"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/page.rs
 msgid "scan"
 msgstr ""
 
@@ -6247,8 +6271,8 @@ msgstr ""
 msgid "Network"
 msgstr ""
 
-#: crates/core/src/registry/page.rs crates/gui/src/widgets/printers/mod.rs
-msgid "Printers"
+#: crates/core/src/registry/page.rs
+msgid "Printers & Scanners"
 msgstr ""
 
 #: crates/core/src/registry/page.rs crates/core/src/registry/wallpaper.rs
@@ -6332,7 +6356,7 @@ msgid "Wi-Fi networks, wired and VPN connections"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Add printers, see their ink and toner, and the print queue"
+msgid "Printers with their ink and queue, scanners and scanning documents"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -6425,6 +6449,22 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "CUPS"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "scanner"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "scanning"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "document"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "SANE"
 msgstr ""
 
 #: crates/core/src/registry/read.rs
@@ -10238,6 +10278,10 @@ msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
 msgid "Open CUPS's web interface for printers that need a driver, and more"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/mod.rs
+msgid "Printers"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs

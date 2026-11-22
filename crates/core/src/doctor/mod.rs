@@ -28,6 +28,7 @@ mod files;
 mod finding;
 mod found;
 mod kanshi;
+mod scanners;
 #[cfg(test)]
 mod tests;
 mod wallpaper;
@@ -82,6 +83,9 @@ pub struct Checkup<'a, V> {
     /// The XDG directories and the session's systemd, for the default apps and the autostart
     /// entries; `None` for a checkup that doesn't look at the machine.
     pub apps: Option<&'a apps::AppsCheck>,
+    /// What this computer has for scanners; `None` for a checkup that doesn't look at the
+    /// machine.
+    pub scanners: Option<&'a crate::scanners::Look>,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -142,6 +146,10 @@ impl<V: Validate> Checkup<'_, V> {
                 self.locations,
                 &mut findings,
             );
+        }
+        if let Some(look) = self.scanners {
+            progress(Step::Section(Section::Scanners));
+            scanners::findings(look, &mut findings);
         }
         Diagnosis { findings }
     }

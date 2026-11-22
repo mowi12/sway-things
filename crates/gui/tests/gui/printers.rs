@@ -583,7 +583,7 @@ pub(crate) fn shoot_printers(scheme: &str) -> Outcome {
         bus: Some(services.address().to_owned()),
     });
     window.present();
-    window.show_page(Page::Printers);
+    window.show_page(Page::PrintersScanners);
     settle(&window)?;
     let page = widget::<PrintersPage>(&window)?;
     ensure(

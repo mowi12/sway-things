@@ -912,7 +912,7 @@ impl Window {
             return live_view(page, &body, body.advanced_button());
         }
         // Live state from CUPS: nothing of it comes from the model.
-        if page == Page::Printers {
+        if page == Page::PrintersScanners {
             let body = PrintersPage::new(&self.imp().print_service.borrow());
             return live_view(page, &body, Some(body.advanced_button()));
         }
