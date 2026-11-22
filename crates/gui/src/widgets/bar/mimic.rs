@@ -289,9 +289,17 @@ fn module(
                 } else {
                     item_sample(modules, name).unwrap_or_else(|| item_title(modules, name))
                 };
+                // A module without text is hidden, as in waybar.
+                if text.is_empty() {
+                    return None;
+                }
                 let label = label(&text, iconless);
-                // waybar marks every module so; the looks reach modules by it.
                 label.add_css_class("module");
+                if let Some(classes) = catalog::custom_classes(name) {
+                    for class in classes {
+                        label.add_css_class(class);
+                    }
+                }
                 if kind == "battery" {
                     label.add_css_class("discharging");
                     if let Some(state) = battery_state(definition.as_ref(), &text) {

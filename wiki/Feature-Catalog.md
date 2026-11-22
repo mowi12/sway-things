@@ -288,8 +288,8 @@ include.
       place, drawer (the others only on hover) with its direction, move in and out by drag, keyboard and menu, Ungroup;
       generated as Waybar's `group/<name>` (swaybar shows no groups)
 - [x] 🟡 Looks style groups as one pill with the drawer's items inside, the item under the pointer inset in the pill's
-      shape, empty modules without room, the states of modules (warning, critical, ok) in the look's colors, tabular
-      figures, and no theme's frames or fills
+      shape, empty modules without room, the states of modules (warning, critical, ok, the pomodoro's phases) in the
+      look's colors, tabular figures, and no theme's frames or fills
 - [x] 🟢 Reload waybar (`SIGUSR2`, only to the waybar that runs our config)
 - [x] 🟡 "Import as starting point" from the user's existing waybar config (read-only, JSONC with `include`s)
 - [x] 🟢 swaybar alternative: `bar { position, colors, font, status_command }` as one-line `bar sway-things …` commands

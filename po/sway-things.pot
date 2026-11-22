@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:07+0100\n"
+"POT-Creation-Date: 2026-11-26 22:31+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1458,8 +1458,8 @@ msgstr ""
 
 #: crates/core/src/bar/templates.rs
 msgid ""
-"Work and break phases; click to start or pause, right click to reset, scroll "
-"to change the time"
+"Work and break phases; click to start or pause, right click to reset, middle "
+"click for the next phase, scroll to change the time"
 msgstr ""
 
 #: crates/core/src/bar/templates.rs

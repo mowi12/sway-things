@@ -639,7 +639,9 @@ there.
 - **Templates** (`bar::templates`): custom modules the page offers, each a module definition and for most a POSIX `sh`
   script that ships inside the program (`crates/core/src/bar/templates/*.sh`, GPL, with our SPDX header and the line
   `# Sway Things template:`): a pomodoro timer, camera in use, updates available, a low battery warning, VPN status, the
-  highest system load, a power menu (swaynag) and swaync's notification center. Scripts keep their state in
+  highest system load, a power menu (swaynag) and swaync's notification center. The pomodoro timer reports its phase as
+  classes (`work`, `short`, `long`, `paused`, `ending`; stopped `idle` or `ready` with `next-<phase>`) for the looks,
+  waits for a click between phases and redraws the bar at once with signal 10. Scripts keep their state in
   `$XDG_RUNTIME_DIR` (never `/tmp`; without it they say so) or `$XDG_STATE_HOME`, and read it as data, never as shell. A
   script is copied on request to `~/.config/sway-things/waybar/scripts/` (executable); a copy that is there is replaced
   only while it is byte for byte a version Sway Things shipped (this one, or an older one by its SHA-256 in

@@ -998,6 +998,9 @@ pub fn custom_sample(
 ) -> String {
     let short = super::kind_of(name);
     let short = short.strip_prefix("custom/").unwrap_or(short).to_owned();
+    if let Some((sample, _)) = super::templates::sample(name) {
+        return sample;
+    }
     let format = definition
         .and_then(|definition| definition.get("format")?.as_str())
         .unwrap_or("{}");
@@ -1025,6 +1028,11 @@ pub fn custom_sample(
         .collect::<Vec<_>>()
         .join(" ");
     if own && !text.is_empty() { text } else { short }
+}
+
+/// The classes a custom module of a template has on a calm day, for the preview.
+pub fn custom_classes(name: &str) -> Option<Vec<&'static str>> {
+    super::templates::sample(name).map(|(_, classes)| classes)
 }
 
 /// `text` without Pango markup tags, with the entities waybar's formats use resolved.

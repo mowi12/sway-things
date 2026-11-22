@@ -55,12 +55,13 @@ pub const TEMPLATES: &[Template] = &[
         id: "pomodoro",
         title: msg!("Pomodoro timer"),
         description: msg!(
-            "Work and break phases; click to start or pause, right click to reset, scroll to change the time"
+            "Work and break phases; click to start or pause, right click to reset, middle click for the next phase, scroll to change the time"
         ),
         group: Group::General,
         needs: &[],
         script: Some(("pomodoro.sh", include_str!("templates/pomodoro.sh"))),
-        module: r#"{"exec": "$SCRIPT", "return-type": "json", "interval": 1,
+        module: r#"{"exec": "$SCRIPT", "return-type": "json", "interval": 1, "signal": 10,
+            "tooltip": true,
             "on-click": "$SCRIPT toggle", "on-click-right": "$SCRIPT reset",
             "on-click-middle": "$SCRIPT skip", "on-scroll-up": "$SCRIPT up",
             "on-scroll-down": "$SCRIPT down"}"#,
@@ -280,6 +281,15 @@ pub fn find(id: &str) -> Option<&'static Template> {
     TEMPLATES.iter().find(|template| template.id == id)
 }
 
+/// What a module of a template shows on a calm day, for the preview, with its classes: the
+/// stopped timer.
+pub fn sample(name: &str) -> Option<(String, Vec<&'static str>)> {
+    match name {
+        "custom/pomodoro" => Some(("󰔛".to_owned(), vec!["idle", "next-work"])),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +320,15 @@ mod tests {
                 assert!(!value.to_string().contains("$SCRIPT"), "{}", template.id);
             }
         }
+    }
+
+    #[test]
+    fn the_stopped_timer_is_the_sample_of_the_pomodoro() {
+        assert_eq!(
+            sample("custom/pomodoro"),
+            Some(("󰔛".to_owned(), vec!["idle", "next-work"]))
+        );
+        assert_eq!(sample("custom/media"), None);
     }
 
     #[test]

@@ -591,18 +591,20 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   items a little quieter; the item under the pointer (and a workspace button) as a smaller shape of the same kind inset
   3 px in its pill or bar, in the look's hover color, with every frame, gradient and shadow of the GTK theme (or a
   `gtk.css` of the user's) taken away; an empty module takes no room; the states modules report (`warning`/`warn`,
-  `critical`/`crit`/`limited`, `ok`, the quiet `down` and `paused`) in the look's colors, also in a drawer; and digits
-  of one width. While the user has a stylesheet of their own, _Your style_ comes first, with the file's name: their
-  stylesheet alone, on. A card sets the style (and the space around the bar it needs) at once, never the items, with a
-  note and _Undo_ (Ctrl+Z too). Since the user's own stylesheet is read last and overrides every look, any other look
-  turns it off (its path stays) so the look really shows, in the preview and the bar, and says so: _Applied the look
-  “Simple”. Your own stylesheet is off now, so this look shows._; _Your style_ turns it on again. The look in use is
-  unmistakable: an accent outline around its card, a check badge in the corner of its small bar, a bold title and an _In
-  use_ pill in the accent; the others answer the pointer, and screen readers hear which one is selected. While the
-  user's own stylesheet is on, _Your style_ is the look in use. Below: _Colors_ (_Waybar's own look_, the default; _Same
-  as your windows_, following the Windows page and the user's config; _Your own colors_; _None: only your own
-  stylesheet_), _Style_ (_Connected bar_ or _Islands_), opacity, rounded corners, room inside items, font (also with
-  Waybar's own look) and, on SwayFX, _Blur behind the bar_ (with the bar above floating windows).
+  `critical`/`crit`/`limited`, `ok`, the quiet `down` and `paused`) in the look's colors, also in a drawer; the
+  pomodoro's phases (work warm, a break green, paused dim, the next phase waiting in the accent, breathing, the last
+  minute pulsing; no animation where the desktop turns animations off); and digits of one width. While the user has a
+  stylesheet of their own, _Your style_ comes first, with the file's name: their stylesheet alone, on. A card sets the
+  style (and the space around the bar it needs) at once, never the items, with a note and _Undo_ (Ctrl+Z too). Since the
+  user's own stylesheet is read last and overrides every look, any other look turns it off (its path stays) so the look
+  really shows, in the preview and the bar, and says so: _Applied the look “Simple”. Your own stylesheet is off now, so
+  this look shows._; _Your style_ turns it on again. The look in use is unmistakable: an accent outline around its card,
+  a check badge in the corner of its small bar, a bold title and an _In use_ pill in the accent; the others answer the
+  pointer, and screen readers hear which one is selected. While the user's own stylesheet is on, _Your style_ is the
+  look in use. Below: _Colors_ (_Waybar's own look_, the default; _Same as your windows_, following the Windows page and
+  the user's config; _Your own colors_; _None: only your own stylesheet_), _Style_ (_Connected bar_ or _Islands_),
+  opacity, rounded corners, room inside items, font (also with Waybar's own look) and, on SwayFX, _Blur behind the bar_
+  (with the bar above floating windows).
 - **Colors:** background, text, under the pointer, focused workspace, warning, critical, urgent workspace; below the
   text color its contrast on the background (_12.6:1, easy to read_, or a warning below 4.5:1).
 - **Placement:** a check button per display (none checked: all), _Reserve space_, margins and the space between items.

@@ -500,6 +500,23 @@ pub fn ok_on(background: Color) -> Color {
     }
 }
 
+/// `top` laid over `bottom` with `alpha`, both opaque.
+fn blend(bottom: Color, top: Color, alpha: f64) -> Color {
+    let [r1, g1, b1] = bottom.channels();
+    let [r2, g2, b2] = top.channels();
+    let mix = |a: u8, b: u8| {
+        let value = f64::from(a) * (1.0 - alpha) + f64::from(b) * alpha;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a channel, clamped to 0 … 255"
+        )]
+        let channel = value.round().clamp(0.0, 255.0) as u8;
+        channel
+    };
+    Color::rgb(mix(r1, r2), mix(g1, g2), mix(b1, b2))
+}
+
 /// How far the items under the pointer and the buttons sit inside their pill or bar, top and
 /// bottom, in pixels: hover areas keep the shape of what holds them.
 pub const INSET: i64 = 3;
@@ -654,6 +671,7 @@ pub fn generated(look: &Look, groups: &[super::groups::Styled]) -> String {
     );
     css.push_str(&button_rules(look, inner));
     css.push_str(&state_rules(look));
+    css.push_str(&pomodoro_rules(look));
     let _ = write!(
         css,
         "tooltip,\ntooltip.background {{\n    background-color: {tooltip};\n    \
@@ -773,6 +791,65 @@ fn state_rules(look: &Look) -> String {
         warning = css_color(warning, 1.0),
         critical = css_color(critical, 1.0),
         on_critical = css_color(text_on(critical, text), 1.0),
+    );
+    css
+}
+
+/// The pomodoro timer's phases (the template's classes): stopped quiet, work warm, a break
+/// green, paused dim, the next phase waiting for a click in the accent color and breathing, the
+/// last minute pulsing in the phase's color. GTK leaves the animations out where the desktop
+/// turns animations off (`gtk-enable-animations`).
+fn pomodoro_rules(look: &Look) -> String {
+    let Colors {
+        background,
+        text,
+        focused,
+        warning,
+        ..
+    } = look.colors;
+    let ok = ok_on(background);
+    let tint = |color: Color, alpha: f64| css_color(color, alpha);
+    let mut css = String::new();
+    let _ = write!(
+        css,
+        "#custom-pomodoro.idle {{\n    color: {dim};\n}}\n\n\
+         #custom-pomodoro.work {{\n    color: {work_text};\n    background-color: {work};\n    \
+         box-shadow: inset 0 0 0 1px {work_line};\n}}\n\n\
+         #custom-pomodoro.short,\n#custom-pomodoro.long {{\n    color: {break_text};\n    \
+         background-color: {break_fill};\n    box-shadow: inset 0 0 0 1px {break_line};\n}}\n\n\
+         #custom-pomodoro.paused {{\n    color: {paused_text};\n    background-color: {paused};\n    \
+         box-shadow: none;\n}}\n\n\
+         #custom-pomodoro.ready {{\n    color: {ready_text};\n    background-color: {ready};\n    \
+         box-shadow: inset 0 0 0 1px {ready_line};\n    \
+         animation: st-pomodoro-ready 1.6s ease-in-out infinite alternate;\n}}\n\n\
+         #custom-pomodoro.work.ending {{\n    \
+         animation: st-pomodoro-end-work 0.8s ease-in-out infinite alternate;\n}}\n\n\
+         #custom-pomodoro.short.ending,\n#custom-pomodoro.long.ending {{\n    \
+         animation: st-pomodoro-end-break 0.8s ease-in-out infinite alternate;\n}}\n\n\
+         @keyframes st-pomodoro-ready {{\n    from {{ background-color: {ready_low}; }}\n    \
+         to {{ background-color: {ready_high}; }}\n}}\n\n\
+         @keyframes st-pomodoro-end-work {{\n    from {{ background-color: {work_low}; }}\n    \
+         to {{ background-color: {work_high}; }}\n}}\n\n\
+         @keyframes st-pomodoro-end-break {{\n    from {{ background-color: {break_low}; }}\n    \
+         to {{ background-color: {break_high}; }}\n}}\n\n",
+        dim = css_color(text, 0.6),
+        work_text = css_color(blend(text, warning, 0.45), 1.0),
+        work = tint(warning, 0.3),
+        work_line = tint(warning, 0.6),
+        break_text = css_color(blend(text, ok, 0.45), 1.0),
+        break_fill = tint(ok, 0.26),
+        break_line = tint(ok, 0.55),
+        paused_text = css_color(text, 0.85),
+        paused = tint(text, 0.1),
+        ready_text = css_color(text_on(focused, text), 1.0),
+        ready = tint(focused, 0.45),
+        ready_line = tint(focused, 0.75),
+        ready_low = tint(focused, 0.25),
+        ready_high = tint(focused, 0.65),
+        work_low = tint(warning, 0.25),
+        work_high = tint(look.colors.critical, 0.65),
+        break_low = tint(ok, 0.22),
+        break_high = tint(ok, 0.6),
     );
     css
 }
@@ -1252,8 +1329,8 @@ mod tests {
     }
 
     /// Every look of ours draws a group as one pill with its members inset, the item under the
-    /// pointer in the shape of its pill, no frame or fill of the GTK theme, and the states in
-    /// its colors, also inside a drawer.
+    /// pointer in the shape of its pill, no frame or fill of the GTK theme, the states in its
+    /// colors, also inside a drawer, and the pomodoro's phases.
     #[test]
     fn every_look_styles_groups_states_and_the_pointer() {
         let dir = tempfile::tempdir().unwrap();
@@ -1294,6 +1371,9 @@ mod tests {
                 ".modules-center .drawer-child .crit",
                 ".modules-center .limited",
                 ".modules-center .ok",
+                "#custom-pomodoro.work {",
+                "#custom-pomodoro.ready {",
+                "@keyframes st-pomodoro-ready",
             ] {
                 assert!(css.contains(rule), "{}: {rule}\n---\n{css}", preset.id);
             }
