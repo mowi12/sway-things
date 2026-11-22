@@ -715,3 +715,62 @@ expander.st-autostart-more > box > list {
 .st-autostart-note {
   margin-top: 2px;
 }
+
+/* Printers & Scanners: a line per device, its icon on a tile, its name with a badge, its state in
+   words below, and a chevron to its details; the details and the pickers as dialogs. */
+st-page list.st-device-list > row,
+window.st-dialog list.st-printer-picker > row {
+  padding: 0;
+}
+
+.st-device-row {
+  min-height: 40px;
+  padding: 10px 14px 10px 12px;
+}
+
+.st-device-tile {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 9px;
+  background-color: alpha(currentColor, 0.08);
+}
+
+.st-device-subtitle {
+  font-size: 0.9em;
+}
+
+.st-device-badge {
+  font-size: 0.8em;
+  border: 1px solid @borders;
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
+.st-device-warning {
+  color: @warning_color;
+}
+
+.st-printer-levels {
+  margin: 0 4px;
+}
+
+.st-device-actions > button {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.st-device-facts {
+  margin: 2px 4px 0;
+}
+
+.st-device-hint {
+  margin: 8px 4px 0;
+}
+
+.st-device-hint > image {
+  color: @warning_color;
+}
+
+.st-section-bar {
+  margin-bottom: 8px;
+}

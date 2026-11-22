@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 22:23+0100\n"
+"POT-Creation-Date: 2026-11-23 23:17+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1218,7 +1218,7 @@ msgstr ""
 msgid "Play"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/printers/rows.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/printers/details.rs
 msgid "Pause"
 msgstr ""
 
@@ -6242,7 +6242,7 @@ msgstr ""
 msgid "Bluetooth"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/gui/src/widgets/printers/dialogs.rs
 msgid "Network"
 msgstr ""
 
@@ -7811,6 +7811,7 @@ msgid "Start {name} at login"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/autostart.rs
+#: crates/gui/src/widgets/printers/rows.rs
 msgid "Show the details"
 msgstr ""
 
@@ -7980,6 +7981,7 @@ msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
 #: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close"
@@ -8165,8 +8167,8 @@ msgstr ""
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/printers/rows.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
 #: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
@@ -8282,7 +8284,6 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/network/rows.rs
-#: crates/gui/src/widgets/printers/rows.rs
 msgid "More actions"
 msgstr ""
 
@@ -8431,7 +8432,6 @@ msgid "Rename “{device}”"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Name"
 msgstr ""
 
@@ -8648,7 +8648,8 @@ msgstr ""
 msgid "Press the keys; Backspace for no key, Escape to keep them"
 msgstr ""
 
-#: crates/gui/src/widgets/cursor.rs
+#: crates/gui/src/widgets/cursor.rs crates/gui/src/widgets/printers/details.rs
+#: crates/gui/src/widgets/printers/rows.rs
 #: crates/gui/src/widgets/wallpaper/pictures.rs
 msgid "Default"
 msgstr ""
@@ -9456,7 +9457,6 @@ msgid "Wired ({interface})"
 msgstr ""
 
 #: crates/gui/src/widgets/network/rows.rs
-#: crates/gui/src/widgets/printers/rows.rs
 msgid "Details…"
 msgstr ""
 
@@ -9941,12 +9941,79 @@ msgstr ""
 msgid "CUPS's web interface can't be opened: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Add Printer"
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Untitled document"
 msgstr ""
 
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Found automatically"
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Set as Default"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+#: crates/gui/src/widgets/printers/rows.rs
+msgid "Resume"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Print Test Page"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Ink and toner"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Print Queue"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Cancel All"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Printer"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Description"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Location"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Shared"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid ""
+"Other computers see a shared printer while sharing is on for CUPS as a whole"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Model"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Address"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Queue"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Remove Printer…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Nothing is waiting to print."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+#, rust-format
+msgid "Cancel {job}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -9954,7 +10021,15 @@ msgid "Looking for driverless printers on the network and on USB…"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
-msgid "By address"
+msgid "Add Printer"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Printers found"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Or add one by its address"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -9988,12 +10063,20 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
+msgid "USB"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Added"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
 #, rust-format
 msgid "Add {printer}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Click a printer to add it."
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -10006,36 +10089,6 @@ msgstr ""
 #: crates/gui/src/widgets/printers/dialogs.rs
 #, rust-format
 msgid "Couldn't add “{printer}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Model"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Address"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Description"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Location"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Share on the network"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid ""
-"Other computers see a shared printer while sharing is on for CUPS as a whole."
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -10059,10 +10112,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
 msgid "Add Printer…"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/mod.rs
-msgid "Print Queue"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
@@ -10102,27 +10151,8 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
-msgid "Nothing is waiting to print."
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Resume"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Set as Default"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Print Test Page"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Cancel All Jobs"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Remove…"
+#, rust-format
+msgid "Resume {printer}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
@@ -10130,30 +10160,14 @@ msgid "Default printer"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
-msgid "Set up for a print job only"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Shared"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
 #, rust-format
-msgid "More actions for {printer}"
-msgstr ""
+msgid "{count} job"
+msgid_plural "{count} jobs"
+msgstr[0] ""
+msgstr[1] ""
 
-#: crates/gui/src/widgets/printers/rows.rs
-#, rust-format
-msgid "Resume {printer}"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Untitled document"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-#, rust-format
-msgid "Cancel {job}"
+#: crates/gui/src/widgets/printers/supplies.rs
+msgid "Supply"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/supplies.rs
@@ -10170,10 +10184,6 @@ msgstr ""
 #. TRANSLATORS: The level of a supply of a printer that isn't known.
 #: crates/gui/src/widgets/printers/supplies.rs
 msgid "Level unknown"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/supplies.rs
-msgid "Supply"
 msgstr ""
 
 #: crates/gui/src/widgets/search_button.rs
@@ -10338,6 +10348,10 @@ msgstr ""
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/shortcuts/row.rs
 msgid "Back to Your Config's Binding"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs

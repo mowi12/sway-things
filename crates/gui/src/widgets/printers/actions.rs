@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! What the rows do: resume, pause, set as default, print a test page, cancel jobs, remove a
-//! printer and change its details, add a printer, and open the specialist tool.
+//! What the lines and the details do: resume, pause, set as default, print a test page, cancel
+//! jobs, remove a printer and change its details, add a printer, and open the specialist tool.
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -10,7 +10,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
 use sway_things_core::printers::{Cups, Error};
 
-use super::{PrintersPage, dialogs, title_of};
+use super::{DetailsDialog, PrintersPage, details, dialogs, title_of};
 use crate::i18n::{Msg, Text, msg, tr, trf};
 
 impl PrintersPage {
@@ -134,7 +134,14 @@ impl PrintersPage {
     /// Removes the printer `name`, asking first.
     pub(super) fn remove(&self, name: &str) {
         let title = self.title(name);
-        let window = self.root().and_downcast::<gtk::Window>();
+        // Over the details, if they are open, which close once it is removed.
+        let window = self
+            .imp()
+            .details
+            .borrow()
+            .as_ref()
+            .map(|details| details.window.clone())
+            .or_else(|| self.root().and_downcast::<gtk::Window>());
         let weak = self.downgrade();
         let id = name.to_owned();
         glib::spawn_future_local(async move {
@@ -154,11 +161,19 @@ impl PrintersPage {
         });
     }
 
-    /// Shows the details of the printer `name`, where its description and location can be
-    /// changed and it can be shared.
+    /// Opens the details of the printer `name`, or brings them to the front.
     pub(super) fn show_details(&self, name: &str) {
-        let printer = self
-            .imp()
+        let imp = self.imp();
+        let open = imp.details.borrow().clone();
+        if let Some(open) = open {
+            if open.name == name && open.window.is_visible() {
+                open.window.present();
+                return;
+            }
+            imp.details.replace(None);
+            open.window.destroy();
+        }
+        let printer = imp
             .snapshot
             .borrow()
             .as_ref()
@@ -166,25 +181,15 @@ impl PrintersPage {
         let Some(printer) = printer else {
             return;
         };
-        if let Some(old) = self.imp().dialog.take() {
-            old.destroy();
-        }
         let window = self.root().and_downcast::<gtk::Window>();
-        let weak = self.downgrade();
-        let dialog = dialogs::details(window.as_ref(), &printer, move |changes| {
-            let Some(page) = weak.upgrade() else {
-                return;
-            };
-            page.imp().dialog.replace(None);
-            if let Some(changes) = changes {
-                page.apply_details(changes);
-            }
-        });
-        self.imp().dialog.replace(Some(dialog));
+        let dialog = DetailsDialog::open(window.as_ref(), self, &printer);
+        imp.details.replace(Some(dialog.clone()));
+        self.update_details();
+        dialog.window.present();
     }
 
     /// Makes the changes of the details dialog.
-    pub(super) fn apply_details(&self, changes: dialogs::DetailsChange) {
+    pub(super) fn apply_details(&self, changes: details::DetailsChange) {
         let failed = Text::new(msg!("Couldn't change “{printer}”: {error}"))
             .arg("printer", self.title(&changes.name));
         let name = changes.name.clone();

@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The ink and toner levels of a printer: a bar per supply in its colors, with its name and level
-//! as text, which screen readers read too.
+//! The ink and toner levels of a printer: on its line, a small upright bar per supply in its
+//! colors, with the levels as the tooltip; in its details, a bar per supply with its name and
+//! level as text, which screen readers read too.
 
 use gtk::prelude::*;
 use sway_things_core::printers::{Level, Marker};
@@ -12,6 +13,8 @@ use crate::style;
 
 /// The width and height of a level bar.
 const BAR: (i32, i32) = (56, 8);
+/// The width and height of a small upright bar on a printer's line.
+const SMALL_BAR: (i32, i32) = (6, 22);
 
 /// Fills `container` with a line per supply in `markers`, replacing what was there.
 pub fn fill(container: &gtk::Box, markers: &[Marker]) {
@@ -21,6 +24,32 @@ pub fn fill(container: &gtk::Box, markers: &[Marker]) {
     container.set_visible(!markers.is_empty());
     for marker in markers {
         container.append(&line(marker));
+    }
+}
+
+/// Fills `container` with a small upright bar per supply in `markers`, replacing what was there;
+/// the names and levels are its tooltip.
+pub fn fill_compact(container: &gtk::Box, markers: &[Marker]) {
+    while let Some(child) = container.first_child() {
+        container.remove(&child);
+    }
+    container.set_visible(!markers.is_empty());
+    for marker in markers {
+        container.append(&bar(marker, SMALL_BAR, true));
+    }
+    let said: Vec<String> = markers
+        .iter()
+        .map(|marker| format!("{}: {}", name_of(marker), level_text(marker)))
+        .collect();
+    container.set_tooltip_text((!said.is_empty()).then(|| said.join("\n")).as_deref());
+}
+
+/// The name of a supply, or _Supply_ if it has none.
+pub fn name_of(marker: &Marker) -> String {
+    if marker.name.is_empty() {
+        tr(msg!("Supply")).to_owned()
+    } else {
+        marker.name.clone()
     }
 }
 
@@ -50,9 +79,24 @@ pub fn level_text(marker: &Marker) -> String {
 /// A supply: the bar, its name and its level.
 fn line(marker: &Marker) -> gtk::Box {
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    line.append(&bar(marker, BAR, false));
+    let text = gtk::Label::new(Some(&format!(
+        "{}: {}",
+        name_of(marker),
+        level_text(marker)
+    )));
+    text.set_xalign(0.0);
+    text.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    text.add_css_class(style::DIM);
+    line.append(&text);
+    line
+}
+
+/// The bar of `marker`, `size` large, filled from the bottom if `upright`, else from the left.
+fn bar(marker: &Marker, size: (i32, i32), upright: bool) -> gtk::DrawingArea {
     let bar = gtk::DrawingArea::builder()
-        .content_width(BAR.0)
-        .content_height(BAR.1)
+        .content_width(size.0)
+        .content_height(size.1)
         .valign(gtk::Align::Center)
         .accessible_role(gtk::AccessibleRole::Presentation)
         .build();
@@ -64,31 +108,28 @@ fn line(marker: &Marker) -> gtk::Box {
     };
     let known = marker.level != Level::Unknown;
     bar.set_draw_func(move |area, cairo, width, height| {
-        draw(area, cairo, (width, height), &colors, fraction, known);
+        draw(
+            area,
+            cairo,
+            (width, height),
+            &colors,
+            (fraction, known),
+            upright,
+        );
     });
-    line.append(&bar);
-    let name = if marker.name.is_empty() {
-        tr(msg!("Supply")).to_owned()
-    } else {
-        marker.name.clone()
-    };
-    let text = gtk::Label::new(Some(&format!("{name}: {}", level_text(marker))));
-    text.set_xalign(0.0);
-    text.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    text.add_css_class(style::DIM);
-    line.append(&text);
-    line
+    bar
 }
 
-/// Draws a bar: its outline in the text color, the level filled in the supply's colors (side by
-/// side for a cartridge with several), or a dash for an unknown level.
+/// Draws a bar: its outline in the text color, the level filled in the supply's colors (in bands
+/// for a cartridge with several), from the bottom if `upright`, else from the left; nothing
+/// filled for an unknown level.
 fn draw(
     area: &gtk::DrawingArea,
     cairo: &gtk::cairo::Context,
     (width, height): (i32, i32),
     colors: &[(u8, u8, u8)],
-    fraction: f64,
-    known: bool,
+    (fraction, known): (f64, bool),
+    upright: bool,
 ) {
     let width = f64::from(width);
     let height = f64::from(height);
@@ -105,14 +146,13 @@ fn draw(
         let _ = cairo.stroke();
     };
     if known {
-        let filled = (width - 2.0) * fraction.clamp(0.0, 1.0);
+        let fraction = fraction.clamp(0.0, 1.0);
         let fill: &[(u8, u8, u8)] = if colors.is_empty() {
             &[(0x80, 0x80, 0x80)]
         } else {
             colors
         };
         let count = f64::from(u32::try_from(fill.len()).unwrap_or(1));
-        let band = (height - 2.0) / count;
         for (i, (r, g, b)) in fill.iter().enumerate() {
             let i = f64::from(u32::try_from(i).unwrap_or(0));
             cairo.set_source_rgb(
@@ -120,7 +160,15 @@ fn draw(
                 f64::from(*g) / 255.0,
                 f64::from(*b) / 255.0,
             );
-            cairo.rectangle(1.0, 1.0 + band * i, filled, band);
+            if upright {
+                let filled = (height - 2.0) * fraction;
+                let band = (width - 2.0) / count;
+                cairo.rectangle(1.0 + band * i, height - 1.0 - filled, band, filled);
+            } else {
+                let filled = (width - 2.0) * fraction;
+                let band = (height - 2.0) / count;
+                cairo.rectangle(1.0, 1.0 + band * i, filled, band);
+            }
             let _ = cairo.fill();
         }
     }

@@ -62,6 +62,8 @@ pub struct Found {
     pub resource: String,
     /// Whether it is reached over IPPS (encrypted).
     pub secure: bool,
+    /// Whether this computer announces it: a device on USB that ipp-usb makes reachable.
+    pub local: bool,
 }
 
 impl Found {
@@ -338,6 +340,7 @@ impl Discovery {
             host,
             resource: txt.get("rp").cloned().unwrap_or_default(),
             secure: kind == "_ipps._tcp",
+            local,
         };
         self.pending.push_back(Discovered::Added(found.clone()));
         self.found.insert(key, found);
@@ -462,6 +465,7 @@ mod tests {
             host: "acme.local".to_owned(),
             resource: "ipp/print".to_owned(),
             secure: true,
+            local: false,
         };
         assert!(found.is_at("ipps://Acme._ipps._tcp.local/"));
         assert!(found.is_at("ipps://acme.local.:443/ipp/print"));
