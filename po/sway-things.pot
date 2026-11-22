@@ -6242,7 +6242,8 @@ msgstr ""
 msgid "Bluetooth"
 msgstr ""
 
-#: crates/core/src/registry/page.rs crates/gui/src/widgets/printers/dialogs.rs
+#: crates/core/src/registry/page.rs crates/core/src/scanners/list.rs
+#: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Network"
 msgstr ""
 
@@ -7408,6 +7409,139 @@ msgstr ""
 
 #: crates/core/src/registry/workspaces.rs
 msgid "how many"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+#, rust-format
+msgid "Network, driverless ({protocol})"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+msgid "USB, driverless"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs crates/gui/src/widgets/printers/dialogs.rs
+msgid "USB"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+msgid "Camera"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+msgid "Other connection"
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"SANE's scanimage isn't installed, so no scanner can be found or used. "
+"Install the package {package}."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+msgid ""
+"Most scanners today are driverless, and SANE finds them with sane-airscan, "
+"which isn't installed. If your scanner isn't listed, install the package "
+"sane-airscan."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{scanners} on the network can't be used yet: SANE needs sane-airscan for "
+"driverless scanners. Install the package sane-airscan."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{scanners} is on the network, but SANE doesn't list it. Search again; if it "
+"stays missing, check that sane-airscan is switched on in /etc/sane.d/dll.d."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{devices} is plugged in over USB and works driverless, but ipp-usb doesn't "
+"run. Plug it in again, or start ipp-usb: systemctl start ipp-usb."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{devices} is plugged in over USB and works driverless with ipp-usb, which "
+"isn't installed. Install the package ipp-usb, then plug it in again."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"You can't use {scanner}: its device file belongs to the group “{group}”. "
+"Join it (as an administrator: usermod -aG {group} YOUR-NAME) and log in "
+"again."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"You can't use {scanner}: only the user logged in at this computer's screen "
+"may. Log in there, or log out and in again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner is busy: another program may be using it."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner's cover is open. Close it and try again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "Paper is jammed in the document feeder."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "There is no paper in the document feeder."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "You aren't allowed to use the scanner. See the hints on the page."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner stopped answering. Check its cable or network."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid ""
+"The scanner can't be reached. Make sure it is on and connected, then search "
+"again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner doesn't take one of the settings."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner reported an error."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "scanimage isn't installed."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner didn't answer in time."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "Canceled."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+#, rust-format
+msgid "A file can't be written: {error}"
 msgstr ""
 
 #: crates/core/src/sound/meter.rs
@@ -10060,10 +10194,6 @@ msgstr ""
 msgid ""
 "No driverless printer found yet. Make sure it is on and on the same network, "
 "or type its address below."
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "USB"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs

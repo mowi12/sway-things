@@ -18,6 +18,11 @@ pub(crate) fn write(path: &Path, text: &str) -> io::Result<()> {
     stage(path, text, "tmp")?.commit()
 }
 
+/// Replaces the contents of `path` with `bytes`, as [`write`] does with text.
+pub(crate) fn write_bytes(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    stage_bytes(path, bytes, "tmp")?.commit()
+}
+
 /// Creates the file `path` with `text`, only if nothing is there: no file, and no symbolic
 /// link, not even a dangling one. The text is staged next to it ([`stage`]) and then linked into
 /// place ([`Staged::commit_new`]), which fails if `path` appeared meanwhile, so nothing is ever
@@ -50,6 +55,11 @@ pub(crate) struct Staged {
 /// file `path` is or points to; missing directories are created. A file of that name that a
 /// crashed process with the same id left behind is removed first, so it never blocks a write.
 pub(crate) fn stage(path: &Path, text: &str, suffix: &str) -> io::Result<Staged> {
+    stage_bytes(path, text.as_bytes(), suffix)
+}
+
+/// Stages `bytes` for `path`, as [`stage`] does with text.
+fn stage_bytes(path: &Path, bytes: &[u8], suffix: &str) -> io::Result<Staged> {
     // Only an existing path can be a link; `canonicalize` follows it to the real file.
     let target = match fs::canonicalize(path) {
         Ok(target) => target,
@@ -82,7 +92,7 @@ pub(crate) fn stage(path: &Path, text: &str, suffix: &str) -> io::Result<Staged>
         .write(true)
         .create_new(true)
         .open(&staged.temporary)?;
-    file.write_all(text.as_bytes())?;
+    file.write_all(bytes)?;
     file.sync_all()?;
     Ok(staged)
 }

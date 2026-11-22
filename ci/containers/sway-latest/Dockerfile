@@ -6,7 +6,7 @@
 FROM archlinux:base@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
 
 RUN pacman -Syu --noconfirm sway kanshi rust gcc gtk4 gtk4-layer-shell libpulse pkgconf ttf-dejavu python-dbusmock \
-    pipewire pipewire-pulse wireplumber cups \
+    pipewire pipewire-pulse wireplumber cups sane \
   && pacman -Scc --noconfirm \
   && setcap -r /usr/bin/sway \
   && chmod 755 /usr/sbin/cupsd \
