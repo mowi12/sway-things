@@ -214,6 +214,11 @@ st-page .st-wallpaper-folder {
   background-color: alpha(currentColor, 0.06);
 }
 
+/* A picture that can't be read: its icon, dimmed, on the background color */
+st-page .st-wallpaper-unreadable {
+  opacity: 0.55;
+}
+
 st-page .st-wallpaper-grid > flowboxchild {
   padding: 4px;
   border-radius: 11px;
