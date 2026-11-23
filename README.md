@@ -39,7 +39,7 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: 0.4.0.** It covers the pages listed under [Features](#features); packages are in
+> **Status: 0.5.0.** It covers the pages listed under [Features](#features); packages are in
 > [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
@@ -69,7 +69,8 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 
 Released so far are the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and **Window
 Behavior** (v0.1), **Bluetooth** and **Network** (v0.2), **Cursor & Tablet**, **Displays**, **Sound**, **Apps Look &
-Feel** and **Workspaces** (v0.3), **Wallpaper** (v0.4), and on About & Maintenance the system details for bug reports,
+Feel** and **Workspaces** (v0.3), **Wallpaper** (v0.4), **Keyboard Shortcuts**, **Screenshots & Clipboard**, **Apps &
+Autostart**, **Notifications** and **Printers** (v0.5), and on About & Maintenance the system details for bug reports,
 the view of the generated config and the app's own preferences. The other pages below are planned.
 
 ### Devices
@@ -93,8 +94,12 @@ the view of the generated config and the app's own preferences. The other pages 
 
 ### Desktop
 
-- **Window Behavior** · **Workspaces** · **Keyboard Shortcuts** (with conflict detection and a printable cheat sheet)
-- **Notifications** (Do Not Disturb) · **Apps & Autostart** · **Screenshots & Clipboard**
+- **Window Behavior** · **Workspaces**
+- **Keyboard Shortcuts:** every binding in one searchable list, editing without touching your files, conflicts, media
+  keys with an on-screen display
+- **Notifications:** Do Not Disturb, the daemon that runs, look and behavior of mako and swaync
+- **Apps & Autostart:** terminal and launcher, default apps, one list of what starts at login
+- **Screenshots & Clipboard:** screenshot keys, clipboard history, screen recording
 
 ### System
 
@@ -128,8 +133,14 @@ sway-things doctor                        # system details, setup and conflicts
   display; both are optional.
 - The Wallpaper page sets the wallpaper through sway, which draws it with swaybg; webp-pixbuf-loader is optional, for
   WebP pictures.
-- Later pages will use further optional companion tools, for example swayidle, swaylock, waybar, mako or swaync,
-  gammastep or wlsunset and brightnessctl. Pages for missing tools stay visible and tell you how to install them.
+- The Printers page uses CUPS, Avahi to find printers and cups-pk-helper for changes without CUPS's administrator group;
+  system-config-printer is optional, for its _Advanced…_ button.
+- Screenshots & Clipboard uses grim and slurp, wl-clipboard, cliphist for the history, swappy or satty to edit and
+  wf-recorder or wl-screenrec to record; Keyboard Shortcuts uses SwayOSD for its on-screen display; Notifications works
+  with mako, swaync or dunst; Apps & Autostart uses dex where nothing else starts the XDG autostart entries. All are
+  optional.
+- Later pages will use further optional companion tools, for example swayidle, swaylock, waybar, gammastep or wlsunset
+  and brightnessctl. Pages for missing tools stay visible and tell you how to install them.
 
 ## Installation
 
