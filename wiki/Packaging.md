@@ -241,5 +241,9 @@ website serves it as `/install` and `/install.sh`, see [Website](Website.md)).
 - `.github/workflows/packages.yml` builds `arch-git` as a job of its own on every push to `main`, weekly and by hand,
   but not for a release, since the `-git` package doesn't use the release tarball. It isn't a check on pull requests:
   the `-git` package builds `main`, not the pull request.
+- `scripts/check-packaging.sh`, a check on every pull request, compares `.SRCINFO` with the `PKGBUILD` without makepkg:
+  it sources the `PKGBUILD` in a subshell and prints what `makepkg --printsrcinfo` would (every field, in makepkg's
+  order), leaving out `pkgver` and `pkgrel`. So a `PKGBUILD` change without a regenerated `.SRCINFO` fails the pull
+  request rather than the Packages workflow on `main`. Fields set per package in `package_*()` aren't supported.
 - `scripts/check-shell.sh` lints the `PKGBUILD`s with shellcheck as bash, without the warnings that makepkg's way of
   sourcing them makes moot (unused metadata variables, `pkgdir`, `cd` without `|| exit` under errexit).
