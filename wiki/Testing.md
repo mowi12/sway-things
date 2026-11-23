@@ -59,9 +59,12 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   choices, progress lines, and its result read as nmcli reads it
 - Printers: the IPP encoding (requests as RFC 8010 shows them, several values and groups, collections, text with a
   language, broken messages, nesting too deep; round trips and arbitrary or cut-off bytes as property tests), HTTP
-  answers (a length, chunked, interim, cut off, garbage), where CUPS is found (local only), printers and jobs from their
+  answers (a length, chunked, interim, cut off, garbage), where CUPS is found (local only; its socket while it exists,
+  else `localhost:631`), a socket without access told apart from a CUPS that is off, printers and jobs from their
   attributes (reasons, supplies, colors, names cleaned), state in words, queue names made from a model, addresses typed
-  by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest
+  by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest when
+  CUPS refuses a change (the first of `lpadmin`, `wheel` and `sys` that exists), and the user's default from
+  `~/.cups/lpoptions`
 
 ## Golden files
 
