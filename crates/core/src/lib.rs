@@ -32,6 +32,7 @@ pub mod registry;
 pub mod sound;
 pub mod state;
 pub mod sway_config;
+pub mod swayosd;
 pub mod system;
 pub mod theme;
 pub mod ui_state;

@@ -114,7 +114,10 @@
   while it does, taking the keysym of the key's first level in the event's layout, so Shift+1 is `Shift+1` as sway's raw
   keysyms see it; the modifiers held meanwhile list the keys taken with them. The apps it offers are
   `gio::AppInfo::all()` with the field codes of their command lines left out. The list item has no row; a media key
-  switch has one only while its program is installed or it is stored, with what its keys clash with below it.
+  switch has one only while its program is installed or it is stored, with what its keys clash with below it; the switch
+  of its on-screen display only below a shown switch, while `swayosd-client` is in `Model::search_path` (`$PATH`, or a
+  directory a test sets) or it is stored, with the note of `shortcuts/osd.rs` below it (`swayosd::server`, read again on
+  each change of the model, when the note is mapped and when the window becomes active).
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that

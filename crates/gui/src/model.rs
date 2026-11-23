@@ -225,6 +225,9 @@ mod imp {
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
+        /// Where programs are looked for, a list like `$PATH`: `$PATH` itself unless a test
+        /// sets its own.
+        pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
     }
 
     #[glib::object_subclass]
@@ -822,6 +825,22 @@ impl Model {
             .borrow()
             .as_ref()
             .map(|core| core.compositor)
+    }
+
+    /// Where programs are looked for, a list like `$PATH`: `$PATH` unless
+    /// [set](Model::set_search_path).
+    pub fn search_path(&self) -> Option<std::ffi::OsString> {
+        self.imp()
+            .search_path
+            .borrow()
+            .clone()
+            .or_else(|| std::env::var_os("PATH"))
+    }
+
+    /// Looks for programs in `path` instead of `$PATH`, for tests, and reads everything again.
+    pub fn set_search_path(&self, path: Option<std::ffi::OsString>) {
+        self.imp().search_path.replace(path);
+        self.emit_by_name::<()>("changed", &[]);
     }
 
     /// Where the generated files go.

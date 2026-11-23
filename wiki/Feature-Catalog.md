@@ -286,6 +286,8 @@ swaybar via our sway include.
 - [x] 🟡 Main modifier (`$mod`) for **our generated** bindings. Sway substitutes variables when a line is read, so this
       doesn't rebind hand-written lines; the page explains this
 - [x] 🟢 Media keys: volume, mute, brightness, play/pause/next (`wpctl`, `brightnessctl`, `playerctl`)
+- [x] 🟢 On-screen display for the media keys with SwayOSD (`swayosd-client`), per group, with a note while
+      `swayosd-server` doesn't run
 - [ ] 🟢 Screenshot shortcuts (grim + slurp / grimshot)
 - [ ] 🟡 Touchpad gestures (`bindgesture`)
 - [ ] 🟡 Binding modes (resize mode, custom modes)

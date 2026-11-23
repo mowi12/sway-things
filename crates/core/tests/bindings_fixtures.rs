@@ -51,8 +51,10 @@ fn lines() -> Result<Vec<SwayCmd>> {
     let line = ours::parse_item(&format!("bindsym $mod+c {run}"))?;
     commands.push(SwayCmd::binding(&line, Modifiers::ALT, false)?);
     for group in GROUPS {
-        for line in group.lines() {
-            commands.push(SwayCmd::binding(&line, Modifiers::SUPER, true)?);
+        for osd in [false, true] {
+            for line in group.lines(osd) {
+                commands.push(SwayCmd::binding(&line, Modifiers::SUPER, true)?);
+            }
         }
     }
     Ok(commands)

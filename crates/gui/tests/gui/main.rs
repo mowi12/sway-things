@@ -50,6 +50,7 @@ mod sections;
 mod shell;
 mod shortcuts;
 mod sound;
+mod swayosd;
 mod wallpaper;
 mod welcome;
 
@@ -109,6 +110,7 @@ use self::sections::*;
 use self::shell::*;
 use self::shortcuts::*;
 use self::sound::*;
+use self::swayosd::*;
 use self::wallpaper::*;
 use self::welcome::*;
 
@@ -203,6 +205,7 @@ fn main() -> ExitCode {
     results.extend(check_look());
     results.extend(check_shortcuts());
     results.extend(check_places());
+    results.extend(check_swayosd());
     results.extend(check_welcomes(&settings));
     report(&results)
 }

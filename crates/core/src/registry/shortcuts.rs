@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Settings of the Keyboard Shortcuts page: the bindings Sway Things adds, removes or changes,
-//! the main modifier they use, and the groups of media keys.
+//! the main modifier they use, and the groups of media keys, each with the on-screen display of
+//! SwayOSD.
 //!
 //! None of them has a sway directive of its own: they all go to `50-bindings.conf` as binding
 //! lines ([`crate::bindings::ours`]), which the applier sends to a running sway as the
 //! difference to what it has ([`crate::bindings::live`]).
 
-use super::{Apply, Choice, Page, Setting, ValueError};
+use super::{Apply, Choice, Page, Setting, ValueError, When};
 use crate::msg;
 
 /// The key of the main modifier of the bindings Sway Things writes.
@@ -21,6 +22,12 @@ pub const VOLUME: &str = "shortcuts.media.volume";
 pub const BRIGHTNESS: &str = "shortcuts.media.brightness";
 /// The key of the switch of the media player keys.
 pub const PLAYER: &str = "shortcuts.media.player";
+/// The key of the switch of the on-screen display of the volume keys.
+pub const VOLUME_OSD: &str = "shortcuts.media.volume_osd";
+/// The key of the switch of the on-screen display of the brightness keys.
+pub const BRIGHTNESS_OSD: &str = "shortcuts.media.brightness_osd";
+/// The key of the switch of the on-screen display of the media player keys.
+pub const PLAYER_OSD: &str = "shortcuts.media.player_osd";
 
 /// The main modifiers, by the id of the choice.
 pub const MODIFIERS: &[Choice] = &[
@@ -29,7 +36,36 @@ pub const MODIFIERS: &[Choice] = &[
 ];
 
 /// The keys of every setting of the page.
-pub const KEYS: [&str; 5] = [BINDINGS, VOLUME, BRIGHTNESS, PLAYER, MODIFIER];
+pub const KEYS: [&str; 8] = [
+    BINDINGS,
+    VOLUME,
+    VOLUME_OSD,
+    BRIGHTNESS,
+    BRIGHTNESS_OSD,
+    PLAYER,
+    PLAYER_OSD,
+    MODIFIER,
+];
+
+/// The switch of the on-screen display of a group of media keys, `key`, below the group's
+/// switch `group`: `swayosd-client` in place of the group's program.
+fn osd(key: &'static str, group: &'static str, subtitle: crate::i18n::Msg) -> Setting {
+    Setting::toggle(key, Page::KeyboardShortcuts, false)
+        .section(msg!("Media keys"))
+        .title(msg!("Show an on-screen display (SwayOSD)"))
+        .subtitle(subtitle)
+        .apply(Apply::Reload)
+        .requires_tools(&["swayosd-client"])
+        .depends_on(group, When::On)
+        .keywords(&[
+            msg!("swayosd"),
+            msg!("osd"),
+            msg!("on-screen display"),
+            msg!("popup"),
+            msg!("indicator"),
+        ])
+        .build()
+}
 
 /// The check of the items of `shortcuts.bindings`: what can be read at all. A command sway
 /// doesn't know passes here, so one typo in `settings.toml` doesn't drop every binding; its item
@@ -76,6 +112,14 @@ pub(super) fn settings() -> Vec<Setting> {
             .requires_tools(&["wpctl"])
             .keywords(&[msg!("volume"), msg!("mute"), msg!("speaker"), msg!("audio")])
             .build(),
+        osd(
+            VOLUME_OSD,
+            VOLUME,
+            msg!(
+                "The volume keys show the volume as they change it, with swayosd-client in place \
+                 of wpctl"
+            ),
+        ),
         Setting::toggle(BRIGHTNESS, Page::KeyboardShortcuts, false)
             .section(msg!("Media keys"))
             .title(msg!("Brightness keys"))
@@ -86,6 +130,14 @@ pub(super) fn settings() -> Vec<Setting> {
             .requires_tools(&["brightnessctl"])
             .keywords(&[msg!("brightness"), msg!("backlight"), msg!("screen")])
             .build(),
+        osd(
+            BRIGHTNESS_OSD,
+            BRIGHTNESS,
+            msg!(
+                "The brightness keys show the brightness as they change it, with swayosd-client \
+                 in place of brightnessctl"
+            ),
+        ),
         Setting::toggle(PLAYER, Page::KeyboardShortcuts, false)
             .section(msg!("Media keys"))
             .title(msg!("Media player keys"))
@@ -96,6 +148,14 @@ pub(super) fn settings() -> Vec<Setting> {
             .requires_tools(&["playerctl"])
             .keywords(&[msg!("play"), msg!("pause"), msg!("music"), msg!("track")])
             .build(),
+        osd(
+            PLAYER_OSD,
+            PLAYER,
+            msg!(
+                "The media player keys show the track as they change it, with swayosd-client in \
+                 place of playerctl"
+            ),
+        ),
         Setting::choice(MODIFIER, Page::KeyboardShortcuts, "super", MODIFIERS)
             .section(msg!("Main modifier"))
             .title(msg!("Main modifier ($mod)"))

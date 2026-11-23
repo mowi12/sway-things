@@ -699,6 +699,54 @@ msgid "Take a screenshot"
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
+msgid "Raise the volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Lower the volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Mute or unmute the sound, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Raise the microphone volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Lower the microphone volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Mute or unmute the microphone, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Brighten the screen, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Dim the screen, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Play or pause, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Next track, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Previous track, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
+msgid "Stop playing, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/bindings/command.rs
 msgid "Focus the window to the left"
 msgstr ""
 
@@ -4663,6 +4711,34 @@ msgstr ""
 msgid "Super (the logo key)"
 msgstr ""
 
+#: crates/core/src/registry/shortcuts.rs
+msgid "Media keys"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "Show an on-screen display (SwayOSD)"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "swayosd"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "osd"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "on-screen display"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "popup"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid "indicator"
+msgstr ""
+
 #: crates/core/src/registry/shortcuts.rs crates/gui/src/widgets/page_view.rs
 msgid "Shortcuts"
 msgstr ""
@@ -4690,10 +4766,6 @@ msgid "keyboard shortcut"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "Media keys"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid ""
 "Volume up and down, mute and microphone mute with wpctl, also on the lock "
 "screen"
@@ -4713,6 +4785,12 @@ msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
 msgid ""
+"The volume keys show the volume as they change it, with swayosd-client in "
+"place of wpctl"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid ""
 "Screen brightness up and down with brightnessctl, also on the lock screen"
 msgstr ""
 
@@ -4722,6 +4800,12 @@ msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
 msgid "backlight"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid ""
+"The brightness keys show the brightness as they change it, with swayosd-"
+"client in place of brightnessctl"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
@@ -4743,6 +4827,12 @@ msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
 msgid "track"
+msgstr ""
+
+#: crates/core/src/registry/shortcuts.rs
+msgid ""
+"The media player keys show the track as they change it, with swayosd-client "
+"in place of playerctl"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
@@ -7799,6 +7889,27 @@ msgstr ""
 #, rust-format
 msgid ""
 "Only on the lock screen: {place} binds the same keys otherwise, to {command}"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/osd.rs
+#, rust-format
+msgid ""
+"swayosd-server isn't running, so these keys do nothing. Your config starts "
+"it with sway at {place}: start it now with swayosd-server, or log in again."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/osd.rs
+#, rust-format
+msgid ""
+"swayosd-server isn't running, so these keys do nothing. The service {unit} "
+"should start it: see systemctl --user status {unit}."
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/osd.rs
+msgid ""
+"swayosd-server isn't running, so these keys do nothing. Add exec swayosd-"
+"server to your sway config to start it with sway, and start it now with "
+"swayosd-server."
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/parts.rs

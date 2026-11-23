@@ -18,6 +18,7 @@
 //! on screen.
 
 mod editor;
+mod osd;
 mod parts;
 mod row;
 
@@ -755,9 +756,15 @@ pub(crate) fn clash_line(clash: &Clash) -> gtk::Box {
     line
 }
 
-/// What goes below the row of a switch of media keys: what its keys clash with, and nothing
-/// for other rows.
+/// What goes below the row of a switch of media keys: what its keys clash with; below the
+/// switch of its on-screen display, whether SwayOSD's server runs; nothing for other rows.
 pub fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
+    if let Some(group) = row
+        .setting()
+        .and_then(|setting| Group::of_osd(setting.key()))
+    {
+        return vec![osd::note(model, group)];
+    }
     let Some(group) = row.setting().and_then(|setting| Group::of(setting.key())) else {
         return Vec::new();
     };
@@ -792,11 +799,18 @@ pub fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
 }
 
 /// Whether the row of `key` belongs on the page: not the list of items, which the page shows as
-/// its list, and a switch of media keys only while its program is installed or it is stored (so
-/// it can be switched off again).
+/// its list, a switch of media keys only while its program is installed or it is stored (so
+/// it can be switched off again), and the switch of a group's on-screen display below it
+/// likewise while `swayosd-client` is installed or it is stored.
 pub fn has_row(model: &Model, setting: &sway_things_core::registry::Setting) -> bool {
     if setting.key() == BINDINGS {
         return false;
+    }
+    if let Some(group) = Group::of_osd(setting.key()) {
+        let group_shown = Registry::builtin()
+            .get(group.key)
+            .is_some_and(|switch| has_row(model, switch));
+        return group_shown && osd::has_row(model, setting);
     }
     Group::of(setting.key())
         .is_none_or(|group| group.installed() || model.stored_in(setting, None).is_some())

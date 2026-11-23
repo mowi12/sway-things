@@ -306,9 +306,15 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
   place (`unbindsym Mod4+d => bindsym $mod+p exec menu`; an unbind has no command, so the separator can't be part of
   one). Only a change item makes a row _Changed here_; an unbind next to an unrelated binding stays a removal and an
   addition. `shortcuts.media.volume`, `….brightness` and `….player` bind fixed keys with `--locked` (`wpctl`,
-  `brightnessctl`, `playerctl`; each switch needs its program). None of these settings has a sway directive. The keys
-  and the check of the items are defined in the registry and re-exported by `bindings::ours`; the check reads an item
-  with `bindings::item`, which imports neither the registry nor the state, so the registry stays the bottom layer.
+  `brightnessctl`, `playerctl`; each switch needs its program). `….volume_osd`, `….brightness_osd` and `….player_osd`
+  bind the same keys to `swayosd-client` instead (`Group::osd_keys`: `--output-volume raise`, `--brightness lower`,
+  `--playerctl play-pause`, …), which changes the value and shows it in SwayOSD's on-screen display; they only matter
+  while their group is on (`depends_on`). `crate::swayosd` tells whether `swayosd-client` is installed and whether
+  `swayosd-server` runs in this session (a process of that name in `/proc`, as for kanshi) or what starts it (an `exec`
+  of the user's config, an enabled systemd user unit `swayosd…`); Sway Things never starts it. None of these settings
+  has a sway directive. The keys and the check of the items are defined in the registry and re-exported by
+  `bindings::ours`; the check reads an item with `bindings::item`, which imports neither the registry nor the state, so
+  the registry stays the bottom layer.
 - **`50-bindings.conf`** (`ours::file_lines`): first every unbind, each after a placeholder of the same identity
   (`bindsym --no-warn Mod4+d nop`, then `unbindsym Mod4+d`). sway rejects an unbind of a binding it doesn't have, and
   the file is validated on its own (with nothing bound), so a bare unbind would never pass `sway --validate`, and would

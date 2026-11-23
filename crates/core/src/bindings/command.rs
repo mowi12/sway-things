@@ -703,10 +703,70 @@ fn describe_run(line: &str) -> Option<Msg> {
             "stop" => msg!("Stop playing"),
             _ => return None,
         },
+        "swayosd-client" => describe_osd(&words[1..])?,
         "swaylock" | "gtklock" | "waylock" => msg!("Lock the screen"),
         "swaynag" if line.contains("swaymsg exit") => msg!("Exit sway, after asking"),
         "grim" if line.contains("slurp") => msg!("Take a screenshot of an area"),
         "grim" => msg!("Take a screenshot"),
+        _ => return None,
+    })
+}
+
+/// What `swayosd-client` does with the arguments `args`, in words: the volume, the brightness or
+/// the player, with the on-screen display it shows. `--flag value` and `--flag=value` both count;
+/// a number is a step (`+5` or `5` up, `-5` down).
+fn describe_osd(args: &[&str]) -> Option<Msg> {
+    let mut action = None;
+    let mut words = args.iter();
+    while let Some(word) = words.next() {
+        let (flag, value) = match word.split_once('=') {
+            Some((flag, value)) => (flag, value),
+            None => (*word, *words.next().unwrap_or(&"")),
+        };
+        if matches!(
+            flag,
+            "--output-volume" | "--input-volume" | "--brightness" | "--playerctl"
+        ) {
+            action = Some((flag, value));
+        }
+    }
+    let (flag, value) = action?;
+    let up = match value {
+        "raise" => Some(true),
+        "lower" => Some(false),
+        number => number
+            .parse::<i32>()
+            .ok()
+            .filter(|step| *step != 0)
+            .map(|step| step > 0),
+    };
+    Some(match (flag, value, up) {
+        ("--output-volume", _, Some(true)) => msg!("Raise the volume, with an on-screen display"),
+        ("--output-volume", _, Some(false)) => msg!("Lower the volume, with an on-screen display"),
+        ("--output-volume", "mute-toggle" | "mute" | "unmute", _) => {
+            msg!("Mute or unmute the sound, with an on-screen display")
+        }
+        ("--input-volume", _, Some(true)) => {
+            msg!("Raise the microphone volume, with an on-screen display")
+        }
+        ("--input-volume", _, Some(false)) => {
+            msg!("Lower the microphone volume, with an on-screen display")
+        }
+        ("--input-volume", "mute-toggle" | "mute" | "unmute", _) => {
+            msg!("Mute or unmute the microphone, with an on-screen display")
+        }
+        ("--brightness", _, Some(true)) if value.starts_with('+') || value == "raise" => {
+            msg!("Brighten the screen, with an on-screen display")
+        }
+        ("--brightness", _, Some(false)) => msg!("Dim the screen, with an on-screen display"),
+        ("--playerctl", "play-pause" | "play" | "pause", _) => {
+            msg!("Play or pause, with an on-screen display")
+        }
+        ("--playerctl", "next", _) => msg!("Next track, with an on-screen display"),
+        ("--playerctl", "prev" | "previous", _) => {
+            msg!("Previous track, with an on-screen display")
+        }
+        ("--playerctl", "stop", _) => msg!("Stop playing, with an on-screen display"),
         _ => return None,
     })
 }

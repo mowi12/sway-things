@@ -85,7 +85,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
-| core | `bindings` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent ([Key bindings](Reading-Sway.md#key-bindings)) |
+| core | `bindings`, `swayosd` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent; whether SwayOSD, which the media keys can show, is installed and its server runs ([Key bindings](Reading-Sway.md#key-bindings)) |
 | core | `bluetooth`, `network`, `sound`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway, and the D-Bus helpers BlueZ and NetworkManager share ([Backends](Backends.md)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |

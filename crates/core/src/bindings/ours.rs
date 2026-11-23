@@ -14,6 +14,10 @@
 //! `sway --validate` on its own. So each unbind comes after a placeholder binding of the same
 //! keys (`bindsym --no-warn Mod4+d nop`) that replaces the user's quietly, if it is there, and is
 //! removed right away: the unbind always succeeds, also once the user's line is gone.
+//!
+//! A group of media keys can show an on-screen display with SwayOSD: its keys then run
+//! `swayosd-client`, which changes the volume, the brightness or the player itself and shows
+//! the new value ([`Group::osd_keys`], [`crate::swayosd`]).
 
 use super::keys::{self, Modifiers};
 use super::line::{Flags, Line, LineError};
@@ -25,7 +29,10 @@ use crate::registry::Value;
 use crate::state::State;
 
 pub use super::item::{CHANGE, Item, item_text, parse, parse_item, parse_strict};
-pub use crate::registry::shortcuts::{BINDINGS, BRIGHTNESS, MODIFIER, PLAYER, VOLUME, check_item};
+pub use crate::registry::shortcuts::{
+    BINDINGS, BRIGHTNESS, BRIGHTNESS_OSD, MODIFIER, PLAYER, PLAYER_OSD, VOLUME, VOLUME_OSD,
+    check_item,
+};
 
 /// The modifier `shortcuts.modifier` stands for, by the id of its choice.
 pub fn modifier_of(id: &str) -> Modifiers {
@@ -64,6 +71,11 @@ pub struct Group {
     pub tool: &'static str,
     /// The keys and command lines, all `--locked`, so they work on the lock screen too.
     pub keys: &'static [(&'static str, &'static str)],
+    /// The key of the switch that shows an on-screen display with SwayOSD.
+    pub osd: &'static str,
+    /// The command lines of the same keys with SwayOSD, in the same order: `swayosd-client`
+    /// does what the program does and shows the new value.
+    pub osd_keys: &'static [(&'static str, &'static str)],
     /// What the switch is called.
     pub title: Msg,
 }
@@ -91,6 +103,25 @@ pub const GROUPS: [Group; 3] = [
                 "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
             ),
         ],
+        osd: VOLUME_OSD,
+        osd_keys: &[
+            (
+                "XF86AudioRaiseVolume",
+                "swayosd-client --output-volume raise",
+            ),
+            (
+                "XF86AudioLowerVolume",
+                "swayosd-client --output-volume lower",
+            ),
+            (
+                "XF86AudioMute",
+                "swayosd-client --output-volume mute-toggle",
+            ),
+            (
+                "XF86AudioMicMute",
+                "swayosd-client --input-volume mute-toggle",
+            ),
+        ],
         title: msg!("Volume keys"),
     },
     Group {
@@ -102,6 +133,11 @@ pub const GROUPS: [Group; 3] = [
                 "XF86MonBrightnessDown",
                 "brightnessctl --min-value=1 set 5%-",
             ),
+        ],
+        osd: BRIGHTNESS_OSD,
+        osd_keys: &[
+            ("XF86MonBrightnessUp", "swayosd-client --brightness raise"),
+            ("XF86MonBrightnessDown", "swayosd-client --brightness lower"),
         ],
         title: msg!("Brightness keys"),
     },
@@ -115,6 +151,14 @@ pub const GROUPS: [Group; 3] = [
             ("XF86AudioPrev", "playerctl previous"),
             ("XF86AudioStop", "playerctl stop"),
         ],
+        osd: PLAYER_OSD,
+        osd_keys: &[
+            ("XF86AudioPlay", "swayosd-client --playerctl play-pause"),
+            ("XF86AudioPause", "swayosd-client --playerctl play-pause"),
+            ("XF86AudioNext", "swayosd-client --playerctl next"),
+            ("XF86AudioPrev", "swayosd-client --playerctl prev"),
+            ("XF86AudioStop", "swayosd-client --playerctl stop"),
+        ],
         title: msg!("Media player keys"),
     },
 ];
@@ -125,10 +169,15 @@ impl Group {
         GROUPS.into_iter().find(|group| group.key == key)
     }
 
-    /// The bindings of the group.
-    pub fn lines(self) -> Vec<Line> {
-        self.keys
-            .iter()
+    /// The group whose switch of the on-screen display has the key `key`.
+    pub fn of_osd(key: &str) -> Option<Self> {
+        GROUPS.into_iter().find(|group| group.osd == key)
+    }
+
+    /// The bindings of the group, with the on-screen display of SwayOSD if `osd`.
+    pub fn lines(self, osd: bool) -> Vec<Line> {
+        let keys = if osd { self.osd_keys } else { self.keys };
+        keys.iter()
             .filter_map(|(keys, run)| {
                 let command = super::Action::Run((*run).to_owned()).command().ok()?;
                 Some(Line {
@@ -150,6 +199,11 @@ impl Group {
     /// Whether its program is installed (in `$PATH`).
     pub fn installed(self) -> bool {
         crate::delegate::find_program(self.tool, std::env::var_os("PATH").as_deref()).is_some()
+    }
+
+    /// Whether its keys show the on-screen display in `state`.
+    pub fn osd_on(self, state: &State) -> bool {
+        state.get(self.osd, None) == Some(&Value::Bool(true))
     }
 }
 
@@ -232,7 +286,8 @@ pub fn file_lines(state: &State) -> Vec<FileLine> {
     }
     for group in GROUPS {
         if state.get(group.key, None) == Some(&Value::Bool(true)) {
-            lines.extend(group.lines().into_iter().map(|line| FileLine {
+            let osd = group.osd_on(state);
+            lines.extend(group.lines(osd).into_iter().map(|line| FileLine {
                 origin: Origin::Group(group.key),
                 line: Ok(line),
                 no_warn: true,

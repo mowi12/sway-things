@@ -199,6 +199,10 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   binding of Sway Things moves the focus to the row after it; switching off the volume keys and changing the main
   modifier leave the focused control where it was on screen. The Workspaces map keeps the focus on the number clicked,
   on its new card.
+- SwayOSD (`swayosd.rs`): the switch of the volume keys' display shows only with a stand-in `swayosd-client` in the
+  model's search path, or while it is stored; switched on, the volume keys run `swayosd-client` and their rows say _with
+  an on-screen display_. Its note says how to start `swayosd-server` while nothing does, where the config starts it with
+  an `exec` line, and goes away while a stand-in process named `swayosd-server` runs.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

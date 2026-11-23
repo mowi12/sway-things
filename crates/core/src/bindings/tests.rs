@@ -7,7 +7,7 @@ use std::path::Path;
 use proptest::prelude::*;
 
 use super::keys::{self, Key, Modifiers};
-use super::ours::{self, BINDINGS, MODIFIER, VOLUME};
+use super::ours::{self, BINDINGS, MODIFIER, PLAYER, PLAYER_OSD, VOLUME, VOLUME_OSD};
 use super::*;
 use crate::command::Target;
 use crate::command::model;
@@ -250,6 +250,57 @@ fn actions_make_commands_and_are_read_back() {
 }
 
 #[test]
+fn swayosd_commands_are_described_with_their_display() {
+    let described = |command: &str| describe(command).map(|text| text.english());
+    for (command, text) in [
+        (
+            "exec swayosd-client --output-volume raise",
+            "Raise the volume, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --output-volume -10 --device alsa_output.x",
+            "Lower the volume, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --output-volume=mute-toggle",
+            "Mute or unmute the sound, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --input-volume mute-toggle",
+            "Mute or unmute the microphone, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --monitor DP-1 --brightness +10",
+            "Brighten the screen, with an on-screen display",
+        ),
+        (
+            "exec /usr/bin/swayosd-client --brightness lower",
+            "Dim the screen, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --playerctl play-pause",
+            "Play or pause, with an on-screen display",
+        ),
+        (
+            "exec swayosd-client --playerctl prev",
+            "Previous track, with an on-screen display",
+        ),
+    ] {
+        assert_eq!(described(command).as_deref(), Some(text), "{command}");
+        assert_eq!(Category::of(command), Category::Media, "{command}");
+    }
+    // A brightness without a sign sets it, and the caps lock only shows: the command shows.
+    assert_eq!(
+        described("exec swayosd-client --brightness 40").as_deref(),
+        Some("Run swayosd-client --brightness 40")
+    );
+    assert_eq!(
+        described("exec swayosd-client --caps-lock").as_deref(),
+        Some("Run swayosd-client --caps-lock")
+    );
+}
+
+#[test]
 fn commands_are_described_and_grouped() {
     let described = |command: &str| describe(command).map(|text| text.english());
     assert_eq!(described("kill").as_deref(), Some("Close the window"));
@@ -469,6 +520,84 @@ fn the_generated_file_unbinds_safely_then_binds() {
         .collect();
     assert_eq!(ipc[6], "bindsym Mod1+Return 'exec \"foot\"'");
     assert_eq!(ipc[0], "bindsym --to-code --no-warn Mod4+d \"nop\"");
+}
+
+#[test]
+fn the_media_keys_show_an_on_screen_display_with_swayosd() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut state = state(&dir);
+    state.set(VOLUME, None, Value::Bool(true), None).unwrap();
+    state
+        .set(VOLUME_OSD, None, Value::Bool(true), None)
+        .unwrap();
+    state.set(PLAYER, None, Value::Bool(true), None).unwrap();
+    // The display of the player keys alone binds nothing: their switch is off.
+    state
+        .set(PLAYER_OSD, None, Value::Bool(false), None)
+        .unwrap();
+    state
+        .set(
+            "shortcuts.media.brightness_osd",
+            None,
+            Value::Bool(true),
+            None,
+        )
+        .unwrap();
+    let lines: Vec<String> = ours::file_lines(&state)
+        .iter()
+        .map(|line| line.command().unwrap().render(Target::Config).unwrap())
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            "bindsym --locked --no-warn XF86AudioRaiseVolume exec \"swayosd-client --output-volume raise\"",
+            "bindsym --locked --no-warn XF86AudioLowerVolume exec \"swayosd-client --output-volume lower\"",
+            "bindsym --locked --no-warn XF86AudioMute exec \"swayosd-client --output-volume mute-toggle\"",
+            "bindsym --locked --no-warn XF86AudioMicMute exec \"swayosd-client --input-volume mute-toggle\"",
+            "bindsym --locked --no-warn XF86AudioPlay exec \"playerctl play-pause\"",
+            "bindsym --locked --no-warn XF86AudioPause exec \"playerctl play-pause\"",
+            "bindsym --locked --no-warn XF86AudioNext exec \"playerctl next\"",
+            "bindsym --locked --no-warn XF86AudioPrev exec \"playerctl previous\"",
+            "bindsym --locked --no-warn XF86AudioStop exec \"playerctl stop\"",
+        ]
+    );
+    // Each group binds the same keys either way, so switching the display swaps the commands.
+    for group in ours::GROUPS {
+        let keys = |osd: bool| -> Vec<String> {
+            group
+                .lines(osd)
+                .iter()
+                .map(|line| line.keys.clone())
+                .collect()
+        };
+        assert_eq!(keys(false), keys(true), "{}", group.key);
+        assert_eq!(keys(true).len(), group.osd_keys.len(), "{}", group.key);
+        assert_eq!(ours::Group::of_osd(group.osd), Some(group));
+        let setting = Registry::builtin().get(group.osd).unwrap();
+        assert_eq!(
+            setting.dependency().map(|dependency| dependency.key),
+            Some(group.key)
+        );
+    }
+    // The listing says the keys are the group's, in words with the display.
+    let locations = locations();
+    let listing = Listing::new(
+        &status(USER, &locations),
+        &state,
+        &locations.path(crate::registry::ConfigFile::Bindings),
+        None,
+    );
+    let raise = listing
+        .rows()
+        .iter()
+        .find(|row| row.line.keys == "XF86AudioRaiseVolume")
+        .unwrap();
+    assert_eq!(raise.kind, RowKind::Group { key: VOLUME });
+    assert_eq!(
+        raise.description().map(|text| text.english()).as_deref(),
+        Some("Raise the volume, with an on-screen display")
+    );
+    assert_eq!(raise.category(), Category::Media);
 }
 
 /// The arguments a config line gives its handler, as text.

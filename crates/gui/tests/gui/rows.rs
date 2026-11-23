@@ -203,11 +203,14 @@ pub(crate) fn check_rows() -> Outcome {
             .filter(|setting| setting.page() == page)
             .map(sway_things_core::registry::Setting::key)
             // The list of bindings is the page's own list; a switch of media keys shows while
-            // its program is installed.
+            // its program is installed, the switch of its on-screen display while SwayOSD is.
             .filter(|key| {
-                *key != sway_things_core::bindings::ours::BINDINGS
-                    && sway_things_core::bindings::ours::Group::of(key)
-                        .is_none_or(sway_things_core::bindings::ours::Group::installed)
+                use sway_things_core::bindings::ours::{BINDINGS, Group};
+                *key != BINDINGS
+                    && Group::of(key).is_none_or(Group::installed)
+                    && Group::of_osd(key).is_none_or(|group| {
+                        group.installed() && sway_things_core::swayosd::installed()
+                    })
             })
             .collect();
         let content = window

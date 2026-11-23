@@ -333,6 +333,14 @@ click away in the binding's dialog.
 - **Media keys:** a switch each for the volume (`wpctl`), brightness (`brightnessctl`) and media player keys
   (`playerctl`), shown only while the program is installed (or the switch is on, so it can be switched off). Below a
   switch, what its keys replace of the user's config or what wins over them.
+- **On-screen display:** below each of those switches, _Show an on-screen display (SwayOSD)_: its keys run
+  `swayosd-client` instead, which changes the value and shows it. It is shown while `swayosd-client` is installed (or it
+  is on), greyed out while its group is off. While it is on and `swayosd-server` doesn't run, a warning below it says
+  that the keys do nothing and how to start the server with sway: _Add exec swayosd-server to your sway config…_, or,
+  when the config or an enabled user service starts it, where. Sway Things doesn't start it (no daemon); the note is
+  checked again when the window comes back to the front. The rows say what the keys do with it (_Raise the volume, with
+  an on-screen display_). The keyboard backlight has no switch: `swayosd-client` has no action for it, and the server
+  shows a change the hardware makes by itself.
 - **A change keeps the place:** removing, changing or putting back a binding, a media key switch, the main modifier and
   the search build the list again without moving the page: the row that had the focus keeps it (the same binding, or the
   row after a removed one) and stays where it was on screen (a removal keeps the scroll position, so the rows after it
