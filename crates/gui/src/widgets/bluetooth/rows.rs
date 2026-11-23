@@ -6,7 +6,7 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::bluetooth::{Device, Error};
+use sway_things_core::bluetooth::{Adapter, Device, Error};
 use sway_things_core::i18n::Text;
 
 use super::super::Placeholder;
@@ -31,26 +31,7 @@ impl BluetoothPage {
         imp.missing.set_visible(false);
         imp.controls.set_visible(true);
 
-        let block = imp.block.get().unwrap_or_default();
-        imp.power.set_active(adapter.powered);
-        imp.power.set_state(adapter.powered);
-        imp.power.set_sensitive(!block.hard);
-        imp.power_subtitle.set_text(&if adapter.powered {
-            trf(
-                msg!("Visible as “{name}” · {address}"),
-                &[("name", &adapter.name), ("address", &adapter.address)],
-            )
-        } else {
-            tr(msg!("Off")).to_owned()
-        });
-        imp.adapter_menu.set_sensitive(adapter.powered);
-        imp.adapter_rename.set_sensitive(adapter.powered);
-        imp.visible.set_active(adapter.discoverable);
-        imp.visible.set_state(adapter.discoverable);
-        imp.visible.set_sensitive(adapter.powered);
-        imp.visible_subtitle
-            .set_text(&visible_text(adapter.discoverable_timeout));
-        self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
+        self.render_adapter(adapter);
 
         // In manual mode the spinner is in the Search button instead.
         let searching = adapter.powered && adapter.discovering && !imp.manual.get();
@@ -123,6 +104,39 @@ impl BluetoothPage {
                 None
             },
         );
+    }
+
+    /// Shows the power, name and visibility of `adapter`, and the placeholder while it is off.
+    fn render_adapter(&self, adapter: &Adapter) {
+        let imp = self.imp();
+        let block = imp.block.get().unwrap_or_default();
+        // While BlueZ hasn't answered a change, the knob stays where it was put; the switch's
+        // state (its color) still shows the radio.
+        if let Some(asked) = imp.power_pending.get() {
+            imp.power.set_active(asked);
+        } else {
+            imp.power.set_active(adapter.powered);
+            imp.power.set_state(adapter.powered);
+        }
+        // Insensitive until BlueZ answered, so a change can't be undone halfway.
+        imp.power
+            .set_sensitive(!block.hard && imp.power_pending.get().is_none());
+        imp.power_subtitle.set_text(&if adapter.powered {
+            trf(
+                msg!("Visible as “{name}” · {address}"),
+                &[("name", &adapter.name), ("address", &adapter.address)],
+            )
+        } else {
+            tr(msg!("Off")).to_owned()
+        });
+        imp.adapter_menu.set_sensitive(adapter.powered);
+        imp.adapter_rename.set_sensitive(adapter.powered);
+        imp.visible.set_active(adapter.discoverable);
+        imp.visible.set_state(adapter.discoverable);
+        imp.visible.set_sensitive(adapter.powered);
+        imp.visible_subtitle
+            .set_text(&visible_text(adapter.discoverable_timeout));
+        self.show_off((!adapter.powered).then_some((block.hard, block.soft)));
     }
 
     /// Shows the placeholder for a radio that is off (with whether it is hard and soft blocked)

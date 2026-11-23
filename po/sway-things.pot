@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 22:22+0100\n"
+"POT-Creation-Date: 2026-11-23 22:23+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -8447,11 +8447,6 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: crates/gui/src/widgets/bluetooth/rows.rs
-#, rust-format
-msgid "Visible as “{name}” · {address}"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/rows.rs
 msgid "No paired devices yet. Pick one under Other devices to connect it."
 msgstr ""
 
@@ -8459,6 +8454,11 @@ msgstr ""
 msgid ""
 "No other devices found yet. Put the device you want to connect into pairing "
 "mode."
+msgstr ""
+
+#: crates/gui/src/widgets/bluetooth/rows.rs
+#, rust-format
+msgid "Visible as “{name}” · {address}"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/rows.rs
