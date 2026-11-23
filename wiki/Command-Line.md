@@ -84,13 +84,15 @@ the file and line, the setting and device where they apply, and what `--fix` doe
   distribution (`PRETTY_NAME` of `/etc/os-release`, else `/usr/lib/os-release`), NetworkManager (its `Version` property,
   asked only while its bus name has an owner, so the question doesn't start it), the sound server (its name, which for
   pipewire-pulse carries PipeWire's version, from libpulse's server info; `not running` without one, answered at once)
-  and the kernel (`/proc/sys/kernel/osrelease`), and whether nm-connection-editor, blueman-manager, pwvucontrol,
-  pavucontrol and the programs of Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder,
-  wl-screenrec) are in `PATH`, without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a
-  `GApplication` option handled before the app registers on the bus, so it needs no display and reaches no running
-  instance) and reads its `GTK` line; without the app the value is `unknown`. BlueZ (no version on D-Bus, `bluetoothd`
-  in a different `libexec` per distribution) and wlroots (reported neither by IPC nor by `sway --version`) are left out:
-  an unreliable value is worse than none.
+  CUPS (the version in the `Server` header of its answer to `CUPS-Get-Default`; `not running` without an answer),
+  whether cups-pk-helper is installed (its D-Bus system service file), and the kernel (`/proc/sys/kernel/osrelease`),
+  and whether nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol, system-config-printer and the programs of
+  Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec) are in `PATH`,
+  without a version. The CLI doesn't link GTK, so it runs `sway-things-gui --version` (a `GApplication` option handled
+  before the app registers on the bus, so it needs no display and reaches no running instance) and reads its `GTK` line;
+  without the app the value is `unknown`. BlueZ (no version on D-Bus, `bluetoothd` in a different `libexec` per
+  distribution) and wlroots (reported neither by IPC nor by `sway --version`) are left out: an unreliable value is worse
+  than none.
 - **Severity:** a problem means a stored setting doesn't take effect, nothing can be saved, or sway reports errors when
   it starts. A warning is worth knowing, but the settings work. A dead line of the user's is ok: that is what storing a
   value means.

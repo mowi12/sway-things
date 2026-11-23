@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # The newest sway release, from Arch Linux. Its sway binary has the cap_sys_nice file capability, which containers
-# don't grant, so the image removes it.
+# don't grant, so the image removes it. CUPS's stand-in runs cupsd as the tester, which Arch installs for root only.
 FROM archlinux:base@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
 
 RUN pacman -Syu --noconfirm sway kanshi rust gcc gtk4 gtk4-layer-shell libpulse pkgconf ttf-dejavu python-dbusmock \
-    pipewire pipewire-pulse wireplumber \
+    pipewire pipewire-pulse wireplumber cups \
   && pacman -Scc --noconfirm \
   && setcap -r /usr/bin/sway \
+  && chmod 755 /usr/sbin/cupsd \
   && useradd --create-home tester \
   && install -d -o tester /work
 

@@ -58,6 +58,8 @@ pub enum Page {
     Bluetooth,
     /// Network
     Network,
+    /// Printers
+    Printers,
     /// Windows, including the SwayFX effects
     Windows,
     /// Wallpaper
@@ -94,7 +96,7 @@ pub enum Page {
 
 impl Page {
     /// Every page, in sidebar order: grouped as in [`Group::ALL`].
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::MouseTouchpad,
         Self::Keyboard,
         Self::CursorTablet,
@@ -102,6 +104,7 @@ impl Page {
         Self::Sound,
         Self::Bluetooth,
         Self::Network,
+        Self::Printers,
         Self::Windows,
         Self::Wallpaper,
         Self::AppsLookFeel,
@@ -135,6 +138,7 @@ impl Page {
             Self::Sound => "sound",
             Self::Bluetooth => "bluetooth",
             Self::Network => "network",
+            Self::Printers => "printers",
             Self::Windows => "windows",
             Self::Wallpaper => "wallpaper",
             Self::AppsLookFeel => "apps-look-feel",
@@ -163,7 +167,8 @@ impl Page {
             | Self::Displays
             | Self::Sound
             | Self::Bluetooth
-            | Self::Network => Group::Devices,
+            | Self::Network
+            | Self::Printers => Group::Devices,
             Self::Windows | Self::Wallpaper | Self::AppsLookFeel | Self::Bar => Group::Appearance,
             Self::WindowBehavior
             | Self::Workspaces
@@ -190,6 +195,7 @@ impl Page {
             Self::Sound => msg!("Sound"),
             Self::Bluetooth => msg!("Bluetooth"),
             Self::Network => msg!("Network"),
+            Self::Printers => msg!("Printers"),
             Self::Windows => msg!("Windows"),
             Self::Wallpaper => msg!("Wallpaper"),
             Self::AppsLookFeel => msg!("Apps Look & Feel"),
@@ -219,6 +225,7 @@ impl Page {
             Self::Sound => msg!("Devices, volume and per-application levels"),
             Self::Bluetooth => msg!("Turn Bluetooth on and off, find and connect devices"),
             Self::Network => msg!("Wi-Fi networks, wired and VPN connections"),
+            Self::Printers => msg!("Add printers, see their ink and toner, and the print queue"),
             Self::Windows => msg!("Borders, colors, gaps and title bars of tiled windows"),
             Self::Wallpaper => msg!("Background image or color per output"),
             Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),
@@ -237,6 +244,22 @@ impl Page {
             Self::Accessibility => msg!("Larger cursor, larger text and key repeat"),
             Self::Environment => msg!("Environment variables and Wayland compatibility"),
             Self::About => msg!("Versions, config check, history and Sway Things preferences"),
+        }
+    }
+
+    /// More words a search finds the page by: for pages without settings, what they are about.
+    pub const fn keywords(self) -> &'static [Msg] {
+        match self {
+            Self::Printers => &[
+                msg!("printer"),
+                msg!("print"),
+                msg!("toner"),
+                msg!("ink"),
+                msg!("paper"),
+                msg!("print queue"),
+                msg!("CUPS"),
+            ],
+            _ => &[],
         }
     }
 }

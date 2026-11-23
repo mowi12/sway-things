@@ -122,8 +122,9 @@ pub(crate) fn check_about() -> Outcome {
     );
     ensure(
         copied.starts_with(&start)
-            && copied
-                .contains("\nNetworkManager: not running\nSound server: not running\nKernel: ")
+            && copied.contains("\nNetworkManager: not running\nSound server: not running\n")
+            && copied.contains("\nCUPS: not running\ncups-pk-helper: ")
+            && copied.contains("installed\nKernel: ")
             && copied.contains("\nnm-connection-editor: ")
             && copied.ends_with("installed\n"),
         &format!("  Copy System Details copied {copied:?}"),

@@ -191,6 +191,14 @@
   (Wi-Fi passwords, a VPN plugin's fields, the steps of an OpenConnect sign-in), renaming, passwords, hidden networks
   and forgetting. Device, network and app names are untrusted and only ever set as plain label text. The tests run the
   pages against the stand-ins of `bluetooth::stand_in`, `network::stand_in` and `sound::stand_in`.
+- **Printers page** (`crates/gui/src/widgets/printers/`; its rows in `rows.rs`, what they do in `actions.rs`, the
+  dialogs for adding a printer, its details and removing it in `dialogs.rs`, the ink and toner bars in `supplies.rs`):
+  live like the pages above, but CUPS has no change stream to follow, so it reads a snapshot every 2 s while it is on
+  screen and its window isn't suspended, at once when it comes on screen, and after each action
+  ([Backends](Backends.md)). `window::live_view` puts it under its title with its _Advanced…_ button
+  (system-config-printer, else CUPS's web interface), and its sections, rows and hints are those of `widgets/list.rs`.
+  Printer names, models, locations, job titles and owners are only ever set as plain label text. The tests run it
+  against the stand-ins of `printers::stand_in`.
 - **Workspaces page** (`crates/gui/src/widgets/workspaces.rs`): below the rows of `workspaces.count` and
   `workspaces.placement`, a map with a card per display that takes workspaces, holding the numbers the placement rule
   gives it (`Model::placement`). A click on a number sends it to the next display, a drag onto another card puts it

@@ -81,6 +81,7 @@ the view of the generated config and the app's own preferences. The other pages 
 - **Sound:** output and input devices, volume, per-app volume, device profiles
 - **Bluetooth:** turning it on and off, finding, pairing and connecting devices
 - **Network:** Wi-Fi networks and their passwords, hidden networks, wired and VPN connections, VPN sign-in
+- **Printers:** driverless printers added in a click, their state and ink, the default printer and the print queue
 
 ### Appearance
 
