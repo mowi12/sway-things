@@ -739,7 +739,7 @@ being dragged stays under the pointer when its first change stores a value.
 
 | Indicator | When | Shown as | Actions |
 | --- | --- | --- | --- |
-| **Reset** | the value is stored in Sway Things | ↺ button | removes the value (for one device: back to the value of all devices of the type); a risky setting goes through the safety net |
+| **Reset** | the value is stored in Sway Things | ↺ button | removes the value: back to the value of the user's config where it sets one (tooltip _Use your config's value_, with the other settings of its line, and sent at once), else the default (_Reset to default_); for one device back to the value of all devices of the type; a risky setting goes through the safety net |
 | **This machine only** | the value is stored | computer toggle, pressed for the host overlay; new values of device- and output-bound settings start there | moves the value between `settings.toml` and the host overlay |
 | **Your config wins** | a line of the user's config after our include overrides the stored value | badge marked for attention (warning icon and border) and a ⋮ menu | the menu shows file:line and the line, then _Let my config win_, _Open config in editor_, _Copy line_ |
 | **Overridden** | a line of the user's config before our include is dead while the value is stored | plain badge and a ⋮ menu | as above |

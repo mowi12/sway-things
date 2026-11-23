@@ -27,8 +27,12 @@
   need the write permission of an active [include status](Reading-Sway.md#include-detection).
 - **A failed command changes nothing:** the state is as before, and commands of the same directive that were already
   sent are undone with the previous values.
-- **Reset** removes the stored value and sends sway's default (for one device: the value of its type). A value the
-  user's own config sets is back after the next reload of sway. A reset of a setting that isn't stored sends nothing.
+- **Reset** of one setting (`Applier::reset_to_config`, for the row's ↺ and `sway-things reset`) works like a page
+  reset: where a line of the user's config sets the value, it wins as _Let my config win_ makes it (all settings of the
+  directive at once, the user's value sent at once), under the same conditions; for one device or output also only while
+  nothing is stored for all of them, whose value applies then. Else it removes the stored value and sends sway's default
+  (for one device: the value of its type). A reload of sway wouldn't do: `gaps inner 8` in the config sets only the gaps
+  of new workspaces. A reset of a setting that isn't stored sends nothing.
 - **A page reset** (`Applier::reset_page`) resets every stored value of the page, as `PageReset::plan` lists them,
   except the risky ones, which only the safety net changes, and the wallpaper collections, which the user made rather
   than set. Where a line of the user's config sets a value, the page reset lets it win as _Let my config win_ does (all

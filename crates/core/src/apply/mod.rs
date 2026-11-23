@@ -48,7 +48,7 @@ mod view;
 mod waiting;
 
 pub use error::ApplyError;
-pub use page::{PageReset, PageResetErrors};
+pub use page::{PageReset, PageResetErrors, resets_to_users_line};
 pub use risky::{Countdown, Pending, Trial, Tried, TriedValue};
 pub use view::{InEffect, in_effect};
 pub use waiting::{Until, Waiting, WaitingChange};
@@ -622,8 +622,10 @@ impl<V: Validate> Applier<V> {
     }
 
     /// Removes the stored value of `key`, so Sway Things no longer manages the setting, and sends
-    /// its default to the session (for one device: the value of its type). The user's own config
-    /// may set another value, which is back after the next reload of sway.
+    /// its default to the session (for one device: the value of its type), whatever the user's
+    /// own config sets. A reload of sway doesn't always bring the user's value back (`gaps inner`
+    /// in the config sets only the default of new workspaces), so a reset the user asks for goes
+    /// through [`Applier::reset_to_config`], which sends the user's value.
     ///
     /// # Errors
     ///

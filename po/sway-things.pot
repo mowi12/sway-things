@@ -129,6 +129,17 @@ msgstr ""
 
 #: crates/cli/src/change.rs
 #, rust-format
+msgid "Reset {setting} to your config's value."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
+msgid ""
+"Reset {setting} and the other settings of its line to your config's value."
+msgstr ""
+
+#: crates/cli/src/change.rs
+#, rust-format
 msgid "Reset {setting} to its default."
 msgstr ""
 
@@ -10200,6 +10211,10 @@ msgstr ""
 msgid ""
 "Apps use {value} now, set by another tool. Sway Things sets its own again "
 "when sway starts or reloads."
+msgstr ""
+
+#: crates/gui/src/widgets/setting_row/indicators.rs
+msgid "Use your config's value"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row/indicators.rs

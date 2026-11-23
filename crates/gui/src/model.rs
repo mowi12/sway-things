@@ -660,8 +660,29 @@ impl Model {
         Report::check(&core.status, setting, device, core.known())
     }
 
+    /// Whether a reset of `setting` for `device` goes back to the value of the user's config
+    /// (and sends it) rather than to sway's default, as [`Model::reset`] does it.
+    pub fn resets_to_config(&self, setting: &'static Setting, device: Option<&str>) -> bool {
+        let Some(report) = self.report(setting, device) else {
+            return false;
+        };
+        let core = self.imp().core.borrow();
+        core.as_ref().is_some_and(|core| {
+            if setting.apply() == Apply::Risky {
+                // The safety net sends the value in effect without ours: the user's, unless one
+                // stored for all devices applies.
+                report.user_value().is_some()
+                    && (device.is_none() || core.state.get(setting.key(), None).is_none())
+            } else {
+                sway_things_core::apply::resets_to_users_line(&core.state, setting, device, &report)
+            }
+        })
+    }
+
     /// Removes the stored value of `key` for `device`, so the user's config or sway's default
-    /// decides it again. A risky setting is tried with the safety net first.
+    /// decides it again, and sends that value: where a line of the user's config sets it, with
+    /// the rest of its directive ([`Model::resets_to_config`]). A risky setting is tried with the
+    /// safety net first.
     pub fn reset(&self, key: &'static str, device: Option<&str>) {
         self.queue(Op::Reset {
             key,

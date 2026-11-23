@@ -119,7 +119,7 @@ pub enum Command {
         #[arg(long)]
         overwrite: bool,
     },
-    /// Remove the stored value of a setting and apply its default
+    /// Remove the stored value of a setting and apply the value of your config, else its default
     Reset {
         /// The setting, e.g. windows.gaps.inner
         key: String,
@@ -567,6 +567,10 @@ pub async fn run<V: Validate>(
         Err(exit) => return exit,
     };
     let resolved = |key: Option<&str>, device: Option<&str>| displays.resolve(key, device);
+    let known = Known {
+        devices: None,
+        outputs: displays.outputs.as_ref(),
+    };
     match command {
         Command::Get {
             key,
@@ -577,10 +581,6 @@ pub async fn run<V: Validate>(
             let device = match collection {
                 Some(collection) => Some(collection.clone()),
                 None => resolved(key.as_deref(), device.as_deref()),
-            };
-            let known = Known {
-                devices: None,
-                outputs: displays.outputs.as_ref(),
             };
             get(
                 session,
@@ -632,6 +632,7 @@ pub async fn run<V: Validate>(
                 key,
                 device: device.as_deref(),
                 yes: *yes,
+                known,
             };
             follow_combination(session, key, &mut io).await;
             let exit = reset(session, &reset_of, *overwrite, prompt, &mut io).await;
