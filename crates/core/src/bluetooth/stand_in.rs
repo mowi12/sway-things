@@ -176,25 +176,65 @@ impl StandIn {
         let path: String = self.mock_call("AddDevice", &(id, address, alias)).await?;
         // The template's Connect and Disconnect send the signal but leave the property as it
         // was, so GetManagedObjects would still report the old state.
-        for (method, connected, error) in [
-            ("Connect", "True", "AlreadyConnected"),
-            ("Disconnect", "False", "NotConnected"),
-        ] {
-            let code = format!(
-                "if bool(self.props['org.bluez.Device1']['Connected']) == {connected}:\n    \
-                 raise dbus.exceptions.DBusException('{error}', name='org.bluez.Error.{error}')\n\
-                 self.UpdateProperties('org.bluez.Device1', \
-                 {{'Connected': dbus.Boolean({connected})}})\n"
-            );
-            self.call(
-                &path,
-                DBUS_MOCK,
-                "AddMethod",
-                &("org.bluez.Device1", method, "", "", code.as_str()),
-            )
-            .await?;
+        for (method, connected) in [("Connect", true), ("Disconnect", false)] {
+            self.add_method(&path, method, &connection_code(connected))
+                .await?;
         }
         Ok(path)
+    }
+
+    /// Makes `Connect` of `device` (its path) take `seconds` before it connects, as with a device
+    /// that is slow to answer. dbusmock answers one call at a time, so a `Disconnect` sent
+    /// meanwhile runs after it.
+    ///
+    /// # Errors
+    ///
+    /// If the stand-in refuses.
+    pub async fn connect_waits(&self, device: &str, seconds: u32) -> Result<(), Error> {
+        let code = format!(
+            "import time\ntime.sleep({seconds})\n{}",
+            connection_code(true)
+        );
+        self.add_method(device, "Connect", &code).await
+    }
+
+    /// Makes `Pair` of `device` (its path) take `seconds` before it pairs, without asking the
+    /// agent, and `CancelPairing` undo the pairing. dbusmock answers one call at a time, so a
+    /// `CancelPairing` sent meanwhile runs after it and leaves the device unpaired, as BlueZ does.
+    ///
+    /// # Errors
+    ///
+    /// If the stand-in refuses.
+    pub async fn pair_waits(&self, device: &str, seconds: u32) -> Result<(), Error> {
+        for (method, code) in [
+            (
+                "Pair",
+                format!(
+                    "import time\ntime.sleep({seconds})\n\
+                     self.UpdateProperties('org.bluez.Device1', {{'Paired': dbus.Boolean(True)}})\n"
+                ),
+            ),
+            (
+                "CancelPairing",
+                "self.UpdateProperties('org.bluez.Device1', {'Paired': dbus.Boolean(False)})\n"
+                    .to_owned(),
+            ),
+        ] {
+            self.add_method(device, method, &code).await?;
+        }
+        Ok(())
+    }
+
+    /// Replaces `method` of `org.bluez.Device1` on the object at `path` with the Python `code`,
+    /// without arguments or a result.
+    async fn add_method(&self, path: &str, method: &str, code: &str) -> Result<(), Error> {
+        self.call(
+            path,
+            DBUS_MOCK,
+            "AddMethod",
+            &("org.bluez.Device1", method, "", "", code),
+        )
+        .await
     }
 
     /// Pairs the device with `address` of the adapter `id`, as if it was paired elsewhere.
@@ -277,13 +317,7 @@ impl StandIn {
              self.UpdateProperties('org.bluez.Device1', {{'Paired': dbus.Boolean(True)}})\n",
             path = agent::PATH,
         );
-        self.call(
-            device,
-            DBUS_MOCK,
-            "AddMethod",
-            &("org.bluez.Device1", "Pair", "", "", code.as_str()),
-        )
-        .await
+        self.add_method(device, "Pair", &code).await
     }
 
     /// The arguments of each call of `method` on the object at `path`.
@@ -341,6 +375,22 @@ impl StandIn {
             .await?;
         Ok(())
     }
+}
+
+/// The Python code of `Connect` (`connected`) or `Disconnect`: it fails like BlueZ if the device
+/// is in that state already, and sets the property, which the template's own methods leave as it
+/// was (so `GetManagedObjects` would still report the old state).
+fn connection_code(connected: bool) -> String {
+    let (state, error) = if connected {
+        ("True", "AlreadyConnected")
+    } else {
+        ("False", "NotConnected")
+    };
+    format!(
+        "if bool(self.props['org.bluez.Device1']['Connected']) == {state}:\n    \
+         raise dbus.exceptions.DBusException('{error}', name='org.bluez.Error.{error}')\n\
+         self.UpdateProperties('org.bluez.Device1', {{'Connected': dbus.Boolean({state})}})\n"
+    )
 }
 
 impl Drop for StandIn {

@@ -97,6 +97,8 @@ pub(crate) fn check_bluetooth() -> Outcome {
         "  a Search button while the page searches by itself",
     )?;
 
+    check_bluetooth_cancel(&page, &stand_in)?;
+
     page.device_button("Headset")
         .ok_or("  no button for the headset")?
         .emit_clicked();
@@ -318,6 +320,100 @@ pub(crate) fn check_bluetooth_manual(dark: bool) -> Outcome {
     )?;
     window.destroy();
     set_dark(&settings, false);
+    Ok(())
+}
+
+/// Canceling on `page`, against [`bluetooth_stand_in`] with the headset not connected and the
+/// speaker not paired: while a slow connection or pairing runs, the row's button reads "Cancel";
+/// canceling sends `Disconnect` or `CancelPairing`, shows no error and puts the row back.
+pub(crate) fn check_bluetooth_cancel(page: &BluetoothPage, stand_in: &StandIn) -> Outcome {
+    let headset = format!("/org/bluez/hci0/dev_{}", HEADSET.replace(':', "_"));
+    let speaker = format!("/org/bluez/hci0/dev_{}", SPEAKER.replace(':', "_"));
+    let calls = |path: &str, method: &str| {
+        async_io::block_on(stand_in.calls(path, method)).map_or(0, |calls| calls.len())
+    };
+    let row_of = |mine: bool, name: &str| {
+        page.device_rows(mine)
+            .into_iter()
+            .find(|(row, _, _)| row == name)
+    };
+    for (name, path, mine, running, cancel, back) in [
+        (
+            "Headset",
+            &headset,
+            true,
+            "Connecting…",
+            "Disconnect",
+            "Not connected",
+        ),
+        (
+            "Speaker",
+            &speaker,
+            false,
+            "Pairing…",
+            "CancelPairing",
+            "Not paired",
+        ),
+    ] {
+        async_io::block_on(async {
+            if mine {
+                stand_in.connect_waits(path, 2).await
+            } else {
+                stand_in.pair_waits(path, 2).await
+            }
+        })
+        .map_err(|error| format!("  {error}"))?;
+        let button = page
+            .device_button(name)
+            .ok_or_else(|| format!("  no button for {name}"))?;
+        button.emit_clicked();
+        ensure(
+            run_until(Duration::from_secs(2), || {
+                row_of(mine, name).is_some_and(|(_, status, label)| {
+                    status.starts_with(running) && label == "Cancel"
+                })
+            }),
+            &format!(
+                "  {name}: no Cancel while it runs: {:?}",
+                row_of(mine, name)
+            ),
+        )?;
+        ensure(
+            button.is_sensitive(),
+            &format!("  {name}: Cancel can't be pressed"),
+        )?;
+        // The row says "Cancel" before the call goes out (pairing registers the agent first):
+        // give it time to reach the stand-in, well within the call's two seconds.
+        run_until(Duration::from_millis(500), || false);
+        button.emit_clicked();
+        ensure(
+            run_until(Duration::from_secs(10), || {
+                row_of(mine, name).is_some_and(|(_, status, label)| {
+                    status.starts_with(back) && label == "Connect"
+                })
+            }),
+            &format!(
+                "  {name}: the row didn't go back: {:?} / {:?}; error: {}",
+                page.device_rows(true),
+                page.device_rows(false),
+                page.error_text()
+            ),
+        )?;
+        ensure(
+            calls(path, cancel) == 1,
+            &format!("  {name}: {cancel} wasn't sent once"),
+        )?;
+        ensure(
+            page.error_text().is_empty(),
+            &format!("  {name}: an error after canceling: {}", page.error_text()),
+        )?;
+    }
+    ensure(
+        calls(&speaker, "Connect") == 0,
+        "  the canceled pairing went on to connect",
+    )?;
+    async_io::block_on(stand_in.connect_waits(&headset, 0))
+        .map_err(|error| format!("  {error}"))?;
     Ok(())
 }
 

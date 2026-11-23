@@ -201,6 +201,7 @@ swaync 0.12.6 in a headless sway); the CI containers' distributions ship mako 1.
 | BlueZ uses the agent of the program that called `Pair`; the default agent only for requests nobody started. | `doc/org.bluez.AgentManager.rst`, `doc/org.bluez.Device.rst` (BlueZ 5.7x) |
 | An agent answers with `org.bluez.Error.Rejected` or `Canceled`; `Cancel()` ends an open request. | `doc/org.bluez.Agent.rst` |
 | Setting `Alias` to an empty string gives a device its own name back. | `doc/org.bluez.Device.rst` |
+| `Device1.Connect` has no timeout of its own: it returns when BlueZ connects or gives up; `Disconnect` also cancels a pending `Connect` before its reply, and `CancelPairing` cancels a `Pair`. | `doc/org.bluez.Device.rst` (BlueZ 5.88) |
 | `/dev/rfkill` speaks 8-byte events (`idx`, `type`, `op`, `soft`, `hard`); `RFKILL_OP_CHANGE_ALL` sets every radio of a type. | `include/uapi/linux/rfkill.h` |
 | systemd's udev rules tag `/dev/rfkill` with `uaccess`, so the user of the active session may write it. | systemd `src/login/70-uaccess.rules.in` |
 

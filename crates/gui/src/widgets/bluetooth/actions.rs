@@ -22,8 +22,14 @@ impl BluetoothPage {
             .and_then(|snapshot| snapshot.device(path).cloned())
     }
 
-    /// What the row's button does: connect (pairing first if needed) or disconnect.
+    /// What the row's button does: connect (pairing first if needed) or disconnect, or cancel
+    /// the connection or pairing that runs.
     pub(super) fn main_action(&self, path: &str) {
+        let running = self.imp().running.borrow().get(path).copied();
+        if running.is_some_and(Action::cancelable) {
+            self.cancel(path);
+            return;
+        }
         let Some(device) = self.device(path) else {
             return;
         };
@@ -74,6 +80,14 @@ impl BluetoothPage {
                         page.close_dialog_of(&device.path);
                     }
                 }
+                // A canceled call fails, or ends before the cancel arrives: its result is dropped,
+                // and a pairing doesn't go on to connect.
+                let canceled = weak
+                    .upgrade()
+                    .is_some_and(|page| page.imp().canceled.borrow_mut().remove(&device.path));
+                if canceled {
+                    break Ok(());
+                }
                 match result {
                     // A device pairs to be used: connect it right away.
                     Ok(()) if action == Action::Pair => action = Action::Connect,
@@ -88,6 +102,28 @@ impl BluetoothPage {
                 });
             }
             refresh(&weak, &bluez).await;
+        });
+    }
+
+    /// Cancels the connection or pairing that runs on the device at `path`: BlueZ ends a pending
+    /// `Connect` on `Disconnect` and a pending `Pair` on `CancelPairing`. The running call then
+    /// returns, and [`run`](Self::run) drops its result.
+    pub(super) fn cancel(&self, path: &str) {
+        let imp = self.imp();
+        let Some(bluez) = imp.bluez.borrow().clone() else {
+            return;
+        };
+        let Some(action) = imp.running.borrow().get(path).copied() else {
+            return;
+        };
+        if !action.cancelable() || !imp.canceled.borrow_mut().insert(path.to_owned()) {
+            return;
+        }
+        self.close_dialog_of(path);
+        self.render();
+        let path = path.to_owned();
+        glib::spawn_future_local(async move {
+            cancel_call(&bluez, action, &path).await;
         });
     }
 
@@ -200,4 +236,13 @@ impl BluetoothPage {
             },
         );
     }
+}
+
+/// The call that cancels `action` on the device at `path`. Its error is dropped: the call may come
+/// after the action ended, and the canceled call reports the outcome.
+async fn cancel_call(bluez: &Bluez, action: Action, path: &str) {
+    let _ = match action {
+        Action::Pair => bluez.cancel_pairing(path).await,
+        _ => bluez.disconnect_device(path).await,
+    };
 }
