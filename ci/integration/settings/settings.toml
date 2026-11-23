@@ -130,5 +130,21 @@ height = 900
 [wallpaper]
 color = "#285577"
 
+[shortcuts]
+modifier = "alt"
+bindings = [
+  "unbindsym Mod4+Return => bindsym $mod+Return exec \"foot\"",
+  "unbindsym --locked XF86AudioMute",
+  "bindsym --to-code --no-repeat $mod+Shift+p exec 'notify-send \"a b\" $HOME'",
+  "bindcode --release Mod4+38 focus left",
+]
+
+[shortcuts.media]
+volume = true
+volume_osd = true
+brightness = true
+player = true
+player_osd = true
+
 [app]
 safety_net_timeout = 20

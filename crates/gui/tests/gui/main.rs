@@ -14,8 +14,8 @@
 //!   from the registry and what they do.
 //! - `generated`, `about`, `welcome`: the Generated config window, About & Maintenance, the welcome
 //!   screen and the read-only banner.
-//! - `keyboard`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`, `network`:
-//!   the pages with parts of their own, the live ones against their stand-ins.
+//! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`,
+//!   `network`: the pages with parts of their own, the live ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
@@ -42,12 +42,15 @@ mod indicators;
 mod keyboard;
 mod look;
 mod network;
+mod place;
 mod reload;
 mod rows;
 mod safety_net;
 mod sections;
 mod shell;
+mod shortcuts;
 mod sound;
+mod swayosd;
 mod wallpaper;
 mod welcome;
 
@@ -81,9 +84,9 @@ use sway_things_gui::model::Model;
 use sway_things_gui::style;
 use sway_things_gui::theme;
 use sway_things_gui::widgets::{
-    Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GroupRow, LayoutList,
-    NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, SettingRow, SoundPage,
-    SoundServer, TestArea,
+    Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GdkKeymap, GroupRow,
+    LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, SettingRow,
+    ShortcutEditor, SoundPage, SoundServer, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -99,12 +102,15 @@ use self::indicators::*;
 use self::keyboard::*;
 use self::look::*;
 use self::network::*;
+use self::place::*;
 use self::reload::*;
 use self::rows::*;
 use self::safety_net::*;
 use self::sections::*;
 use self::shell::*;
+use self::shortcuts::*;
 use self::sound::*;
+use self::swayosd::*;
 use self::wallpaper::*;
 use self::welcome::*;
 
@@ -197,6 +203,9 @@ fn main() -> ExitCode {
     results.extend(check_keyboard());
     results.extend(check_indicators());
     results.extend(check_look());
+    results.extend(check_shortcuts());
+    results.extend(check_places());
+    results.extend(check_swayosd());
     results.extend(check_welcomes(&settings));
     report(&results)
 }

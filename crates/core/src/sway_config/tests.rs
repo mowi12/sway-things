@@ -765,16 +765,16 @@ fn the_default_config_is_found_in_sways_order() {
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
-    for (main, expected_files) in [("sway.conf", 16), ("swayfx.conf", 19)] {
+    for (main, expected_files) in [("sway.conf", 18), ("swayfx.conf", 21)] {
         let config = parse(&integration.join(main), &Disk);
         // parser.conf includes one file twice and one that doesn't exist, on purpose. The last
-        // two includes of sway.conf (lines 42 and 45) only match while the integration tests run.
+        // two includes of sway.conf (lines 43 and 46) only match while the integration tests run.
         assert_eq!(
             kinds(&config)
                 .iter()
                 .map(|(line, _)| *line)
                 .collect::<Vec<_>>(),
-            [43, 45, 42, 45],
+            [43, 45, 43, 46],
             "{main}"
         );
         assert_eq!(config.files.len(), expected_files, "{main}");
@@ -799,7 +799,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 68);
+    assert_eq!(generated.len(), 86);
     // The quotes for `wordexp` stay; sway removes them when it expands the path.
     let bg = find(&["output", "HEADLESS-1"], "bg");
     assert_eq!(bg.as_deref(), Some("'/etc/passwd' fit #285577"));
@@ -929,4 +929,42 @@ proptest! {
             prop_assert!(directive.line >= 1);
         }
     }
+}
+
+#[test]
+fn the_generated_bindings_parse_back() {
+    let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
+    let config = parse(&integration.join("sway.conf"), &Disk);
+    let bindings: Vec<Directive> = config
+        .directives
+        .iter()
+        .filter(|directive| {
+            directive
+                .file
+                .to_string_lossy()
+                .ends_with("/generated/sway/50-bindings.conf")
+        })
+        .cloned()
+        .collect();
+    // The bindings come back as stored, and every unbind finds its placeholder.
+    let table = crate::bindings::Table::read(crate::bindings::user_lines(&bindings, None), None);
+    assert_eq!(table.failed, []);
+    let commands: Vec<(&str, Option<&str>)> = table
+        .in_effect()
+        .map(|(_, entry)| {
+            (
+                entry.bound.line.keys.as_str(),
+                entry.bound.line.command.as_deref(),
+            )
+        })
+        .filter(|(keys, _)| !keys.starts_with("XF86"))
+        .collect();
+    assert_eq!(
+        commands,
+        [
+            ("Mod1+Return", Some("exec \"foot\"")),
+            ("Mod1+Shift+p", Some("exec 'notify-send \"a b\" $HOME'")),
+            ("Mod4+38", Some("focus left")),
+        ]
+    );
 }

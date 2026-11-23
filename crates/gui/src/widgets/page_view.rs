@@ -31,7 +31,9 @@ use self::about::{about_section, generated_section};
 use self::device_group::DeviceGroup;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::setting_row::tilde;
-use super::{Clamp, GroupRow, PageHeader, Placeholder, SettingRow, TestArea, WorkspaceMap};
+use super::{
+    Clamp, GroupRow, PageHeader, Placeholder, SettingRow, ShortcutList, TestArea, WorkspaceMap,
+};
 use crate::i18n::{msg, msg_plural, ntr, ntrf, tr, trf};
 use crate::model::Model;
 use crate::style;
@@ -558,6 +560,23 @@ fn add_workspace_map(model: &Model, sections: &[Section]) {
     if let Some(section) = sections.iter().find(|section| section.id == id) {
         section.body.append(WorkspaceMap::new(model).widget());
     }
+}
+
+/// The "Shortcuts" section of Keyboard Shortcuts: every binding, searchable, with the button
+/// that adds one, the first on the page if `first`. The page starts with it, above its rows.
+fn shortcuts_section(model: &Model, body: &gtk::Box, first: bool) -> Section {
+    let title = msg!("Shortcuts");
+    let section = Section::new(
+        model,
+        Page::KeyboardShortcuts,
+        title.msgid(),
+        tr(title),
+        first,
+    );
+    section.body.append(ShortcutList::new(model).widget());
+    body.append(&section.header);
+    body.append(&section.body);
+    section
 }
 
 /// The "Test area" section of Mouse & Touchpad, to try the pointer and scroll settings.

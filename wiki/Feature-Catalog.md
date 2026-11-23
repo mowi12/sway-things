@@ -279,13 +279,15 @@ swaybar via our sway include.
 
 ### Keyboard Shortcuts
 
-- [ ] 🟢 Searchable list of all bindings: hand-written ones (from the parser, with file:line) and ours
-- [ ] 🟡 Add, edit, remove bindings with a "press shortcut" capture field. Changing a hand-written binding works through
+- [x] 🟢 Searchable list of all bindings: hand-written ones (from the parser, with file:line) and ours
+- [x] 🟡 Add, edit, remove bindings with a "press shortcut" capture field. Changing a hand-written binding works through
       `unbindsym` + a new `bindsym` in our include (no edit of the user's file)
-- [ ] 🟡 Conflict detection between bindings
-- [ ] 🟡 Main modifier (`$mod`) for **our generated** bindings. Sway substitutes variables when a line is read, so this
+- [x] 🟡 Conflict detection between bindings
+- [x] 🟡 Main modifier (`$mod`) for **our generated** bindings. Sway substitutes variables when a line is read, so this
       doesn't rebind hand-written lines; the page explains this
-- [ ] 🟢 Media keys: volume, mute, brightness, play/pause/next (`wpctl`, `brightnessctl`, `playerctl`)
+- [x] 🟢 Media keys: volume, mute, brightness, play/pause/next (`wpctl`, `brightnessctl`, `playerctl`)
+- [x] 🟢 On-screen display for the media keys with SwayOSD (`swayosd-client`), per group, with a note while
+      `swayosd-server` doesn't run
 - [ ] 🟢 Screenshot shortcuts (grim + slurp / grimshot)
 - [ ] 🟡 Touchpad gestures (`bindgesture`)
 - [ ] 🟡 Binding modes (resize mode, custom modes)

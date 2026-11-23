@@ -184,6 +184,25 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
 - Keyboard page: a layout moved with its variant is one change with one banner and Keep stores both, a layout added is
   gone after Revert, the last layout can't be removed, the swap switch and an option of the browser try the options
   through the safety net, the model is a drop-down, and _Active layout_ lists sway's layouts and switches them.
+- Keyboard Shortcuts (`shortcuts.rs`): every binding of the config and of Sway Things is listed and found by keys (also
+  typed as _super+shift+q_) and command; a click on a row opens its dialog, a click on the field listens, holding Super
+  lists the keys taken with it, Super+P is free and saved in place of the user's binding, Esc stops listening and then
+  closes the dialog, _Remove_ stores an unbind and the row's ↶ button takes it back, _Add Shortcut…_ listens at once; a
+  line after the include line has a lock with its reason and opens read only, and a key of the volume keys links to
+  their switch. The dialog adds a binding and changes one of the user's through the items of `shortcuts.bindings`,
+  refuses a bare letter and a sway command sway doesn't know, warns of keys in use and refuses keys of a line after the
+  include line or of the volume keys. The page (with a realistic config of over 30 bindings, clashes, a mode, the volume
+  keys, a removed and a changed binding and a line after the include line) and the dialog (keys in use, a clash with its
+  details, listening with Super held, free keys, read only) are checked for contrast in light and dark.
+- Keeping the place (`place.rs`): with the realistic config scrolled down, removing a binding in its dialog, putting it
+  back with its ↶ button and changing its keys leave the scroll position as it was and the focus on its row; removing a
+  binding of Sway Things moves the focus to the row after it; switching off the volume keys and changing the main
+  modifier leave the focused control where it was on screen. The Workspaces map keeps the focus on the number clicked,
+  on its new card.
+- SwayOSD (`swayosd.rs`): the switch of the volume keys' display shows only with a stand-in `swayosd-client` in the
+  model's search path, or while it is stored; switched on, the volume keys run `swayosd-client` and their rows say _with
+  an on-screen display_. Its note says how to start `swayosd-server` while nothing does, where the config starts it with
+  an `exec` line, and goes away while a stand-in process named `swayosd-server` runs.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

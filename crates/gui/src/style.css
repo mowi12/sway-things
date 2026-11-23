@@ -477,3 +477,150 @@ window.st-identify .st-identify-name {
 st-display-canvas.st-identifying > button.st-display-tile.st-off:not(:checked) {
   box-shadow: inset 0 0 0 3px @theme_selected_bg_color;
 }
+
+/* Keyboard Shortcuts, in the manner of GNOME Settings: a search field, then few groups of one-line
+   rows, the action on the left and the keys as keycaps on the right. */
+.st-shortcuts {
+  margin-bottom: 6px;
+}
+
+.st-shortcut-bar {
+  margin-bottom: 6px;
+}
+
+.st-shortcut-bar > entry,
+.st-shortcut-bar > button {
+  min-height: 34px;
+}
+
+.st-shortcuts .st-shortcut-heading {
+  margin: 22px 0 8px 4px;
+}
+
+.st-shortcuts .st-shortcut-heading.st-first {
+  margin-top: 14px;
+}
+
+st-page list.st-shortcut-list > row.st-shortcut-item {
+  padding: 0;
+}
+
+.st-shortcut-row {
+  min-height: 30px;
+  padding: 8px 12px 8px 16px;
+}
+
+/* The ↶ button keeps the row as high as the others. */
+.st-shortcut-row > button.circular {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  margin: -2px 0;
+}
+
+.st-shortcut-command {
+  font-family: monospace;
+  font-size: 0.95em;
+}
+
+.st-shortcut-tag {
+  font-size: 0.9em;
+}
+
+.st-shortcut-warning,
+.st-shortcut-status.st-in-use > image {
+  color: @warning_color;
+}
+
+.st-shortcut-status.st-free > image {
+  color: @success_color;
+}
+
+.st-shortcut-status.st-blocked > image,
+.st-shortcut-status.st-error > image {
+  color: @error_color;
+}
+
+/* A key: a label with a raised bottom edge, readable in light and dark. */
+.st-keycap {
+  min-width: 16px;
+  padding: 2px 8px 3px;
+  border: 1px solid alpha(currentColor, 0.18);
+  border-radius: 6px;
+  background-color: alpha(currentColor, 0.06);
+  box-shadow: inset 0 -2px alpha(currentColor, 0.12);
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.st-keycap.st-keycap-symbol {
+  font-size: 1.1em;
+  padding-top: 0;
+  padding-bottom: 1px;
+}
+
+.st-keycap-plus {
+  margin: 0 1px;
+}
+
+/* A binding Sway Things removes: its keys struck through. */
+.st-keycaps-off > .st-keycap {
+  text-decoration: line-through;
+}
+
+.st-keycaps-large {
+  font-size: 1.3em;
+}
+
+.st-keycaps-large > .st-keycap {
+  padding: 4px 12px 6px;
+  border-radius: 8px;
+}
+
+.st-shortcut-clash > image,
+.st-shortcut-group-clashes image {
+  margin-top: 2px;
+}
+
+.st-shortcut-group-clashes {
+  padding: 0 12px 10px 12px;
+}
+
+.st-shortcut-empty {
+  margin: 36px 0 24px;
+}
+
+/* The dialog: the keys in a large field, outlined and tinted in the accent while it listens. */
+button.st-shortcut-capture {
+  min-height: 96px;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+button.st-shortcut-capture.st-capturing {
+  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
+  background-color: alpha(@theme_selected_bg_color, 0.08);
+}
+
+.st-shortcut-prompt {
+  font-size: 1.15em;
+  font-weight: bold;
+}
+
+.st-shortcut-capture-hint {
+  font-size: 0.9em;
+}
+
+.st-shortcut-taken flowboxchild {
+  padding: 0;
+}
+
+.st-shortcut-taken {
+  padding: 10px 12px;
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+.st-shortcut-buttons {
+  margin-top: 8px;
+}

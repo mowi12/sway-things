@@ -199,6 +199,10 @@ pub struct Applier<V = SwayValidator> {
     /// kanshi started before rejected its whole config over it and gave up, so it is started
     /// once the file is there ([`Applier::keep_kanshi_file`]).
     kanshi_file_missing: bool,
+    /// The user's sway config, with the index of the first directive sway reads after the
+    /// generated files: what a change of the bindings is worked out against. `None` until
+    /// [`Applier::set_user_config`]; bindings then change with a reload.
+    user_config: Option<(Vec<crate::sway_config::Directive>, Option<usize>)>,
 }
 
 impl Applier<SwayValidator> {
@@ -296,6 +300,7 @@ impl<V: Validate> Applier<V> {
             combination_since: None,
             kanshi_started: false,
             kanshi_file_missing: false,
+            user_config: None,
         }
     }
 
@@ -327,6 +332,7 @@ impl<V: Validate> Applier<V> {
             combination_since: None,
             kanshi_started: false,
             kanshi_file_missing: false,
+            user_config: None,
         }
     }
 
@@ -407,6 +413,16 @@ impl<V: Validate> Applier<V> {
             self.compositor,
             self.displays,
         )
+    }
+
+    /// Works out changes of the bindings against the user's config in `status` from now on, so
+    /// they are sent to sway at once ([`crate::bindings::live`]); call it again when the config
+    /// changes. Without it, a change of the bindings takes effect with a reload of sway.
+    pub fn set_user_config(&mut self, status: &crate::include::IncludeStatus) {
+        self.user_config = Some((
+            status.config().directives.clone(),
+            status.position(ConfigFile::Bindings),
+        ));
     }
 
     /// Generates for displays set up by `displays` from now on ([`generate::Displays::detect`]
@@ -749,10 +765,13 @@ impl<V: Validate> Applier<V> {
         changed: bool,
         before: State,
     ) -> Result<Applied, ApplyError> {
-        match self
-            .apply_live(setting, device, Some(&before), &BTreeMap::new())
-            .await
-        {
+        let live = if crate::registry::shortcuts::KEYS.contains(&setting.key()) {
+            self.apply_bindings(&before).await
+        } else {
+            self.apply_live(setting, device, Some(&before), &BTreeMap::new())
+                .await
+        };
+        match live {
             Ok(Effect::Unsupported(unmet)) if self.state.get(setting.key(), device).is_some() => {
                 // A value needs more than its setting: `set` refuses that too.
                 self.state = before;
@@ -782,6 +801,39 @@ impl<V: Validate> Applier<V> {
                 Err(error)
             }
         }
+    }
+
+    /// Brings the bindings of the session from those of `before` to those of the state: only
+    /// what differs is sent. Without the user's config ([`Applier::set_user_config`]), or with
+    /// a binding that can't be sent exactly, the change waits for a reload. After a command
+    /// failed, the bindings of `before` are put back as far as sway allows.
+    async fn apply_bindings(&mut self, before: &State) -> Result<Effect, ApplyError> {
+        use crate::bindings::live;
+        if self.client.is_none() {
+            return Ok(Effect::NoSession);
+        }
+        let Some((directives, position)) = &self.user_config else {
+            return Ok(Effect::AfterReload);
+        };
+        let Ok(commands) = live::commands(directives, *position, before, &self.state) else {
+            return Ok(Effect::AfterReload);
+        };
+        let undo = live::commands(directives, *position, &self.state, before).unwrap_or_default();
+        let Some(client) = &mut self.client else {
+            return Ok(Effect::NoSession);
+        };
+        let mut sent = Vec::with_capacity(commands.len());
+        for command in &commands {
+            if let Err(error) = client.run(command).await {
+                if !sent.is_empty() {
+                    // Best effort: the error of the command that failed is what counts.
+                    let _ = client.run_all(&undo).await;
+                }
+                return Err(ApplyError::Ipc(error));
+            }
+            sent.push(command.render(Target::Ipc).map_err(ApplyError::Command)?);
+        }
+        Ok(Effect::Live { commands: sent })
     }
 
     /// Brings the session to the values in the state for the directive of `setting`, with those

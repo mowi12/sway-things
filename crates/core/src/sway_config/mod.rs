@@ -37,7 +37,7 @@
 
 mod expand;
 mod files;
-mod line;
+pub(crate) mod line;
 mod parse;
 #[cfg(test)]
 mod tests;

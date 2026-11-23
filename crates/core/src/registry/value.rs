@@ -310,6 +310,8 @@ pub enum ValueError {
     NotAFont,
     /// The text can't be the name of a wallpaper collection.
     NotACollectionName,
+    /// The text isn't a binding line Sway Things can write (`bindsym $mod+Return exec foot`).
+    NotABinding(crate::bindings::LineErrorKind),
 }
 
 impl ValueError {
@@ -366,6 +368,7 @@ impl ValueError {
                  either end"
             )
             .into(),
+            Self::NotABinding(kind) => kind.text(),
         }
     }
 }

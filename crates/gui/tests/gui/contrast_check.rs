@@ -34,6 +34,10 @@ pub(crate) fn check_screens(screenshots: Option<&Path>, scheme: &str) -> Vec<(St
         format!("contrast: search results ({scheme})"),
         check_search_screens(screenshots, scheme),
     ));
+    results.push((
+        format!("contrast: keyboard shortcuts with bindings ({scheme})"),
+        check_shortcut_screen(screenshots, scheme),
+    ));
     results
 }
 

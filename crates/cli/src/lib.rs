@@ -306,6 +306,8 @@ pub async fn run_for_user(command: &Command) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
     // While kanshi sets up the displays, no output lines of ours contradict it.
     applier.set_displays(generate::Displays::detect(&status, applier.locations()));
+    // A change of the bindings is sent to sway as the difference to what the config binds.
+    applier.set_user_config(&status);
     let mut session = Session { applier, status };
     run(
         command,

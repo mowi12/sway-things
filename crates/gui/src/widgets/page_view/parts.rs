@@ -12,14 +12,15 @@ use sway_things_core::registry::{Page, Setting};
 
 use super::{
     Section, about_section, add_workspace_map, arrangement_section, generated_section,
-    test_area_section,
+    shortcuts_section, test_area_section,
 };
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
-use crate::widgets::{SettingRow, cursor, keyboard, look};
+use crate::widgets::{SettingRow, cursor, keyboard, look, shortcuts};
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
-/// Maintenance, the note of Apps Look & Feel, the arrangement of the displays. `first` says
+/// Maintenance, the list of bindings on Keyboard Shortcuts, the note of Apps Look & Feel, the
+/// arrangement of the displays. `first` says
 /// whether the next section is the first of the page; a part that is a section takes it.
 pub(super) fn before_rows(
     model: &Model,
@@ -33,6 +34,10 @@ pub(super) fn before_rows(
             sections.push(about_section(model, body));
             sections.push(generated_section(model, body));
             *first = false;
+            None
+        }
+        Page::KeyboardShortcuts => {
+            sections.push(shortcuts_section(model, body, std::mem::take(first)));
             None
         }
         Page::AppsLookFeel => {
@@ -61,8 +66,12 @@ pub(super) fn after_rows(model: &Model, page: Page, body: &gtk::Box, sections: &
 
 /// The row of `setting` on its page, for the whole session or input type: a drop-down where the
 /// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
-/// themes, the screens), following what they depend on.
+/// themes, the screens), following what they depend on. A setting of Keyboard Shortcuts may
+/// have no row ([`shortcuts::has_row`]).
 pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
+    if !shortcuts::has_row(model, setting) {
+        return None;
+    }
     if setting.key() == outputs::MODE {
         return SettingRow::with_choices(model, setting, None, &displays::mode_choices(None));
     }
@@ -79,7 +88,9 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
 }
 
 /// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
-/// option browser.
+/// option browser, what the keys of a media key switch replace on Keyboard Shortcuts.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
-    keyboard::below(model, row)
+    let mut widgets = keyboard::below(model, row);
+    widgets.extend(shortcuts::below(model, row));
+    widgets
 }

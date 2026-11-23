@@ -225,6 +225,9 @@ mod imp {
         /// The GSettings schema the Apps Look & Feel page shows, watched for changes made with
         /// other tools.
         pub(super) desktop_watch: RefCell<Option<gtk::gio::Settings>>,
+        /// Where programs are looked for, a list like `$PATH`: `$PATH` itself unless a test
+        /// sets its own.
+        pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
     }
 
     #[glib::object_subclass]
@@ -750,6 +753,50 @@ impl Model {
         self.queue(Op::FollowCombination);
     }
 
+    /// Every binding of the user's config and of Sway Things, as last read and stored; `keymap`
+    /// compares keysym and keycode bindings. `None` if the settings couldn't be loaded.
+    pub fn bindings(
+        &self,
+        keymap: Option<&dyn sway_things_core::bindings::Keymap>,
+    ) -> Option<sway_things_core::bindings::Listing> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        Some(sway_things_core::bindings::Listing::new(
+            &core.status,
+            &core.state,
+            &core.locations.path(ConfigFile::Bindings),
+            keymap,
+        ))
+    }
+
+    /// The items of `shortcuts.bindings` stored now, or that a change in progress stores.
+    pub fn binding_items(&self) -> Vec<String> {
+        let key = sway_things_core::bindings::ours::BINDINGS;
+        let queued = self
+            .imp()
+            .queue
+            .borrow()
+            .iter()
+            .rev()
+            .find_map(|op| match op {
+                Op::Set {
+                    key: queued,
+                    device: None,
+                    value: Value::List(items),
+                } if *queued == key => Some(items.clone()),
+                _ => None,
+            });
+        if let Some(items) = queued {
+            return items;
+        }
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .map(|core| sway_things_core::bindings::ours::items(&core.state))
+            .unwrap_or_default()
+    }
+
     /// Whether and where the user's config includes the generated files, as last read. `None`
     /// if the settings couldn't be loaded.
     pub fn status(&self) -> Option<IncludeStatus> {
@@ -778,6 +825,22 @@ impl Model {
             .borrow()
             .as_ref()
             .map(|core| core.compositor)
+    }
+
+    /// Where programs are looked for, a list like `$PATH`: `$PATH` unless
+    /// [set](Model::set_search_path).
+    pub fn search_path(&self) -> Option<std::ffi::OsString> {
+        self.imp()
+            .search_path
+            .borrow()
+            .clone()
+            .or_else(|| std::env::var_os("PATH"))
+    }
+
+    /// Looks for programs in `path` instead of `$PATH`, for tests, and reads everything again.
+    pub fn set_search_path(&self, path: Option<std::ffi::OsString>) {
+        self.imp().search_path.replace(path);
+        self.emit_by_name::<()>("changed", &[]);
     }
 
     /// Where the generated files go.
@@ -965,7 +1028,9 @@ impl Model {
         }
     }
 
-    fn emit_problem(&self, message: &str) {
+    /// Tells the window about a problem that isn't one setting's, such as an editor that
+    /// can't start.
+    pub fn emit_problem(&self, message: &str) {
         self.emit_by_name::<()>("problem", &[&message]);
     }
 
