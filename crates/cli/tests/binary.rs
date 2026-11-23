@@ -60,14 +60,19 @@ impl Home {
         Command::new(env!("CARGO_BIN_EXE_sway-things"))
             .args(args)
             .env_clear()
-            // No app to ask for the GTK version and no NetworkManager for the system details,
-            // unless `env` says otherwise.
+            // No app to ask for the GTK version, no NetworkManager for the system details and no
+            // notification daemon, unless `env` says otherwise.
             .env("SWAY_THINGS_GUI", root.join("no-app"))
             .env("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/nonexistent")
+            .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent")
             .envs(env.iter().copied())
             .env("HOME", root)
             .env("XDG_CONFIG_HOME", root.join("config"))
             .env("XDG_STATE_HOME", root.join("state"))
+            // Not the host's /etc/xdg and /usr/share: their autostart and desktop entries.
+            .env("XDG_CONFIG_DIRS", root.join("config-dirs"))
+            .env("XDG_DATA_HOME", root.join("data"))
+            .env("XDG_DATA_DIRS", root.join("data-dirs"))
             .env("SWAYSOCK", self.sway.socket())
             .stdin(Stdio::null())
             .output()
