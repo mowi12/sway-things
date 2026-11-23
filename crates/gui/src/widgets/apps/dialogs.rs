@@ -70,7 +70,8 @@ fn parent_of(from: &gtk::Widget) -> Option<gtk::Window> {
 }
 
 /// A dialog window titled `title` over `parent`, which Escape closes: resizable, so long lines
-/// wrap at its width. Returns it, its content and its heading.
+/// wrap at its width, and its content scrolls where it doesn't fit. Returns it, its content and
+/// its heading.
 fn dialog_window(parent: Option<&gtk::Window>, title: &str) -> (gtk::Window, gtk::Box, gtk::Label) {
     let window = gtk::Window::builder()
         .modal(true)
@@ -96,7 +97,16 @@ fn dialog_window(parent: Option<&gtk::Window>, title: &str) -> (gtk::Window, gtk
     heading.add_css_class("title-2");
     heading.set_accessible_role(gtk::AccessibleRole::Heading);
     content.append(&heading);
-    window.set_child(Some(&content));
+    // As tall as the content, scrolling where the window is lower: without a scroller, the
+    // window's minimum height would be that of every wrapped label at its narrowest, a letter
+    // a line, and GTK warns at each measure that the window is lower than that.
+    let scroller = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .propagate_natural_height(true)
+        .propagate_natural_width(true)
+        .child(&content)
+        .build();
+    window.set_child(Some(&scroller));
     let escape = gtk::ShortcutController::new();
     escape.add_shortcut(gtk::Shortcut::new(
         gtk::ShortcutTrigger::parse_string("Escape"),
