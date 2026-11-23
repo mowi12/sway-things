@@ -697,7 +697,7 @@ _sway-things_commands() {
     local commands; commands=(
 'get:Show the value in effect and where it comes from; without a key, every stored setting' \
 'set:Change a setting\: live, in the settings files and in the generated sway config' \
-'reset:Remove the stored value of a setting and apply its default' \
+'reset:Remove the stored value of a setting and apply the value of your config, else its default' \
 'show-generated:Print the generated sway config files as they would be written, without writing them' \
 'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
 'open:Start the app, or bring its window up if it runs, at a page or a setting' \
@@ -769,7 +769,7 @@ _sway-things__subcmd__help_commands() {
     local commands; commands=(
 'get:Show the value in effect and where it comes from; without a key, every stored setting' \
 'set:Change a setting\: live, in the settings files and in the generated sway config' \
-'reset:Remove the stored value of a setting and apply its default' \
+'reset:Remove the stored value of a setting and apply the value of your config, else its default' \
 'show-generated:Print the generated sway config files as they would be written, without writing them' \
 'doctor:Check why settings might not take effect\: the compositor, your sway config and its include line, the settings files, the generated files and the lines of your config that win' \
 'open:Start the app, or bring its window up if it runs, at a page or a setting' \

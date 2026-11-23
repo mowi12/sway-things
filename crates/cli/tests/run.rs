@@ -622,6 +622,25 @@ fn a_reset_removes_the_value() {
 }
 
 #[test]
+fn a_reset_sends_the_value_of_the_users_config() {
+    let sway = obedient(SWAY_1_10);
+    let mut setup = Setup::new(
+        "version = 1\n\n[windows.gaps]\ninner = 12\n",
+        &format!("gaps inner 8\n{INCLUDE}"),
+        Some(&sway),
+    );
+    let ran = setup.run(&["reset", "windows.gaps.inner"]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert_eq!(
+        ran.out,
+        "Reset windows.gaps.inner to your config's value.\n"
+    );
+    // To every open workspace: the config's line sets only the default of new ones.
+    assert_eq!(sway.commands(), ["gaps inner 8", "gaps inner all set 8"]);
+    assert_eq!(setup.settings(), EMPTY);
+}
+
+#[test]
 fn files_that_werent_written_are_reported() {
     let mut setup = Setup::new(EMPTY, INCLUDE, None);
     setup.session.applier = rejecting(&setup);

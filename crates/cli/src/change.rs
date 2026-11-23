@@ -298,6 +298,8 @@ pub(super) struct Reset<'a> {
     pub(super) key: &'a str,
     pub(super) device: Option<&'a str>,
     pub(super) yes: bool,
+    /// The devices and outputs the user's lines are matched with.
+    pub(super) known: Known<'a>,
 }
 
 pub(super) async fn reset<V: Validate>(
@@ -322,8 +324,16 @@ pub(super) async fn reset<V: Validate>(
         .compositor()
         .check(requirements.min_sway, requirements.min_swayfx)
         .is_ok();
+    let to_config = setting.apply() != Apply::Risky
+        && session
+            .applier
+            .users_line_for_reset(key, device, &session.status, reset_of.known)
+            .is_some();
     let applied = if setting.apply() != Apply::Risky {
-        session.applier.reset(key, device, &access).await
+        session
+            .applier
+            .reset_to_config(key, device, &session.status, reset_of.known, &access)
+            .await
     } else if reset_of.yes || !supported {
         session
             .applier
@@ -364,8 +374,13 @@ pub(super) async fn reset<V: Validate>(
         ));
         return Exit::Ok;
     }
+    let alone = session.applier.state().registry().group(setting).count() == 1;
     let done = if setting.apply() == Apply::Risky {
         msg!("Reset {setting}.")
+    } else if to_config && alone {
+        msg!("Reset {setting} to your config's value.")
+    } else if to_config {
+        msg!("Reset {setting} and the other settings of its line to your config's value.")
     } else {
         msg!("Reset {setting} to its default.")
     };

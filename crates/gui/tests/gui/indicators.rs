@@ -23,6 +23,10 @@ pub(crate) fn check_indicators() -> Vec<(String, Outcome)> {
             "indicators: a device's own value is reset".to_owned(),
             check_device_reset(),
         ),
+        (
+            "indicators: a reset goes back to the user's config".to_owned(),
+            check_reset_to_config(),
+        ),
         ("indicators: reset a page".to_owned(), check_page_reset()),
     ]
 }
@@ -197,6 +201,52 @@ pub(crate) fn check_device_reset() -> Outcome {
     ensure(
         accel.note().as_deref() == Some("Same as all mice"),
         &format!("  after the reset the row says {:?}", accel.note()),
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The reset of a value the user's config also sets (`gaps inner 6` in [`USERS`]) says so, and
+/// goes back to the config's value and sends it to every workspace, where sway's default would
+/// leave them without gaps; a value the config doesn't set is reset to the default.
+pub(crate) fn check_reset_to_config() -> Outcome {
+    let sway = laptop();
+    let stored = "version = 1\n\n[windows]\nsmart_gaps = \"on\"\n\n[windows.gaps]\ninner = 12\n";
+    let fixture = live_fixture(&sway, stored)?;
+    let window = open(&fixture, Page::Windows)?;
+    let smart = row(&window, "windows.smart_gaps")?
+        .reset_button()
+        .ok_or_else(|| "  the stored smart gaps have no reset button".to_owned())?;
+    ensure(
+        smart.tooltip_text().as_deref() == Some("Reset to default"),
+        &format!(
+            "  without a line of the user's it says {:?}",
+            smart.tooltip_text()
+        ),
+    )?;
+    let gaps = row(&window, "windows.gaps.inner")?;
+    let reset = gaps
+        .reset_button()
+        .ok_or_else(|| "  the stored gaps have no reset button".to_owned())?;
+    ensure(
+        reset.tooltip_text().as_deref() == Some("Use your config's value"),
+        &format!("  the reset button says {:?}", reset.tooltip_text()),
+    )?;
+    reset.emit_clicked();
+    wait_for_model(&fixture.model)?;
+    ensure(
+        sway.commands()
+            .iter()
+            .any(|command| command == "gaps inner all set 6"),
+        &format!("  the config's gaps weren't sent: {:?}", sway.commands()),
+    )?;
+    let view = fixture
+        .model
+        .view(setting("windows.gaps.inner")?, None)
+        .ok_or_else(|| "  no settings".to_owned())?;
+    ensure(
+        view.value == Value::Integer(6) && matches!(view.source, Source::Config { .. }),
+        &format!("  after the reset: {view:?}"),
     )?;
     window.destroy();
     Ok(())

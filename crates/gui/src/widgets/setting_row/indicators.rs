@@ -142,8 +142,10 @@ impl SettingRow {
         let read_only = matches!(view.locked, Some(Locked::ReadOnly(_)));
         imp.reset.set_child_visible(layer.is_some());
         imp.reset.set_sensitive(!read_only);
+        let to_config = layer.is_some() && model.resets_to_config(setting, device);
         imp.reset
             .set_tooltip_text(Some(&match (setting.scope(), device) {
+                _ if to_config => tr(msg!("Use your config's value")).to_owned(),
                 (Scope::PerDevice(kind), Some(_)) => trf(
                     msg!("Use the value of {devices}"),
                     &[("devices", &all_of_type(kind))],

@@ -791,6 +791,124 @@ fn letting_the_config_win_needs_a_stored_value_and_no_safety_net() {
     ));
 }
 
+impl Setup {
+    fn reset_to_config(&mut self, key: &str, users_lines: &str) -> Result<Applied, ApplyError> {
+        block_on(self.applier.reset_to_config(
+            key,
+            None,
+            &users_config(users_lines),
+            crate::conflict::Known::default(),
+            &self.access,
+        ))
+    }
+}
+
+#[test]
+fn resetting_a_setting_sends_the_users_value() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 12\n");
+    let result = setup.reset_to_config(GAPS, "gaps inner 8\n").unwrap();
+    // Sent to every workspace: the config's line sets only the default of new ones.
+    assert_eq!(
+        result,
+        Applied {
+            changed: true,
+            effect: live(&["gaps inner 8", "gaps inner all set 8"]),
+            not_copied: Vec::new(),
+        }
+    );
+    assert_eq!(setup.applier.state().get(GAPS, None), None);
+}
+
+#[test]
+fn resetting_a_setting_without_a_line_of_the_user_sends_the_default() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[windows.gaps]\ninner = 12\n");
+    let result = setup.reset_to_config(GAPS, "gaps outer 8\n").unwrap();
+    assert_eq!(
+        result.effect,
+        live(&["gaps inner 0", "gaps inner all set 0"])
+    );
+    assert_eq!(setup.applier.state().get(GAPS, None), None);
+}
+
+#[test]
+fn resetting_a_setting_to_the_users_line_resets_its_whole_directive() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[windows.focused]\ntext = \"#000000\"\nchild_border = \"#3b6e4f\"\n",
+    );
+    let result = setup
+        .reset_to_config(
+            "windows.focused.text",
+            "client.focused #111111 #222222 #333333\n",
+        )
+        .unwrap();
+    assert_eq!(
+        result.effect,
+        live(&["client.focused #111111 #222222 #333333 #2e9ef4 #222222"])
+    );
+    let state = setup.applier.state();
+    assert_eq!(state.get("windows.focused.text", None), None);
+    assert_eq!(state.get("windows.focused.child_border", None), None);
+}
+
+#[test]
+fn resetting_a_setting_that_isnt_stored_leaves_its_directive_alone() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(
+        &sway,
+        "version = 1\n\n[windows.focused]\nchild_border = \"#3b6e4f\"\n",
+    );
+    let result = setup
+        .reset_to_config(
+            "windows.focused.text",
+            "client.focused #111111 #222222 #333333\n",
+        )
+        .unwrap();
+    assert_eq!(
+        result,
+        Applied {
+            changed: false,
+            effect: Effect::NotStored,
+            not_copied: Vec::new(),
+        }
+    );
+    assert_eq!(sway.commands(), Vec::<String>::new());
+    assert!(
+        setup
+            .applier
+            .state()
+            .get("windows.focused.child_border", None)
+            .is_some()
+    );
+}
+
+#[test]
+fn a_devices_reset_goes_to_the_value_stored_for_all_rather_than_the_users_line() {
+    let sway = obedient(SWAY);
+    let setup = Setup::live(
+        &sway,
+        "version = 1\n\n[input.keyboard]\nrepeat_delay = 300\n",
+    );
+    let key = "input.keyboard.repeat_delay";
+    let setting = crate::registry::Registry::builtin().get(key).unwrap();
+    let report = users(key, "input * repeat_delay 400\n");
+    let state = setup.applier.state();
+    assert!(super::resets_to_users_line(state, setting, None, &report));
+    assert!(!super::resets_to_users_line(
+        state,
+        setting,
+        Some("1:1:Keyboard"),
+        &report
+    ));
+    // A risky setting is reset through the safety net only.
+    let layout = crate::registry::Registry::builtin().get(LAYOUT).unwrap();
+    let report = users(LAYOUT, "input * xkb_layout de\n");
+    assert!(!super::resets_to_users_line(state, layout, None, &report));
+}
+
 #[test]
 fn letting_the_config_win_undoes_everything_if_sway_rejects_it() {
     let sway = FakeSway::with_version(SWAY, |kind, _| {

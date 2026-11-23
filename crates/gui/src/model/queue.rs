@@ -11,9 +11,10 @@ use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Applier, ApplyError, Countdown, Pending, SAVE_DELAY};
 use sway_things_core::command::input::{InputSelector, XkbSwitch};
 use sway_things_core::conflict::Known;
-use sway_things_core::devices::switch_layout;
+use sway_things_core::devices::{Devices, switch_layout};
 use sway_things_core::gsettings::GSettingsError;
 use sway_things_core::include::{IncludeStatus, ReadOnly, WriteAccess};
+use sway_things_core::outputs::Outputs;
 use sway_things_core::registry::{ConfigFile, Page, Value};
 
 use super::{Model, Op, explained, is_risky};
@@ -44,8 +45,8 @@ impl Model {
         self.report_change(key, device, result);
     }
 
-    /// Removes the stored value of `key` for `device`; a risky setting is tried with the safety
-    /// net.
+    /// Removes the stored value of `key` for `device`: back to the user's line where one sets
+    /// it ([`Applier::reset_to_config`]); a risky setting is tried with the safety net.
     pub(super) async fn reset_now(
         &self,
         applier: &mut Applier,
@@ -60,12 +61,28 @@ impl Model {
                 .await
                 .map(|_| Vec::new())
         } else {
+            // Copies, so nothing stays borrowed while the reset runs.
+            let Some((devices, outputs)) = self.known_copies() else {
+                return;
+            };
+            let known = Known {
+                devices: Some(&devices),
+                outputs: Some(&outputs),
+            };
             applier
-                .reset(key, device, access)
+                .reset_to_config(key, device, status, known, access)
                 .await
                 .map(|applied| applied.not_copied)
         };
         self.report_change(key, device, result);
+    }
+
+    /// Copies of the known input devices and outputs, for a [`Known`]; `None` before the model
+    /// has a core.
+    fn known_copies(&self) -> Option<(Devices, Outputs)> {
+        let core = self.imp().core.borrow();
+        let core = core.as_ref()?;
+        Some((core.devices.clone(), core.outputs.clone()))
     }
 
     /// Reports a change of `key` that failed, or that was made but couldn't reach GSettings, so
@@ -222,10 +239,8 @@ impl Model {
         access: &WriteAccess,
     ) {
         // Copies, so nothing stays borrowed while the reset runs.
-        let (devices, outputs) = {
-            let core = self.imp().core.borrow();
-            let Some(core) = core.as_ref() else { return };
-            (core.devices.clone(), core.outputs.clone())
+        let Some((devices, outputs)) = self.known_copies() else {
+            return;
         };
         let known = Known {
             devices: Some(&devices),

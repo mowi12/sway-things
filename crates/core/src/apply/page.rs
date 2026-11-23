@@ -9,7 +9,7 @@
 //! What comes back is what the rows then show: the value of the user's own config, sent to the
 //! session at once, else sway's default.
 
-use super::{Applier, ApplyError};
+use super::{Applied, Applier, ApplyError};
 use crate::conflict::{Known, Report};
 use crate::generate::Validate;
 use crate::include::{IncludeStatus, WriteAccess};
@@ -97,6 +97,51 @@ impl<V: Validate> Applier<V> {
         errors
     }
 
+    /// Resets `key` for `device` as a page reset does: where a line of the user's config, as
+    /// `status` read it, sets the value, it wins as [`Applier::let_config_win`] makes it, with
+    /// all settings of its directive, and its value is sent at once; else
+    /// [`Applier::reset`] sends sway's default (for one device: the value of its type). The line
+    /// wins only if [`resets_to_users_line`] says so, and not while kanshi sets up the display.
+    /// `known` matches the lines with the devices and outputs.
+    ///
+    /// # Errors
+    ///
+    /// Like [`Applier::reset`].
+    pub async fn reset_to_config(
+        &mut self,
+        key: &str,
+        device: Option<&str>,
+        status: &IncludeStatus,
+        known: Known<'_>,
+        access: &WriteAccess,
+    ) -> Result<Applied, ApplyError> {
+        self.setting(key)?;
+        match self.users_line_for_reset(key, device, status, known) {
+            Some(report) => self.let_config_win(&report, access).await,
+            None => self.reset(key, device, access).await,
+        }
+    }
+
+    /// The report whose line of the user's config [`Applier::reset_to_config`] sends for `key`
+    /// and `device`; `None` if it resets to sway's default, or nothing is stored.
+    pub fn users_line_for_reset(
+        &self,
+        key: &str,
+        device: Option<&str>,
+        status: &IncludeStatus,
+        known: Known<'_>,
+    ) -> Option<Report> {
+        let setting = self.state.registry().get(key)?;
+        // Nothing stored: nothing to reset, and the rest of the directive stays.
+        if self.state.get(key, device).is_none()
+            || (self.displays.is_kanshi() && setting.sets_up_display())
+        {
+            return None;
+        }
+        Report::check(status, setting, device, known)
+            .filter(|report| resets_to_users_line(&self.state, setting, device, report))
+    }
+
     /// The report of `key` for `device` if a line of the user's config sets it and all settings
     /// of its directive can go with it: none is risky, all are on `page`, and kanshi doesn't set
     /// up the display. `None` if the value is reset alone.
@@ -119,6 +164,24 @@ impl<V: Validate> Applier<V> {
         let report = Report::check(status, setting, device, known)?;
         (whole && report.user_value().is_some()).then_some(report)
     }
+}
+
+/// Whether a reset of `setting` for `device` goes back to the line of the user's config in
+/// `report` rather than to sway's default: the line sets the value, and all settings of its
+/// directive can go with it (none is risky, all are on the setting's page). For one device or
+/// output, nothing may be stored for all of them, whose value would apply instead.
+pub fn resets_to_users_line(
+    state: &State,
+    setting: &'static Setting,
+    device: Option<&str>,
+    report: &Report,
+) -> bool {
+    report.user_value().is_some()
+        && state.registry().group(setting).all(|member| {
+            member.page() == setting.page()
+                && member.apply() != Apply::Risky
+                && (device.is_none() || state.get(member.key(), None).is_none())
+        })
 }
 
 #[cfg(test)]
