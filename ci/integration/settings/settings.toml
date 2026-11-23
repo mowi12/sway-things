@@ -160,5 +160,25 @@ enabled = true
 [recording]
 enabled = true
 
+[apps]
+terminal = "alacritty -e 'tmux new -A -s \"main\"'"
+terminal_keys = "$mod+Shift+Return"
+launcher = "wofi --show drun"
+
+[apps.default]
+browser = "org.mozilla.firefox.desktop"
+terminal = "foot.desktop"
+
+[autostart]
+runner = "systemd"
+entries = [
+  "exec nm-applet --indicator",
+  "exec swaybg -c '#333333' & echo \"$HOME; a, b\"",
+  "exec notify-send \"a # b\" '#c' # d",
+  "# exec switched-off --never",
+  "app org.gnome.Nautilus.desktop",
+]
+hidden = ["geoclue-demo-agent.desktop"]
+
 [app]
 safety_net_timeout = 20

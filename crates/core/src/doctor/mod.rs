@@ -21,6 +21,7 @@
 //! files are still validated with `sway --validate`: that is how to find out from a TTY why sway
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
 
+pub mod apps;
 mod capture;
 mod files;
 mod finding;
@@ -73,6 +74,9 @@ pub struct Checkup<'a, V> {
     pub path: Option<std::ffi::OsString>,
     /// Where settings are copied to GSettings, checked for the stored ones.
     pub gsettings: &'a dyn GSettingsStore,
+    /// The XDG directories and the session's systemd, for the default apps and the autostart
+    /// entries; `None` for a checkup that doesn't look at the machine.
+    pub apps: Option<&'a apps::AppsCheck>,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -123,6 +127,16 @@ impl<V: Validate> Checkup<'_, V> {
             .await;
         progress(Step::Section(Section::Conflicts));
         self.conflicts(&mut findings);
+        if let Some(check) = self.apps {
+            progress(Step::Section(Section::Apps));
+            apps::findings(
+                check,
+                self.state,
+                self.status,
+                self.locations,
+                &mut findings,
+            );
+        }
         Diagnosis { findings }
     }
 

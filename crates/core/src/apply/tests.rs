@@ -137,6 +137,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
             (ConfigFile::Appearance, Outcome::Written),
             (ConfigFile::Behavior, Outcome::NotCreated),
             (ConfigFile::Bindings, Outcome::NotCreated),
+            (ConfigFile::Autostart, Outcome::NotCreated),
             (ConfigFile::Hooks, Outcome::NotCreated),
             (ConfigFile::Effects, Outcome::NotCreated),
         ]

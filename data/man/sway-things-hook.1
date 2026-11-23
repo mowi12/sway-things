@@ -48,3 +48,9 @@ Show the next picture of each wallpaper collection whose time has come, and star
 .TP
 sway\-things\-hook\-clipboard(1)
 Start the watcher of the clipboard history (wl\-paste \-\-watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not: run at every start and reload of sway while it is on
+.TP
+sway\-things\-hook\-launch(1)
+Start an installed app by its desktop file ID, as its desktop entry says (in a terminal if it asks for one): the autostart entries of Sway Things that are apps run this
+.TP
+sway\-things\-hook\-autostart(1)
+Hand the session\*(Aqs variables to the systemd user session and start the XDG autostart entries through it (xdg\-desktop\-autostart.target): run at login while Sway Things starts them with systemd

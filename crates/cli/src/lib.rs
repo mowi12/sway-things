@@ -214,7 +214,7 @@ impl WallpaperCommand {
 }
 
 /// A hook of `sway-things hook`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Hook {
     /// Copy the stored settings that GTK apps read from GSettings (cursor theme and size) to
     /// GSettings; run at login and at each reload of sway
@@ -243,6 +243,16 @@ pub enum Hook {
     /// Screenshots & Clipboard page has the history on, and end it if not: run at every start and
     /// reload of sway while it is on
     Clipboard,
+    /// Start an installed app by its desktop file ID, as its desktop entry says (in a terminal
+    /// if it asks for one): the autostart entries of Sway Things that are apps run this
+    Launch {
+        /// The desktop file ID, e.g. `org.mozilla.firefox.desktop`
+        id: String,
+    },
+    /// Hand the session's variables to the systemd user session and start the XDG autostart
+    /// entries through it (xdg-desktop-autostart.target): run at login while Sway Things starts
+    /// them with systemd
+    Autostart,
 }
 
 /// The binary of the app.
@@ -320,9 +330,14 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Doctor(args) => return doctor_for_user(args, &mut err).await,
         Command::Open { link } => return open(link.as_deref(), &mut err),
         Command::Hook(
-            hook @ (Hook::Displays | Hook::Workspaces | Hook::Mirror | Hook::NewDisplay),
+            hook @ (Hook::Displays
+            | Hook::Workspaces
+            | Hook::Mirror
+            | Hook::NewDisplay
+            | Hook::Launch { .. }
+            | Hook::Autostart),
         ) => {
-            return hook_for_user(*hook, &mut err).await;
+            return hook_for_user(hook, &mut err).await;
         }
         Command::Hook(Hook::Clipboard) => return hook_clipboard(read_history, &mut err),
         Command::Screenshot { area } => return capture::screenshot(*area, &mut err).await,
@@ -402,6 +417,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
     look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
+    let apps_check = sway_things_core::doctor::apps::AppsCheck::for_user().await;
     let outputs = match Client::connect().await {
         Ok(mut client) => client
             .outputs()
@@ -422,6 +438,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         kanshi: kanshi_files(),
         path: std::env::var_os("PATH"),
         gsettings: &Gio,
+        apps: apps_check.as_ref(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -460,6 +477,8 @@ fn warns_of_problems(command: &Command) -> bool {
                     | Hook::Mirror
                     | Hook::NewDisplay
                     | Hook::Clipboard
+                    | Hook::Launch { .. }
+                    | Hook::Autostart
             )
             | Command::Screenshot { .. }
             | Command::Record { .. }
@@ -568,7 +587,7 @@ pub async fn run<V: Validate>(
         Command::ShowGenerated { file } => show_generated(session, file.as_deref(), &mut io),
         Command::Doctor(args) => doctor_in(session, args, io.out).await,
         Command::Open { link } => open(link.as_deref(), io.err),
-        Command::Hook(hook) => run_hook(*hook, session, &mut io).await,
+        Command::Hook(hook) => run_hook(hook, session, &mut io).await,
         Command::Wallpaper(command) => wallpaper(session, command, &displays, &mut io).await,
         Command::Screenshot { area } => capture::screenshot(*area, io.err).await,
         Command::Record { area } => capture::record(*area, io.err).await,
@@ -675,6 +694,7 @@ async fn doctor_in<V: Validate>(
         kanshi: applier.kanshi_files().cloned(),
         path: None,
         gsettings: desktop.as_ref(),
+        apps: None,
     };
     doctor(&checkup, None, args, out).await
 }

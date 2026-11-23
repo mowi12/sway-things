@@ -34,6 +34,9 @@ pub enum Origin {
     /// Sway Things: a binding of a key of another page, by the key of its setting (the keys of
     /// the Screenshots & Clipboard page, [`crate::capture::shortcuts`]).
     Feature(&'static str),
+    /// Sway Things: the binding of the terminal or the launcher of the Apps & Autostart page, by
+    /// the key of its command's setting.
+    App(&'static str),
 }
 
 impl Origin {

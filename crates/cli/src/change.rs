@@ -465,6 +465,11 @@ pub(super) async fn persist<V: Validate>(
             }
         }
     }
+    // The files of other programs (default apps, autostart overrides) are only ever Sway
+    // Things' own; one of someone else's is left alone, which is worth a warning, not a failure.
+    for problem in &persisted.apps {
+        io.warn(problem.text().translated());
+    }
     exit
 }
 

@@ -236,7 +236,8 @@ the config or the settings files changed on disk.
 - **What counts:** a line sway rejects sets nothing and never wins; a line with a value the setting can't hold still
   wins. The **user's value** is that of the last line that decides the setting: pages show it while Sway Things stores
   nothing ("from ~/.config/sway/config:120").
-- **Not yet:** `exec` (accumulates) gets its semantics with its first settings, on the Autostart page. Bindings have
+- **`exec`** accumulates: every line runs, so there is nothing to win or lose. The Apps & Autostart page lists the
+  user's `exec` lines next to Sway Things' own, see [Apps and autostart](Backends.md#apps-and-autostart). Bindings have
   their own conflict detection, see [Key bindings](#key-bindings).
 
 Actions on a conflict: **Open in editor at line** (see [Editor](#editor)), **Copy line**, **Let my config win**.
@@ -343,6 +344,10 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
   `exec "sway-things <command>"`; their origin is `Origin::Feature(<key>)` and their row `RowKind::Feature`, which the
   Keyboard Shortcuts page lists with what they take the place of and can't change, and whose keys its dialog refuses. A
   change of one is sent like any binding change (`Applier::apply_bindings`).
+- **The terminal and the launcher** of the Apps & Autostart page are bindings of this file too (`Origin::App`, after the
+  media keys): `bindsym --no-warn <keys> exec <command>`, since choosing one means taking its keys. Their rows on
+  Keyboard Shortcuts say where they are set and can't be changed there; the editor refuses their keys like a media key
+  group's.
 
 ## Editor
 

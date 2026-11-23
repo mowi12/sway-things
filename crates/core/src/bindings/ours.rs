@@ -233,7 +233,7 @@ impl FileLine {
     /// The setting the line comes from.
     pub fn key(&self) -> &'static str {
         match self.origin {
-            Origin::Group(key) | Origin::Feature(key) => key,
+            Origin::Group(key) | Origin::Feature(key) | Origin::App(key) => key,
             Origin::User | Origin::Item(_) | Origin::Placeholder(_) => BINDINGS,
         }
     }
@@ -249,7 +249,8 @@ pub fn items(state: &State) -> Vec<String> {
 
 /// The lines of `50-bindings.conf` for `state`, in order: the unbinds of the user's bindings
 /// (each after its placeholder), the media keys switched on, the keys of other pages
-/// ([`crate::capture::shortcuts`]), then the bindings of the items.
+/// ([`crate::capture::shortcuts`]), the terminal's and the launcher's keys of the Apps & Autostart
+/// page, then the bindings of the items.
 pub fn file_lines(state: &State) -> Vec<FileLine> {
     let modifier = modifier(state);
     let parsed: Vec<Result<Item, LineError>> =
@@ -297,6 +298,16 @@ pub fn file_lines(state: &State) -> Vec<FileLine> {
     }
     // The keys of other pages, such as those of screenshots.
     lines.extend(crate::capture::shortcuts::file_lines(state));
+    // Choosing a terminal or launcher means taking its keys, as for the media keys.
+    for app in crate::apps::launchers::BINDINGS {
+        if let Some(line) = app.line(state) {
+            lines.push(FileLine {
+                origin: Origin::App(app.key),
+                line: line.map(|line| resolve(&line, modifier)),
+                no_warn: true,
+            });
+        }
+    }
     for (index, item) in parsed.iter().enumerate() {
         if let Some(binding) = item.as_ref().ok().and_then(Item::binding) {
             lines.push(FileLine {

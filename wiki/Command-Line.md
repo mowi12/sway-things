@@ -28,7 +28,7 @@ with what the app reads.
 | `show-generated [<file>]` | the generated files as `persist` would write them, without writing; without a file, every file with content under a `# ==> <path> <==` line. |
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](Architecture.md#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
-| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard\|launch\|autostart>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
 | `screenshot region\|window\|display\|all` | takes a screenshot as Screenshots & Clipboard says ([Backends](Backends.md#screenshots-clipboard-and-recording)); the screenshot keys run it. |
 | `record [region\|display]` | stops the recording Sway Things started, or starts one; without an argument, what the page says. The recording key runs it. |
 | `clipboard pick\|clear` | shows the clipboard history in the launcher and copies the entry picked again, or empties the history. |
@@ -77,6 +77,7 @@ the file and line, the setting and device where they apply, and what `--fix` doe
 | Settings files | `settings_loaded`, `settings_unusable`, `settings_entry`, `setting_skipped`, `setting_not_copied`, `tool_missing`, `history_twice` | files that can't be used (problem), entries that are ignored (warning), stored settings that are a comment in the generated file because the compositor doesn't support them, stored values GSettings can't take ([GSettings](Backends.md#gsettings)), a part of Screenshots & Clipboard that is on while a program it runs isn't installed (problem), and the clipboard history on while the user's config starts one of its own (warning) |
 | Generated files | `file_current`, `file_not_needed`, `file_missing`, `file_out_of_date`, `file_edited`, `file_foreign`, `file_unreadable`, `file_unchecked`, `file_valid`, `file_invalid`, `validation_skipped` | each file against the manifest and what `generate` gives now, and each file of Sway Things on disk through `sway --validate` (the generators' `Validate`), with the settings behind a rejected line while the file is up to date |
 | Conflicts | `no_conflicts`, `config_wins`, `config_line_dead` | for each stored value, the user's line that wins over it (warning) and those it makes dead (ok), with file:line |
+| Apps & Autostart | `desktop_sway`, `desktop_not_sway`, `apps_file`, `autostart_runner`, `autostart_no_runner`, `autostart_twice` | while default apps are chosen, whether `XDG_CURRENT_DESKTOP` names sway (a warning with how to set it if not); a file of the page that can't be written (problem); what runs the XDG autostart entries, with everything that starts at login as details, a warning when entries would start but nothing runs them (with the runner to choose) or when two things do. Only for the user's own checkup, not in tests ([Apps and autostart](Backends.md#apps-and-autostart)) |
 
 - **System details:** the text report starts with a _System_ block and `--json` has a `system` object, read by
   `crates/core/src/system.rs` for the About section too: the versions of Sway Things, the compositor, GTK, the
@@ -135,6 +136,11 @@ is needed, generated config calls the CLI briefly:
   the notification server, and remembers the answer ([A new display asks once](Outputs.md#a-new-display-asks-once));
   kanshi runs it from the profiles of our file with one display more than a remembered combination. It ends with the
   answer or after two minutes.
+- **`hook launch <ID>`**: starts an installed app as its desktop entry says, in a terminal if it asks for one;
+  `70-autostart.conf` runs it for each app among the autostart entries.
+- **`hook autostart`**: hands the session's variables to the systemd user session and starts the XDG autostart entries
+  through it; `70-autostart.conf` runs it while systemd starts them. Both return at once
+  ([Apps and autostart](Backends.md#apps-and-autostart)).
 
 - **`hook wallpaper`**: shows the next picture of each [collection](Backends.md#wallpaper-collections) whose time has
   come and starts the timers of those that change daily or after an interval (`wallpaper::login`); `20-output.conf` runs
@@ -145,6 +151,8 @@ The four of the displays are `outputs::hooks` in the core (`displays`, `workspac
 `HookEnv` of the settings files and kanshi's files). The CLI only connects (`hooks::connect`: `$SWAYSOCK`, or for a hook
 kanshi runs without it, sway's newest socket) and prints, so the user's run and the in-process tests go through the same
 code. A `HookEnv` without kanshi's files leaves kanshi out, also one that runs, so tests never reach the machine's.
+`hook launch` and `hook autostart` are `apps::launch` and `apps::autostart` in the core and need neither the settings
+nor sway, so both paths run them before anything else (`run_app_hook` in `crates/cli/src/hook.rs`).
 
 ```text
 # ~/.config/kanshi/sway-things.conf (generated)

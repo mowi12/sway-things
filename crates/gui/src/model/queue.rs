@@ -417,6 +417,7 @@ impl Model {
             }
             (Op::ReloadSway, Ok(access)) => self.reload_sway_now(&mut applier, &access).await,
             (Op::SwayReloaded, _) => applier.reloaded(),
+            (Op::Run(command), access) => self.run_now(&mut applier, &command, access.ok()).await,
             (op @ (Op::SetMirror { .. } | Op::FollowCombination | Op::MoveAlong(_)), _) => {
                 self.displays_now(&mut applier, op).await;
             }
@@ -441,6 +442,36 @@ impl Model {
         match applier.persist(overwrite, access).await {
             Ok(persisted) => self.emit_persisted(&persisted),
             Err(error) => self.emit_problem(&error.text().translated()),
+        }
+    }
+
+    /// Runs `command` in the session, after saving what isn't saved yet with `access`, and tells
+    /// the window if it can't.
+    async fn run_now(
+        &self,
+        applier: &mut Applier,
+        command: &sway_things_core::command::SwayCmd,
+        access: Option<WriteAccess>,
+    ) {
+        // The command may need what is only in memory yet: the unit of the systemd runner, an
+        // entry just changed. Saved first, as before a reload, unless saving is left to the user.
+        let autosave = self
+            .imp()
+            .core
+            .borrow()
+            .as_ref()
+            .is_some_and(|core| core.autosave);
+        if let Some(access) = access.as_ref().filter(|_| autosave) {
+            if applier.save_due().is_some() {
+                self.persist_now(applier, &[], access).await;
+            }
+        }
+        let Some(client) = applier.client() else {
+            self.emit_problem(tr(msg!("Only in a running sway session")));
+            return;
+        };
+        if let Err(error) = client.run(command).await {
+            self.emit_problem(&error.text().translated());
         }
     }
 

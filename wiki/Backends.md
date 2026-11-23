@@ -1,8 +1,8 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server and GSettings, the tools of Screenshots & Clipboard, and the planned backends for the
-> companion tools.
+> NetworkManager, the sound server and GSettings, the tools of Screenshots & Clipboard, the desktop entries, default
+> apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the only companion tool Sway
 Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)); Bluetooth, the network and
@@ -32,7 +32,7 @@ trait Backend {
 | Screen recording | wf-recorder, wl-screenrec |
 | Auto dark mode | darkman |
 | Audio | PulseAudio API via pipewire-pulse or PulseAudio (`libpulse-binding`, on libpulse's threaded main loop) |
-| Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection |
+| Autostart | our `exec` lines + hand-written `exec` (read-only) + XDG autostart with runner detection (systemd's `xdg-desktop-autostart.target`, dex), see [Apps and autostart](#apps-and-autostart) |
 | Bluetooth | BlueZ (D-Bus) |
 | Network | NetworkManager (D-Bus) |
 | Power | power-profiles-daemon / tuned-ppd, UPower (D-Bus) |
@@ -260,3 +260,101 @@ names it.
   day counts from the last change, which needs no time zone), else at the interval. The app and `set`/`reset` start the
   timers again after a change of a collection or of the collection an output shows. A timer whose session ended stops
   itself. Without a systemd user manager, pictures change at login only, and the app offers only that.
+
+## Apps and autostart
+
+`crates/core/src/apps/` serves the Apps & Autostart page. The facts behind it are in the
+[Sway Reference](Sway-Reference.md#apps-and-autostart).
+
+- **Desktop entries** (`entry`): the `[Desktop Entry]` group of a `.desktop` file, read no larger than 256 KiB; strings
+  with their escapes (`\s`, `\n`, `\t`, `\r`, `\\`), lists split at `;` (`\;` is part of an item), booleans, localized
+  strings looked up for each language as `ll_CC@mod`, `ll_CC`, `ll@mod`, `ll`, then the key without a locale. `Exec` is
+  split into arguments as the spec quotes it (double quotes with `\"`, `` \` ``, `\$`, `\\`; single quotes and a
+  backslash outside quotes as GLib and systemd read them) and its field codes are filled in for a start without files:
+  `%f %F %u %U` and the deprecated codes go, `%i` becomes `--icon <Icon>`, `%c` the name, `%k` the file, `%%` a `%`.
+  Names, icons and command lines are someone else's data: they become label text, an icon name or image file, or an
+  argument array, never a shell string.
+- **Installed apps** (`installed`): the entries below `applications/` of `$XDG_DATA_HOME` and `$XDG_DATA_DIRS`, each
+  under its desktop file ID (the path with `/` as `-`). The first directory with an ID wins; `Hidden=true` there hides
+  the ID, a `TryExec` program that isn't installed too. `OnlyShowIn`/`NotShowIn` decide by the first desktop of
+  `XDG_CURRENT_DESKTOP` either names, as `systemd-xdg-autostart-condition` does.
+- **Terminal and launcher** (`launchers`, settings `apps.terminal`, `apps.launcher` and their `…_keys`): a command line
+  each, empty while the user's own binding is kept. The page offers the known terminals and launchers in `PATH` (foot,
+  Alacritty, kitty, …; fuzzel, `wofi --show drun`, `rofi -show drun`, …) and other `TerminalEmulator` entries by their
+  program. The bindings go to `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)) and change live like
+  the page's other bindings. The user's `$term` and `$menu` can't be changed for their lines, since sway replaces a
+  variable when it reads a line; the page shows them and what the user's config binds to the keys.
+- **Default apps** (`mime`, settings `apps.default.*`): web browser, file manager, mail, image viewer, PDF viewer, video
+  and music player, text editor, terminal, each with its MIME types (`x-scheme-handler/https`, `inode/directory`,
+  `application/pdf`, …). Candidates are the installed apps whose `MimeType` has the kind's main type (for the terminal
+  also `TerminalEmulator` entries), `NoDisplay` ones included. `sway-mimeapps.list` names the chosen app in
+  `[Default Applications]` for the types of its kind that it opens (all of them for one that isn't installed);
+  `sway-xdg-terminals.list` names the terminal for `xdg-terminal-exec`, which GLib 2.76+ and the
+  [editor](Reading-Sway.md#editor) start `Terminal=true` apps with. What opens a type now follows the spec: the lists in
+  order (`$XDG_CONFIG_HOME`, `$XDG_CONFIG_DIRS`, then `applications/` of the data directories; in each the
+  `<desktop>-mimeapps.list` of every desktop of `XDG_CURRENT_DESKTOP`, lowercase, then `mimeapps.list`), the first
+  installed ID of `[Default Applications]` winning; without one, the first installed app of `[Added Associations]`, else
+  the first that opens the type. A row says whether Sway Things' list wins, and which list does instead.
+- **Autostart entries** (`autostart`, setting `autostart.entries`): `exec <command line>` or `app <desktop file ID>`,
+  switched off with `#` and a space in front. `70-autostart.conf` has an `exec` line for each one switched on, the
+  command line as one quoted argument (`SwayCmd::exec`): sway defers `exec` while it reads the config and runs the line
+  through `execute_command` later, which replaces `$$` once and hands a single quoted argument to `sh -c` without its
+  quotes, so the shell gets exactly the command line (a test runs both renderings through the port of sway's parser). An
+  app runs `sway-things hook launch <ID>`, which reads its desktop entry when it starts (an update of the app changes
+  nothing here) and starts its arguments with `Path` as the working directory, in a terminal for `Terminal=true`
+  (`xdg-terminal-exec` first, so the terminal chosen on the page counts only where it is installed; else a known
+  terminal whose option takes the command as separate arguments: `-e` of Alacritty, Ghostty, Konsole and xterm, `--` of
+  Console and GNOME Terminal, `-x` of Xfce Terminal; not Tilix, whose `-e` takes one string). An app with
+  `DBusActivatable=true` and no `Exec` is activated over the session bus (`org.freedesktop.Application.Activate` on the
+  ID's bus name and object path). A hidden app or one whose `TryExec` program is missing is reported as such. The ID
+  consists only of letters, digits, `-`, `_` and `.` (no `/`, so nothing leads out of the directories), and an entry's
+  command line can't start with `-`: an option of sway's `exec` (`--no-startup-id`) would reach the shell as its
+  command. _Start Now_ and _Start Them Now_ save what isn't saved yet (the systemd unit, an entry just changed), then
+  send the same `exec` over IPC.
+- **The user's `exec` lines** (`hand_written`): every top-level `exec` and `exec_always` of the user's config with file
+  and line, and the runner of XDG autostart entries one starts (`dex` with `-a`/`--autostart`, or a line naming
+  `xdg-desktop-autostart.target` or Sway Things' unit; a session target such as `sway-session.target` counts only
+  through `xdg-desktop-autostart.target` being active).
+- **XDG autostart entries** (`xdg_entries`): `$XDG_CONFIG_HOME/autostart`, then `autostart/` of `$XDG_CONFIG_DIRS`; the
+  first file of a name counts, as for the runners. Each says whether it starts in this session: `Hidden=true`,
+  `OnlyShowIn`/`NotShowIn`, a missing `TryExec` program, an `Exec` program that isn't installed, no `Exec`.
+  `X-GNOME-Autostart-enabled=false` is only read by GNOME's session; dex and systemd start such an entry, and the page
+  says so. A file of the user's is theirs (Open in Editor); one that starts with the header of the generated files is
+  Sway Things' override and shows the system entry it switches off.
+- **Switching off a system entry** (`autostart.hidden`): Sway Things' own `~/.config/autostart/<ID>.desktop` with
+  `Hidden=true`, written only where no file of that name exists; switched on again, the file is deleted.
+- **The runner** (`autostart.runner`: `none`, `systemd`, `dex`): sway starts no XDG autostart entries itself.
+  - `dex` becomes `exec dex --autostart --environment sway`. Its apps inherit all of sway's environment.
+  - systemd's `xdg-desktop-autostart.target` refuses a manual start (`RefuseManualStart=yes`), so `systemd` has Sway
+    Things write its own user unit `sway-things-autostart.target` (`Wants=` and `Before=` the target) and
+    `exec sway-things hook autostart`. At each start of sway the hook hands the session's variables to the user manager
+    (`systemctl --user import-environment`: `WAYLAND_DISPLAY`, `DISPLAY`, `SWAYSOCK`, `I3SOCK`, `XDG_CURRENT_DESKTOP`,
+    `XDG_SESSION_TYPE`, `XCURSOR_THEME`, `XCURSOR_SIZE`, those that are set, as sway's own `50-systemd-user.conf` and
+    sway-systemd do), runs `daemon-reload` (the generator reads the autostart entries again, and a unit written since is
+    known), stops Sway Things' unit and `xdg-desktop-autostart.target` and waits, then starts the unit. The stop is what
+    makes it robust: the user manager can outlive a sway session (lingering, a login on a TTY or over ssh, a second
+    session), and starting a target that is still active can't be relied on to start anything anew. It ends no app,
+    since `Wants=` carries no stop and the entries' services aren't part of the targets; an entry whose service still
+    runs isn't started twice. The alternative of binding the unit to the session needs a unit that ends with it, which
+    nothing provides without a session manager.
+  - Apps started by systemd get the user manager's environment plus the variables imported, not sway's whole
+    environment: `PATH` stays the user manager's (a login shell's `PATH` would change every service of the user), and
+    secrets such as `SSH_AUTH_SOCK` aren't copied. The user manager is shared by all sessions of the user: a second or
+    nested sway that starts the hook points the variables, and so apps started later through systemd, at its own
+    display.
+  - The page and `doctor` tell what runs the entries now: the target active in this session (a systemd session such as
+    uwsm or sway-systemd), a line of the user's that runs `dex` with `-a`/`--autostart` as an argument or starts
+    `xdg-desktop-autostart.target` or Sway Things' unit, or Sway Things. With none, the offer is systemd if the target
+    is known (`systemctl --user show`), else dex if it is installed. With two (dex next to dex or systemd; whatever
+    starts systemd's target counts once, since starting it again does nothing), a warning that each entry may start
+    twice. While the target runs only because Sway Things' unit started it before the runner was changed, the page says
+    the change applies at the next login instead.
+- **Files of other programs** (`files`): `sway-mimeapps.list`, `sway-xdg-terminals.list`, the overrides and the systemd
+  unit start with the header of the generated files and are recorded in `manifest.toml` with their hash, like the sway
+  files. `Applier::persist` writes them after the sway files, for the user's directories (`Applier::set_apps_dirs`;
+  appliers made for tests write none): a missing one is created without replacing anything (`atomic::create_new`:
+  written next to its place, then linked there, which fails if a file appeared meanwhile), one of Sway Things as it
+  wrote it is replaced (through a symbolic link, like the sway files), and one no longer needed is deleted, only then (a
+  link to it stays); someone else's file, a dangling link, or a file of Sway Things changed since, is left alone and
+  reported (`Persisted::apps`). For the default apps only the chosen apps are looked up, not every installed one, so a
+  save stays cheap.

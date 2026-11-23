@@ -31,6 +31,7 @@
 )]
 
 mod about;
+mod apps_autostart;
 mod bluetooth;
 mod common;
 mod contrast_check;
@@ -91,6 +92,7 @@ use sway_things_gui::widgets::{
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
 use self::about::*;
+use self::apps_autostart::*;
 use self::bluetooth::*;
 use self::common::*;
 use self::contrast_check::*;
@@ -206,6 +208,7 @@ fn main() -> ExitCode {
     results.extend(check_shortcuts());
     results.extend(check_places());
     results.extend(check_swayosd());
+    results.extend(check_apps());
     results.extend(check_welcomes(&settings));
     report(&results)
 }

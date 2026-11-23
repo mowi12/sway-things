@@ -203,6 +203,15 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   model's search path, or while it is stored; switched on, the volume keys run `swayosd-client` and their rows say _with
   an on-screen display_. Its note says how to start `swayosd-server` while nothing does, where the config starts it with
   an `exec` line, and goes away while a stand-in process named `swayosd-server` runs.
+- Apps & Autostart (`apps_autostart.rs`): Sway Things' entries, the user's `exec` and `exec_always` lines and the XDG
+  autostart entries are one list, a line each with where it comes from; a switch stores the entry with `#` in front, a
+  line of the config has a lock instead, and the lists of entries have no rows of their own. A click on a line opens its
+  details: a config line's file and line with _Open in Editor_, Sway Things' entry with _Start Now_ and _Remove_, which
+  removes it. _Add App…_ lists the apps with a search, and its first item asks for a command, which is stored. The
+  terminal shows the config's binding of its keys without a choice, its keys are a button of keys, and a terminal chosen
+  takes the place of the config's binding and is bound. The page with entries from every source (with the entries that
+  don't start unfolded) and its dialogs are checked for contrast in light and dark; with the XDG directories of a
+  desktop (`XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_CONFIG_DIRS`) they show its apps and entries.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

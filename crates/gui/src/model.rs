@@ -148,6 +148,9 @@ enum Op {
     SwayReloaded,
     /// Writes a generated file that was changed outside Sway Things.
     Overwrite(ConfigFile),
+    /// Runs a command in the session now: an autostart entry started by hand. It stores
+    /// nothing, so it needs no include line.
+    Run(sway_things_core::command::SwayCmd),
 }
 
 /// What the model works with once it is loaded.
@@ -228,6 +231,9 @@ mod imp {
         /// Where programs are looked for, a list like `$PATH`: `$PATH` itself unless a test
         /// sets its own.
         pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
+        /// The files of the Apps & Autostart page that weren't written when last saved, so each
+        /// is told once.
+        pub(super) apps_problems: RefCell<Vec<sway_things_core::apps::files::Problem>>,
     }
 
     #[glib::object_subclass]
@@ -556,6 +562,13 @@ impl Model {
         self.queue(Op::ReloadSway);
     }
 
+    /// Runs `command` in the session now, after what is queued: an autostart entry started by
+    /// hand. Changes not saved yet are saved first, so the files it needs are there. Without a
+    /// session, the window says so.
+    pub fn run_command(&self, command: sway_things_core::command::SwayCmd) {
+        self.queue(Op::Run(command));
+    }
+
     /// What Sway Things writes to each generated file for the current settings. Nothing is
     /// read or written. `None` if the settings couldn't be loaded.
     pub fn generated_files(&self) -> Option<Vec<GeneratedFile>> {
@@ -771,7 +784,12 @@ impl Model {
 
     /// The items of `shortcuts.bindings` stored now, or that a change in progress stores.
     pub fn binding_items(&self) -> Vec<String> {
-        let key = sway_things_core::bindings::ours::BINDINGS;
+        self.list(sway_things_core::bindings::ours::BINDINGS)
+    }
+
+    /// The items of the list setting `key` stored now (for the whole session), or that a change
+    /// in progress stores: what a page that edits the list item by item starts from.
+    pub fn list(&self, key: &'static str) -> Vec<String> {
         let queued = self
             .imp()
             .queue
@@ -793,7 +811,10 @@ impl Model {
             .core
             .borrow()
             .as_ref()
-            .map(|core| sway_things_core::bindings::ours::items(&core.state))
+            .and_then(|core| match core.state.get(key, None) {
+                Some(Value::List(items)) => Some(items.clone()),
+                _ => None,
+            })
             .unwrap_or_default()
     }
 
@@ -981,6 +1002,7 @@ impl Model {
             | Op::MoveAlong(_)
             | Op::HealMirrors
             | Op::Overwrite(_)
+            | Op::Run(_)
             | Op::FixPlacement { .. }
             | Op::SetMirror { .. } => false,
         })
@@ -1024,6 +1046,13 @@ impl Model {
         for (file, outcome) in persisted.problems() {
             if let Some(problem) = outcome.problem(file) {
                 self.emit_problem(&problem.translated());
+            }
+        }
+        // A file of the Apps & Autostart page that isn't Sway Things' own stays so: told once.
+        let known = self.imp().apps_problems.replace(persisted.apps.clone());
+        for problem in &persisted.apps {
+            if !known.contains(problem) {
+                self.emit_problem(&problem.text().translated());
             }
         }
     }

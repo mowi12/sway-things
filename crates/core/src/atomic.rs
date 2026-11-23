@@ -18,6 +18,24 @@ pub(crate) fn write(path: &Path, text: &str) -> io::Result<()> {
     stage(path, text, "tmp")?.commit()
 }
 
+/// Creates the file `path` with `text`, only if nothing is there: no file, and no symbolic
+/// link, not even a dangling one. The text is staged next to it ([`stage`]) and then linked into
+/// place ([`Staged::commit_new`]), which fails if `path` appeared meanwhile, so nothing is ever
+/// replaced. Missing parent directories are created.
+///
+/// # Errors
+///
+/// `AlreadyExists` if something is at `path`, and any I/O error.
+pub(crate) fn create_new(path: &Path, text: &str) -> io::Result<()> {
+    if fs::symlink_metadata(path).is_ok() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "something is there already",
+        ));
+    }
+    stage(path, text, "new")?.commit_new()
+}
+
 /// `text` written to a hidden temporary file next to the file it is to replace, and synced, so
 /// it can be checked before it replaces that file ([`Staged::commit`]). Dropped without a commit,
 /// it is removed.
@@ -89,6 +107,19 @@ impl Staged {
         }
         Ok(())
     }
+
+    /// Links the temporary file into place only if nothing is at the file it is for: `link`
+    /// fails with `AlreadyExists` where `rename` would replace. The temporary name goes either
+    /// way.
+    pub(crate) fn commit_new(self) -> io::Result<()> {
+        fs::hard_link(&self.temporary, &self.target)?;
+        if let Some(directory) = self.target.parent() {
+            if let Ok(directory) = File::open(directory) {
+                let _ = directory.sync_all();
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Drop for Staged {
@@ -105,7 +136,7 @@ mod tests {
     use std::fs;
     use std::os::unix::fs::symlink;
 
-    use super::{stage, write};
+    use super::{create_new, stage, write};
 
     /// The names in `dir`, sorted.
     fn names(dir: &std::path::Path) -> Vec<String> {
@@ -208,6 +239,26 @@ mod tests {
         assert!(write(&path, "text").is_err());
         assert!(path.is_dir());
         assert_eq!(names(dir.path()), ["taken"]);
+    }
+
+    #[test]
+    fn create_new_never_replaces_a_file_or_a_dangling_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a/new.desktop");
+        create_new(&path, "one\n").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "one\n");
+        assert_eq!(names(&dir.path().join("a")), ["new.desktop"]);
+
+        let error = create_new(&path, "two\n").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "one\n");
+
+        let dangling = dir.path().join("dangling.desktop");
+        symlink(dir.path().join("nowhere"), &dangling).unwrap();
+        let error = create_new(&dangling, "three\n").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert!(!dir.path().join("nowhere").exists());
+        assert_eq!(names(dir.path()), ["a", "dangling.desktop"]);
     }
 
     #[test]
