@@ -7,6 +7,7 @@
   { "id": "bluetooth", "name": "Bluetooth", "gallery": true },
   { "id": "network", "name": "Network", "gallery": true },
   { "id": "windows", "name": "Windows", "gallery": true },
+  { "id": "wallpaper", "name": "Wallpaper" },
   { "id": "apps-look-feel", "name": "Apps Look & Feel", "gallery": true },
   { "id": "window-behavior", "name": "Window Behavior" },
   { "id": "workspaces", "name": "Workspaces" }

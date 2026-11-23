@@ -2,6 +2,52 @@
 
 All notable changes to Sway Things, written for users. git-cliff drafts each section from the Conventional Commits.
 
+## 0.4.0 (2026-11-23)
+
+A new Wallpaper page, VPN sign-ins inside the app, and displays that look after themselves: a mirror that comes back by
+itself, one question when a projector is plugged in, and workspaces placed while your own kanshi profiles set up the
+displays.
+
+### Pages
+
+- **Wallpaper:** a picture or a color for all displays or for each one, with a preview of the displays as they are
+  arranged. Pick from your picture folder (the folder is a preference, `~/Pictures` by default) or any image, choose how
+  it fits, or make a collection of pictures and folders that take turns at every login, daily or after a while. _Next
+  Picture_ and `sway-things wallpaper next` move on at once. The _Default_ tile brings back the wallpaper of your own
+  config. When your config starts a wallpaper tool such as swaybg, swww or wpaperd, the page names the line instead of
+  fighting it, and `sway-things doctor` reports a `swaybg_command` that draws no wallpaper.
+
+### Displays and Workspaces
+
+- A mirrored display comes back by itself when wl-mirror crashed or its window was closed, and `sway-things hook mirror`
+  can be bound to a key to bring it back at once.
+- When a display Sway Things has never seen is plugged in, such as the projector at a meeting, a notification asks once
+  whether it mirrors or extends the desktop, and the answer is remembered.
+- The workspaces are placed on the displays even while your own kanshi profiles set them up: Sway Things follows your
+  profiles instead of replacing them.
+
+### Network
+
+- A VPN that needs a password or other secrets to connect asks for them in a dialog of the app, with the fields its VPN
+  plugin describes.
+- OpenConnect VPNs sign in with openconnect itself, step by step in one dialog, including servers that ask for a
+  one-time code and sign-ins in the browser.
+
+### App and command line
+
+- _Reset page…_ brings back the values of your own config at once, instead of sway's defaults until the next reload.
+- `sway-things get` shows the value in effect, as the app does, and lists the values of one display under its name.
+- The notices of every page look alike.
+- Writing a file still works after Sway Things crashed while writing it, and the generated config that lands is exactly
+  the one `sway --validate` checked.
+
+### Packages
+
+- Same distributions as 0.3: openSUSE Tumbleweed, Fedora 43 and 44, Debian 13 and Ubuntu 26.04 from the openSUSE Build
+  Service; Fedora Rawhide and Debian unstable on a best-effort basis.
+- The packages recommend the gdk-pixbuf loader for WebP wallpapers (webp-pixbuf-loader) where the distribution has it;
+  the Wallpaper page warns when it is missing.
+
 ## 0.3.0 (2026-11-20)
 
 Five new pages for the devices and the look of the desktop: Displays, Workspaces, Sound, Cursor & Tablet and Apps Look &

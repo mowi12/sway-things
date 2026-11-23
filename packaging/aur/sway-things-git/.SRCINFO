@@ -17,6 +17,7 @@ pkgbase = sway-things-git
 	depends = libpulse
 	depends = pango
 	depends = sway
+	optdepends = webp-pixbuf-loader: WebP wallpapers
 	provides = sway-things=0.2.1
 	conflicts = sway-things
 	source = sway-things-git::git+https://github.com/mowi12/sway-things.git
