@@ -13,6 +13,10 @@
 #   tree as Fedora's %cargo_license_summary runs it: no build, dev or proc-macro dependencies, every target) and
 #   CC0-1.0 of the metainfo. The SourceLicense of the Fedora spec names exactly those of every crate in the tarball's
 #   vendor/ and the licenses in LICENSES/. So a new dependency with a new license can't make them wrong unnoticed.
+# - The .SRCINFO of the AUR package agrees with its PKGBUILD: the PKGBUILD is sourced in a subshell, and what
+#   `makepkg --printsrcinfo` would print from it (every field, in makepkg's order) is compared with the committed file,
+#   but for pkgver and pkgrel, which pkgver() and the AUR maintainer set. Without makepkg, so it runs on any host and in
+#   pull requests; the arch-git package build (scripts/build-packages.sh) compares with makepkg itself.
 #
 # In the specs, License and SourceLicense are written as %{shrink:…} with one expression per line, joined by AND; an
 # expression with more than one license is put in parentheses.
@@ -81,6 +85,61 @@ check_msrv .github/workflows/ci.yml "$(sed -n 's/^ *toolchain: \["\([^"]*\)", st
 check_msrv packaging/debian/control "$(sed -n 's/^ *rustc (>= \([^)]*\)),$/\1/p' packaging/debian/control)"
 check_msrv "$opensuse" "$(sed -n 's/^BuildRequires: *cargo >= //p' "$opensuse")"
 check_msrv README.md "$(sed -n 's/^You need Rust \([0-9.]*\) or newer.*/\1/p' README.md)"
+
+# The AUR package's .SRCINFO.
+aur=packaging/aur/sway-things-git
+# What `makepkg --printsrcinfo` prints for the PKGBUILD $1: its global fields, then a pkgname line per package, in
+# makepkg's order (pacman's scripts/libmakepkg/srcinfo.sh). Fields set per package in package_*() aren't supported.
+# SC2154: the fields (arch, pkgname, …) come from the sourced PKGBUILD.
+# shellcheck disable=SC2154
+srcinfo_of() (
+  # shellcheck source=/dev/null
+  source "$1"
+  local sums=(cksums md5sums sha1sums sha224sums sha256sums sha384sums sha512sums b2sums)
+  local single=(pkgdesc pkgver pkgrel epoch url install changelog)
+  local multi=(arch groups license checkdepends makedepends depends optdepends provides conflicts replaces noextract
+    options backup source validpgpkeys "${sums[@]}")
+  local per_arch=(source checkdepends makedepends depends optdepends provides conflicts replaces "${sums[@]}")
+  local key value name a
+  printf 'pkgbase = %s\n' "${pkgbase:-${pkgname[0]}}"
+  for key in "${single[@]}"; do
+    if [[ -n ${!key-} ]]; then
+      printf '\t%s = %s\n' "$key" "${!key}"
+    fi
+  done
+  print_array() {
+    local key=$1 name=$2
+    local -n values=$name
+    for value in "${values[@]}"; do
+      printf '\t%s = %s\n' "$key" "$value"
+    done
+  }
+  for key in "${multi[@]}"; do
+    if declare -p "$key" &>/dev/null; then
+      print_array "$key" "$key"
+    fi
+  done
+  for a in "${arch[@]}"; do
+    [[ $a == any ]] && continue
+    for key in "${per_arch[@]}"; do
+      name=${key}_$a
+      if declare -p "$name" &>/dev/null; then
+        print_array "$name" "$name"
+      fi
+    done
+  done
+  for name in "${pkgname[@]}"; do
+    printf '\npkgname = %s\n' "$name"
+  done
+)
+without_version() {
+  grep -v -E '^[[:space:]]*(pkgver|pkgrel) = '
+}
+if ! diff -u --label "$aur/.SRCINFO" --label "from $aur/PKGBUILD" <(without_version <"$aur/.SRCINFO") \
+  <(srcinfo_of "$aur/PKGBUILD" | without_version) >&2; then
+  echo "error: $aur/.SRCINFO is out of date; run makepkg --printsrcinfo >.SRCINFO in $aur" >&2
+  status=1
+fi
 
 # The license expressions cargo tree prints with these arguments, one per line, in the form of the specs.
 licenses() {

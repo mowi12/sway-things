@@ -171,7 +171,7 @@ tools of `tools/binaries.txt` from their GitHub releases (into `target/tools`, u
 | Tests | unit + golden-file tests on MSRV **1.85** and stable, in a Debian 13 container (GTK 4.18) |
 | Install | `scripts/build.sh` and `scripts/install.sh` into a temporary `DESTDIR`, for `PREFIX=/usr/local` (the default) and `/usr` (packages): the exact list of installed files, `appstreamcli validate-tree`, `desktop-file-validate`, `groff` warnings in the man pages, the syntax of the bash, zsh and fish completions, and `--uninstall` leaving nothing behind |
 | Install script | `scripts/check-install-from-obs.sh`: dry runs of `scripts/install-from-obs.sh` (served at sway-things.org/install) under dash, bash and busybox `sh` in a clean container, for every supported system and some unsupported ones, and the signing key's fingerprint as the script computes it; with `--container all` (in the Packages workflow), a real install, update and uninstall from the published OBS repository on every distribution |
-| Packaging | the version in `Cargo.toml`, both RPM specs, the man pages, the newest `CHANGELOG.md` section and the metainfo agree, and so does the MSRV in `Cargo.toml`, the CI test matrix, the Debian and openSUSE build requirements and the README; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates (`scripts/check-packaging.sh`) |
+| Packaging | the version in `Cargo.toml`, both RPM specs, the man pages, the newest `CHANGELOG.md` section and the metainfo agree, and so does the MSRV in `Cargo.toml`, the CI test matrix, the Debian and openSUSE build requirements and the README; the specs' `License` (and Fedora's `SourceLicense`) name exactly the licenses of the crates; the AUR `.SRCINFO` agrees with its `PKGBUILD` (`scripts/check-packaging.sh`) |
 | Packages | not a pull request check: on every push to `main`, weekly and for a release, the reproducible tarball (`scripts/make-tarball.sh --check`) and the openSUSE Tumbleweed, Fedora, Debian 13 and Ubuntu 26.04 packages built from it offline in containers (`ci/packages/`), with `rpmlint` or `lintian` and an install test; locally `scripts/build-packages.sh --container all`. Also the install script against the published packages (`scripts/check-install-from-obs.sh --container all`) |
 | Integration | headless sway 1.10 (oldest supported) and latest, plus SwayFX latest, in containers (`ci/containers/`), which also build and run the IPC client's tests and, on sway, the GUI tests (contrast in light and dark, keyboard navigation); locally `scripts/check-integration.sh --container all` |
 | Commits | every PR commit against `.conventional-commit-types.json` |
@@ -194,8 +194,9 @@ Without `--local`, the `-git` package builds GitHub's `main`, as it does for use
 the committed state of your checkout (uncommitted changes are left out). The build needs the network: it fetches the
 Arch packages and the crates. When you change `packaging/aur/sway-things-git/PKGBUILD`, set its `pkgver` to the current
 version of `main` (`<release>.r<commits>.g<hash>`, what `pkgver()` makes of `git describe --long --abbrev=7`) and
-regenerate `.SRCINFO` next to it with `makepkg --printsrcinfo >.SRCINFO` on Arch. The build fails while `.SRCINFO` is
-out of date and prints the difference, which is enough to fix it elsewhere.
+regenerate `.SRCINFO` next to it with `makepkg --printsrcinfo >.SRCINFO` on Arch. The build and
+`scripts/check-packaging.sh` (on every pull request) fail while `.SRCINFO` is out of date and print the difference,
+which is enough to fix it elsewhere.
 
 ## Fuzzing
 
