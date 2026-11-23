@@ -2,6 +2,61 @@
 
 All notable changes to Sway Things, written for users. git-cliff drafts each section from the Conventional Commits.
 
+## 0.5.0 (2026-11-23)
+
+Five new pages for the desktop around your windows: Keyboard Shortcuts, Screenshots & Clipboard, Apps & Autostart,
+Notifications and Printers. Every key binding in one place, the daily tools set up from the app, and the printers on the
+network added in a click.
+
+### Pages
+
+- **Keyboard Shortcuts:** every key binding sway has, yours with the file and line they come from and those of Sway
+  Things, in words grouped by what they do, and searchable by keys or command. Add, change or remove a binding by
+  pressing the new keys; a binding of your own config is changed or removed in Sway Things' files, never in yours, and
+  the row says so, with a way back. Two bindings on the same keys are shown as a conflict. Ready-made choices cover the
+  media keys (volume, brightness, playback), with an on-screen display through SwayOSD, and the main modifier of the
+  bindings Sway Things makes.
+- **Screenshots & Clipboard:** keys for a screenshot of an area, a window, a display or all displays (grim and slurp),
+  copied, saved to a folder with a name pattern of your choice, or opened in swappy or satty; a clipboard history with
+  cliphist and a key that picks from it; and a key that starts and stops a screen recording (wf-recorder or
+  wl-screenrec). The same works from the command line: `sway-things screenshot`, `record` and `clipboard pick`.
+- **Apps & Autostart:** the terminal and the launcher, taken from the installed ones, with their keys; the default apps
+  (web browser, file manager, mail, image viewer, PDF viewer, video and music player, text editor) in Sway Things' own
+  `sway-mimeapps.list`, so your `mimeapps.list` stays as it is; and one list of everything that starts at login: the
+  entries of Sway Things, the `exec` lines of your config, and the XDG autostart entries, with a note and the fix when
+  nothing in your session starts the latter.
+- **Notifications:** Do Not Disturb for mako, swaync and dunst, also as `sway-things notifications dnd` for a key or a
+  bar. The page says which daemon runs and what starts it, can start one with sway, and sends a test notification. For
+  mako and swaync it sets the position, timeout, size, font and colors (matching the windows or your own), swaync's
+  panel with its widgets and buttons, and whether clicking a notification brings its app to the front; an existing
+  swaync config can be imported. On SwayFX the notifications can be blurred behind.
+- **Printers:** the printers of CUPS with their state, ink and toner levels and print queue; set the default, pause and
+  resume, rename, share, print a test page, cancel jobs, and remove a printer. Driverless printers on the network or on
+  USB are found and added in a click, or by their address. Changes work as a member of CUPS's administrator group or
+  through cups-pk-helper; _Advanced…_ hands printers that need a driver to system-config-printer or CUPS's web
+  interface.
+
+### Bluetooth
+
+- A connection or pairing that takes long can be canceled from the device's row.
+- Turning Bluetooth off during a connection attempt cancels the attempt first, so the switch no longer hangs
+  half-changed.
+
+### App and command line
+
+- Resetting a single setting brings back the value of your own config, not sway's default: gaps set in your config no
+  longer drop to 0.
+- `sway-things doctor` names CUPS and cups-pk-helper in the system details, reports the notification daemon that runs
+  and what starts it, and says when nothing starts the XDG autostart entries.
+
+### Packages
+
+- Same distributions as 0.4: openSUSE Tumbleweed, Fedora 43 and 44, Debian 13 and Ubuntu 26.04 from the openSUSE Build
+  Service; Fedora Rawhide and Debian unstable on a best-effort basis.
+- The new pages use optional tools when installed and say what to install otherwise: grim, slurp, wl-clipboard,
+  cliphist, swappy or satty, wf-recorder or wl-screenrec, SwayOSD, dex, mako, swaync or dunst, CUPS with cups-pk-helper
+  and Avahi, and system-config-printer.
+
 ## 0.4.0 (2026-11-23)
 
 A new Wallpaper page, VPN sign-ins inside the app, and displays that look after themselves: a mirror that comes back by
