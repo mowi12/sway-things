@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 20:59+0100\n"
+"POT-Creation-Date: 2026-11-23 20:56+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -9235,6 +9235,12 @@ msgid ""
 "A host name, an IP address, or an ipp:// or ipps:// address. The printer "
 "must be driverless (IPP Everywhere or AirPrint); for others, use Advanced… "
 "on the page."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid ""
+"Printers can't be found automatically because Avahi isn't running. Start "
+"avahi-daemon, or type the address of the printer below."
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs

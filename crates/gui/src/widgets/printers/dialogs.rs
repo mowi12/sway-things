@@ -185,34 +185,46 @@ impl AddDialog {
     /// Lists what Avahi finds until the dialog closes.
     fn discover(&self, bus: Bus) {
         let dialog = self.clone();
-        let task =
-            glib::spawn_future_local(async move {
-                let mut discovery =
-                    match Discovery::start(&bus).await {
-                        Ok(discovery) => discovery,
-                        Err(error) => {
-                            dialog.state.spinner.set_visible(false);
-                            dialog.state.hint.set_text(&trf(
-                        msg!(
-                            "Printers can't be found automatically: {error}. Type the address \
-                             of the printer below."
-                        ),
-                        // Discovery is unavailable when Avahi is: its reason says so.
-                        &[("error", &match &error {
-                            Error::Unavailable(reason) => reason.translated(),
-                            other => other.text().translated(),
-                        })],
-                    ));
-                            return;
+        let task = glib::spawn_future_local(async move {
+            let mut discovery = match Discovery::start(&bus).await {
+                Ok(discovery) => discovery,
+                Err(error) => {
+                    dialog.state.spinner.set_visible(false);
+                    let text = match &error {
+                        // Discovery is unavailable when Avahi is; the bus's reason is
+                        // only for the log.
+                        Error::Unavailable(reason) => {
+                            glib::g_debug!(
+                                "sway-things",
+                                "Avahi can't be reached: {}",
+                                reason.translated()
+                            );
+                            tr(msg!(
+                                "Printers can't be found automatically because Avahi \
+                                         isn't running. Start avahi-daemon, or type the address \
+                                         of the printer below."
+                            ))
+                            .to_owned()
                         }
+                        other => trf(
+                            msg!(
+                                "Printers can't be found automatically: {error}. Type \
+                                         the address of the printer below."
+                            ),
+                            &[("error", &other.text().translated())],
+                        ),
                     };
-                while let Some(event) = discovery.next().await {
-                    match event {
-                        Discovered::Added(found) => dialog.show_found(found),
-                        Discovered::Removed(key) => dialog.hide_found(&key),
-                    }
+                    dialog.state.hint.set_text(&text);
+                    return;
                 }
-            });
+            };
+            while let Some(event) = discovery.next().await {
+                match event {
+                    Discovered::Added(found) => dialog.show_found(found),
+                    Discovered::Removed(key) => dialog.hide_found(&key),
+                }
+            }
+        });
         self.state.discovery.replace(Some(task));
         // Avahi reports what it knows at once; after a while, say if that is nothing.
         let dialog = self.clone();
