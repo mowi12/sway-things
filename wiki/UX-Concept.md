@@ -333,6 +333,10 @@ click away in the binding's dialog.
 - **Media keys:** a switch each for the volume (`wpctl`), brightness (`brightnessctl`) and media player keys
   (`playerctl`), shown only while the program is installed (or the switch is on, so it can be switched off). Below a
   switch, what its keys replace of the user's config or what wins over them.
+- **A change keeps the place:** removing, changing or putting back a binding, a media key switch, the main modifier and
+  the search build the list again without moving the page: the row that had the focus keeps it (the same binding, or the
+  row after a removed one) and stays where it was on screen (a removal keeps the scroll position, so the rows after it
+  move up). The Workspaces map does the same for the number clicked.
 - **Later:** editing bindings of modes, touchpad gestures (`bindgesture`), a cheat sheet to print.
 
 ### Sound

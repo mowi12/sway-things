@@ -96,19 +96,25 @@
 - **Keyboard Shortcuts page** (`crates/gui/src/widgets/shortcuts/`): `PageView` starts the page with a `ShortcutList`
   section: a search field, _Add Shortcut…_, and a `ListBox` per group (the categories, "other" under "system", then one
   per mode) of the rows of `Model::bindings` (the core's `Listing` for the model's status and state, with a `GdkKeymap`
-  from `gdk::Display::map_keycode`), rebuilt when the model changes. A row (`row.rs`) is an activatable `ListBoxRow`
-  with one line: what the binding does (`Row::description`, else the command) and the keycaps, between them only a
-  warning sign (not in effect), a lock (`locked_reason`) or the ↶ button (`bindings::edit::restore`), the reasons as
-  tooltips and accessible descriptions. Activating a row opens the `Editor` dialog for it, a modal `gtk::Window` with
-  the keys, the line that says whether they are free, the clashes, the action, the details (`gtk::Expander`) and
-  _Remove_ / _Back to Your Config's Binding_ / _Save_; their changes store the list `bindings::edit` makes (`Model::set`
-  of `shortcuts.bindings`). A binding that isn't `Row::editable` opens it read only, with a button to the setting that
-  owns it (`owner`, opened through `Window::open_link`). Its key field listens with an `EventControllerKey` in the
-  capture phase and asks for every key (`gdk::Toplevel::inhibit_system_shortcuts`) while it does, taking the keysym of
-  the key's first level in the event's layout, so Shift+1 is `Shift+1` as sway's raw keysyms see it; the modifiers held
-  meanwhile list the keys taken with them. The apps it offers are `gio::AppInfo::all()` with the field codes of their
-  command lines left out. The list item has no row; a media key switch has one only while its program is installed or it
-  is stored, with what its keys clash with below it.
+  from `gdk::Display::map_keycode`), rebuilt when the model changes. The rebuild keeps the place on the page
+  (`widgets::Place`, also used by the `WorkspaceMap`): before the rows go, it notes the scroll position and where the
+  focused widget is in the page's content, and takes the focus off (a focused widget that is removed makes GTK move the
+  focus to the next one of the window, which scrolls the page there); after, it gives the focus to the row of the same
+  binding (or the next one) and, in a handler of the frame clock's `layout` signal that runs after the window's, scrolls
+  so that row is where the old one was, or to the old position after a removal. Several rebuilds before the next frame
+  (the model says it changed when a change is queued and when it is applied) share the place taken first. A row
+  (`row.rs`) is an activatable `ListBoxRow` with one line: what the binding does (`Row::description`, else the command)
+  and the keycaps, between them only a warning sign (not in effect), a lock (`locked_reason`) or the ↶ button
+  (`bindings::edit::restore`), the reasons as tooltips and accessible descriptions. Activating a row opens the `Editor`
+  dialog for it, a modal `gtk::Window` with the keys, the line that says whether they are free, the clashes, the action,
+  the details (`gtk::Expander`) and _Remove_ / _Back to Your Config's Binding_ / _Save_; their changes store the list
+  `bindings::edit` makes (`Model::set` of `shortcuts.bindings`). A binding that isn't `Row::editable` opens it read
+  only, with a button to the setting that owns it (`owner`, opened through `Window::open_link`). Its key field listens
+  with an `EventControllerKey` in the capture phase and asks for every key (`gdk::Toplevel::inhibit_system_shortcuts`)
+  while it does, taking the keysym of the key's first level in the event's layout, so Shift+1 is `Shift+1` as sway's raw
+  keysyms see it; the modifiers held meanwhile list the keys taken with them. The apps it offers are
+  `gio::AppInfo::all()` with the field codes of their command lines left out. The list item has no row; a media key
+  switch has one only while its program is installed or it is stored, with what its keys clash with below it.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that

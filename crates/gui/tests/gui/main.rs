@@ -42,6 +42,7 @@ mod indicators;
 mod keyboard;
 mod look;
 mod network;
+mod place;
 mod reload;
 mod rows;
 mod safety_net;
@@ -100,6 +101,7 @@ use self::indicators::*;
 use self::keyboard::*;
 use self::look::*;
 use self::network::*;
+use self::place::*;
 use self::reload::*;
 use self::rows::*;
 use self::safety_net::*;
@@ -200,6 +202,7 @@ fn main() -> ExitCode {
     results.extend(check_indicators());
     results.extend(check_look());
     results.extend(check_shortcuts());
+    results.extend(check_places());
     results.extend(check_welcomes(&settings));
     report(&results)
 }

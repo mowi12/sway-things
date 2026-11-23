@@ -536,6 +536,7 @@ pub(crate) fn check_workspace_map() -> Outcome {
                 && button.ancestor(gtk::FlowBox::static_type()).is_some()
         })
         .ok_or_else(|| "  no button 1".to_owned())?;
+    one.grab_focus();
     one.emit_clicked();
     wait_for_model(&fixture.model)?;
     let placement = Registry::builtin()
@@ -554,6 +555,17 @@ pub(crate) fn check_workspace_map() -> Outcome {
         })
     });
     ensure(cards, "  1 didn't move to the right")?;
+    // The number keeps the focus on its new card.
+    let focus = gtk::prelude::GtkWindowExt::focus(&window);
+    ensure(
+        focus
+            .as_ref()
+            .and_then(|focus| focus.downcast_ref::<gtk::Button>())
+            .is_some_and(|button| {
+                button.label().as_deref() == Some("1") && *button != one && button.root().is_some()
+            }),
+        &format!("  the focus is on {focus:?}, not on 1 on its new card"),
+    )?;
     window.destroy();
 
     let fixture = displays_fixture(&sway, "version = 1\n")?;

@@ -17,6 +17,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::outputs::workspaces::targets;
 
+use super::Place;
 use super::displays::short_label;
 use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
@@ -69,8 +70,33 @@ impl WorkspaceMap {
         &self.root
     }
 
-    /// Shows the placement of `model` for the displays connected now.
+    /// Shows the placement of `model` for the displays connected now. The number with the focus
+    /// keeps it, on whichever card it is now, and the page keeps its place ([`Place`]).
     fn update(&self, model: &Model) {
+        let place = Place::of(&self.root);
+        let focused = place
+            .as_ref()
+            .and_then(Place::focus)
+            .filter(|focus| focus.is_ancestor(&self.cards))
+            .and_then(|focus| focus.downcast_ref::<gtk::Button>()?.label());
+        if let Some(place) = &place {
+            place.release(&self.cards);
+        }
+        self.build(model);
+        if let Some(place) = place {
+            let focus = focused.and_then(|name| {
+                let mut buttons = Vec::new();
+                buttons_in(self.cards.upcast_ref(), &mut buttons);
+                buttons
+                    .into_iter()
+                    .find(|button| button.label().as_deref() == Some(name.as_str()))
+            });
+            place.restore(focus.map(Cast::upcast));
+        }
+    }
+
+    /// Builds the cards for the placement of `model` and the displays connected now.
+    fn build(&self, model: &Model) {
         while let Some(child) = self.cards.first_child() {
             self.cards.remove(&child);
         }
@@ -120,6 +146,18 @@ impl WorkspaceMap {
             self.cards
                 .append(&card(model, display, shown, &next, &placement));
         }
+    }
+}
+
+/// The buttons in `widget` and below it, into `found`.
+fn buttons_in(widget: &gtk::Widget, found: &mut Vec<gtk::Button>) {
+    if let Some(button) = widget.downcast_ref::<gtk::Button>() {
+        found.push(button.clone());
+    }
+    let mut child = widget.first_child();
+    while let Some(widget) = child {
+        buttons_in(&widget, found);
+        child = widget.next_sibling();
     }
 }
 

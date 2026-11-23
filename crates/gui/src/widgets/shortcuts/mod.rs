@@ -12,6 +12,10 @@
 //! ([`sway_things_core::bindings::edit`]), never in the user's file.
 //!
 //! [`below`] adds to each switch of the media keys what its keys clash with.
+//!
+//! A change builds the list again, keeping the [`Place`] on the page: the row that had the
+//! focus keeps it (the same binding, or the row after one that is gone), and stays where it was
+//! on screen.
 
 mod editor;
 mod parts;
@@ -19,7 +23,9 @@ mod row;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gtk::gdk;
 use gtk::glib;
@@ -30,8 +36,8 @@ use sway_things_core::bindings::{
 };
 use sway_things_core::registry::{Link, Page, Registry, Value};
 
-use super::SettingRow;
 use super::setting_row::tilde;
+use super::{Place, SettingRow};
 use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 use crate::style;
@@ -102,8 +108,38 @@ pub struct ShortcutList {
     empty_title: gtk::Label,
     empty_text: gtk::Label,
     keymap: Rc<Option<GdkKeymap>>,
-    /// The rows shown, by the index of their row in the listing, for tests.
-    shown: Rc<RefCell<Vec<(usize, gtk::Box)>>>,
+    /// The rows shown, in order, each with the index of its row in the listing and what it
+    /// stands for.
+    shown: Rc<RefCell<Vec<Shown>>>,
+}
+
+/// A row shown in the list.
+#[derive(Debug, Clone)]
+struct Shown {
+    /// The index of its row in the listing.
+    index: usize,
+    /// Its content, in its list item.
+    content: gtk::Box,
+    /// The binding it stands for.
+    binding: BindingId,
+}
+
+/// What a row stands for across changes: the line of the user's config, or the line of Sway
+/// Things' file in its mode. The index in the listing changes when a binding before it goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BindingId {
+    User(Arc<Path>, usize),
+    Ours(String, String),
+}
+
+impl BindingId {
+    fn of(row: &Row) -> Self {
+        if row.source.origin == Origin::User {
+            Self::User(row.source.file.clone(), row.source.line)
+        } else {
+            Self::Ours(row.mode.clone(), row.source.text.clone())
+        }
+    }
 }
 
 impl ShortcutList {
@@ -194,7 +230,11 @@ impl ShortcutList {
 
     /// The rows shown, each with the index of its binding in [`Model::bindings`].
     pub fn shown_rows(&self) -> Vec<(usize, gtk::Box)> {
-        self.shown.borrow().clone()
+        self.shown
+            .borrow()
+            .iter()
+            .map(|shown| (shown.index, shown.content.clone()))
+            .collect()
     }
 
     /// Opens the dialog for the binding at `index`, or for a new one.
@@ -202,8 +242,80 @@ impl ShortcutList {
         Editor::open(from, model, index, self.keymap.clone());
     }
 
-    /// Shows the bindings of `model` that match the search.
+    /// Shows the bindings of `model` that match the search, keeping the place on the page.
     fn update(&self, model: &Model) {
+        let before: Vec<BindingId> = self
+            .shown
+            .borrow()
+            .iter()
+            .map(|shown| shown.binding.clone())
+            .collect();
+        let mut place = Place::of(&self.root);
+        let focused = place
+            .as_ref()
+            .and_then(Place::focus)
+            .and_then(|focus| self.row_of(focus));
+        if let Some(place) = &mut place {
+            // A button of a row has the focus: the row takes its place.
+            if let Some(item) = focused.and_then(|at| self.item(at)) {
+                place.keep(&item);
+            }
+            place.release(&self.lists);
+        }
+        self.build(model);
+        if let Some(place) = place {
+            match focused.and_then(|at| self.successor(&before, at)) {
+                Some((item, true)) => place.restore(Some(item)),
+                Some((item, false)) => place.restore_after_removal(Some(item)),
+                None => place.restore(None),
+            }
+        }
+    }
+
+    /// The position in the list of the row that `widget` is in, if it is in one.
+    fn row_of(&self, widget: &gtk::Widget) -> Option<usize> {
+        let item = if widget.is::<gtk::ListBoxRow>() {
+            widget.clone()
+        } else {
+            widget.ancestor(gtk::ListBoxRow::static_type())?
+        };
+        let content = item.downcast_ref::<gtk::ListBoxRow>()?.child()?;
+        self.shown
+            .borrow()
+            .iter()
+            .position(|shown| *shown.content.upcast_ref::<gtk::Widget>() == content)
+    }
+
+    /// The list item of the row at `at` of the rows shown.
+    fn item(&self, at: usize) -> Option<gtk::Widget> {
+        self.shown.borrow().get(at)?.content.parent()
+    }
+
+    /// The list item that takes the focus from the row at `at` of the rows shown `before`, and
+    /// whether it stands for the same binding: the row of that binding; else, if as many rows
+    /// are shown, the one in its place (its binding changed); else the first row after it that is
+    /// still shown, or the last before it (it was removed).
+    fn successor(&self, before: &[BindingId], at: usize) -> Option<(gtk::Widget, bool)> {
+        let shown = self.shown.borrow();
+        let find = |binding: &BindingId| shown.iter().find(|shown| shown.binding == *binding);
+        let same = before.get(at).and_then(find).or_else(|| {
+            (shown.len() == before.len())
+                .then(|| shown.get(at))
+                .flatten()
+        });
+        if let Some(same) = same {
+            return Some((same.content.parent()?, true));
+        }
+        let next = before
+            .iter()
+            .skip(at + 1)
+            .chain(before.iter().take(at).rev())
+            .find_map(find)?;
+        Some((next.content.parent()?, false))
+    }
+
+    /// Builds the lists of the bindings of `model` that match the search.
+    fn build(&self, model: &Model) {
         while let Some(child) = self.lists.first_child() {
             self.lists.remove(&child);
         }
@@ -282,7 +394,11 @@ impl ShortcutList {
         let keymap = (*self.keymap).as_ref().map(|keymap| keymap as &dyn Keymap);
         for &(index, row) in rows {
             let built = row::build(model, listing, index, row, keymap, writable);
-            self.shown.borrow_mut().push((index, built.content.clone()));
+            self.shown.borrow_mut().push(Shown {
+                index,
+                content: built.content.clone(),
+                binding: BindingId::of(row),
+            });
             list.append(&built.item);
         }
         let shown = self.shown.clone();
@@ -295,8 +411,8 @@ impl ShortcutList {
                 let index = shown
                     .borrow()
                     .iter()
-                    .find(|(_, content)| child.as_ref() == Some(content.upcast_ref()))
-                    .map(|(index, _)| *index);
+                    .find(|shown| child.as_ref() == Some(shown.content.upcast_ref()))
+                    .map(|shown| shown.index);
                 if let Some(index) = index {
                     opening.open_editor(item, &model, Some(index));
                 }
