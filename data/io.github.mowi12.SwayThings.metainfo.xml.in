@@ -31,6 +31,7 @@
   <url type="bugtracker">https://github.com/mowi12/sway-things/issues</url>
   <url type="contribute">https://github.com/mowi12/sway-things/blob/main/CONTRIBUTING.md</url>
   <releases>
+    <release version="0.5.0" date="2026-11-23"/>
     <release version="0.4.0" date="2026-11-23"/>
     <release version="0.3.0" date="2026-11-20"/>
     <release version="0.2.1" date="2026-11-15"/>
