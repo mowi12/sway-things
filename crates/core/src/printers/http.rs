@@ -11,7 +11,7 @@
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use async_io::{Async, Timer};
@@ -24,6 +24,11 @@ const MAX_RESPONSE: usize = 4 * 1024 * 1024;
 /// How many interim answers (`100 Continue`) may come before the real one.
 const MAX_INTERIM: usize = 8;
 
+/// CUPS's default domain socket, and where older systems have it.
+const SOCKETS: [&str; 2] = ["/run/cups/cups.sock", "/var/run/cups/cups.sock"];
+/// The port CUPS listens on.
+pub(super) const IPP_PORT: u16 = 631;
+
 /// Where CUPS listens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Endpoint {
@@ -31,6 +36,11 @@ pub enum Endpoint {
     Socket(PathBuf),
     /// A port on the loopback address (`localhost:631`): never another host.
     Loopback(Loopback, u16),
+    /// This computer's CUPS where it is at the time of each request: its default domain socket if
+    /// that exists, else `localhost:631`, as libcups looks for it on each connection. systemd's
+    /// `cups.socket` only makes the socket, and removes it when stopped: a CUPS started after
+    /// the page is found there, and the socket is what lets `PeerCred` work.
+    Default,
 }
 
 /// Which loopback address CUPS listens on.
@@ -49,8 +59,29 @@ impl Endpoint {
     /// the socket alone, at its default port.
     pub fn web_interface(&self) -> String {
         match self {
-            Self::Socket(_) => "http://localhost:631/".to_owned(),
+            Self::Socket(_) | Self::Default => format!("http://localhost:{IPP_PORT}/"),
             Self::Loopback(..) => format!("http://{self}/"),
+        }
+    }
+
+    /// Where to connect now: [`Default`](Self::Default) becomes the socket or the port, the
+    /// others stay.
+    #[must_use]
+    pub fn resolved(&self) -> Self {
+        self.resolved_with(Path::exists)
+    }
+
+    /// As [`resolved`](Self::resolved), with `exists` telling whether a socket exists.
+    fn resolved_with(&self, exists: impl Fn(&Path) -> bool) -> Self {
+        match self {
+            Self::Default => SOCKETS
+                .iter()
+                .map(Path::new)
+                .find(|path| exists(path))
+                .map_or(Self::Loopback(Loopback::Localhost, IPP_PORT), |path| {
+                    Self::Socket(path.to_owned())
+                }),
+            other => other.clone(),
         }
     }
 }
@@ -62,6 +93,7 @@ impl std::fmt::Display for Endpoint {
             Self::Loopback(Loopback::Localhost, port) => write!(f, "localhost:{port}"),
             Self::Loopback(Loopback::V4, port) => write!(f, "127.0.0.1:{port}"),
             Self::Loopback(Loopback::V6, port) => write!(f, "[::1]:{port}"),
+            Self::Default => write!(f, "{} or localhost:{IPP_PORT}", SOCKETS[0]),
         }
     }
 }
@@ -114,15 +146,15 @@ async fn exchange(
     authorization: Option<&str>,
 ) -> io::Result<Response> {
     let request = request(path, body, authorization);
-    match endpoint {
+    match endpoint.resolved() {
         Endpoint::Socket(socket) => {
             let stream = Async::<UnixStream>::connect(socket).await?;
             send(stream, &request).await
         }
         Endpoint::Loopback(host, port) => {
             // Only ever the loopback address: CUPS on this machine.
-            let v4 = SocketAddr::from((Ipv4Addr::LOCALHOST, *port));
-            let v6 = SocketAddr::from((Ipv6Addr::LOCALHOST, *port));
+            let v4 = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+            let v6 = SocketAddr::from((Ipv6Addr::LOCALHOST, port));
             let stream = match host {
                 Loopback::V4 => Async::<TcpStream>::connect(v4).await?,
                 Loopback::V6 => Async::<TcpStream>::connect(v6).await?,
@@ -133,6 +165,8 @@ async fn exchange(
             };
             send(stream, &request).await
         }
+        // `resolved` never gives it.
+        Endpoint::Default => Err(io::Error::from(io::ErrorKind::NotFound)),
     }
 }
 
@@ -458,6 +492,22 @@ mod tests {
             Endpoint::Loopback(Loopback::Localhost, 632).web_interface(),
             "http://localhost:632/"
         );
+        assert_eq!(Endpoint::Default.web_interface(), "http://localhost:631/");
+    }
+
+    #[test]
+    fn the_default_is_the_socket_while_it_exists() {
+        let socket = |p: &Path| p == Path::new("/var/run/cups/cups.sock");
+        assert_eq!(
+            Endpoint::Default.resolved_with(socket),
+            Endpoint::Socket("/var/run/cups/cups.sock".into())
+        );
+        assert_eq!(
+            Endpoint::Default.resolved_with(|_| false),
+            Endpoint::Loopback(Loopback::Localhost, 631)
+        );
+        let fixed = Endpoint::Loopback(Loopback::V4, 8631);
+        assert_eq!(fixed.resolved_with(socket), fixed);
     }
 
     #[test]

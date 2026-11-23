@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::time::Duration;
 
 use super::admin::{self, Bus};
-use super::http::{self, Endpoint, Loopback};
+use super::http::{self, Endpoint, IPP_PORT, Loopback};
 use super::ipp::{Attribute, Message, Value, tag};
 use super::{
     Error, Job, JobState, Level, Marker, NewPrinter, Printer, PrinterState, Reason, Snapshot,
@@ -28,11 +28,6 @@ use crate::msg;
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long adding a printer may take: CUPS asks the printer for what it can do first.
 const ADD_TIMEOUT: Duration = Duration::from_secs(120);
-
-/// CUPS's default domain socket, and where older systems have it.
-const SOCKETS: [&str; 2] = ["/run/cups/cups.sock", "/var/run/cups/cups.sock"];
-/// The port CUPS listens on.
-const IPP_PORT: u16 = 631;
 
 /// IPP operations.
 mod op {
@@ -97,8 +92,8 @@ const CUPS_PRINTER_CLASS: i32 = 0x0001;
 
 /// Why a request failed, before it becomes an [`Error`].
 enum CallError {
-    /// CUPS can't be reached.
-    Unreachable(std::io::Error),
+    /// CUPS can't be reached where it was looked for.
+    Unreachable(Endpoint, std::io::Error),
     /// CUPS wants an administrator, or the owner.
     NotAuthorized,
     /// What was asked for isn't there.
@@ -119,7 +114,8 @@ pub struct Cups {
 impl Cups {
     /// The CUPS of this computer, found as CUPS's own tools find it: `CUPS_SERVER`, else the
     /// `ServerName` of `~/.cups/client.conf` or `/etc/cups/client.conf`, else its domain socket,
-    /// else `localhost:631`. Changes CUPS refuses go to cups-pk-helper on the system bus.
+    /// else `localhost:631`, the last two looked for again with every request
+    /// ([`Endpoint::Default`]). Changes CUPS refuses go to cups-pk-helper on the system bus.
     ///
     /// # Errors
     ///
@@ -136,7 +132,7 @@ impl Cups {
                     .chain([Path::new("/etc/cups/client.conf")])
                     .find_map(|file| server_name(&std::fs::read_to_string(file).ok()?))
             });
-        let endpoint = endpoint(server.as_deref(), Path::exists)?;
+        let endpoint = endpoint(server.as_deref())?;
         Ok(Self::at(endpoint))
     }
 
@@ -195,7 +191,7 @@ impl Cups {
                 .filter_map(|group| parse_printer(&group.attributes))
                 .collect(),
             Err(CallError::NotFound) => Vec::new(),
-            Err(error) => return Err(self.error(error)),
+            Err(error) => return Err(Self::error(error)),
         };
         printers.sort_by(|a, b| {
             a.title()
@@ -212,7 +208,7 @@ impl Cups {
                 .and_then(Attribute::str)
                 .map(ToOwned::to_owned),
             Err(CallError::NotFound) => None,
-            Err(error) => return Err(self.error(error)),
+            Err(error) => return Err(Self::error(error)),
         };
         let mut request = self.target_request(op::GET_JOBS, "ipp://localhost/");
         request.add(tag::OPERATION, "which-jobs", keywords(&["not-completed"]));
@@ -227,7 +223,7 @@ impl Cups {
                 .filter_map(|group| parse_job(&group.attributes))
                 .collect(),
             Err(CallError::NotFound) => Vec::new(),
-            Err(error) => return Err(self.error(error)),
+            Err(error) => return Err(Self::error(error)),
         };
         jobs.sort_by_key(|job| (job.created, job.id));
         // The user's own default isn't read here: see `own_default`.
@@ -495,12 +491,12 @@ impl Cups {
                         message,
                     ));
                 }
-                Err(error) => return Err(self.error(error)),
+                Err(error) => return Err(Self::error(error)),
             }
         }
         Err(last.map_or_else(
             || Error::Failed(msg!("No test page to print").into()),
-            |error| self.error(error),
+            Self::error,
         ))
     }
 
@@ -520,7 +516,7 @@ impl Cups {
         match self.call(path, request, timeout).await {
             Ok(_) => Ok(()),
             Err(CallError::NotAuthorized) => fallback().await,
-            Err(error) => Err(self.error(error)),
+            Err(error) => Err(Self::error(error)),
         }
     }
 
@@ -569,11 +565,14 @@ impl Cups {
         timeout: Duration,
     ) -> Result<Message, CallError> {
         let body = request.encode();
-        let mut response = http::post(&self.endpoint, path, &body, None, timeout)
+        // Both tries go to the same place, which `PeerCred` depends on.
+        let endpoint = self.endpoint.resolved();
+        let unreachable = |error| CallError::Unreachable(endpoint.clone(), error);
+        let mut response = http::post(&endpoint, path, &body, None, timeout)
             .await
-            .map_err(CallError::Unreachable)?;
+            .map_err(unreachable)?;
         if response.status == 401 {
-            let peer_cred = matches!(self.endpoint, Endpoint::Socket(_))
+            let peer_cred = matches!(endpoint, Endpoint::Socket(_))
                 && response
                     .header("www-authenticate")
                     .is_some_and(|offer| offer.contains("PeerCred"));
@@ -581,9 +580,9 @@ impl Cups {
                 return Err(CallError::NotAuthorized);
             }
             let authorization = format!("PeerCred {}", self.user);
-            response = http::post(&self.endpoint, path, &body, Some(&authorization), timeout)
+            response = http::post(&endpoint, path, &body, Some(&authorization), timeout)
                 .await
-                .map_err(CallError::Unreachable)?;
+                .map_err(unreachable)?;
         }
         match response.status {
             200 => {}
@@ -610,9 +609,9 @@ impl Cups {
     }
 
     /// The [`Error`] of a failed request.
-    fn error(&self, error: CallError) -> Error {
+    fn error(error: CallError) -> Error {
         match error {
-            CallError::Unreachable(error) => unreachable(&self.endpoint, &error),
+            CallError::Unreachable(endpoint, error) => unreachable(&endpoint, &error),
             CallError::NotAuthorized => Error::NotAllowed(admin::authorization()),
             CallError::NotFound => {
                 Error::Failed(msg!("The printer doesn't exist (anymore)").into())
@@ -672,17 +671,13 @@ fn server_name(text: &str) -> Option<String> {
 }
 
 /// Where CUPS listens, for the server name `server` (a socket path, or `host[:port]`), or the
-/// default; `exists` tells whether a socket path exists.
+/// default.
 ///
-/// Only this computer counts: another host is [`Error::Remote`].
-fn endpoint(server: Option<&str>, exists: impl Fn(&Path) -> bool) -> Result<Endpoint, Error> {
-    let socket = SOCKETS.iter().map(Path::new).find(|path| exists(path));
+/// Only this computer counts: another host is [`Error::Remote`]. A loopback address at CUPS's
+/// port is [`Endpoint::Default`], since libcups prefers the socket there too.
+fn endpoint(server: Option<&str>) -> Result<Endpoint, Error> {
     let Some(server) = server.map(str::trim) else {
-        return Ok(
-            socket.map_or(Endpoint::Loopback(Loopback::Localhost, IPP_PORT), |path| {
-                Endpoint::Socket(path.to_owned())
-            }),
-        );
+        return Ok(Endpoint::Default);
     };
     if server.starts_with('/') {
         return Ok(Endpoint::Socket(PathBuf::from(server)));
@@ -710,10 +705,10 @@ fn endpoint(server: Option<&str>, exists: impl Fn(&Path) -> bool) -> Result<Endp
         Some(port) => port.parse().map_err(|_| Error::Remote(clean(server)))?,
         None => IPP_PORT,
     };
-    // libcups prefers the socket for localhost on the default port too.
-    Ok(match socket {
-        Some(path) if port == IPP_PORT => Endpoint::Socket(path.to_owned()),
-        _ => Endpoint::Loopback(loopback, port),
+    Ok(if port == IPP_PORT {
+        Endpoint::Default
+    } else {
+        Endpoint::Loopback(loopback, port)
     })
 }
 
@@ -841,49 +836,35 @@ mod tests {
 
     #[test]
     fn the_endpoint_is_local_only() {
-        let socket = |p: &Path| p == Path::new("/run/cups/cups.sock");
-        let none = |_: &Path| false;
+        assert_eq!(endpoint(None), Ok(Endpoint::Default));
         assert_eq!(
-            endpoint(None, socket),
-            Ok(Endpoint::Socket("/run/cups/cups.sock".into()))
-        );
-        assert_eq!(
-            endpoint(None, none),
-            Ok(Endpoint::Loopback(Loopback::Localhost, 631))
-        );
-        assert_eq!(
-            endpoint(Some("/tmp/x/cups.sock"), none),
+            endpoint(Some("/tmp/x/cups.sock")),
             Ok(Endpoint::Socket("/tmp/x/cups.sock".into()))
         );
+        assert_eq!(endpoint(Some("localhost")), Ok(Endpoint::Default));
+        assert_eq!(endpoint(Some("127.0.0.1:631")), Ok(Endpoint::Default));
+        assert_eq!(endpoint(Some("::1")), Ok(Endpoint::Default));
         assert_eq!(
-            endpoint(Some("localhost"), socket),
-            Ok(Endpoint::Socket("/run/cups/cups.sock".into()))
-        );
-        assert_eq!(
-            endpoint(Some("localhost:8631"), socket),
+            endpoint(Some("localhost:8631")),
             Ok(Endpoint::Loopback(Loopback::Localhost, 8631))
         );
         assert_eq!(
-            endpoint(Some("[::1]:632"), none),
+            endpoint(Some("[::1]:632")),
             Ok(Endpoint::Loopback(Loopback::V6, 632))
         );
         assert_eq!(
-            endpoint(Some("print.example.com"), socket),
+            endpoint(Some("127.0.0.1:8631")),
+            Ok(Endpoint::Loopback(Loopback::V4, 8631))
+        );
+        assert_eq!(
+            endpoint(Some("print.example.com")),
             Err(Error::Remote("print.example.com".to_owned()))
         );
         assert_eq!(
-            endpoint(Some("192.168.1.2:631/version=1.1"), socket),
+            endpoint(Some("192.168.1.2:631/version=1.1")),
             Err(Error::Remote("192.168.1.2:631".to_owned()))
         );
-        assert!(endpoint(Some("localhost:x"), none).is_err());
-        assert_eq!(
-            endpoint(Some("::1"), none),
-            Ok(Endpoint::Loopback(Loopback::V6, 631))
-        );
-        assert_eq!(
-            endpoint(Some("127.0.0.1:8631"), socket),
-            Ok(Endpoint::Loopback(Loopback::V4, 8631))
-        );
+        assert!(endpoint(Some("localhost:x")).is_err());
     }
 
     #[test]
