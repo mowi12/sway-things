@@ -6,9 +6,14 @@
   { "id": "sound", "name": "Sound", "gallery": true },
   { "id": "bluetooth", "name": "Bluetooth", "gallery": true },
   { "id": "network", "name": "Network", "gallery": true },
+  { "id": "printers", "name": "Printers" },
   { "id": "windows", "name": "Windows", "gallery": true },
   { "id": "wallpaper", "name": "Wallpaper" },
   { "id": "apps-look-feel", "name": "Apps Look & Feel", "gallery": true },
   { "id": "window-behavior", "name": "Window Behavior" },
-  { "id": "workspaces", "name": "Workspaces" }
+  { "id": "workspaces", "name": "Workspaces" },
+  { "id": "keyboard-shortcuts", "name": "Keyboard Shortcuts" },
+  { "id": "notifications", "name": "Notifications", "gallery": true },
+  { "id": "apps-autostart", "name": "Apps & Autostart" },
+  { "id": "screenshots-clipboard", "name": "Screenshots & Clipboard" }
 ]

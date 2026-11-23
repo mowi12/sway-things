@@ -33,7 +33,8 @@ This wiki is for developers, human and AI. The user-facing overview is the [READ
 
 ## Status
 
-Version 0.4.0 is released: the core, the CLI and the app with the four pages of the v0.1 scope, the Bluetooth and
-Network pages, the Cursor & Tablet, Displays, Sound, Apps Look & Feel, Workspaces and Wallpaper pages and the system
-details on About & Maintenance, packaged on the openSUSE Build Service. What v0.1 contained and how work continues is in
-the [Roadmap](Roadmap.md); the changes per release are in the [changelog](../CHANGELOG.md).
+Version 0.5.0 is released: the core, the CLI and the app with the four pages of the v0.1 scope, the Bluetooth and
+Network pages, the Cursor & Tablet, Displays, Sound, Apps Look & Feel, Workspaces and Wallpaper pages, the Keyboard
+Shortcuts, Screenshots & Clipboard, Apps & Autostart, Notifications and Printers pages and the system details on About &
+Maintenance, packaged on the openSUSE Build Service. What v0.1 contained and how work continues is in the
+[Roadmap](Roadmap.md); the changes per release are in the [changelog](../CHANGELOG.md).
