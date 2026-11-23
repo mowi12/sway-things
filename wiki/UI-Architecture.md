@@ -32,8 +32,9 @@
   `PageView::for_settings` names no page: the parts above the rows (About's system details and generated files, the list
   of bindings on Keyboard Shortcuts, Apps Look & Feel's note, the Displays arrangement), below them (the test area, the
   workspace map), the choices of a row and what it follows (a Keyboard Shortcuts setting may have no row), and the
-  widgets below a row (the Keyboard page's layouts and options, what a media key switch replaces). About's sections are
-  `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
+  widgets below a row (the Keyboard page's layouts and options, what a media key switch replaces, the notes of
+  Screenshots & Clipboard), and the generated files a page writes to besides those of its directives. About's sections
+  are `page_view/about.rs`, the per-device sections `page_view/device_group.rs`.
 - **Grouped rows:** the members of a `SettingGroup` go below a `GroupRow` in their section's list: the group's title, a
   summary of the members' values (a swatch per color, else the values joined), the shared config line once while
   `app.show_directives` is on, and a chevron. Its list item takes the focus; a click, `Enter` or `Space` expands it, and
@@ -118,6 +119,17 @@
   of its on-screen display only below a shown switch, while `swayosd-client` is in `Model::search_path` (`$PATH`, or a
   directory a test sets) or it is stored, with the note of `shortcuts/osd.rs` below it (`swayosd::server`, read again on
   each change of the model, when the note is mapped and when the window becomes active).
+- **Screenshots & Clipboard page** (`crates/gui/src/widgets/capture.rs`): rows from the registry, with the page's parts
+  through `page_view/parts.rs`. A row of keys gets a `KeyButton` in place of its text field (bound to the field's
+  sensitivity), which listens like the Keyboard Shortcuts dialog's field (`EventControllerKey` in the capture phase,
+  `inhibit_system_shortcuts`, the shared `shortcuts::capture`) and stores the keys after `check_keys`; below it, the
+  clashes of its `RowKind::Feature` row in `Model::bindings`. Below the switches: the missing programs and their
+  packages (`capture::tools`), the launcher, recorder and editor in use; below a file name, the next name (every second
+  while on screen); below the history, the password note, the user's own history (`clipboard::own_history`, or a foreign
+  watcher) and _Clear History…_ after an `AlertDialog`; below the recording switch, while `record::running` finds a
+  recording (looked for every two seconds while on screen), _Stop_, which runs `sway-things record`. The page has the
+  history's watcher follow its switch and size (`clipboard::sync_with`) once they stood still for 0.8 s. Its footer
+  names `50-bindings.conf` and `80-hooks.conf`.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that

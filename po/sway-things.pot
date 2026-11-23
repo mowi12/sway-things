@@ -18,6 +18,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
+#: crates/cli/src/capture.rs
+msgid "Screenshot failed"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "The editor didn't start"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Screenshot saved and copied"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Screenshot saved, but not copied"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Screenshot saved"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Screenshot copied, but not saved"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Screenshot copied"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Paste it where you need it"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Open"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Edit"
+msgstr ""
+
+#: crates/cli/src/capture.rs crates/gui/src/widgets/sound/rows.rs
+msgid "Recording"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Not in a sway session"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "The recording didn't start"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Recording saved"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "The recording is still being saved"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Run sway-things record again to stop it"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+#, rust-format
+msgid "Press {keys} again to stop it"
+msgstr ""
+
+#: crates/cli/src/capture.rs
+msgid "Recording the screen"
+msgstr ""
+
+#: crates/cli/src/capture.rs crates/core/src/registry/capture.rs
+msgid "Clipboard history"
+msgstr ""
+
 #: crates/cli/src/change.rs
 #, rust-format
 msgid "{setting} is now {value}. It is reverted unless you keep it."
@@ -260,6 +337,13 @@ msgstr ""
 #: crates/cli/src/hook.rs
 #, rust-format
 msgid "No display was on, so {display} was switched on."
+msgstr ""
+
+#: crates/cli/src/hook.rs
+#, rust-format
+msgid ""
+"A clipboard history of your own runs already (wl-paste, process {pid}), so "
+"Sway Things starts none"
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -976,7 +1060,8 @@ msgstr ""
 msgid "Pause"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/search_button.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/capture.rs
+#: crates/gui/src/widgets/search_button.rs
 msgid "Stop"
 msgstr ""
 
@@ -1058,6 +1143,73 @@ msgstr ""
 
 #: crates/core/src/bluetooth/mod.rs
 msgid "The name has a control character"
+msgstr ""
+
+#: crates/core/src/capture/clipboard.rs
+msgid ""
+"Not in a sway session (XDG_RUNTIME_DIR or WAYLAND_DISPLAY isn't set), so the "
+"clipboard history's watcher is neither started nor ended"
+msgstr ""
+
+#: crates/core/src/capture/clipboard.rs
+msgid ""
+"Another command of Sway Things is starting the clipboard history's watcher"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "Canceled"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+#, rust-format
+msgid ""
+"{program} isn't installed. Install the package {package} with your package "
+"manager."
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+#, rust-format
+msgid "{program} failed"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+#, rust-format
+msgid "{program} failed: {message}"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "No window has the focus"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "No display has the focus"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid ""
+"The file name pattern can't be used. Change it on the Screenshots & "
+"Clipboard page."
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+#, rust-format
+msgid "Can't write {path}: {error}"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "The clipboard history is empty"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "The entry has no data, so nothing was copied"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "The local time can't be read for the file name"
+msgstr ""
+
+#: crates/core/src/capture/mod.rs
+msgid "A recording is being started or stopped already"
 msgstr ""
 
 #: crates/core/src/command/color.rs
@@ -1183,6 +1335,29 @@ msgstr ""
 
 #: crates/core/src/devices/mod.rs
 msgid "this would turn off the last display that is on"
+msgstr ""
+
+#: crates/core/src/doctor/capture.rs
+#, rust-format
+msgid "{key} is on, but {programs} isn't installed."
+msgstr ""
+
+#: crates/core/src/doctor/capture.rs
+#, rust-format
+msgid "Install the packages {packages} with your package manager."
+msgstr ""
+
+#: crates/core/src/doctor/capture.rs
+#, rust-format
+msgid ""
+"{key} is on, but your config starts a clipboard history of its own at "
+"{place}, so Sway Things starts none."
+msgstr ""
+
+#: crates/core/src/doctor/capture.rs
+msgid ""
+"Remove that line to have Sway Things keep the history, or switch the history "
+"off."
 msgstr ""
 
 #: crates/core/src/doctor/files.rs
@@ -2220,7 +2395,7 @@ msgstr ""
 msgid "$VISUAL, $EDITOR or the default text editor"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/capture.rs
 msgid "editor"
 msgstr ""
 
@@ -2604,7 +2779,7 @@ msgstr ""
 msgid "window size"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/capture.rs
 msgid "limit"
 msgstr ""
 
@@ -2824,7 +2999,7 @@ msgstr ""
 msgid "lock"
 msgstr ""
 
-#: crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/behavior.rs crates/core/src/registry/capture.rs
 msgid "video"
 msgstr ""
 
@@ -2918,6 +3093,336 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs
 msgid "toggle"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Copy and save"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Copy to the clipboard"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Save to the folder"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Show a notification"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Open the editor"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Nothing"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "A region you select"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "The focused display"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/gui/src/widgets/capture.rs
+msgid "No key"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Screenshots"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Screenshot keys"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Take screenshots with the keys below, with grim and slurp"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "screenshot"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "print screen"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "capture"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "grim"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "slurp"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Region"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Select a region, or click a window"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "area"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "selection"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Window"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "The focused window"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/output.rs
+msgid "Display"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "The display with the focused window"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/output.rs
+#: crates/core/src/registry/shortcuts.rs crates/core/src/registry/workspaces.rs
+msgid "screen"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/cursor.rs
+#: crates/core/src/registry/output.rs crates/core/src/registry/workspaces.rs
+msgid "monitor"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "output"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/gui/src/widgets/displays/mod.rs
+#: crates/gui/src/widgets/wallpaper/preview.rs
+msgid "All displays"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "full"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Where screenshots go"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "clipboard"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "save"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "copy"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Folder"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"Where screenshots and recordings are saved; made when the first one goes "
+"there"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Screenshots in your Pictures folder"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "directory"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "path"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "location"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "File name"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"%Y, %m, %d, %H, %M and %S are the year, month, day, hour, minute and "
+"second; .png, .jpg or .ppm at the end decides the format"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "pattern"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "name"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "date"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Afterwards"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"A notification with the picture, with Open and Edit, or the editor right "
+"away (swappy or satty)"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "notification"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "annotate"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "swappy"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "satty"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"Keep what you copy, text and images, with cliphist, and pick it again with a "
+"key"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/input.rs
+msgid "paste"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "cliphist"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Open the history"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "In the launcher that is installed; the entry you pick is copied again"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "launcher"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "pick"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Entries kept"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "The oldest entries go when there are more"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/output.rs
+msgid "size"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "history"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Screen recording"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Recording key"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"Start a recording of the screen with the key below, and stop it with the "
+"same key, with wf-recorder or wl-screenrec"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "record"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "screencast"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "wf-recorder"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "wl-screenrec"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Start and stop"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "What to record"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/workspaces.rs
+msgid "display"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "region"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid ""
+"In the folder of screenshots; .mp4 or .mkv at the end decides the format"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "Record sound"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "What the default sound input hears"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs crates/core/src/registry/shortcuts.rs
+msgid "audio"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "microphone"
+msgstr ""
+
+#: crates/core/src/registry/capture.rs
+msgid "sound"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs
@@ -3060,11 +3565,6 @@ msgstr ""
 
 #: crates/core/src/registry/cursor.rs
 msgid "map to output"
-msgstr ""
-
-#: crates/core/src/registry/cursor.rs crates/core/src/registry/output.rs
-#: crates/core/src/registry/workspaces.rs
-msgid "monitor"
 msgstr ""
 
 #: crates/core/src/registry/cursor.rs
@@ -3659,10 +4159,6 @@ msgstr ""
 
 #: crates/core/src/registry/input.rs
 msgid "middle button"
-msgstr ""
-
-#: crates/core/src/registry/input.rs
-msgid "paste"
 msgstr ""
 
 #: crates/core/src/registry/input.rs
@@ -4322,10 +4818,6 @@ msgid "Flipped, 90° counterclockwise"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
-msgid "Display"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
 msgid "Use this display"
 msgstr ""
 
@@ -4334,11 +4826,6 @@ msgid ""
 "A display that is off gives its workspaces and windows to the others. If no "
 "other display is on when sway starts or reloads, Sway Things switches it on "
 "again"
-msgstr ""
-
-#: crates/core/src/registry/output.rs crates/core/src/registry/shortcuts.rs
-#: crates/core/src/registry/workspaces.rs
-msgid "screen"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -4381,10 +4868,6 @@ msgstr ""
 
 #: crates/core/src/registry/output.rs
 msgid "hidpi"
-msgstr ""
-
-#: crates/core/src/registry/output.rs
-msgid "size"
 msgstr ""
 
 #: crates/core/src/registry/output.rs
@@ -4780,10 +5263,6 @@ msgid "speaker"
 msgstr ""
 
 #: crates/core/src/registry/shortcuts.rs
-msgid "audio"
-msgstr ""
-
-#: crates/core/src/registry/shortcuts.rs
 msgid ""
 "The volume keys show the volume as they change it, with swayosd-client in "
 "place of wpctl"
@@ -4945,6 +5424,27 @@ msgstr ""
 msgid ""
 "a collection name has 1 to 64 characters, no line breaks and no spaces at "
 "either end"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be keys like Print or $mod+Shift+v, joined by +, or empty"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"a key that types needs Super, Ctrl or Alt; F1, Print and media keys work "
+"alone"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"must be a folder that starts with / or ~/, without line breaks, or empty"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"must be a file name without slashes or line breaks; % starts a date or time "
+"like %Y-%m-%d %H-%M-%S, and %% is a %"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -5599,10 +6099,6 @@ msgid "workspace output"
 msgstr ""
 
 #: crates/core/src/registry/workspaces.rs
-msgid "display"
-msgstr ""
-
-#: crates/core/src/registry/workspaces.rs
 msgid "assign"
 msgstr ""
 
@@ -6022,8 +6518,8 @@ msgid "Leave it empty to use the name the device announces."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
-#: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/capture.rs crates/gui/src/widgets/generated.rs
+#: crates/gui/src/widgets/live.rs crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
@@ -6398,6 +6894,114 @@ msgstr ""
 msgid "Blueman can't be started: {error}"
 msgstr ""
 
+#: crates/gui/src/widgets/capture.rs
+msgid "Press the keys…"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Next: {name}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Recording now: {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "The history couldn’t be cleared: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Recording now"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"Not installed: {programs}. Install the packages {packages} with your package "
+"manager."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "The history opens in {launcher}."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"No launcher to show the history: install fuzzel, wofi, rofi, tofi or bemenu."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Edit opens {editor}."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"To edit screenshots, install swappy or satty; without one there is no Edit."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid "Records with {recorder}; a region is selected with slurp."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy. Passwords that your password manager "
+"marks as such (as KeePassXC does) are left out."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy, passwords too: leaving out what a "
+"password manager marks needs wl-clipboard 2.3 and cliphist 0.5 or newer."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid ""
+"The history keeps everything you copy, passwords too unless your password "
+"manager marks them and wl-clipboard 2.3 and cliphist 0.5 or newer are "
+"installed."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"Your config starts a clipboard history already, at {place}; while it runs, "
+"Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"A clipboard history of your own runs already (wl-paste, process {pid}); "
+"while it runs, Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear History…"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear the clipboard history?"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Every entry is removed; what is on the clipboard now stays."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Press the keys; Backspace for no key, Escape to keep them"
+msgstr ""
+
 #: crates/gui/src/widgets/cursor.rs
 #: crates/gui/src/widgets/wallpaper/pictures.rs
 msgid "Default"
@@ -6691,11 +7295,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/displays/mirroring.rs
 msgid "Shown on another display, so it shows its own content"
-msgstr ""
-
-#: crates/gui/src/widgets/displays/mod.rs
-#: crates/gui/src/widgets/wallpaper/preview.rs
-msgid "All displays"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/mod.rs
@@ -7772,6 +8371,11 @@ msgid "a shortcut of Sway Things"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "the key “{title}” of the {page} page"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
 msgid "also on the lock screen"
 msgstr ""
 
@@ -7830,6 +8434,11 @@ msgstr ""
 #: crates/gui/src/widgets/shortcuts/mod.rs
 #, rust-format
 msgid "{group}, switched on below"
+msgstr ""
+
+#: crates/gui/src/widgets/shortcuts/mod.rs
+#, rust-format
+msgid "{title}, set on the {page} page"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/mod.rs
@@ -8109,10 +8718,6 @@ msgstr ""
 #: crates/gui/src/widgets/sound/rows.rs
 #, rust-format
 msgid "Mute {app}"
-msgstr ""
-
-#: crates/gui/src/widgets/sound/rows.rs
-msgid "Recording"
 msgstr ""
 
 #: crates/gui/src/widgets/sound/rows.rs

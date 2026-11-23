@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-clipboard 1 "" "Sway Things 0.4.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-clipboard \- Start the watcher of the clipboard history (wl\-paste \-\-watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not: run at every start and reload of sway while it is on
+.SH SYNOPSIS
+\fBsway\-things hook clipboard\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Start the watcher of the clipboard history (wl\-paste \-\-watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not: run at every start and reload of sway while it is on
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

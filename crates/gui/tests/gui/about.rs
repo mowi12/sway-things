@@ -6,7 +6,7 @@
 use super::*;
 /// The texts About & Maintenance shows besides the versions: the labels of the system details,
 /// their value for what doesn't run in tests (no bus, no sound server) and the project's links.
-pub(crate) const ABOUT_TEXTS: [&str; 15] = [
+pub(crate) const ABOUT_TEXTS: [&str; 23] = [
     "Sway Things",
     "Compositor",
     "GTK",
@@ -19,6 +19,14 @@ pub(crate) const ABOUT_TEXTS: [&str; 15] = [
     "blueman-manager",
     "pwvucontrol",
     "pavucontrol",
+    "grim",
+    "slurp",
+    "wl-copy",
+    "cliphist",
+    "swappy",
+    "satty",
+    "wf-recorder",
+    "wl-screenrec",
     "Website",
     "Source Code (GitHub)",
     "Report a Bug",

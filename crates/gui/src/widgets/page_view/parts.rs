@@ -8,7 +8,7 @@
 
 use gtk::prelude::*;
 use sway_things_core::outputs;
-use sway_things_core::registry::{Page, Setting};
+use sway_things_core::registry::{ConfigFile, Page, Setting};
 
 use super::{
     Section, about_section, add_workspace_map, arrangement_section, generated_section,
@@ -16,7 +16,7 @@ use super::{
 };
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
-use crate::widgets::{SettingRow, cursor, keyboard, look, shortcuts};
+use crate::widgets::{SettingRow, capture, cursor, keyboard, look, shortcuts};
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
 /// Maintenance, the list of bindings on Keyboard Shortcuts, the note of Apps Look & Feel, the
@@ -84,13 +84,22 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     }?;
     cursor::follow(model, &row);
     look::follow(&row);
+    capture::follow(model, &row);
     Some(row)
 }
 
 /// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
-/// option browser, what the keys of a media key switch replace on Keyboard Shortcuts.
+/// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, the notes
+/// of Screenshots & Clipboard.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let mut widgets = keyboard::below(model, row);
     widgets.extend(shortcuts::below(model, row));
+    widgets.extend(capture::below(model, row));
     widgets
+}
+
+/// The generated files `page` writes to besides those of its sway directives, for its footer:
+/// the bindings and hooks of Screenshots & Clipboard.
+pub(super) fn files(page: Page) -> Vec<ConfigFile> {
+    capture::files(page)
 }

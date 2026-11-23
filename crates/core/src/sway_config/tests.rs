@@ -762,6 +762,13 @@ fn the_default_config_is_found_in_sways_order() {
     assert_eq!(found(&MemoryFiles::new()), None);
 }
 
+/// The hooks the generated files of the sample settings run.
+const SAMPLE_HOOKS: [&str; 3] = [
+    "sway-things hook displays",
+    "sway-things hook gsettings",
+    "sway-things hook clipboard",
+];
+
 #[test]
 fn the_sample_and_generated_configs_parse() {
     let integration = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../ci/integration");
@@ -799,7 +806,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 86);
+    assert_eq!(generated.len(), 92);
     // The quotes for `wordexp` stay; sway removes them when it expands the path.
     let bg = find(&["output", "HEADLESS-1"], "bg");
     assert_eq!(bg.as_deref(), Some("'/etc/passwd' fit #285577"));
@@ -812,10 +819,7 @@ fn the_sample_and_generated_configs_parse() {
         .filter(|directive| directive.is(&[], "exec_always"))
         .map(|directive| directive.args.join(" "))
         .collect();
-    assert_eq!(
-        hooks,
-        ["sway-things hook displays", "sway-things hook gsettings"]
-    );
+    assert_eq!(hooks, SAMPLE_HOOKS);
     assert_eq!(
         find(&["input", "type:pointer"], "scroll_button").as_deref(),
         Some("button8")
@@ -962,6 +966,14 @@ fn the_generated_bindings_parse_back() {
     assert_eq!(
         commands,
         [
+            ("Print", Some("exec \"sway-things screenshot region\"")),
+            ("Mod1+Print", Some("exec \"sway-things screenshot window\"")),
+            (
+                "Shift+Print",
+                Some("exec \"sway-things screenshot display\"")
+            ),
+            ("Mod1+Shift+v", Some("exec \"sway-things clipboard pick\"")),
+            ("Ctrl+Alt+Shift+r", Some("exec \"sway-things record\"")),
             ("Mod1+Return", Some("exec \"foot\"")),
             ("Mod1+Shift+p", Some("exec 'notify-send \"a b\" $HOME'")),
             ("Mod4+38", Some("focus left")),

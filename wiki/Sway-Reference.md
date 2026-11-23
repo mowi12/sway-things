@@ -176,6 +176,21 @@ SwayFX. When a new version comes out, re-check the facts whose source names the 
 | Device state reasons: 7 no secrets, 8 supplicant disconnected, 53 SSID not found; active connection state reasons: 9 no secrets, 10 login failed. | `libnm-core-public/nm-dbus-interface.h` |
 | GNOME Settings asks for a Wi-Fi scan every 15 s while its Wi-Fi panel is shown. | `panels/network/net-device-wifi.c` (`PERIODIC_WIFI_SCAN_TIMEOUT`) |
 
+## Screenshots, clipboard and recording
+
+| Fact | Source |
+| --- | --- |
+| grim takes a picture of a rectangle of sway's layout (`-g "x,y wxh"`), an output (`-o <name>`) or all outputs, writes it to standard output with `-`, and takes it at the largest scale of the outputs it covers unless `-s` says otherwise; `-t png\|ppm\|jpeg` sets the format. A grim built without libjpeg refuses `-t jpeg` ("jpeg support disabled", seen with grim 1.5.0 of Debian). | `grim -h`; tested with grim 1.5.0 in a headless sway with outputs of scale 1 and 2 |
+| slurp prints the selection as `x,y wxh`; it reads boxes to choose from from standard input when that isn't a terminal (one `x,y wxh` per line, a click picks a box); Escape or another button prints "selection cancelled" and exits with a failure. | slurp `main.c` (`isatty(STDIN_FILENO)`, `handle_selection_cancelled`) |
+| In `GET_TREE`, a window's `rect` is its geometry with the borders and without the title bar; `visible` says whether it is on screen. | `man 7 sway-ipc`; swayipc-types `Node` |
+| `wl-copy` reads standard input, forks and serves the clipboard in the background until something else is copied; without `--type` it guesses the type of the data. | wl-copy(1) |
+| `wl-paste --watch <command>` runs the command with the clipboard on its standard input at each change, with `CLIPBOARD_STATE` set (`data`, `nil`, `clear`, `sensitive`), since wl-clipboard 2.2.0; it sets `sensitive` when the copying app offers `x-kde-passwordManagerHint` (as KeePassXC does) since 2.3.0 (2026-03-22). | wl-paste(1) of wl-clipboard 2.3.0; release notes of v2.2.0 and v2.3.0 |
+| cliphist's recommended setup is `wl-paste --watch cliphist store`, once per session, for text and images; `-max-items` (default 750) limits the history (since 0.4.0); `list` prints `<id>\t<preview>`, newest first; `decode` reads such a line from standard input and prints the entry; `wipe` removes all. `store` stores nothing for `CLIPBOARD_STATE=sensitive` and removes the last entry for `clear` (since 0.5.0). | cliphist `readme.md`, `cliphist.go`; commit 46c6661 (cliphist honors `CLIPBOARD_STATE`), release v0.5.0 |
+| fuzzel `--dmenu`, wofi `--dmenu`, rofi `-dmenu`, tofi and bemenu read a list from standard input and print the line picked; closed without a pick they print nothing or exit with a failure. | their man pages; cliphist `readme.md` (`cliphist list \| fuzzel --dmenu \| cliphist decode \| wl-copy`) |
+| swappy opens a file with `-f <file>` (`-` for standard input) and saves to `-o <file>`; it copies with wl-copy. satty takes `--filename` (`-` for standard input), `--output-filename` (with `strftime`-like `%` conversions) and `--copy-command`. | swappy `README.md`; satty `README.md` |
+| wf-recorder and wl-screenrec take `-g "x,y wxh"` or `-o <output>`, `-f <file>` (the extension decides the container) and `--audio` (the default input); both stop and finish the file on SIGINT, as on Ctrl+C. wf-recorder asks before it overwrites a file unless `-y`; wl-screenrec needs VA-API encoding, with H.264 by default (HEVC and AV1 by choice), so neither records into WebM (VP8 or VP9) without other options. | wf-recorder(1); wl-screenrec `README.md` |
+| `org.freedesktop.Notifications`: `Notify` takes app name, id to replace, icon, summary, body, actions (id and label pairs), hints (`image-path`, `desktop-entry`) and a timeout (0 never expires); `ActionInvoked` and `NotificationClosed` tell what became of it; `GetCapabilities` lists `actions` if the server shows buttons. | Desktop Notifications Specification 1.2 |
+
 ## Distributions
 
 | Fact | Source |

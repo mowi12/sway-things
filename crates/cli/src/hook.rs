@@ -1,17 +1,22 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The hooks generated config runs: `gsettings` and `wallpaper` in the session, and `displays`,
-//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`].
+//! The hooks generated config runs: `gsettings` and `wallpaper` in the session, `displays`,
+//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`], and
+//! `clipboard` through [`sway_things_core::capture::clipboard`].
 
 use std::io::Write;
 
+use sway_things_core::capture::clipboard::{self, Synced};
+use sway_things_core::capture::{self as capture, HISTORY, Settings};
 use sway_things_core::generate::Validate;
 use sway_things_core::i18n::trf;
 use sway_things_core::ipc::Client;
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks::{self, HookEnv};
 use sway_things_core::outputs::{self};
+use sway_things_core::registry::Registry;
+use sway_things_core::state::{Paths, State};
 
 use super::{Exit, Hook, Io, Session, fail_with};
 
@@ -80,7 +85,7 @@ pub(super) async fn run_display_hook(
         Hook::NewDisplay => return hook_new_display(client, env, err).await,
         Hook::Workspaces => hooks::workspaces(client, env).await,
         Hook::Mirror => hooks::mirror(client, env).await,
-        Hook::Gsettings | Hook::Wallpaper => return Exit::Ok,
+        Hook::Gsettings | Hook::Wallpaper | Hook::Clipboard => return Exit::Ok,
     };
     match done {
         Ok(_) => Exit::Ok,
@@ -100,6 +105,14 @@ pub(super) async fn run_hook<V: Validate>(
         Hook::Wallpaper => return super::wallpaper::hook_wallpaper(session, io).await,
         // Asks the user through the notification server: only for the user's session.
         Hook::NewDisplay => return Exit::Ok,
+        Hook::Clipboard => {
+            let state = session.applier.state();
+            let history = (
+                capture::is_on(state, HISTORY),
+                Settings::of(state).max_entries,
+            );
+            return hook_clipboard(|| history, io.err);
+        }
         Hook::Displays | Hook::Workspaces | Hook::Mirror => {}
     }
     let env = HookEnv {
@@ -123,5 +136,40 @@ pub(super) fn hook_gsettings<V: Validate>(session: &Session<V>, io: &mut Io<'_>)
         Exit::Ok
     } else {
         Exit::Failure
+    }
+}
+
+/// The switch and the number of entries of the clipboard history in the settings files of the
+/// user who runs `sway-things`; off if they can't be read.
+pub(super) fn read_history() -> (bool, u32) {
+    let settings = Settings::load();
+    let on = Paths::from_env()
+        .is_ok_and(|paths| capture::is_on(&State::load(Registry::builtin(), paths), HISTORY));
+    (on, settings.max_entries)
+}
+
+/// `hook clipboard`: has the watcher of the history run as `history` says (the switch and the
+/// number of entries), read once the lock is held ([`clipboard::sync_with`]). Says on stderr why
+/// it starts none.
+pub(super) fn hook_clipboard(history: impl FnOnce() -> (bool, u32), err: &mut dyn Write) -> Exit {
+    match clipboard::sync_with(history) {
+        Ok(Synced {
+            foreign: Some(pid), ..
+        }) => {
+            let _ = writeln!(
+                err,
+                "{}",
+                trf(
+                    msg!(
+                        "A clipboard history of your own runs already (wl-paste, process \
+                         {pid}), so Sway Things starts none"
+                    ),
+                    &[("pid", &pid)],
+                )
+            );
+            Exit::Ok
+        }
+        Ok(_) => Exit::Ok,
+        Err(error) => fail_with(err, &error.text()),
     }
 }

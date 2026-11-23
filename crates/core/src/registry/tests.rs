@@ -436,9 +436,17 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         assert_eq!(is_collection, setting.key().starts_with("collection."));
         // The bindings are lines of their own in 50-bindings.conf.
         let is_binding = setting.page() == Page::KeyboardShortcuts;
+        // Screenshots, the clipboard history and recording: keys in 50-bindings.conf, a hook,
+        // and what the command line reads when a key is pressed.
+        let is_capture = setting.page() == Page::ScreenshotsClipboard;
         assert_eq!(
             setting.sway().is_none(),
-            is_app || is_placement || is_gsettings_only || is_collection || is_binding,
+            is_app
+                || is_placement
+                || is_gsettings_only
+                || is_collection
+                || is_binding
+                || is_capture,
             "{}",
             setting.key()
         );

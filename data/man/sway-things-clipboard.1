@@ -1,0 +1,35 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-clipboard 1 "" "Sway Things 0.4.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-clipboard \- Pick an entry of the clipboard history, or clear it
+.SH SYNOPSIS
+\fBsway\-things clipboard\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Pick an entry of the clipboard history, or clear it
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH SUBCOMMANDS
+.TP
+sway\-things\-clipboard\-pick(1)
+Show the history in the launcher that is installed (fuzzel, wofi, rofi, tofi or bemenu) and copy the entry you pick again; the history key runs this
+.TP
+sway\-things\-clipboard\-clear(1)
+Remove every entry of the history

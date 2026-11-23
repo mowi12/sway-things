@@ -137,6 +137,10 @@ pub enum Code {
     SettingSkipped,
     /// A stored setting can't be copied to GSettings, so apps that read it there don't get it.
     SettingNotCopied,
+    /// A part of Screenshots & Clipboard is switched on, but a program it runs isn't installed.
+    ToolMissing,
+    /// The clipboard history is on, and the user's config starts one of its own too.
+    HistoryTwice,
     /// A generated file holds what Sway Things generates.
     FileCurrent,
     /// A generated file doesn't exist and isn't needed.
@@ -198,6 +202,8 @@ impl Code {
             Self::HookProgram => "hook_program",
             Self::SwaybgCommand => "swaybg_command",
             Self::SettingNotCopied => "setting_not_copied",
+            Self::ToolMissing => "tool_missing",
+            Self::HistoryTwice => "history_twice",
             Self::FileCurrent => "file_current",
             Self::FileNotNeeded => "file_not_needed",
             Self::FileMissing => "file_missing",
@@ -242,7 +248,9 @@ impl Code {
             | Self::SettingsUnusable
             | Self::SettingsEntry
             | Self::SettingSkipped
-            | Self::SettingNotCopied => Section::Settings,
+            | Self::SettingNotCopied
+            | Self::ToolMissing
+            | Self::HistoryTwice => Section::Settings,
             Self::FileCurrent
             | Self::FileNotNeeded
             | Self::FileMissing

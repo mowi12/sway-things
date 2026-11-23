@@ -336,6 +336,13 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
 - **Editing** (`bindings::edit`): the page's changes as new lists of items: `add` (a binding of the user's on the same
   keys becomes a change item; one of Sway Things' is replaced, a change on the same keys keeps only its unbind),
   `change`, `remove` (a change keeps its unbind) and `restore`, which takes only the item of its row.
+- **Keys of other pages** (`capture::shortcuts`): the keys of Screenshots & Clipboard are settings of that page (the
+  keys as text, `$mod` allowed, empty for none; checked to need no quotes and to leave typing alone) bound while the
+  switch of their part is on. `ours::file_lines` writes them after the media keys, with `--no-warn` like those and
+  `--no-repeat` (a key held down would take screenshots in a row, or start and stop a recording), each
+  `exec "sway-things <command>"`; their origin is `Origin::Feature(<key>)` and their row `RowKind::Feature`, which the
+  Keyboard Shortcuts page lists with what they take the place of and can't change, and whose keys its dialog refuses. A
+  change of one is sent like any binding change (`Applier::apply_bindings`).
 
 ## Editor
 

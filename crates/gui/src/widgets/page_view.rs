@@ -190,7 +190,7 @@ impl PageView {
         let arrangement = parts::before_rows(model, page, &body, &mut sections, &mut first);
         let mut section: Option<(Msg, gtk::ListBox)> = None;
         let mut groups: Vec<DeviceGroup> = Vec::new();
-        let mut files = BTreeSet::new();
+        let mut files: BTreeSet<ConfigFile> = parts::files(page).into_iter().collect();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
         for setting in Registry::builtin()

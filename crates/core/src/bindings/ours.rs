@@ -233,7 +233,7 @@ impl FileLine {
     /// The setting the line comes from.
     pub fn key(&self) -> &'static str {
         match self.origin {
-            Origin::Group(key) => key,
+            Origin::Group(key) | Origin::Feature(key) => key,
             Origin::User | Origin::Item(_) | Origin::Placeholder(_) => BINDINGS,
         }
     }
@@ -248,7 +248,8 @@ pub fn items(state: &State) -> Vec<String> {
 }
 
 /// The lines of `50-bindings.conf` for `state`, in order: the unbinds of the user's bindings
-/// (each after its placeholder), the media keys switched on, then the bindings of the items.
+/// (each after its placeholder), the media keys switched on, the keys of other pages
+/// ([`crate::capture::shortcuts`]), then the bindings of the items.
 pub fn file_lines(state: &State) -> Vec<FileLine> {
     let modifier = modifier(state);
     let parsed: Vec<Result<Item, LineError>> =
@@ -294,6 +295,8 @@ pub fn file_lines(state: &State) -> Vec<FileLine> {
             }));
         }
     }
+    // The keys of other pages, such as those of screenshots.
+    lines.extend(crate::capture::shortcuts::file_lines(state));
     for (index, item) in parsed.iter().enumerate() {
         if let Some(binding) = item.as_ref().ok().and_then(Item::binding) {
             lines.push(FileLine {

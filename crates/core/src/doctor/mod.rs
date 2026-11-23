@@ -21,6 +21,7 @@
 //! files are still validated with `sway --validate`: that is how to find out from a TTY why sway
 //! doesn't start. If `sway` can't be run either, validation is skipped, not failed.
 
+mod capture;
 mod files;
 mod finding;
 mod found;
@@ -109,6 +110,14 @@ impl<V: Validate> Checkup<'_, V> {
         }
         progress(Step::Section(Section::Settings));
         self.settings(generated.as_deref(), &mut findings);
+        Self::tools(
+            crate::capture::tools::missing_for(
+                self.state,
+                crate::capture::tools::Program::installed,
+            ),
+            &mut findings,
+        );
+        self.history_twice(&mut findings);
         progress(Step::Section(Section::Generated));
         self.files(generated.as_deref(), &mut findings, &mut progress)
             .await;
