@@ -187,6 +187,9 @@ mod imp {
         pub selected: RefCell<Option<String>>,
         /// The rfkill block of the Bluetooth radios; `None` without rfkill.
         pub block: Cell<Option<Block>>,
+        /// The position of the power switch while BlueZ hasn't answered turning the radio on or
+        /// off; a refresh meanwhile doesn't move it back.
+        pub power_pending: Cell<Option<bool>>,
         /// The adapter the page asked to look for devices.
         pub discovery: RefCell<Option<String>>,
         /// The rows by device path.
@@ -750,8 +753,13 @@ impl BluetoothPage {
     }
 
     /// The handler of the power switch: turns the radio on (lifting a soft block first) or off.
+    /// Turning it off cancels the connections and pairings that run first, since BlueZ may hold
+    /// the change until they end. The switch keeps the new position until BlueZ answers.
     fn power_changed(&self, on: bool) -> glib::Propagation {
         let imp = self.imp();
+        if imp.power_pending.get() == Some(on) {
+            return glib::Propagation::Stop;
+        }
         let adapter = imp.selected.borrow().clone().and_then(|path| {
             let snapshot = imp.snapshot.borrow();
             let powered = snapshot.as_ref()?.adapter(&path)?.powered;
@@ -764,11 +772,18 @@ impl BluetoothPage {
             return glib::Propagation::Proceed;
         }
         let soft = imp.block.get().is_some_and(|block| block.soft);
+        let canceled = if on { Vec::new() } else { self.cancel_all() };
+        imp.power_pending.set(Some(on));
+        self.render();
         let weak = self.downgrade();
         glib::spawn_future_local(async move {
+            for (device, action) in &canceled {
+                actions::cancel_call(&bluez, *action, device).await;
+            }
             if on && soft {
                 if rfkill::unblock().is_err() {
                     if let Some(page) = weak.upgrade() {
+                        page.imp().power_pending.set(None);
                         page.imp().unblock_help.set_visible(true);
                         page.render();
                     }
@@ -777,25 +792,38 @@ impl BluetoothPage {
                 glib::timeout_future(UNBLOCK_SETTLE).await;
             }
             let result = bluez.set_powered(&path, on).await;
-            if let Some(page) = weak.upgrade() {
-                let blocked = matches!(result, Err(Error::Blocked));
-                page.imp().unblock_help.set_visible(blocked);
-                page.show_error(&match result {
-                    Ok(()) | Err(Error::Blocked) => String::new(),
-                    Err(error) => trf(
-                        if on {
-                            msg!("Couldn't turn Bluetooth on: {error}")
-                        } else {
-                            msg!("Couldn't turn Bluetooth off: {error}")
-                        },
-                        &[("error", &error.text().translated())],
-                    ),
-                });
-            }
-            refresh(&weak, &bluez).await;
+            let snapshot = bluez.snapshot().await;
+            let Some(page) = weak.upgrade() else {
+                return;
+            };
+            let blocked = matches!(result, Err(Error::Blocked));
+            page.imp().unblock_help.set_visible(blocked);
+            page.show_error(&match result {
+                Ok(()) | Err(Error::Blocked) => String::new(),
+                Err(error) => trf(
+                    if on {
+                        msg!("Couldn't turn Bluetooth on: {error}")
+                    } else {
+                        msg!("Couldn't turn Bluetooth off: {error}")
+                    },
+                    &[("error", &error.text().translated())],
+                ),
+            });
+            // BlueZ answered: from here on the switch shows what it reports.
+            page.imp().power_pending.set(None);
+            page.show(snapshot);
         });
-        // The switch shows the new position; its state follows once BlueZ reports it.
         glib::Propagation::Stop
+    }
+
+    /// Marks every connection and pairing that runs as canceled; returns them, for
+    /// [`actions::cancel_call`].
+    fn cancel_all(&self) -> Vec<(String, Action)> {
+        let running = self.imp().running.borrow().clone();
+        running
+            .into_iter()
+            .filter(|(device, action)| self.mark_canceled(device, *action))
+            .collect()
     }
 
     /// Puts a new, turning spinner next to "Searching".

@@ -291,7 +291,8 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   (_Cancel_ on the row, `Disconnect` or `CancelPairing` sent, no error, the row back as it was), connects, pairs through
   the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until
   _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices
-  again, and it stops looking once the radio is off; test windows reach no Bluetooth but the stand-in.
+  again, and it stops looking once the radio is off, which, turned off while the headset connects slowly, cancels the
+  connection first and keeps the knob off until BlueZ answers; test windows reach no Bluetooth but the stand-in.
 - Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other
   networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers
   the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does

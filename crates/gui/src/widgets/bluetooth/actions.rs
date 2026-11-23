@@ -116,15 +116,24 @@ impl BluetoothPage {
         let Some(action) = imp.running.borrow().get(path).copied() else {
             return;
         };
-        if !action.cancelable() || !imp.canceled.borrow_mut().insert(path.to_owned()) {
+        if !self.mark_canceled(path, action) {
             return;
         }
-        self.close_dialog_of(path);
         self.render();
         let path = path.to_owned();
         glib::spawn_future_local(async move {
             cancel_call(&bluez, action, &path).await;
         });
+    }
+
+    /// Marks `action` on the device at `path` as canceled and closes its pairing dialog. False if
+    /// it can't be canceled or is already.
+    pub(super) fn mark_canceled(&self, path: &str, action: Action) -> bool {
+        if !action.cancelable() || !self.imp().canceled.borrow_mut().insert(path.to_owned()) {
+            return false;
+        }
+        self.close_dialog_of(path);
+        true
     }
 
     /// Asks for a new name for the selected adapter and sets it.
@@ -240,7 +249,7 @@ impl BluetoothPage {
 
 /// The call that cancels `action` on the device at `path`. Its error is dropped: the call may come
 /// after the action ended, and the canceled call reports the outcome.
-async fn cancel_call(bluez: &Bluez, action: Action, path: &str) {
+pub(super) async fn cancel_call(bluez: &Bluez, action: Action, path: &str) {
     let _ = match action {
         Action::Pair => bluez.cancel_pairing(path).await,
         _ => bluez.disconnect_device(path).await,

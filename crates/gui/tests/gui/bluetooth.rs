@@ -114,11 +114,7 @@ pub(crate) fn check_bluetooth() -> Outcome {
     check_bluetooth_pairing(&page, &stand_in)?;
     check_bluetooth_adapter(&page, &stand_in)?;
 
-    page.power_switch().set_active(false);
-    ensure(
-        run_until(Duration::from_secs(5), || !page.power_switch().state()),
-        "  Bluetooth didn't turn off",
-    )?;
+    check_bluetooth_off_while_connecting(&page, &stand_in)?;
     ensure(
         !page.visible_switch().is_sensitive() && !page.adapter_rename_button().is_sensitive(),
         "  visibility and renaming stayed available with the radio off",
@@ -411,6 +407,81 @@ pub(crate) fn check_bluetooth_cancel(page: &BluetoothPage, stand_in: &StandIn) -
     ensure(
         calls(&speaker, "Connect") == 0,
         "  the canceled pairing went on to connect",
+    )?;
+    async_io::block_on(stand_in.connect_waits(&headset, 0))
+        .map_err(|error| format!("  {error}"))?;
+    Ok(())
+}
+
+/// Turning the radio off on `page` while the headset of [`bluetooth_stand_in`] connects slowly:
+/// the connection is canceled with `Disconnect` before the radio goes off, the knob stays off
+/// meanwhile, and the switch ends up off with the headset not connected and no error.
+pub(crate) fn check_bluetooth_off_while_connecting(
+    page: &BluetoothPage,
+    stand_in: &StandIn,
+) -> Outcome {
+    let headset = format!("/org/bluez/hci0/dev_{}", HEADSET.replace(':', "_"));
+    let disconnects = || {
+        async_io::block_on(stand_in.calls(&headset, "Disconnect")).map_or(0, |calls| calls.len())
+    };
+    let headset_row = || {
+        page.device_rows(true)
+            .into_iter()
+            .find(|(name, _, _)| name == "Headset")
+    };
+    let button = page
+        .device_button("Headset")
+        .ok_or("  no button for the headset")?;
+    if headset_row().is_some_and(|(_, _, label)| label == "Disconnect") {
+        button.emit_clicked();
+        ensure(
+            run_until(Duration::from_secs(5), || {
+                headset_row().is_some_and(|(_, _, label)| label == "Connect")
+            }),
+            &format!("  the headset didn't disconnect: {:?}", headset_row()),
+        )?;
+    }
+    let before = disconnects();
+    async_io::block_on(stand_in.connect_waits(&headset, 2))
+        .map_err(|error| format!("  {error}"))?;
+    button.emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(2), || {
+            headset_row().is_some_and(|(_, _, label)| label == "Cancel")
+        }),
+        &format!("  the headset didn't start connecting: {:?}", headset_row()),
+    )?;
+    let power = page.power_switch();
+    power.set_active(false);
+    // Whatever refreshes meanwhile, the knob stays off.
+    run_until(Duration::from_millis(500), || false);
+    ensure(
+        !power.is_active(),
+        "  the knob went back on while BlueZ hadn't answered",
+    )?;
+    ensure(
+        run_until(Duration::from_secs(10), || {
+            !power.state() && !power.is_active()
+        }),
+        &format!(
+            "  Bluetooth didn't turn off: active {}, state {}",
+            power.is_active(),
+            power.state()
+        ),
+    )?;
+    ensure(
+        disconnects() == before + 1,
+        "  the connection wasn't canceled with Disconnect",
+    )?;
+    ensure(
+        headset_row().is_some_and(|(_, status, label)| {
+            status.starts_with("Not connected") && label == "Connect"
+        }),
+        &format!("  the headset row: {:?}", headset_row()),
+    )?;
+    ensure(
+        page.error_text().is_empty(),
+        &format!("  an error: {}", page.error_text()),
     )?;
     async_io::block_on(stand_in.connect_waits(&headset, 0))
         .map_err(|error| format!("  {error}"))?;

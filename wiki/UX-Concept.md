@@ -476,11 +476,13 @@ and no generated file.
 
 - **Bluetooth section:** a switch for the radio, its subtitle the name other devices see and the address, or _Off_. With
   two or more adapters an _Adapter_ drop-down comes first (not remembered; the first adapter after a restart). A hard
-  block (a switch or key) locks the switch. Without access to `/dev/rfkill`, the page shows `rfkill unblock bluetooth`
-  with _Copy_. A ⋮ menu next to the switch has _Rename…_, the device dialog for the adapter's name (empty: the adapter's
-  own name). Below, _Visible to other devices_ lets other devices find the computer; its subtitle says how long it stays
-  visible (BlueZ's `DiscoverableTimeout`) and the switch follows BlueZ when the time is up. Both act on the selected
-  adapter and are insensitive while the radio is off.
+  block (a switch or key) locks the switch. Until BlueZ has answered a change, the switch keeps its new position and is
+  insensitive; then it shows BlueZ's state. Turning it off first cancels a connection or pairing that runs. Without
+  access to `/dev/rfkill`, the page shows `rfkill unblock bluetooth` with _Copy_. A ⋮ menu next to the switch has
+  _Rename…_, the device dialog for the adapter's name (empty: the adapter's own name). Below, _Visible to other devices_
+  lets other devices find the computer; its subtitle says how long it stays visible (BlueZ's `DiscoverableTimeout`) and
+  the switch follows BlueZ when the time is up. Both act on the selected adapter and are insensitive while the radio is
+  off.
 - **Off:** while the radio is off, a placeholder _Bluetooth is off_ (icon, title, text) replaces the device sections
   (_My devices_, _Other devices_) and points to the switch. The Bluetooth section stays, with _Visible to other devices_
   and the ⋮ menu insensitive. A soft block (airplane mode, `rfkill`) says so and that the switch lifts it; a hard block
