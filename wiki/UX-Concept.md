@@ -488,6 +488,10 @@ and no generated file.
 - **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
   level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
 - **Other devices:** the devices around, as BlueZ knows them. _Connect_ pairs, trusts and connects in one step.
+- **Connecting and pairing:** while a device connects or pairs, its status reads _Connecting…_ or _Pairing…_ and its
+  button _Cancel_ (the ⋮ menu is insensitive). _Cancel_ ends the attempt, as BlueZ does when it fails on its own with a
+  device that is off or out of range, and stops a pairing from going on to connect. No message follows a cancel; the row
+  goes back to _Not connected_ or _Not paired_.
 - **Search:** see [Searching for devices and networks](#searching-for-devices-and-networks).
 - **Pairing dialogs:** compare a code (_Pair_ / _Cancel_), type a shown code on a keyboard (the digits typed so far are
   underlined), enter a PIN or a code, or allow a device without a code. A dialog closes when the device cancels.

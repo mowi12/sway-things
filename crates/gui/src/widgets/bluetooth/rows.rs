@@ -63,6 +63,7 @@ impl BluetoothPage {
 
         let devices: Vec<&Device> = snapshot.devices_of(&adapter.path).collect();
         let running = imp.running.borrow().clone();
+        let canceled = imp.canceled.borrow().clone();
         let mut rows = imp.rows.borrow_mut();
         rows.retain(|path, row| {
             let keep = devices.iter().any(|device| device.path == *path);
@@ -79,6 +80,7 @@ impl BluetoothPage {
                 row,
                 device,
                 running.get(&device.path).copied(),
+                canceled.contains(&device.path),
                 adapter.powered,
             );
         }

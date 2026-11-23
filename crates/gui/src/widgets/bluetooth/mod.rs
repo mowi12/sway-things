@@ -81,6 +81,12 @@ impl Action {
         })
     }
 
+    /// Whether it can be canceled while it runs: a connection or a pairing, which can take long
+    /// with a device that is off or out of range.
+    fn cancelable(self) -> bool {
+        matches!(self, Self::Pair | Self::Connect)
+    }
+
     /// The message when it fails on the device `name` with `error`.
     fn failure(self, name: &str, error: &Error) -> String {
         let text = match self {
@@ -112,7 +118,7 @@ struct DeviceRow {
 
 mod imp {
     use std::cell::{Cell, RefCell};
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     use gtk::glib;
     use gtk::prelude::*;
@@ -187,6 +193,8 @@ mod imp {
         pub(super) rows: RefCell<HashMap<String, DeviceRow>>,
         /// What runs on which device.
         pub(super) running: RefCell<HashMap<String, Action>>,
+        /// The devices whose connection or pairing was canceled and hasn't ended yet.
+        pub(super) canceled: RefCell<HashSet<String>>,
         /// The open dialog of the pairing agent, and the device it is about.
         pub dialog: RefCell<Option<(String, Dialog)>>,
         /// Follow BlueZ, rfkill and the agent for as long as the page lives.
@@ -919,8 +927,14 @@ fn prompt_spec(request: &Request, name: &str) -> (Spec, Option<(u32, u16)>) {
     }
 }
 
-/// Fills `row` from `device`; `running` is what runs on it.
-fn update_row(row: &mut DeviceRow, device: &Device, running: Option<Action>, powered: bool) {
+/// Fills `row` from `device`; `running` is what runs on it, `canceled` whether that was canceled.
+fn update_row(
+    row: &mut DeviceRow,
+    device: &Device,
+    running: Option<Action>,
+    canceled: bool,
+    powered: bool,
+) {
     row.paired = device.paired;
     row.icon
         .set_icon_name(Some(&icon_name(device.icon.as_deref())));
@@ -949,13 +963,19 @@ fn update_row(row: &mut DeviceRow, device: &Device, running: Option<Action>, pow
         ),
         _ => state,
     });
+    let cancelable = running.is_some_and(Action::cancelable);
     let label = match running {
+        Some(_) if cancelable => tr(msg!("Cancel")),
         Some(action) => action.running(),
         None if device.connected => tr(msg!("Disconnect")),
         None => tr(msg!("Connect")),
     };
     row.button.set_label(label);
-    row.button.set_sensitive(powered && running.is_none());
+    row.button.set_sensitive(if cancelable {
+        !canceled
+    } else {
+        powered && running.is_none()
+    });
     row.button
         .update_property(&[gtk::accessible::Property::Label(&trf(
             // TRANSLATORS: The button of a device for screen readers: "Connect Headphones".

@@ -48,10 +48,12 @@ and no competing stack. `crates/core/src/bluetooth/` has a `Bluez` handle on the
 `PropertiesChanged`, `InterfacesAdded`/`Removed` and `NameOwnerChanged` signals (without the noise of signal strength)
 tells the page to read a new snapshot. Pairing registers our agent (`org.bluez.Agent1`, capability `KeyboardDisplay`)
 before each `Pair`, without `RequestDefaultAgent`, so BlueZ asks it only about our pairings; it answers only calls from
-the owner of `org.bluez` and hands each question to the page as a prompt. The page runs `StartDiscovery` while it is on
-screen and the radio is on, or with `app.bluetooth_search = "manual"` only for 30 s after _Search_. `bluetooth::rfkill`
-reads `/dev/rfkill` for the soft and hard block and lifts a soft block by writing one `RFKILL_OP_CHANGE_ALL` event. A
-page's "Advanced…" button starts a specialist tool from `delegate` (blueman-manager), found in `PATH`.
+the owner of `org.bluez` and hands each question to the page as a prompt. _Cancel_ on a row sends `Disconnect` during a
+`Connect` and `CancelPairing` during a `Pair`, and drops the result of the canceled call. The page runs `StartDiscovery`
+while it is on screen and the radio is on, or with `app.bluetooth_search = "manual"` only for 30 s after _Search_.
+`bluetooth::rfkill` reads `/dev/rfkill` for the soft and hard block and lifts a soft block by writing one
+`RFKILL_OP_CHANGE_ALL` event. A page's "Advanced…" button starts a specialist tool from `delegate` (blueman-manager),
+found in `PATH`.
 
 The network needs none either: NetworkManager owns the connections and their passwords. `crates/core/src/network/` has a
 `NetworkManager` handle on the system bus: `GetManagedObjects` on `/org/freedesktop` and `GetSettings` of each saved

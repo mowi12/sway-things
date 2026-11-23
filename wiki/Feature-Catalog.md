@@ -138,6 +138,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 
 - [x] 🟡 Bluetooth on/off, scan, pair, connect, forget (BlueZ D-Bus). Device names are attacker-controlled data
 - [x] 🟡 Pairing dialogs through our own agent: compare a code, type a code or PIN, authorize
+- [x] 🟢 Cancel a connection or pairing while it runs
 - [x] 🟢 Lift an rfkill soft block when switching on; explain a hard block
 - [x] 🟢 Several adapters: pick the one the page shows
 - [x] 🟢 Battery level of connected devices

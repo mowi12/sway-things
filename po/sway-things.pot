@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 20:29+0100\n"
+"POT-Creation-Date: 2026-11-23 22:22+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -8150,8 +8150,9 @@ msgid "Leave it empty to use the name the device announces."
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
-#: crates/gui/src/widgets/capture.rs crates/gui/src/widgets/generated.rs
-#: crates/gui/src/widgets/live.rs crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
+#: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
+#: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
 #: crates/gui/src/widgets/printers/rows.rs
