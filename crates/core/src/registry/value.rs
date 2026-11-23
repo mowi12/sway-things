@@ -328,6 +328,13 @@ pub enum ValueError {
     /// The text isn't an autostart entry of Sway Things: `exec <command>` or `app <desktop file
     /// ID>`, switched off with `# ` in front.
     NotAnAutostartEntry,
+    /// The text isn't a JSON object (empty stands for none).
+    NotAJsonObject,
+    /// The text isn't a name swaync takes for a widget: letters, digits, `_` and `-`, maybe with
+    /// `#` and a name for a second one of a kind.
+    NotAWidget,
+    /// The text has a control character or is too long for a notification daemon's config.
+    NotDaemonText,
 }
 
 impl ValueError {
@@ -412,6 +419,13 @@ impl ValueError {
                  switches it off"
             )
             .into(),
+            Self::NotAJsonObject => msg!("must be a JSON object, or empty").into(),
+            Self::NotAWidget => {
+                msg!("must be a widget name like title or buttons-grid#quick").into()
+            }
+            Self::NotDaemonText => {
+                msg!("must be at most 255 characters, without line breaks").into()
+            }
         }
     }
 }

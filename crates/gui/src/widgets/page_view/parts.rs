@@ -11,57 +11,82 @@ use sway_things_core::outputs;
 use sway_things_core::registry::{ConfigFile, Page, Setting};
 
 use super::{
-    Section, about_section, add_apps_parts, add_workspace_map, arrangement_section,
-    generated_section, shortcuts_section, test_area_section,
+    Section, ShowDaemon, about_section, add_apps_parts, add_workspace_map, arrangement_section,
+    dnd_section, follow_daemon, generated_section, shortcuts_section, test_area_section,
 };
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
-use crate::widgets::{SettingRow, apps, capture, cursor, keyboard, look, shortcuts};
+use crate::widgets::{SettingRow, apps, capture, cursor, keyboard, look, notifications, shortcuts};
+
+/// What the parts above the rows hand to the rest of the page.
+#[derive(Default)]
+pub(super) struct Before {
+    /// The arrangement of the displays, on the Displays page.
+    pub arrangement: Option<Arrangement>,
+    /// Where the Do Not Disturb section says which daemon the page is about, on the
+    /// Notifications page.
+    pub daemon: Option<ShowDaemon>,
+}
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
 /// Maintenance, the list of bindings on Keyboard Shortcuts, the note of Apps Look & Feel, the
-/// arrangement of the displays. `first` says
-/// whether the next section is the first of the page; a part that is a section takes it.
+/// arrangement of the displays, Do Not Disturb on Notifications. `first` says whether the next
+/// section is the first of the page; a part that is a section takes it.
 pub(super) fn before_rows(
     model: &Model,
     page: Page,
     body: &gtk::Box,
     sections: &mut Vec<Section>,
     first: &mut bool,
-) -> Option<Arrangement> {
+) -> Before {
     match page {
         Page::About => {
             sections.push(about_section(model, body));
             sections.push(generated_section(model, body));
             *first = false;
-            None
+            Before::default()
         }
         Page::KeyboardShortcuts => {
             sections.push(shortcuts_section(model, body, std::mem::take(first)));
-            None
+            Before::default()
         }
         Page::AppsLookFeel => {
             body.append(&look::note());
-            None
+            Before::default()
         }
-        Page::Displays => Some(arrangement_section(
-            model,
-            body,
-            std::mem::take(first),
-            sections,
-        )),
-        _ => None,
+        Page::Displays => Before {
+            arrangement: Some(arrangement_section(
+                model,
+                body,
+                std::mem::take(first),
+                sections,
+            )),
+            daemon: None,
+        },
+        Page::Notifications => Before {
+            arrangement: None,
+            daemon: Some(dnd_section(model, body, std::mem::take(first), sections)),
+        },
+        _ => Before::default(),
     }
 }
 
 /// The parts of `page` below its rows: the test area of Mouse & Touchpad, the map of the
 /// displays on Workspaces, the note above the default apps and the list of what starts at login
-/// on Apps & Autostart.
-pub(super) fn after_rows(model: &Model, page: Page, body: &gtk::Box, sections: &mut Vec<Section>) {
+/// on Apps & Autostart; on Notifications, the sections of mako and swaync follow the daemon the
+/// page is about (`daemon`, from [`before_rows`]).
+pub(super) fn after_rows(
+    model: &Model,
+    page: Page,
+    body: &gtk::Box,
+    sections: &mut Vec<Section>,
+    daemon: Option<&ShowDaemon>,
+) {
     match page {
         Page::MouseTouchpad => sections.push(test_area_section(model, body)),
         Page::Workspaces => add_workspace_map(model, sections),
         Page::AppsAutostart => add_apps_parts(model, sections),
+        Page::Notifications => follow_daemon(sections, daemon),
         _ => {}
     }
 }
@@ -95,12 +120,13 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
 /// The widgets of a page below `row`, in the row's list: the Keyboard page's layout list and
 /// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, what the
 /// keys of the terminal and the launcher do now on Apps & Autostart, the notes of Screenshots &
-/// Clipboard.
+/// Clipboard, the lists of swaync's widgets and buttons on Notifications.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let mut widgets = keyboard::below(model, row);
     widgets.extend(shortcuts::below(model, row));
     widgets.extend(apps::below(model, row));
     widgets.extend(capture::below(model, row));
+    widgets.extend(notifications::below(model, row));
     widgets
 }
 

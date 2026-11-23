@@ -596,6 +596,42 @@ screen and after every action.
   wouldn't help. A CUPS set up to use a print server on another computer gets a placeholder saying so: the page only
   manages the printers of this computer.
 
+### Notifications
+
+The Notifications page sets up the notification daemon that runs: mako, SwayNotificationCenter (swaync) or dunst. Its
+settings go into files of Sway Things in the daemon's own format (see
+[Backends → Notifications](Backends.md#notifications)); the daemon reads them again after each change.
+
+- **Do Not Disturb** comes first: the switch, which follows the daemon (also when it is switched with `makoctl`,
+  `swaync-client` or a bar module), then _Notification daemon_ with the daemon that shows notifications and what started
+  it (a line of the user's config with file:line, Sway Things, a systemd unit, or D-Bus activation) and _Send Test
+  Notification_ ("This is how notifications look"). For mako the switch says when it can't hide anything yet: without
+  our include line or a `[mode=do-not-disturb]` section of the user's own. A daemon Sway Things doesn't know gets no
+  switch, with the reason.
+- **Notes** below it, each with what to do and, for a line or a command, a copy button: no daemon runs and none is
+  started (_Start mako with Sway_, mako preferred, else the installed one); two daemons are started (with their lines:
+  only the first to start shows notifications); mako's config doesn't include ours (the line to add, after the user's
+  own options and before the first `[section]`, where mako takes it); swaync runs with its own config (the command that
+  starts it with ours); _Import My swaync Config_ while swaync is the daemon or chosen and the user has a config of
+  their own that wasn't imported, so their look isn't dropped silently; that a swaync built with GTK 3 (before 0.12)
+  takes only the colors. For a mako started with `-c`, or with a system-wide config, the note is about that config, and
+  no config is created for it; behind a symbolic link it says where our file lands.
+- **Switching daemons:** choosing another daemon ends one Sway Things started; one the user started is left alone, and a
+  banner says how to switch.
+- **Daemon:** _Start with sway_ (none, mako, SwayNotificationCenter, dunst) for a setup whose config starts none; the
+  choice starts it at once and at every login. _Clicking a notification shows its app_ (off by default) brings the app's
+  window to the front; the app still opens the chat or mail through the notification's own action.
+- **Position**, **Colors** (the daemon's own, like the focused window of the Windows page with its border as the accent,
+  or custom) and **Blur behind notifications** (SwayFX) are shared by the daemons. Then a section per daemon: _mako_
+  (width, maximum height, how many at once, timeouts with one for critical notifications, grouping, icons, font, border,
+  corners) and _swaync: Notifications_ and _swaync: Control center_ (width, timeouts for normal, unimportant and
+  critical ones, grouping, the style with the _Frosted glass_ preset, corners, the panel's size, its widgets and the
+  buttons of its button grid, and its other options as JSON). Only the sections of the daemon the page is about show:
+  the one that runs, else the one chosen to start; all while neither is known.
+- **Widgets and buttons** of swaync's panel are a list below their row: a check button per widget or button (title, Do
+  Not Disturb, notifications, media player, volume, brightness, buttons, inhibitors; Do Not Disturb, Wi-Fi, Bluetooth,
+  sound, microphone, Sway Things), with buttons to move it up and down; the focus stays where it was after a change.
+
 ### Sidebar groups
 
 | Group | Pages |
@@ -818,8 +854,8 @@ preference:
 ## SwayFX
 
 With SwayFX detected, the Windows page gets the effect sections **Corners**, **Blur**, **Shadows**, **Dim inactive** and
-**Animations** (SwayFX ≥ 0.6). The Bar and Notifications pages (planned) get layer-effect toggles (blur behind waybar or
-notifications). On vanilla sway these controls show "Requires SwayFX".
+**Animations** (SwayFX ≥ 0.6). The Bar (planned) and Notifications pages get layer-effect toggles (blur behind waybar or
+notifications; on Notifications _Blur behind notifications_). On vanilla sway these controls show "Requires SwayFX".
 
 ## Accessibility
 

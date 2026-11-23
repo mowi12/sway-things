@@ -901,3 +901,31 @@ fn a_file_sway_accepted_but_that_cant_be_put_in_place_isnt_recorded() {
     assert_eq!(written.names(), ["10-input.conf"]);
     assert!(input.is_dir());
 }
+
+#[test]
+fn the_notification_daemon_chosen_starts_from_the_hooks_file() {
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"swaync\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Hooks),
+        format!("{HEADER}exec_always sway-things hook notification-daemon\n")
+    );
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"mako\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Hooks),
+        format!("{HEADER}exec_always sway-things hook notification-daemon\n")
+    );
+    let (_dir, stored) = state(
+        "version = 1\n\n[notifications]\nstart = \"none\"\n",
+        "version = 1\n",
+    );
+    let files = generate(Registry::builtin(), &stored, SWAY_1_10);
+    assert_eq!(text(&files, ConfigFile::Hooks), HEADER);
+}

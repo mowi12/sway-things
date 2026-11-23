@@ -185,6 +185,10 @@ struct Core {
     /// Where settings are copied to GSettings, read for what a setting that lives only there has
     /// now.
     desktop: Rc<dyn GSettingsStore>,
+    /// The files for the notification daemons and the session bus to reach the daemon on;
+    /// neither for a model made for tests, unless the applier was given them.
+    daemon_files: Option<sway_things_core::notifications::files::Files>,
+    daemon_bus: Option<sway_things_core::notifications::Notifications>,
 }
 
 impl Core {
@@ -363,6 +367,8 @@ impl Model {
             waiting: applier.waiting().clone(),
             compositor: applier.compositor(),
             locations: applier.locations().clone(),
+            daemon_files: applier.daemon_files().cloned(),
+            daemon_bus: applier.daemon_bus().cloned(),
             applier: Some(applier),
             status,
             devices,
@@ -862,6 +868,24 @@ impl Model {
     pub fn set_search_path(&self, path: Option<std::ffi::OsString>) {
         self.imp().search_path.replace(path);
         self.emit_by_name::<()>("changed", &[]);
+    }
+
+    /// The files for the notification daemons, if they are written.
+    pub fn daemon_files(&self) -> Option<sway_things_core::notifications::files::Files> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .and_then(|core| core.daemon_files.clone())
+    }
+
+    /// The session bus the notification daemon is reached on, if any.
+    pub fn daemon_bus(&self) -> Option<sway_things_core::notifications::Notifications> {
+        self.imp()
+            .core
+            .borrow()
+            .as_ref()
+            .and_then(|core| core.daemon_bus.clone())
     }
 
     /// Where the generated files go.

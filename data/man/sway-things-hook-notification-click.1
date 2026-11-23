@@ -1,0 +1,31 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-notification-click 1 "" "Sway Things 0.4.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-notification\-click \- Bring the window of a clicked notification\*(Aqs app to the front: run by swaync (as a script, with the notification in its environment) and mako (with \-\-mako) while the Notifications page says so
+.SH SYNOPSIS
+\fBsway\-things hook notification\-click\fR [\fB\-\-mako\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Bring the window of a clicked notification\*(Aqs app to the front: run by swaync (as a script, with the notification in its environment) and mako (with \-\-mako) while the Notifications page says so
+.SH OPTIONS
+.TP
+\fB\-\-mako\fR \fI<ID>\fR
+The id of mako\*(Aqs notification; mako runs the hook with it
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

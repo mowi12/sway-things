@@ -29,6 +29,7 @@ pub mod include;
 pub mod ipc;
 pub mod look;
 pub mod network;
+pub mod notifications;
 pub mod outputs;
 pub mod printers;
 pub mod registry;

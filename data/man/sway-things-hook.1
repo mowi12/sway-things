@@ -54,3 +54,12 @@ Start an installed app by its desktop file ID, as its desktop entry says (in a t
 .TP
 sway\-things\-hook\-autostart(1)
 Hand the session\*(Aqs variables to the systemd user session and start the XDG autostart entries through it (xdg\-desktop\-autostart.target): run at login while Sway Things starts them with systemd
+.TP
+sway\-things\-hook\-notification\-click(1)
+Bring the window of a clicked notification\*(Aqs app to the front: run by swaync (as a script, with the notification in its environment) and mako (with \-\-mako) while the Notifications page says so
+.TP
+sway\-things\-hook\-notification\-daemon(1)
+Start the notification daemon chosen on the Notifications page unless one runs: run at every start and reload of sway while one is chosen
+.TP
+sway\-things\-hook\-quick(1)
+Switch Do Not Disturb, Wi\-Fi, Bluetooth, the sound or the microphone: run by the buttons of swaync\*(Aqs panel

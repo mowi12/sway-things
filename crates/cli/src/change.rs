@@ -432,6 +432,10 @@ pub(super) async fn persist<V: Validate>(
         Ok(persisted) => persisted,
         Err(error) => return fail(io, &error),
     };
+    // The files of the notification daemon are best effort: the settings are saved.
+    if let Some(problem) = session.applier.take_daemon_problem() {
+        io.warn(problem.translated());
+    }
     let mut exit = Exit::Ok;
     for (file, outcome) in persisted.problems() {
         match outcome {
@@ -521,7 +525,7 @@ pub(super) fn effect_note(effect: &Effect) -> Option<String> {
         ),
         Effect::AfterToolReload => Some(
             tr(msg!(
-                "It takes effect when the tool behind it reloads its config."
+                "The tool behind it reads its config again now, or when it starts."
             ))
             .to_owned(),
         ),

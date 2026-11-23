@@ -7,17 +7,18 @@
 # from the command builders plug in here: their .conf files are included from the sample config, every command in a
 # *-ipc.txt file must succeed, and the escaping fixtures check that hostile strings reach sway unchanged, from the
 # config and over IPC. Then the tests that need a real sway run against it: the IPC client (crates/core/tests/ipc.rs),
-# the write path of the generators (crates/core/tests/generate_sway.rs), the config parser, which must find the modes
-# of ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs), and a setting that is changed
+# the write path of the generators (crates/core/tests/generate_sway.rs), the config parser, which must find the modes of
+# ci/integration/parser.conf that sway reports (crates/core/tests/sway_config_sway.rs), and a setting that is changed
 # end to end and must survive a reload (crates/core/tests/apply_sway.rs), and the `sway-things` binary changing settings
 # (crates/cli/tests/cli_sway.rs) and placing the workspaces while the user's own kanshi profile sets up the displays, in
 # a headless sway of its own with two displays and kanshi, not on SwayFX (crates/cli/tests/kanshi_sway.rs). The BlueZ
 # and NetworkManager backends run against python-dbusmock on a private bus (crates/core/tests/bluetooth_bluez.rs,
-# crates/core/tests/network_nm.rs), and the sound backend against a private PipeWire with pipewire-pulse and virtual
-# devices (crates/core/tests/sound_pulse.rs), and the printers backend against the distribution's cupsd run as the user
-# with its own socket, a fake driverless printer on the loopback address, and Avahi and cups-pk-helper on a private bus
-# (crates/core/tests/printers_cups.rs). The files generated from the sample settings (ci/integration/generated/)
-# must pass `sway --validate` too, and the sample configs include them.
+# crates/core/tests/network_nm.rs), the notification daemons against stand-ins on a private bus
+# (crates/core/tests/notifications_bus.rs), and the sound backend against a private PipeWire with pipewire-pulse and
+# virtual devices (crates/core/tests/sound_pulse.rs), and the printers backend against the distribution's cupsd run as
+# the user with its own socket, a fake driverless printer on the loopback address, and Avahi and cups-pk-helper on a
+# private bus (crates/core/tests/printers_cups.rs). The files generated from the sample settings
+# (ci/integration/generated/) must pass `sway --validate` too, and the sample configs include them.
 # Last, the GUI tests (crates/gui/tests/gui/: contrast in light and dark, keyboard navigation) open their windows on
 # the headless sway (not on SwayFX, see below).
 #
@@ -51,10 +52,11 @@ sway_tests=(cargo test --locked --package sway-things-core --test ipc --test gen
   --test apply_sway)
 cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway --test kanshi_sway)
 # The tests that need stand-ins for services, but no sway: dbus-daemon and python-dbusmock (BlueZ, NetworkManager,
-# Avahi and cups-pk-helper), PipeWire, WirePlumber and pipewire-pulse with pactl and pacat (the sound server), and cupsd
-# (CUPS).
+# Avahi and cups-pk-helper), dbus-daemon (the notification daemons), PipeWire, WirePlumber and pipewire-pulse with pactl
+# and pacat (the sound server), and cupsd (CUPS).
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
-  --test network_nm --test sound_pulse --test notifications_dbus --test printers_cups)
+  --test network_nm --test sound_pulse --test notifications_dbus --test printers_cups
+  --test notifications_bus)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 

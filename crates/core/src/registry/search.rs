@@ -349,16 +349,16 @@ mod tests {
             assert!(first.setting().is_none(), "{page:?}");
             assert_eq!(first.field(), Field::Title);
         }
-        // Notifications has no settings yet.
+        // Printers has no settings: it shows CUPS's live state.
         assert!(
             Registry::builtin()
                 .iter()
-                .all(|s| s.page() != Page::Notifications)
+                .all(|s| s.page() != Page::Printers)
         );
-        let hits = index.search("notifications");
+        let hits = index.search("printers");
         assert!(
             hits.iter()
-                .any(|hit| hit.page() == Page::Notifications && hit.setting().is_none())
+                .any(|hit| hit.page() == Page::Printers && hit.setting().is_none())
         );
         // So do the keywords of a page without settings.
         let hits = index.search("toner");

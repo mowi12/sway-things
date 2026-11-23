@@ -88,7 +88,9 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
 
 1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
    (gsettings/dconf, D-Bus services). The user's sway config is never touched.
-2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`.
+2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`. Where a companion tool's config
+   takes a command its tool runs through a shell (mako's `on-button-left`, swaync's scripts and buttons), the command is
+   a fixed string of ours that calls `sway-things`, never built from data.
 3. **Treat external strings as data.** Device names, SSIDs, Bluetooth names, file names and window titles can be
    attacker-controlled. Escape them with the typed sway command builders. Never interpolate them.
 4. **No `unsafe`.** The root `Cargo.toml` forbids `unsafe_code` for every crate.

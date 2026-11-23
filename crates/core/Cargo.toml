@@ -58,3 +58,7 @@ required-features = ["test-support"]
 [[test]]
 name = "sound_pulse"
 required-features = ["test-support"]
+
+[[test]]
+name = "notifications_bus"
+required-features = ["test-support"]

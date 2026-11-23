@@ -252,6 +252,7 @@ pub fn generate_for(
     }
     if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
         file.lines.extend(hooks(registry, state));
+        file.lines.extend(notification_daemon(state));
     }
     if let Some(file) = files
         .iter_mut()
@@ -416,6 +417,18 @@ fn autostart(state: &State) -> Vec<Line> {
             }
         })
         .collect()
+}
+
+/// The line of `80-hooks.conf` that starts the notification daemon chosen on the
+/// Notifications page (`notifications.start`) through `sway-things hook notification-daemon`.
+fn notification_daemon(state: &State) -> Option<Line> {
+    use crate::notifications::Daemon;
+    use crate::registry::notifications::START;
+    let Some(crate::registry::Value::Choice(program)) = state.get(START, None) else {
+        return None;
+    };
+    Daemon::from_program(program)?;
+    Some(hook_line("notification-daemon", vec![START]))
 }
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key

@@ -30,6 +30,13 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
 - Command builders and escaping (property tests against a port of sway's parser)
 - The GTK and icon themes in sample directories (the stylesheet a GTK theme needs, the built-in ones, icon directories,
   hicolor, unreadable files)
+- The notification daemons' files (mako's from the stored values with the Do Not Disturb section, a missing mako config
+  created with the include alone and the user's never written again, a file of someone else's in our place left alone,
+  swaync's config being its default while nothing is stored and the stored settings on top of it, its style with the
+  colors and the preset, a hand-made swaync config imported and given back), what starts a daemon (`exec` words, D-Bus
+  service files), the include of ours among mako's global options only, finding the window of a clicked notification's
+  app (Signal under Xwayland, Zulip and KeePassXC with reverse-DNS names, a Chrome app, Firefox's `firefox-esr`), the
+  `con_id` criteria and `seat - cursor set`
 - GSettings (a choice to an enum key, a decimal to a double key, what GSettings has shown without a stored value, a
   reset, the hook)
 - The doctor against sample setups for each finding (a working setup, the include line missing, partial or unknown,
@@ -52,9 +59,12 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   choices, progress lines, and its result read as nmcli reads it
 - Printers: the IPP encoding (requests as RFC 8010 shows them, several values and groups, collections, text with a
   language, broken messages, nesting too deep; round trips and arbitrary or cut-off bytes as property tests), HTTP
-  answers (a length, chunked, interim, cut off, garbage), where CUPS is found (local only), printers and jobs from their
+  answers (a length, chunked, interim, cut off, garbage), where CUPS is found (local only; its socket while it exists,
+  else `localhost:631`), a socket without access told apart from a CUPS that is off, printers and jobs from their
   attributes (reasons, supplies, colors, names cleaned), state in words, queue names made from a model, addresses typed
-  by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest
+  by the user, Avahi's TXT records and service URIs, the test page's cross-reference table, the group to suggest when
+  CUPS refuses a change (the first of `lpadmin`, `wheel` and `sys` that exists), and the user's default from
+  `~/.cups/lpoptions`
 
 ## Golden files
 
@@ -132,6 +142,11 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   (`stand_in::fake_openconnect`) it signs in through username, password and a TOTP and through a choice, reports a
   refused login with the server's message, refuses an unverified certificate, cancels when the sign-in is dropped, and
   starts none without openconnect
+- The notification daemons against stand-ins for mako, swaync and dunst on a private bus
+  (`crates/core/tests/notifications_bus.rs`, stand-in in `notifications::stand_in`, `test-support`): the daemon found by
+  its name without starting one, Do Not Disturb read and switched for each (mako's mode not added twice) with the change
+  reported, reload, a daemon without Do Not Disturb that still takes a test notification, a daemon appearing and going
+  away, mako's click (default action), closing swaync's panel
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,
@@ -245,6 +260,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   folder (a PNG, and a WebP that can't be read, which gets its warning) is the selected _Default_ with where it comes
   from, and after another picture is picked, the _Default_ tile, _Use Default_ and a page reset each bring it back and
   send the user's line; a wallpaper tool the config starts gets its notice.
+- Notifications (against a stand-in swaync on a private bus, `notifications.rs`): the Do Not Disturb switch becomes
+  usable, switches swaync's Do Not Disturb and follows a change made elsewhere, _Send Test Notification_ reaches the
+  daemon, and only swaync's sections show.
 - Sound: the page against the stand-in sound server shows the outputs, the input and the apps, choosing an output makes
   it the default, the volume slider and mute reach the server, an app's volume too, the server's own changes move the
   slider, the slider goes to 150 % only with `app.sound_above_100`, a server that goes away gives way to the placeholder

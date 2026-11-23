@@ -13,6 +13,7 @@ mod change;
 mod displays;
 mod doctor;
 mod hook;
+mod notify;
 mod output;
 mod prompt;
 mod spinner;
@@ -52,6 +53,7 @@ use sway_things_core::system::{self, Details};
 use wallpaper::{follow_collections, wallpaper};
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
+pub use notify::{NotificationsCommand, Quick, QuickAction, Switch};
 pub use prompt::{Prompt, Terminal};
 pub use spinner::Spinner;
 
@@ -158,6 +160,9 @@ pub enum Command {
         /// A page, e.g. `keyboard`, or a setting, e.g. `input.keyboard.repeat_rate`
         link: Option<String>,
     },
+    /// Do Not Disturb, the notification daemon that runs, and a test notification
+    #[command(subcommand)]
+    Notifications(NotificationsCommand),
     /// Run a hook; the generated sway config runs these
     #[command(subcommand)]
     Hook(Hook),
@@ -255,6 +260,26 @@ pub enum Hook {
     /// entries through it (xdg-desktop-autostart.target): run at login while Sway Things starts
     /// them with systemd
     Autostart,
+    /// Bring the window of a clicked notification's app to the front: run by swaync (as a
+    /// script, with the notification in its environment) and mako (with --mako) while the
+    /// Notifications page says so
+    NotificationClick {
+        /// The id of mako's notification; mako runs the hook with it
+        #[arg(long, value_name = "ID")]
+        mako: Option<u32>,
+    },
+    /// Start the notification daemon chosen on the Notifications page unless one runs: run at
+    /// every start and reload of sway while one is chosen
+    NotificationDaemon,
+    /// Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone: run by the buttons
+    /// of swaync's panel
+    Quick {
+        /// What to switch
+        which: Quick,
+        /// on, off, toggle, or state to print true or false; without, the state swaync gives a
+        /// toggle button, else toggle
+        action: Option<QuickAction>,
+    },
 }
 
 /// The binary of the app.
@@ -345,6 +370,16 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Screenshot { area } => return capture::screenshot(*area, &mut err).await,
         Command::Record { area } => return capture::record(*area, &mut err).await,
         Command::Clipboard(action) => return capture::clipboard(*action, &mut err).await,
+        Command::Hook(
+            hook @ (Hook::NotificationClick { .. } | Hook::NotificationDaemon | Hook::Quick { .. }),
+        ) => {
+            return notify::notification_hook_for_user(hook, &mut err).await;
+        }
+        Command::Notifications(command)
+            if !matches!(command, NotificationsCommand::ImportSwaync { .. }) =>
+        {
+            return notify::notifications(command, &mut io::stdout().lock(), &mut err).await;
+        }
         _ => {}
     }
     let (mut applier, main) = match Applier::open().await {
@@ -438,6 +473,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         displays: generate::Displays::detect(&status, &locations)
             .with_profiles(outputs::profiles::Profiles::load(state.paths().displays()).is_ok()),
         kanshi: kanshi_files(),
+        notifications: notify::daemon_look().await,
         path: std::env::var_os("PATH"),
         gsettings: &Gio,
         apps: apps_check.as_ref(),
@@ -474,13 +510,14 @@ async fn system_details(compositor: Option<Compositor>) -> Details {
     .await
 }
 
-/// Whether `command` warns of the problems of the settings files: the doctor reports them itself,
-/// `open` doesn't read them, and neither do the hooks and keys that run in the background.
-fn warns_of_problems(command: &Command) -> bool {
-    !matches!(
+/// Whether `command` reports the problems of the settings files itself or reads none of them, so
+/// [`run`] doesn't warn of them first.
+fn reports_its_own_problems(command: &Command) -> bool {
+    matches!(
         command,
         Command::Doctor(_)
             | Command::Open { .. }
+            | Command::Notifications(_)
             | Command::Hook(
                 Hook::Displays
                     | Hook::Workspaces
@@ -489,11 +526,23 @@ fn warns_of_problems(command: &Command) -> bool {
                     | Hook::Clipboard
                     | Hook::Launch { .. }
                     | Hook::Autostart
+                    | Hook::NotificationClick { .. }
+                    | Hook::NotificationDaemon
+                    | Hook::Quick { .. }
             )
             | Command::Screenshot { .. }
             | Command::Record { .. }
             | Command::Clipboard(_)
     )
+}
+
+/// The layer `set --host` or `--shared` asks for; `None` for the setting's own.
+const fn layer_of(host: bool, shared: bool) -> Option<Layer> {
+    match (host, shared) {
+        (true, _) => Some(Layer::Host),
+        (_, true) => Some(Layer::Shared),
+        _ => None,
+    }
 }
 
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
@@ -506,7 +555,7 @@ pub async fn run<V: Validate>(
     err: &mut dyn Write,
 ) -> Exit {
     let mut io = Io { out, err };
-    if warns_of_problems(command) {
+    if !reports_its_own_problems(command) {
         for problem in session.applier.state().problems() {
             io.warn(problem);
         }
@@ -556,16 +605,11 @@ pub async fn run<V: Validate>(
                 Ok(device) => device,
                 Err(error) => return fail(&mut io, &error.into()),
             };
-            let layer = match (host, shared) {
-                (true, _) => Some(Layer::Host),
-                (_, true) => Some(Layer::Shared),
-                _ => None,
-            };
             let change = Change {
                 key,
                 device: device.as_deref(),
                 text: value,
-                layer,
+                layer: layer_of(*host, *shared),
                 yes: *yes,
             };
             follow_combination(session, key, &mut io).await;
@@ -602,6 +646,10 @@ pub async fn run<V: Validate>(
         Command::Screenshot { area } => capture::screenshot(*area, io.err).await,
         Command::Record { area } => capture::record(*area, io.err).await,
         Command::Clipboard(action) => capture::clipboard(*action, io.err).await,
+        Command::Notifications(NotificationsCommand::ImportSwaync { file }) => {
+            notify::import_swaync(session, file.as_deref(), &mut io).await
+        }
+        Command::Notifications(command) => notify::notifications(command, io.out, io.err).await,
     }
 }
 
@@ -702,6 +750,7 @@ async fn doctor_in<V: Validate>(
         outputs: outputs.as_ref(),
         displays: applier.displays(),
         kanshi: applier.kanshi_files().cloned(),
+        notifications: None,
         path: None,
         gsettings: desktop.as_ref(),
         apps: None,

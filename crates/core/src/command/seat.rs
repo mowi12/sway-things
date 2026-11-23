@@ -76,5 +76,18 @@ pub fn hide_cursor_when_typing(enabled: bool) -> SwayCmd {
         .bool(enabled, BoolStyle::EnableDisable)
 }
 
+/// `seat - cursor set <x> <y>`: moves the pointer of the current seat to that point of the
+/// layout, in logical pixels. Runtime-only: sway defers `seat … cursor` while it reads its
+/// config.
+pub fn cursor_set(x: i64, y: i64) -> SwayCmd {
+    SwayCmd::new("seat")
+        .keyword("-")
+        .keyword("cursor")
+        .keyword("set")
+        .int(x)
+        .int(y)
+        .runtime_only()
+}
+
 #[cfg(test)]
 mod tests;

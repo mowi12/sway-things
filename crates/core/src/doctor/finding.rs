@@ -132,6 +132,18 @@ pub enum Code {
     /// The user's config sets `swaybg_command` to none or to a program that can't be found, so
     /// the stored wallpaper isn't drawn.
     SwaybgCommand,
+    /// A notification daemon runs.
+    NotificationDaemon,
+    /// No notification daemon runs, and nothing starts one.
+    NoNotificationDaemon,
+    /// Two notification daemons are started; only one gets the notifications.
+    TwoNotificationDaemons,
+    /// mako's config doesn't include the file of Sway Things.
+    MakoIncludeMissing,
+    /// swaync runs without the files of Sway Things.
+    SwayncNotHandedOver,
+    /// swaync runs with the files of Sway Things while the user's own config was never imported.
+    SwayncOwnConfigUnused,
     /// The settings files load without problems.
     SettingsLoaded,
     /// A settings file can't be used at all.
@@ -220,6 +232,12 @@ impl Code {
             Self::KanshiProfileCopy => "kanshi_profile_copy",
             Self::HookProgram => "hook_program",
             Self::SwaybgCommand => "swaybg_command",
+            Self::NotificationDaemon => "notification_daemon",
+            Self::NoNotificationDaemon => "no_notification_daemon",
+            Self::TwoNotificationDaemons => "two_notification_daemons",
+            Self::MakoIncludeMissing => "mako_include_missing",
+            Self::SwayncNotHandedOver => "swaync_not_handed_over",
+            Self::SwayncOwnConfigUnused => "swaync_own_config_unused",
             Self::SettingNotCopied => "setting_not_copied",
             Self::ToolMissing => "tool_missing",
             Self::HistoryTwice => "history_twice",
@@ -268,7 +286,13 @@ impl Code {
             | Self::KanshiProfileOverlap
             | Self::KanshiProfileCopy
             | Self::HookProgram
-            | Self::SwaybgCommand => Section::Config,
+            | Self::SwaybgCommand
+            | Self::NotificationDaemon
+            | Self::NoNotificationDaemon
+            | Self::TwoNotificationDaemons
+            | Self::MakoIncludeMissing
+            | Self::SwayncNotHandedOver
+            | Self::SwayncOwnConfigUnused => Section::Config,
             Self::SettingsLoaded
             | Self::SettingsUnusable
             | Self::SettingsEntry

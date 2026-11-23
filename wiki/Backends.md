@@ -1,12 +1,14 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server, CUPS and GSettings, the tools of Screenshots & Clipboard, the desktop entries,
-> default apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
+> NetworkManager, the sound server, CUPS, the notification daemons and GSettings, the tools of Screenshots & Clipboard,
+> the desktop entries, default apps and autostart runners of Apps & Autostart, and the planned backends for the
+> companion tools.
 
-The plan (not built yet) is a backend trait for each area that has competing tools. Today the only companion tool Sway
-Things drives is kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)); Bluetooth, the network, sound
-and printers are services with no competing stack and use no trait (below).
+The plan (not built yet) is a backend trait for each area that has competing tools. Today the companion tools Sway
+Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), and the notification daemons
+([Notifications](#notifications)), without a trait yet; Bluetooth, the network, sound and printers are services with no
+competing stack and use no trait (below).
 
 ```rust
 // planned
@@ -18,12 +20,12 @@ trait Backend {
 }
 ```
 
-| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network and printers are built |
+| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network, printers and notifications are built |
 | --- | --- |
 | Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
-| Notifications | swaync, mako, dunst (Do Not Disturb first) |
+| Notifications | mako, swaync, dunst (see [Notifications](#notifications)) |
 | Night light | gammastep, wlsunset |
 | Wallpaper | swaybg via `output * bg`; swww later |
 | Launcher | fuzzel, wofi, rofi(-wayland), tofi |
@@ -242,6 +244,83 @@ needs, so a key press is quick. The facts behind it are in the
   compares the versions of wl-paste and cliphist. clipman isn't offered: it keeps only text.
 - **Programs** (`capture::tools`): each with its package; `missing_for` says which part that is on misses what, for
   `doctor` and the page.
+
+## Notifications
+
+The notification daemon is no `Backend` either: `crates/core/src/notifications/` asks the one that runs and writes files
+for it, each in its own format.
+
+- **Which daemon runs:** `Notifications` (zbus, on the session bus) asks the owner of `org.freedesktop.Notifications`
+  for `GetServerInformation` (mako says `mako`, swaync `SwayNotificationCenter`, dunst `dunst`) and the bus for its
+  process. Every call goes to that unique name, never to a well-known one: a call to a name nobody owns makes the bus
+  start whichever daemon has a D-Bus service file for it, and mako and swaync both have one for
+  `org.freedesktop.Notifications`. So asking never starts a daemon.
+- **What starts it** (`starts`): the `exec` lines of the user's sway config where a daemon is the program run (each
+  command of the line, split at `;`, `&` and `|`, `sh -c` taken apart, variables and `exec`/`env` before it skipped: not
+  `pkill mako`, `systemctl restart mako` or `swaync-client`; `killall swaync; swaync` starts one), our line in
+  `80-hooks.conf`, a systemd unit (the process's control group ends in `….service`), else D-Bus activation or another
+  program. The config a running daemon was given with `-c` comes from its `/proc/<pid>/cmdline`. Two daemons started
+  from the config are reported: only the first to take the name shows notifications (swaync and mako end when they don't
+  get it). A daemon the bus starts on demand (a D-Bus service file for the name, `starts::activatable`) counts as one.
+- **Do Not Disturb:** mako: its modes (`ListModes`/`SetModes` on `fr.emersion.Mako`, what `makoctl mode -a/-r` calls),
+  with `[mode=do-not-disturb] invisible=1` in our file; swaync: `GetDnd`/`SetDnd`; dunst: the property `paused` of
+  `org.dunstproject.cmd0`. The page follows changes made elsewhere through `PropertiesChanged` (mako ≥ 1.10, dunst),
+  swaync's `SubscribeV2` and `NameOwnerChanged`, and looks again every three seconds while on screen.
+  `sway-things notifications dnd on|off|toggle` does the same from a key or a bar module. mako keeps its modes across
+  `Reload`, so a change of the settings leaves Do Not Disturb on. The page asks for the owner of the name again before
+  it switches, so a daemon that restarted meanwhile is the one switched.
+- **Settings:** the registry has the page's settings (`notifications.*`); they have no sway directive except
+  `notifications.blur` (SwayFX: `layer_effects` for `notifications`, which mako and dunst use, and swaync's
+  `swaync-notification-window` and `swaync-control-center`, in `90-effects.conf`). Their apply mode is _tool reload_:
+  `Applier::persist` writes our files from the stored values and, when one changed, has the daemon that runs read its
+  config again (mako's `Reload`, swaync's `ReloadConfig` and `ReloadCss`). A value that isn't stored isn't written, so
+  the daemon's own default applies; the defaults in the registry are the daemons' own (mako 1.11, swaync 0.12.6).
+  Settings the daemons share (position, display, colors, clicking) have one key; the others are per daemon
+  (`notifications.mako.*`, `notifications.swaync.*`).
+- **mako** (`mako::generate`): our options are global (mako reads an included file as if it stood at the line, starting
+  in the global section), then `[urgency=critical]` for its timeout and the Do Not Disturb section. The files are
+  written when a setting of the page (or a window color it may follow) changed, and when the daemon chosen on the page
+  lacks them, never on a change of another page: our file while mako is installed, has a config or is chosen (mako
+  rejects its whole config over an include it can't find), and the user's mako config, with the include line alone, only
+  for a mako chosen on the page and only where none exists, the running mako wasn't given one with `-c` and there is no
+  system-wide `$XDG_CONFIG_DIRS/mako/config`; otherwise the page shows the line. The include line must be written
+  `include=` without blanks and with a path that starts with `/` or `~/` (mako expands no variables); one written
+  otherwise is reported, since mako refuses the whole config over it. When the folder of mako's config is a symbolic
+  link (into a dotfiles repository), the page says where our file lands.
+- **swaync** (`swaync::config`, `swaync::style`): `config.json` is swaync's own default (the installed
+  `$XDG_CONFIG_DIRS/swaync/config.json`, else the one of swaync 0.12.6 bundled in the core), then the options an import
+  passed through (`notifications.swaync.other`), then the stored settings; its first member `$comment` marks it as ours.
+  With nothing stored it says what swaync's default says. `style.css` goes on top of swaync's packaged style sheet,
+  which swaync always loads first; with nothing stored it is only a comment. The colors are written as named colors
+  (`@define-color`), which both GTK 3 and GTK 4 read, and for swaync 0.12 (GTK 4) also as its CSS variables with the
+  corners and the frosted preset (`frosted.css`). swaync 0.11 is built with GTK 3, which rejects the whole style sheet
+  over a CSS variable, so it gets the named colors only; the version is the one the running swaync reports, else
+  `swaync --version`. The panel's widgets and the buttons of its button grid are lists of names; the buttons run
+  `sway-things hook quick <switch>`, so no shell code goes into the config. _Import My swaync Config_ and
+  `sway-things notifications import-swaync` read the user's config (only read) into the settings and pass the options
+  without a setting through.
+- **Starting a daemon:** `notifications.start` puts `exec_always sway-things hook notification-daemon` into
+  `80-hooks.conf`; the hook starts the chosen daemon with an argument list unless one runs, and notes its process id in
+  `$XDG_RUNTIME_DIR/sway-things/notification-daemon.pid`. It writes our files first where they are missing (mako's, and
+  swaync's config and style each); swaync gets them with `-c` and `-s`, or, if they can't be written, starts with its
+  own config, which the hook reports. Choosing one in a session starts it at once over IPC. A daemon that runs and isn't
+  the chosen one is ended first only if its process id is the one the hook noted; one the user started (a line of their
+  config, a systemd unit, D-Bus activation) is left alone, and the page says how to switch. While a swaync config of the
+  user's own exists and nothing of swaync's settings is stored, the page offers its import before swaync runs with ours,
+  and `doctor` hints at it.
+- **Clicking a notification shows its app** (`notifications.click_focus`, off by default): swaync runs
+  `sway-things hook notification-click` as an action script (`run-on: action`, with `SWAYNC_DESKTOP_ENTRY` and
+  `SWAYNC_APP_NAME` in its environment) beside the action itself; mako binds `on-button-left` to the hook with the
+  notification's id, and the hook invokes the default action and dismisses it, as mako's own click does. The hook only
+  talks to a sway whose socket (`SWAYSOCK`) is in the session's `XDG_RUNTIME_DIR`, next to the Wayland display the
+  daemon shows on. It finds the window by comparing the desktop entry and the app name with each window's `app_id` and
+  Xwayland class and instance, never its title (`click::find`: without case, also the last part of a reverse-DNS name
+  and without `-desktop`; an exact name first, else one containing the other, four letters at least). Among several, the
+  one on the focused workspace wins, then one on a visible workspace, then the others, the scratchpad last: sway keeps
+  no history of focus. It focuses the window by its container id (`[con_id=…] focus`), reads the tree again and moves
+  the pointer to the window's middle (`seat - cursor set`), not for one still in the scratchpad. The names are only
+  compared, never put into a command. It closes swaync's panel and always exits 0, with the reason on stderr.
+- **Not written for dunst yet:** dunst is asked and switched, but nothing is generated for it.
 
 ## GSettings
 

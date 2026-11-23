@@ -98,6 +98,8 @@ const PRODUCTS: &[&str] = &[
     "GHz",
     // GTK's own text for an empty drop-down, which GTK's catalogs translate.
     "(None)",
+    // mako's default font, a font description.
+    "monospace 10",
 ];
 
 /// What the stand-ins call their devices, adapters and networks.
