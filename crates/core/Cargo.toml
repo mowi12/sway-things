@@ -56,6 +56,10 @@ name = "printers_cups"
 required-features = ["test-support"]
 
 [[test]]
+name = "scanners_sane"
+required-features = ["test-support"]
+
+[[test]]
 name = "sound_pulse"
 required-features = ["test-support"]
 

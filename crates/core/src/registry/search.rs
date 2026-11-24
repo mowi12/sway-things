@@ -349,22 +349,29 @@ mod tests {
             assert!(first.setting().is_none(), "{page:?}");
             assert_eq!(first.field(), Field::Title);
         }
-        // Printers has no settings: it shows CUPS's live state.
+        // Printers & Scanners has no settings: it shows CUPS's and SANE's live state.
         assert!(
             Registry::builtin()
                 .iter()
-                .all(|s| s.page() != Page::Printers)
+                .all(|s| s.page() != Page::PrintersScanners)
         );
         let hits = index.search("printers");
         assert!(
             hits.iter()
-                .any(|hit| hit.page() == Page::Printers && hit.setting().is_none())
+                .any(|hit| hit.page() == Page::PrintersScanners && hit.setting().is_none())
         );
         // So do the keywords of a page without settings.
         let hits = index.search("toner");
         assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].page(), Page::Printers);
+        assert_eq!(hits[0].page(), Page::PrintersScanners);
         assert_eq!(hits[0].field(), Field::Keyword);
+        for word in ["scanner", "scanning", "document"] {
+            let hits = index.search(word);
+            assert!(
+                hits.iter().any(|hit| hit.page() == Page::PrintersScanners),
+                "{word}: {hits:?}"
+            );
+        }
         // The description counts too, after the titles.
         let hits = index.search("vpn");
         assert_eq!(hits.len(), 1);

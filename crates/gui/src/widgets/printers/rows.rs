@@ -1,21 +1,23 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The rows of the Printers page: a row per printer with its state, supplies and ⋮ menu, and a
-//! row per job, made once and updated in place from each snapshot.
+//! The rows of the printers: one line per printer, made once and updated in place from each
+//! snapshot. A line holds the printer's icon, its title with a _Default_ badge, its state in
+//! words, the jobs waiting as a small button that opens its print queue, its ink or toner as
+//! small bars, a warning sign when it can't print, and _Resume_ while it is paused. A click on
+//! the line opens its details ([`super::details`]), where everything else is.
 
-use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::printers::{Job, JobState, Printer};
+use sway_things_core::printers::Printer;
 
-use super::{JobRow, PrinterRow, PrintersPage, set_class, supplies, title_of};
-use crate::i18n::{Msg, msg, tr, trf};
+use super::{PrinterRow, PrintersPage, set_class, supplies, title_of};
+use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::style;
-use crate::widgets::list::{arrange, list_row, remove_row, row, set_hint};
+use crate::widgets::list::{arrange, remove_row, set_hint};
 
 impl PrintersPage {
-    /// Updates the rows from the snapshot.
+    /// Updates the rows, and the open details dialog, from the snapshot.
     pub(super) fn render(&self) {
         let imp = self.imp();
         let guard = imp.snapshot.borrow();
@@ -65,36 +67,7 @@ impl PrintersPage {
         imp.note.set_text(note.as_deref().unwrap_or_default());
         imp.note.set_visible(note.is_some());
         drop(guard);
-        self.render_jobs();
-    }
-
-    /// Updates the rows of the jobs from the snapshot.
-    pub(super) fn render_jobs(&self) {
-        let imp = self.imp();
-        let snapshot = imp.snapshot.borrow();
-        let Some(snapshot) = snapshot.as_ref() else {
-            return;
-        };
-        let mut rows = Vec::new();
-        for job in &snapshot.jobs {
-            let row = self.ensure_job_row(job.id);
-            self.update_job_row(&row, job, &title_of(snapshot, &job.printer));
-            rows.push(row.row.clone());
-        }
-        imp.job_rows.borrow_mut().retain(|id, row| {
-            let keep = snapshot.jobs.iter().any(|job| job.id == *id);
-            if !keep {
-                remove_row(&row.row);
-            }
-            keep
-        });
-        arrange(&imp.jobs, &rows);
-        imp.jobs.set_visible(!rows.is_empty());
-        set_hint(
-            &imp.jobs_hint,
-            rows.is_empty()
-                .then(|| tr(msg!("Nothing is waiting to print."))),
-        );
+        self.update_details();
     }
 
     /// The row of the printer `name`, made if it isn't there yet.
@@ -112,19 +85,54 @@ impl PrintersPage {
 
     /// A new row for the printer `name`.
     pub(super) fn new_row(&self, name: &str) -> PrinterRow {
-        let icon = gtk::Image::from_icon_name("printer-symbolic");
-        icon.set_pixel_size(32);
-        icon.set_valign(gtk::Align::Start);
-        icon.set_accessible_role(gtk::AccessibleRole::Presentation);
         let title = gtk::Label::new(None);
-        let subtitle = gtk::Label::new(None);
-        subtitle.add_css_class(style::DIM);
+        title.set_xalign(0.0);
+        title.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        title.add_css_class("st-row-title");
+        let badge = gtk::Label::new(Some(tr(msg!("Default"))));
+        badge.add_css_class("st-device-badge");
+        badge.set_valign(gtk::Align::Center);
+        let title_line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        title_line.append(&title);
+        title_line.append(&badge);
+
         let status = gtk::Label::new(None);
-        status.set_wrap(true);
-        status.set_wrap_mode(gtk::pango::WrapMode::WordChar);
         status.set_xalign(0.0);
-        let supplies = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        supplies.set_margin_top(4);
+        status.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        status.add_css_class("st-device-subtitle");
+        let problem = gtk::Image::from_icon_name("dialog-warning-symbolic");
+        problem.set_accessible_role(gtk::AccessibleRole::Presentation);
+        problem.add_css_class("st-device-warning");
+        problem.set_pixel_size(14);
+        problem.set_visible(false);
+        let jobs = gtk::Button::new();
+        jobs.add_css_class("flat");
+        jobs.add_css_class("st-printer-jobs");
+        jobs.set_valign(gtk::Align::Center);
+        jobs.set_tooltip_text(Some(tr(msg!("Show the print queue"))));
+        jobs.set_visible(false);
+        let id = name.to_owned();
+        let weak = self.downgrade();
+        jobs.connect_clicked(move |_| {
+            if let Some(page) = weak.upgrade() {
+                page.show_queue(&id);
+            }
+        });
+        let status_line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        status_line.append(&problem);
+        status_line.append(&status);
+        status_line.append(&jobs);
+
+        let texts = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        texts.set_hexpand(true);
+        texts.set_valign(gtk::Align::Center);
+        texts.append(&title_line);
+        texts.append(&status_line);
+
+        let levels = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+        levels.set_valign(gtk::Align::Center);
+        levels.add_css_class("st-printer-levels");
+
         let resume = gtk::Button::with_label(tr(msg!("Resume")));
         resume.set_valign(gtk::Align::Center);
         let id = name.to_owned();
@@ -134,85 +142,29 @@ impl PrintersPage {
                 page.resume(&id);
             }
         });
-        let (menu, items) = self.menu(name);
-        let [set_default, pause, cancel_all] = items;
-        let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        text.set_hexpand(true);
-        for label in [&title, &subtitle] {
-            label.set_xalign(0.0);
-            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            text.append(label);
-        }
-        let problem = gtk::Image::from_icon_name("dialog-warning-symbolic");
-        problem.set_accessible_role(gtk::AccessibleRole::Presentation);
-        problem.set_valign(gtk::Align::Start);
-        problem.set_visible(false);
-        let status_line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        status_line.append(&problem);
-        status_line.append(&status);
-        text.append(&status_line);
-        text.append(&supplies);
-        let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        line.append(&icon);
-        line.append(&text);
-        line.append(&resume);
-        line.append(&menu);
-        PrinterRow {
-            row: list_row(&line),
-            title,
-            subtitle,
-            status,
-            problem,
-            supplies,
-            resume,
-            menu,
-            set_default,
-            pause,
-            cancel_all,
-        }
-    }
 
-    /// The ⋮ menu of the printer `name`, with the items that come and go: Set as Default, Pause
-    /// and Cancel All Jobs.
-    pub(super) fn menu(&self, name: &str) -> (gtk::MenuButton, [gtk::Button; 3]) {
-        let menu_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        let popover = gtk::Popover::new();
-        popover.set_child(Some(&menu_box));
-        let item = |label: Msg, action: fn(&Self, &str)| {
-            let item = gtk::Button::with_label(tr(label));
-            item.add_css_class("flat");
-            if let Some(child) = item.child().and_downcast::<gtk::Label>() {
-                child.set_xalign(0.0);
-            }
-            let weak = self.downgrade();
-            let id = name.to_owned();
-            item.connect_clicked(glib::clone!(
-                #[weak]
-                popover,
-                move |_| {
-                    popover.popdown();
-                    if let Some(page) = weak.upgrade() {
-                        action(&page, &id);
-                    }
-                }
-            ));
-            menu_box.append(&item);
-            item
-        };
-        let set_default = item(msg!("Set as Default"), Self::set_default);
-        let pause = item(msg!("Pause"), Self::pause);
-        item(msg!("Print Test Page"), Self::print_test_page);
-        let cancel_all = item(msg!("Cancel All Jobs"), Self::cancel_all);
-        item(msg!("Details…"), Self::show_details);
-        item(msg!("Remove…"), Self::remove);
-        let menu = gtk::MenuButton::builder()
-            .icon_name("view-more-symbolic")
-            .popover(&popover)
-            .valign(gtk::Align::Center)
-            .tooltip_text(tr(msg!("More actions")))
-            .build();
-        menu.add_css_class("flat");
-        (menu, [set_default, pause, cancel_all])
+        let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        line.add_css_class("st-device-row");
+        line.append(&device_tile("printer-symbolic"));
+        line.append(&texts);
+        line.append(&levels);
+        line.append(&resume);
+        line.append(&chevron());
+        let row = gtk::ListBoxRow::new();
+        row.set_child(Some(&line));
+        row.set_activatable(true);
+        row.set_widget_name(name);
+        row.set_tooltip_text(Some(tr(msg!("Show the details"))));
+        PrinterRow {
+            row,
+            title,
+            badge,
+            status,
+            jobs,
+            problem,
+            levels,
+            resume,
+        }
     }
 
     /// Fills `row` from `printer`, the default printer if `is_default`, with `jobs` jobs.
@@ -225,125 +177,82 @@ impl PrintersPage {
     ) {
         let running = self.imp().running.borrow().get(&printer.name).copied();
         row.title.set_text(printer.title());
-        let mut subtitle = Vec::new();
-        if is_default {
-            subtitle.push(tr(msg!("Default printer")).to_owned());
-        }
-        if printer.temporary {
-            subtitle.push(tr(msg!("Set up for a print job only")).to_owned());
-        }
-        for part in [&printer.model, &printer.location] {
-            if !part.is_empty() {
-                subtitle.push(part.clone());
-            }
-        }
-        if printer.shared {
-            subtitle.push(tr(msg!("Shared")).to_owned());
-        }
-        row.subtitle.set_text(&subtitle.join(" · "));
-        row.subtitle.set_visible(!subtitle.is_empty());
+        row.badge.set_visible(is_default);
         let status = running.map_or_else(|| printer.status().translated(), ToOwned::to_owned);
         row.status.set_text(&status);
-        // A printer that can't print says so in the text color, with a sign: the theme's error
-        // color is too faint on a list in some themes.
+        let waiting = jobs_text(jobs);
+        row.jobs.set_label(&waiting);
+        row.jobs.set_visible(running.is_none() && jobs > 0);
+        row.jobs
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                msg!("Print queue of {printer}: {jobs}"),
+                &[("printer", &printer.title()), ("jobs", &waiting)],
+            ))]);
+        // A printer that can't print says so with a sign in the warning color, and its state in
+        // the text color: the theme's error color is too faint on a list in some themes.
         let problem = running.is_none() && printer.problem().is_some();
         row.problem.set_visible(problem);
         set_class(&row.status, style::DIM, !problem);
-        supplies::fill(&row.supplies, &printer.markers);
+        supplies::fill_compact(&row.levels, &printer.markers);
         row.resume
             .set_visible(printer.paused() || !printer.accepting);
-        row.set_default
-            .set_visible(!is_default && !printer.temporary);
-        row.pause.set_visible(!printer.paused());
-        row.cancel_all.set_visible(jobs > 0);
-        let idle = running.is_none();
-        row.resume.set_sensitive(idle);
-        row.menu.set_sensitive(idle);
-        row.menu
-            .update_property(&[gtk::accessible::Property::Label(&trf(
-                msg!("More actions for {printer}"),
-                &[("printer", &printer.title())],
-            ))]);
+        row.resume.set_sensitive(running.is_none());
         row.resume
             .update_property(&[gtk::accessible::Property::Label(&trf(
                 msg!("Resume {printer}"),
                 &[("printer", &printer.title())],
             ))]);
-    }
-
-    /// The row of the job `id`, made if it isn't there yet.
-    pub(super) fn ensure_job_row(&self, id: i32) -> JobRow {
-        if let Some(row) = self.imp().job_rows.borrow().get(&id) {
-            return row.clone();
+        let mut said = vec![status];
+        if jobs > 0 {
+            said.push(waiting);
         }
-        let title = gtk::Label::new(None);
-        let subtitle = gtk::Label::new(None);
-        subtitle.add_css_class(style::DIM);
-        let cancel = gtk::Button::with_label(tr(msg!("Cancel")));
-        cancel.set_valign(gtk::Align::Center);
-        let weak = self.downgrade();
-        cancel.connect_clicked(move |_| {
-            if let Some(page) = weak.upgrade() {
-                page.cancel_job(id);
-            }
-        });
-        let line = row(&title, &subtitle, &[cancel.upcast_ref()]);
-        let row = JobRow {
-            row: list_row(&line),
-            title,
-            subtitle,
-            cancel,
-        };
-        self.imp().job_rows.borrow_mut().insert(id, row.clone());
-        row
-    }
-
-    /// Fills `row` from `job`, which waits for the printer titled `printer`.
-    pub(super) fn update_job_row(&self, row: &JobRow, job: &Job, printer: &str) {
-        let running = self
-            .imp()
-            .running
-            .borrow()
-            .get(&format!("job:{}", job.id))
-            .copied();
-        let title = if job.title.is_empty() {
-            tr(msg!("Untitled document")).to_owned()
-        } else {
-            job.title.clone()
-        };
-        row.title.set_text(&title);
-        let mut subtitle = vec![printer.to_owned()];
-        if !job.owner.is_empty() {
-            subtitle.push(job.owner.clone());
+        if is_default {
+            said.push(tr(msg!("Default printer")).to_owned());
         }
-        subtitle.push(running.map_or_else(|| job_state(job.state).to_owned(), ToOwned::to_owned));
-        if let Some(time) = job.created.and_then(time_text) {
-            subtitle.push(time);
-        }
-        row.subtitle.set_text(&subtitle.join(" · "));
-        row.cancel.set_sensitive(running.is_none());
-        row.cancel
-            .update_property(&[gtk::accessible::Property::Label(&trf(
-                msg!("Cancel {job}"),
-                &[("job", &title)],
-            ))]);
+        said.extend(printer.markers.iter().map(|marker| {
+            format!(
+                "{}: {}",
+                supplies::name_of(marker),
+                supplies::level_text(marker)
+            )
+        }));
+        row.row.update_property(&[
+            gtk::accessible::Property::Label(printer.title()),
+            gtk::accessible::Property::Description(&said.join(". ")),
+        ]);
     }
 }
 
-/// The state of a job in words.
-fn job_state(state: JobState) -> &'static str {
-    tr(state.text())
+/// The jobs waiting, in words: `2 jobs`.
+pub(super) fn jobs_text(jobs: usize) -> String {
+    ntrf(
+        msg_plural!("{count} job", "{count} jobs"),
+        jobs,
+        &[("count", &jobs)],
+    )
 }
 
-/// When a job was sent, `created` in seconds since the epoch: the time today, else the date and
-/// time, in the user's locale.
-fn time_text(created: i64) -> Option<String> {
-    let time = glib::DateTime::from_unix_local(created).ok()?;
-    let now = glib::DateTime::now_local().ok()?;
-    let format = if time.ymd() == now.ymd() {
-        "%X"
-    } else {
-        "%x %X"
-    };
-    time.format(format).ok().map(|text| text.to_string())
+/// The icon `name` of a device on a rounded tile, as the lines of printers and scanners start.
+pub fn device_tile(name: &str) -> gtk::Box {
+    let icon = gtk::Image::from_icon_name(name);
+    icon.set_pixel_size(20);
+    icon.set_accessible_role(gtk::AccessibleRole::Presentation);
+    icon.set_hexpand(true);
+    let tile = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    tile.add_css_class("st-device-tile");
+    tile.set_size_request(36, 36);
+    // The icon's expansion centers it; the tile itself stays its size.
+    tile.set_hexpand(false);
+    tile.set_valign(gtk::Align::Center);
+    tile.append(&icon);
+    tile
+}
+
+/// The sign at the end of a line that opens a dialog.
+pub fn chevron() -> gtk::Image {
+    let next = gtk::Image::from_icon_name("go-next-symbolic");
+    next.set_accessible_role(gtk::AccessibleRole::Presentation);
+    next.add_css_class(style::DIM);
+    next.set_valign(gtk::Align::Center);
+    next
 }

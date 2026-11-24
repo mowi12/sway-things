@@ -245,7 +245,7 @@ fn check() -> Outcome {
         // The pages that ask D-Bus need a moment longer.
         if matches!(
             page,
-            Page::Sound | Page::Bluetooth | Page::Network | Page::Printers | Page::About
+            Page::Sound | Page::Bluetooth | Page::Network | Page::PrintersScanners | Page::About
         ) {
             run_for(Duration::from_secs(2));
         }

@@ -58,8 +58,8 @@ pub enum Page {
     Bluetooth,
     /// Network
     Network,
-    /// Printers
-    Printers,
+    /// Printers & Scanners
+    PrintersScanners,
     /// Windows, including the SwayFX effects
     Windows,
     /// Wallpaper
@@ -104,7 +104,7 @@ impl Page {
         Self::Sound,
         Self::Bluetooth,
         Self::Network,
-        Self::Printers,
+        Self::PrintersScanners,
         Self::Windows,
         Self::Wallpaper,
         Self::AppsLookFeel,
@@ -123,9 +123,13 @@ impl Page {
         Self::About,
     ];
 
-    /// The page with this [id](Page::id).
+    /// The page with this [id](Page::id), or with an id it had before or goes by too
+    /// (`printers` and `scanners` for Printers & Scanners).
     pub fn from_id(id: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|page| page.id() == id)
+        match id {
+            "printers" | "scanners" => Some(Self::PrintersScanners),
+            _ => Self::ALL.into_iter().find(|page| page.id() == id),
+        }
     }
 
     /// The id of the page, as used in deep links (`sway-things open <id>`).
@@ -138,7 +142,7 @@ impl Page {
             Self::Sound => "sound",
             Self::Bluetooth => "bluetooth",
             Self::Network => "network",
-            Self::Printers => "printers",
+            Self::PrintersScanners => "printers-scanners",
             Self::Windows => "windows",
             Self::Wallpaper => "wallpaper",
             Self::AppsLookFeel => "apps-look-feel",
@@ -168,7 +172,7 @@ impl Page {
             | Self::Sound
             | Self::Bluetooth
             | Self::Network
-            | Self::Printers => Group::Devices,
+            | Self::PrintersScanners => Group::Devices,
             Self::Windows | Self::Wallpaper | Self::AppsLookFeel | Self::Bar => Group::Appearance,
             Self::WindowBehavior
             | Self::Workspaces
@@ -195,7 +199,7 @@ impl Page {
             Self::Sound => msg!("Sound"),
             Self::Bluetooth => msg!("Bluetooth"),
             Self::Network => msg!("Network"),
-            Self::Printers => msg!("Printers"),
+            Self::PrintersScanners => msg!("Printers & Scanners"),
             Self::Windows => msg!("Windows"),
             Self::Wallpaper => msg!("Wallpaper"),
             Self::AppsLookFeel => msg!("Apps Look & Feel"),
@@ -225,7 +229,9 @@ impl Page {
             Self::Sound => msg!("Devices, volume and per-application levels"),
             Self::Bluetooth => msg!("Turn Bluetooth on and off, find and connect devices"),
             Self::Network => msg!("Wi-Fi networks, wired and VPN connections"),
-            Self::Printers => msg!("Add printers, see their ink and toner, and the print queue"),
+            Self::PrintersScanners => {
+                msg!("Printers with their ink and queue, scanners and scanning documents")
+            }
             Self::Windows => msg!("Borders, colors, gaps and title bars of tiled windows"),
             Self::Wallpaper => msg!("Background image or color per output"),
             Self::AppsLookFeel => msg!("Theme, icons, fonts and dark mode for applications"),
@@ -250,7 +256,7 @@ impl Page {
     /// More words a search finds the page by: for pages without settings, what they are about.
     pub const fn keywords(self) -> &'static [Msg] {
         match self {
-            Self::Printers => &[
+            Self::PrintersScanners => &[
                 msg!("printer"),
                 msg!("print"),
                 msg!("toner"),
@@ -258,6 +264,11 @@ impl Page {
                 msg!("paper"),
                 msg!("print queue"),
                 msg!("CUPS"),
+                msg!("scanner"),
+                msg!("scan"),
+                msg!("scanning"),
+                msg!("document"),
+                msg!("SANE"),
             ],
             _ => &[],
         }
@@ -288,6 +299,9 @@ mod tests {
             assert_eq!(Page::from_id(id), Some(page));
         }
         assert_eq!(Page::from_id("no-such-page"), None);
+        // The ids the page had before, and the one it goes by too.
+        assert_eq!(Page::from_id("printers"), Some(Page::PrintersScanners));
+        assert_eq!(Page::from_id("scanners"), Some(Page::PrintersScanners));
     }
 
     #[test]

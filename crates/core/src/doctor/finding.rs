@@ -47,21 +47,24 @@ pub enum Section {
     Conflicts,
     /// The default apps and everything that starts with the session.
     Apps,
+    /// What scanners need: SANE's scanimage, sane-airscan, ipp-usb, access to USB scanners.
+    Scanners,
 }
 
 impl Section {
     /// Every section, in order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Compositor,
         Self::Config,
         Self::Settings,
         Self::Generated,
         Self::Conflicts,
         Self::Apps,
+        Self::Scanners,
     ];
 
     /// The id for scripts: `compositor`, `config`, `settings`, `generated`, `conflicts`,
-    /// `apps`.
+    /// `apps`, `scanners`.
     pub fn id(self) -> &'static str {
         match self {
             Self::Compositor => "compositor",
@@ -70,6 +73,7 @@ impl Section {
             Self::Generated => "generated",
             Self::Conflicts => "conflicts",
             Self::Apps => "apps",
+            Self::Scanners => "scanners",
         }
     }
 
@@ -82,6 +86,7 @@ impl Section {
             Self::Generated => msg!("Generated files"),
             Self::Conflicts => msg!("Conflicts"),
             Self::Apps => msg!("Apps & Autostart"),
+            Self::Scanners => msg!("Scanners"),
         }
     }
 }
@@ -202,6 +207,16 @@ pub enum Code {
     AutostartNoRunner,
     /// More than one thing runs the XDG autostart entries, so they may start twice.
     AutostartTwice,
+    /// SANE's scanimage is installed, and nothing scanners need is missing.
+    ScannersReady,
+    /// A scanner is plugged in, but scanimage isn't installed.
+    ScanimageMissing,
+    /// scanimage is installed, but sane-airscan isn't, so driverless scanners aren't seen.
+    AirscanMissing,
+    /// A device that speaks IPP over USB is plugged in, but ipp-usb doesn't run.
+    IppUsbNotRunning,
+    /// The user can't use a USB scanner.
+    ScannerAccess,
 }
 
 impl Code {
@@ -261,6 +276,11 @@ impl Code {
             Self::AutostartRunner => "autostart_runner",
             Self::AutostartNoRunner => "autostart_no_runner",
             Self::AutostartTwice => "autostart_twice",
+            Self::ScannersReady => "scanners_ready",
+            Self::ScanimageMissing => "scanimage_missing",
+            Self::AirscanMissing => "airscan_missing",
+            Self::IppUsbNotRunning => "ipp_usb_not_running",
+            Self::ScannerAccess => "scanner_access",
         }
     }
 
@@ -318,6 +338,11 @@ impl Code {
             | Self::AutostartRunner
             | Self::AutostartNoRunner
             | Self::AutostartTwice => Section::Apps,
+            Self::ScannersReady
+            | Self::ScanimageMissing
+            | Self::AirscanMissing
+            | Self::IppUsbNotRunning
+            | Self::ScannerAccess => Section::Scanners,
         }
     }
 }

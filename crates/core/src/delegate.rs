@@ -3,7 +3,8 @@
 
 //! The specialist tools a page hands what it doesn't cover to: its "Advanced…" button starts one
 //! (pwvucontrol or pavucontrol for Sound, blueman-manager for Bluetooth, nm-connection-editor for
-//! Network, system-config-printer for Printers). A button only shows while its tool is installed.
+//! Network, system-config-printer for printers, a scan app for scanners). A button only shows
+//! while its tool is installed.
 
 use std::ffi::OsStr;
 use std::io;
@@ -49,6 +50,42 @@ pub const PAVUCONTROL: Tool = Tool {
 pub const SYSTEM_CONFIG_PRINTER: Tool = Tool {
     program: "system-config-printer",
 };
+
+/// A scan app, for what the scan dialog of Printers & Scanners doesn't do: its name, which isn't
+/// translated, and its tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScanApp {
+    /// Its name as its menu entry says.
+    pub name: &'static str,
+    /// Its executable.
+    pub tool: Tool,
+}
+
+/// The scan apps, in the order they are offered: GNOME's Document Scanner, KDE's Skanpage, then
+/// `xsane`, which does the most and looks the oldest.
+pub const SCAN_APPS: [ScanApp; 3] = [
+    ScanApp {
+        name: "Document Scanner",
+        tool: Tool {
+            program: "simple-scan",
+        },
+    },
+    ScanApp {
+        name: "Skanpage",
+        tool: Tool {
+            program: "skanpage",
+        },
+    },
+    ScanApp {
+        name: "XSane",
+        tool: Tool { program: "xsane" },
+    },
+];
+
+/// The first of [`SCAN_APPS`] that is installed.
+pub fn scan_app() -> Option<ScanApp> {
+    SCAN_APPS.into_iter().find(|app| app.tool.find().is_some())
+}
 
 /// nm-connection-editor's arguments for a new Wi-Fi connection.
 pub const NEW_WIFI: &[&str] = &["--create", "--type=802-11-wireless"];

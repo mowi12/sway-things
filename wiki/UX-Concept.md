@@ -17,7 +17,7 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 │   Sound                    │  Natural scrolling                 [  ●]  │
 │   Bluetooth                │                                           │
 │   Network                  │                                           │
-│   Printers                 │                                           │
+│   Printers & Scanners      │                                           │
 │ APPEARANCE                 │  TOUCHPAD                                 │
 │   Windows                  │  Tap to click                      [  ●]  │
 │   Wallpaper                │  …                                        │
@@ -558,38 +558,48 @@ The Network page shows NetworkManager's live state; like Bluetooth it has no res
 - **Not available:** a placeholder while NetworkManager isn't running or there is no adapter and no VPN at all, and
   _Networking is turned off_ with _Turn On_; the page updates by itself.
 
-### Printers
+### Printers & Scanners
 
-The Printers page shows CUPS's live state; like Network it has no reset, no indicators and no generated file. It reads
-the state every 2 s while it is on screen (not while the window is on a hidden workspace), at once when it comes on
-screen and after every action.
+The Printers & Scanners page shows CUPS's and SANE's live state; like Network it has no reset, no indicators and no
+generated file. Its id is `printers-scanners`; `printers` (its id before) and `scanners` open it too. Search finds it by
+printer, print, toner, ink, paper, print queue, CUPS, scanner, scan, scanning, document and SANE. It reads CUPS's state
+every 2 s while it is on screen (not while the window is on a hidden workspace), at once when it comes on screen and
+after every action.
 
-- **Printers:** a row per print queue, sorted by title: a printer icon, the description (else the queue's name), a line
-  with _Default printer_, the model, the location and _Shared_, the state in words (_Ready_, _Printing_, _Paused_, or
-  what stops it: _Out of paper_, _Paper jam_, _Door open_, _Offline_, _Stopped: …_ with CUPS's message), followed by the
-  warnings (_Toner low_), and the supplies: a small bar per ink or toner in its colors (a cartridge with several inks is
-  striped) with its name and level as text (_Black Toner: 7 %, low_). A printer that can't print has a warning sign
-  before its state, in the text color (the theme's error color is too faint on a list in some themes). A paused printer,
-  or one that rejects jobs, shows _Resume_. The ⋮ menu has _Set as Default_ (not on the default), _Pause_ (while it
-  isn't paused), _Print Test Page_, _Cancel All Jobs_ (while it has jobs), _Details…_ and _Remove…_ (which asks first:
-  the queue goes for every user, with its jobs). Queues CUPS or the print dialog set up by themselves for one job
-  (`printer-is-temporary`) show only while they hold a job, as _Set up for a print job only_.
+- **Printers:** one line per print queue, sorted by title, in the manner of GNOME Settings: a printer icon on a tile,
+  the description (else the queue's name) with a _Default_ badge on the default printer, below it the state in words
+  (_Ready_, _Printing_, _Paused_, or what stops it: _Out of paper_, _Paper jam_, _Door open_, _Offline_, _Stopped: …_
+  with CUPS's message), followed by the warnings (_Toner low_), then the jobs waiting as a small flat button (_2 jobs_)
+  that opens the details scrolled to the print queue, with the focus on _Cancel All_ or the first job, and at the end a
+  small upright bar per ink or toner in its colors (a cartridge with several inks is striped; the names and levels are
+  its tooltip and what screen readers say) and a chevron. A printer that can't print has a warning sign in the warning
+  color before its state, which is in the text color (the theme's error color is too faint on a list in some themes). A
+  paused printer, or one that rejects jobs, shows _Resume_ on its line. The model, the location, the address and sharing
+  are in the details, not on the line. Queues CUPS or the print dialog set up by themselves for one job
+  (`printer-is-temporary`) show only while they hold a job.
+- **Details:** a click on a line opens them, kept up to date while open: the printer's icon, title, state and badge;
+  _Set as Default_ (not on the default), _Pause_ or _Resume_ and _Print Test Page_; the ink and toner, a bar with name
+  and level each (_Black Toner: 7 %, low_); the print queue of this printer, oldest first, a line per job with its title
+  (_Untitled document_ when CUPS keeps it private), owner, state (_Waiting_, _Held_, _Printing_, _Stopped_) and the time
+  it was sent (the date too when not today), with _Cancel_, and _Cancel All_ for two or more ("Nothing is waiting to
+  print." without); the description and the location, saved when Enter is pressed in them or the dialog closes, and
+  _Shared_, saved at once (other computers see a shared printer while sharing is on for CUPS as a whole); the model, the
+  address and the queue's name, selectable; and _Remove Printer…_, which asks first (the queue goes for every user, with
+  its jobs) and closes the details once the printer is gone. An action's error shows in the details too. _Close_, Escape
+  and the compositor's close end it the same way.
 - **Default printer:** _Set as Default_ sets CUPS's default for every user. When `~/.cups/lpoptions` names another
   printer as the user's own default (`lpoptions -d`), apps use that one: the page marks it as the default and a note at
   the top says where it comes from. The page never writes that file.
-- **Print Queue:** the jobs that aren't done, oldest first: title (_Untitled document_ when CUPS keeps it private),
-  printer, owner, state (_Waiting_, _Held_, _Printing_, _Stopped_) and the time it was sent (the date too when not
-  today), with _Cancel_. Without jobs: "Nothing is waiting to print."
-- **Add Printer…:** at the right of the _Printers_ heading. The dialog lists the driverless printers Avahi finds on the
-  network and on USB while it is open (_Found automatically_, with a spinner), each with its model, location and _Add_
-  (_Added_ when a printer is set up at its address), and takes an address (_By address_: a host name, an IP address, or
-  an `ipp://` or `ipps://` address; _Add_ stays insensitive until it is one). Adding names the queue after the model
-  (`[A-Za-z0-9_-]`, unique) and shows a spinner with _Adding “…”… CUPS asks the printer what it can do, which can take a
-  minute._; CUPS's error shows in the dialog if the printer is offline or not driverless. Without Avahi, the dialog says
-  so and points to the address. Printers that need a driver go to _Advanced…_. _Close_, Escape and the compositor's
-  close end it the same way; opening it again shows a new dialog.
-- **Details…:** name, model and address (selectable), the description and location to change, and _Share on the network_
-  (which other computers see while sharing is on for CUPS as a whole).
+- **Add Printer…:** at the right of the _Printers_ heading. The dialog is a picker: while it is open it lists the
+  driverless printers Avahi finds on the network and on USB, a line each with an icon, the model, the location and
+  _Network_ or _USB_; a click on a line adds that printer, and a printer set up at its address already says _Added_ and
+  can't be picked. Above the list a spinner says it is looking, then "Click a printer to add it."; after 5 s without a
+  printer it says to check that the printer is on, or to type its address. Below, _Or add one by its address_ takes a
+  host name, an IP address, or an `ipp://` or `ipps://` address (_Add_ stays insensitive until it is one). Adding names
+  the queue after the model (`[A-Za-z0-9_-]`, unique), not shared (the details turn sharing on), and says _Adding “…”…
+  CUPS asks the printer what it can do, which can take a minute._; CUPS's error shows in the dialog if the printer is
+  offline or not driverless. Without Avahi, the dialog says so and points to the address. Printers that need a driver go
+  to _Advanced…_. _Close_, Escape and the compositor's close end it the same way; opening it again shows a new dialog.
 - **Authorization:** a change goes to CUPS as the user first; members of CUPS's administrator group (`lpadmin` on Debian
   and Ubuntu, `wheel` or `sys` elsewhere) need no password. For anyone else it goes to cups-pk-helper, whose polkit
   agent asks for an administrator's password. Without cups-pk-helper the error at the top says to install it or which
@@ -597,10 +607,48 @@ screen and after every action.
   either.
 - **Advanced…:** in the header: system-config-printer when it is installed, else CUPS's web interface in the browser
   (`http://localhost:631/`, or the port the page reaches CUPS on).
-- **Not available:** a placeholder while CUPS isn't running (with `systemctl start cups.socket`); the page updates by
-  itself. A CUPS whose socket the user may not open gets a placeholder with that reason instead, since starting it
-  wouldn't help. A CUPS set up to use a print server on another computer gets a placeholder saying so: the page only
-  manages the printers of this computer.
+- **Not available:** a placeholder in place of the printers while CUPS isn't running (with
+  `systemctl start cups.socket`); the page updates by itself. A CUPS whose socket the user may not open gets a
+  placeholder with that reason instead, since starting it wouldn't help. A CUPS set up to use a print server on another
+  computer gets a placeholder saying so: the page only manages the printers of this computer. The scanners stay either
+  way.
+- **Scanners:** below the printers, a line per scanner SANE lists, as the printers: a scanner icon on a tile, its vendor
+  and model (sane-airscan's protocol and address left out), how it is connected (_Network, driverless (eSCL)_, _USB,
+  driverless_, _USB_, _Network_) and a chevron; a click opens the scan dialog. A driverless scanner Avahi finds that
+  SANE doesn't list gets a line too, with _SANE doesn't see it yet_ and a warning sign, and can't be clicked. SANE has
+  no change events and its backends take a few seconds to look on USB and the network, so the list is read when the page
+  comes on screen and with _Search Again_ at the right of the heading (a spinner while it runs; "Looking for scanners on
+  USB and on the network… This takes a few seconds." the first time), never in the background. Without a scanner: "No
+  scanner found. Make sure it is on and connected, then search again."
+- **What is missing:** below the list, a line each with a warning sign, selectable: scanimage isn't installed (with the
+  distribution's package: `sane-utils`, `sane-backends` or `sane`); sane-airscan isn't installed, naming the scanners on
+  the network it would make usable, or, without any scanner, that most scanners are driverless and need it; sane-airscan
+  is installed but SANE doesn't list a scanner Avahi finds (search again, check `/etc/sane.d/dll.d`); a device that
+  speaks IPP over USB is plugged in but ipp-usb doesn't run (start it) or isn't installed; a USB scanner the user can't
+  use, with the group its device file belongs to (join it and log in again), or without a group, that only the user at
+  the computer's screen may. `sway-things doctor` reports the same in its _Scanners_ section, without asking SANE or
+  Avahi.
+- **Open Document Scanner:** below, while Document Scanner, Skanpage or XSane is installed (the first of them): it
+  starts that app, for several pages from the glass with editing, OCR, and the rest.
+- **Scan dialog:** the scanner's name and connection at the top; on the left the preview frame ("Put the document on the
+  glass, then preview it here."), on the right what the scanner offers, read with `scanimage -A` while "Reading what the
+  scanner can do…" shows: _Source_ (_Glass (flatbed)_, _Document feeder_, _Document feeder, both sides_, or the
+  scanner's own name), _Colors_ (_Color_, _Gray_, _Black and white_, by whatever names the backend gives them; color
+  first), _Resolution_ (the scanner's values, or the common ones within its range; 300 dpi first), _Paper size_ (A4,
+  Letter, Legal, A5, A6 as far as the glass holds them, and _Whole area_; Letter first in the Americas), and _Save as_:
+  PDF, PNG, JPEG and TIFF as far as this scanimage writes them (a note names the others: built without them; PDF needs
+  JPEG). An option the scanner doesn't have isn't shown. _Preview_ scans the page at a low resolution into the frame
+  (not from the feeder, which would take a sheet: the button says so). _Scan_ scans a page, or for a PDF from the feeder
+  every sheet in it; a progress bar with "Scanning page 2… 45 %" and _Cancel_ take the place of the buttons, and Escape
+  cancels too. The page scanned shows in the frame; then "2 pages scanned. Save them, or scan another.", _Save…_ (the
+  suggested button), _Scan Another Page_ and _Discard_; for an image, which holds one page, "The page is scanned. Save
+  it, or scan it again." and _Scan Again_, which replaces it. While pages wait, _Save as_ stays as it was. _Save…_ opens
+  the file chooser in the Documents folder with `Scan 2026-11-22 09.31.pdf`; it asks before it replaces a file, and only
+  that file is written, whole or not at all, off the main loop while the dialog says _Saving…_ and takes no other
+  action. Then "Saved as “…”." with _Open_ (the desktop's app) and _Show in Folder_. Errors say what to do in words
+  (busy, cover open, paper jammed, no paper in the feeder, no access, the scanner can't be reached, a setting it doesn't
+  take) with scanimage's output under _Details_. Closing the dialog cancels a scan that runs and removes the pages that
+  weren't saved.
 
 ### Notifications
 
@@ -642,7 +690,7 @@ settings go into files of Sway Things in the daemon's own format (see
 
 | Group | Pages |
 | --- | --- |
-| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network · Printers |
+| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network · Printers & Scanners |
 | **Appearance** | Windows · Wallpaper · Apps Look & Feel · Bar |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance |

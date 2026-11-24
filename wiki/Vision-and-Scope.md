@@ -53,7 +53,7 @@ single hand-written line changes.
 | A resident daemon | Smaller attack surface. Runtime behavior goes to existing tools |
 | Root helpers or setuid code | Only polkit-guarded D-Bus services |
 | Flatpak | The sandbox would need holes that make it pointless |
-| Full network or user-account editors, printer drivers | Delegate to nm-connection-editor, system-config-printer, … |
+| Full network or user-account editors, printer drivers, a scan app with OCR and editing | Delegate to nm-connection-editor, system-config-printer, Document Scanner, … |
 | Magnifier, sticky keys, color inversion | Not supported by sway/wlroots |
 | Comment-preserving edits of user config files | Unnecessary, because we never edit user files |
 | A "desktop shell" (own bar, launcher, notification daemon) | We configure existing tools, we don't replace them |
@@ -62,7 +62,7 @@ single hand-written line changes.
 
 | Group | Pages | Depth |
 | --- | --- | --- |
-| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network · Printers | sway-native pages are complete; Sound, Bluetooth, Network and Printers cover the basics natively, then delegate |
+| **Devices** | Mouse & Touchpad · Keyboard · Cursor & Tablet · Displays · Sound · Bluetooth · Network · Printers & Scanners | sway-native pages are complete; Sound, Bluetooth, Network and Printers & Scanners cover the basics natively, then delegate |
 | **Appearance** | Windows (incl. SwayFX effects) · Wallpaper · Apps Look & Feel · Bar | complete, through backends |
 | **Desktop** | Window Behavior · Workspaces · Keyboard Shortcuts · Notifications · Apps & Autostart · Screenshots & Clipboard | complete, through backends |
 | **System** | Power & Lock · Brightness & Night Light · Region & Time · Accessibility · Environment · About & Maintenance | basics natively; anything that needs a root file edit is read-only with instructions |
@@ -72,6 +72,14 @@ driverless printers (IPP Everywhere, AirPrint, IPP over USB) and leaves printers
 system-config-printer through _Advanced…_. It needs no root: CUPS lets the members of its administrator group make
 changes over its socket, and for everyone else cups-pk-helper (polkit) does. Sway Things never asks for a password
 itself and never contacts a printer; CUPS and Avahi do.
+
+**Scanners** are in scope on the same page, _Printers & Scanners_, since most scanners are part of a multifunction
+printer. The page lists what SANE finds, says what is missing for the others (scanimage, sane-airscan, ipp-usb, the
+access to a USB scanner), and **scans documents into files**: one page or a feeder full into PDF, PNG, JPEG or TIFF.
+Scanning is built in because on sway there is often no scan app installed and the common case (a page or a stack into a
+PDF) needs few choices. It stays a basic scan, through `scanimage` as an argument array (no libsane, no `unsafe`),
+written only to the file the user picks; area selection on the preview, OCR and image editing stay with Document
+Scanner, Skanpage or XSane, which the page opens.
 
 The item-level scope is in the [Feature Catalog](Feature-Catalog.md).
 

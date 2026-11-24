@@ -87,7 +87,9 @@ Rules 1–7 protect users' systems; rules 8–12 keep the code base consistent a
 reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
 
 1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
-   (gsettings/dconf, D-Bus services). The user's sway config is never touched.
+   (gsettings/dconf, D-Bus services), and the one file the user picks in a Save dialog for something they made in the
+   app, such as a scan: written atomically, and replacing a file only when the dialog asked them first. The user's sway
+   config is never touched.
 2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`. Where a companion tool's config
    takes a command its tool runs through a shell (mako's `on-button-left`, swaync's scripts and buttons), the command is
    a fixed string of ours that calls `sway-things`, never built from data.
@@ -100,7 +102,10 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
    keeps running: what has to happen without the window runs as a short CLI hook from generated config
    ([No daemon](wiki/Command-Line.md#no-daemon-the-cli-as-a-hook)).
 7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
-   Writes are atomic. **No network access, no telemetry.**
+   Writes are atomic. **No network access, no telemetry.** **Nothing is exposed by default:** whatever opens a port,
+   shares something on the network or makes this computer or its data visible to others (sharing a printer, Bluetooth
+   visibility, a listening service) starts off, also where the service below would turn it on by itself, and only the
+   user turns it on, for that one thing.
 8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop, so UI updates run
    directly in futures and CLI hooks start fast.
 9. **REUSE headers.** Every source file (`.rs`, scripts) starts with:

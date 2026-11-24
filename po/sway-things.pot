@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 22:23+0100\n"
+"POT-Creation-Date: 2026-11-24 11:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -50,7 +50,7 @@ msgstr ""
 msgid "Paste it where you need it"
 msgstr ""
 
-#: crates/cli/src/capture.rs
+#: crates/cli/src/capture.rs crates/gui/src/widgets/printers/scan.rs
 msgid "Open"
 msgstr ""
 
@@ -269,6 +269,10 @@ msgstr ""
 
 #: crates/cli/src/doctor.rs
 msgid "Checking the default apps and what starts at login…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
+msgid "Checking what scanners need…"
 msgstr ""
 
 #: crates/cli/src/doctor.rs
@@ -1218,7 +1222,7 @@ msgstr ""
 msgid "Play"
 msgstr ""
 
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/printers/rows.rs
+#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/printers/details.rs
 msgid "Pause"
 msgstr ""
 
@@ -1855,6 +1859,11 @@ msgstr ""
 msgid "Apps & Autostart"
 msgstr ""
 
+#: crates/core/src/doctor/finding.rs
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "Scanners"
+msgstr ""
+
 #: crates/core/src/doctor/found.rs
 msgid "SWAYSOCK isn't set"
 msgstr ""
@@ -2291,6 +2300,22 @@ msgstr ""
 #: crates/core/src/doctor/mod.rs
 #, rust-format
 msgid "{place}: the config is too big; the rest wasn't read."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid "sane-airscan isn't installed, so SANE doesn't see driverless scanners."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid ""
+"Most scanners today are driverless (eSCL, also on USB through ipp-usb): "
+"install the package sane-airscan."
+msgstr ""
+
+#: crates/core/src/doctor/scanners.rs
+msgid ""
+"SANE's scanimage is installed; the Printers & Scanners page lists the "
+"scanners."
 msgstr ""
 
 #: crates/core/src/doctor/wallpaper.rs
@@ -3114,7 +3139,7 @@ msgstr ""
 msgid "discovery"
 msgstr ""
 
-#: crates/core/src/registry/app.rs
+#: crates/core/src/registry/app.rs crates/core/src/registry/page.rs
 msgid "scan"
 msgstr ""
 
@@ -4648,6 +4673,7 @@ msgid "depth"
 msgstr ""
 
 #: crates/core/src/registry/effects.rs crates/core/src/registry/wallpaper.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Color"
 msgstr ""
 
@@ -5749,6 +5775,7 @@ msgid "blur without enable or disable"
 msgstr ""
 
 #: crates/core/src/registry/notifications.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/wallpaper/mod.rs
 msgid "Colors"
 msgstr ""
@@ -6242,12 +6269,13 @@ msgstr ""
 msgid "Bluetooth"
 msgstr ""
 
-#: crates/core/src/registry/page.rs
+#: crates/core/src/registry/page.rs crates/core/src/scanners/list.rs
+#: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Network"
 msgstr ""
 
-#: crates/core/src/registry/page.rs crates/gui/src/widgets/printers/mod.rs
-msgid "Printers"
+#: crates/core/src/registry/page.rs
+msgid "Printers & Scanners"
 msgstr ""
 
 #: crates/core/src/registry/page.rs crates/core/src/registry/wallpaper.rs
@@ -6331,7 +6359,7 @@ msgid "Wi-Fi networks, wired and VPN connections"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
-msgid "Add printers, see their ink and toner, and the print queue"
+msgid "Printers with their ink and queue, scanners and scanning documents"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -6424,6 +6452,22 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "CUPS"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "scanner"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "scanning"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "document"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "SANE"
 msgstr ""
 
 #: crates/core/src/registry/read.rs
@@ -7410,6 +7454,139 @@ msgstr ""
 msgid "how many"
 msgstr ""
 
+#: crates/core/src/scanners/list.rs
+#, rust-format
+msgid "Network, driverless ({protocol})"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs crates/gui/src/widgets/printers/scanners.rs
+msgid "USB, driverless"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs crates/gui/src/widgets/printers/dialogs.rs
+msgid "USB"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+msgid "Camera"
+msgstr ""
+
+#: crates/core/src/scanners/list.rs
+msgid "Other connection"
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"SANE's scanimage isn't installed, so no scanner can be found or used. "
+"Install the package {package}."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+msgid ""
+"Most scanners today are driverless, and SANE finds them with sane-airscan, "
+"which isn't installed. If your scanner isn't listed, install the package "
+"sane-airscan."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{scanners} on the network can't be used yet: SANE needs sane-airscan for "
+"driverless scanners. Install the package sane-airscan."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{scanners} is on the network, but SANE doesn't list it. Search again; if it "
+"stays missing, check that sane-airscan is switched on in /etc/sane.d/dll.d."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{devices} is plugged in over USB and works driverless, but ipp-usb doesn't "
+"run. Plug it in again, or start ipp-usb: systemctl start ipp-usb."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"{devices} is plugged in over USB and works driverless with ipp-usb, which "
+"isn't installed. Install the package ipp-usb, then plug it in again."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"You can't use {scanner}: its device file belongs to the group “{group}”. "
+"Join it (as an administrator: usermod -aG {group} YOUR-NAME) and log in "
+"again."
+msgstr ""
+
+#: crates/core/src/scanners/look.rs
+#, rust-format
+msgid ""
+"You can't use {scanner}: only the user logged in at this computer's screen "
+"may. Log in there, or log out and in again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner is busy: another program may be using it."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner's cover is open. Close it and try again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "Paper is jammed in the document feeder."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "There is no paper in the document feeder."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "You aren't allowed to use the scanner. See the hints on the page."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner stopped answering. Check its cable or network."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid ""
+"The scanner can't be reached. Make sure it is on and connected, then search "
+"again."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner doesn't take one of the settings."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner reported an error."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "scanimage isn't installed."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+msgid "The scanner didn't answer in time."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs crates/gui/src/widgets/printers/scan.rs
+msgid "Canceled."
+msgstr ""
+
+#: crates/core/src/scanners/mod.rs
+#, rust-format
+msgid "A file can't be written: {error}"
+msgstr ""
+
 #: crates/core/src/sound/meter.rs
 msgid "the level meter can't be started"
 msgstr ""
@@ -7811,6 +7988,7 @@ msgid "Start {name} at login"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/autostart.rs
+#: crates/gui/src/widgets/printers/rows.rs
 msgid "Show the details"
 msgstr ""
 
@@ -7980,7 +8158,9 @@ msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
 #: crates/gui/src/widgets/network/dialogs.rs
+#: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close"
 msgstr ""
@@ -8165,8 +8345,9 @@ msgstr ""
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
+#: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/printers/rows.rs
+#: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
 #: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
@@ -8267,6 +8448,7 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/network/mod.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
+#: crates/gui/src/widgets/printers/scanners.rs
 msgid "Searching"
 msgstr ""
 
@@ -8282,7 +8464,6 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
 #: crates/gui/src/widgets/network/rows.rs
-#: crates/gui/src/widgets/printers/rows.rs
 msgid "More actions"
 msgstr ""
 
@@ -8431,7 +8612,6 @@ msgid "Rename “{device}”"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
-#: crates/gui/src/widgets/printers/dialogs.rs
 msgid "Name"
 msgstr ""
 
@@ -8648,7 +8828,8 @@ msgstr ""
 msgid "Press the keys; Backspace for no key, Escape to keep them"
 msgstr ""
 
-#: crates/gui/src/widgets/cursor.rs
+#: crates/gui/src/widgets/cursor.rs crates/gui/src/widgets/printers/details.rs
+#: crates/gui/src/widgets/printers/rows.rs
 #: crates/gui/src/widgets/wallpaper/pictures.rs
 msgid "Default"
 msgstr ""
@@ -9456,7 +9637,6 @@ msgid "Wired ({interface})"
 msgstr ""
 
 #: crates/gui/src/widgets/network/rows.rs
-#: crates/gui/src/widgets/printers/rows.rs
 msgid "Details…"
 msgstr ""
 
@@ -9910,6 +10090,7 @@ msgid "Couldn't cancel the job: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/actions.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Canceling…"
 msgstr ""
 
@@ -9933,6 +10114,7 @@ msgid "Couldn't change “{printer}”: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/actions.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Saving…"
 msgstr ""
 
@@ -9941,12 +10123,79 @@ msgstr ""
 msgid "CUPS's web interface can't be opened: {error}"
 msgstr ""
 
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Add Printer"
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Untitled document"
 msgstr ""
 
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Found automatically"
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Set as Default"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+#: crates/gui/src/widgets/printers/rows.rs
+msgid "Resume"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Print Test Page"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Ink and toner"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Print Queue"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Cancel All"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Printer"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Description"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Location"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Shared"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid ""
+"Other computers see a shared printer while sharing is on for CUPS as a whole"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Model"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Address"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Queue"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Remove Printer…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Nothing is waiting to print."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/details.rs
+#, rust-format
+msgid "Cancel {job}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -9954,7 +10203,15 @@ msgid "Looking for driverless printers on the network and on USB…"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
-msgid "By address"
+msgid "Add Printer"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Printers found"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Or add one by its address"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -9997,6 +10254,10 @@ msgid "Add {printer}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
+msgid "Click a printer to add it."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/dialogs.rs
 #, rust-format
 msgid ""
 "Adding “{printer}”… CUPS asks the printer what it can do, which can take a "
@@ -10006,36 +10267,6 @@ msgstr ""
 #: crates/gui/src/widgets/printers/dialogs.rs
 #, rust-format
 msgid "Couldn't add “{printer}”: {error}"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Model"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Address"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Description"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Location"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid "Share on the network"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-msgid ""
-"Other computers see a shared printer while sharing is on for CUPS as a whole."
-msgstr ""
-
-#: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/dialogs.rs
@@ -10058,11 +10289,11 @@ msgid "Open CUPS's web interface for printers that need a driver, and more"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
-msgid "Add Printer…"
+msgid "Printers"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
-msgid "Print Queue"
+msgid "Add Printer…"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/mod.rs
@@ -10102,44 +10333,12 @@ msgid ""
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
-msgid "Nothing is waiting to print."
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Resume"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Set as Default"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Print Test Page"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Cancel All Jobs"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Remove…"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Default printer"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Set up for a print job only"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/rows.rs
-msgid "Shared"
+msgid "Show the print queue"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
 #, rust-format
-msgid "More actions for {printer}"
+msgid "Print queue of {printer}: {jobs}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
@@ -10148,12 +10347,231 @@ msgid "Resume {printer}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
-msgid "Untitled document"
+msgid "Default printer"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs
 #, rust-format
-msgid "Cancel {job}"
+msgid "{count} job"
+msgid_plural "{count} jobs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scan with {scanner}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview of the scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Put the document on the glass, then preview it here."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Source"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Resolution"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Paper size"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save as"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Details"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Show in Folder"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Discard"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan Another Page"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Reading what the scanner can do…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Gray"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Black and white"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "{dpi} dpi"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Whole area"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid ""
+"This scanimage doesn't write {formats}: it was built without them. PDF needs "
+"JPEG."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Preview needs the glass"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid ""
+"Every sheet in the feeder goes into the PDF; scan more with Scan Another "
+"Page."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "An image holds one page; save as PDF for several."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scan Again"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "The page is scanned. Save it, or scan it again."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "{count} page scanned. Save it, or scan another."
+msgid_plural "{count} pages scanned. Save them, or scan another."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Previewing…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scanning…"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scanning page {page}… {percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Scanned. The page can't be shown here."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Scan {date}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Save the Scan"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "Saved as “{file}”."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+#, rust-format
+msgid "It can't be opened: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Glass (flatbed)"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Document feeder"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scan.rs
+msgid "Document feeder, both sides"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "Search Again"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "Open {app}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid ""
+"For what scanning here doesn't do: several pages from the glass, editing, OCR"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid ""
+"Looking for scanners on USB and on the network… This takes a few seconds."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "The scanners can't be listed: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "No scanner found. Make sure it is on and connected, then search again."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+#, rust-format
+msgid "Scan with {device}"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "Network, driverless"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "SANE doesn't see it yet"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/scanners.rs
+msgid "See the hint below the list"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/supplies.rs
+msgid "Supply"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/supplies.rs
@@ -10170,10 +10588,6 @@ msgstr ""
 #. TRANSLATORS: The level of a supply of a printer that isn't known.
 #: crates/gui/src/widgets/printers/supplies.rs
 msgid "Level unknown"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/supplies.rs
-msgid "Supply"
 msgstr ""
 
 #: crates/gui/src/widgets/search_button.rs
@@ -10329,10 +10743,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "The same key in every keyboard layout"
-msgstr ""
-
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Details"
 msgstr ""
 
 #: crates/gui/src/widgets/shortcuts/editor.rs

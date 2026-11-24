@@ -455,6 +455,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     look.spinner.say(tr(msg!("Collecting the system details…")));
     let system = system_details(found.compositor()).await;
     let apps_check = sway_things_core::doctor::apps::AppsCheck::for_user().await;
+    let scanners = sway_things_core::scanners::Look::read();
     let outputs = match Client::connect().await {
         Ok(mut client) => client
             .outputs()
@@ -477,6 +478,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         path: std::env::var_os("PATH"),
         gsettings: &Gio,
         apps: apps_check.as_ref(),
+        scanners: Some(&scanners),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -755,6 +757,7 @@ async fn doctor_in<V: Validate>(
         path: None,
         gsettings: desktop.as_ref(),
         apps: None,
+        scanners: None,
     };
     doctor(&checkup, None, args, out).await
 }

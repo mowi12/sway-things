@@ -159,6 +159,8 @@ fn a_driverless_printer_is_added_used_and_removed() -> Result<()> {
         assert_eq!(printer.device_uri, fake.uri());
         assert!(printer.accepting);
         assert!(!printer.paused());
+        // Not shared, although CUPS shares new printers by default (`DefaultShared Yes`).
+        assert!(!printer.shared);
 
         cups.set_default(&name).await?;
         cups.set_info(&name, "Big Laser").await?;

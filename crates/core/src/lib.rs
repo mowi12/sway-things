@@ -33,6 +33,7 @@ pub mod notifications;
 pub mod outputs;
 pub mod printers;
 pub mod registry;
+pub mod scanners;
 pub mod sound;
 pub mod state;
 pub mod sway_config;

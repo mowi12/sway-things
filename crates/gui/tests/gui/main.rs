@@ -49,6 +49,7 @@ mod printers;
 mod reload;
 mod rows;
 mod safety_net;
+mod scanners;
 mod sections;
 mod shell;
 mod shortcuts;
@@ -90,7 +91,8 @@ use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GdkKeymap, GroupRow,
     LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, PrintService,
-    PrintersPage, SettingRow, ShortcutEditor, SoundPage, SoundServer, TestArea,
+    PrintersPage, ScanDialog, ScanService, SettingRow, ShortcutEditor, SoundPage, SoundServer,
+    TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -113,6 +115,7 @@ use self::printers::*;
 use self::reload::*;
 use self::rows::*;
 use self::safety_net::*;
+use self::scanners::*;
 use self::sections::*;
 use self::shell::*;
 use self::shortcuts::*;
@@ -156,8 +159,9 @@ fn main() -> ExitCode {
     // Likewise the Network page and NetworkManager, and the Sound page and the sound server.
     let network = network_stand_in().map(|(stand_in, _)| stand_in);
     let sound = sound_stand_in();
-    // Likewise the Printers page and CUPS.
+    // Likewise Printers & Scanners with CUPS, and SANE with its test backend.
     let printers = printers_stand_in(true);
+    let sane = SaneFixture::new("test\n");
     let fixture = match fixture(SWAYFX, &format!("{STORED}{DIRECTIVES}"), USERS, true) {
         Ok(fixture) => fixture,
         Err(error) => {
@@ -179,6 +183,7 @@ fn main() -> ExitCode {
         if let Ok(printers) = &printers {
             window.use_print_service(print_service(printers));
         }
+        use_sane(&window, sane.as_ref().ok());
         window.present();
         for page in Page::ALL {
             let outcome = check_page(&window, page, screenshots.as_deref(), scheme);

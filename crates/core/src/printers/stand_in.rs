@@ -252,7 +252,7 @@ fn write_config(root: &Path, socket: &Path, group: &str, data_dir: &Path) -> Res
         root.join("cupsd.conf"),
         format!(
             "Listen {}\nLogLevel debug\nWebInterface No\nBrowsing No\n\
-             DefaultShared No\nMaxLogSize 0\n{POLICY}",
+             DefaultShared Yes\nMaxLogSize 0\n{POLICY}",
             socket.display()
         ),
     )?;

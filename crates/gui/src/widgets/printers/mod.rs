@@ -1,21 +1,29 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The Printers page: the print queues with their state and supplies, and the jobs, live from
-//! CUPS; adding a driverless printer, and what can be done with a printer and a job.
+//! The printers of the Printers page: a line per print queue with its state, the default badge
+//! and its ink or toner, live from CUPS; a click opens its details ([`details`]) with its jobs and
+//! everything that can be done with it; _Add Printer…_ picks a driverless printer.
 //!
 //! The page reads a new snapshot every [`POLL`] while it is on screen, at once when it comes on
-//! screen, and after each action, and updates its rows in place. Changes that need an
-//! administrator go to CUPS as the user, then to cups-pk-helper (polkit); when neither may, the
-//! error says what to install or which group to join.
+//! screen, and after each action, and updates its rows (and the open details) in place. Changes
+//! that need an administrator go to CUPS as the user, then to cups-pk-helper (polkit); when
+//! neither may, the error says what to install or which group to join.
 //!
 //! Printer names, models, locations, job titles and owners come from printers and other users:
 //! they are only ever set as plain label text.
 
 mod actions;
+mod details;
 mod dialogs;
 mod rows;
+mod scan;
+mod scanners;
 mod supplies;
+
+pub use details::DetailsDialog;
+pub use scan::ScanDialog;
+pub use scanners::ScanService;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -26,7 +34,7 @@ use gtk::subclass::prelude::*;
 use sway_things_core::delegate;
 use sway_things_core::printers::{Bus, Cups, Endpoint, Error, Snapshot};
 
-use super::list::{heading, hint, labels_in, section};
+use super::list::{heading, hint, labels_in, remove_row, section};
 use super::{Placeholder, search_button};
 use crate::i18n::{msg, tr};
 use crate::style;
@@ -65,30 +73,43 @@ impl Service {
     }
 }
 
+/// The widgets of the section of the scanners, and what it shows.
+#[derive(Debug, Default)]
+pub(super) struct ScanParts {
+    /// The section, hidden without SANE to ask ([`ScanService::Off`]).
+    root: gtk::Box,
+    list: gtk::ListBox,
+    /// What the search says: that it runs, or found nothing, or failed.
+    status: gtk::Label,
+    /// The hints for what is missing.
+    hints: gtk::Box,
+    again: gtk::Button,
+    spinner: gtk::Spinner,
+    /// _Open Document Scanner_, or another scan app.
+    app: gtk::Button,
+    searching: std::cell::Cell<bool>,
+    /// What the last search found.
+    found: std::cell::RefCell<Option<scanners::Searched>>,
+    /// The scan dialog, while it is open.
+    dialog: std::cell::RefCell<Option<ScanDialog>>,
+}
+
 /// The widgets of a printer's row, kept across refreshes so focus and state stay.
 #[derive(Debug, Clone)]
 struct PrinterRow {
     row: gtk::ListBoxRow,
     title: gtk::Label,
-    subtitle: gtk::Label,
+    /// _Default_, shown on the default printer.
+    badge: gtk::Label,
+    /// The state in words.
     status: gtk::Label,
+    /// The jobs waiting (_2 jobs_), shown while there are some: opens the print queue.
+    jobs: gtk::Button,
     /// The sign before the status of a printer that can't print.
     problem: gtk::Image,
-    supplies: gtk::Box,
+    /// The small bars of the ink or toner.
+    levels: gtk::Box,
     resume: gtk::Button,
-    menu: gtk::MenuButton,
-    set_default: gtk::Button,
-    pause: gtk::Button,
-    cancel_all: gtk::Button,
-}
-
-/// The widgets of a job's row.
-#[derive(Debug, Clone)]
-struct JobRow {
-    row: gtk::ListBoxRow,
-    title: gtk::Label,
-    subtitle: gtk::Label,
-    cancel: gtk::Button,
 }
 
 mod imp {
@@ -100,7 +121,7 @@ mod imp {
     use gtk::subclass::prelude::*;
     use sway_things_core::printers::{Cups, Snapshot};
 
-    use super::{JobRow, PrinterRow, Service};
+    use super::{PrinterRow, Service};
 
     #[derive(Default)]
     pub struct PrintersPage {
@@ -119,8 +140,6 @@ mod imp {
         pub printers: gtk::ListBox,
         pub printers_hint: gtk::Label,
         pub add: gtk::Button,
-        pub jobs: gtk::ListBox,
-        pub jobs_hint: gtk::Label,
         /// The "Advanced…" button for the page header.
         pub advanced: RefCell<Option<gtk::Button>>,
 
@@ -130,8 +149,6 @@ mod imp {
         pub snapshot: RefCell<Option<Snapshot>>,
         /// The rows of the printers, by name.
         pub(super) rows: RefCell<HashMap<String, PrinterRow>>,
-        /// The rows of the jobs, by id.
-        pub(super) job_rows: RefCell<HashMap<i32, JobRow>>,
         /// What runs on which printer or job (`job:ID`), as its row shows it.
         pub(super) running: RefCell<HashMap<String, &'static str>>,
         /// Whether a snapshot is being read.
@@ -143,10 +160,14 @@ mod imp {
         /// The user's own default printer from `~/.cups/lpoptions`, read when the page comes on
         /// screen rather than with every snapshot.
         pub own_default: RefCell<Option<String>>,
-        /// The open dialog of the page.
-        pub dialog: RefCell<Option<gtk::Window>>,
+        /// The open details of a printer.
+        pub(super) details: RefCell<Option<super::DetailsDialog>>,
         /// The dialog for adding a printer, while it is open.
         pub(super) adding: RefCell<Option<super::dialogs::AddDialog>>,
+        /// Where the page finds SANE.
+        pub(super) scan_service: RefCell<super::ScanService>,
+        /// The section of the scanners.
+        pub(super) scan: super::ScanParts,
     }
 
     #[glib::object_subclass]
@@ -172,11 +193,14 @@ mod imp {
             if let Some(poll) = self.poll.take() {
                 poll.remove();
             }
-            if let Some(dialog) = self.dialog.take() {
-                dialog.destroy();
+            if let Some(details) = self.details.take() {
+                details.window.destroy();
             }
             if let Some(adding) = self.adding.take() {
                 adding.window.destroy();
+            }
+            if let Some(dialog) = self.scan.dialog.take() {
+                dialog.close();
             }
             if let Some((window, handler)) = self.window.take() {
                 window.disconnect(handler);
@@ -203,6 +227,7 @@ mod imp {
             self.own_default
                 .replace(sway_things_core::printers::own_default());
             self.obj().update_poll();
+            self.obj().search_scanners();
         }
 
         fn unmap(&self) {
@@ -223,10 +248,18 @@ glib::wrapper! {
 }
 
 impl PrintersPage {
-    /// The page for the CUPS of `service`, which reads it right away.
+    /// The page for the CUPS of `service`, which reads it right away, without scanners.
     pub fn new(service: &Service) -> Self {
+        Self::with_scanners(service, &ScanService::Off)
+    }
+
+    /// The page for the CUPS of `service` and the SANE of `scan`, which reads CUPS right away
+    /// and SANE when the page comes on screen.
+    pub fn with_scanners(service: &Service, scan: &ScanService) -> Self {
         let page: Self = glib::Object::new();
         page.imp().service.replace(service.clone());
+        page.imp().scan_service.replace(scan.clone());
+        page.imp().scan.root.set_visible(*scan != ScanService::Off);
         page.connect();
         page
     }
@@ -255,8 +288,9 @@ impl PrintersPage {
         button
     }
 
-    /// The printers as listed: name, title, subtitle and status each; for tests.
-    pub fn rows(&self) -> Vec<(String, String, String, String)> {
+    /// The printers as listed: name, title, status and whether it is the default each; for
+    /// tests.
+    pub fn rows(&self) -> Vec<(String, String, String, bool)> {
         let imp = self.imp();
         let rows = imp.rows.borrow();
         let mut listed = Vec::new();
@@ -267,41 +301,22 @@ impl PrintersPage {
                 listed.push((
                     name.clone(),
                     row.title.text().to_string(),
-                    row.subtitle.text().to_string(),
                     row.status.text().to_string(),
+                    row.badge.is_visible(),
                 ));
             }
         }
         listed
     }
 
-    /// The supplies of the printer `name` as their labels read; for tests.
-    pub fn supplies(&self, name: &str) -> Vec<String> {
+    /// The tooltip of the ink or toner bars of the printer `name`; for tests.
+    pub fn supplies(&self, name: &str) -> Option<String> {
         self.imp()
             .rows
             .borrow()
             .get(name)
-            .map(|row| labels_in(row.supplies.upcast_ref()))
-            .unwrap_or_default()
-    }
-
-    /// The jobs as listed: id, title and subtitle each; for tests.
-    pub fn job_rows(&self) -> Vec<(i32, String, String)> {
-        let imp = self.imp();
-        let rows = imp.job_rows.borrow();
-        let mut listed = Vec::new();
-        let mut child = imp.jobs.first_child();
-        while let Some(widget) = child {
-            child = widget.next_sibling();
-            if let Some((id, row)) = rows.iter().find(|(_, row)| widget == row.row) {
-                listed.push((
-                    *id,
-                    row.title.text().to_string(),
-                    row.subtitle.text().to_string(),
-                ));
-            }
-        }
-        listed
+            .and_then(|row| row.levels.tooltip_text())
+            .map(|text| text.to_string())
     }
 
     /// The _Resume_ button of the printer `name`; for tests.
@@ -313,22 +328,28 @@ impl PrintersPage {
             .map(|row| row.resume.clone())
     }
 
-    /// The _Cancel_ button of the job `id`; for tests.
-    pub fn cancel_button(&self, id: i32) -> Option<gtk::Button> {
+    /// The button with the jobs waiting on the printer `name`; for tests.
+    pub fn jobs_button(&self, name: &str) -> Option<gtk::Button> {
         self.imp()
-            .job_rows
+            .rows
             .borrow()
-            .get(&id)
-            .map(|row| row.cancel.clone())
+            .get(name)
+            .map(|row| row.jobs.clone())
     }
 
-    /// The ⋮ menu item `label` of the printer `name`; for tests.
-    pub fn menu_item(&self, name: &str, label: &str) -> Option<gtk::Button> {
-        let rows = self.imp().rows.borrow();
-        let popover = rows.get(name)?.menu.popover()?;
-        all_buttons(popover.upcast_ref())
-            .into_iter()
-            .find(|button| button.label().is_some_and(|text| text == label))
+    /// Clicks the line of the printer `name`, which opens its details; for tests.
+    pub fn activate_row(&self, name: &str) {
+        let row = self
+            .imp()
+            .rows
+            .borrow()
+            .get(name)
+            .map(|row| row.row.clone());
+        if let Some(row) = row {
+            self.imp()
+                .printers
+                .emit_by_name::<()>("row-activated", &[&row]);
+        }
     }
 
     /// _Add Printer…_; for tests.
@@ -341,9 +362,9 @@ impl PrintersPage {
         self.imp().adding.borrow().clone()
     }
 
-    /// The open details dialog; for tests.
-    pub fn details_dialog(&self) -> Option<gtk::Window> {
-        self.imp().dialog.borrow().clone()
+    /// The open details of a printer; for tests.
+    pub fn details_dialog(&self) -> Option<DetailsDialog> {
+        self.imp().details.borrow().clone()
     }
 
     /// The error shown at the top; empty if none.
@@ -397,11 +418,9 @@ impl PrintersPage {
     fn build(&self) {
         let imp = self.imp();
         imp.content.set_orientation(gtk::Orientation::Vertical);
-        imp.content.append(&imp.missing);
         imp.content.append(&imp.controls);
         imp.missing.set_orientation(gtk::Orientation::Vertical);
         imp.missing.set_visible(false);
-        imp.controls.set_visible(false);
         imp.controls.set_orientation(gtk::Orientation::Vertical);
 
         for (label, class) in [(&imp.error, "error"), (&imp.note, style::DIM)] {
@@ -435,17 +454,20 @@ impl PrintersPage {
         });
         let overlay = search_button::over(&line, &title, &imp.add);
         imp.controls.append(&overlay);
+        imp.controls.append(&imp.missing);
         section(&imp.printers, tr(msg!("Printers")));
+        imp.printers.add_css_class("st-device-list");
+        imp.printers.set_activate_on_single_click(true);
+        let weak = self.downgrade();
+        imp.printers.connect_row_activated(move |_, row| {
+            if let Some(page) = weak.upgrade() {
+                page.show_details(&row.widget_name());
+            }
+        });
         imp.controls.append(&imp.printers);
         hint(&imp.printers_hint);
         imp.controls.append(&imp.printers_hint);
-
-        imp.controls
-            .append(&heading(tr(msg!("Print Queue")), false));
-        section(&imp.jobs, tr(msg!("Print Queue")));
-        imp.controls.append(&imp.jobs);
-        hint(&imp.jobs_hint);
-        imp.controls.append(&imp.jobs_hint);
+        self.build_scanners();
     }
 
     /// Finds CUPS and reads its state.
@@ -508,7 +530,7 @@ impl PrintersPage {
                 snapshot.set_user_default(imp.own_default.borrow().as_deref());
                 imp.snapshot.replace(Some(snapshot));
                 imp.missing.set_visible(false);
-                imp.controls.set_visible(true);
+                imp.add.set_visible(true);
                 self.render();
             }
             Err(error) => {
@@ -539,9 +561,9 @@ impl PrintersPage {
         }
     }
 
-    /// Shows the placeholder with `icon`, `title` and `text` instead of the page. It is only
-    /// built again when one of them changes, so every poll doesn't make a screen reader read
-    /// it again.
+    /// Shows the placeholder with `icon`, `title` and `text` instead of the printers; the
+    /// scanners stay. It is only built again when one of them changes, so every poll doesn't
+    /// make a screen reader read it again.
     pub(super) fn show_missing(&self, icon: &str, title: &str, text: &str) {
         let imp = self.imp();
         let wanted = (icon.to_owned(), title.to_owned(), text.to_owned());
@@ -554,15 +576,69 @@ impl PrintersPage {
             imp.missing.append(&placeholder);
             imp.missing_shown.replace(Some(wanted));
         }
-        imp.controls.set_visible(false);
         imp.missing.set_visible(true);
+        imp.add.set_visible(false);
+        imp.printers.set_visible(false);
+        imp.printers_hint.set_visible(false);
+        imp.note.set_visible(false);
+        for row in imp.rows.borrow().values() {
+            remove_row(&row.row);
+        }
+        imp.rows.borrow_mut().clear();
+        if let Some(details) = imp.details.take() {
+            details.window.destroy();
+        }
     }
 
-    /// Shows `message` at the top, or hides it when empty.
+    /// Shows `message` at the top, and in the open details, or hides it when empty.
     pub(super) fn show_error(&self, message: &str) {
         let error = &self.imp().error;
         error.set_text(message);
         error.set_visible(!message.is_empty());
+        if let Some(details) = self.imp().details.borrow().as_ref() {
+            details.show_error(message);
+        }
+    }
+
+    /// What runs on `key` (a printer's name, or `job:ID`), as its line says.
+    pub(super) fn running_on(&self, key: &str) -> Option<&'static str> {
+        self.imp().running.borrow().get(key).copied()
+    }
+
+    /// Shows the open details as the snapshot has their printer, or closes them once it is
+    /// gone.
+    pub(super) fn update_details(&self) {
+        let imp = self.imp();
+        let Some(details) = imp.details.borrow().clone() else {
+            return;
+        };
+        let snapshot = imp.snapshot.borrow();
+        let Some(snapshot) = snapshot.as_ref() else {
+            return;
+        };
+        if let Some(printer) = snapshot.printer(&details.name) {
+            let is_default = snapshot
+                .effective_default()
+                .is_some_and(|name| name.eq_ignore_ascii_case(&printer.name));
+            let jobs: Vec<_> = snapshot.jobs_of(&printer.name).collect();
+            details.update(printer, is_default, &jobs, self.running_on(&printer.name));
+        } else {
+            imp.details.replace(None);
+            details.window.destroy();
+        }
+    }
+
+    /// Forgets the details in `window`, which close.
+    pub(super) fn details_closed(&self, window: &gtk::Window) {
+        let imp = self.imp();
+        let open = imp
+            .details
+            .borrow()
+            .as_ref()
+            .is_some_and(|details| &details.window == window);
+        if open {
+            imp.details.replace(None);
+        }
     }
 }
 
@@ -580,18 +656,4 @@ pub(super) fn set_class(widget: &impl IsA<gtk::Widget>, class: &str, on: bool) {
     } else {
         widget.remove_css_class(class);
     }
-}
-
-/// The buttons in `widget`, depth first.
-fn all_buttons(widget: &gtk::Widget) -> Vec<gtk::Button> {
-    let mut buttons = Vec::new();
-    let mut child = widget.first_child();
-    while let Some(current) = child {
-        if let Some(button) = current.downcast_ref::<gtk::Button>() {
-            buttons.push(button.clone());
-        }
-        buttons.extend(all_buttons(&current));
-        child = current.next_sibling();
-    }
-    buttons
 }

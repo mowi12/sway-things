@@ -167,10 +167,16 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
       sign-in
 - **Not planned:** a full network editor (delegate)
 
-### Printers
+### Printers & Scanners
 
-CUPS owns the state: nothing is stored in `settings.toml` and nothing is generated. Printer names, models and job titles
-are attacker-controlled data.
+CUPS and SANE own the state: nothing is stored in `settings.toml` and nothing is generated. Printer and scanner names,
+models and job titles are attacker-controlled data. The page was _Printers_ before scanners joined it;
+`sway-things open printers` and `scanners` still open it.
+
+Printers:
+
+- [x] 🟢 One line per printer with its state in words, a _Default_ badge and small ink or toner bars; a click opens its
+      details (GNOME Settings' layout)
 
 - [x] 🟡 Printers with their state (Ready, Printing, Paused, Out of paper, Toner low, Offline, …), model and location
       (IPP to the local CUPS)
@@ -190,6 +196,23 @@ are attacker-controlled data.
 - [ ] 🟢 Live updates through a CUPS subscription instead of reading every 2 s
 - **Maybe:** 🟡 choosing drivers natively (system-config-printer's D-Bus service), classes, CUPS's server settings
 - **Not planned:** a driver editor (delegate)
+
+Scanners (scanning is basic, see [Vision and Scope](Vision-and-Scope.md#scope-by-sidebar-group)):
+
+- [x] 🟡 The scanners SANE finds (`scanimage -f`), with how they are connected (driverless on the network or on USB,
+      USB, network), read when the page comes on screen and with _Search Again_
+- [x] 🟡 Driverless scanners Avahi finds (`_uscan._tcp`, `_uscans._tcp`) that SANE doesn't list, marked
+- [x] 🟡 Hints for what is missing: scanimage (with the distribution's package), sane-airscan, ipp-usb for an
+      IPP-over-USB device, the access to a USB scanner (with the group); `sway-things doctor` reports the same
+- [x] 🔴 Scan into a file: source, colors, resolution and paper size from `scanimage -A`, a preview, PNG, JPEG or TIFF
+      as scanimage writes them, or PDF; progress and _Cancel_; errors in words with scanimage's output under _Details_;
+      a file chooser in Documents with a dated name; _Open_ and _Show in Folder_
+- [x] 🟡 Multi-page PDF: every sheet of the document feeder, and _Scan Another Page_; a PDF writer of our own (JPEG
+      pages as they are, black and white run-length encoded), so no img2pdf, ImageMagick or `scanimage --format=pdf`
+- [x] 🟢 _Open Document Scanner_ (or Skanpage, XSane) for the rest
+- [ ] 🟡 Choose the scan area on the preview
+- [ ] 🟡 Two-sided scans from a simplex feeder (turn the stack over), page order and rotation in the PDF
+- **Not planned:** OCR and image editing (scan apps); sharing scanners (saned)
 
 ---
 

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The dialogs of the Printers page: adding a printer (found automatically or by its address), a
-//! printer's details, and removing one.
+//! The dialogs of the printers besides their details: adding a printer, picked from those found
+//! automatically or by its address, and removing one.
 //!
 //! What printers announce about themselves is untrusted: it only ever goes into label text and
 //! dialog messages, which GTK shows as plain text.
@@ -14,11 +14,14 @@ use std::rc::Rc;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::printers::{
-    Bus, Cups, Discovered, Discovery, Error, Found, NewPrinter, Printer, device_uri, queue_name,
+    Bus, Cups, Discovered, Discovery, Error, Found, NewPrinter, device_uri, queue_name,
 };
 
-use crate::i18n::{msg, tr, trf};
+use crate::i18n::{Msg, msg, tr, trf};
 use crate::style;
+
+/// What the dialog says while it looks for printers.
+const SEARCHING: Msg = msg!("Looking for driverless printers on the network and on USB…");
 
 /// What a dialog calls once with its answer.
 type Done<T> = Box<dyn FnOnce(T)>;
@@ -47,7 +50,7 @@ struct AddState {
     /// The device URIs of the printers set up.
     known: Vec<String>,
     /// The rows of the printers found, by their key.
-    rows: RefCell<HashMap<String, (gtk::ListBoxRow, gtk::Button, Found)>>,
+    rows: RefCell<HashMap<String, (gtk::ListBoxRow, Found)>>,
     hint: gtk::Label,
     spinner: gtk::Spinner,
     busy: Cell<bool>,
@@ -69,22 +72,26 @@ impl AddDialog {
     ) -> Self {
         let window = dialog_window(parent, tr(msg!("Add Printer")));
         let content = content(&window, tr(msg!("Add Printer")));
-        let (found_heading, spinner) = searching_heading();
-        content.append(&found_heading);
+        let (searching, spinner, hint) = searching_line();
+        content.append(&searching);
         let found = gtk::ListBox::new();
         found.set_selection_mode(gtk::SelectionMode::None);
-        found.add_css_class("boxed-list");
-        found.update_property(&[gtk::accessible::Property::Label(tr(msg!(
-            "Found automatically"
-        )))]);
+        found.set_activate_on_single_click(true);
+        found.add_css_class("st-section");
+        found.add_css_class("st-printer-picker");
+        found.update_property(&[gtk::accessible::Property::Label(tr(msg!("Printers found")))]);
         found.set_visible(false);
-        content.append(&found);
-        let hint = dim(tr(msg!(
-            "Looking for driverless printers on the network and on USB…"
-        )));
-        content.append(&hint);
+        let scroller = gtk::ScrolledWindow::builder()
+            .child(&found)
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .propagate_natural_height(true)
+            .max_content_height(320)
+            .build();
+        content.append(&scroller);
 
-        content.append(&small_heading(tr(msg!("By address"))));
+        let by_address = small_heading(tr(msg!("Or add one by its address")));
+        by_address.set_margin_top(8);
+        content.append(&by_address);
         let address = gtk::Entry::builder()
             .placeholder_text("ipp://printer.local/ipp/print")
             .activates_default(true)
@@ -137,7 +144,6 @@ impl AddDialog {
         dialog.connect(&close);
         dialog.discover(bus);
         dialog.window.present();
-        dialog.address.grab_focus();
         dialog
     }
 
@@ -160,6 +166,12 @@ impl AddDialog {
         self.address.connect_activate(move |_| {
             if dialog.add_address.is_sensitive() {
                 dialog.add_by_address();
+            }
+        });
+        let dialog = self.clone();
+        self.found.connect_row_activated(move |_, row| {
+            if !dialog.state.busy.get() {
+                dialog.add_found(&row.widget_name());
             }
         });
         let dialog = self.clone();
@@ -238,77 +250,104 @@ impl AddDialog {
         });
     }
 
-    /// Adds or updates the row of `found`.
+    /// Adds or updates the line of `found`: its icon, its model, where it stands and how it is
+    /// connected, and _Added_ if a printer is set up at its address. A click adds it.
     fn show_found(&self, found: Found) {
+        let added = self.state.known.iter().any(|uri| found.is_at(uri));
         let mut rows = self.state.rows.borrow_mut();
-        if let Some((_, button, old)) = rows.get_mut(&found.key) {
+        if let Some((row, old)) = rows.get_mut(&found.key) {
             *old = found.clone();
-            button.set_sensitive(!self.state.busy.get());
+            row.set_sensitive(!added && !self.state.busy.get());
             return;
         }
         let title = gtk::Label::new(Some(found.title()));
+        title.add_css_class("st-row-title");
         let mut details = Vec::new();
         if !found.location.is_empty() {
             details.push(found.location.clone());
         }
-        if found.title() != found.name {
-            details.push(found.name.clone());
-        }
+        details.push(
+            tr(if found.local {
+                msg!("USB")
+            } else {
+                msg!("Network")
+            })
+            .to_owned(),
+        );
         let subtitle = gtk::Label::new(Some(&details.join(" · ")));
-        subtitle.set_visible(!details.is_empty());
         subtitle.add_css_class(style::DIM);
-        let added = self.state.known.iter().any(|uri| found.is_at(uri));
-        let button = gtk::Button::with_label(tr(if added { msg!("Added") } else { msg!("Add") }));
-        button.set_valign(gtk::Align::Center);
-        button.set_sensitive(!added && !self.state.busy.get());
-        button.update_property(&[gtk::accessible::Property::Label(&trf(
-            msg!("Add {printer}"),
-            &[("printer", &found.title())],
-        ))]);
-        let dialog = self.clone();
-        let key = found.key.clone();
-        button.connect_clicked(move |_| dialog.add_found(&key));
+        subtitle.add_css_class("st-device-subtitle");
         let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
         text.set_hexpand(true);
+        text.set_valign(gtk::Align::Center);
         for label in [&title, &subtitle] {
             label.set_xalign(0.0);
             label.set_ellipsize(gtk::pango::EllipsizeMode::End);
             text.append(label);
         }
         let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        line.set_margin_top(6);
-        line.set_margin_bottom(6);
-        line.set_margin_start(8);
-        line.set_margin_end(8);
+        line.add_css_class("st-device-row");
+        line.append(&super::rows::device_tile(if found.local {
+            "printer-symbolic"
+        } else {
+            "printer-network-symbolic"
+        }));
         line.append(&text);
-        line.append(&button);
+        if added {
+            let label = gtk::Label::new(Some(tr(msg!("Added"))));
+            label.add_css_class(style::DIM);
+            line.append(&label);
+        } else {
+            let sign = gtk::Image::from_icon_name("list-add-symbolic");
+            sign.set_accessible_role(gtk::AccessibleRole::Presentation);
+            line.append(&sign);
+        }
         let row = gtk::ListBoxRow::new();
         row.set_child(Some(&line));
-        row.set_activatable(false);
-        row.set_focusable(false);
+        row.set_activatable(true);
+        row.set_widget_name(&found.key);
+        row.set_sensitive(!added && !self.state.busy.get());
+        row.set_tooltip_text(Some(&trf(
+            msg!("Add {printer}"),
+            &[("printer", &found.title())],
+        )));
+        row.update_property(&[
+            gtk::accessible::Property::Label(&trf(
+                msg!("Add {printer}"),
+                &[("printer", &found.title())],
+            )),
+            gtk::accessible::Property::Description(&details.join(", ")),
+        ]);
         self.found.append(&row);
         self.found.set_visible(true);
-        self.state.hint.set_visible(false);
-        rows.insert(found.key.clone(), (row, button, found));
+        self.state.spinner.set_visible(false);
+        self.state
+            .hint
+            .set_text(tr(msg!("Click a printer to add it.")));
+        rows.insert(found.key.clone(), (row, found));
     }
 
-    /// Takes away the row of the printer with `key`.
+    /// Takes away the line of the printer with `key`.
     fn hide_found(&self, key: &str) {
         let mut rows = self.state.rows.borrow_mut();
-        if let Some((row, _, _)) = rows.remove(key) {
+        if let Some((row, _)) = rows.remove(key) {
             self.found.remove(&row);
         }
         self.found.set_visible(!rows.is_empty());
-        self.state.hint.set_visible(rows.is_empty());
+        if rows.is_empty() {
+            self.state.spinner.set_visible(true);
+            self.state.hint.set_text(tr(SEARCHING));
+        }
     }
 
-    fn add_found(&self, key: &str) {
+    /// Adds the printer found with `key`.
+    pub fn add_found(&self, key: &str) {
         let found = self
             .state
             .rows
             .borrow()
             .get(key)
-            .map(|(_, _, found)| found.clone());
+            .map(|(_, found)| found.clone());
         if let Some(found) = found {
             self.add(
                 found.title().to_owned(),
@@ -316,6 +355,17 @@ impl AddDialog {
                 found.location.clone(),
             );
         }
+    }
+
+    /// The printers listed, by title; for tests.
+    pub fn found_titles(&self) -> Vec<String> {
+        let rows = self.state.rows.borrow();
+        let mut titles: Vec<String> = rows
+            .values()
+            .map(|(_, found)| found.title().to_owned())
+            .collect();
+        titles.sort();
+        titles
     }
 
     fn add_by_address(&self) {
@@ -365,9 +415,9 @@ impl AddDialog {
     /// Makes the buttons insensitive while a printer is being added.
     fn set_busy(&self, busy: bool) {
         self.state.busy.set(busy);
-        for (_, button, found) in self.state.rows.borrow().values() {
+        for (row, found) in self.state.rows.borrow().values() {
             let added = self.state.known.iter().any(|uri| found.is_at(uri));
-            button.set_sensitive(!busy && !added);
+            row.set_sensitive(!busy && !added);
         }
         self.address.set_sensitive(!busy);
         self.add_address
@@ -396,132 +446,6 @@ fn close_on_escape(window: &gtk::Window, close: impl Fn() + 'static) {
         })),
     ));
     window.add_controller(escape);
-}
-
-/// What the details dialog changes of a printer: `None` for what stays.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DetailsChange {
-    /// The printer's name.
-    pub name: String,
-    /// Its new description.
-    pub info: Option<String>,
-    /// Its new location.
-    pub location: Option<String>,
-    /// Whether to share it now.
-    pub shared: Option<bool>,
-}
-
-/// Shows the details of `printer`, with its description, location and sharing to change; `done`
-/// gets the changes on _Save_, or `None` when the dialog closes any other way (_Cancel_,
-/// Escape, the compositor's close).
-pub fn details(
-    parent: Option<&gtk::Window>,
-    printer: &Printer,
-    done: impl FnOnce(Option<DetailsChange>) + 'static,
-) -> gtk::Window {
-    let window = dialog_window(parent, printer.title());
-    let content = content(&window, printer.title());
-    let grid = gtk::Grid::builder()
-        .column_spacing(16)
-        .row_spacing(6)
-        .margin_top(4)
-        .build();
-    let facts = [
-        (tr(msg!("Name")), printer.name.clone()),
-        (tr(msg!("Model")), printer.model.clone()),
-        (tr(msg!("Address")), printer.device_uri.clone()),
-    ];
-    for (row, (label, value)) in (0..).zip(facts) {
-        let name = gtk::Label::new(Some(label));
-        name.set_xalign(0.0);
-        name.set_yalign(0.0);
-        name.add_css_class(style::DIM);
-        let value = gtk::Label::new(Some(&value));
-        value.set_xalign(0.0);
-        value.set_selectable(true);
-        value.set_wrap(true);
-        value.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        value.set_hexpand(true);
-        value.update_relation(&[gtk::accessible::Relation::LabelledBy(&[name.upcast_ref()])]);
-        grid.attach(&name, 0, row, 1, 1);
-        grid.attach(&value, 1, row, 1, 1);
-    }
-    content.append(&grid);
-    let info = labeled_entry(&content, tr(msg!("Description")), &printer.info);
-    let location = labeled_entry(&content, tr(msg!("Location")), &printer.location);
-    let shared = gtk::Switch::builder()
-        .active(printer.shared)
-        .valign(gtk::Align::Center)
-        .build();
-    let share_label = gtk::Label::new(Some(tr(msg!("Share on the network"))));
-    share_label.set_xalign(0.0);
-    share_label.set_hexpand(true);
-    shared.update_relation(&[gtk::accessible::Relation::LabelledBy(&[
-        share_label.upcast_ref()
-    ])]);
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    line.set_margin_top(4);
-    line.append(&share_label);
-    line.append(&shared);
-    content.append(&line);
-    content.append(&dim(tr(msg!(
-        "Other computers see a shared printer while sharing is on for CUPS as a whole."
-    ))));
-
-    let done: Rc<RefCell<Option<Done<Option<DetailsChange>>>>> =
-        Rc::new(RefCell::new(Some(Box::new(done))));
-    let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    buttons.set_homogeneous(true);
-    buttons.set_margin_top(8);
-    let cancel = gtk::Button::with_label(tr(msg!("Cancel")));
-    let save = gtk::Button::with_label(tr(msg!("Save")));
-    save.add_css_class("suggested-action");
-    buttons.append(&cancel);
-    buttons.append(&save);
-    content.append(&buttons);
-    window.set_default_widget(Some(&save));
-    // Every way of closing it answers `done` first: the window's `destroy` signal only comes
-    // once nothing holds the window any more.
-    let cancel_answer = {
-        let done = Rc::clone(&done);
-        let window = window.downgrade();
-        move || {
-            if let Some(done) = done.take() {
-                done(None);
-            }
-            if let Some(window) = window.upgrade() {
-                window.destroy();
-            }
-        }
-    };
-    let closing = Rc::clone(&done);
-    window.connect_close_request(move |_| {
-        if let Some(done) = closing.take() {
-            done(None);
-        }
-        glib::Propagation::Proceed
-    });
-    let on_escape = cancel_answer.clone();
-    close_on_escape(&window, on_escape);
-    cancel.connect_clicked(move |_| cancel_answer());
-    let win = window.clone();
-    let before = printer.clone();
-    save.connect_clicked(move |_| {
-        let changed = |new: String, old: &str| (new != old).then_some(new);
-        let change = DetailsChange {
-            name: before.name.clone(),
-            info: changed(info.text().trim().to_owned(), &before.info),
-            location: changed(location.text().trim().to_owned(), &before.location),
-            shared: (shared.is_active() != before.shared).then_some(shared.is_active()),
-        };
-        if let Some(done) = done.take() {
-            let any = change.info.is_some() || change.location.is_some() || change.shared.is_some();
-            done(any.then_some(change));
-        }
-        win.destroy();
-    });
-    window.present();
-    window
 }
 
 /// Asks whether to remove the printer titled `title`.
@@ -584,15 +508,17 @@ fn content(window: &gtk::Window, title: &str) -> gtk::Box {
     content
 }
 
-/// The heading of the printers found, with the spinner that says the search runs.
-fn searching_heading() -> (gtk::Box, gtk::Spinner) {
+/// The line above the printers found: a spinner while none is found yet, and what to do.
+fn searching_line() -> (gtk::Box, gtk::Spinner, gtk::Label) {
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    line.append(&small_heading(tr(msg!("Found automatically"))));
     let spinner = gtk::Spinner::new();
     spinner.set_spinning(true);
     spinner.update_property(&[gtk::accessible::Property::Label(tr(msg!("Searching")))]);
     line.append(&spinner);
-    (line, spinner)
+    let hint = dim(tr(SEARCHING));
+    hint.set_hexpand(true);
+    line.append(&hint);
+    (line, spinner, hint)
 }
 
 fn small_heading(text: &str) -> gtk::Label {
@@ -611,21 +537,6 @@ fn dim(text: &str) -> gtk::Label {
     label.set_max_width_chars(50);
     label.add_css_class(style::DIM);
     label
-}
-
-/// An entry labeled `label` in `content`, holding `text`.
-fn labeled_entry(content: &gtk::Box, label: &str, text: &str) -> gtk::Entry {
-    let label = gtk::Label::new(Some(label));
-    label.set_xalign(0.0);
-    label.add_css_class(style::DIM);
-    let entry = gtk::Entry::builder()
-        .text(text)
-        .activates_default(true)
-        .build();
-    entry.update_relation(&[gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()])]);
-    content.append(&label);
-    content.append(&entry);
-    entry
 }
 
 #[cfg(test)]

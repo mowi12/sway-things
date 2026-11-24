@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Driverless printers around: what Avahi finds of the services `_ipp._tcp` and `_ipps._tcp`, on
-//! the network and on USB (ipp-usb announces IPP-over-USB printers on this computer).
+//! Driverless printers and scanners around: what Avahi finds of the services `_ipp._tcp` and
+//! `_ipps._tcp` (printers) or `_uscan._tcp` and `_uscans._tcp` (eSCL scanners), on the network
+//! and on USB (ipp-usb announces IPP-over-USB devices on this computer).
 //!
 //! Avahi does the looking, on the system bus; Sway Things never contacts a printer. A printer
 //! found becomes a device URI made of its service name (`ipps://Name._ipps._tcp.local/`), which
@@ -31,7 +32,9 @@ const SERVER: &str = "org.freedesktop.Avahi.Server";
 /// The interface of a service browser.
 const BROWSER: &str = "org.freedesktop.Avahi.ServiceBrowser";
 /// The service types of IPP printers: secure first.
-const TYPES: [&str; 2] = ["_ipps._tcp", "_ipp._tcp"];
+const PRINTERS: [&str; 2] = ["_ipps._tcp", "_ipp._tcp"];
+/// The service types of eSCL scanners: secure first.
+const SCANNERS: [&str; 2] = ["_uscans._tcp", "_uscan._tcp"];
 /// Any interface, any protocol.
 const UNSPEC: i32 = -1;
 /// `AVAHI_LOOKUP_NO_ADDRESS`: resolve the TXT record only.
@@ -62,6 +65,8 @@ pub struct Found {
     pub resource: String,
     /// Whether it is reached over IPPS (encrypted).
     pub secure: bool,
+    /// Whether this computer announces it: a device on USB that ipp-usb makes reachable.
+    pub local: bool,
 }
 
 impl Found {
@@ -118,6 +123,8 @@ type Resolving = Pin<Box<dyn Future<Output = Resolved>>>;
 /// What Avahi finds, for as long as it lives. Dropping it closes its own connection to the bus,
 /// which makes Avahi stop looking.
 pub struct Discovery {
+    /// Whether it looks for printers, else for scanners.
+    printers: bool,
     connection: Connection,
     stream: MessageStream,
     browsers: Vec<OwnedObjectPath>,
@@ -150,6 +157,20 @@ impl Discovery {
     ///
     /// [`Error::Unavailable`] if Avahi isn't running there.
     pub async fn start(bus: &Bus) -> Result<Self, Error> {
+        Self::start_for(bus, true).await
+    }
+
+    /// Starts looking for driverless scanners (eSCL) through Avahi on `bus`. Unlike printers,
+    /// those this computer announces stay: they are USB devices that ipp-usb makes reachable.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Unavailable`] if Avahi isn't running there.
+    pub async fn scanners(bus: &Bus) -> Result<Self, Error> {
+        Self::start_for(bus, false).await
+    }
+
+    async fn start_for(bus: &Bus, printers: bool) -> Result<Self, Error> {
         let unavailable = |error: &dyn std::fmt::Display| {
             Error::Unavailable(Text::new(msg!("Avahi isn't running ({error})")).arg("error", error))
         };
@@ -173,7 +194,7 @@ impl Discovery {
             .await
             .map_err(|error| unavailable(&error))?;
         let mut browsers = Vec::new();
-        for kind in TYPES {
+        for kind in if printers { PRINTERS } else { SCANNERS } {
             let reply = connection
                 .call_method(
                     Some(SERVICE),
@@ -191,6 +212,7 @@ impl Discovery {
             browsers.push(path);
         }
         Ok(Self {
+            printers,
             connection,
             stream,
             browsers,
@@ -272,7 +294,7 @@ impl Discovery {
             announcements.insert(announcement);
             // The secure address wins.
             if let Some(found) = self.found.get_mut(&name) {
-                if kind == "_ipps._tcp" && !found.secure {
+                if is_secure(&kind) && !found.secure {
                     if let Some(uri) = service_uri(&name, &kind, &domain) {
                         found.secure = true;
                         found.uri = uri;
@@ -304,10 +326,11 @@ impl Discovery {
         // The queues of our own CUPS: adding one would make a queue that prints to itself.
         // Without the TXT record they can't be told from a printer on USB (ipp-usb), so a
         // service of this computer that doesn't answer is left out too.
-        let own = match &resolved {
-            Some((_, txt)) => local && txt.contains_key("printer-type"),
-            None => local,
-        };
+        let own = self.printers
+            && match &resolved {
+                Some((_, txt)) => local && txt.contains_key("printer-type"),
+                None => local,
+            };
         if own {
             self.announced.remove(&key);
             if self.ignored.len() < MAX_PRINTERS {
@@ -318,7 +341,7 @@ impl Discovery {
         // The secure announcement, else any.
         let Some((_, _, kind, domain)) = announcements
             .iter()
-            .find(|(_, _, kind, _)| kind == "_ipps._tcp")
+            .find(|(_, _, kind, _)| is_secure(kind))
             .or_else(|| announcements.iter().next())
             .cloned()
         else {
@@ -337,7 +360,8 @@ impl Discovery {
             uri,
             host,
             resource: txt.get("rp").cloned().unwrap_or_default(),
-            secure: kind == "_ipps._tcp",
+            secure: is_secure(&kind),
+            local,
         };
         self.pending.push_back(Discovered::Added(found.clone()));
         self.found.insert(key, found);
@@ -365,6 +389,11 @@ enum Event {
     Message(zbus::Message),
     /// Avahi's signals ended.
     Gone,
+}
+
+/// Whether services of the type `kind` are reached encrypted: `_ipps._tcp`, `_uscans._tcp`.
+fn is_secure(kind: &str) -> bool {
+    kind.ends_with("s._tcp")
 }
 
 /// The host name and the TXT record of a service, keys in lowercase; `None` if Avahi can't
@@ -462,6 +491,7 @@ mod tests {
             host: "acme.local".to_owned(),
             resource: "ipp/print".to_owned(),
             secure: true,
+            local: false,
         };
         assert!(found.is_at("ipps://Acme._ipps._tcp.local/"));
         assert!(found.is_at("ipps://acme.local.:443/ipp/print"));

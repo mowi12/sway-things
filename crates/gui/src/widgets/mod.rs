@@ -53,7 +53,7 @@ pub use page_view::{MAXIMUM_WIDTH, PageView};
 pub use panes::Panes;
 pub use place::Place;
 pub use placeholder::Placeholder;
-pub use printers::{PrintersPage, Service as PrintService};
+pub use printers::{PrintersPage, ScanDialog, ScanService, Service as PrintService};
 pub use row_layout::RowLayout;
 pub use scroll_line::{FULL_OFFSET, ScrollLine, scroller_in};
 pub use setting_row::SettingRow;
