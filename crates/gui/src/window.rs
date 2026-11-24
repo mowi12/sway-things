@@ -15,7 +15,8 @@ use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
 use crate::widgets::{
     BluetoothBus, BluetoothPage, GeneratedWindow, NetworkBus, NetworkPage, PageView, Panes,
-    Placeholder, PrintService, PrintersPage, ScanService, Sidebar, SoundPage, SoundServer, Welcome,
+    Placeholder, PrintService, PrintersPage, RegionTimePage, ScanService, Sidebar, SoundPage,
+    SoundServer, Welcome,
 };
 
 /// The width of the sidebar, in pixels.
@@ -73,6 +74,8 @@ mod imp {
         pub network_bus: RefCell<NetworkBus>,
         /// Where the Sound page finds the sound server.
         pub sound_server: RefCell<SoundServer>,
+        /// Where Region & Time finds systemd-timedated.
+        pub region_bus: RefCell<sway_things_core::region::Bus>,
         /// Where Printers & Scanners finds CUPS.
         pub print_service: RefCell<PrintService>,
         /// Where Printers & Scanners finds SANE.
@@ -135,6 +138,10 @@ impl Window {
         window.imp().bluetooth_bus.replace(BluetoothBus::Off);
         window.imp().network_bus.replace(NetworkBus::Off);
         window.imp().sound_server.replace(SoundServer::Off);
+        window
+            .imp()
+            .region_bus
+            .replace(sway_things_core::region::Bus::Off);
         window.imp().print_service.replace(PrintService::Off);
         window.imp().scan_service.replace(ScanService::Off);
         window.build(model);
@@ -851,6 +858,12 @@ impl Window {
         self.imp().sound_server.replace(server);
     }
 
+    /// Points Region & Time at another bus than the system bus, for tests. Takes effect when the
+    /// page is built next.
+    pub fn use_region_bus(&self, bus: sway_things_core::region::Bus) {
+        self.imp().region_bus.replace(bus);
+    }
+
     /// Points Printers & Scanners at another CUPS than this computer's, for tests. Takes effect
     /// when the page is built next.
     pub fn use_print_service(&self, service: PrintService) {
@@ -919,6 +932,11 @@ impl Window {
                 });
             }
             return live_view(page, &body, body.advanced_button());
+        }
+        // Live state from timedated: nothing of it comes from the model.
+        if page == Page::RegionTime {
+            let body = RegionTimePage::new(&self.imp().region_bus.borrow());
+            return live_view(page, &body, None);
         }
         // Live state from CUPS and SANE: nothing of it comes from the model.
         if page == Page::PrintersScanners {

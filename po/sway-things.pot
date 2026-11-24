@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 09:25+0100\n"
+"POT-Creation-Date: 2026-11-25 09:27+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4324,7 +4324,7 @@ msgstr ""
 msgid "name"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/core/src/registry/page.rs
 msgid "date"
 msgstr ""
 
@@ -5911,7 +5911,7 @@ msgstr ""
 msgid "sunrise"
 msgstr ""
 
-#: crates/core/src/registry/night_light.rs
+#: crates/core/src/registry/night_light.rs crates/core/src/registry/page.rs
 msgid "time"
 msgstr ""
 
@@ -5930,7 +5930,7 @@ msgstr ""
 msgid "coordinates"
 msgstr ""
 
-#: crates/core/src/registry/night_light.rs
+#: crates/core/src/registry/night_light.rs crates/core/src/registry/page.rs
 msgid "time zone"
 msgstr ""
 
@@ -6761,6 +6761,22 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "SANE"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "timezone"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "clock"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "NTP"
+msgstr ""
+
+#: crates/core/src/registry/page.rs
+msgid "synchronize"
 msgstr ""
 
 #: crates/core/src/registry/read.rs
@@ -8644,7 +8660,7 @@ msgstr ""
 #: crates/gui/src/widgets/page_view.rs
 #: crates/gui/src/widgets/printers/details.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
-#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/printers/scan.rs crates/gui/src/widgets/region/mod.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 #: crates/gui/src/widgets/wallpaper/collections.rs
 #: crates/gui/src/widgets/wallpaper/preview.rs crates/gui/src/window.rs
@@ -8765,11 +8781,13 @@ msgid "More actions"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
-#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/region/mod.rs
+#: crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
+#: crates/gui/src/widgets/region/mod.rs
 msgid "Copy the command"
 msgstr ""
 
@@ -9332,7 +9350,8 @@ msgstr ""
 
 #: crates/gui/src/widgets/displays/kanshi_note.rs
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/notifications.rs
-#: crates/gui/src/widgets/page_view/about.rs crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/page_view/about.rs
+#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
 msgid "Copied"
 msgstr ""
 
@@ -10977,6 +10996,120 @@ msgstr ""
 #. TRANSLATORS: The level of a supply of a printer that isn't known.
 #: crates/gui/src/widgets/printers/supplies.rs
 msgid "Level unknown"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs crates/gui/src/widgets/region/time.rs
+msgid "Date & time"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+msgid "Date"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+msgid "Hour"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+msgid "Minute"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+msgid "Time"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+#, rust-format
+msgid "In the time zone {zone}"
+msgstr ""
+
+#: crates/gui/src/widgets/region/clock.rs
+msgid "Set"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Date & Time"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "The system clock isn't available"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid ""
+"Changing the time zone and the clock needs systemd-timedated, which this "
+"system doesn't have."
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Change…"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Set…"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs crates/gui/src/widgets/region/zones.rs
+msgid "Time zone"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Change the time zone"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Set time automatically"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Set the date and time"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Not set"
+msgstr ""
+
+#. TRANSLATORS: The time zone row: the city and region, the abbreviation and
+#. the offset, such as "Berlin, Europe · CET (UTC+01:00)".
+#: crates/gui/src/widgets/region/time.rs
+#, rust-format
+msgid "{place} · {abbreviation} ({offset})"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "No time service is installed, such as systemd-timesyncd or chrony"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Off: the clock keeps the time it is set to"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Synchronized with a time server"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Not synchronized yet"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "Turn off Set time automatically first"
+msgstr ""
+
+#: crates/gui/src/widgets/region/time.rs
+msgid "This date and time doesn't exist."
+msgstr ""
+
+#: crates/gui/src/widgets/region/zones.rs
+msgid "Search for a city or region"
+msgstr ""
+
+#: crates/gui/src/widgets/region/zones.rs
+msgid "Search time zones"
+msgstr ""
+
+#: crates/gui/src/widgets/region/zones.rs
+msgid "No time zone matches the search"
 msgstr ""
 
 #: crates/gui/src/widgets/search_button.rs
