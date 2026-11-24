@@ -403,7 +403,8 @@ swaybar via our sway include.
 - [x] 🟡 Time zone, NTP on/off, the clock by hand while NTP is off (timedated D-Bus, polkit)
 - [x] 🟡 Automatic time zone from geoclue's location, off by default (at login through a hook, and while the page is
       open)
-- [ ] 🟡 System language and formats (localed; `LANG`/`LC_*` in our `environment.d` file)
+- [x] 🟡 Language and formats for the user (`LANG`/`LC_*` in our `environment.d` file, from the installed locales, with
+      a preview), and the system's through localed
 - ~~🟢 Printers: launch `system-config-printer` (delegate)~~: the Printers page does it, under Devices
 - **Maybe:** 🟡 user avatar, full name, password (AccountsService)
 

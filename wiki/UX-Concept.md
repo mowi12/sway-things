@@ -743,8 +743,8 @@ Day temperature      ─────────────────●  [ 6
 ### Region & Time
 
 The Region & Time page shows systemd-timedated's live state in its _Date & Time_ section; only the automatic time zone
-is stored by Sway Things, the rest has no reset and no indicators. Search finds the page by time zone, clock, date, time
-and NTP.
+is stored by Sway Things there, the rest has no reset and no indicators. Search finds the page by time zone, clock,
+date, time and NTP.
 
 - **Time zone:** the zone as city and region, its abbreviation and offset ("Berlin, Europe · CET (UTC+01:00)") and
   _Change…_, which opens a dialog with a search field (every word of the search in the name, city or region) and the
@@ -769,6 +769,29 @@ and NTP.
   same in a terminal, with _Copy_.
 - **Not available:** without timedated (a system without systemd), a placeholder takes the section's place and says what
   is missing; the section looks again every 5 s. A change made elsewhere (`timedatectl`) shows at once.
+
+The _Language & Formats_ section below it holds two stored settings, for the user only, which apply after the next login
+(rows with reset and indicators like any stored setting). Search finds them by language, locale, `LANG`, `LC_*`, date
+format, currency, paper size and units.
+
+- **Notice:** at the top, the Environment page's notice when the session doesn't read environment.d, with the line to
+  copy.
+- **Language:** a drop-down with a search of the installed UTF-8 locales by their names in the user's language and how
+  they are written ("German (Germany) · de_DE.UTF-8"); the first entry, _System default (…)_, names the system's
+  language.
+- **Formats:** the same list, its first entry _Same as language (…)_; set apart, it sets every category of formats but
+  the messages.
+- **Set again elsewhere:** below the language or the formats, a note names the later environment.d file and line that
+  sets one of their variables again, as below the switches of the Environment page; hidden while none does.
+- **Preview:** the formats in effect after the next login (the formats, else the language, else the system's): a date
+  and a time of now, a number, an amount of money, the paper size and the units.
+- **Missing a language:** an info notice below the list says that only installed languages are listed, with the command
+  that adds more on the distribution on a line of its own and _Copy_ (zypper, dnf, apt's `dpkg-reconfigure locales`,
+  Arch's and Void's lists of locales); elsewhere it points to the distribution's documentation.
+- **System Default…:** a flat button in the section's heading opens a dialog with the system's language and formats
+  (every user, the login screen, the console) and _Set_, which goes through localed and polkit. A refusal shows below
+  the section with the `localectl set-locale` command and _Copy_. Without localed the button is insensitive and its
+  tooltip says why.
 
 ### Environment
 
