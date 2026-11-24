@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 14:42+0100\n"
+"POT-Creation-Date: 2026-11-25 15:22+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -7330,7 +7330,7 @@ msgstr ""
 msgid "expected one of {choices}, got {word}"
 msgstr ""
 
-#: crates/core/src/registry/region.rs
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
 msgid "Language & Formats"
 msgstr ""
 
@@ -7357,7 +7357,7 @@ msgstr ""
 msgid "travel"
 msgstr ""
 
-#: crates/core/src/registry/region.rs
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
 msgid "Language"
 msgstr ""
 
@@ -7365,7 +7365,7 @@ msgstr ""
 msgid "The language of apps, for you only"
 msgstr ""
 
-#: crates/core/src/registry/region.rs
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
 msgid "System default"
 msgstr ""
 
@@ -7385,7 +7385,7 @@ msgstr ""
 msgid "display language"
 msgstr ""
 
-#: crates/core/src/registry/region.rs
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
 msgid "Formats"
 msgstr ""
 
@@ -7393,7 +7393,7 @@ msgstr ""
 msgid "Dates, times, numbers, money, paper size and units, for you only"
 msgstr ""
 
-#: crates/core/src/registry/region.rs
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
 msgid "Same as language"
 msgstr ""
 
@@ -9419,12 +9419,14 @@ msgid "More actions"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
-#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/region/mod.rs
-#: crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/notifications.rs
+#: crates/gui/src/widgets/region/language.rs
+#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
+#: crates/gui/src/widgets/region/language.rs
 #: crates/gui/src/widgets/region/mod.rs
 msgid "Copy the command"
 msgstr ""
@@ -9991,6 +9993,7 @@ msgstr ""
 #: crates/gui/src/widgets/displays/kanshi_note.rs
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/notifications.rs
 #: crates/gui/src/widgets/page_view/about.rs
+#: crates/gui/src/widgets/region/language.rs
 #: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
 msgid "Copied"
 msgstr ""
@@ -11723,6 +11726,7 @@ msgid "Show in Folder"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Preview"
 msgstr ""
 
@@ -11903,6 +11907,7 @@ msgid "Date & time"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Date"
 msgstr ""
 
@@ -11915,6 +11920,7 @@ msgid "Minute"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Time"
 msgstr ""
 
@@ -11924,7 +11930,72 @@ msgid "In the time zone {zone}"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Set"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Number"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Money"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Paper"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Units"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "System Default…"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"The language and formats of every user, the login screen and the console"
+msgstr ""
+
+#. TRANSLATORS: An installed locale in the list: its name and how
+#. it is written, such as "German (Germany) · de_DE.UTF-8".
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "{name} · {locale}"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "System default ({language})"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "Same as language ({language})"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"Only installed languages are listed. To add more, run this in a terminal:"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"Only installed languages are listed. Your distribution's documentation says "
+"how to add more."
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "System Language & Formats"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"For every user, the login screen and the console, in /etc/locale.conf. Your "
+"own choice on this page wins over it. Changing it needs an administrator's "
+"password."
 msgstr ""
 
 #: crates/gui/src/widgets/region/time.rs

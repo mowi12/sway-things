@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Region & Time page: the time zone, automatic time and the clock, live from
-//! systemd-timedated, and the automatic time zone from geoclue's location.
+//! systemd-timedated, and the automatic time zone from geoclue's location; the user's language
+//! and formats, and the system's through systemd-localed ([`language`]).
 //!
 //! Of the Date & Time section, Sway Things only stores whether the time zone follows the
 //! location (`region.automatic_timezone`); the rest is timedated's own. Every change
@@ -12,6 +13,7 @@
 //! shown as plain label text.
 
 mod clock;
+mod language;
 mod time;
 mod zones;
 
@@ -24,6 +26,7 @@ use sway_things_core::region::Bus;
 use sway_things_core::registry::Registry;
 use sway_things_core::registry::region::AUTOMATIC_TIMEZONE;
 
+use self::language::LanguageSection;
 use self::time::TimeSection;
 use crate::i18n::{msg, tr};
 use crate::model::Model;
@@ -37,6 +40,7 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
+    use super::language::LanguageSection;
     use super::time::TimeSection;
 
     #[derive(Default)]
@@ -44,6 +48,7 @@ mod imp {
         /// The only child: the sections, one below the other.
         pub content: gtk::Box,
         pub(super) time: OnceCell<TimeSection>,
+        pub(super) language: OnceCell<LanguageSection>,
         /// The rows of the settings the page stores.
         pub rows: RefCell<Vec<crate::widgets::SettingRow>>,
         /// The automatic time zone as last followed; `None` before the first time.
@@ -106,14 +111,15 @@ mod imp {
 }
 
 glib::wrapper! {
-    /// The time zone, automatic time and the clock, live from timedated.
+    /// The time zone, automatic time and the clock, live from timedated; the language and
+    /// formats.
     pub struct RegionTimePage(ObjectSubclass<imp::RegionTimePage>)
         @extends gtk::Widget,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl RegionTimePage {
-    /// The page with timedated (and geoclue) on `bus`, which it connects to right away and
+    /// The page with timedated, localed (and geoclue) on `bus`, which it connects to right away and
     /// follows, and with the rows of the settings it stores from `model`, if there is one.
     pub fn new(bus: &Bus, model: Option<&Model>) -> Self {
         let page: Self = glib::Object::new();
@@ -127,6 +133,9 @@ impl RegionTimePage {
             page.imp().rows.borrow_mut().push(row);
         }
         let _ = page.imp().time.set(time);
+        let language = LanguageSection::new(&page.imp().content, model, bus);
+        page.imp().rows.borrow_mut().extend(language.rows());
+        let _ = page.imp().language.set(language);
         page
     }
 
@@ -149,6 +158,11 @@ impl RegionTimePage {
             time.forget_detect();
             self.imp().resume.set(false);
         }
+    }
+
+    /// The Language & Formats section, for tests.
+    pub fn language_section(&self) -> Option<&LanguageSection> {
+        self.imp().language.get()
     }
 
     /// The Date & Time section, for tests.
