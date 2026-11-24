@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Region & Time page's services: the system clock through systemd-timedated
-//! ([`Timedate`]), and the time zones with their names and offsets from the system's tzdata
-//! ([`zones`]).
+//! ([`Timedate`]), the time zones with their names and offsets from the system's tzdata
+//! ([`zones`]), and the automatic time zone from the location geoclue finds ([`geo`]).
 //!
 //! Nothing here is stored by Sway Things: timedated owns the time zone, automatic time (NTP) and
 //! the clock. Every change is a D-Bus call that polkit guards (`auth_admin_keep` by default): the
@@ -11,10 +11,15 @@
 //! polkit refuses, [`Error::command`] gives the `timedatectl` command that does the same in a
 //! terminal, where polkit asks through `pkttyagent`.
 
+pub mod geo;
 mod timedate;
 pub mod zones;
 
 #[cfg(any(test, feature = "test-support"))]
+#[allow(
+    missing_docs,
+    reason = "zbus's interface macro adds an undocumented method for geoclue's signal"
+)]
 pub mod stand_in;
 
 use std::fmt;

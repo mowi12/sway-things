@@ -9,7 +9,7 @@ FROM ghcr.io/void-linux/void-glibc@sha256:7de4630b6d3e0a76e9e68771837c15fc179e32
 
 RUN xbps-install -Syu xbps \
   && xbps-install -Syu bash shadow swayfx kanshi mesa-dri libcap-progs rust cargo gcc gtk4-devel gtk4-layer-shell-devel pulseaudio-devel pkg-config dejavu-fonts-ttf dbus python3-dbusmock \
-    pipewire wireplumber pulseaudio-utils cups cups-filters sane \
+    pipewire wireplumber pulseaudio-utils cups cups-filters sane tzdata \
   && xbps-remove -O \
   && setcap -r /usr/bin/sway \
   && chmod 755 /usr/bin/cupsd \

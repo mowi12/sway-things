@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 09:27+0100\n"
+"POT-Creation-Date: 2026-11-25 09:28+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3049,6 +3049,38 @@ msgstr ""
 msgid ""
 "Type a host name, an IP address, or an address starting with ipp:// or "
 "ipps://"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "The location isn't available: geoclue isn't installed or doesn't run"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+#, rust-format
+msgid ""
+"geoclue doesn't let Sway Things know the location. Allow it once with the "
+"file {file}, which the command below creates (it asks for your password)."
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+#, rust-format
+msgid "The location isn't known: {reason}"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue went away"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue found no location within 30 seconds"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue gave no coordinates"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "tzdata lists no time zone for the location"
 msgstr ""
 
 #: crates/core/src/region/mod.rs
