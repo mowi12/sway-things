@@ -12,6 +12,7 @@
 //! terminal, where polkit asks through `pkttyagent`.
 
 pub mod geo;
+pub mod locales;
 mod timedate;
 pub mod zones;
 

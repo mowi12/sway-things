@@ -3239,6 +3239,46 @@ msgstr ""
 msgid "tzdata lists no time zone for the location"
 msgstr ""
 
+#: crates/core/src/region/locales.rs
+msgid "Plain (C locale, English without formats)"
+msgstr ""
+
+#. TRANSLATORS: A locale's name: its language and its country, such as
+#. "German (Germany)".
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{language} ({country})"
+msgstr ""
+
+#. TRANSLATORS: A locale's name: its language, its country and a variant, such as
+#. "Serbian (Serbia, latin)".
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{language} ({country}, {variant})"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "US customary (inches, pounds)"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "Metric (centimeters, kilograms)"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "Letter"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a version that couldn't be found.
+#: crates/core/src/region/locales.rs crates/gui/src/widgets/page_view/about.rs
+msgid "Unknown"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{width} × {height} mm"
+msgstr ""
+
 #: crates/core/src/region/mod.rs
 #, rust-format
 msgid "The system clock can't be changed: {reason}"
@@ -11200,11 +11240,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/page_view/about.rs
 msgid "About"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a version that couldn't be found.
-#: crates/gui/src/widgets/page_view/about.rs
-msgid "Unknown"
 msgstr ""
 
 #. TRANSLATORS: A value in the About section: a service that isn't running.

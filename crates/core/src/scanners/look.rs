@@ -78,6 +78,20 @@ impl Family {
         }
     }
 
+    /// The family of this system.
+    pub fn read() -> Self {
+        Self::read_at(Path::new("/"))
+    }
+
+    /// The family of the installation below `root`, from its os-release.
+    pub fn read_at(root: &Path) -> Self {
+        ["etc/os-release", "usr/lib/os-release"]
+            .iter()
+            .find_map(|file| fs::read_to_string(root.join(file)).ok())
+            .map(|text| Self::from_os_release(&text))
+            .unwrap_or_default()
+    }
+
     /// The package with scanimage.
     pub fn scanimage_package(self) -> &'static str {
         match self {
@@ -130,11 +144,7 @@ impl Look {
 
     /// Looks at the installation below `root`, with programs looked up in `path`.
     pub fn read_at(root: &Path, path: Option<&OsStr>) -> Self {
-        let family = ["etc/os-release", "usr/lib/os-release"]
-            .iter()
-            .find_map(|file| fs::read_to_string(root.join(file)).ok())
-            .map(|text| Family::from_os_release(&text))
-            .unwrap_or_default();
+        let family = Family::read_at(root);
         let ipp_usb = find_program("ipp-usb", path).is_some()
             || ["usr/sbin/ipp-usb", "usr/bin/ipp-usb"]
                 .iter()
