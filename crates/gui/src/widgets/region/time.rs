@@ -11,7 +11,7 @@ use std::time::Duration;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::region::zones::{LocalTime, Zone};
-use sway_things_core::region::{Bus, Change, Clock, Error, Timedate};
+use sway_things_core::region::{Bus, Change, Clock, Error, Timedate, geo};
 
 use super::{Help, subtitle};
 use crate::i18n::{msg, tr, trf};
@@ -44,6 +44,8 @@ struct Inner {
     time_button: gtk::Button,
     help: Help,
     timedate: RefCell<Option<Timedate>>,
+    /// The bus of timedated, where geoclue is too.
+    bus: RefCell<Bus>,
     clock: RefCell<Option<Clock>>,
     /// Set while a change waits for timedated (and polkit), so the controls wait too.
     busy: Cell<bool>,
@@ -53,12 +55,19 @@ struct Inner {
     updating: Cell<bool>,
     /// Updates the clock's row at every full second while the page is on screen.
     tick: RefCell<Option<glib::SourceId>>,
+    /// The automatic time zone's lookup while it runs.
+    detecting: RefCell<Option<glib::JoinHandle<()>>>,
+    /// Why the automatic time zone last set nothing, as the help shows it.
+    detect_help: RefCell<Option<String>>,
     tasks: RefCell<Vec<glib::JoinHandle<()>>>,
 }
 
 impl Drop for Inner {
     fn drop(&mut self) {
         for task in self.tasks.take() {
+            task.abort();
+        }
+        if let Some(task) = self.detecting.take() {
             task.abort();
         }
         if let Some(tick) = self.tick.take() {
@@ -94,11 +103,14 @@ impl TimeSection {
             time_button: gtk::Button::with_label(tr(msg!("Set…"))),
             help: Help::new(),
             timedate: RefCell::default(),
+            bus: RefCell::default(),
             clock: RefCell::default(),
             busy: Cell::new(false),
             wanted_ntp: Cell::new(None),
             updating: Cell::new(false),
             tick: RefCell::default(),
+            detecting: RefCell::default(),
+            detect_help: RefCell::default(),
             tasks: RefCell::default(),
         };
         let section = Self {
@@ -176,6 +188,7 @@ impl TimeSection {
 
     /// Connects to timedated on `bus` and follows it until the section goes.
     pub fn follow(&self, bus: Bus) {
+        self.inner.bus.replace(bus.clone());
         let weak = Rc::downgrade(&self.inner);
         let task = glib::spawn_future_local(async move {
             let timedate = match Timedate::connect(&bus).await {
@@ -211,6 +224,64 @@ impl TimeSection {
             }
         });
         self.inner.tasks.borrow_mut().push(task);
+    }
+
+    /// Puts `row` (the automatic time zone) below the time zone's row.
+    pub fn insert_row(&self, row: &crate::widgets::SettingRow) {
+        self.inner
+            .list
+            .insert(&crate::widgets::list::list_row(row), 1);
+    }
+
+    /// Finds the zone where the computer is and sets it if the system has another (polkit may
+    /// ask for the password), as the automatic time zone does while the page is open. Why it set
+    /// none shows in the section's help, with what to run. A lookup still running is stopped.
+    pub fn detect(&self) {
+        self.cancel_detect();
+        let bus = self.inner.bus.borrow().clone();
+        let weak = Rc::downgrade(&self.inner);
+        let task = glib::spawn_future_local(async move {
+            let timedate = match weak
+                .upgrade()
+                .and_then(|inner| inner.timedate.borrow().clone())
+            {
+                Some(timedate) => timedate,
+                None => match Timedate::connect(&bus).await {
+                    Ok(timedate) => timedate,
+                    Err(_) => return,
+                },
+            };
+            let found = geo::detect(&bus, &timedate).await;
+            let Some(inner) = weak.upgrade() else {
+                return;
+            };
+            inner.detecting.replace(None);
+            let why = found.as_ref().err().map(|error| error.text().translated());
+            let command = found.as_ref().err().and_then(geo::DetectError::command);
+            inner.help.show(why.as_deref(), command.as_deref());
+            inner.detect_help.replace(why);
+            refresh(&Rc::downgrade(&inner)).await;
+        });
+        self.inner.detecting.replace(Some(task));
+    }
+
+    /// Stops the automatic time zone's lookup, silently. Whether one was running.
+    pub fn cancel_detect(&self) -> bool {
+        let task = self.inner.detecting.take();
+        if let Some(task) = &task {
+            task.abort();
+        }
+        task.is_some()
+    }
+
+    /// Hides why the automatic time zone last set nothing, if the help still shows it.
+    pub fn forget_detect(&self) {
+        let inner = &self.inner;
+        if let Some(why) = inner.detect_help.take() {
+            if inner.help.text() == why {
+                inner.help.show(None, None);
+            }
+        }
     }
 
     /// Updates the clock's row at every full second, while the page is on screen.

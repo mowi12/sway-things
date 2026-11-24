@@ -933,10 +933,26 @@ impl Window {
             }
             return live_view(page, &body, body.advanced_button());
         }
-        // Live state from timedated: nothing of it comes from the model.
+        // Live state from timedated; only the automatic time zone comes from the model.
         if page == Page::RegionTime {
-            let body = RegionTimePage::new(&self.imp().region_bus.borrow());
-            return live_view(page, &body, None);
+            let model = self.imp().model.get();
+            let body = RegionTimePage::new(&self.imp().region_bus.borrow(), model);
+            let view = live_view(page, &body, None);
+            if let Some(model) = model.filter(|model| model.error().is_none()) {
+                let weak = body.downgrade();
+                follow_toggle(
+                    model,
+                    sway_things_core::registry::region::AUTOMATIC_TIMEZONE,
+                    move |on| {
+                        if let Some(body) = weak.upgrade() {
+                            body.set_automatic_timezone(on);
+                        }
+                    },
+                );
+                view.set_rows(body.rows());
+                view.add_page_reset(model, page);
+            }
+            return view;
         }
         // Live state from CUPS and SANE: nothing of it comes from the model.
         if page == Page::PrintersScanners {

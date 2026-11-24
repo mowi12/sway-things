@@ -380,6 +380,12 @@ impl PageView {
             .cloned()
     }
 
+    /// Makes `rows` the rows of settings the page shows, for a page with a body of its own: search
+    /// and deep links find them.
+    pub fn set_rows(&self, rows: Vec<SettingRow>) {
+        self.imp().rows.replace(rows);
+    }
+
     /// The row of the setting with `key`, if the page shows one: the rows of an input type
     /// without devices are hidden. A member of a collapsed group counts as shown, since pointing
     /// to it expands the group.
