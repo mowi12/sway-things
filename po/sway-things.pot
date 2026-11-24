@@ -3239,6 +3239,15 @@ msgstr ""
 msgid "tzdata lists no time zone for the location"
 msgstr ""
 
+#: crates/core/src/region/localed.rs
+msgid "systemd-localed isn't available"
+msgstr ""
+
+#: crates/core/src/region/localed.rs
+#, rust-format
+msgid "systemd-localed failed: {error}"
+msgstr ""
+
 #: crates/core/src/region/locales.rs
 msgid "Plain (C locale, English without formats)"
 msgstr ""

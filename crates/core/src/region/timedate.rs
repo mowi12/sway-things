@@ -64,18 +64,9 @@ impl Timedate {
     ///
     /// [`Error::Unavailable`] without the bus.
     pub async fn connect(bus: &Bus) -> Result<Self, Error> {
-        let connection = match bus {
-            Bus::System => Connection::system().await.map_err(|error| {
-                Error::Unavailable(Text::new(msg!("no system bus ({error})")).arg("error", error))
-            })?,
-            Bus::Address(address) => zbus::connection::Builder::address(address.as_str())
-                .map_err(|error| unavailable(address, &error))?
-                .build()
-                .await
-                .map_err(|error| unavailable(address, &error))?,
-            Bus::Off => return Err(Error::Unavailable(gone())),
-        };
-        Ok(Self { connection })
+        Ok(Self {
+            connection: connect(bus, gone).await?,
+        })
     }
 
     /// The time zone, automatic time and whether the clock is synchronized.
@@ -190,6 +181,21 @@ impl Timedate {
     }
 }
 
+/// A connection to `bus`; `gone` says which service is missing with [`Bus::Off`].
+pub(super) async fn connect(bus: &Bus, gone: fn() -> Text) -> Result<Connection, Error> {
+    match bus {
+        Bus::System => Connection::system().await.map_err(|error| {
+            Error::Unavailable(Text::new(msg!("no system bus ({error})")).arg("error", error))
+        }),
+        Bus::Address(address) => zbus::connection::Builder::address(address.as_str())
+            .map_err(|error| unavailable(address, &error))?
+            .build()
+            .await
+            .map_err(|error| unavailable(address, &error)),
+        Bus::Off => Err(Error::Unavailable(gone())),
+    }
+}
+
 /// The text for a system without timedated.
 fn gone() -> Text {
     msg!("systemd-timedated isn't available").into()
@@ -205,6 +211,18 @@ fn unavailable(address: &str, error: &zbus::Error) -> Error {
 
 /// The error of a failed call.
 fn failure(error: zbus::Error) -> Error {
+    call_failure(error, gone, |other| {
+        Text::new(msg!("systemd-timedated failed: {error}")).arg("error", other)
+    })
+}
+
+/// The error of a failed call to a service of systemd that polkit guards: `gone` for a service
+/// that isn't there, `failed` for an error that isn't the service's own.
+pub(super) fn call_failure(
+    error: zbus::Error,
+    gone: fn() -> Text,
+    failed: fn(zbus::Error) -> Text,
+) -> Error {
     match error {
         zbus::Error::MethodError(name, message, _) => {
             let name = name.as_str();
@@ -226,9 +244,7 @@ fn failure(error: zbus::Error) -> Error {
                 Error::Failed(Text::data(message))
             }
         }
-        other => {
-            Error::Failed(Text::new(msg!("systemd-timedated failed: {error}")).arg("error", other))
-        }
+        other => Error::Failed(failed(other)),
     }
 }
 

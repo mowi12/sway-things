@@ -482,7 +482,7 @@ impl TimeSection {
                 (Change::TimeZone(zone), _) => timedate.set_timezone(zone).await,
                 (Change::Ntp(on), _) => timedate.set_ntp(*on).await,
                 (Change::Time(_), Some(micros)) => timedate.set_time(micros).await,
-                (Change::Time(_), None) => Ok(()),
+                (Change::Time(_), None) | (Change::SystemLocale(_), _) => Ok(()),
             };
             let Some(inner) = weak.upgrade() else {
                 return;
