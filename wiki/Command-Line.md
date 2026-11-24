@@ -29,10 +29,12 @@ with what the app reads.
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](Architecture.md#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `notifications dnd [on\|off\|toggle]`, `notifications status\|test\|import-swaync [<file>]` | Do Not Disturb of the daemon that runs (prints `on` or `off`), which daemon runs, a test notification, and the user's swaync config read into the settings ([Notifications](Backends.md#notifications)). |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
-| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard\|launch\|autostart>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard\|night-light\|launch\|autostart>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
 | `screenshot region\|window\|display\|all` | takes a screenshot as Screenshots & Clipboard says ([Backends](Backends.md#screenshots-clipboard-and-recording)); the screenshot keys run it. |
 | `record [region\|display]` | stops the recording Sway Things started, or starts one; without an argument, what the page says. The recording key runs it. |
 | `clipboard pick\|clear` | shows the clipboard history in the launcher and copies the entry picked again, or empties the history. |
+| `brightness get\|set <N>%\|up\|down [--device <name>]` | prints the brightness of the screen's backlight in percent, or sets it through logind, in steps of 5 % for `up` and `down`; never below 1 % for a backlight. `--device` names a backlight or keyboard light by its sysfs name. It reads neither the settings nor sway ([Brightness](Backends.md#brightness-and-night-light)). |
+| `night-light on\|off\|toggle` | stores the night light's switch as `set night_light.enabled` does, then has its tool follow it ([Night light](Backends.md#brightness-and-night-light)); for a key or a bar module. |
 
 - **`--color auto|always|never`** (global, `colorchoice-clap`) decides colors; `auto` colors only a terminal and follows
   `NO_COLOR`, `CLICOLOR` and `CLICOLOR_FORCE` (anstream). Only `doctor` colors its report so far; the other commands
@@ -145,6 +147,11 @@ is needed, generated config calls the CLI briefly:
 - **`hook autostart`**: hands the session's variables to the systemd user session and starts the XDG autostart entries
   through it; `70-autostart.conf` runs it while systemd starts them. Both return at once
   ([Apps and autostart](Backends.md#apps-and-autostart)).
+
+- **`hook night-light`**: starts the night light's tool (wlsunset or gammastep) as the settings say, or ends the one
+  Sway Things started; `80-hooks.conf` runs it with `exec_always` while the night light is on. A night light the user's
+  config starts, or one that runs already, is left alone ([Night light](Backends.md#brightness-and-night-light)). `set`
+  and `reset` of a night-light setting and `night-light` do the same right away in a session.
 
 - **`hook wallpaper`**: shows the next picture of each [collection](Backends.md#wallpaper-collections) whose time has
   come and starts the timers of those that change daily or after an interval (`wallpaper::login`); `20-output.conf` runs

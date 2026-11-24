@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-night-light 1 "" "Sway Things 0.5.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-night\-light \- Start the night light\*(Aqs tool (wlsunset or gammastep) as the Brightness & Night Light page says, and end it if the night light is off: run at every start and reload of sway while it is on. A night light your config starts itself, or that runs already, is left alone
+.SH SYNOPSIS
+\fBsway\-things hook night\-light\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Start the night light\*(Aqs tool (wlsunset or gammastep) as the Brightness & Night Light page says, and end it if the night light is off: run at every start and reload of sway while it is on. A night light your config starts itself, or that runs already, is left alone
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

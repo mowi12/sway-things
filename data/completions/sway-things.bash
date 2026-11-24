@@ -16,6 +16,9 @@ _sway__things() {
             ",$1")
                 cmd="sway__things"
                 ;;
+            sway__things,brightness)
+                cmd="sway__things__subcmd__brightness"
+                ;;
             sway__things,clipboard)
                 cmd="sway__things__subcmd__clipboard"
                 ;;
@@ -30,6 +33,9 @@ _sway__things() {
                 ;;
             sway__things,hook)
                 cmd="sway__things__subcmd__hook"
+                ;;
+            sway__things,night-light)
+                cmd="sway__things__subcmd__night__subcmd__light"
                 ;;
             sway__things,notifications)
                 cmd="sway__things__subcmd__notifications"
@@ -55,6 +61,36 @@ _sway__things() {
             sway__things,wallpaper)
                 cmd="sway__things__subcmd__wallpaper"
                 ;;
+            sway__things__subcmd__brightness,down)
+                cmd="sway__things__subcmd__brightness__subcmd__down"
+                ;;
+            sway__things__subcmd__brightness,get)
+                cmd="sway__things__subcmd__brightness__subcmd__get"
+                ;;
+            sway__things__subcmd__brightness,help)
+                cmd="sway__things__subcmd__brightness__subcmd__help"
+                ;;
+            sway__things__subcmd__brightness,set)
+                cmd="sway__things__subcmd__brightness__subcmd__set"
+                ;;
+            sway__things__subcmd__brightness,up)
+                cmd="sway__things__subcmd__brightness__subcmd__up"
+                ;;
+            sway__things__subcmd__brightness__subcmd__help,down)
+                cmd="sway__things__subcmd__brightness__subcmd__help__subcmd__down"
+                ;;
+            sway__things__subcmd__brightness__subcmd__help,get)
+                cmd="sway__things__subcmd__brightness__subcmd__help__subcmd__get"
+                ;;
+            sway__things__subcmd__brightness__subcmd__help,help)
+                cmd="sway__things__subcmd__brightness__subcmd__help__subcmd__help"
+                ;;
+            sway__things__subcmd__brightness__subcmd__help,set)
+                cmd="sway__things__subcmd__brightness__subcmd__help__subcmd__set"
+                ;;
+            sway__things__subcmd__brightness__subcmd__help,up)
+                cmd="sway__things__subcmd__brightness__subcmd__help__subcmd__up"
+                ;;
             sway__things__subcmd__clipboard,clear)
                 cmd="sway__things__subcmd__clipboard__subcmd__clear"
                 ;;
@@ -73,6 +109,9 @@ _sway__things() {
             sway__things__subcmd__clipboard__subcmd__help,pick)
                 cmd="sway__things__subcmd__clipboard__subcmd__help__subcmd__pick"
                 ;;
+            sway__things__subcmd__help,brightness)
+                cmd="sway__things__subcmd__help__subcmd__brightness"
+                ;;
             sway__things__subcmd__help,clipboard)
                 cmd="sway__things__subcmd__help__subcmd__clipboard"
                 ;;
@@ -87,6 +126,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__help,hook)
                 cmd="sway__things__subcmd__help__subcmd__hook"
+                ;;
+            sway__things__subcmd__help,night-light)
+                cmd="sway__things__subcmd__help__subcmd__night__subcmd__light"
                 ;;
             sway__things__subcmd__help,notifications)
                 cmd="sway__things__subcmd__help__subcmd__notifications"
@@ -111,6 +153,18 @@ _sway__things() {
                 ;;
             sway__things__subcmd__help,wallpaper)
                 cmd="sway__things__subcmd__help__subcmd__wallpaper"
+                ;;
+            sway__things__subcmd__help__subcmd__brightness,down)
+                cmd="sway__things__subcmd__help__subcmd__brightness__subcmd__down"
+                ;;
+            sway__things__subcmd__help__subcmd__brightness,get)
+                cmd="sway__things__subcmd__help__subcmd__brightness__subcmd__get"
+                ;;
+            sway__things__subcmd__help__subcmd__brightness,set)
+                cmd="sway__things__subcmd__help__subcmd__brightness__subcmd__set"
+                ;;
+            sway__things__subcmd__help__subcmd__brightness,up)
+                cmd="sway__things__subcmd__help__subcmd__brightness__subcmd__up"
                 ;;
             sway__things__subcmd__help__subcmd__clipboard,clear)
                 cmd="sway__things__subcmd__help__subcmd__clipboard__subcmd__clear"
@@ -138,6 +192,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__help__subcmd__hook,new-display)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__new__subcmd__display"
+                ;;
+            sway__things__subcmd__help__subcmd__hook,night-light)
+                cmd="sway__things__subcmd__help__subcmd__hook__subcmd__night__subcmd__light"
                 ;;
             sway__things__subcmd__help__subcmd__hook,notification-click)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__notification__subcmd__click"
@@ -193,6 +250,9 @@ _sway__things() {
             sway__things__subcmd__hook,new-display)
                 cmd="sway__things__subcmd__hook__subcmd__new__subcmd__display"
                 ;;
+            sway__things__subcmd__hook,night-light)
+                cmd="sway__things__subcmd__hook__subcmd__night__subcmd__light"
+                ;;
             sway__things__subcmd__hook,notification-click)
                 cmd="sway__things__subcmd__hook__subcmd__notification__subcmd__click"
                 ;;
@@ -231,6 +291,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__hook__subcmd__help,new-display)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__new__subcmd__display"
+                ;;
+            sway__things__subcmd__hook__subcmd__help,night-light)
+                cmd="sway__things__subcmd__hook__subcmd__help__subcmd__night__subcmd__light"
                 ;;
             sway__things__subcmd__hook__subcmd__help,notification-click)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__notification__subcmd__click"
@@ -296,12 +359,206 @@ _sway__things() {
 
     case "${cmd}" in
         sway__things)
-            opts="-h -V --color --help --version get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper help"
+            opts="-h -V --color --help --version get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper brightness night-light help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness)
+            opts="-h --device --color --help get set up down help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --device)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__down)
+            opts="-h --device --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --device)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__get)
+            opts="-h --device --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --device)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help)
+            opts="get set up down help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help__subcmd__down)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help__subcmd__get)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__help__subcmd__up)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__set)
+            opts="-h --device --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --device)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__brightness__subcmd__up)
+            opts="-h --device --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --device)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --color)
                     COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
                     return 0
@@ -468,8 +725,78 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help)
-            opts="get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper help"
+            opts="get set reset show-generated doctor open notifications hook screenshot record clipboard wallpaper brightness night-light help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__brightness)
+            opts="get set up down"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__brightness__subcmd__down)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__brightness__subcmd__get)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__brightness__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__brightness__subcmd__up)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -566,7 +893,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook)
-            opts="gsettings displays workspaces mirror new-display wallpaper clipboard launch autostart notification-click notification-daemon quick"
+            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -677,6 +1004,20 @@ _sway__things() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__night__subcmd__light)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__notification__subcmd__click)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -736,6 +1077,20 @@ _sway__things() {
         sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__workspaces)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__night__subcmd__light)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -930,7 +1285,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook)
-            opts="-h --color --help gsettings displays workspaces mirror new-display wallpaper clipboard launch autostart notification-click notification-daemon quick help"
+            opts="-h --color --help gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1020,7 +1375,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__help)
-            opts="gsettings displays workspaces mirror new-display wallpaper clipboard launch autostart notification-click notification-daemon quick help"
+            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1132,6 +1487,20 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__new__subcmd__display)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__night__subcmd__light)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1269,6 +1638,24 @@ _sway__things() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        sway__subcmd__things__subcmd__hook__subcmd__night__subcmd__light)
+            opts="-h --color --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         sway__subcmd__things__subcmd__hook__subcmd__notification__subcmd__click)
             opts="-h --mako --color --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -1348,6 +1735,24 @@ _sway__things() {
         sway__subcmd__things__subcmd__hook__subcmd__workspaces)
             opts="-h --color --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__night__subcmd__light)
+            opts="-h --color --help on off toggle"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi

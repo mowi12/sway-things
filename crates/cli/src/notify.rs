@@ -179,6 +179,7 @@ pub(super) async fn run_notification_hook(
         | Hook::Mirror
         | Hook::NewDisplay
         | Hook::Clipboard
+        | Hook::NightLight
         | Hook::Launch { .. }
         | Hook::Autostart
         | Hook::Wallpaper => Exit::Ok,

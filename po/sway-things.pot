@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-24 22:26+0100\n"
+"POT-Creation-Date: 2026-11-24 22:27+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -412,6 +412,34 @@ msgstr ""
 #: crates/cli/src/lib.rs crates/gui/src/app.rs
 #, rust-format
 msgid "error: {message}"
+msgstr ""
+
+#: crates/cli/src/light.rs crates/core/src/brightness/mod.rs
+#, rust-format
+msgid "There is no backlight named {name}"
+msgstr ""
+
+#: crates/cli/src/light.rs
+msgid ""
+"This computer has no backlight that can be set (/sys/class/backlight is "
+"empty)"
+msgstr ""
+
+#: crates/cli/src/light.rs
+#, rust-format
+msgid "{value} isn't a brightness: write a percent from 0 to 100, such as 50%"
+msgstr ""
+
+#: crates/cli/src/light.rs
+#, rust-format
+msgid ""
+"A night light of your own runs already ({program}, process {pid}), so Sway "
+"Things starts none"
+msgstr ""
+
+#: crates/cli/src/light.rs
+msgid ""
+"Your sway config starts a night light itself, so Sway Things starts none"
 msgstr ""
 
 #: crates/cli/src/notify.rs
@@ -1334,11 +1362,6 @@ msgstr ""
 #: crates/core/src/brightness/mod.rs
 #, rust-format
 msgid "logind didn't change the brightness: {error}"
-msgstr ""
-
-#: crates/core/src/brightness/mod.rs
-#, rust-format
-msgid "There is no backlight named {name}"
 msgstr ""
 
 #: crates/core/src/capture/clipboard.rs

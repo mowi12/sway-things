@@ -1,0 +1,43 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-night-light 1 "" "Sway Things 0.5.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-night\-light \- Switch the night light on or off, as the Brightness & Night Light page does: stores the switch and starts or ends its tool (wlsunset or gammastep)
+.SH SYNOPSIS
+\fBsway\-things night\-light\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fISWITCH\fR> 
+.SH DESCRIPTION
+Switch the night light on or off, as the Brightness & Night Light page does: stores the switch and starts or ends its tool (wlsunset or gammastep)
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+<\fISWITCH\fR>
+on, off or toggle
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on: Switch it on
+.IP \(bu 2
+off: Switch it off
+.IP \(bu 2
+toggle: Switch it to the other state
+.RE
