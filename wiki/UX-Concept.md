@@ -595,10 +595,10 @@ after every action.
   can't be picked. Above the list a spinner says it is looking, then "Click a printer to add it."; after 5 s without a
   printer it says to check that the printer is on, or to type its address. Below, _Or add one by its address_ takes a
   host name, an IP address, or an `ipp://` or `ipps://` address (_Add_ stays insensitive until it is one). Adding names
-  the queue after the model (`[A-Za-z0-9_-]`, unique) and says _Adding “…”… CUPS asks the printer what it can do, which
-  can take a minute._; CUPS's error shows in the dialog if the printer is offline or not driverless. Without Avahi, the
-  dialog says so and points to the address. Printers that need a driver go to _Advanced…_. _Close_, Escape and the
-  compositor's close end it the same way; opening it again shows a new dialog.
+  the queue after the model (`[A-Za-z0-9_-]`, unique), not shared (the details turn sharing on), and says _Adding “…”…
+  CUPS asks the printer what it can do, which can take a minute._; CUPS's error shows in the dialog if the printer is
+  offline or not driverless. Without Avahi, the dialog says so and points to the address. Printers that need a driver go
+  to _Advanced…_. _Close_, Escape and the compositor's close end it the same way; opening it again shows a new dialog.
 - **Authorization:** a change goes to CUPS as the user first; members of CUPS's administrator group (`lpadmin` on Debian
   and Ubuntu, `wheel` or `sys` elsewhere) need no password. For anyone else it goes to cups-pk-helper, whose polkit
   agent asks for an administrator's password. Without cups-pk-helper the error at the top says to install it or which

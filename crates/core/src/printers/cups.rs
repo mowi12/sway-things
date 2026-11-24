@@ -296,7 +296,8 @@ impl Cups {
 
     /// Adds `printer` as a driverless printer (IPP Everywhere): CUPS asks the printer what it
     /// can do and makes the driver from that, which can take a while. The new printer takes jobs
-    /// at once.
+    /// at once, and isn't shared: CUPS would share it while `DefaultShared` is on, as it is by
+    /// default, and sharing stays a choice in its details.
     ///
     /// Returns the queue's name: `printer.name`, or a free one like it if a queue took that
     /// name meanwhile.
@@ -348,6 +349,11 @@ impl Cups {
             "printer-is-accepting-jobs",
             vec![Value::Boolean(true)],
         );
+        request.add(
+            tag::PRINTER,
+            "printer-is-shared",
+            vec![Value::Boolean(false)],
+        );
         // Idle: the printer is enabled.
         request.add(tag::PRINTER, "printer-state", vec![Value::Enum(3)]);
         let added = self
@@ -369,6 +375,9 @@ impl Cups {
                     .await?;
                 self.admin
                     .call("PrinterSetAcceptJobs", &(name.as_str(), true, ""))
+                    .await?;
+                self.admin
+                    .call("PrinterSetShared", &(name.as_str(), false))
                     .await
             })
             .await;
