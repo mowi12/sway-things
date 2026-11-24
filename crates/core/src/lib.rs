@@ -43,6 +43,7 @@ pub mod state;
 pub mod sway_config;
 pub mod swayosd;
 pub mod system;
+mod systemd;
 pub mod theme;
 pub mod ui_state;
 pub mod version;

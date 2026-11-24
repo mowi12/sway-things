@@ -593,5 +593,5 @@ names it.
   written next to its place, then linked there, which fails if a file appeared meanwhile), one of Sway Things as it
   wrote it is replaced (through a symbolic link, like the sway files), and one no longer needed is deleted, only then (a
   link to it stays); someone else's file, a dangling link, or a file of Sway Things changed since, is left alone and
-  reported (`Persisted::apps`). For the default apps only the chosen apps are looked up, not every installed one, so a
+  reported (`Persisted::others`, kept by `generate::other`). For the default apps only the chosen apps are looked up, not every installed one, so a
   save stays cheap.

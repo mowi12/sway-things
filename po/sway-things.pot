@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 09:31+0100\n"
+"POT-Creation-Date: 2026-11-25 10:24+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -689,26 +689,6 @@ msgstr ""
 #, rust-format
 msgid ""
 "{error} ({file}); the displays are set up from the sway config meanwhile"
-msgstr ""
-
-#: crates/core/src/apps/files.rs
-#, rust-format
-msgid ""
-"{file} is your own file: Sway Things doesn't change it, so its choice there "
-"doesn't take effect"
-msgstr ""
-
-#: crates/core/src/apps/files.rs
-#, rust-format
-msgid ""
-"{file} was changed outside Sway Things and is left as it is; delete it to "
-"have Sway Things write it again"
-msgstr ""
-
-#: crates/core/src/apps/files.rs crates/core/src/night_light/mod.rs
-#: crates/core/src/notifications/files.rs
-#, rust-format
-msgid "{file} can't be written: {error}"
 msgstr ""
 
 #: crates/core/src/apps/launch.rs
@@ -2397,6 +2377,26 @@ msgstr ""
 #: crates/core/src/doctor/wallpaper.rs
 msgid ""
 "Take the line out, so sway uses swaybg, or name a program that is installed."
+msgstr ""
+
+#: crates/core/src/generate/other.rs
+#, rust-format
+msgid ""
+"{file} is your own file: Sway Things doesn't change it, so its choice there "
+"doesn't take effect"
+msgstr ""
+
+#: crates/core/src/generate/other.rs
+#, rust-format
+msgid ""
+"{file} was changed outside Sway Things and is left as it is; delete it to "
+"have Sway Things write it again"
+msgstr ""
+
+#: crates/core/src/generate/other.rs crates/core/src/night_light/mod.rs
+#: crates/core/src/notifications/files.rs
+#, rust-format
+msgid "{file} can't be written: {error}"
 msgstr ""
 
 #: crates/core/src/generate/write.rs

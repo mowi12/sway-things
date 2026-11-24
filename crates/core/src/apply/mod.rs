@@ -126,9 +126,9 @@ pub struct Persisted {
     pub saved: bool,
     /// What happened to each generated file.
     pub files: Report,
-    /// The files of the Apps & Autostart page that couldn't be written or deleted
-    /// ([`crate::apps::files`]): someone else's file, or one changed outside.
-    pub apps: Vec<crate::apps::files::Problem>,
+    /// The files of other programs that couldn't be written or deleted
+    /// ([`crate::generate::other`]): someone else's file, or one changed outside.
+    pub others: Vec<crate::generate::other::Problem>,
 }
 
 impl Persisted {
@@ -1014,24 +1014,28 @@ impl<V: Validate> Applier<V> {
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        let apps = self.keep_apps_files();
-        let persisted = Persisted { saved, files, apps };
+        let others = self.keep_other_files();
+        let persisted = Persisted {
+            saved,
+            files,
+            others,
+        };
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)
     }
 
-    /// Brings the files of the Apps & Autostart page in line with the settings, recorded in the
-    /// manifest: only files of Sway Things are written or deleted. Returns what couldn't be done.
-    fn keep_apps_files(&self) -> Vec<crate::apps::files::Problem> {
+    /// Brings the files of other programs in line with the settings, recorded in the manifest:
+    /// only files of Sway Things are written or deleted. Returns what couldn't be done.
+    fn keep_other_files(&self) -> Vec<crate::generate::other::Problem> {
         let Some(dirs) = &self.apps_dirs else {
             return Vec::new();
         };
         let wanted = crate::apps::files::wanted(&self.state, dirs);
         let mut manifest = generate::Manifest::load(self.locations.manifest());
-        let mut problems = crate::apps::files::keep(&wanted, &mut manifest);
+        let mut problems = crate::generate::other::keep(&wanted, &mut manifest);
         if let Err(error) = manifest.save() {
-            problems.push(crate::apps::files::Problem::Io(
+            problems.push(crate::generate::other::Problem::Io(
                 self.locations.manifest().to_owned(),
                 error.to_string(),
             ));
