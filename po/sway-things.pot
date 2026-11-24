@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-24 11:07+0100\n"
+"POT-Creation-Date: 2026-11-24 22:25+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1309,6 +1309,35 @@ msgstr ""
 
 #: crates/core/src/bluetooth/mod.rs
 msgid "The name has a control character"
+msgstr ""
+
+#: crates/core/src/brightness/ddc.rs
+msgid "ddcutil isn't installed"
+msgstr ""
+
+#: crates/core/src/brightness/ddc.rs
+#, rust-format
+msgid "ddcutil failed: {error}"
+msgstr ""
+
+#: crates/core/src/brightness/ddc.rs
+#, rust-format
+msgid "The monitor's answer isn't a brightness: {answer}"
+msgstr ""
+
+#: crates/core/src/brightness/mod.rs
+#, rust-format
+msgid "The brightness is set through logind, which can't be reached: {error}"
+msgstr ""
+
+#: crates/core/src/brightness/mod.rs
+#, rust-format
+msgid "logind didn't change the brightness: {error}"
+msgstr ""
+
+#: crates/core/src/brightness/mod.rs
+#, rust-format
+msgid "There is no backlight named {name}"
 msgstr ""
 
 #: crates/core/src/capture/clipboard.rs
