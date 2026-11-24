@@ -156,6 +156,10 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   its name without starting one, Do Not Disturb read and switched for each (mako's mode not added twice) with the change
   reported, reload, a daemon without Do Not Disturb that still takes a test notification, a daemon appearing and going
   away, mako's click (default action), closing swaync's panel
+- systemd-timedated against a stand-in on a private bus (`crates/core/tests/region_timedate.rs`, stand-in in
+  `region::stand_in`, `test-support`): the clock and the zones read, the time zone, automatic time and the clock set
+  with each change reported (also one made elsewhere), a zone it doesn't know, setting the clock while automatic time is
+  on, polkit's refusal, no NTP service, and timedated missing
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,
@@ -276,6 +280,10 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   it the default, the volume slider and mute reach the server, an app's volume too, the server's own changes move the
   slider, the slider goes to 150 % only with `app.sound_above_100`, a server that goes away gives way to the placeholder
   and comes back, and without one the page says how to start it.
+- Region & Time (against the stand-in for timedated, `region.rs`): the time zone shows as city and region, the clock
+  can't be set while automatic time is on, turning it off reaches timedated and frees the clock, polkit's refusal shows
+  the `timedatectl` command and puts the switch back, a change made elsewhere shows, and without timedated the
+  placeholder takes the section's place.
 - About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the
   distribution, NetworkManager and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
   delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment,

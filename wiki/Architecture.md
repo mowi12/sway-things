@@ -40,7 +40,7 @@ flowchart LR
     GEN -->|"own files only"| FILES[("Generated files<br/>~/.config/sway/sway-things/*.conf<br/>~/.config/sway-things/...")]
     core -->|"IPC: run, get_*, subscribe"| SWAY["sway / SwayFX"]
     PAR -->|"read only"| USERCFG[("User's hand-written<br/>sway config")]
-    BE -->|"D-Bus, polkit"| SYS["NetworkManager, BlueZ"]
+    BE -->|"D-Bus, polkit"| SYS["NetworkManager, BlueZ, timedated"]
     BE -->|"PulseAudio protocol"| SOUND["pipewire-pulse or PulseAudio"]
     BE -->|"IPP over its socket"| CUPS["CUPS<br/>(cups-pk-helper, Avahi on D-Bus)"]
     BE -->|"reload signals / ctl tools"| TOOLS["kanshi"]
@@ -50,9 +50,9 @@ flowchart LR
 The core idea: **apply live over IPC, persist to our own state file, generate our own include files, and only ever read
 the user's files.**
 
-The diagram shows what is built. The pages still to come add services and tools the same way (timedated, localed,
-UPower, power-profiles-daemon and logind over D-Bus; waybar, swayidle, swaync and mako through their files); their plans
-are in the [Feature Catalog](Feature-Catalog.md) and below under _planned_.
+The diagram shows what is built. The pages still to come add services and tools the same way (localed, UPower,
+power-profiles-daemon and logind over D-Bus; waybar, swayidle, swaync and mako through their files); their plans are in
+the [Feature Catalog](Feature-Catalog.md) and below under _planned_.
 
 ## Cargo workspace
 
@@ -89,7 +89,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `bindings`, `swayosd` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent; whether SwayOSD, which the media keys can show, is installed and its server runs ([Key bindings](Reading-Sway.md#key-bindings)) |
 | core | `brightness`, `night_light`, `packages` | the backlights through logind, the external monitors through ddcutil, the night light's tools and their location from the time zone, and the install command of the distribution for a missing program ([Backends](Backends.md#brightness-and-night-light)) |
 | core | `capture` | screenshots, the clipboard history and screen recording: the keys of Screenshots & Clipboard, the tools they run, notifications, the session's processes and locks ([Backends](Backends.md#screenshots-clipboard-and-recording)) |
-| core | `bluetooth`, `network`, `sound`, `printers`, `scanners`, `notifications`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway (the notification daemons: [Notifications](Backends.md#notifications)), `scanners`: SANE's scanimage, what is missing for scanners, and a PDF writer; and the D-Bus helpers BlueZ, NetworkManager and the printers share ([Backends](Backends.md)) |
+| core | `bluetooth`, `network`, `sound`, `printers`, `scanners`, `region`, `notifications`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway (the notification daemons: [Notifications](Backends.md#notifications)), `scanners`: SANE's scanimage, what is missing for scanners, and a PDF writer; `region`: systemd-timedated and the time zones from tzdata; and the D-Bus helpers BlueZ, NetworkManager and the printers share ([Backends](Backends.md)) |
 | core | `apps` | desktop entries, the installed apps, the terminal and launcher, the default apps, the autostart entries and their runners, and the files of other programs they need ([Apps and autostart](Backends.md#apps-and-autostart)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |

@@ -740,6 +740,29 @@ Day temperature      ─────────────────●  [ 6
   or pacman, from os-release), with _Copy_; the page looks again every three seconds while it is on screen.
 - From a key or a bar module: `sway-things night-light toggle`; no key is bound by default.
 
+### Region & Time
+
+The Region & Time page shows systemd-timedated's live state in its _Date & Time_ section; nothing of it is stored by
+Sway Things, so the section has no reset, no indicators and no generated file. Search finds the page by time zone,
+clock, date, time and NTP.
+
+- **Time zone:** the zone as city and region, its abbreviation and offset ("Berlin, Europe · CET (UTC+01:00)") and
+  _Change…_, which opens a dialog with a search field (every word of the search in the name, city or region) and the
+  zones timedated knows: city above region, the current offset and the local time on the right. The current zone is
+  selected; activating a zone (or Enter in the search field, for the first that matches) sets it and closes the dialog;
+  _Cancel_ and Escape close it.
+- **Set time automatically:** a switch for NTP, its subtitle _Synchronized with a time server_, _Not synchronized yet_
+  or _Off_. Without a time service (systemd-timesyncd, chrony) it is insensitive and says so. Until timedated has
+  answered a change, the switch keeps its new position and the section's controls are insensitive.
+- **Date & time:** the date and time in the system's zone, in the user's formats, updated every second while the page is
+  on screen, and _Set…_ while automatic time is off (the tooltip says to turn it off first otherwise): a dialog with a
+  calendar, the hour and the minute, starting at now, with _Set_ and _Cancel_.
+- **Password:** every change goes through polkit, whose agent asks for an administrator's password. When polkit refuses,
+  the section says why (no agent may be running: start one with sway) and shows the `timedatectl` command that does the
+  same in a terminal, with _Copy_.
+- **Not available:** without timedated (a system without systemd), a placeholder takes the section's place and says what
+  is missing; the section looks again every 5 s. A change made elsewhere (`timedatectl`) shows at once.
+
 ### Sidebar groups
 
 | Group | Pages |
