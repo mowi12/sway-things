@@ -298,9 +298,9 @@ pub enum SaveAs {
 }
 
 /// Saves the scanned `pages` (files of scanimage's, each with the resolution it was scanned at)
-/// into `destination`, the file the user picked: a PDF of them all, or the first as it is. The file is written next to its place
-/// and renamed into it, so a failure never leaves half a file, and replaces what the user chose
-/// to replace in the file chooser.
+/// into `destination`, the file the user picked: a PDF of them all, or the first as it is. The
+/// file is written next to its place and renamed into it, so a failure never leaves half a file,
+/// and replaces what the user chose to replace in the file chooser.
 ///
 /// # Errors
 ///

@@ -213,8 +213,8 @@ pub fn parse_formatted(output: &str) -> Vec<Scanner> {
 }
 
 /// The scanners in what `scanimage -L` printed: ``device `NAME' is a VENDOR MODEL TYPE`` a
-/// line. The name is between the backquote and the last `' is a `; the vendor is the first word after
-/// it, and the model and type the rest, which can't be told apart: the model gets all of it.
+/// line. The name is between the backquote and the last `' is a `; the vendor is the first word
+/// after it, and the model and type the rest, which can't be told apart: the model gets all of it.
 pub fn parse_list(output: &str) -> Vec<Scanner> {
     let mut scanners: Vec<Scanner> = Vec::new();
     for line in output.lines() {

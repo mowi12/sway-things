@@ -6,9 +6,9 @@
 //! everything that can be done with it; _Add Printer…_ picks a driverless printer.
 //!
 //! The page reads a new snapshot every [`POLL`] while it is on screen, at once when it comes on
-//! screen, and after each action, and updates its rows (and the open details) in place. Changes that need an
-//! administrator go to CUPS as the user, then to cups-pk-helper (polkit); when neither may, the
-//! error says what to install or which group to join.
+//! screen, and after each action, and updates its rows (and the open details) in place. Changes
+//! that need an administrator go to CUPS as the user, then to cups-pk-helper (polkit); when
+//! neither may, the error says what to install or which group to join.
 //!
 //! Printer names, models, locations, job titles and owners come from printers and other users:
 //! they are only ever set as plain label text.
