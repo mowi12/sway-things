@@ -76,7 +76,7 @@ Never break these, even if a task seems to ask for it. Ask instead. They are the
    `#[allow]` states its `reason`.
 6. **No privileged code, no daemon.**
 7. **Generated sway config passes `sway --validate`** before it atomically replaces the old file. No network access, no
-   telemetry.
+   telemetry. Nothing is exposed by default: what opens a port, shares or makes something visible to others starts off.
 8. **No tokio;** `crates/core` stays executor-agnostic.
 9. **REUSE header** on every source file.
 10. **Workflows:** actions pinned to a full SHA, downloaded tools and images pinned, least-privilege permissions.
