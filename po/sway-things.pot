@@ -4671,7 +4671,7 @@ msgstr ""
 msgid "display"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/core/src/registry/region.rs
 msgid "region"
 msgstr ""
 
@@ -7321,6 +7321,10 @@ msgstr ""
 msgid "expected one of {choices}, got {word}"
 msgstr ""
 
+#: crates/core/src/registry/region.rs
+msgid "Language & Formats"
+msgstr ""
+
 #: crates/core/src/registry/region.rs crates/gui/src/widgets/region/time.rs
 msgid "Date & Time"
 msgstr ""
@@ -7342,6 +7346,86 @@ msgstr ""
 
 #: crates/core/src/registry/region.rs
 msgid "travel"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "The language of apps, for you only"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "System default"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LANG"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "locale"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "translation"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "display language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Formats"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Dates, times, numbers, money, paper size and units, for you only"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Same as language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_TIME"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_NUMERIC"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_MONETARY"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_PAPER"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "date format"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "number format"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "currency"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "paper size"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "metric"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "imperial"
 msgstr ""
 
 #: crates/core/src/registry/setting.rs
@@ -7640,6 +7724,10 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "must be at most 255 characters, without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a UTF-8 locale like de_DE.UTF-8 or sr_RS.UTF-8@latin, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs

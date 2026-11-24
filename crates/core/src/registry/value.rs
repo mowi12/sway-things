@@ -341,6 +341,8 @@ pub enum ValueError {
     NotAVariable(super::environment::VariableError),
     /// The text isn't the name of an output: letters, digits, `.`, `_` and `-`.
     NotAnOutputName,
+    /// The text isn't the name of a UTF-8 locale like `de_DE.UTF-8`.
+    NotALocale,
 }
 
 impl ValueError {
@@ -437,6 +439,10 @@ impl ValueError {
             }
             Self::NotDaemonText => {
                 msg!("must be at most 255 characters, without line breaks").into()
+            }
+            Self::NotALocale => {
+                msg!("must be a UTF-8 locale like de_DE.UTF-8 or sr_RS.UTF-8@latin, or empty")
+                    .into()
             }
         }
     }

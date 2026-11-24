@@ -192,6 +192,8 @@ temperature_night = 3500
 
 [region]
 automatic_timezone = true
+language = "en_US.UTF-8"
+formats = "de_DE.UTF-8"
 
 [environment]
 qt_wayland = true
