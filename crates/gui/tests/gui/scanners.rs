@@ -224,6 +224,14 @@ fn scanned(dialog: &ScanDialog) -> Outcome {
     )
 }
 
+/// Waits until `dialog` has saved the pages, which it does off the main loop.
+fn saved(dialog: &ScanDialog) -> Outcome {
+    ensure(
+        run_until(Duration::from_secs(60), || !dialog.is_saving()),
+        "  the save didn't end",
+    )
+}
+
 /// The scan dialog against the test backend, as a user goes through it: what it offers, a
 /// preview, a page into PNG, the feeder and a page of the glass into one PDF, a cancel, and the
 /// files written: only those picked.
@@ -269,6 +277,7 @@ pub(crate) fn check_scan_dialog() -> Outcome {
         ),
     )?;
     dialog.save_to(&out.path().join("Scan.png"));
+    saved(&dialog)?;
     let png = std::fs::read(out.path().join("Scan.png")).unwrap_or_default();
     ensure(
         png.starts_with(b"\x89PNG") && dialog.page_count() == 0,
@@ -292,6 +301,7 @@ pub(crate) fn check_scan_dialog() -> Outcome {
         &format!("  {} pages: {}", dialog.page_count(), dialog.status_text()),
     )?;
     dialog.save_to(&out.path().join("Scan.pdf"));
+    saved(&dialog)?;
     let pdf = std::fs::read(out.path().join("Scan.pdf")).unwrap_or_default();
     let text = String::from_utf8_lossy(&pdf);
     ensure(

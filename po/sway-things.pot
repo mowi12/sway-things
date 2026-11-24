@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-23 23:17+0100\n"
+"POT-Creation-Date: 2026-11-24 11:05+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -10114,6 +10114,7 @@ msgid "Couldn't change “{printer}”: {error}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/actions.rs
+#: crates/gui/src/widgets/printers/scan.rs
 msgid "Saving…"
 msgstr ""
 

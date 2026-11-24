@@ -140,6 +140,8 @@ struct Parts {
     pages_type: Cell<Option<FileType>>,
     /// The scan that runs.
     running: RefCell<Option<Canceler>>,
+    /// Whether the pages are being saved, off the main loop.
+    saving: Cell<bool>,
     /// The file saved last.
     saved_path: RefCell<Option<PathBuf>>,
     /// Whether the dialog closed: what still runs drops its result.
@@ -351,6 +353,7 @@ impl ScanDialog {
                 pages: RefCell::new(Vec::new()),
                 pages_type: Cell::new(None),
                 running: RefCell::new(None),
+                saving: Cell::new(false),
                 saved_path: RefCell::new(None),
                 closed: Cell::new(false),
             }),
@@ -422,8 +425,9 @@ impl ScanDialog {
     fn closing(&self) {
         self.parts.closed.set(true);
         self.cancel();
-        // A running scan still writes into the directory: it goes once the scan has ended.
-        if self.parts.running.borrow().is_none() {
+        // A running scan still writes into the directory, and a save still reads from it: it
+        // goes once they have ended.
+        if self.parts.running.borrow().is_none() && !self.parts.saving.get() {
             self.parts.dir.replace(None);
         }
     }
@@ -610,7 +614,8 @@ impl ScanDialog {
     /// Shows what can be done now.
     fn update(&self) {
         let parts = &self.parts;
-        let running = parts.running.borrow().is_some();
+        // While the pages are saved, nothing may scan, discard or save them again.
+        let running = parts.running.borrow().is_some() || parts.saving.get();
         let pages = parts.pages.borrow().len();
         let file_type = self.file_type();
         let feeds = self.feeds();
@@ -621,7 +626,7 @@ impl ScanDialog {
         parts
             .preview
             .set_tooltip_text(feeds.then(|| tr(msg!("Preview needs the glass"))));
-        parts.cancel.set_visible(running);
+        parts.cancel.set_visible(running && !parts.saving.get());
         parts.primary.set_visible(!running);
         parts
             .primary
@@ -710,7 +715,7 @@ impl ScanDialog {
     /// Scans a page (or the feeder's sheets), or a preview.
     fn scan(&self, preview: bool) {
         let parts = &self.parts;
-        if parts.running.borrow().is_some() {
+        if parts.running.borrow().is_some() || parts.saving.get() {
             return;
         }
         let Some(request) = self.request(preview) else {
@@ -893,19 +898,48 @@ impl ScanDialog {
         });
     }
 
-    /// Saves the pages into `path`, the file the user picked.
+    /// Saves the pages into `path`, the file the user picked, off the main loop: a PDF of many
+    /// pages can take a while to read and write.
     pub fn save_to(&self, path: &Path) {
         let parts = &self.parts;
         let Some(file_type) = parts.pages_type.get() else {
             return;
         };
+        if parts.saving.get() || parts.running.borrow().is_some() {
+            return;
+        }
         let save_as = if file_type == FileType::Pdf {
             SaveAs::Pdf
         } else {
             SaveAs::Image
         };
         let pages = parts.pages.borrow().clone();
-        match save(&pages, save_as, path) {
+        parts.saving.set(true);
+        self.show_error_text("", "");
+        parts.status.set_text(tr(msg!("Saving…")));
+        self.update();
+        let dialog = self.clone();
+        let path = path.to_owned();
+        glib::spawn_future_local(async move {
+            let result = {
+                let path = path.clone();
+                gio::spawn_blocking(move || save(&pages, save_as, &path)).await
+            }
+            .unwrap_or_else(|_| Err(ScanError::Io("the save stopped".to_owned())));
+            dialog.saved(&path, result);
+        });
+    }
+
+    /// What became of saving into `path`.
+    fn saved(&self, path: &Path, result: Result<(), ScanError>) {
+        let parts = &self.parts;
+        parts.saving.set(false);
+        if parts.closed.get() {
+            // The dialog closed meanwhile: the pages go now.
+            parts.dir.replace(None);
+            return;
+        }
+        match result {
             Ok(()) => {
                 parts.pages.borrow_mut().clear();
                 parts.pages_type.set(None);
@@ -919,9 +953,11 @@ impl ScanDialog {
                     .set_text(&trf(msg!("Saved as “{file}”."), &[("file", &name)]));
                 parts.saved.set_visible(true);
                 parts.status.set_text("");
-                self.show_error_text("", "");
             }
-            Err(error) => self.show_error(&error),
+            Err(error) => {
+                parts.status.set_text("");
+                self.show_error(&error);
+            }
         }
         self.update();
     }
@@ -988,6 +1024,11 @@ impl ScanDialog {
     /// Whether a scan runs; for tests.
     pub fn is_scanning(&self) -> bool {
         self.parts.running.borrow().is_some()
+    }
+
+    /// Whether the pages are being saved; for tests.
+    pub fn is_saving(&self) -> bool {
+        self.parts.saving.get()
     }
 
     /// Whether the options are read and a scan can start; for tests.

@@ -623,6 +623,7 @@ pub(crate) fn shoot_printers(scheme: &str) -> Outcome {
         shoot_checked(&dialog.window, &format!("scan-pages-{scheme}"))?;
         let out = tempfile::tempdir().map_err(|error| error.to_string())?;
         dialog.save_to(&out.path().join("Scan 2026-11-22 09.31.pdf"));
+        run_until(Duration::from_secs(30), || !dialog.is_saving());
         shoot_checked(&dialog.window, &format!("scan-saved-{scheme}"))?;
         dialog.close();
     }

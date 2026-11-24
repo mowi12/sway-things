@@ -643,10 +643,11 @@ after every action.
   suggested button), _Scan Another Page_ and _Discard_; for an image, which holds one page, "The page is scanned. Save
   it, or scan it again." and _Scan Again_, which replaces it. While pages wait, _Save as_ stays as it was. _Save…_ opens
   the file chooser in the Documents folder with `Scan 2026-11-22 09.31.pdf`; it asks before it replaces a file, and only
-  that file is written, whole or not at all. Then "Saved as “…”." with _Open_ (the desktop's app) and _Show in Folder_.
-  Errors say what to do in words (busy, cover open, paper jammed, no paper in the feeder, no access, the scanner can't
-  be reached, a setting it doesn't take) with scanimage's output under _Details_. Closing the dialog cancels a scan that
-  runs and removes the pages that weren't saved.
+  that file is written, whole or not at all, off the main loop while the dialog says _Saving…_ and takes no other
+  action. Then "Saved as “…”." with _Open_ (the desktop's app) and _Show in Folder_. Errors say what to do in words
+  (busy, cover open, paper jammed, no paper in the feeder, no access, the scanner can't be reached, a setting it doesn't
+  take) with scanimage's output under _Details_. Closing the dialog cancels a scan that runs and removes the pages that
+  weren't saved.
 
 ### Notifications
 
