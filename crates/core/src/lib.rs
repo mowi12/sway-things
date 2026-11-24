@@ -23,6 +23,7 @@ pub mod delegate;
 pub mod devices;
 pub mod doctor;
 pub mod editor;
+pub mod environment;
 pub mod generate;
 pub mod gsettings;
 pub mod i18n;

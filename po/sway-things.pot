@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 10:24+0100\n"
+"POT-Creation-Date: 2026-11-25 10:27+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4967,6 +4967,118 @@ msgstr ""
 msgid "not whole milliseconds: {value}"
 msgstr ""
 
+#: crates/core/src/registry/environment.rs
+msgid "Wayland for older apps"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Qt 5 apps"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"QT_QPA_PLATFORM=wayland;xcb: Qt 6 finds Wayland by itself, Qt 5 only when "
+"the session type is wayland"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "QT_QPA_PLATFORM"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Qt"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "KDE apps"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Xwayland"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "SDL 2 games"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"SDL_VIDEODRIVER=wayland,x11: SDL 3 and sdl2-compat find Wayland by "
+"themselves, games with an older SDL 2 don't"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "SDL_VIDEODRIVER"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "SDL"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "games"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Java apps"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"_JAVA_AWT_WM_NONREPARENTING=1: Java apps on Xwayland otherwise show grey or "
+"empty windows"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "_JAVA_AWT_WM_NONREPARENTING"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Java"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Swing"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "AWT"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "JetBrains"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "grey window"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Electron 28 to 37 apps"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"ELECTRON_OZONE_PLATFORM_HINT=auto: Electron 38 and newer and Chromium 140 "
+"and newer use Wayland by themselves"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "ELECTRON_OZONE_PLATFORM_HINT"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Electron"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Chromium"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "ozone"
+msgstr ""
+
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
 msgid "On"
 msgstr ""
@@ -9409,6 +9521,7 @@ msgid "Display {number}, {label}, {details}, at {x}, {y}"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/kanshi_note.rs
+#: crates/gui/src/widgets/environment.rs
 msgid "Copy Line"
 msgstr ""
 
@@ -9601,6 +9714,15 @@ msgstr ""
 #: crates/gui/src/widgets/displays/picker.rs
 #, rust-format
 msgid "{number}  {label} · {name} (off)"
+msgstr ""
+
+#: crates/gui/src/widgets/environment.rs
+#, rust-format
+msgid ""
+"Your session doesn't read environment.d: sway started without {names} from "
+"Sway Things. Run this line before sway starts, in ~/.profile or in the "
+"script that starts sway; uwsm, openSUSEway and Fedora's start-sway do it "
+"already."
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs

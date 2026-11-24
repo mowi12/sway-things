@@ -207,8 +207,8 @@ pub struct Applier<V = SwayValidator> {
     /// generated files: what a change of the bindings is worked out against. `None` until
     /// [`Applier::set_user_config`]; bindings then change with a reload.
     user_config: Option<(Vec<crate::sway_config::Directive>, Option<usize>)>,
-    /// The XDG directories the files of the Apps & Autostart page go to
-    /// ([`crate::apps::files`]); `None` for an applier made for tests, which writes none.
+    /// The XDG directories the files of other programs go to ([`crate::apps::files`],
+    /// [`crate::environment`]); `None` for an applier made for tests, which writes none.
     apps_dirs: Option<crate::apps::Dirs>,
     /// The notification daemon's files and the session bus, or `None` for an applier made for
     /// tests: then nothing is written for the daemon and nothing is asked on the bus.
@@ -452,8 +452,9 @@ impl<V: Validate> Applier<V> {
         ));
     }
 
-    /// Writes the files of the Apps & Autostart page for `dirs` from now on (default apps,
-    /// switched-off autostart entries, the systemd unit of the runner): [`Applier::open`] takes
+    /// Writes the files of other programs for `dirs` from now on (default apps, switched-off
+    /// autostart entries, the systemd unit of the runner, the environment.d file):
+    /// [`Applier::open`] takes
     /// the user's directories, other appliers write none until this is called.
     pub fn set_apps_dirs(&mut self, dirs: Option<crate::apps::Dirs>) {
         self.apps_dirs = dirs;
@@ -900,6 +901,8 @@ impl<V: Validate> Applier<V> {
                 // A program's settings (the notification daemon's): it reads them again when
                 // they are saved.
                 Apply::ToolReload => Effect::AfterToolReload,
+                // An environment variable: sway and its apps get it at the next login.
+                Apply::Relogin => Effect::AfterRelogin,
                 _ => Effect::Preference,
             });
         }
@@ -1014,7 +1017,13 @@ impl<V: Validate> Applier<V> {
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        let others = self.keep_other_files();
+        let (others, environment_changed) = self.keep_other_files();
+        // The user manager reads environment.d again for the services it starts from now on,
+        // and doesn't keep the old variables when it outlives a quick logout. Without systemd
+        // the file waits for the next login all the same.
+        if environment_changed {
+            let _ = crate::environment::reload_user_manager().await;
+        }
         let persisted = Persisted {
             saved,
             files,
@@ -1026,12 +1035,17 @@ impl<V: Validate> Applier<V> {
     }
 
     /// Brings the files of other programs in line with the settings, recorded in the manifest:
-    /// only files of Sway Things are written or deleted. Returns what couldn't be done.
-    fn keep_other_files(&self) -> Vec<crate::generate::other::Problem> {
+    /// only files of Sway Things are written or deleted. Returns what couldn't be done, and
+    /// whether the environment.d file changed.
+    fn keep_other_files(&self) -> (Vec<crate::generate::other::Problem>, bool) {
         let Some(dirs) = &self.apps_dirs else {
-            return Vec::new();
+            return (Vec::new(), false);
         };
-        let wanted = crate::apps::files::wanted(&self.state, dirs);
+        let mut wanted = crate::apps::files::wanted(&self.state, dirs);
+        let environment = crate::environment::wanted(&self.state, dirs);
+        let environment_path = environment.path.clone();
+        let before = std::fs::read(&environment_path).ok();
+        wanted.push(environment);
         let mut manifest = generate::Manifest::load(self.locations.manifest());
         let mut problems = crate::generate::other::keep(&wanted, &mut manifest);
         if let Err(error) = manifest.save() {
@@ -1040,7 +1054,8 @@ impl<V: Validate> Applier<V> {
                 error.to_string(),
             ));
         }
-        problems
+        let changed = std::fs::read(&environment_path).ok() != before;
+        (problems, changed)
     }
 
     /// The stored changes that wait for a reload of sway or the next login.

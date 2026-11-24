@@ -3,8 +3,9 @@
 
 //! Golden files for the generators: the sample settings in `ci/integration/settings/` in, the
 //! exact files in `ci/integration/generated/` out, once for the oldest supported sway and once
-//! for the oldest supported SwayFX. `scripts/check-integration.sh` feeds them to a real sway:
-//! every file must pass `sway --validate` on its own, and the sample configs include them.
+//! for the oldest supported SwayFX, and Sway Things' environment.d file.
+//! `scripts/check-integration.sh` feeds the sway files to a real sway: every file must pass
+//! `sway --validate` on its own, and the sample configs include them.
 //!
 //! After changing the registry, the builders or the generator, regenerate the files with
 //! `SWAY_THINGS_UPDATE_FIXTURES=1 cargo test -p sway-things-core`.
@@ -18,6 +19,7 @@ mod common;
 use std::path::PathBuf;
 
 use common::Result;
+use sway_things_core::environment;
 use sway_things_core::generate::generate;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::registry::Registry;
@@ -45,6 +47,13 @@ fn fixtures_are_up_to_date() -> Result<()> {
         ),
     ];
     let mut fixtures = Vec::new();
+    // Not a sway file, but generated from the same settings: Sway Things' environment.d file.
+    if let Some(text) = environment::text(&environment::variables(registry, &state)) {
+        fixtures.push((
+            format!("generated/environment/{}", environment::FILE_NAME),
+            text,
+        ));
+    }
     for (directory, compositor) in compositors {
         for file in generate(registry, &state, compositor) {
             let name = format!("generated/{directory}/{}", file.file().file_name());

@@ -193,5 +193,9 @@ temperature_night = 3500
 [region]
 automatic_timezone = true
 
+[environment]
+qt_wayland = true
+java_nonreparenting = true
+
 [app]
 safety_net_timeout = 20

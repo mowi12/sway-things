@@ -18,7 +18,8 @@ use super::{
 use crate::model::Model;
 use crate::widgets::displays::{self, Arrangement};
 use crate::widgets::{
-    SettingRow, apps, capture, cursor, keyboard, look, night_light, notifications, shortcuts,
+    SettingRow, apps, capture, cursor, environment, keyboard, look, night_light, notifications,
+    shortcuts,
 };
 
 /// What the parts above the rows hand to the rest of the page.
@@ -32,9 +33,9 @@ pub(super) struct Before {
 }
 
 /// The parts of `page` above its rows: the system details and the generated files on About &
-/// Maintenance, the list of bindings on Keyboard Shortcuts, the note of Apps Look & Feel, the
-/// arrangement of the displays, Do Not Disturb on Notifications, the brightness on Brightness &
-/// Night Light. `first` says whether the next
+/// Maintenance, the list of bindings on Keyboard Shortcuts, the notes of Apps Look & Feel and
+/// Environment, the arrangement of the displays, Do Not Disturb on Notifications, the brightness
+/// on Brightness & Night Light. `first` says whether the next
 /// section is the first of the page; a part that is a section takes it.
 pub(super) fn before_rows(
     model: &Model,
@@ -56,6 +57,10 @@ pub(super) fn before_rows(
         }
         Page::AppsLookFeel => {
             body.append(&look::note());
+            Before::default()
+        }
+        Page::Environment => {
+            body.append(&environment::note(model));
             Before::default()
         }
         Page::Displays => Before {

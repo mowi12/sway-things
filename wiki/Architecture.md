@@ -90,6 +90,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `brightness`, `night_light`, `packages` | the backlights through logind, the external monitors through ddcutil, the night light's tools and their location from the time zone, and the install command of the distribution for a missing program ([Backends](Backends.md#brightness-and-night-light)) |
 | core | `capture` | screenshots, the clipboard history and screen recording: the keys of Screenshots & Clipboard, the tools they run, notifications, the session's processes and locks ([Backends](Backends.md#screenshots-clipboard-and-recording)) |
 | core | `bluetooth`, `network`, `sound`, `printers`, `scanners`, `region`, `notifications`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway (the notification daemons: [Notifications](Backends.md#notifications)), `scanners`: SANE's scanimage, what is missing for scanners, and a PDF writer; `region`: systemd-timedated and the time zones from tzdata; and the D-Bus helpers BlueZ, NetworkManager and the printers share ([Backends](Backends.md)) |
+| core | `environment` | Sway Things' environment.d file, collected from the settings that declare variables, and whether the session read it ([Environment](Backends.md#environment)) |
 | core | `apps` | desktop entries, the installed apps, the terminal and launcher, the default apps, the autostart entries and their runners, and the files of other programs they need ([Apps and autostart](Backends.md#apps-and-autostart)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
@@ -470,8 +471,8 @@ The app never adds this line itself. It shows the line with a copy button and de
 ### Other tools
 
 kanshi ([Outputs](Outputs.md)), mako and swaync ([Notifications](Backends.md#notifications)), wlsunset and gammastep
-([Brightness and night light](Backends.md#brightness-and-night-light)) are built; the other rows are the plan for the
-pages still to come.
+([Brightness and night light](Backends.md#brightness-and-night-light)) and the environment.d file
+([Environment](Backends.md#environment)) are built; the other rows are the plan for the pages still to come.
 
 | Tool | Include support | Strategy |
 | --- | --- | --- |
@@ -483,10 +484,9 @@ pages still to come.
 | swaync | no, but `-c` / `-s` flags | Handover: our `config.json` + `style.css` in `~/.config/sway-things/swaync/`; the user starts swaync with `-c`/`-s`, or the page starts it. See [Notifications](Backends.md#notifications) |
 | dunst | drop-ins in `dunstrc.d/` next to the `dunstrc` dunst found | Not written yet: Do Not Disturb only. A drop-in in `~/.config/dunst/dunstrc.d/` is only read when `~/.config/dunst/dunstrc` exists |
 | wlsunset / gammastep | gammastep has a config file and `-c`; wlsunset uses arguments | Started by `sway-things hook night-light` from `80-hooks.conf`: wlsunset with arguments, gammastep with `-c` and our `~/.config/sway-things/gammastep/config.ini`. See [Brightness and night light](Backends.md#brightness-and-night-light) |
-| environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf` |
+| environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf`, then `systemctl --user daemon-reload`. See [Environment](Backends.md#environment) |
 | default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`, and `~/.config/sway-xdg-terminals.list` for `xdg-terminal-exec`; the user's `mimeapps.list` is never touched |
 | GTK look, fonts, dark mode, cursor | dconf database | Written via GIO (official API, allowed); see [GSettings](Backends.md#gsettings) |
-| electron/chromium flags | text files | Create if missing, otherwise handover |
 | XDG autostart | directory of `.desktop` files | Our entries are `exec` lines in `70-autostart.conf`. To disable a system entry we create **our own** override `~/.config/autostart/<name>.desktop` with `Hidden=true` (only if no user file of that name exists). The runner (`xdg-desktop-autostart.target` through our own user unit `~/.config/systemd/user/sway-things-autostart.target`, or `dex -a`) is started from our include |
 
 **Handover** means we generate our own complete file and the user switches the tool to it once (an instruction with a

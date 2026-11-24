@@ -417,8 +417,13 @@ swaybar via our sway include.
 ### Environment
 
 - [ ] 🟡 Environment variables editor (our `~/.config/environment.d/50-sway-things.conf`)
-- [ ] 🟢 Wayland toggles: Firefox, Qt, SDL, Java `_JAVA_AWT_WM_NONREPARENTING`
-- [ ] 🟡 Electron/Chromium Wayland flags (create the flags files if missing, otherwise handover)
+- [x] 🟢 Wayland for older apps, each with a fallback to X11: Qt 5 (`QT_QPA_PLATFORM=wayland;xcb`), SDL 2
+      (`SDL_VIDEODRIVER=wayland,x11`), Java (`_JAVA_AWT_WM_NONREPARENTING=1`), Electron 28 to 37
+      (`ELECTRON_OZONE_PLATFORM_HINT=auto`), in our `environment.d` file, with a notice when the session doesn't read it
+- ~~🟢 Wayland toggle for Firefox (`MOZ_ENABLE_WAYLAND`)~~: Firefox uses Wayland by itself since 121
+- ~~🟡 Electron/Chromium Wayland flags (create the flags files if missing, otherwise handover)~~: Chromium 140 and
+  Electron 38 use Wayland by default, Electron 28 to 37 takes the variable above, and only Arch's wrappers read the
+  flags files
 - [ ] 🟡 XDG portal check (xdg-desktop-portal-wlr / -gtk installed and configured for screen sharing and file pickers)
 - [ ] 🟡 Screen sharing output chooser (xdg-desktop-portal-wlr config)
 

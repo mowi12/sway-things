@@ -3,6 +3,7 @@
 
 //! The definition of one setting.
 
+use super::environment::{EnvironmentFn, EnvironmentMapping};
 use super::output_line;
 use super::page::Page;
 use super::read::{ReadError, ReadFn};
@@ -233,6 +234,7 @@ pub struct Setting {
     check_text: Option<TextCheck>,
     host_by_default: bool,
     gsettings: Option<GSettingsKey>,
+    environment: Option<EnvironmentMapping>,
     unit: Option<Unit>,
     one_at_a_time: bool,
     font: Option<Font>,
@@ -274,6 +276,7 @@ impl Setting {
             check_text: None,
             host_by_default: false,
             gsettings: None,
+            environment: None,
             unit: None,
             one_at_a_time: false,
             font: None,
@@ -529,6 +532,12 @@ impl Setting {
         self.gsettings
     }
 
+    /// The environment variables the setting writes into Sway Things' environment.d file, if
+    /// any ([`crate::environment`]).
+    pub fn environment(&self) -> Option<&EnvironmentMapping> {
+        self.environment.as_ref()
+    }
+
     /// The unit of a number setting, if it has one.
     pub fn unit(&self) -> Option<Unit> {
         self.unit
@@ -740,6 +749,14 @@ impl SettingBuilder {
     /// Copies the value to the GSettings `key` of `schema` ([`Setting::gsettings`]).
     pub fn gsettings(mut self, schema: &'static str, key: &'static str) -> Self {
         self.0.gsettings = Some(GSettingsKey { schema, key });
+        self
+    }
+
+    /// Writes the variables `write` makes from the value into Sway Things' environment.d file
+    /// ([`Setting::environment`]); the setting owns `names` (a name ending in `*` stands for
+    /// every name it starts).
+    pub fn environment(mut self, names: &'static [&'static str], write: EnvironmentFn) -> Self {
+        self.0.environment = Some(EnvironmentMapping { names, write });
         self
     }
 

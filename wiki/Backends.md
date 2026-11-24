@@ -593,5 +593,35 @@ names it.
   written next to its place, then linked there, which fails if a file appeared meanwhile), one of Sway Things as it
   wrote it is replaced (through a symbolic link, like the sway files), and one no longer needed is deleted, only then (a
   link to it stays); someone else's file, a dangling link, or a file of Sway Things changed since, is left alone and
-  reported (`Persisted::others`, kept by `generate::other`). For the default apps only the chosen apps are looked up, not every installed one, so a
-  save stays cheap.
+  reported (`Persisted::others`, kept by `generate::other`). For the default apps only the chosen apps are looked up,
+  not every installed one, so a save stays cheap.
+
+## Environment
+
+`crates/core/src/environment/` writes Sway Things' environment.d file for the Environment page and every other page
+whose settings are environment variables. The facts behind it are in the
+[Sway Reference](Sway-Reference.md#environment-and-portals).
+
+- **Variables from the registry:** a setting declares the names it owns and a function that makes its variables from its
+  value (`SettingBuilder::environment`; a name ending in `*` owns every name it starts, for `LC_*`).
+  `environment::variables` collects them in the order of the registry; a name written twice keeps the later value, and a
+  variable with a name environment.d can't take or a value with a control character is left out. A value is written as
+  it is where that is unambiguous, else in double quotes with `"`, `\` and `` ` `` escaped and `$` doubled
+  (environment.d expands variables after taking the quotes away); a setting that checked a value in environment.d's own
+  syntax can mark it to be written as it is.
+- **The file:** `$XDG_CONFIG_HOME/environment.d/50-sway-things.conf`, with the header of the generated files, kept like
+  the files of the Apps & Autostart page (created where none is, replaced while it is ours, deleted once no setting
+  writes a variable; someone else's file is never touched). After it changed, `Applier::persist` runs
+  `systemctl --user daemon-reload`, so the user manager reads environment.d again for the services it starts from then
+  on and doesn't keep the old variables when it outlives a quick logout. sway and the apps it starts get them at the
+  next login, so the settings apply after re-login.
+- **Wayland for older apps:** four switches, off by default, each one variable whose value falls back to X11 where an
+  app has no Wayland support: `QT_QPA_PLATFORM=wayland;xcb`, `SDL_VIDEODRIVER=wayland,x11`,
+  `_JAVA_AWT_WM_NONREPARENTING=1`, `ELECTRON_OZONE_PLATFORM_HINT=auto`. Firefox, Chromium 140 and Electron 38 need
+  nothing.
+- **Does the session read it?** (`environment::session`) Only the user manager reads environment.d by itself; sway gets
+  the variables only if whatever starts it runs the environment.d generator first. The page reads the environment of the
+  sway that runs the session from `/proc/<pid>/environ` (the pid is in the name of `$SWAYSOCK`, the start is the
+  socket's time) and, when a variable of the file is missing there although the file is older than sway, shows a notice
+  with the line to run before sway starts (`set -a; eval "$(<generator>)"; set +a`, with the generator of the system) to
+  copy. Variables in environment.d's own syntax aren't compared, since only the generator knows what they expand to.
