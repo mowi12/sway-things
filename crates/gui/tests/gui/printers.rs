@@ -134,7 +134,8 @@ pub(crate) fn shoot_checked(window: &gtk::Window, name: &str) -> Outcome {
 }
 
 /// The lines of the printers: by title, with their state in words and the jobs waiting, the
-/// default's badge and the ink or toner; a click opens the details with the job.
+/// default's badge and the ink or toner; a click on the line or on the jobs opens the details
+/// with the job.
 pub(crate) fn check_printers() -> Outcome {
     let stand_in = printers_stand_in(true)?;
     let page = PrintersPage::new(&print_service(&stand_in));
@@ -150,12 +151,7 @@ pub(crate) fn check_printers() -> Outcome {
     };
     ensure(
         rows == [
-            row(
-                "Seeded",
-                "Front Desk",
-                "Paused \u{b7} Toner low \u{b7} 1 job",
-                false,
-            ),
+            row("Seeded", "Front Desk", "Paused \u{b7} Toner low", false),
             row("Office", "Office", "Ready", true),
         ],
         &format!("  rows: {rows:?}"),
@@ -172,6 +168,24 @@ pub(crate) fn check_printers() -> Outcome {
                 .is_some_and(|b| !b.is_visible()),
         "  Resume shows on the wrong printers",
     )?;
+    let jobs = page.jobs_button("Seeded");
+    ensure(
+        jobs.as_ref()
+            .is_some_and(|b| b.is_visible() && b.label().as_deref() == Some("1 job"))
+            && page.jobs_button("Office").is_some_and(|b| !b.is_visible()),
+        "  the jobs show on the wrong printers",
+    )?;
+    if let Some(jobs) = jobs {
+        jobs.emit_clicked();
+    }
+    let details = page
+        .details_dialog()
+        .ok_or("  the jobs opened no details")?;
+    ensure(
+        details.window.is_visible(),
+        "  the details of the jobs aren't shown",
+    )?;
+    details.close();
     page.activate_row("Seeded");
     let details = page.details_dialog().ok_or("  no details")?;
     let jobs = details.job_rows();

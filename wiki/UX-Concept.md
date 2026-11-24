@@ -569,12 +569,13 @@ after every action.
 - **Printers:** one line per print queue, sorted by title, in the manner of GNOME Settings: a printer icon on a tile,
   the description (else the queue's name) with a _Default_ badge on the default printer, below it the state in words
   (_Ready_, _Printing_, _Paused_, or what stops it: _Out of paper_, _Paper jam_, _Door open_, _Offline_, _Stopped: …_
-  with CUPS's message), followed by the warnings (_Toner low_) and the jobs waiting (_2 jobs_), and at the end a small
-  upright bar per ink or toner in its colors (a cartridge with several inks is striped; the names and levels are its
-  tooltip and what screen readers say) and a chevron. A printer that can't print has a warning sign in the warning color
-  before its state, which is in the text color (the theme's error color is too faint on a list in some themes). A paused
-  printer, or one that rejects jobs, shows _Resume_ on its line. The model, the location, the address and sharing are in
-  the details, not on the line. Queues CUPS or the print dialog set up by themselves for one job
+  with CUPS's message), followed by the warnings (_Toner low_), then the jobs waiting as a small flat button (_2 jobs_)
+  that opens the details scrolled to the print queue, with the focus on _Cancel All_ or the first job, and at the end a
+  small upright bar per ink or toner in its colors (a cartridge with several inks is striped; the names and levels are
+  its tooltip and what screen readers say) and a chevron. A printer that can't print has a warning sign in the warning
+  color before its state, which is in the text color (the theme's error color is too faint on a list in some themes). A
+  paused printer, or one that rejects jobs, shows _Resume_ on its line. The model, the location, the address and sharing
+  are in the details, not on the line. Queues CUPS or the print dialog set up by themselves for one job
   (`printer-is-temporary`) show only while they hold a job.
 - **Details:** a click on a line opens them, kept up to date while open: the printer's icon, title, state and badge;
   _Set as Default_ (not on the default), _Pause_ or _Resume_ and _Print Test Page_; the ink and toner, a bar with name

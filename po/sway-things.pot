@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-24 11:05+0100\n"
+"POT-Creation-Date: 2026-11-24 11:07+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -10330,6 +10330,15 @@ msgid ""
 "“{printer}” is your own default printer, which apps use: it is set in "
 "~/.cups/lpoptions (lpoptions -d). Set as Default changes the default for "
 "every user."
+msgstr ""
+
+#: crates/gui/src/widgets/printers/rows.rs
+msgid "Show the print queue"
+msgstr ""
+
+#: crates/gui/src/widgets/printers/rows.rs
+#, rust-format
+msgid "Print queue of {printer}: {jobs}"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/rows.rs

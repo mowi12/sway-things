@@ -161,6 +161,15 @@ impl PrintersPage {
         });
     }
 
+    /// Opens the details of the printer `name` at its print queue.
+    pub(super) fn show_queue(&self, name: &str) {
+        self.show_details(name);
+        let open = self.imp().details.borrow().clone();
+        if let Some(dialog) = open.filter(|dialog| dialog.name == name) {
+            dialog.show_queue();
+        }
+    }
+
     /// Opens the details of the printer `name`, or brings them to the front.
     pub(super) fn show_details(&self, name: &str) {
         let imp = self.imp();

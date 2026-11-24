@@ -3,9 +3,9 @@
 
 //! The rows of the printers: one line per printer, made once and updated in place from each
 //! snapshot. A line holds the printer's icon, its title with a _Default_ badge, its state in
-//! words (with the jobs waiting), its ink or toner as small bars, a warning sign when it can't
-//! print, and _Resume_ while it is paused. A click on the line opens its details
-//! ([`super::details`]), where everything else is.
+//! words, the jobs waiting as a small button that opens its print queue, its ink or toner as
+//! small bars, a warning sign when it can't print, and _Resume_ while it is paused. A click on
+//! the line opens its details ([`super::details`]), where everything else is.
 
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -105,9 +105,23 @@ impl PrintersPage {
         problem.add_css_class("st-device-warning");
         problem.set_pixel_size(14);
         problem.set_visible(false);
+        let jobs = gtk::Button::new();
+        jobs.add_css_class("flat");
+        jobs.add_css_class("st-printer-jobs");
+        jobs.set_valign(gtk::Align::Center);
+        jobs.set_tooltip_text(Some(tr(msg!("Show the print queue"))));
+        jobs.set_visible(false);
+        let id = name.to_owned();
+        let weak = self.downgrade();
+        jobs.connect_clicked(move |_| {
+            if let Some(page) = weak.upgrade() {
+                page.show_queue(&id);
+            }
+        });
         let status_line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         status_line.append(&problem);
         status_line.append(&status);
+        status_line.append(&jobs);
 
         let texts = gtk::Box::new(gtk::Orientation::Vertical, 2);
         texts.set_hexpand(true);
@@ -146,6 +160,7 @@ impl PrintersPage {
             title,
             badge,
             status,
+            jobs,
             problem,
             levels,
             resume,
@@ -163,8 +178,16 @@ impl PrintersPage {
         let running = self.imp().running.borrow().get(&printer.name).copied();
         row.title.set_text(printer.title());
         row.badge.set_visible(is_default);
-        let status = running.map_or_else(|| status_with_jobs(printer, jobs), ToOwned::to_owned);
+        let status = running.map_or_else(|| printer.status().translated(), ToOwned::to_owned);
         row.status.set_text(&status);
+        let waiting = jobs_text(jobs);
+        row.jobs.set_label(&waiting);
+        row.jobs.set_visible(running.is_none() && jobs > 0);
+        row.jobs
+            .update_property(&[gtk::accessible::Property::Label(&trf(
+                msg!("Print queue of {printer}: {jobs}"),
+                &[("printer", &printer.title()), ("jobs", &waiting)],
+            ))]);
         // A printer that can't print says so with a sign in the warning color, and its state in
         // the text color: the theme's error color is too faint on a list in some themes.
         let problem = running.is_none() && printer.problem().is_some();
@@ -180,6 +203,9 @@ impl PrintersPage {
                 &[("printer", &printer.title())],
             ))]);
         let mut said = vec![status];
+        if jobs > 0 {
+            said.push(waiting);
+        }
         if is_default {
             said.push(tr(msg!("Default printer")).to_owned());
         }
@@ -197,18 +223,13 @@ impl PrintersPage {
     }
 }
 
-/// The state of `printer` in words, with the jobs waiting for it: `Paused · Toner low · 2 jobs`.
-pub(super) fn status_with_jobs(printer: &Printer, jobs: usize) -> String {
-    let status = printer.status().translated();
-    if jobs == 0 {
-        return status;
-    }
-    let jobs = ntrf(
+/// The jobs waiting, in words: `2 jobs`.
+pub(super) fn jobs_text(jobs: usize) -> String {
+    ntrf(
         msg_plural!("{count} job", "{count} jobs"),
         jobs,
         &[("count", &jobs)],
-    );
-    format!("{status} · {jobs}")
+    )
 }
 
 /// The icon `name` of a device on a rounded tile, as the lines of printers and scanners start.

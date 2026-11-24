@@ -754,6 +754,13 @@ window.st-dialog list.st-printer-picker > row {
   margin: 0 4px;
 }
 
+/* The jobs waiting on a printer's line: a small button in the size of the state beside it. */
+.st-printer-jobs {
+  min-height: 0;
+  padding: 0 6px;
+  font-size: 0.9em;
+}
+
 .st-device-actions > button {
   padding-left: 14px;
   padding-right: 14px;

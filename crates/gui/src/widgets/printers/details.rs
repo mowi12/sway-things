@@ -89,6 +89,9 @@ struct Parts {
     test_page: gtk::Button,
     supplies_heading: gtk::Label,
     supplies: gtk::Box,
+    /// The heading of the print queue, with _Cancel All_: what [`DetailsDialog::show_queue`]
+    /// scrolls to.
+    jobs_line: gtk::Box,
     jobs: gtk::ListBox,
     jobs_hint: gtk::Label,
     cancel_all: gtk::Button,
@@ -279,6 +282,7 @@ impl DetailsDialog {
                 test_page,
                 supplies_heading,
                 supplies,
+                jobs_line,
                 jobs,
                 jobs_hint,
                 cancel_all,
@@ -348,6 +352,34 @@ impl DetailsDialog {
             })),
         ));
         self.window.add_controller(escape);
+    }
+
+    /// Scrolls to the print queue and puts the focus there: on _Cancel All_, or on the first
+    /// job. Once the dialog is laid out, so a dialog that just opened scrolls too.
+    pub(super) fn show_queue(&self) {
+        let parts = Rc::clone(&self.parts);
+        let window = self.window.clone();
+        glib::idle_add_local_once(move || {
+            let scroller = window.child().and_downcast::<gtk::ScrolledWindow>();
+            let content = scroller.as_ref().and_then(|scroller| {
+                scroller
+                    .child()
+                    .and_then(|viewport| viewport.first_child().or(Some(viewport)))
+            });
+            if let (Some(scroller), Some(content)) = (scroller, content) {
+                if let Some(point) = parts
+                    .jobs_line
+                    .compute_point(&content, &gtk::graphene::Point::new(0.0, 0.0))
+                {
+                    scroller.vadjustment().set_value(f64::from(point.y()));
+                }
+            }
+            if parts.cancel_all.is_sensitive() {
+                parts.cancel_all.grab_focus();
+            } else if let Some(row) = parts.jobs.row_at_index(0) {
+                row.grab_focus();
+            }
+        });
     }
 
     /// Saves what changed and closes the dialog.

@@ -101,8 +101,10 @@ struct PrinterRow {
     title: gtk::Label,
     /// _Default_, shown on the default printer.
     badge: gtk::Label,
-    /// The state in words, with the jobs waiting.
+    /// The state in words.
     status: gtk::Label,
+    /// The jobs waiting (_2 jobs_), shown while there are some: opens the print queue.
+    jobs: gtk::Button,
     /// The sign before the status of a printer that can't print.
     problem: gtk::Image,
     /// The small bars of the ink or toner.
@@ -324,6 +326,15 @@ impl PrintersPage {
             .borrow()
             .get(name)
             .map(|row| row.resume.clone())
+    }
+
+    /// The button with the jobs waiting on the printer `name`; for tests.
+    pub fn jobs_button(&self, name: &str) -> Option<gtk::Button> {
+        self.imp()
+            .rows
+            .borrow()
+            .get(name)
+            .map(|row| row.jobs.clone())
     }
 
     /// Clicks the line of the printer `name`, which opens its details; for tests.
