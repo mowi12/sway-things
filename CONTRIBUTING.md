@@ -87,7 +87,9 @@ Rules 1–7 protect users' systems; rules 8–12 keep the code base consistent a
 reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
 
 1. **Never write a file Sway Things didn't create.** The only exceptions are official programmatic stores
-   (gsettings/dconf, D-Bus services). The user's sway config is never touched.
+   (gsettings/dconf, D-Bus services), and the one file the user picks in a Save dialog for something they made in the
+   app, such as a scan: written atomically, and replacing a file only when the dialog asked them first. The user's sway
+   config is never touched.
 2. **Never build shell strings.** Run processes with argument arrays. Never `sh -c`. Where a companion tool's config
    takes a command its tool runs through a shell (mako's `on-button-left`, swaync's scripts and buttons), the command is
    a fixed string of ours that calls `sway-things`, never built from data.

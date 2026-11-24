@@ -67,7 +67,8 @@ Never break these, even if a task seems to ask for it. Ask instead. They are the
 [engineering rules](CONTRIBUTING.md#engineering-rules-non-negotiable), numbered the same; the details are there.
 
 1. **Never write a file Sway Things didn't create**, above all the user's `~/.config/sway/config`. The only exceptions
-   are official programmatic stores (GSettings/dconf, D-Bus services).
+   are official programmatic stores (GSettings/dconf, D-Bus services) and the file the user picks in a Save dialog for
+   something made in the app (a scan).
 2. **Never build shell strings.** `Command` with argument arrays; never `sh -c`.
 3. **External strings are data.** Device names, SSIDs, Bluetooth names, file and window names go through the typed sway
    command builders, and into GTK only as plain text.
