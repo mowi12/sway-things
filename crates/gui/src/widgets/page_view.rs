@@ -32,6 +32,7 @@ use sway_things_core::ui_state;
 use self::about::{about_section, generated_section};
 use self::device_group::DeviceGroup;
 use super::apps;
+use super::brightness;
 use super::displays::{self, Arrangement, OutputPicker};
 use super::notifications;
 use super::setting_row::tilde;
@@ -547,6 +548,23 @@ fn arrangement_section(
     body.append(&section.body);
     sections.push(section);
     arrangement
+}
+
+/// The "Brightness" section at the top of Brightness & Night Light: the backlight, the external
+/// monitors and the keyboard light, live.
+pub(super) fn brightness_section(model: &Model, body: &gtk::Box, first: bool) -> Section {
+    let title = msg!("Brightness");
+    let section = Section::new(
+        model,
+        Page::BrightnessNightLight,
+        title.msgid(),
+        tr(title),
+        first,
+    );
+    section.body.append(&brightness::panel());
+    body.append(&section.header);
+    body.append(&section.body);
+    section
 }
 
 /// Where the Notifications page's panel says which daemon the page is about.

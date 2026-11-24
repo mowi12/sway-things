@@ -2,8 +2,8 @@
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
 > NetworkManager, the sound server, CUPS, SANE, the notification daemons and GSettings, the tools of Screenshots &
-> Clipboard, the desktop entries, default apps and autostart runners of Apps & Autostart, and the planned backends for
-> the companion tools.
+> Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the desktop entries, default apps
+> and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the companion tools Sway
 Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), and the notification daemons
@@ -26,7 +26,7 @@ trait Backend {
 | Bar | waybar, swaybar (`bar {}` block) |
 | Idle / lock | swayidle + swaylock |
 | Notifications | mako, swaync, dunst (see [Notifications](#notifications)) |
-| Night light | gammastep, wlsunset |
+| Night light | wlsunset, gammastep (see [below](#brightness-and-night-light)) |
 | Wallpaper | swaybg via `output * bg`; swww later |
 | Launcher | fuzzel, wofi, rofi(-wayland), tofi |
 | Screenshots | grim + slurp, swappy / satty (the command line, see [below](#screenshots-clipboard-and-recording)) |
@@ -40,7 +40,7 @@ trait Backend {
 | Printers | CUPS (IPP over its domain socket); cups-pk-helper (D-Bus, polkit); Avahi (D-Bus) |
 | Scanners | SANE's `scanimage` (subprocess); Avahi (D-Bus) |
 | Power | power-profiles-daemon / tuned-ppd, UPower (D-Bus) |
-| Brightness | logind `Session.SetBrightness` (no root needed) / brightnessctl; ddcutil for external monitors |
+| Brightness | logind `Session.SetBrightness` (no root needed); ddcutil for external monitors (see [below](#brightness-and-night-light)) |
 | Time / locale | systemd-timedated, systemd-localed (D-Bus, polkit) |
 
 Bluetooth needs no `Backend`: it is runtime state that BlueZ owns and keeps itself, with nothing to store or generate,
@@ -293,6 +293,47 @@ needs, so a key press is quick. The facts behind it are in the
   compares the versions of wl-paste and cliphist. clipman isn't offered: it keeps only text.
 - **Programs** (`capture::tools`): each with its package; `missing_for` says which part that is on misses what, for
   `doctor` and the page.
+
+## Brightness and night light
+
+Neither needs a `Backend`: the brightness is live state nothing stores, and the night light is a tool started with an
+argument list. The facts behind it are in the [Sway Reference](Sway-Reference.md#brightness-and-night-light).
+
+- **Backlights** (`brightness`): `devices` reads `/sys/class/backlight` and the keyboard lights of `/sys/class/leds`
+  (`*::kbd_backlight`), the screens first by preference (firmware, platform, raw), as systemd and GNOME prefer them.
+  `Logind` sets one through `Session.SetBrightness` on `/org/freedesktop/login1/session/auto` over the system bus, so
+  neither root nor brightnessctl is needed. A backlight never goes below 1 % (`Device::min_raw`, at least one raw step),
+  so the panel can't go black; the keyboard light goes down to off. Nothing is stored: the kernel or `systemd-backlight`
+  brings the backlight back at boot. `sway-things brightness` uses the same code.
+- **External monitors** (`brightness::ddc`): `ddcutil detect --brief` lists the displays that answer over DDC/CI,
+  without built-in panels (eDP, LVDS, DSI); each is addressed by its I²C bus (`--bus`), which stays while it is
+  connected. `getvcp 10` and `setvcp 10` read and set the brightness (VCP feature `0x10`). Each call takes 50 to 500 ms,
+  so the page runs them off the main loop and sends a value only once the slider stood still for 0.5 s, one at a time.
+  `ddc::access` opens the `/dev/i2c-*` for reading and writing (which sends nothing) to tell missing rights from a
+  missing `i2c-dev` module.
+- **Night light settings** (`night_light.*`, `registry::night_light`): the switch, the tool (`wlsunset` by default, or
+  `gammastep`), the schedule (`sunset`, `times`, `always`), the location (`timezone` or `custom` with latitude and
+  longitude), the times (`from`, `to`, `HH:MM`) and the temperatures (night 4000 K, day 6500 K, both 1000–6500 K). They
+  have no sway directive; while the switch is on, `80-hooks.conf` runs `sway-things hook night-light`.
+- **The plan** (`night_light::plan`): wlsunset gets `-l`/`-L` from sunset to sunrise, or `-S <to> -s <from> -d 1800`
+  with fixed times, and `-t <night> -T <day>`; it wants the day warmer than the night, so an equal or warmer day becomes
+  `-t <night − 1> -T <night>`. _Always on_ is that pair at any times. gammastep gets `-c` with our
+  `$XDG_CONFIG_HOME/sway-things/gammastep/config.ini` (header first; a file without it is someone else's and never
+  written), with `adjustment-method=wayland`, the temperatures and either `location-provider=manual` with `[manual]` or
+  `dawn-time`/`dusk-time` fading over half an hour before the night ends and after it starts, kept within the day. With
+  fixed times the night must span midnight (`to` earlier than `from`), as both tools want it.
+- **The location** (`night_light::location`): the time zone (`TZ`, else where `/etc/localtime` points into
+  `/usr/share/zoneinfo/`) and its main city's coordinates from `zone1970.tab`, else `zone.tab`. Nothing asks a service
+  where the computer is; a zone without coordinates (UTC) asks for a location by hand or fixed times.
+- **Starting it** (`night_light::sync`): like the clipboard history's watcher, under the session's lock `night-light`.
+  The tool runs detached (`setsid -f`) with `SWAY_THINGS_NIGHT_LIGHT=<fingerprint>` in its environment, a hash of the
+  tool, its arguments and the config; one whose fingerprint matches the settings is kept, the others Sway Things started
+  in this session are ended, and waited for up to three seconds (gammastep fades back while it holds the displays), then
+  killed. The new one's standard error goes to `$XDG_RUNTIME_DIR/sway-things-night-light.log`; 0.5 s later it must still
+  run, else the last line of the log is the reason. A night light of the user's own is never ended, and none is started
+  while one runs (wlsunset, gammastep, gammastep-indicator, redshift, wl-gammarelay, sunsetr, found in `/proc` without
+  the marker) or an `exec` line of the user's config starts one (`night_light::own_lines`). The app runs it 0.8 s after
+  the settings stood still, off the main loop.
 
 ## Notifications
 

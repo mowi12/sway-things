@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-24 22:27+0100\n"
+"POT-Creation-Date: 2026-11-24 22:21+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3653,6 +3653,7 @@ msgstr ""
 
 #: crates/core/src/registry/behavior.rs crates/core/src/registry/input.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/brightness.rs
 #: crates/gui/src/widgets/displays/canvas/geometry.rs
 #: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
@@ -4735,7 +4736,8 @@ msgstr ""
 msgid "dither"
 msgstr ""
 
-#: crates/core/src/registry/effects.rs crates/gui/src/widgets/notifications.rs
+#: crates/core/src/registry/effects.rs crates/gui/src/widgets/brightness.rs
+#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/page_view.rs
 msgid "Brightness"
 msgstr ""
 
@@ -8738,12 +8740,12 @@ msgstr ""
 msgid "More actions"
 msgstr ""
 
-#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
 #: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
-#: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
 msgid "Copy the command"
 msgstr ""
 
@@ -8989,6 +8991,49 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/search.rs
 #, rust-format
 msgid "Blueman can't be started: {error}"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid "Looking for external monitors…"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+#: crates/gui/src/widgets/printers/supplies.rs
+#: crates/gui/src/widgets/sound/volume.rs
+#, rust-format
+msgid "{percent} %"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid ""
+"Nothing here can be dimmed: there is no backlight, and no external monitor "
+"answers over DDC/CI."
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid ""
+"To set the brightness of external monitors, install ddcutil; most monitors "
+"take it over their cable (DDC/CI)."
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid ""
+"External monitors are set over their cable (DDC/CI), which needs the kernel "
+"module i2c-dev. Load it, and have it loaded at boot:"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid ""
+"External monitors are set over their cable (DDC/CI), which needs access to /"
+"dev/i2c-*. Add yourself to the i2c group, then log out and in again:"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid "Built-in display"
+msgstr ""
+
+#: crates/gui/src/widgets/brightness.rs
+msgid "Keyboard backlight"
 msgstr ""
 
 #: crates/gui/src/widgets/capture.rs
@@ -10051,6 +10096,65 @@ msgstr ""
 msgid "WPA Enterprise (802.1X)"
 msgstr ""
 
+#: crates/gui/src/widgets/night_light.rs
+#, rust-format
+msgid "Runs with {tool}."
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid "Starts once you stop changing the settings."
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+#, rust-format
+msgid "Time zone {zone}: {latitude}° {north}, {longitude}° {east}."
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid "N"
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid "S"
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid "E"
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid "W"
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+msgid ""
+"The night light needs wlsunset or gammastep. Install one of them, wlsunset "
+"for example:"
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+#, rust-format
+msgid ""
+"{program} runs already (process {pid}), started outside Sway Things, by a "
+"systemd unit or by hand. Only one night light can change the colors, so the "
+"settings here wait until it ends; then turn the night light on here."
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+#, rust-format
+msgid ""
+"Your config starts a night light itself ({place}: {line}). Only one night "
+"light can change the colors, so the settings here are off. To set the night "
+"light here, remove that line, then turn the night light on here."
+msgstr ""
+
+#: crates/gui/src/widgets/night_light.rs
+#: crates/gui/src/widgets/setting_row/indicators.rs
+#: crates/gui/src/widgets/wallpaper/notices.rs
+#: crates/gui/src/widgets/welcome.rs
+msgid "Open config in editor"
+msgstr ""
+
 #: crates/gui/src/widgets/notifications.rs
 msgid "Imported"
 msgstr ""
@@ -10841,12 +10945,6 @@ msgstr ""
 msgid "Supply"
 msgstr ""
 
-#: crates/gui/src/widgets/printers/supplies.rs
-#: crates/gui/src/widgets/sound/volume.rs
-#, rust-format
-msgid "{percent} %"
-msgstr ""
-
 #. TRANSLATORS: A supply of a printer whose exact level isn't known, but isn't empty.
 #: crates/gui/src/widgets/printers/supplies.rs
 msgid "Some left"
@@ -10960,12 +11058,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/setting_row/indicators.rs
 msgid "Let my config win"
-msgstr ""
-
-#: crates/gui/src/widgets/setting_row/indicators.rs
-#: crates/gui/src/widgets/wallpaper/notices.rs
-#: crates/gui/src/widgets/welcome.rs
-msgid "Open config in editor"
 msgstr ""
 
 #: crates/gui/src/widgets/setting_row/indicators.rs

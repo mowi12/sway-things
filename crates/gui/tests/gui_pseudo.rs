@@ -387,6 +387,9 @@ fn data() -> Vec<String> {
     let system = async_io::block_on(Details::read(None, None, None, None, None));
     data.extend(system.distribution);
     data.extend(system.kernel);
+    // The time zone of this machine, which Brightness & Night Light names below the location
+    // (`Etc/UTC` in a container): a value, not text.
+    data.extend(sway_things_core::night_light::location::zone());
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));
     data.dedup();
     data
