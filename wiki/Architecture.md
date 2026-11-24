@@ -405,7 +405,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf      # the autostart entries and the runner of the XDG autostart entries
-├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard, hook night-light; later: bindswitch lid → …
+├── 80-hooks.conf          # hook gsettings, clipboard, night-light, timezone; later: bindswitch lid → hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 

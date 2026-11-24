@@ -742,15 +742,22 @@ Day temperature      ─────────────────●  [ 6
 
 ### Region & Time
 
-The Region & Time page shows systemd-timedated's live state in its _Date & Time_ section; nothing of it is stored by
-Sway Things, so the section has no reset, no indicators and no generated file. Search finds the page by time zone,
-clock, date, time and NTP.
+The Region & Time page shows systemd-timedated's live state in its _Date & Time_ section; only the automatic time zone
+is stored by Sway Things, the rest has no reset and no indicators. Search finds the page by time zone, clock, date, time
+and NTP.
 
 - **Time zone:** the zone as city and region, its abbreviation and offset ("Berlin, Europe · CET (UTC+01:00)") and
   _Change…_, which opens a dialog with a search field (every word of the search in the name, city or region) and the
   zones timedated knows: city above region, the current offset and the local time on the right. The current zone is
   selected; activating a zone (or Enter in the search field, for the first that matches) sets it and closes the dialog;
   _Cancel_ and Escape close it.
+- **Automatic time zone** (off by default): a switch below the time zone, stored by Sway Things
+  (`region.automatic_timezone`, with reset and indicators like any stored setting), whose explanation says that geoclue
+  finds the city through an online service that sees the IP address and may see the Wi-Fi networks nearby. While it is
+  on, the zone where the computer is gets set at each login and when the page opens or the switch is turned on; polkit
+  asks for the password only when the zone differs. When geoclue refuses Sway Things or waits for an agent to allow it
+  (sway has none), the section shows the command that creates the drop-in allowing it, with _Copy_. Turning the switch
+  off stops a lookup silently and hides that help; leaving the page stops it until the page is shown again.
 - **Set time automatically:** a switch for NTP, its subtitle _Synchronized with a time server_, _Not synchronized yet_
   or _Off_. Without a time service (systemd-timesyncd, chrony) it is insensitive and says so. Until timedated has
   answered a change, the switch keeps its new position and the section's controls are insensitive.
