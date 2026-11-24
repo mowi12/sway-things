@@ -178,15 +178,18 @@ pub enum Unit {
     Pixels,
     /// Seconds, `s`.
     Seconds,
+    /// Kelvin, `K`: a color temperature.
+    Kelvin,
 }
 
 impl Unit {
     /// The symbol, translatable.
     pub fn symbol(self) -> Msg {
-        // TRANSLATORS: Unit symbols, shown after a number with a space: "12 px", "3 s".
+        // TRANSLATORS: Unit symbols, shown after a number with a space: "12 px", "3 s", "4000 K".
         match self {
             Self::Pixels => msg!("px"),
             Self::Seconds => msg!("s"),
+            Self::Kelvin => msg!("K"),
         }
     }
 }

@@ -183,5 +183,12 @@ entries = [
 ]
 hidden = ["geoclue-demo-agent.desktop"]
 
+[night_light]
+enabled = true
+schedule = "times"
+from = "21:00"
+to = "06:30"
+temperature_night = 3500
+
 [app]
 safety_net_timeout = 20

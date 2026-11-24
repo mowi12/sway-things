@@ -45,9 +45,23 @@ pub fn find(name: &str, marker: &str) -> Vec<Found> {
     find_in(session(), name, marker)
 }
 
+/// The processes of this user in this session named one of `names`, each with its name, as
+/// [`find`] finds them, in one pass over `/proc`.
+pub fn find_any(names: &[&str], marker: &str) -> Vec<(String, Found)> {
+    scan(session(), names, marker)
+}
+
 /// [`find`] for the session `session` (the two entries of the environment that make it); nothing
 /// for `None`, never every session.
 pub(crate) fn find_in(session: Option<[Vec<u8>; 2]>, name: &str, marker: &str) -> Vec<Found> {
+    scan(session, &[name], marker)
+        .into_iter()
+        .map(|(_, found)| found)
+        .collect()
+}
+
+/// The processes of `session` named one of `names`, with their names.
+fn scan(session: Option<[Vec<u8>; 2]>, names: &[&str], marker: &str) -> Vec<(String, Found)> {
     use std::os::unix::fs::MetadataExt as _;
     let Some(session) = session else {
         return Vec::new();
@@ -68,9 +82,11 @@ pub(crate) fn find_in(session: Option<[Vec<u8>; 2]>, name: &str, marker: &str) -
                 return None;
             }
             let comm = std::fs::read_to_string(path.join("comm")).ok()?;
-            if comm.trim_end() != name {
+            let name = comm.trim_end();
+            if !names.contains(&name) {
                 return None;
             }
+            let name = name.to_owned();
             let environ = std::fs::read(path.join("environ")).ok()?;
             let mut entries = environ.split(|byte| *byte == 0);
             if !session
@@ -89,7 +105,7 @@ pub(crate) fn find_in(session: Option<[Vec<u8>; 2]>, name: &str, marker: &str) -
                 .filter(|arg| !arg.is_empty())
                 .map(|arg| OsString::from_vec(arg.to_vec()))
                 .collect();
-            Some(Found { pid, args, marker })
+            Some((name, Found { pid, args, marker }))
         })
         .collect()
 }

@@ -41,6 +41,7 @@ mod effects;
 mod input;
 mod link;
 pub mod look;
+pub mod night_light;
 pub mod notifications;
 pub mod output;
 mod output_line;
@@ -98,6 +99,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(notifications::settings());
     settings.extend(apps::settings());
     settings.extend(capture::settings());
+    settings.extend(night_light::settings());
     settings.extend(app::settings());
     Registry { settings }
 });

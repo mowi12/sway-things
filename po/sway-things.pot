@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-24 22:25+0100\n"
+"POT-Creation-Date: 2026-11-24 22:26+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -670,7 +670,8 @@ msgid ""
 "have Sway Things write it again"
 msgstr ""
 
-#: crates/core/src/apps/files.rs crates/core/src/notifications/files.rs
+#: crates/core/src/apps/files.rs crates/core/src/night_light/mod.rs
+#: crates/core/src/notifications/files.rs
 #, rust-format
 msgid "{file} can't be written: {error}"
 msgstr ""
@@ -2701,6 +2702,56 @@ msgstr ""
 msgid "NetworkManager isn't running"
 msgstr ""
 
+#: crates/core/src/night_light/mod.rs
+#, rust-format
+msgid ""
+"The time zone {zone} has no place to take sunset and sunrise from: enter "
+"your location by hand, or use fixed times"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+msgid ""
+"The time zone isn't known, so sunset and sunrise can't be told: enter your "
+"location by hand, or use fixed times"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+msgid ""
+"The night must end before it starts again: the time it ends has to be "
+"earlier in the day than the time it starts, such as from 20:00 to 07:00"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+msgid ""
+"Not in a sway session (XDG_RUNTIME_DIR or WAYLAND_DISPLAY isn't set), so the "
+"night light is neither started nor ended"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+msgid "Another command of Sway Things is starting the night light"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+msgid "Neither wlsunset nor gammastep is installed; install one of them"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+#, rust-format
+msgid ""
+"{file} wasn't written by Sway Things, so it is left alone and gammastep "
+"isn't started"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+#, rust-format
+msgid "{tool} ended right after it started"
+msgstr ""
+
+#: crates/core/src/night_light/mod.rs
+#, rust-format
+msgid "{tool} ended right after it started: {error}"
+msgstr ""
+
 #: crates/core/src/notifications/bus.rs
 #, rust-format
 msgid "the notification daemon didn't answer: {error}"
@@ -4203,7 +4254,7 @@ msgstr ""
 msgid "path"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/core/src/registry/night_light.rs
 msgid "location"
 msgstr ""
 
@@ -5735,6 +5786,170 @@ msgstr ""
 msgid "lcd"
 msgstr ""
 
+#: crates/core/src/registry/night_light.rs
+msgid "wlsunset"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "gammastep"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Sunset to sunrise"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Fixed times"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Always on"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "From the time zone"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Entered by hand"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Night light"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Warmer colors in the evening and at night, with wlsunset or gammastep"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "night light"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "night shift"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "blue light"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "color temperature"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "redshift"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Tool"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "The program that changes the colors of the displays"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Schedule"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "sunset"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "sunrise"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "time"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Location"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid ""
+"Sunset and sunrise depend on where you are; the time zone gives its main "
+"city. Nothing leaves this computer"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "coordinates"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "time zone"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Latitude"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Degrees north; south is negative"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Longitude"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Degrees east; west is negative"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+#: crates/gui/src/widgets/apps/dialogs.rs
+msgid "From"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "When the night starts, as HH:MM"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "evening"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "To"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "When the night ends, as HH:MM"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "morning"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Night temperature"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Lower is warmer and more orange; 6500 K changes nothing"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "warm"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "kelvin"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "Day temperature"
+msgstr ""
+
+#: crates/core/src/registry/night_light.rs
+msgid "6500 K leaves the colors as they are by day"
+msgstr ""
+
 #: crates/core/src/registry/notifications.rs
 #: crates/gui/src/widgets/page_view.rs
 msgid "mako"
@@ -6541,6 +6756,10 @@ msgstr ""
 msgid "s"
 msgstr ""
 
+#: crates/core/src/registry/setting.rs
+msgid "K"
+msgstr ""
+
 #: crates/core/src/registry/shortcuts.rs
 msgid "Super (the logo key)"
 msgstr ""
@@ -6788,6 +7007,10 @@ msgstr ""
 msgid ""
 "must be a file name without slashes or line breaks; % starts a date or time "
 "like %Y-%m-%d %H-%M-%S, and %% is a %"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a time as HH:MM, from 00:00 to 23:59"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -8192,10 +8415,6 @@ msgstr ""
 #: crates/gui/src/widgets/printers/scan.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Close"
-msgstr ""
-
-#: crates/gui/src/widgets/apps/dialogs.rs
-msgid "From"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
@@ -10187,10 +10406,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/printers/details.rs
 msgid "Description"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/details.rs
-msgid "Location"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/details.rs
