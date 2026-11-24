@@ -47,6 +47,7 @@ pub mod output;
 mod output_line;
 mod page;
 mod read;
+pub mod region;
 mod search;
 mod setting;
 pub mod shortcuts;
@@ -100,6 +101,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(apps::settings());
     settings.extend(capture::settings());
     settings.extend(night_light::settings());
+    settings.extend(region::settings());
     settings.extend(app::settings());
     Registry { settings }
 });

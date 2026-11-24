@@ -205,6 +205,9 @@ _sway__things() {
             sway__things__subcmd__help__subcmd__hook,quick)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__quick"
                 ;;
+            sway__things__subcmd__help__subcmd__hook,timezone)
+                cmd="sway__things__subcmd__help__subcmd__hook__subcmd__timezone"
+                ;;
             sway__things__subcmd__help__subcmd__hook,wallpaper)
                 cmd="sway__things__subcmd__help__subcmd__hook__subcmd__wallpaper"
                 ;;
@@ -262,6 +265,9 @@ _sway__things() {
             sway__things__subcmd__hook,quick)
                 cmd="sway__things__subcmd__hook__subcmd__quick"
                 ;;
+            sway__things__subcmd__hook,timezone)
+                cmd="sway__things__subcmd__hook__subcmd__timezone"
+                ;;
             sway__things__subcmd__hook,wallpaper)
                 cmd="sway__things__subcmd__hook__subcmd__wallpaper"
                 ;;
@@ -303,6 +309,9 @@ _sway__things() {
                 ;;
             sway__things__subcmd__hook__subcmd__help,quick)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__quick"
+                ;;
+            sway__things__subcmd__hook__subcmd__help,timezone)
+                cmd="sway__things__subcmd__hook__subcmd__help__subcmd__timezone"
                 ;;
             sway__things__subcmd__hook__subcmd__help,wallpaper)
                 cmd="sway__things__subcmd__hook__subcmd__help__subcmd__wallpaper"
@@ -893,7 +902,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook)
-            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick"
+            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon timezone quick"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1047,6 +1056,20 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__quick)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__help__subcmd__hook__subcmd__timezone)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1285,7 +1308,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook)
-            opts="-h --color --help gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick help"
+            opts="-h --color --help gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon timezone quick help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1375,7 +1398,7 @@ _sway__things() {
             return 0
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__help)
-            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon quick help"
+            opts="gsettings displays workspaces mirror new-display wallpaper clipboard night-light launch autostart notification-click notification-daemon timezone quick help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1556,6 +1579,20 @@ _sway__things() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__timezone)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         sway__subcmd__things__subcmd__hook__subcmd__help__subcmd__wallpaper)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -1698,6 +1735,24 @@ _sway__things() {
             ;;
         sway__subcmd__things__subcmd__hook__subcmd__quick)
             opts="-h --color --help dnd wifi bluetooth sound microphone on off toggle state"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        sway__subcmd__things__subcmd__hook__subcmd__timezone)
+            opts="-h --color --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

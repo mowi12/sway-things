@@ -435,8 +435,9 @@ fn notification_daemon(state: &State) -> Option<Line> {
 /// is stored, so its value reaches GSettings at login and after each reload, also when the
 /// settings file came from another machine; and `sway-things hook workspaces` while the
 /// workspaces are placed, since sway forgets their displays at a reload; `sway-things hook
-/// clipboard` while the clipboard history is on, which starts its watcher once per session; and
-/// `sway-things hook night-light` while the night light is on, which starts its tool.
+/// clipboard` while the clipboard history is on, which starts its watcher once per session;
+/// `sway-things hook night-light` while the night light is on, which starts its tool; and
+/// `sway-things hook timezone` once at login while the automatic time zone is on.
 fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
     let mut lines = Vec::new();
     let keys: Vec<&'static str> = registry
@@ -460,13 +461,25 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
             vec![crate::registry::workspaces::PLACEMENT],
         ));
     }
+    let automatic_timezone = crate::registry::region::AUTOMATIC_TIMEZONE;
+    if state.get(automatic_timezone, None) == Some(&crate::registry::Value::Bool(true)) {
+        lines.push(line_of(
+            &command::hook_at_start("timezone"),
+            vec![automatic_timezone],
+        ));
+    }
     lines
 }
 
 /// The line that runs `sway-things hook <name>`, for the settings `keys`.
 fn hook_line(name: &'static str, keys: Vec<&'static str>) -> Line {
+    line_of(&command::hook(name), keys)
+}
+
+/// The line of `command`, for the settings `keys`; a comment if it can't be rendered.
+fn line_of(command: &command::SwayCmd, keys: Vec<&'static str>) -> Line {
     let source = Source { keys, device: None };
-    match command::hook(name).render(Target::Config) {
+    match command.render(Target::Config) {
         Ok(text) => Line {
             text,
             source,

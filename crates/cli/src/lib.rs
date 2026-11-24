@@ -298,6 +298,10 @@ pub enum Hook {
     /// Start the notification daemon chosen on the Notifications page unless one runs: run at
     /// every start and reload of sway while one is chosen
     NotificationDaemon,
+    /// Set the time zone where the computer is, as geoclue finds it, if it isn't the system's
+    /// already (polkit may ask for the password): run once at login while Region & Time has the
+    /// automatic time zone on
+    Timezone,
     /// Switch Do Not Disturb, Wi-Fi, Bluetooth, the sound or the microphone: run by the buttons
     /// of swaync's panel
     Quick {
@@ -394,6 +398,7 @@ pub async fn run_for_user(command: &Command) -> Exit {
             return hook_for_user(hook, &mut err).await;
         }
         Command::Hook(Hook::Clipboard) => return hook_clipboard(read_history, &mut err),
+        Command::Hook(Hook::Timezone) => return hook::hook_timezone(&mut err).await,
         Command::Screenshot { area } => return capture::screenshot(*area, &mut err).await,
         Command::Record { area } => return capture::record(*area, &mut err).await,
         Command::Clipboard(action) => return capture::clipboard(*action, &mut err).await,
@@ -573,6 +578,7 @@ fn reports_its_own_problems(command: &Command) -> bool {
                     | Hook::Mirror
                     | Hook::NewDisplay
                     | Hook::Clipboard
+                    | Hook::Timezone
                     | Hook::Launch { .. }
                     | Hook::Autostart
                     | Hook::NotificationClick { .. }

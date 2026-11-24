@@ -180,6 +180,7 @@ pub(super) async fn run_notification_hook(
         | Hook::NewDisplay
         | Hook::Clipboard
         | Hook::NightLight
+        | Hook::Timezone
         | Hook::Launch { .. }
         | Hook::Autostart
         | Hook::Wallpaper => Exit::Ok,
