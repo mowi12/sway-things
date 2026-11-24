@@ -170,7 +170,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 ### Printers & Scanners
 
 CUPS and SANE own the state: nothing is stored in `settings.toml` and nothing is generated. Printer and scanner names,
-models and job titles are attacker-controlled data. The page was _Printers_ until scanners joined it (#221);
+models and job titles are attacker-controlled data. The page was _Printers_ before scanners joined it;
 `sway-things open printers` and `scanners` still open it.
 
 Printers:
@@ -197,8 +197,7 @@ Printers:
 - **Maybe:** 🟡 choosing drivers natively (system-config-printer's D-Bus service), classes, CUPS's server settings
 - **Not planned:** a driver editor (delegate)
 
-Scanners (#221; scanning itself was "left to scan apps" there, and is in scope since: see
-[Vision and Scope](Vision-and-Scope.md#scope-by-sidebar-group)):
+Scanners (scanning is basic, see [Vision and Scope](Vision-and-Scope.md#scope-by-sidebar-group)):
 
 - [x] 🟡 The scanners SANE finds (`scanimage -f`), with how they are connected (driverless on the network or on USB,
       USB, network), read when the page comes on screen and with _Search Again_

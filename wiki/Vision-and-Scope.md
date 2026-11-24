@@ -76,10 +76,10 @@ itself and never contacts a printer; CUPS and Avahi do.
 **Scanners** are in scope on the same page, _Printers & Scanners_, since most scanners are part of a multifunction
 printer. The page lists what SANE finds, says what is missing for the others (scanimage, sane-airscan, ipp-usb, the
 access to a USB scanner), and **scans documents into files**: one page or a feeder full into PDF, PNG, JPEG or TIFF.
-That widens #221, which left scanning to scan apps: the maintainers chose to scan here, because on sway there is often
-no scan app installed and the common case (a page or a stack into a PDF) needs few choices. It stays a basic scan,
-through `scanimage` as an argument array (no libsane, no `unsafe`), written only to the file the user picks; area
-selection on the preview, OCR and image editing stay with Document Scanner, Skanpage or XSane, which the page opens.
+Scanning is built in because on sway there is often no scan app installed and the common case (a page or a stack into a
+PDF) needs few choices. It stays a basic scan, through `scanimage` as an argument array (no libsane, no `unsafe`),
+written only to the file the user picks; area selection on the preview, OCR and image editing stay with Document
+Scanner, Skanpage or XSane, which the page opens.
 
 The item-level scope is in the [Feature Catalog](Feature-Catalog.md).
 
