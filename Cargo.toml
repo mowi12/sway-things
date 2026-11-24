@@ -49,6 +49,8 @@ gtk4-layer-shell = "0.7"
 # The PulseAudio client library, which pipewire-pulse serves too; the default pa_v8 API is enough.
 libpulse-binding = "2"
 indicatif = { version = "0.18", default-features = false, features = ["unicode-width"] }
+# Time zones and their offsets from the system's tzdata (`/usr/share/zoneinfo`), no bundled copy.
+jiff = { version = "0.2", default-features = false, features = ["std", "tzdb-zoneinfo"] }
 notify = { version = "8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 regex = "1"

@@ -35,6 +35,7 @@ pub mod notifications;
 pub mod outputs;
 pub mod packages;
 pub mod printers;
+pub mod region;
 pub mod registry;
 pub mod scanners;
 pub mod sound;
