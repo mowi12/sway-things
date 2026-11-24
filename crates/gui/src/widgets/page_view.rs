@@ -26,6 +26,7 @@ use std::time::Duration;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use sway_things_core::command::input::InputType;
 use sway_things_core::registry::{ConfigFile, Msg, Page, Registry, Scope, Setting, SettingGroup};
 use sway_things_core::ui_state;
 
@@ -199,13 +200,18 @@ impl PageView {
         let mut files: BTreeSet<ConfigFile> = parts::files(page).into_iter().collect();
         let mut rows = Vec::new();
         let mut grouping = Grouping::default();
+        let mut lists: Vec<gtk::ListBox> = Vec::new();
         for setting in Registry::builtin()
             .iter()
             .filter(|setting| setting.page() == page)
         {
-            let Some(row) = parts::row(model, setting) else {
+            // A setting can have a widget of its page in place of its row (a list of its own),
+            // or both; with neither it isn't shown.
+            let instead = parts::instead(model, setting);
+            let row = parts::row(model, setting);
+            if row.is_none() && instead.is_none() {
                 continue;
-            };
+            }
             if let Some(mapping) = setting.sway() {
                 files.insert(mapping.file());
             }
@@ -227,30 +233,22 @@ impl PageView {
                     let list = section_list(tr(setting.section()));
                     body.append(&new.header);
                     body.append(&new.body);
-                    let open = groups
-                        .last_mut()
-                        .filter(|group| group.open && Some(group.kind) == kind);
-                    match (open, kind) {
-                        (Some(group), _) => group.sections.push((heading, list.clone())),
-                        (None, Some(kind)) => {
-                            if let Some(last) = groups.last_mut() {
-                                last.open = false;
-                            }
-                            let group = DeviceGroup::new(kind, heading, &list);
-                            new.body.append(&group.hint);
-                            groups.push(group);
-                        }
-                        (None, None) => {
-                            if let Some(last) = groups.last_mut() {
-                                last.open = false;
-                            }
-                        }
-                    }
+                    join_device_group(&mut groups, kind, heading, &list, &new.body);
                     new.body.append(&list);
                     sections.push(new);
                     section = Some((setting.section(), list.clone()));
+                    lists.push(list.clone());
                     list
                 }
+            };
+            if let Some(widget) = instead {
+                // Above the section's rows.
+                if let Some(body) = list.parent().and_downcast::<gtk::Box>() {
+                    body.insert_child_after(&widget, list.prev_sibling().as_ref());
+                }
+            }
+            let Some(row) = row else {
+                continue;
             };
             if let Some(group) = groups
                 .last_mut()
@@ -266,6 +264,10 @@ impl PageView {
         }
         grouping.close(model, &mut groups);
         section.as_ref()?;
+        // A section of only a widget in place of rows has no list to draw.
+        for list in lists.iter().filter(|list| list.first_child().is_none()) {
+            list.set_visible(false);
+        }
         for group in groups {
             group.follow(model);
         }
@@ -696,6 +698,37 @@ fn test_area_section(model: &Model, body: &gtk::Box) -> Section {
     body.append(&section.header);
     body.append(&section.body);
     section
+}
+
+/// Adds a new section, with its `heading` and `list`, to the open group of the input type
+/// `kind`, or starts a group for it (with its hint in `body`); a section of settings for the
+/// whole session closes the open group.
+fn join_device_group(
+    groups: &mut Vec<DeviceGroup>,
+    kind: Option<InputType>,
+    heading: gtk::Widget,
+    list: &gtk::ListBox,
+    body: &gtk::Box,
+) {
+    let open = groups
+        .last_mut()
+        .filter(|group| group.open && Some(group.kind) == kind);
+    match (open, kind) {
+        (Some(group), _) => group.sections.push((heading, list.clone())),
+        (None, Some(kind)) => {
+            if let Some(last) = groups.last_mut() {
+                last.open = false;
+            }
+            let group = DeviceGroup::new(kind, heading, list);
+            body.append(&group.hint);
+            groups.push(group);
+        }
+        (None, None) => {
+            if let Some(last) = groups.last_mut() {
+                last.open = false;
+            }
+        }
+    }
 }
 
 /// Puts the rows of a page into their lists, the members of a group below a [`GroupRow`].

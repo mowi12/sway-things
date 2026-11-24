@@ -337,6 +337,8 @@ pub enum ValueError {
     NotAWidget,
     /// The text has a control character or is too long for a notification daemon's config.
     NotDaemonText,
+    /// The text isn't an environment variable the editor takes.
+    NotAVariable(super::environment::VariableError),
 }
 
 impl ValueError {
@@ -394,6 +396,7 @@ impl ValueError {
             )
             .into(),
             Self::NotABinding(kind) => kind.text(),
+            Self::NotAVariable(error) => error.text(),
             Self::NotAKey => {
                 msg!("must be keys like Print or $mod+Shift+v, joined by +, or empty").into()
             }

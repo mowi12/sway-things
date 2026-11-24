@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use super::session::{self, Session};
+use super::{files, syntax};
 use super::{line, path, quote, text, variables, wanted};
 use crate::apps::Dirs;
 use crate::generate::other::{Problem, keep};
@@ -244,4 +245,290 @@ fn the_import_line_runs_the_generator() {
         session::import_line(&PathBuf::from("/usr/lib/gen")),
         "set -a; eval \"$(/usr/lib/gen)\"; set +a"
     );
+}
+
+/// The variables of `text`, as `NAME=value` without quotes.
+fn assignments(text: &str) -> Vec<String> {
+    syntax::parse(text)
+        .assignments
+        .iter()
+        .map(|assignment| format!("{}={}", assignment.name, assignment.value))
+        .collect()
+}
+
+#[test]
+fn files_are_read_as_the_generator_reads_them() {
+    // Each case as systemd 262's environment.d generator read it.
+    assert_eq!(
+        assignments(
+            "A=\"a\" \"b\"\nB='a' 'b'\nC=\\ a\nD=\"x\\ny\\\"z\\\\w\\`v\"\nE='a\\'\nF=\"a\nb\"\n\
+             G=x # c\nH=\"a\"   \nI=a   b  \nJ\nK=\nL=\"\"\n#M=1\\\nN=2\n S = s \n; U=no\n\
+             R=a\\\nb\nY=\"a\"b'c'\nexport O=1\n1E=bad\nAD=a\\$b\n"
+        ),
+        [
+            "A=ab",
+            "B=ab",
+            "C= a",
+            "D=x\\ny\"z\\w`v",
+            "E=a\\",
+            "F=a\nb",
+            "G=x # c",
+            "H=a",
+            "I=a   b",
+            "N=2",
+            "S=s",
+            "R=ab",
+            "Y=ab'c'",
+            "AD=a$b",
+        ]
+    );
+    let parsed = syntax::parse("A=1\n\nB=2\\\n3\nC=4");
+    let lines: Vec<usize> = parsed.assignments.iter().map(|a| a.line).collect();
+    assert_eq!(lines, [1, 3, 5]);
+    assert_eq!(parsed.end, Some(syntax::End::Complete));
+    // A quote left open takes the rest of the file, as systemd does.
+    let open = syntax::parse("K=\"open\nL=after\n");
+    assert_eq!(open.end, Some(syntax::End::Quote));
+    assert_eq!(assignments("K=\"open\nL=after\n"), ["K=open\nL=after\n"]);
+}
+
+#[test]
+fn values_expand_as_the_generator_expands_them() {
+    let lookup = |name: &str| match name {
+        "HOME" => Some("/h".to_owned()),
+        "EMPTY" => Some(String::new()),
+        _ => None,
+    };
+    for (value, expanded) in [
+        ("$HOME/x", "/h/x"),
+        ("${HOME}x", "/hx"),
+        ("$HOMEDIR", ""),
+        ("$$HOME", "$HOME"),
+        ("$", "$"),
+        ("a $NOTSET b", "a  b"),
+        ("${UNSET:-def$HOME}", "def/h"),
+        ("${EMPTY:-d}", "d"),
+        ("${HOME:-x}y${UNSET:+z}", "/hy"),
+        ("${HOME:+alt}", "alt"),
+        ("${HOME:-${UNSET}}", "/h"),
+        ("${UNSET:-${HOME}}", "/h"),
+        ("${FOO", "${FOO"),
+        ("${A-x}", ""),
+        ("$HOME$HOME", "/h/h"),
+    ] {
+        assert_eq!(syntax::expand(value, &lookup), expanded, "{value}");
+    }
+    assert!(syntax::refers_to("$HOME/bin:$PATH", "PATH"));
+    assert!(syntax::refers_to("${PATH:-/usr/bin}", "PATH"));
+    assert!(syntax::refers_to("${X:-${PATH}}", "PATH"));
+    assert!(!syntax::refers_to("$PATHX:$$PATH", "PATH"));
+}
+
+#[test]
+fn typed_values_are_checked() {
+    use syntax::SyntaxError;
+    for good in [
+        "vim",
+        "$HOME/.local/bin:$PATH",
+        "\"a b\"",
+        "'$x'",
+        "${X:-${Y:+z}}",
+        "$$",
+        "100$",
+    ] {
+        assert_eq!(syntax::check_value(good), Ok(()), "{good}");
+    }
+    for (bad, error) in [
+        ("a\nb", SyntaxError::Control),
+        ("a\tb", SyntaxError::Control),
+        ("\"open", SyntaxError::Quote),
+        ("'open", SyntaxError::Quote),
+        ("end\\", SyntaxError::Backslash),
+        ("", SyntaxError::Empty),
+        ("\"\"", SyntaxError::Empty),
+        ("${HOME", SyntaxError::Brace),
+        ("${HOME-x}", SyntaxError::Expansion),
+        ("${:-x}", SyntaxError::Expansion),
+        ("$1", SyntaxError::Expansion),
+    ] {
+        assert_eq!(syntax::check_value(bad), Err(error), "{bad:?}");
+    }
+}
+
+proptest::proptest! {
+    #[test]
+    fn reading_never_panics(text in "[ -~\n\t'\"\\\\${}:+-]{0,64}") {
+        let _ = syntax::parse(&text);
+        let _ = syntax::check_value(&text);
+        let _ = syntax::expand(&text, &|_| Some("v".to_owned()));
+        let _ = syntax::refers_to(&text, "PATH");
+    }
+
+    #[test]
+    fn a_checked_value_is_one_line_of_the_file(value in "[ -~]{1,32}") {
+        if syntax::check_value(&value).is_ok() {
+            let parsed = syntax::parse(&format!("N={value}\nM=1\n"));
+            proptest::prop_assert_eq!(parsed.assignments.len(), 2);
+            proptest::prop_assert_eq!(&parsed.assignments[1].name, "M");
+        }
+    }
+
+    #[test]
+    fn a_quoted_value_reads_back_as_it_was(value in "[ -~]{1,32}") {
+        let text = format!("N={}\n", quote(&value));
+        let parsed = syntax::parse(&text);
+        let read = parsed.assignments.first().map(|a| syntax::expand(&a.value, &|_| None));
+        proptest::prop_assert_eq!(read, Some(value));
+    }
+}
+
+#[test]
+fn the_editor_guards_names_and_path() {
+    use crate::registry::environment::{VariableError, check_variable, warning};
+    assert_eq!(check_variable("EDITOR=vim"), Ok(()));
+    assert_eq!(check_variable("PATH=$HOME/.local/bin:$PATH"), Ok(()));
+    assert_eq!(check_variable("PATH=/opt/x/bin:/usr/bin"), Ok(()));
+    assert_eq!(
+        check_variable("PATH=/opt/x/bin"),
+        Err(VariableError::PathLost)
+    );
+    assert_eq!(
+        check_variable("EDITOR"),
+        Err(VariableError::NotAnAssignment)
+    );
+    assert_eq!(check_variable("1X=a"), Err(VariableError::NotAName));
+    assert_eq!(check_variable("HOME=/x"), Err(VariableError::Session));
+    assert_eq!(
+        check_variable("XDG_SESSION_TYPE=x"),
+        Err(VariableError::Session)
+    );
+    assert_eq!(
+        check_variable("QT_QPA_PLATFORM=xcb"),
+        Err(VariableError::Switch)
+    );
+    assert_eq!(
+        check_variable("LC_TIME=de_DE.UTF-8"),
+        Err(VariableError::OtherPage(crate::registry::Page::RegionTime))
+    );
+    assert_eq!(
+        check_variable("EDITOR=\"vim"),
+        Err(VariableError::Syntax(syntax::SyntaxError::Quote))
+    );
+    assert!(warning("LD_PRELOAD").is_some());
+    assert!(warning("EDITOR").is_none());
+}
+
+#[test]
+fn the_users_variables_come_last_as_they_are() {
+    let (_dir, state) = load(
+        "[environment]\nvariables = [\"PATH=$HOME/bin:$PATH\", \"EDITOR='vi m'\"]\n\
+         qt_wayland = true\n",
+    );
+    assert_eq!(
+        text_of(&state).unwrap(),
+        format!("{HEADER}QT_QPA_PLATFORM=\"wayland;xcb\"\nPATH=$HOME/bin:$PATH\nEDITOR='vi m'\n")
+    );
+}
+
+#[test]
+fn every_file_is_read_in_systemds_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let user = dir.path().join("user");
+    let etc = dir.path().join("etc");
+    let library = dir.path().join("lib");
+    for path in [&user, &etc, &library] {
+        fs::create_dir_all(path).unwrap();
+    }
+    fs::write(user.join("10-mine.conf"), "EDITOR=vi\n").unwrap();
+    fs::write(etc.join("10-mine.conf"), "EDITOR=hidden\n").unwrap();
+    fs::write(
+        library.join("60-later.conf"),
+        "# x\nQT_QPA_PLATFORM=xcb\nPATH=$PATH:/x\n",
+    )
+    .unwrap();
+    fs::write(library.join("20-skip.txt"), "SKIPPED=1\n").unwrap();
+    fs::write(user.join(super::FILE_NAME), "IGNORED=1\n").unwrap();
+    let ours = [
+        Variable::literal("QT_QPA_PLATFORM", "wayland;xcb"),
+        Variable {
+            name: "PATH".to_owned(),
+            value: "\"$HOME/bin:$PATH\"".to_owned(),
+            raw: true,
+        },
+    ];
+    let search = [user.clone(), etc, library];
+    let lines = files::lines(&search, &user.join(super::FILE_NAME), &ours);
+    let shown: Vec<(String, String, files::Origin)> = lines
+        .iter()
+        .map(|line| {
+            (
+                format!(
+                    "{}:{}",
+                    line.file.file_name().unwrap().to_string_lossy(),
+                    line.line
+                ),
+                format!("{}={}", line.name, line.value),
+                line.origin,
+            )
+        })
+        .collect();
+    let header = super::HEADER_LINES;
+    let ours_at = |offset: usize| format!("{}:{}", super::FILE_NAME, header + offset);
+    assert_eq!(
+        shown,
+        [
+            (
+                "10-mine.conf:1".to_owned(),
+                "EDITOR=vi".to_owned(),
+                files::Origin::User
+            ),
+            (
+                ours_at(1),
+                "QT_QPA_PLATFORM=wayland;xcb".to_owned(),
+                files::Origin::Ours
+            ),
+            (
+                ours_at(2),
+                "PATH=$HOME/bin:$PATH".to_owned(),
+                files::Origin::Ours
+            ),
+            (
+                "60-later.conf:2".to_owned(),
+                "QT_QPA_PLATFORM=xcb".to_owned(),
+                files::Origin::System
+            ),
+            (
+                "60-later.conf:3".to_owned(),
+                "PATH=$PATH:/x".to_owned(),
+                files::Origin::System
+            ),
+        ]
+    );
+    // The later Qt line replaces ours; the later PATH builds on ours.
+    assert_eq!(
+        files::overridden_by(&lines),
+        [None, Some(3), None, None, None]
+    );
+    let base = HashMap::from([
+        ("HOME".to_owned(), "/h".to_owned()),
+        ("PATH".to_owned(), "/usr/bin".to_owned()),
+    ]);
+    assert_eq!(
+        files::expanded(&lines, &base),
+        [
+            "vi",
+            "wayland;xcb",
+            "/h/bin:/usr/bin",
+            "xcb",
+            "/h/bin:/usr/bin:/x"
+        ]
+    );
+}
+
+#[test]
+fn the_user_managers_environment_is_read() {
+    let parsed = files::parse_show_environment("HOME=/h\nX=$'a b\\n\\xc3\\xa4\\''\nbroken\n");
+    assert_eq!(parsed.get("HOME").map(String::as_str), Some("/h"));
+    assert_eq!(parsed.get("X").map(String::as_str), Some("a b\nä'"));
+    assert_eq!(parsed.len(), 2);
 }

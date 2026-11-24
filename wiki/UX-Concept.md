@@ -780,7 +780,14 @@ The Environment page sets environment variables for the whole session. They go i
   says that uwsm, openSUSEway and Fedora's start-sway do it already.
 - **Wayland for older apps:** a switch each for Qt 5 apps, SDL 2 games, Java apps and Electron 28 to 37 apps, off by
   default. Each subtitle names the variable, its value (which falls back to X11 where an app has no Wayland support) and
-  which programs still need it.
+  which programs still need it. A note below a switch says when a later environment.d file sets its variable again.
+- **Environment variables:** _Add Variable…_ and a list of the user's own variables, a line each with the name, the
+  value as written and what it expands to, a warning sign where another file overrides it or where every program depends
+  on the variable (`PATH`, `LD_PRELOAD`), and a ⋮ menu with _Edit…_ and _Remove_. The dialog of _Add_ and _Edit_ checks
+  the name and the value as they are typed: _Save_ stays insensitive with the reason (the session's own variable, the
+  switch or page that owns it, a quote left open, a `PATH` that loses the system's programs), and shows the expanded
+  value. Below, under "Set elsewhere", the variables of the other environment.d files, read only: the value, file:line,
+  "Overrides yours" or "Overridden by …", and _Open in Editor_ for the user's own files, a lock for the system's.
 
 ### Sidebar groups
 

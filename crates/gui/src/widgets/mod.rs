@@ -48,6 +48,7 @@ pub use bluetooth::{BluetoothPage, Bus as BluetoothBus};
 pub use clamp::Clamp;
 pub use device_selector::DeviceSelector;
 pub use displays::{Arrangement, Canvas, OutputPicker};
+pub use environment::VariableList;
 pub use generated::GeneratedWindow;
 pub use group_row::GroupRow;
 pub use layout_list::LayoutList;

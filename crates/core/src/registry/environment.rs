@@ -10,9 +10,13 @@
 //! knowing the file.
 //!
 //! The Environment page has the switches that make older apps use Wayland, each one fixed
-//! variable with a value that falls back to X11 where an app has no Wayland support.
+//! variable with a value that falls back to X11 where an app has no Wayland support, and the
+//! user's own variables ([`VARIABLES`]), in environment.d's syntax, guarded so a typo can't
+//! break the next login.
 
-use super::{Apply, Msg, Page, Setting, Value};
+use super::{Apply, Msg, Page, Registry, Setting, Value, ValueError};
+use crate::environment::syntax::{self, SyntaxError};
+use crate::i18n::Text;
 use crate::msg;
 
 /// The key of the switch for Qt 5 apps.
@@ -23,6 +27,9 @@ pub const SDL_WAYLAND: &str = "environment.sdl_wayland";
 pub const JAVA_NONREPARENTING: &str = "environment.java_nonreparenting";
 /// The key of the switch for Electron 28 to 37 apps.
 pub const ELECTRON_WAYLAND: &str = "environment.electron_wayland";
+/// The key of the user's own variables: a list of `NAME=value`, the value in environment.d's
+/// syntax.
+pub const VARIABLES: &str = "environment.variables";
 
 /// An environment variable a setting writes into Sway Things' environment.d file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,6 +96,173 @@ pub fn is_variable_name(name: &str) -> bool {
         .next()
         .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
         && chars.all(|char| char.is_ascii_alphanumeric() || char == '_')
+}
+
+/// The variables the session itself sets, which no setting may change: a login would break.
+const SESSION: [&str; 12] = [
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "XDG_RUNTIME_DIR",
+    "XDG_SESSION_*",
+    "XDG_CURRENT_DESKTOP",
+    "WAYLAND_DISPLAY",
+    "DISPLAY",
+    "SWAYSOCK",
+    "I3SOCK",
+    "DBUS_SESSION_BUS_ADDRESS",
+];
+
+/// The variables of Region & Time's language and formats, which the editor leaves to that page.
+const REGION: [&str; 2] = ["LANG", "LC_*"];
+
+/// Whether `name` is one of `names` (a name ending in `*` stands for every name it starts).
+fn listed(names: &[&str], name: &str) -> bool {
+    names.iter().any(|listed| match listed.strip_suffix('*') {
+        Some(prefix) => name.starts_with(prefix),
+        None => *listed == name,
+    })
+}
+
+/// Why an item of [`VARIABLES`] is refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VariableError {
+    /// It isn't `NAME=value`.
+    NotAnAssignment,
+    /// The name isn't letters, digits and `_`, or starts with a digit.
+    NotAName,
+    /// A setting on this page owns the name: its switch sets it.
+    Switch,
+    /// A setting on another page owns the name.
+    OtherPage(Page),
+    /// The session sets the variable itself.
+    Session,
+    /// `PATH` keeps neither `$PATH` nor `/usr/bin`.
+    PathLost,
+    /// The value isn't environment.d's syntax.
+    Syntax(SyntaxError),
+}
+
+impl VariableError {
+    /// What is wrong, to show.
+    pub fn text(self) -> Text {
+        match self {
+            Self::NotAnAssignment => msg!("must be NAME=value").into(),
+            Self::NotAName => {
+                msg!("a name has letters, digits and _, and doesn't start with a digit").into()
+            }
+            Self::Switch => msg!("a switch on this page sets it: use the switch").into(),
+            Self::OtherPage(page) => {
+                Text::new(msg!("set it on {page}: that page owns it")).text("page", page.title())
+            }
+            Self::Session => {
+                msg!("the session sets it itself: changing it would break the login").into()
+            }
+            Self::PathLost => {
+                msg!("PATH must keep $PATH or /usr/bin, or no program would be found at login")
+                    .into()
+            }
+            Self::Syntax(error) => error.text(),
+        }
+    }
+}
+
+/// The name and the value of an item of [`VARIABLES`], `NAME=value`.
+pub fn split(item: &str) -> Option<(&str, &str)> {
+    item.split_once('=')
+}
+
+/// Checks the name `name` for the editor: a valid name that no other setting and not the
+/// session owns.
+///
+/// # Errors
+///
+/// Why the editor refuses it.
+pub fn check_name(name: &str) -> Result<(), VariableError> {
+    if !is_variable_name(name) {
+        return Err(VariableError::NotAName);
+    }
+    if listed(&SESSION, name) {
+        return Err(VariableError::Session);
+    }
+    if let Some(owner) = Registry::builtin().environment_owner(name) {
+        return Err(if owner.page() == Page::Environment {
+            VariableError::Switch
+        } else {
+            VariableError::OtherPage(owner.page())
+        });
+    }
+    if listed(&REGION, name) {
+        return Err(VariableError::OtherPage(Page::RegionTime));
+    }
+    Ok(())
+}
+
+/// Checks an item of [`VARIABLES`]: `NAME=value` with a name [`check_name`] takes and a value in
+/// environment.d's syntax ([`syntax::check_value`]); a `PATH` must keep `$PATH` or `/usr/bin`.
+///
+/// # Errors
+///
+/// Why it is refused.
+pub fn check_variable(item: &str) -> Result<(), VariableError> {
+    let (name, value) = split(item).ok_or(VariableError::NotAnAssignment)?;
+    check_name(name)?;
+    syntax::check_value(value).map_err(VariableError::Syntax)?;
+    if name == "PATH" {
+        let value = syntax::unquote(value);
+        let keeps = syntax::refers_to(&value, "PATH")
+            || value
+                .split(':')
+                .any(|part| part.trim_end_matches('/') == "/usr/bin");
+        if !keeps {
+            return Err(VariableError::PathLost);
+        }
+    }
+    Ok(())
+}
+
+/// The check of the items of [`VARIABLES`].
+///
+/// # Errors
+///
+/// [`ValueError::NotAVariable`] with what [`check_variable`] found.
+pub fn check_item(item: &str) -> Result<(), ValueError> {
+    check_variable(item).map_err(ValueError::NotAVariable)
+}
+
+/// What to keep in mind before setting `name`, for the variables that every program depends on
+/// and that the editor still takes.
+pub fn warning(name: &str) -> Option<Msg> {
+    match name {
+        "PATH" => Some(msg!(
+            "Every program is looked up in PATH: a wrong folder can keep apps from starting"
+        )),
+        "LD_PRELOAD" | "LD_LIBRARY_PATH" => Some(msg!(
+            "Every program loads these libraries: a wrong one can break the next login"
+        )),
+        "XDG_CONFIG_HOME" | "XDG_DATA_DIRS" | "XDG_CONFIG_DIRS" => Some(msg!(
+            "Every app looks for its settings and files there: a wrong folder hides them"
+        )),
+        _ => None,
+    }
+}
+
+/// The variables of the editor: the items that pass [`check_variable`], written as they are.
+fn edited(value: &Value) -> Vec<Variable> {
+    let Value::List(items) = value else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter(|item| check_variable(item).is_ok())
+        .filter_map(|item| split(item))
+        .map(|(name, value)| Variable {
+            name: name.to_owned(),
+            value: value.to_owned(),
+            raw: true,
+        })
+        .collect()
 }
 
 /// The variable `name` with `value` while the switch is on.
@@ -186,6 +360,24 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("Chromium"),
                 msg!("ozone"),
                 msg!("Xwayland"),
+            ])
+            .build(),
+        Setting::list(VARIABLES, Page::Environment, &[])
+            .section(msg!("Environment variables"))
+            .title(msg!("Environment variables"))
+            .subtitle(msg!(
+                "Variables for the whole session as NAME=value, in environment.d's syntax: \
+                 $NAME and ${NAME:-default} expand, $$ is a $"
+            ))
+            .check_text(check_item)
+            .apply(Apply::Relogin)
+            .environment(&[], edited)
+            .keywords(&[
+                msg!("environment.d"),
+                msg!("PATH"),
+                msg!("EDITOR"),
+                msg!("export"),
+                msg!("variable"),
             ])
             .build(),
     ]
