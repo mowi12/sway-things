@@ -770,6 +770,18 @@ and NTP.
 - **Not available:** without timedated (a system without systemd), a placeholder takes the section's place and says what
   is missing; the section looks again every 5 s. A change made elsewhere (`timedatectl`) shows at once.
 
+### Environment
+
+The Environment page sets environment variables for the whole session. They go into Sway Things' own environment.d file
+(see [Backends → Environment](Backends.md#environment)); its rows say "Applies after re-login".
+
+- **Notice** at the top, only after a login where the session didn't get a variable of ours although the file is older
+  than sway: the session doesn't read environment.d. It gives the line to run before sway starts, with _Copy Line_, and
+  says that uwsm, openSUSEway and Fedora's start-sway do it already.
+- **Wayland for older apps:** a switch each for Qt 5 apps, SDL 2 games, Java apps and Electron 28 to 37 apps, off by
+  default. Each subtitle names the variable, its value (which falls back to X11 where an app has no Wayland support) and
+  which programs still need it.
+
 ### Sidebar groups
 
 | Group | Pages |
