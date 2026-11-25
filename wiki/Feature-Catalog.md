@@ -400,7 +400,7 @@ swaybar via our sway include.
 
 ### Region & Time
 
-- [ ] 🟡 Time zone, NTP on/off (timedated D-Bus, polkit)
+- [x] 🟡 Time zone, NTP on/off, the clock by hand while NTP is off (timedated D-Bus, polkit)
 - [ ] 🟡 System language and formats (localed; `LANG`/`LC_*` in our `environment.d` file)
 - ~~🟢 Printers: launch `system-config-printer` (delegate)~~: the Printers page does it, under Devices
 - **Maybe:** 🟡 user avatar, full name, password (AccountsService)

@@ -15,7 +15,7 @@
 //! - `generated`, `about`, `welcome`: the Generated config window, About & Maintenance, the welcome
 //!   screen and the read-only banner.
 //! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`,
-//!   `network`, `printers`: the pages with parts of their own, the live ones against their stand-ins.
+//!   `network`, `printers`, `region`: the pages with parts of their own, the live ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
@@ -46,6 +46,7 @@ mod network;
 mod notifications;
 mod place;
 mod printers;
+mod region;
 mod reload;
 mod rows;
 mod safety_net;
@@ -77,6 +78,8 @@ use sway_things_core::ipc::stand_in::{
 };
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
 use sway_things_core::printers::stand_in::{FakePrinter, StandIn as CupsStandIn};
+use sway_things_core::region::Bus as RegionBus;
+use sway_things_core::region::stand_in::StandIn as RegionStandIn;
 use sway_things_core::registry::{ConfigFile, GSettingsKey, Link, Page, Registry, Value};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::Layer;
@@ -91,8 +94,8 @@ use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GdkKeymap, GroupRow,
     LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, PrintService,
-    PrintersPage, ScanDialog, ScanService, SettingRow, ShortcutEditor, SoundPage, SoundServer,
-    TestArea,
+    PrintersPage, RegionTimePage, ScanDialog, ScanService, SettingRow, ShortcutEditor, SoundPage,
+    SoundServer, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -112,6 +115,7 @@ use self::network::*;
 use self::notifications::*;
 use self::place::*;
 use self::printers::*;
+use self::region::*;
 use self::reload::*;
 use self::rows::*;
 use self::safety_net::*;
@@ -218,6 +222,7 @@ fn main() -> ExitCode {
     results.extend(check_sound_pages());
     results.extend(check_network_pages());
     results.extend(check_printers_pages());
+    results.extend(check_region_pages());
     results.extend(check_keyboard());
     results.extend(check_indicators());
     results.extend(check_look());

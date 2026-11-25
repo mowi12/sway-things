@@ -270,6 +270,15 @@ impl Page {
                 msg!("document"),
                 msg!("SANE"),
             ],
+            Self::RegionTime => &[
+                msg!("time zone"),
+                msg!("timezone"),
+                msg!("clock"),
+                msg!("date"),
+                msg!("time"),
+                msg!("NTP"),
+                msg!("synchronize"),
+            ],
             _ => &[],
         }
     }

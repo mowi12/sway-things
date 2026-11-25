@@ -1,9 +1,9 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server, CUPS, SANE, the notification daemons and GSettings, the tools of Screenshots &
-> Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the desktop entries, default apps
-> and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
+> NetworkManager, the sound server, CUPS, SANE, systemd-timedated, the notification daemons and GSettings, the tools of
+> Screenshots & Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the desktop entries,
+> default apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the companion tools Sway
 Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), and the notification daemons
@@ -20,7 +20,7 @@ trait Backend {
 }
 ```
 
-| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network, printers and notifications are built |
+| Area | Backends (reference first); only display profiles, audio, Bluetooth, the network, printers, notifications and the system clock are built |
 | --- | --- |
 | Display profiles | kanshi, per combination of displays; without kanshi: static `output` lines in `20-output.conf` (no profiles); shikane later |
 | Bar | waybar, swaybar (`bar {}` block) |
@@ -232,6 +232,21 @@ neither img2pdf nor ImageMagick nor a scanimage with `--format=pdf` (1.1.1), onl
 and the feeder go into one PDF. The file is written next to its place and renamed into it (`atomic::write_bytes`), so a
 failure never leaves half a file. `delegate::scan_app` finds Document Scanner (`simple-scan`), Skanpage or XSane for
 what scanning here doesn't do.
+
+The system clock isn't a `Backend` either: systemd-timedated owns the time zone, automatic time and the clock.
+`crates/core/src/region/` has a `Timedate` handle on the system bus (zbus, async-io). `GetAll` on
+`org.freedesktop.timedate1` gives the `Clock` (`Timezone`, `NTP`, `CanNTP`, `NTPSynchronized`), `ListTimezones` the
+zones for the dialog; the changes are `SetTimezone`, `SetNTP` and `SetTime` (microseconds since the epoch, not
+relative), each with `interactive` true and the message flag that allows interactive authorization, so the user's polkit
+agent asks for an administrator's password (timedated's actions are `auth_admin_keep`). A refusal (`AccessDenied`,
+`InteractiveAuthorizationRequired`, a polkit error) becomes `Error::Denied`, and `region::Change::command` gives the
+`timedatectl` command that does the same in a terminal, where polkit asks through `pkttyagent`; it is only shown, with
+_Copy_, never run. A name nobody owns (no systemd) is `Error::Unavailable`. The change stream follows
+`PropertiesChanged` on timedated's object only: timedated quits when idle and the bus starts it again on the next call,
+which changes nothing. `NTPSynchronized` isn't reported as a change, so the page reads the clock every 5 s too.
+`region::zones` reads the system's tzdata through jiff (`/usr/share/zoneinfo`, or `$TZDIR`; no bundled copy) for the
+abbreviation, offset and local time of a zone, and turns the date and time picked in the clock's dialog into the moment
+in the system's zone (a time skipped when the clocks go forward counts as the time after the gap).
 
 ## Screenshots, clipboard and recording
 
