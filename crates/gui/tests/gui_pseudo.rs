@@ -28,6 +28,7 @@ use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::look;
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
+use sway_things_core::region::locales;
 use sway_things_core::registry::{Kind, Page, Registry};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
 use sway_things_core::state::{Paths, State};
@@ -302,7 +303,8 @@ impl Fixture {
 }
 
 /// The data a text may show untranslated: products, the stand-ins' names, the names of the
-/// XKB rules in English and as shown, the themes and fonts of Apps Look & Feel, longest first.
+/// XKB rules in English and as shown, the themes and fonts of Apps Look & Feel, the installed
+/// locales, longest first.
 fn data() -> Vec<String> {
     let rules = xkb::rules();
     let items = rules
@@ -397,8 +399,34 @@ fn data() -> Vec<String> {
             .iter()
             .map(|component| component.package().to_owned()),
     );
+    data.extend(locale_data());
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));
     data.dedup();
+    data
+}
+
+/// The installed locales, which Region & Time lists by their names from iso-codes, and the names
+/// of days, months and times of day its preview of the formats shows: values, not text.
+fn locale_data() -> Vec<String> {
+    let mut data = Vec::new();
+    for name in async_io::block_on(locales::installed()) {
+        if let Some(locale) = locales::Locale::parse(&name) {
+            data.push(locale.display_name());
+        }
+        if let Some(keywords) = async_io::block_on(locales::keywords(&name)) {
+            for keyword in ["day", "abday", "mon", "abmon", "am_pm"] {
+                data.extend(
+                    keywords
+                        .get(keyword)
+                        .into_iter()
+                        .flat_map(|value| value.split(';'))
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_owned),
+                );
+            }
+        }
+        data.push(name);
+    }
     data
 }
 

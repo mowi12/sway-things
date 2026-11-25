@@ -1,9 +1,10 @@
 # Backends
 
 > Part of the [architecture](Architecture.md). The services and tools Sway Things drives besides sway: BlueZ,
-> NetworkManager, the sound server, CUPS, SANE, systemd-timedated, the notification daemons and GSettings, the tools of
-> Screenshots & Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the desktop entries,
-> default apps and autostart runners of Apps & Autostart, and the planned backends for the companion tools.
+> NetworkManager, the sound server, CUPS, SANE, systemd-timedated and -localed, the notification daemons and GSettings,
+> the tools of Screenshots & Clipboard, logind, ddcutil and the night-light tools of Brightness & Night Light, the
+> desktop entries, default apps and autostart runners of Apps & Autostart, and the planned backends for the companion
+> tools.
 
 The plan (not built yet) is a backend trait for each area that has competing tools. Today the companion tools Sway
 Things drives are kanshi, in `crates/core/src/outputs/kanshi.rs` ([Outputs](Outputs.md)), and the notification daemons
@@ -251,6 +252,24 @@ which changes nothing. `NTPSynchronized` isn't reported as a change, so the page
 `region::zones` reads the system's tzdata through jiff (`/usr/share/zoneinfo`, or `$TZDIR`; no bundled copy) for the
 abbreviation, offset and local time of a zone, and turns the date and time picked in the clock's dialog into the moment
 in the system's zone (a time skipped when the clocks go forward counts as the time after the gap).
+
+The language and the formats are the user's own settings (`region.language`, `region.formats`; empty means not set),
+which go into Sway Things' environment.d file ([Environment](#environment)): the language writes `LANG`, `LC_MESSAGES`
+and every category of formats, so formats the system sets in `/etc/locale.conf` can't win over it, and formats set on
+their own (every `LC_*` but `LC_MESSAGES`, `LC_CTYPE` and `LC_COLLATE`) come later in the registry and replace those.
+Values are checked to be UTF-8 locale names (`de_DE.UTF-8`, `sr_RS.UTF-8@latin`), so nothing else reaches the file.
+`region::locales` lists the installed UTF-8 locales from `locale -a -v` (its `codeset` line: a locale installed as
+`aa_ER` can be UTF-8 too), each spelling written as `ll_CC.UTF-8[@modifier]`, and names them in the user's language from
+iso-codes (`/usr/share/iso-codes/json`, the catalogs `iso_639-3` and `iso_3166-1`). The preview runs
+`locale -k LC_TIME LC_NUMERIC LC_MONETARY LC_PAPER LC_MEASUREMENT` with the locale as `LC_ALL` (a warning on stderr
+means it isn't installed) and formats a date, a time, a number and money from those keywords itself. `locale` always
+runs with an argument array, never a shell. The line that adds a missing locale comes from the distribution's family
+(os-release `ID` and `ID_LIKE`).
+
+The system's language and formats belong to systemd-localed: `region::localed` reads its `Locale` property and sets it
+with `SetLocale` (interactive, polkit's `auth_admin_keep`), the formats apart from the language as every category of
+formats. As with timedated, a refusal gives the `localectl set-locale` command to copy, and a system without localed is
+`Error::Unavailable`.
 
 ## Screenshots, clipboard and recording
 

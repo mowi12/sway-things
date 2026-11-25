@@ -3,15 +3,20 @@
 
 //! The Region & Time page's services: the system clock through systemd-timedated
 //! ([`Timedate`]), the time zones with their names and offsets from the system's tzdata
-//! ([`zones`]), and the automatic time zone from the location geoclue finds ([`geo`]).
+//! ([`zones`]), the automatic time zone from the location geoclue finds ([`geo`]), the installed
+//! locales ([`locales`]) and the system's language and formats through systemd-localed
+//! ([`localed`]).
 //!
 //! Nothing here is stored by Sway Things: timedated owns the time zone, automatic time (NTP) and
-//! the clock. Every change is a D-Bus call that polkit guards (`auth_admin_keep` by default): the
-//! user's polkit agent asks for an administrator's password, which Sway Things never sees. When
-//! polkit refuses, [`Error::command`] gives the `timedatectl` command that does the same in a
-//! terminal, where polkit asks through `pkttyagent`.
+//! the clock, localed the system's locale. Every change is a D-Bus call that polkit guards
+//! (`auth_admin_keep` by default): the user's polkit agent asks for an administrator's password,
+//! which Sway Things never sees. When polkit refuses, [`Change::command`] gives the `timedatectl`
+//! or `localectl` command that does the same in a terminal, where polkit asks through
+//! `pkttyagent`.
 
 pub mod geo;
+pub mod localed;
+pub mod locales;
 mod timedate;
 pub mod zones;
 
@@ -29,7 +34,7 @@ use crate::msg;
 
 pub use timedate::{Bus, Clock, Timedate};
 
-/// A change of the system clock, for the command that does the same in a terminal.
+/// A change of the system clock or locale, for the command that does the same in a terminal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change {
     /// The time zone, by its IANA name (`Europe/Berlin`).
@@ -38,6 +43,8 @@ pub enum Change {
     Ntp(bool),
     /// The clock, as local date and time in the system's time zone (`2026-11-24 21:35:00`).
     Time(String),
+    /// The system's language and formats, as localed's variables (`LANG=de_DE.UTF-8`).
+    SystemLocale(Vec<String>),
 }
 
 impl Change {
@@ -47,6 +54,11 @@ impl Change {
             Self::TimeZone(zone) => ("set-timezone", zone.clone()),
             Self::Ntp(on) => ("set-ntp", on.to_string()),
             Self::Time(time) => ("set-time", time.clone()),
+            Self::SystemLocale(variables) => {
+                let mut args = vec!["localectl".to_owned(), "set-locale".to_owned()];
+                args.extend(variables.iter().cloned());
+                return args;
+            }
         };
         vec!["timedatectl".to_owned(), verb.to_owned(), value]
     }

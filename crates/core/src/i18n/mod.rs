@@ -49,6 +49,12 @@ pub const LOCALEDIR_VAR: &str = "SWAY_THINGS_LOCALEDIR";
 /// models, layouts, variants and options.
 pub const XKB_DOMAIN: &str = "xkeyboard-config";
 
+/// The text domains of iso-codes, whose catalogs translate the names of languages (ISO 639-3)
+/// and countries (ISO 3166-1).
+pub const ISO_639_DOMAIN: &str = "iso_639-3";
+/// See [`ISO_639_DOMAIN`].
+pub const ISO_3166_DOMAIN: &str = "iso_3166-1";
+
 /// Where the system keeps the catalogs of other packages, such as xkeyboard-config's.
 const SYSTEM_LOCALEDIR: &str = "/usr/share/locale";
 
@@ -184,7 +190,10 @@ static TRANSLATIONS: OnceLock<Translations> = OnceLock::new();
 /// The translations of xkeyboard-config that [`tr_xkb`] uses, set by [`init`].
 static XKB_TRANSLATIONS: OnceLock<Translations> = OnceLock::new();
 
-/// Loads the catalogs of the user's languages for [`tr`] and [`tr_xkb`]. Each binary calls it
+/// The translations of iso-codes that [`tr_iso`] uses, set by [`init`]: languages, countries.
+static ISO_TRANSLATIONS: OnceLock<(Translations, Translations)> = OnceLock::new();
+
+/// Loads the catalogs of the user's languages for [`tr`], [`tr_xkb`] and [`tr_iso`]. Each binary calls it
 /// once at startup; later calls change nothing.
 pub fn init() {
     let var = |name: &str| std::env::var(name).ok();
@@ -192,6 +201,35 @@ pub fn init() {
     XKB_TRANSLATIONS.get_or_init(|| {
         Translations::load(Path::new(SYSTEM_LOCALEDIR), XKB_DOMAIN, &languages(var))
     });
+    ISO_TRANSLATIONS.get_or_init(|| {
+        let languages = languages(var);
+        let dir = Path::new(SYSTEM_LOCALEDIR);
+        (
+            Translations::load(dir, ISO_639_DOMAIN, &languages),
+            Translations::load(dir, ISO_3166_DOMAIN, &languages),
+        )
+    });
+}
+
+/// Which list of iso-codes a name is from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Iso {
+    /// A language of ISO 639-3 (`German`).
+    Language,
+    /// A country of ISO 3166-1 (`Germany`).
+    Country,
+}
+
+/// `name`, an English name from iso-codes, in the user's language as iso-codes' own catalogs
+/// have it, or as it is where they have none.
+pub fn tr_iso(list: Iso, name: &str) -> &str {
+    ISO_TRANSLATIONS
+        .get()
+        .and_then(|(languages, countries)| match list {
+            Iso::Language => languages.get(name),
+            Iso::Country => countries.get(name),
+        })
+        .unwrap_or(name)
 }
 
 /// `name`, a name from the XKB rules (`German (no dead keys)`), in the user's language as

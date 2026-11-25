@@ -73,5 +73,9 @@ name = "region_geoclue"
 required-features = ["test-support"]
 
 [[test]]
+name = "region_localed"
+required-features = ["test-support"]
+
+[[test]]
 name = "notifications_bus"
 required-features = ["test-support"]

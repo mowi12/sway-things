@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! A stand-in for systemd-timedated and geoclue, for tests: a private `dbus-daemon` and, on it, a
-//! service that owns `org.freedesktop.timedate1` and answers as timedated does, and one that owns
-//! `org.freedesktop.GeoClue2` and gives a location, as far as Sway Things uses them. timedated can
-//! refuse every change as polkit does when the user doesn't give the password, geoclue can refuse
-//! Sway Things as when its config doesn't allow it. Built with the `test-support` feature; it
+//! A stand-in for systemd-timedated, systemd-localed and geoclue, for tests: a private
+//! `dbus-daemon` and, on it, a service that owns `org.freedesktop.timedate1` and answers as
+//! timedated does, one that owns `org.freedesktop.locale1` and answers as localed does, and one
+//! that owns `org.freedesktop.GeoClue2` and gives a location, as far as Sway Things uses them.
+//! timedated and localed can refuse every change as polkit does when the user doesn't give the
+//! password, geoclue can refuse Sway Things as when its config doesn't allow it. Built with the `test-support` feature; it
 //! needs `dbus-daemon`.
 
 use std::sync::{Arc, Mutex};
@@ -13,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use zbus::Connection;
 use zbus::object_server::SignalEmitter;
 
+use super::localed::Localed;
 use super::{Bus, Timedate};
 
 /// timedated's bus name and object.
@@ -49,6 +51,8 @@ pub struct Record {
     pub place: (f64, f64),
     /// The app id and accuracy level the client was given.
     pub geo_client: (String, u32),
+    /// localed's `Locale`: the system's variables.
+    pub locale: Vec<String>,
 }
 
 impl Default for Record {
@@ -68,6 +72,7 @@ impl Default for Record {
             // Tokyo.
             place: (35.68, 139.69),
             geo_client: (String::new(), 0),
+            locale: vec!["LANG=en_US.UTF-8".to_owned()],
         }
     }
 }
@@ -166,6 +171,49 @@ impl Timedated {
     #[zbus(property, name = "NTPSynchronized")]
     fn ntp_synchronized(&self) -> bool {
         lock(&self.shared).synchronized
+    }
+}
+
+/// localed's bus name and object.
+const LOCALE_SERVICE: &str = "org.freedesktop.locale1";
+const LOCALE_PATH: &str = "/org/freedesktop/locale1";
+
+struct Localed1 {
+    shared: Shared,
+}
+
+#[zbus::interface(name = "org.freedesktop.locale1")]
+impl Localed1 {
+    /// Sets the locale as localed does: each entry a known category with a value, the categories
+    /// left out unset.
+    async fn set_locale(
+        &self,
+        locale: Vec<String>,
+        interactive: bool,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        let _ = interactive;
+        if lock(&self.shared).deny {
+            return Err(zbus::fdo::Error::AccessDenied("Access denied".to_owned()));
+        }
+        for entry in &locale {
+            let known = entry.split_once('=').is_some_and(|(name, value)| {
+                !value.is_empty() && (name == "LANG" || name.starts_with("LC_"))
+            });
+            if !known {
+                return Err(zbus::fdo::Error::InvalidArgs(format!(
+                    "Locale assignment {entry} not valid, refusing."
+                )));
+            }
+        }
+        lock(&self.shared).locale = locale;
+        let _ = self.locale_changed(&emitter).await;
+        Ok(())
+    }
+
+    #[zbus(property)]
+    fn locale(&self) -> Vec<String> {
+        lock(&self.shared).locale.clone()
     }
 }
 
@@ -274,7 +322,7 @@ impl GeoLocation {
 /// A failure to start the stand-in.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-/// A private bus with timedated's stand-in on it. Stops both when dropped.
+/// A private bus with the stand-ins on it. Stops them when dropped.
 pub struct StandIn {
     bus: crate::dbus::TestBus,
     server: Option<Connection>,
@@ -297,7 +345,7 @@ impl Drop for StandIn {
 }
 
 impl StandIn {
-    /// Starts a bus and timedated's stand-in on it, with [`Record::default`].
+    /// Starts a bus and the stand-ins on it, with [`Record::default`].
     ///
     /// # Errors
     ///
@@ -325,7 +373,14 @@ impl StandIn {
                     shared: shared.clone(),
                 },
             )?
+            .serve_at(
+                LOCALE_PATH,
+                Localed1 {
+                    shared: shared.clone(),
+                },
+            )?
             .name(SERVICE)?
+            .name(LOCALE_SERVICE)?
             .name(GEO_SERVICE)?
             .build()
             .await?;
@@ -355,6 +410,15 @@ impl StandIn {
         Ok(Timedate::connect(&self.bus()).await?)
     }
 
+    /// A connection to localed's stand-in, like [`Localed::connect`] makes to the system bus.
+    ///
+    /// # Errors
+    ///
+    /// If the bus refuses the connection.
+    pub async fn localed(&self) -> Result<Localed, Error> {
+        Ok(Localed::connect(&self.bus()).await?)
+    }
+
     /// What the stand-in holds now.
     pub fn record(&self) -> Record {
         lock(&self.shared).clone()
@@ -365,7 +429,8 @@ impl StandIn {
         change(&mut lock(&self.shared));
     }
 
-    /// Stops timedated's stand-in, as on a system without it: nobody owns its name any more.
+    /// Stops the stand-ins, as on a system without timedated and localed: nobody owns their
+    /// names any more.
     pub fn stop(&mut self) {
         self.server = None;
     }

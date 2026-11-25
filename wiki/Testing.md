@@ -176,6 +176,9 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   location asked at city level under Sway Things' app id, the zone of the nearest city set only when it differs,
   geoclue's refusal (or its wait for an agent) with the drop-in to create, polkit's with the command, and geoclue
   missing
+- systemd-localed against a stand-in on the same private bus (`crates/core/tests/region_localed.rs`): the system's
+  language and formats read and set, polkit's refusal with the `localectl` command, a variable localed doesn't take, and
+  localed missing
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,
@@ -314,7 +317,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
 - Region & Time (against the stand-in for timedated, `region.rs`): the time zone shows as city and region, the clock
   can't be set while automatic time is on, turning it off reaches timedated and frees the clock, polkit's refusal shows
   the `timedatectl` command and puts the switch back, a change made elsewhere shows, and without timedated the
-  placeholder takes the section's place.
+  placeholder takes the section's place. Language & Formats (against the stand-in for localed): the stored language in
+  its row, the preview of the C locale, polkit's refusal of the system's locale with the `localectl` command, and
+  without localed _System Default…_ insensitive with the reason.
 - About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the
   distribution, NetworkManager and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
   delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment,

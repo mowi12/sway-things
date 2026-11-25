@@ -15,7 +15,8 @@ use crate::generate::{HEADER, Manifest};
 use crate::registry::environment::{
     ELECTRON_WAYLAND, JAVA_NONREPARENTING, QT_WAYLAND, SDL_WAYLAND, is_variable_name,
 };
-use crate::registry::{Registry, Variable};
+use crate::registry::region::{FORMAT_VARIABLES, FORMATS, LANGUAGE};
+use crate::registry::{Registry, Value, Variable};
 use crate::state::{Paths, State};
 
 fn load(toml: &str) -> (tempfile::TempDir, State) {
@@ -86,6 +87,68 @@ fn the_switches_write_their_variables_with_a_fallback() {
     assert_eq!(text_of(&nothing), None);
 }
 
+#[test]
+fn the_language_sets_every_format_and_the_formats_replace_them() {
+    let names = |state: &State| -> Vec<(String, String)> {
+        variables(Registry::builtin(), state)
+            .into_iter()
+            .map(|variable| (variable.name, variable.value))
+            .collect()
+    };
+    let (_a, language) = load("[region]\nlanguage = \"en_US.UTF-8\"\n");
+    let mut expected = vec![
+        ("LANG".to_owned(), "en_US.UTF-8".to_owned()),
+        ("LC_MESSAGES".to_owned(), "en_US.UTF-8".to_owned()),
+    ];
+    expected.extend(
+        FORMAT_VARIABLES
+            .iter()
+            .map(|name| ((*name).to_owned(), "en_US.UTF-8".to_owned())),
+    );
+    assert_eq!(names(&language), expected);
+
+    let (_b, both) = load("[region]\nlanguage = \"en_US.UTF-8\"\nformats = \"de_DE.UTF-8\"\n");
+    let mut expected = vec![
+        ("LANG".to_owned(), "en_US.UTF-8".to_owned()),
+        ("LC_MESSAGES".to_owned(), "en_US.UTF-8".to_owned()),
+    ];
+    expected.extend(
+        FORMAT_VARIABLES
+            .iter()
+            .map(|name| ((*name).to_owned(), "de_DE.UTF-8".to_owned())),
+    );
+    assert_eq!(names(&both), expected);
+
+    // Formats alone leave the language to the system.
+    let (_c, formats) = load("[region]\nformats = \"de_DE.UTF-8\"\n");
+    assert_eq!(names(&formats).len(), FORMAT_VARIABLES.len());
+    assert!(
+        names(&formats)
+            .iter()
+            .all(|(name, _)| name.starts_with("LC_"))
+    );
+}
+
+#[test]
+fn only_locales_are_taken() {
+    let registry = Registry::builtin();
+    for key in [LANGUAGE, FORMATS] {
+        let setting = registry.get(key).unwrap();
+        for good in ["", "de_DE.UTF-8", "sr_RS.UTF-8@latin", "C.UTF-8"] {
+            assert!(
+                setting.check(&Value::Text(good.to_owned())).is_ok(),
+                "{key} {good:?}"
+            );
+        }
+        for bad in ["de_DE", "de_DE.UTF-8\nEDITOR=vim", "x\"y", "$HOME"] {
+            assert!(
+                setting.check(&Value::Text(bad.to_owned())).is_err(),
+                "{key} {bad:?}"
+            );
+        }
+    }
+}
+
 fn text_of(state: &State) -> Option<String> {
     text(&variables(Registry::builtin(), state))
 }
@@ -98,6 +161,19 @@ fn every_variable_has_one_owner() {
         (SDL_WAYLAND, "SDL_VIDEODRIVER"),
         (JAVA_NONREPARENTING, "_JAVA_AWT_WM_NONREPARENTING"),
         (ELECTRON_WAYLAND, "ELECTRON_OZONE_PLATFORM_HINT"),
+    ] {
+        assert_eq!(
+            registry
+                .environment_owner(name)
+                .map(crate::registry::Setting::key),
+            Some(key)
+        );
+    }
+    for (key, name) in [
+        (LANGUAGE, "LANG"),
+        (LANGUAGE, "LC_MESSAGES"),
+        (LANGUAGE, "LC_TIME"),
+        (LANGUAGE, "LC_ALL"),
     ] {
         assert_eq!(
             registry

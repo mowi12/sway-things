@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 14:42+0100\n"
+"POT-Creation-Date: 2026-11-25 15:22+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3239,6 +3239,55 @@ msgstr ""
 msgid "tzdata lists no time zone for the location"
 msgstr ""
 
+#: crates/core/src/region/localed.rs
+msgid "systemd-localed isn't available"
+msgstr ""
+
+#: crates/core/src/region/localed.rs
+#, rust-format
+msgid "systemd-localed failed: {error}"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "Plain (C locale, English without formats)"
+msgstr ""
+
+#. TRANSLATORS: A locale's name: its language and its country, such as
+#. "German (Germany)".
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{language} ({country})"
+msgstr ""
+
+#. TRANSLATORS: A locale's name: its language, its country and a variant, such as
+#. "Serbian (Serbia, latin)".
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{language} ({country}, {variant})"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "US customary (inches, pounds)"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "Metric (centimeters, kilograms)"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+msgid "Letter"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a version that couldn't be found.
+#: crates/core/src/region/locales.rs crates/gui/src/widgets/page_view/about.rs
+msgid "Unknown"
+msgstr ""
+
+#: crates/core/src/region/locales.rs
+#, rust-format
+msgid "{width} × {height} mm"
+msgstr ""
+
 #: crates/core/src/region/mod.rs
 #, rust-format
 msgid "The system clock can't be changed: {reason}"
@@ -4631,7 +4680,7 @@ msgstr ""
 msgid "display"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/core/src/registry/region.rs
 msgid "region"
 msgstr ""
 
@@ -7281,6 +7330,10 @@ msgstr ""
 msgid "expected one of {choices}, got {word}"
 msgstr ""
 
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
+msgid "Language & Formats"
+msgstr ""
+
 #: crates/core/src/registry/region.rs crates/gui/src/widgets/region/time.rs
 msgid "Date & Time"
 msgstr ""
@@ -7302,6 +7355,86 @@ msgstr ""
 
 #: crates/core/src/registry/region.rs
 msgid "travel"
+msgstr ""
+
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
+msgid "Language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "The language of apps, for you only"
+msgstr ""
+
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
+msgid "System default"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LANG"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "locale"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "translation"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "display language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
+msgid "Formats"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Dates, times, numbers, money, paper size and units, for you only"
+msgstr ""
+
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/language.rs
+msgid "Same as language"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_TIME"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_NUMERIC"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_MONETARY"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "LC_PAPER"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "date format"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "number format"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "currency"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "paper size"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "metric"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "imperial"
 msgstr ""
 
 #: crates/core/src/registry/setting.rs
@@ -7600,6 +7733,10 @@ msgstr ""
 
 #: crates/core/src/registry/value.rs
 msgid "must be at most 255 characters, without line breaks"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid "must be a UTF-8 locale like de_DE.UTF-8 or sr_RS.UTF-8@latin, or empty"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -9282,12 +9419,14 @@ msgid "More actions"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
-#: crates/gui/src/widgets/notifications.rs crates/gui/src/widgets/region/mod.rs
-#: crates/gui/src/widgets/welcome.rs
+#: crates/gui/src/widgets/notifications.rs
+#: crates/gui/src/widgets/region/language.rs
+#: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
 msgid "Copy"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/brightness.rs
+#: crates/gui/src/widgets/region/language.rs
 #: crates/gui/src/widgets/region/mod.rs
 msgid "Copy the command"
 msgstr ""
@@ -9854,6 +9993,7 @@ msgstr ""
 #: crates/gui/src/widgets/displays/kanshi_note.rs
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/notifications.rs
 #: crates/gui/src/widgets/page_view/about.rs
+#: crates/gui/src/widgets/region/language.rs
 #: crates/gui/src/widgets/region/mod.rs crates/gui/src/widgets/welcome.rs
 msgid "Copied"
 msgstr ""
@@ -11202,11 +11342,6 @@ msgstr ""
 msgid "About"
 msgstr ""
 
-#. TRANSLATORS: A value in the About section: a version that couldn't be found.
-#: crates/gui/src/widgets/page_view/about.rs
-msgid "Unknown"
-msgstr ""
-
 #. TRANSLATORS: A value in the About section: a service that isn't running.
 #: crates/gui/src/widgets/page_view/about.rs
 msgid "Not running"
@@ -11591,6 +11726,7 @@ msgid "Show in Folder"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Preview"
 msgstr ""
 
@@ -11771,6 +11907,7 @@ msgid "Date & time"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Date"
 msgstr ""
 
@@ -11783,6 +11920,7 @@ msgid "Minute"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Time"
 msgstr ""
 
@@ -11792,7 +11930,72 @@ msgid "In the time zone {zone}"
 msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
+#: crates/gui/src/widgets/region/language.rs
 msgid "Set"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Number"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Money"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Paper"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "Units"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "System Default…"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"The language and formats of every user, the login screen and the console"
+msgstr ""
+
+#. TRANSLATORS: An installed locale in the list: its name and how
+#. it is written, such as "German (Germany) · de_DE.UTF-8".
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "{name} · {locale}"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "System default ({language})"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+#, rust-format
+msgid "Same as language ({language})"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"Only installed languages are listed. To add more, run this in a terminal:"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"Only installed languages are listed. Your distribution's documentation says "
+"how to add more."
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid "System Language & Formats"
+msgstr ""
+
+#: crates/gui/src/widgets/region/language.rs
+msgid ""
+"For every user, the login screen and the console, in /etc/locale.conf. Your "
+"own choice on this page wins over it. Changing it needs an administrator's "
+"password."
 msgstr ""
 
 #: crates/gui/src/widgets/region/time.rs
