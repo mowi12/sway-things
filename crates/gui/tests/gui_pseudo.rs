@@ -390,6 +390,13 @@ fn data() -> Vec<String> {
     // The time zone of this machine, which Brightness & Night Light names below the location
     // (`Etc/UTC` in a container): a value, not text.
     data.extend(sway_things_core::night_light::location::zone());
+    // The packages of the portals, which the Portals row of Environment names when one is
+    // missing: names, not text.
+    data.extend(
+        sway_things_core::environment::portals::Component::ALL
+            .iter()
+            .map(|component| component.package().to_owned()),
+    );
     data.sort_by_key(|text| std::cmp::Reverse(text.len()));
     data.dedup();
     data

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Environment: the switches for older apps, the list of variables with the dialog that adds
-//! and edits one and refuses what would break the login.
+//! and edits one and refuses what would break the login, and the check of the portals.
 
 use super::*;
 
@@ -20,6 +20,10 @@ pub(crate) fn check_environment() -> Vec<(String, Outcome)> {
         (
             "environment: a variable added, refused and removed".to_owned(),
             check_environment_dialog(),
+        ),
+        (
+            "environment: the portals row and its dialog".to_owned(),
+            check_portals(),
         ),
     ]
 }
@@ -160,6 +164,55 @@ fn check_environment_dialog() -> Outcome {
             .any(|(_, shown)| shown.starts_with("PATH | $HOME/.local/bin:$PATH")),
         "  the list doesn't show PATH",
     )?;
+    window.destroy();
+    Ok(())
+}
+
+fn check_portals() -> Outcome {
+    let fixture = fixture(SWAY, STORED_ENVIRONMENT, USERS, true)?;
+    let window = open(&fixture, Page::Environment)?;
+    row(&window, "environment.pass_session_variables")?;
+    ensure(
+        row(&window, "environment.portal_config").is_err(),
+        "  the portal configuration has a row of its own",
+    )?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  the window has no content".to_owned())?;
+    let details = all::<gtk::Button>(&content)
+        .into_iter()
+        .find(|button| button.has_css_class("st-portals-details"))
+        .ok_or_else(|| "  no Details on the Portals row".to_owned())?;
+    // The row says what the check found once it ran.
+    ensure(
+        run_until(Duration::from_secs(5), || {
+            all::<gtk::Label>(&content)
+                .iter()
+                .all(|label| label.text() != "Checking…")
+        }),
+        "  the check doesn't end",
+    )?;
+    details.emit_clicked();
+    ensure(
+        run_until(Duration::from_secs(2), || environment_dialog().is_some()),
+        "  no dialog",
+    )?;
+    let dialog = environment_dialog().ok_or_else(|| "  the dialog is gone".to_owned())?;
+    let said: Vec<String> = all::<gtk::Label>(dialog.upcast_ref())
+        .iter()
+        .map(|label| label.text().to_string())
+        .collect();
+    for step in ["Installed", "Configured", "Session variables", "Running"] {
+        ensure(
+            said.iter().any(|text| text == step),
+            &format!("  the dialog lacks {step}: {said:?}"),
+        )?;
+    }
+    ensure(
+        said.iter().any(|text| text.starts_with("ScreenCast: ")),
+        &format!("  the dialog names no backend: {said:?}"),
+    )?;
+    dialog.close();
     window.destroy();
     Ok(())
 }

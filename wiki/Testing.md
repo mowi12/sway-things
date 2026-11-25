@@ -74,6 +74,12 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   file, which scanners Avahi finds SANE lists, the hints against fake installations (nothing, scanimage without
   sane-airscan, sane-airscan in a multiarch directory, an IPP-over-USB device with and without ipp-usb, a USB scanner in
   the hwdb without access, udev rules and hwdb lines, `os-release` families) and `doctor`'s _Scanners_ findings
+- The XDG desktop portals against fake installations in temporary directories: backends read from their `.portal` files
+  (the first directory wins, those meant for the desktop sorted first), a component installed only with its D-Bus
+  service and program, the configuration searched like xdg-desktop-portal (per directory, the first desktop's file
+  before `portals.conf`), the backend of each interface (an interface's line, `default`, `*`, `none`, the UseIn and gtk
+  fallbacks), Sway Things' `sway-portals.conf` wanted only where the user has no file there it would hide, the package
+  manager by `os-release`, and `doctor`'s _Environment_ findings
 
 ## Golden files
 
@@ -262,7 +268,8 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
 - Environment (`environment.rs`): the four switches have rows and the variables have none, but a list, which shows a
   stored variable; switching SDL 2 on puts its variable before the user's in the file. _Add Variable…_ opens a dialog
   whose _Save_ stays insensitive for `HOME` (with the reason) and for a `PATH` without `/usr/bin`, and stores a `PATH`
-  that keeps `$PATH`, which the list then shows.
+  that keeps `$PATH`, which the list then shows. The portal configuration has no row but the _Portals_ row, whose line
+  says what the check found and whose _Details_ dialog shows the four steps with the backend of each interface.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

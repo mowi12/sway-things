@@ -643,3 +643,34 @@ whose settings are environment variables. The facts behind it are in the
   socket's time) and, when a variable of the file is missing there although the file is older than sway, shows a notice
   with the line to run before sway starts (`set -a; eval "$(<generator>)"; set +a`, with the generator of the system) to
   copy. Variables in environment.d's own syntax aren't compared, since only the generator knows what they expand to.
+
+## XDG desktop portals
+
+`crates/core/src/environment/portals/` checks what screen sharing, screenshots of other apps, the file pickers of
+sandboxed apps and the dark style need on sway, for the Environment page and `sway-things doctor`. The facts are in the
+[Sway Reference](Sway-Reference.md#environment-and-portals).
+
+- **Installed:** xdg-desktop-portal by its D-Bus service file (`$XDG_DATA_HOME`, `$XDG_DATA_DIRS`) whose `Exec` program
+  exists, and xdg-desktop-portal-wlr and -gtk by their `.portal` file and their service. A missing one is shown with its
+  package and the install command of the distribution (`packages::Manager` from `os-release`'s `ID` and `ID_LIKE`:
+  zypper, dnf, apt, pacman) to copy; nothing is installed.
+- **Configured:** the backends from the `.portal` files of `$XDG_DATA_HOME`, `$XDG_DATA_DIRS` and `/usr/share`, sorted
+  as xdg-desktop-portal sorts them; the configuration that wins, searched as it searches; and the backend of
+  `ScreenCast`, `Screenshot`, `FileChooser` and `Settings` under it, with the `UseIn` and gtk fallbacks. It needs a fix
+  when `ScreenCast` isn't wlr or nothing serves `FileChooser`. `XDG_DESKTOP_PORTAL_DIR` narrows the search to one
+  directory, as for xdg-desktop-portal.
+- **The fix in our own file:** `environment.portal_config` writes `~/.config/xdg-desktop-portal/sway-portals.conf` with
+  the header of the generated files and the choices Arch and Fedora ship with sway (`default=gtk`, wlr for `ScreenCast`
+  and `Screenshot`, `Inhibit=none`), kept like the other files of other programs. It is only written where the user has
+  neither a `sway-portals.conf`, nor the `<desktop>-portals.conf` of a desktop of `XDG_CURRENT_DESKTOP`, nor a
+  `portals.conf` there: in that directory ours would win over them. With such a file, the page shows it read only with
+  _Open in Editor_ and the lines to copy. After the file changed, `Applier::persist` runs `systemctl --user try-restart`
+  of xdg-desktop-portal, -wlr and -gtk, so the running portals read it; those that don't run read it when they start.
+- **Session variables:** `systemctl --user show-environment` must have `WAYLAND_DISPLAY` and `XDG_CURRENT_DESKTOP`,
+  since the user manager starts the portals. `environment.pass_session_variables` generates
+  `exec systemctl --user import-environment …` and `exec dbus-update-activation-environment --systemd …` into
+  `70-autostart.conf`, with the fixed names `sway-things hook autostart` hands over too
+  ([Apps and autostart](#apps-and-autostart)), written as keywords without quotes; applied live, sway runs them at once.
+  A line of the user's config that runs `systemctl --user import-environment` reads as the switch on.
+- **Running:** `org.freedesktop.portal.Desktop` has an owner on the session bus (`NameHasOwner`, which starts nothing).
+  The portal is D-Bus activated, so not running is a warning: it starts when an app asks.

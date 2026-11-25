@@ -4,9 +4,11 @@
 //! The Environment page's own parts, which [`PageView`](super::PageView) adds to the rows built
 //! from the registry: the notice at the top when the session doesn't read environment.d, with
 //! the line that makes it do so to copy; the list of variables in place of the row of
-//! `environment.variables` ([`variables`]); below a row of a setting that writes variables (also
+//! `environment.variables` ([`variables`]); the Portals row with the check of the XDG desktop
+//! portals in place of the row of `environment.portal_config` ([`portals`]); below a row of a setting that writes variables (also
 //! on other pages), the line of another environment.d file that replaces one.
 
+mod portals;
 mod variables;
 
 use std::cell::{Cell, RefCell};
@@ -18,7 +20,7 @@ use gtk::prelude::*;
 use sway_things_core::apps::Dirs;
 use sway_things_core::environment::files::{self, Line, Origin};
 use sway_things_core::environment::{self, session};
-use sway_things_core::registry::environment::VARIABLES;
+use sway_things_core::registry::environment::{PORTAL_CONFIG, VARIABLES};
 use sway_things_core::registry::{Registry, Setting};
 
 use super::SettingRow;
@@ -51,14 +53,20 @@ thread_local! {
     static BASE: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
 }
 
-/// Whether `setting` gets a row of its own: the variables are a list ([`instead`]).
+/// Whether `setting` gets a row of its own: the variables are a list, the portal configuration
+/// is made in the dialog of the Portals row ([`instead`]).
 pub fn has_row(setting: &Setting) -> bool {
-    setting.key() != VARIABLES
+    setting.key() != VARIABLES && setting.key() != PORTAL_CONFIG
 }
 
-/// The list of variables in place of the row of `environment.variables`.
+/// The list of variables in place of the row of `environment.variables`, the Portals row in
+/// place of that of `environment.portal_config`.
 pub fn instead(model: &Model, setting: &Setting) -> Option<gtk::Widget> {
-    (setting.key() == VARIABLES).then(|| VariableList::new(model).widget().clone().upcast())
+    match setting.key() {
+        VARIABLES => Some(VariableList::new(model).widget().clone().upcast()),
+        PORTAL_CONFIG => Some(portals::row(model)),
+        _ => None,
+    }
 }
 
 /// Every line of environment.d as the settings in `model` would make Sway Things' file, which

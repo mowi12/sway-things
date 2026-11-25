@@ -9983,6 +9983,152 @@ msgstr ""
 msgid "Overridden by {place}"
 msgstr ""
 
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Portals"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Checking…"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Check Again"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Ready for screen sharing, screenshots and file pickers"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "_Details"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "Not installed: {packages}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The configuration doesn't pick wlr for screen sharing"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The session's variables are missing in systemd"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Not running yet"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{package} isn't installed"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{package} is installed"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/environment/portals.rs
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Installed"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "none"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "Decided by {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "No configuration: the backends meant for the desktop serve, else gtk"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid ""
+"{file} is your own: Sway Things doesn't change it. For screen sharing, put "
+"these lines into it:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Sway Things' configuration: wlr for screen sharing and screenshots, gtk for "
+"the rest"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Remove Configuration"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Sway Things can write its own configuration: wlr for screen sharing and "
+"screenshots, gtk for the rest. Saving writes it and restarts the portals."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Create Configuration"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Configured"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The systemd user manager didn't answer."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{name} is set"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{name} is missing"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Pass the session's variables to systemd and D-Bus at each login, and now:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Switch On"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Sway Things passes them at each login."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Session variables"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "A portal answers on the session bus."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"No portal answers yet. It starts when an app asks for it; if screen sharing "
+"still fails, journalctl --user -u xdg-desktop-portal says why."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The session bus couldn't be asked."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Running"
+msgstr ""
+
 #: crates/gui/src/widgets/environment/variables.rs
 msgid "Add Variable…"
 msgstr ""
@@ -10945,11 +11091,6 @@ msgstr ""
 #. TRANSLATORS: A value in the About section: a service that isn't running.
 #: crates/gui/src/widgets/page_view/about.rs
 msgid "Not running"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that is installed.
-#: crates/gui/src/widgets/page_view/about.rs
-msgid "Installed"
 msgstr ""
 
 #. TRANSLATORS: A value in the About section: a tool that isn't installed.

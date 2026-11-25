@@ -788,6 +788,15 @@ The Environment page sets environment variables for the whole session. They go i
   switch or page that owns it, a quote left open, a `PATH` that loses the system's programs), and shows the expanded
   value. Below, under "Set elsewhere", the variables of the other environment.d files, read only: the value, file:line,
   "Overrides yours" or "Overridden by …", and _Open in Editor_ for the user's own files, a lock for the system's.
+- **Screen sharing & portals:** a _Portals_ row whose line says what the check of the XDG desktop portals found ("Ready
+  for screen sharing, screenshots and file pickers", or what is wrong), checked again after each change, and _Details_.
+  The dialog shows four steps, each with a sign: _Installed_ (xdg-desktop-portal, -wlr, -gtk; a missing one with the
+  install command of the distribution to copy), _Configured_ (the backend of `ScreenCast`, `Screenshot`, `FileChooser`
+  and `Settings`, and the file that decides; _Create Configuration_ where the user has no configuration of their own in
+  `~/.config/xdg-desktop-portal`, _Remove Configuration_ for ours, else _Open in Editor_ for the user's file and the
+  lines to copy), _Session variables_ (`WAYLAND_DISPLAY` and `XDG_CURRENT_DESKTOP` in the systemd user manager; _Switch
+  On_ for the switch below) and _Running_, then _Check Again_. Below the row, the switch _Pass session variables to
+  systemd and D-Bus_, which applies at once and at each login. Nothing is installed.
 
 ### Sidebar groups
 
