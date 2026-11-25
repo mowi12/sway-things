@@ -24,26 +24,7 @@ impl Canvas {
             .iter()
             .map(|tile| self.shown_rect(tile))
             .collect();
-        let left = rects.iter().map(|rect| rect.x).min()?;
-        let top = rects.iter().map(|rect| rect.y).min()?;
-        let right = rects.iter().map(|rect| rect.right()).max()?;
-        let bottom = rects.iter().map(|rect| rect.bottom()).max()?;
-        // Room around the layout for half of the smallest output on every side, so an output
-        // can be dragged next to any edge without leaving the canvas (the view stays as it is
-        // while dragging), and the tiles stay big enough to read.
-        let room_x = rects.iter().map(|rect| rect.width).min()? / 2;
-        let room_y = rects.iter().map(|rect| rect.height).min()? / 2;
-        let bounds = Rect {
-            x: left.saturating_sub(room_x),
-            y: top.saturating_sub(room_y),
-            width: right
-                .saturating_sub(left)
-                .saturating_add(room_x.saturating_mul(2)),
-            height: bottom
-                .saturating_sub(top)
-                .saturating_add(room_y.saturating_mul(2)),
-        };
-        Some(View::fit(bounds, f64::from(width), f64::from(height)))
+        View::of(&rects, width, height)
     }
 
     #[expect(
@@ -56,12 +37,7 @@ impl Canvas {
         };
         let imp = self.imp();
         for tile in imp.tiles.borrow().iter() {
-            let rect = self.drawn_rect(tile);
-            // A small gap, so tiles that touch stay apart on the screen.
-            let x = view.x(rect.x) + 1.0;
-            let y = view.y(rect.y) + 1.0;
-            let w = (f64::from(rect.width) * view.scale - 2.0).max(1.0);
-            let h = (f64::from(rect.height) * view.scale - 2.0).max(1.0);
+            let (x, y, w, h) = view.tile(self.drawn_rect(tile));
             let dragged = imp
                 .drag
                 .borrow()
