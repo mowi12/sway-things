@@ -29,6 +29,12 @@ pub const LIST_TIMEOUT: Duration = Duration::from_secs(45);
 pub const OPTIONS_TIMEOUT: Duration = Duration::from_secs(45);
 /// How long scanimage has to end after it is asked to cancel, before it is killed.
 const CANCEL_GRACE: Duration = Duration::from_secs(5);
+/// How long scanimage has to end after it said the batch ended, before it is killed: closing
+/// the scanner can take a moment, but scanimage can also hang for good in `sane_exit`, its pages
+/// written.
+const EXIT_GRACE: Duration = Duration::from_secs(10);
+/// How scanimage's line at the end of a batch starts, whether it went well or not.
+const BATCH_END: &str = "Batch terminated";
 /// How much of scanimage's error output is kept for the details of an error.
 const MAX_STDERR: usize = 16 * 1024;
 /// How much a listing or the options may print before the rest is ignored.
@@ -415,6 +421,10 @@ impl Scan {
     ) -> Result<Vec<PathBuf>, Error> {
         let mut kept = Vec::new();
         let stderr = self.stderr.take();
+        // Whether scanimage said the batch ended ("Batch terminated, 3 pages scanned"), after
+        // which it only closes the scanner and ends; whether it was killed for not ending then.
+        let batch_ended = Cell::new(false);
+        let killed = Cell::new(false);
         let reading = async {
             let Some(mut stderr) = stderr else {
                 return;
@@ -434,9 +444,14 @@ impl Scan {
                     let line = line.trim();
                     if let Some(event) = progress_of(line) {
                         progress(event);
-                    } else if !line.is_empty() && kept.len() < MAX_STDERR {
-                        kept.extend_from_slice(line.as_bytes());
-                        kept.push(b'\n');
+                    } else if !line.is_empty() {
+                        if line.starts_with(BATCH_END) {
+                            batch_ended.set(true);
+                        }
+                        if kept.len() < MAX_STDERR {
+                            kept.extend_from_slice(line.as_bytes());
+                            kept.push(b'\n');
+                        }
                     }
                 }
                 if pending.len() > MAX_STDERR {
@@ -445,21 +460,11 @@ impl Scan {
             }
         };
         // A cancel that doesn't end it in time kills it, which ends its output too: the
-        // watchdog runs beside the reading, so a scanimage stuck in its cancel can't hold it.
+        // watchdog runs beside the reading, so a scanimage stuck in its cancel can't hold it. So
+        // does a scanimage that doesn't end after the batch ended.
         let cancel = self.cancel.clone();
-        let watchdog = async {
-            loop {
-                Timer::after(Duration::from_millis(200)).await;
-                if cancel.is_canceled() {
-                    Timer::after(CANCEL_GRACE).await;
-                    cancel.signal(rustix::process::Signal::KILL);
-                    break;
-                }
-            }
-            std::future::pending::<()>().await;
-        };
-        future::or(reading, watchdog).await;
-        let cancel = self.cancel.clone();
+        future::or(reading, watch(&cancel, &batch_ended, &killed)).await;
+        // Its output can end before it does: the same watch, once more.
         let status = future::or(
             async {
                 self.child
@@ -468,18 +473,7 @@ impl Scan {
                     .ok()
                     .and_then(|status| status.code())
             },
-            async {
-                // Its output can end before it does: the same escalation, once more.
-                loop {
-                    Timer::after(Duration::from_millis(200)).await;
-                    if cancel.is_canceled() {
-                        Timer::after(CANCEL_GRACE).await;
-                        cancel.signal(rustix::process::Signal::KILL);
-                        break;
-                    }
-                }
-                std::future::pending::<Option<i32>>().await
-            },
+            watch(&cancel, &batch_ended, &killed),
         )
         .await;
         self.cancel.pid.set(None);
@@ -488,6 +482,13 @@ impl Scan {
             return Err(Error::Canceled);
         }
         let stderr = String::from_utf8_lossy(&kept).into_owned();
+        // Killed after the batch ended, it has no exit status: its errors are in its output.
+        let status = match status {
+            None if killed.get() && !stderr.lines().any(|line| line.starts_with("scanimage: ")) => {
+                Some(0)
+            }
+            status => status,
+        };
         // A feeder that runs empty ends a batch; that is how a scan of all pages ends.
         let empty = Problem::of(status, &stderr) == Problem::NoDocuments;
         if status == Some(0) || (empty && !pages.is_empty()) {
@@ -498,6 +499,27 @@ impl Scan {
         }
         Err(failure(status, &stderr))
     }
+}
+
+/// Watches a running scan: kills scanimage when a cancel doesn't end it within
+/// [`CANCEL_GRACE`], or when it doesn't end within [`EXIT_GRACE`] after the batch ended (see
+/// `batch_ended`), which it notes in `killed`. Never returns.
+async fn watch<T>(cancel: &Canceler, batch_ended: &Cell<bool>, killed: &Cell<bool>) -> T {
+    loop {
+        Timer::after(Duration::from_millis(200)).await;
+        if cancel.is_canceled() {
+            Timer::after(CANCEL_GRACE).await;
+            cancel.signal(rustix::process::Signal::KILL);
+            break;
+        }
+        if batch_ended.get() {
+            Timer::after(EXIT_GRACE).await;
+            killed.set(true);
+            cancel.signal(rustix::process::Signal::KILL);
+            break;
+        }
+    }
+    std::future::pending().await
 }
 
 /// The files `page-NNNN.EXTENSION` in `directory`, in order.

@@ -188,6 +188,14 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   after resuming, removing it, a printer that isn't there failing without leaving a queue, a user canceling their own
   job but not resuming a printer, cups-pk-helper making the changes CUPS refuses (and polkit's refusal, and its
   absence), CUPS not running, and Avahi's printers found, made secure and gone
+- The scanners backend against the distribution's scanimage with SANE's `test` backend (a `dll.conf` of its own through
+  `SANE_CONFIG_DIR`) and a stand-in for Avahi on a private bus (`crates/core/tests/scanners_sane.rs`, `test-support`):
+  the two test devices and their options, scanimage missing, a page as PNG, the ten sheets of the feeder and a page of
+  the glass in one PDF, a canceled scan, a fake scanimage that hangs after `Batch terminated` (after a page, and after a
+  jam) and is ended, and Avahi's driverless scanners. Each scan of the feeder test has a limit of its own (30 s), so a
+  hang says which scan it was; scanimage can stall between two pages of the test backend's feeder
+  ([Sway Reference](Sway-Reference.md#sane-scanimage-and-the-driverless-scanners)), so a scan that stalls is killed and
+  tried once more, and a second stall fails
 
 ## GUI
 

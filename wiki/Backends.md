@@ -224,16 +224,18 @@ without for every sheet of the feeder, then the device's options as separate arg
 crash left are removed); `--batch` works on every SANE version, unlike `--output-file` (1.0.28). The progress comes from
 standard error (`Progress: N%`, `Scanning page N`); the rest of it, at most 16 KiB, is the error's details. A cancel
 sends `SIGTERM`, which makes scanimage cancel the scan with the scanner, and `SIGKILL` 5 s later if it still runs; the
-process isn't waited for until then, so its id can't be reused. Exit statuses and messages become words (`Problem`):
-busy, cover open, paper jammed, feeder empty (the normal end of a feeder scan once a page is in), no access, gone.
-**Saving:** `scanners::save` writes the one file the user picked in the file chooser: the page as scanimage wrote it
-(PNG, JPEG, TIFF), or a PDF of all pages from `scanners::pdf`, our own writer: JPEG pages go in as they are
-(`/DCTDecode`, the size from the frame header), black and white pages come as PNM bitmaps and go in run-length encoded
-(`/RunLengthDecode`, `/Decode [1 0]`), each page as large as the paper at the resolution it was scanned at. So PDF needs
-neither img2pdf nor ImageMagick nor a scanimage with `--format=pdf` (1.1.1), only JPEG support, and pages of the glass
-and the feeder go into one PDF. The file is written next to its place and renamed into it (`atomic::write_bytes`), so a
-failure never leaves half a file. `delegate::scan_app` finds Document Scanner (`simple-scan`), Skanpage or XSane for
-what scanning here doesn't do.
+process isn't waited for until then, so its id can't be reused. scanimage that said `Batch terminated` (the end of every
+batch, also after an error) gets 10 s to end, then it is killed: it can hang for good in `sane_exit` with its pages
+written, and its errors are then read from its output alone. Exit statuses and messages become words (`Problem`): busy,
+cover open, paper jammed, feeder empty (the normal end of a feeder scan once a page is in), no access, gone. **Saving:**
+`scanners::save` writes the one file the user picked in the file chooser: the page as scanimage wrote it (PNG, JPEG,
+TIFF), or a PDF of all pages from `scanners::pdf`, our own writer: JPEG pages go in as they are (`/DCTDecode`, the size
+from the frame header), black and white pages come as PNM bitmaps and go in run-length encoded (`/RunLengthDecode`,
+`/Decode [1 0]`), each page as large as the paper at the resolution it was scanned at. So PDF needs neither img2pdf nor
+ImageMagick nor a scanimage with `--format=pdf` (1.1.1), only JPEG support, and pages of the glass and the feeder go
+into one PDF. The file is written next to its place and renamed into it (`atomic::write_bytes`), so a failure never
+leaves half a file. `delegate::scan_app` finds Document Scanner (`simple-scan`), Skanpage or XSane for what scanning
+here doesn't do.
 
 The system clock isn't a `Backend` either: systemd-timedated owns the time zone, automatic time and the clock.
 `crates/core/src/region/` has a `Timedate` handle on the system bus (zbus, async-io). `GetAll` on
