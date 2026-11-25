@@ -24,6 +24,7 @@
 pub mod apps;
 mod capture;
 mod daemon;
+pub mod environment;
 mod files;
 mod finding;
 mod found;
@@ -86,6 +87,9 @@ pub struct Checkup<'a, V> {
     /// What this computer has for scanners; `None` for a checkup that doesn't look at the
     /// machine.
     pub scanners: Option<&'a crate::scanners::Look>,
+    /// Sway Things' files of the Environment page and the XDG desktop portals; `None` for a
+    /// checkup that doesn't look at the machine.
+    pub environment: Option<&'a environment::EnvironmentCheck>,
 }
 
 impl<V: Validate> Checkup<'_, V> {
@@ -150,6 +154,10 @@ impl<V: Validate> Checkup<'_, V> {
         if let Some(look) = self.scanners {
             progress(Step::Section(Section::Scanners));
             scanners::findings(look, &mut findings);
+        }
+        if let Some(check) = self.environment {
+            progress(Step::Section(Section::Environment));
+            environment::findings(check, self.state, self.locations, &mut findings);
         }
         Diagnosis { findings }
     }

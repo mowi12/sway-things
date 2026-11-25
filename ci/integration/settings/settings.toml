@@ -197,6 +197,8 @@ automatic_timezone = true
 qt_wayland = true
 java_nonreparenting = true
 variables = ["EDITOR=nvim", "PATH=$HOME/.local/bin:$PATH", "GREETING=\"a b\""]
+pass_session_variables = true
+portal_config = true
 
 [app]
 safety_net_timeout = 20

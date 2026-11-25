@@ -103,7 +103,9 @@ fn holding(key: &str, when: When) -> Value {
 /// mode or position of an output leaves the choice to sway.
 fn renders_nothing(setting: &Setting, value: &Value, target: Target) -> bool {
     match setting.key() {
-        "behavior.inhibit_idle_fullscreen" => *value == Value::Bool(false),
+        "behavior.inhibit_idle_fullscreen" | "environment.pass_session_variables" => {
+            *value == Value::Bool(false)
+        }
         // Automatic: sway maps the device by itself. Over IPC it maps to the whole desktop, to end
         // an earlier mapping.
         "input.tablet_tool.map_to_output" | "input.touch.map_to_output" => {
@@ -447,8 +449,10 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
             setting.page() == Page::Notifications && setting.key() != super::notifications::BLUR;
         // The night light's tool is started by a hook with them.
         let is_night_light = setting.page() == Page::BrightnessNightLight;
-        // Environment variables go to Sway Things' environment.d file.
-        let is_environment = setting.environment().is_some();
+        // Environment variables go to Sway Things' environment.d file, the portal configuration
+        // to a file of xdg-desktop-portal.
+        let is_environment =
+            setting.environment().is_some() || setting.key() == super::environment::PORTAL_CONFIG;
         // Region & Time: the hook of the automatic time zone and, for the language and formats,
         // our environment.d file.
         let is_region = setting.page() == Page::RegionTime;

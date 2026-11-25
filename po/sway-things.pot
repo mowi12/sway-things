@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 10:27+0100\n"
+"POT-Creation-Date: 2026-11-25 10:29+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -276,6 +276,10 @@ msgid "Checking what scanners need…"
 msgstr ""
 
 #: crates/cli/src/doctor.rs
+msgid "Checking the environment and the portals…"
+msgstr ""
+
+#: crates/cli/src/doctor.rs
 msgid "Writing the generated files and validating them with sway…"
 msgstr ""
 
@@ -390,6 +394,10 @@ msgstr ""
 
 #: crates/cli/src/lib.rs
 msgid "Collecting the system details…"
+msgstr ""
+
+#: crates/cli/src/lib.rs
+msgid "Asking the XDG desktop portals…"
 msgstr ""
 
 #: crates/cli/src/lib.rs
@@ -1795,6 +1803,89 @@ msgid ""
 "page, or sway-things notifications import-swaync."
 msgstr ""
 
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid "{package} isn't installed: {purpose} don't work."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "Sway Things passes them at login: log out and in again, or reload sway."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"Switch on \"Pass session variables to systemd and D-Bus\" on the Environment "
+"page, or run `sway-things set environment.pass_session_variables true`."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"The systemd user manager lacks WAYLAND_DISPLAY or XDG_CURRENT_DESKTOP, so "
+"the portals it starts don't find the session."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "No portal answers on the session bus."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"xdg-desktop-portal starts when an app asks for it. If screen sharing still "
+"fails, `journalctl --user -u xdg-desktop-portal` says why."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"The portals are installed and set up: wlr shares the screen, gtk opens files."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "screen sharing, file pickers of sandboxed apps and the style"
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "screen sharing and screenshots of apps"
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "file pickers of sandboxed apps and the dark style"
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid "Install it: {command}"
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid "Install the package {package}."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid ""
+"The portal configuration picks {screencast} for screen sharing and "
+"{file_chooser} for the file pickers: screen sharing needs wlr, the file "
+"pickers a backend such as gtk."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"Sway Things' configuration is switched on: save the settings to write it."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"Create Sway Things' configuration on the Environment page (Portals, "
+"Details), or run `sway-things set environment.portal_config true`."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid ""
+"Your own {file} decides. For screen sharing, put the lines above into it."
+msgstr ""
+
 #: crates/core/src/doctor/files.rs
 #, rust-format
 msgid "{file} can't be read: {error}."
@@ -1904,6 +1995,10 @@ msgstr ""
 #: crates/core/src/doctor/finding.rs
 #: crates/gui/src/widgets/printers/scanners.rs
 msgid "Scanners"
+msgstr ""
+
+#: crates/core/src/doctor/finding.rs crates/core/src/registry/page.rs
+msgid "Environment"
 msgstr ""
 
 #: crates/core/src/doctor/found.rs
@@ -5037,6 +5132,10 @@ msgid "Wayland for older apps"
 msgstr ""
 
 #: crates/core/src/registry/environment.rs
+msgid "Screen sharing & portals"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
 msgid "Qt 5 apps"
 msgstr ""
 
@@ -5172,6 +5271,54 @@ msgstr ""
 
 #: crates/core/src/registry/environment.rs
 msgid "variable"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Portal configuration of Sway Things"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"~/.config/xdg-desktop-portal/sway-portals.conf: wlr for screen sharing and "
+"screenshots, gtk for the rest; only where you have no configuration there"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "xdg-desktop-portal"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "portals.conf"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "screen sharing"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "file picker"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Pass session variables to systemd and D-Bus"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"At login, so the portals and the services they start find the display: "
+"WAYLAND_DISPLAY, XDG_CURRENT_DESKTOP and the others"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "import-environment"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "dbus-update-activation-environment"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "portal"
 msgstr ""
 
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
@@ -6861,10 +7008,6 @@ msgstr ""
 
 #: crates/core/src/registry/page.rs
 msgid "Accessibility"
-msgstr ""
-
-#: crates/core/src/registry/page.rs
-msgid "Environment"
 msgstr ""
 
 #: crates/core/src/registry/page.rs
@@ -9840,6 +9983,152 @@ msgstr ""
 msgid "Overridden by {place}"
 msgstr ""
 
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Portals"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Checking…"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Check Again"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Ready for screen sharing, screenshots and file pickers"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "_Details"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "Not installed: {packages}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The configuration doesn't pick wlr for screen sharing"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The session's variables are missing in systemd"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Not running yet"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{package} isn't installed"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{package} is installed"
+msgstr ""
+
+#. TRANSLATORS: A value in the About section: a tool that is installed.
+#: crates/gui/src/widgets/environment/portals.rs
+#: crates/gui/src/widgets/page_view/about.rs
+msgid "Installed"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "none"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "Decided by {file}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "No configuration: the backends meant for the desktop serve, else gtk"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid ""
+"{file} is your own: Sway Things doesn't change it. For screen sharing, put "
+"these lines into it:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Sway Things' configuration: wlr for screen sharing and screenshots, gtk for "
+"the rest"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Remove Configuration"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Sway Things can write its own configuration: wlr for screen sharing and "
+"screenshots, gtk for the rest. Saving writes it and restarts the portals."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Create Configuration"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Configured"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The systemd user manager didn't answer."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{name} is set"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+#, rust-format
+msgid "{name} is missing"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"Pass the session's variables to systemd and D-Bus at each login, and now:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Switch On"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Sway Things passes them at each login."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Session variables"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "A portal answers on the session bus."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid ""
+"No portal answers yet. It starts when an app asks for it; if screen sharing "
+"still fails, journalctl --user -u xdg-desktop-portal says why."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "The session bus couldn't be asked."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/portals.rs
+msgid "Running"
+msgstr ""
+
 #: crates/gui/src/widgets/environment/variables.rs
 msgid "Add Variable…"
 msgstr ""
@@ -10802,11 +11091,6 @@ msgstr ""
 #. TRANSLATORS: A value in the About section: a service that isn't running.
 #: crates/gui/src/widgets/page_view/about.rs
 msgid "Not running"
-msgstr ""
-
-#. TRANSLATORS: A value in the About section: a tool that is installed.
-#: crates/gui/src/widgets/page_view/about.rs
-msgid "Installed"
 msgstr ""
 
 #. TRANSLATORS: A value in the About section: a tool that isn't installed.

@@ -102,6 +102,7 @@ impl Setup {
             gsettings: &NoGSettings,
             apps: None,
             scanners: None,
+            environment: None,
         }
     }
 
@@ -924,6 +925,7 @@ fn the_default_apps_and_the_autostart_runner_are_checked() {
             Checkup {
                 apps: Some(check),
                 scanners: None,
+                environment: None,
                 ..setup.checkup()
             }
             .diagnose(),

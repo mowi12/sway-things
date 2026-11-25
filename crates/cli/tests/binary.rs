@@ -17,8 +17,10 @@ use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
 use sway_things_core::doctor::Section;
+use sway_things_core::environment::portals::Component;
 use sway_things_core::i18n::{self, DOMAIN};
 use sway_things_core::ipc::stand_in::{FakeSway, obedient};
+use sway_things_core::packages::Manager;
 
 struct Home {
     dir: tempfile::TempDir,
@@ -73,6 +75,10 @@ impl Home {
             .env("XDG_CONFIG_DIRS", root.join("config-dirs"))
             .env("XDG_DATA_HOME", root.join("data"))
             .env("XDG_DATA_DIRS", root.join("data-dirs"))
+            // Not the host's portals and their configuration in /etc and /usr/share, and no
+            // programs, so not the host's systemd user manager either.
+            .env("XDG_DESKTOP_PORTAL_DIR", root.join("portals"))
+            .env("PATH", root.join("bin"))
             .env("SWAYSOCK", self.sway.socket())
             .stdin(Stdio::null())
             .output()
@@ -172,7 +178,7 @@ fn doctor_reports_without_writing() {
         out.contains("  problem  Sway Things is read-only: "),
         "{out}"
     );
-    assert!(out.ends_with("2 problems, no warnings.\nRun `sway-things doctor --fix` to write the generated files again.\n"), "{out}");
+    assert!(out.ends_with("2 problems, 3 warnings.\nRun `sway-things doctor --fix` to write the generated files again.\n"), "{out}");
 
     let output = home.run(&["doctor", "--fix", "--json"]);
     assert_eq!(output.status.code(), Some(5), "{output:?}");
@@ -390,6 +396,15 @@ fn the_pseudo_locale_leaves_no_text_untranslated() {
             .chain(args)
             .map(|text| (*text).to_owned())
             .collect();
+        // The packages of the portals, and the commands that install them on this distribution.
+        for component in Component::ALL {
+            data.push(component.package().to_owned());
+            data.extend(
+                Manager::ALL
+                    .iter()
+                    .map(|manager| manager.install_command(&[component.package()])),
+            );
+        }
         // The home, and the app `run_with` names in it.
         data.push(home.dir.path().join("no-app").display().to_string());
         let config = fs::read_to_string(home.dir.path().join("config/sway/config")).unwrap();

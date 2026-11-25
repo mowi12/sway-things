@@ -164,6 +164,9 @@ fn step_message(step: Step) -> Cow<'static, str> {
             tr(msg!("Checking the default apps and what starts at login…")).into()
         }
         Step::Section(Section::Scanners) => tr(msg!("Checking what scanners need…")).into(),
+        Step::Section(Section::Environment) => {
+            tr(msg!("Checking the environment and the portals…")).into()
+        }
     }
 }
 

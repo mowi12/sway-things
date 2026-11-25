@@ -369,7 +369,7 @@ fn other_line(model: &Model, listing: &Listing, index: usize) -> gtk::ListBoxRow
 }
 
 /// A button that opens `file` at `line` in the editor.
-fn editor_button(model: &Model, file: PathBuf, line: usize) -> gtk::Button {
+pub(super) fn editor_button(model: &Model, file: PathBuf, line: usize) -> gtk::Button {
     let button = gtk::Button::with_label(tr(OPEN_IN_EDITOR));
     button.set_valign(gtk::Align::Center);
     button.connect_clicked(glib::clone!(

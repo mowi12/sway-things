@@ -131,6 +131,15 @@ pub struct Persisted {
     pub others: Vec<crate::generate::other::Problem>,
 }
 
+/// Which files of other programs [`Applier::persist`] changed whose program has to be told.
+#[derive(Debug, Clone, Copy, Default)]
+struct Changed {
+    /// The environment.d file: the user manager reloads.
+    environment: bool,
+    /// The portal configuration: the portals restart.
+    portals: bool,
+}
+
 impl Persisted {
     /// Whether every generated file is in place with its new content.
     pub fn is_complete(&self) -> bool {
@@ -1017,12 +1026,16 @@ impl<V: Validate> Applier<V> {
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        let (others, environment_changed) = self.keep_other_files();
+        let (others, changed) = self.keep_other_files();
         // The user manager reads environment.d again for the services it starts from now on,
         // and doesn't keep the old variables when it outlives a quick logout. Without systemd
         // the file waits for the next login all the same.
-        if environment_changed {
+        if changed.environment {
             let _ = crate::environment::reload_user_manager().await;
+        }
+        // The portals read their configuration only when they start.
+        if changed.portals {
+            let _ = crate::environment::portals::restart().await;
         }
         let persisted = Persisted {
             saved,
@@ -1036,16 +1049,20 @@ impl<V: Validate> Applier<V> {
 
     /// Brings the files of other programs in line with the settings, recorded in the manifest:
     /// only files of Sway Things are written or deleted. Returns what couldn't be done, and
-    /// whether the environment.d file changed.
-    fn keep_other_files(&self) -> (Vec<crate::generate::other::Problem>, bool) {
+    /// which of the files that need a program told changed.
+    fn keep_other_files(&self) -> (Vec<crate::generate::other::Problem>, Changed) {
         let Some(dirs) = &self.apps_dirs else {
-            return (Vec::new(), false);
+            return (Vec::new(), Changed::default());
         };
         let mut wanted = crate::apps::files::wanted(&self.state, dirs);
         let environment = crate::environment::wanted(&self.state, dirs);
+        let portals = crate::environment::portals::wanted(&self.state, dirs);
         let environment_path = environment.path.clone();
-        let before = std::fs::read(&environment_path).ok();
+        let portals_path = portals.path.clone();
+        let read = |path: &std::path::Path| std::fs::read(path).ok();
+        let before = (read(&environment_path), read(&portals_path));
         wanted.push(environment);
+        wanted.push(portals);
         let mut manifest = generate::Manifest::load(self.locations.manifest());
         let mut problems = crate::generate::other::keep(&wanted, &mut manifest);
         if let Err(error) = manifest.save() {
@@ -1054,7 +1071,10 @@ impl<V: Validate> Applier<V> {
                 error.to_string(),
             ));
         }
-        let changed = std::fs::read(&environment_path).ok() != before;
+        let changed = Changed {
+            environment: read(&environment_path) != before.0,
+            portals: read(&portals_path) != before.1,
+        };
         (problems, changed)
     }
 

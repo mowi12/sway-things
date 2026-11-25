@@ -14,7 +14,10 @@
 //! user's own variables ([`VARIABLES`]), in environment.d's syntax, guarded so a typo can't
 //! break the next login.
 
+use super::read::ReadError;
+use super::sway::{ConfigFile, Context, Directive, RenderError};
 use super::{Apply, Msg, Page, Registry, Setting, Value, ValueError};
+use crate::command::SwayCmd;
 use crate::environment::syntax::{self, SyntaxError};
 use crate::i18n::Text;
 use crate::msg;
@@ -30,6 +33,11 @@ pub const ELECTRON_WAYLAND: &str = "environment.electron_wayland";
 /// The key of the user's own variables: a list of `NAME=value`, the value in environment.d's
 /// syntax.
 pub const VARIABLES: &str = "environment.variables";
+/// The key of Sway Things' own portal configuration
+/// ([`crate::environment::portals`]): on, it is written where the user has none.
+pub const PORTAL_CONFIG: &str = "environment.portal_config";
+/// The key of the switch that hands the session's variables to systemd and D-Bus at login.
+pub const PASS_SESSION_VARIABLES: &str = "environment.pass_session_variables";
 
 /// An environment variable a setting writes into Sway Things' environment.d file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -265,6 +273,36 @@ fn edited(value: &Value) -> Vec<Variable> {
         .collect()
 }
 
+/// The lines that hand the session's variables to the systemd user manager and D-Bus
+/// activation, while the switch is on: run at once, and at each login from the generated file.
+fn pass_session_variables(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
+    if !ctx.bool(PASS_SESSION_VARIABLES)? {
+        return Ok(Vec::new());
+    }
+    // Fixed words, written without quotes like sway's own lines, so the user's line of the same
+    // kind reads as the switch.
+    let line = |words: &[&'static str]| {
+        words
+            .iter()
+            .chain(crate::apps::autostart::SESSION_VARIABLES.iter())
+            .fold(SwayCmd::new("exec"), |command, word| command.keyword(word))
+    };
+    Ok(vec![
+        line(&["systemctl", "--user", "import-environment"]),
+        line(&["dbus-update-activation-environment", "--systemd"]),
+    ])
+}
+
+/// A line of the user's config that imports variables into the user manager does what the
+/// switch does.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "a ReadFn returns a Result; this line always reads as on"
+)]
+fn read_passed(_: &[String]) -> Result<Value, ReadError> {
+    Ok(Value::Bool(true))
+}
+
 /// The variable `name` with `value` while the switch is on.
 fn when_on(value: &Value, name: &str, set: &str) -> Vec<Variable> {
     if matches!(value, Value::Bool(true)) {
@@ -292,7 +330,13 @@ fn electron(value: &Value) -> Vec<Variable> {
 
 /// The section of the switches.
 const WAYLAND: Msg = msg!("Wayland for older apps");
+/// The section of the portals.
+const PORTALS: Msg = msg!("Screen sharing & portals");
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "one builder per setting, read best as a list"
+)]
 pub(super) fn settings() -> Vec<Setting> {
     vec![
         Setting::toggle(QT_WAYLAND, Page::Environment, false)
@@ -378,6 +422,41 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("EDITOR"),
                 msg!("export"),
                 msg!("variable"),
+            ])
+            .build(),
+        Setting::toggle(PORTAL_CONFIG, Page::Environment, false)
+            .section(PORTALS)
+            .title(msg!("Portal configuration of Sway Things"))
+            .subtitle(msg!(
+                "~/.config/xdg-desktop-portal/sway-portals.conf: wlr for screen sharing and \
+                 screenshots, gtk for the rest; only where you have no configuration there"
+            ))
+            .apply(Apply::ToolReload)
+            .keywords(&[
+                msg!("xdg-desktop-portal"),
+                msg!("portals.conf"),
+                msg!("screen sharing"),
+                msg!("file picker"),
+            ])
+            .build(),
+        Setting::toggle(PASS_SESSION_VARIABLES, Page::Environment, false)
+            .section(PORTALS)
+            .title(msg!("Pass session variables to systemd and D-Bus"))
+            .subtitle(msg!(
+                "At login, so the portals and the services they start find the display: \
+                 WAYLAND_DISPLAY, XDG_CURRENT_DESKTOP and the others"
+            ))
+            .sway(
+                Directive::top("exec").arguments(&["systemctl", "--user", "import-environment"]),
+                ConfigFile::Autostart,
+                pass_session_variables,
+                read_passed,
+            )
+            .keywords(&[
+                msg!("import-environment"),
+                msg!("dbus-update-activation-environment"),
+                msg!("screen sharing"),
+                msg!("portal"),
             ])
             .build(),
     ]

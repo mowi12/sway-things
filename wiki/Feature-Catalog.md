@@ -426,7 +426,9 @@ swaybar via our sway include.
 - ~~🟡 Electron/Chromium Wayland flags (create the flags files if missing, otherwise handover)~~: Chromium 140 and
   Electron 38 use Wayland by default, Electron 28 to 37 takes the variable above, and only Arch's wrappers read the
   flags files
-- [ ] 🟡 XDG portal check (xdg-desktop-portal-wlr / -gtk installed and configured for screen sharing and file pickers)
+- [x] 🟡 XDG portal check (xdg-desktop-portal-wlr / -gtk installed and configured for screen sharing and file pickers),
+      with the session's variables in systemd and a portal running; fixes only in our own files: our `sway-portals.conf`
+      and a switch that passes the session's variables to systemd and D-Bus
 - [ ] 🟡 Screen sharing output chooser (xdg-desktop-portal-wlr config)
 
 ### About & Maintenance

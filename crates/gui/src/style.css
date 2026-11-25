@@ -751,6 +751,23 @@ st-page list.st-environment-list > row {
   padding: 0 12px 10px 12px;
 }
 
+/* The Portals row like a line of the list of variables; the steps of its dialog apart, the lines
+   to copy in a frame. */
+.st-portals-row {
+  min-height: 36px;
+  padding: 8px 16px 8px 14px;
+}
+
+.st-portals-step {
+  margin-bottom: 4px;
+}
+
+.st-portals-copy {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: alpha(currentColor, 0.06);
+}
+
 /* Why a variable can't be saved: in the text color, bold, as the error color is too faint in
    some themes */
 .st-environment-error {
