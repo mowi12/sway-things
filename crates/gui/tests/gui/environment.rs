@@ -25,6 +25,10 @@ pub(crate) fn check_environment() -> Vec<(String, Outcome)> {
             "environment: the portals row and its dialog".to_owned(),
             check_portals(),
         ),
+        (
+            "environment: the output chooser".to_owned(),
+            check_screencast(),
+        ),
     ]
 }
 
@@ -213,6 +217,52 @@ fn check_portals() -> Outcome {
         &format!("  the dialog names no backend: {said:?}"),
     )?;
     dialog.close();
+    window.destroy();
+    Ok(())
+}
+
+fn check_screencast() -> Outcome {
+    let fixture = fixture(SWAY, STORED_ENVIRONMENT, USERS, true)?;
+    let window = open(&fixture, Page::Environment)?;
+    let chooser = row(&window, "environment.screencast_chooser")?;
+    let dropdown = chooser
+        .choice_dropdown()
+        .ok_or_else(|| "  the chooser has no drop-down".to_owned())?;
+    let choices = dropdown.model().map_or(0, |model| model.n_items());
+    ensure(
+        choices == 4,
+        &format!("  the chooser has {choices} choices"),
+    )?;
+    // The display to share is picked from the connected ones, and greyed out until the chooser
+    // shares one display.
+    let output = row(&window, "environment.screencast_output")?;
+    let displays = output
+        .dropdown()
+        .ok_or_else(|| "  the display has no drop-down".to_owned())?;
+    let labels: Vec<String> = displays
+        .model()
+        .and_downcast::<gtk::StringList>()
+        .map(|list| {
+            (0..list.n_items())
+                .filter_map(|index| list.string(index))
+                .map(|label| label.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    ensure(
+        labels.first().map(String::as_str) == Some("None chosen"),
+        &format!("  the displays are {labels:?}"),
+    )?;
+    fixture.model.set(
+        "environment.screencast_chooser",
+        None,
+        Value::Choice("output".to_owned()),
+    );
+    wait_for_model(&fixture.model)?;
+    ensure(
+        displays.is_sensitive(),
+        "  the display stays greyed out while one display is shared",
+    )?;
     window.destroy();
     Ok(())
 }

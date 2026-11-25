@@ -810,6 +810,15 @@ impl SettingRow {
         }
     }
 
+    /// The drop-down of a row of a choice of the registry (`Kind::Choice`), e.g. to draw its
+    /// items with the reason one can't be picked.
+    pub fn choice_dropdown(&self) -> Option<gtk::DropDown> {
+        match self.imp().control.get() {
+            Some(Control::Choice { dropdown, .. }) => Some(dropdown.clone()),
+            _ => None,
+        }
+    }
+
     /// Opens GTK's font dialog at the font in effect and sends the font picked there.
     fn pick_font(&self, button: &gtk::Button) {
         let Some(label) = button.child().and_downcast::<gtk::Label>() else {

@@ -450,9 +450,14 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // The night light's tool is started by a hook with them.
         let is_night_light = setting.page() == Page::BrightnessNightLight;
         // Environment variables go to Sway Things' environment.d file, the portal configuration
-        // to a file of xdg-desktop-portal.
-        let is_environment =
-            setting.environment().is_some() || setting.key() == super::environment::PORTAL_CONFIG;
+        // and the output chooser to files of the portals.
+        let is_environment = setting.environment().is_some()
+            || [
+                super::environment::PORTAL_CONFIG,
+                super::environment::SCREENCAST_CHOOSER,
+                super::environment::SCREENCAST_OUTPUT,
+            ]
+            .contains(&setting.key());
         // Region & Time: the hook of the automatic time zone and, for the language and formats,
         // our environment.d file.
         let is_region = setting.page() == Page::RegionTime;

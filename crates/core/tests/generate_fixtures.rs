@@ -3,8 +3,8 @@
 
 //! Golden files for the generators: the sample settings in `ci/integration/settings/` in, the
 //! exact files in `ci/integration/generated/` out, once for the oldest supported sway and once
-//! for the oldest supported SwayFX, and Sway Things' environment.d file and portal
-//! configuration.
+//! for the oldest supported SwayFX, and Sway Things' environment.d file, portal configuration and
+//! output chooser of xdg-desktop-portal-wlr.
 //! `scripts/check-integration.sh` feeds the sway files to a real sway: every file must pass
 //! `sway --validate` on its own, and the sample configs include them.
 //!
@@ -60,6 +60,17 @@ fn fixtures_are_up_to_date() -> Result<()> {
         fixtures.push((
             format!("generated/environment/{}", environment::portals::FILE_NAME),
             environment::portals::text(),
+        ));
+    }
+    // And xdg-desktop-portal-wlr's file, for a home without programs or files of the user's.
+    let home = tempfile::tempdir()?;
+    let dirs = sway_things_core::apps::Dirs::with(|name| {
+        (name == "HOME").then(|| home.path().display().to_string())
+    });
+    if let Some(text) = dirs.and_then(|dirs| environment::screencast::text(&state, &dirs)) {
+        fixtures.push((
+            "generated/environment/xdg-desktop-portal-wlr-sway".to_owned(),
+            text,
         ));
     }
     for (directory, compositor) in compositors {

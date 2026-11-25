@@ -429,7 +429,9 @@ swaybar via our sway include.
 - [x] 🟡 XDG portal check (xdg-desktop-portal-wlr / -gtk installed and configured for screen sharing and file pickers),
       with the session's variables in systemd and a portal running; fixes only in our own files: our `sway-portals.conf`
       and a switch that passes the session's variables to systemd and D-Bus
-- [ ] 🟡 Screen sharing output chooser (xdg-desktop-portal-wlr config)
+- [x] 🟡 Screen sharing output chooser (xdg-desktop-portal-wlr config): xdpw's default, slurp, a menu of the first
+      launcher installed, or always one display; our own `~/.config/xdg-desktop-portal-wlr/sway`, only where the user
+      has no file there
 
 ### About & Maintenance
 

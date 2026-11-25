@@ -3,12 +3,14 @@
 
 //! The Environment page's own parts, which [`PageView`](super::PageView) adds to the rows built
 //! from the registry: the notice at the top when the session doesn't read environment.d, with
-//! the line that makes it do so to copy; the list of variables in place of the row of
+//! the line that makes it do so to copy; the output chooser of xdg-desktop-portal-wlr with what
+//! keeps it from taking effect below it ([`screencast`]); the list of variables in place of the row of
 //! `environment.variables` ([`variables`]); the Portals row with the check of the XDG desktop
 //! portals in place of the row of `environment.portal_config` ([`portals`]); below a row of a setting that writes variables (also
 //! on other pages), the line of another environment.d file that replaces one.
 
 mod portals;
+mod screencast;
 mod variables;
 
 use std::cell::{Cell, RefCell};
@@ -30,6 +32,7 @@ use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;
 use crate::style;
 
+pub use screencast::{choices, follow};
 pub use variables::VariableList;
 
 // Messages used inside `glib::clone!` blocks, which xgettext can't look into: they are marked
@@ -182,11 +185,16 @@ fn load_base(then: impl FnOnce() + 'static) {
 }
 
 /// Below the row of a setting that writes environment variables: which line of another file
-/// replaces one of them, so the setting has no effect; hidden while none does.
+/// replaces one of them, so the setting has no effect; hidden while none does. Below the output
+/// chooser: what keeps it from taking effect.
 pub fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let Some(setting) = row.setting() else {
         return Vec::new();
     };
+    let notes = screencast::below(model, row);
+    if !notes.is_empty() {
+        return notes;
+    }
     let Some(&mapping) = setting.environment() else {
         return Vec::new();
     };

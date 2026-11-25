@@ -235,6 +235,9 @@ pub enum Code {
     PortalNotRunning,
     /// The portals are installed and set up.
     PortalsReady,
+    /// The output chooser stored doesn't take effect: the user's own file decides, its tool
+    /// isn't installed, or `XDG_CURRENT_DESKTOP` doesn't name sway.
+    ScreencastChooser,
 }
 
 impl Code {
@@ -305,6 +308,7 @@ impl Code {
             Self::SessionVariables => "session_variables",
             Self::PortalNotRunning => "portal_not_running",
             Self::PortalsReady => "portals_ready",
+            Self::ScreencastChooser => "screencast_chooser",
         }
     }
 
@@ -372,7 +376,8 @@ impl Code {
             | Self::PortalConfig
             | Self::SessionVariables
             | Self::PortalNotRunning
-            | Self::PortalsReady => Section::Environment,
+            | Self::PortalsReady
+            | Self::ScreencastChooser => Section::Environment,
         }
     }
 }

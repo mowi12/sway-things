@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The checks of the Environment page: Sway Things' files there (the environment.d file and the
-//! portal configuration) and the XDG desktop portals, the same four steps as the page's
+//! The checks of the Environment page: Sway Things' files there (the environment.d file, the
+//! portal configuration and xdg-desktop-portal-wlr's) and the XDG desktop portals, the same four steps as the page's
 //! _Details_ dialog: installed, configured, the session's variables, running.
 
 use super::{Code, Finding, Severity};
@@ -50,6 +50,7 @@ pub(super) fn findings(
     for file in [
         crate::environment::wanted(state, &check.dirs),
         portals::wanted(state, &check.dirs),
+        crate::environment::screencast::wanted(state, &check.dirs),
     ] {
         let Some(text) = &file.text else {
             continue;
@@ -66,6 +67,72 @@ pub(super) fn findings(
         );
     }
     portal_findings(&check.portals, check.packages, state, findings);
+    if let Some(finding) = screencast_finding(&check.dirs, check.packages, state) {
+        findings.push(finding);
+    }
+}
+
+/// Why the output chooser stored doesn't take effect, if it doesn't.
+fn screencast_finding(
+    dirs: &crate::apps::Dirs,
+    packages: Option<Manager>,
+    state: &State,
+) -> Option<Finding> {
+    use crate::environment::screencast::{self, Chooser};
+    let chooser = Chooser::of(state);
+    if chooser == Chooser::Default {
+        return None;
+    }
+    let finding = |message: Text| Finding::new(Code::ScreencastChooser, Severity::Warning, message);
+    if let Some(file) = screencast::users_config(dirs) {
+        return Some(
+            finding(
+                Text::new(msg!(
+                    "The output chooser chosen in Sway Things doesn't take effect: your own {file} \
+                     decides."
+                ))
+                .arg("file", file.display()),
+            )
+            .in_file(&file)
+            .with_hint(msg!(
+                "Set chooser_type and chooser_cmd in that file, or remove it to let Sway Things \
+                 write its own."
+            )),
+        );
+    }
+    let missing = match chooser {
+        Chooser::Slurp if !screencast::has_slurp(dirs) => Some(screencast::SLURP.package),
+        Chooser::Menu if screencast::menu(dirs).is_none() => {
+            screencast::MENUS.first().map(|menu| menu.program.package)
+        }
+        _ => None,
+    };
+    if let Some(package) = missing {
+        return Some(
+            finding(Text::new(msg!(
+                "The tool of the output chooser isn't installed, so xdg-desktop-portal-wlr picks \
+                 one itself."
+            )))
+            .with_hint(install_hint(package, packages)),
+        );
+    }
+    if !dirs
+        .desktops
+        .iter()
+        .any(|desktop| desktop == screencast::FILE_NAME)
+    {
+        return Some(
+            finding(
+                Text::new(msg!(
+                    "XDG_CURRENT_DESKTOP is {desktop}, so xdg-desktop-portal-wlr doesn't read \
+                     Sway Things' file for sway."
+                ))
+                .arg("desktop", dirs.desktops.join(":")),
+            )
+            .with_hint(msg!("Set XDG_CURRENT_DESKTOP=sway before sway starts.")),
+        );
+    }
+    None
 }
 
 /// The findings of the four steps of the portal check.
@@ -308,5 +375,42 @@ mod tests {
             codes(&unknown, &state),
             [(Code::PortalsReady, Severity::Ok)]
         );
+    }
+
+    #[test]
+    fn an_output_chooser_that_doesnt_take_effect_is_reported() {
+        let root = tempfile::tempdir().unwrap();
+        let mut dirs = crate::apps::Dirs {
+            config_home: root.path().join("config"),
+            config_dirs: Vec::new(),
+            data_home: root.path().join("data"),
+            data_dirs: Vec::new(),
+            desktops: vec!["sway".to_owned()],
+            path: Some(root.path().join("bin").into_os_string()),
+            languages: Vec::new(),
+        };
+        let code = |state: &State, dirs: &crate::apps::Dirs| {
+            screencast_finding(dirs, None, state).map(|finding| finding.code)
+        };
+        let (_default_dir, default) = load("");
+        assert_eq!(code(&default, &dirs), None);
+        let (_output_dir, output) =
+            load("[environment]\nscreencast_chooser = \"output\"\nscreencast_output = \"DP-1\"\n");
+        assert_eq!(code(&output, &dirs), None);
+        // slurp isn't installed.
+        let (_slurp_dir, slurp) = load("[environment]\nscreencast_chooser = \"slurp\"\n");
+        assert_eq!(code(&slurp, &dirs), Some(Code::ScreencastChooser));
+        // The session isn't sway's.
+        dirs.desktops = vec!["Hyprland".to_owned()];
+        assert_eq!(code(&output, &dirs), Some(Code::ScreencastChooser));
+        dirs.desktops = vec!["sway".to_owned()];
+        // The user's own file decides.
+        let config = root.path().join("config/xdg-desktop-portal-wlr/config");
+        std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+        std::fs::write(&config, "[screencast]\n").unwrap();
+        let mut found = Vec::new();
+        found.extend(screencast_finding(&dirs, None, &output));
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].file.as_deref(), Some(config.as_path()));
     }
 }

@@ -19,6 +19,7 @@
 
 pub mod files;
 pub mod portals;
+pub mod screencast;
 pub mod session;
 pub mod syntax;
 #[cfg(test)]

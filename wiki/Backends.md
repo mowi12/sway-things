@@ -674,3 +674,16 @@ sandboxed apps and the dark style need on sway, for the Environment page and `sw
   A line of the user's config that runs `systemctl --user import-environment` reads as the switch on.
 - **Running:** `org.freedesktop.portal.Desktop` has an owner on the session bus (`NameHasOwner`, which starts nothing).
   The portal is D-Bus activated, so not running is a warning: it starts when an app asks.
+- **Output chooser** (`environment::screencast`): how xdg-desktop-portal-wlr asks which display to share,
+  `environment.screencast_chooser`: _Default_ writes nothing, so xdpw picks the first chooser it finds; _slurp_ writes
+  `chooser_type=simple` and `chooser_cmd=slurp -f %o -or`; _menu_ `chooser_type=dmenu` with the fixed command of the
+  first launcher installed (`fuzzel --dmenu`, `wofi --dmenu`, `rofi -dmenu`, `bemenu`, `wmenu`); _output_
+  `chooser_type=none` and `output_name` from `environment.screencast_output`, which takes only letters, digits, `.`, `_`
+  and `-`. xdpw runs `chooser_cmd` through `sh -c`, so only these fixed commands are written. Where the tool isn't
+  installed or no display is chosen, no file is written and xdpw picks itself; the page shows such an option insensitive
+  with its reason and the install command to copy. The file is our own `~/.config/xdg-desktop-portal-wlr/sway`, kept
+  like the other files of other programs and only written where the user has neither a `sway`, nor the file of another
+  desktop of `XDG_CURRENT_DESKTOP`, nor a `config` there; with one, the row is read only and names it with _Open in
+  Editor_. The page says when ours replaces a file in `/etc/xdg/xdg-desktop-portal-wlr`, and when `XDG_CURRENT_DESKTOP`
+  doesn't name sway, so xdpw wouldn't read it. After the file changed, `Applier::persist` runs
+  `systemctl --user try-restart xdg-desktop-portal-wlr`.

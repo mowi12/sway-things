@@ -199,6 +199,8 @@ java_nonreparenting = true
 variables = ["EDITOR=nvim", "PATH=$HOME/.local/bin:$PATH", "GREETING=\"a b\""]
 pass_session_variables = true
 portal_config = true
+screencast_chooser = "output"
+screencast_output = "HEADLESS-1"
 
 [app]
 safety_net_timeout = 20

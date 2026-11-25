@@ -138,6 +138,8 @@ struct Changed {
     environment: bool,
     /// The portal configuration: the portals restart.
     portals: bool,
+    /// xdg-desktop-portal-wlr's configuration: it restarts.
+    screencast: bool,
 }
 
 impl Persisted {
@@ -1033,9 +1035,12 @@ impl<V: Validate> Applier<V> {
         if changed.environment {
             let _ = crate::environment::reload_user_manager().await;
         }
-        // The portals read their configuration only when they start.
+        // The portals read their configuration only when they start; restarting them all
+        // restarts xdg-desktop-portal-wlr too.
         if changed.portals {
             let _ = crate::environment::portals::restart().await;
+        } else if changed.screencast {
+            let _ = crate::environment::screencast::restart().await;
         }
         let persisted = Persisted {
             saved,
@@ -1057,12 +1062,19 @@ impl<V: Validate> Applier<V> {
         let mut wanted = crate::apps::files::wanted(&self.state, dirs);
         let environment = crate::environment::wanted(&self.state, dirs);
         let portals = crate::environment::portals::wanted(&self.state, dirs);
+        let screencast = crate::environment::screencast::wanted(&self.state, dirs);
         let environment_path = environment.path.clone();
         let portals_path = portals.path.clone();
+        let screencast_path = screencast.path.clone();
         let read = |path: &std::path::Path| std::fs::read(path).ok();
-        let before = (read(&environment_path), read(&portals_path));
+        let before = (
+            read(&environment_path),
+            read(&portals_path),
+            read(&screencast_path),
+        );
         wanted.push(environment);
         wanted.push(portals);
+        wanted.push(screencast);
         let mut manifest = generate::Manifest::load(self.locations.manifest());
         let mut problems = crate::generate::other::keep(&wanted, &mut manifest);
         if let Err(error) = manifest.save() {
@@ -1074,6 +1086,7 @@ impl<V: Validate> Applier<V> {
         let changed = Changed {
             environment: read(&environment_path) != before.0,
             portals: read(&portals_path) != before.1,
+            screencast: read(&screencast_path) != before.2,
         };
         (problems, changed)
     }
