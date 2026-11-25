@@ -64,31 +64,34 @@
   identifier, shown by name and model), and a row for one output notes that it uses the value of all displays. The
   Displays page picks its output on the arrangement instead. The value for all displays applies to screens plugged in
   later, so these sections never give way to a hint.
-- **Wallpaper page** (`crates/gui/src/widgets/wallpaper/`: `preview`, `pictures`, `collections`, `colors`, `images` and
-  `notices` around the state in `mod.rs`), a page of its own rather than rows: the notices about wallpaper tools; a
-  preview with a tile per output, sized and placed like the layout (a `gtk::Fixed`), with its wallpaper; _Same wallpaper
-  on all displays_, which edits the values for every output, or while off those of the tile clicked (switching back
-  removes the values of single outputs, after asking); what the edited output shows, with an icon and a line for its
-  kind (picture, collection or color), _Next Picture_ for a collection, the fit as linked toggle buttons and the color.
-  The default of a display is what it shows once Sway Things stores no wallpaper for it (`Fallback`): for one display,
-  the wallpaper of all of them if that is stored; else the `bg` line of the user's config (`Model::report`); else
-  sway's, none. While it shows, a dim line says where it comes from; else _Use Default_ (its tooltip names the default)
-  removes the display's stored values, with `Model::let_config_win` so the user's line is sent at once, or for a display
-  that falls back to all of them with `Model::reset`. A change of the fit or the color while the user's picture shows
-  first stores the picture, fit and color of their line (`take_over`), so the generated line draws their picture with
-  the change. A picture whose file is missing or can't be decoded (`images::when_readable`; swaybg reads pictures with
-  the same gdk-pixbuf loaders) gets a warning below, naming `webp-pixbuf-loader`; such a tile shows an icon in place of
-  the thumbnail. The tiles draw the fit as swaybg does: `center` and `tile` show the picture at its own size against the
-  output's pixels (a `gtk::DrawingArea` with cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG
-  pictures folder, `~/Pictures`) and of its subfolders, which become filter chips, after the _Default_ tile (the
-  default's picture or color, selected while it shows; a click does what _Use Default_ does), with _Choose Image…_; the
-  collections as cards, with the settings and pictures of the open one (_Add Pictures…_, _Add Folder…_, a click removes
-  one, _Delete Collection…_); and colors. The tab's buttons sit at the end of the row of the tabs (a `RowLayout`). Every
-  tile of the grids is a 16:10 frame that the picture fills, cut off where it doesn't fit; a folder or an empty
-  collection shows the background color of the edited output (`images::frame`, one style sheet swapped when the color
-  changes). Folders are listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf
-  can't leave its thread, so its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored
-  with `~/` for the home folder; picking one, or a color, stops a collection on that output.
+- **Wallpaper page** (`crates/gui/src/widgets/wallpaper/`: `preview`, `stage`, `pictures`, `collections`, `colors`,
+  `images` and `notices` around the state in `mod.rs`), a page of its own rather than rows: the notices about wallpaper
+  tools; a preview with a tile per output that shows a wallpaper (on, not mirroring another), with its wallpaper and the
+  output's number as on the Displays page in a corner, in a `Stage` that places the tiles in `size_allocate` with the
+  canvas's `View` (`displays/canvas/view.rs`: the room around the layout, the fit and the pixel between tiles, shared so
+  both pages place the outputs alike); _Same wallpaper on all displays_, which edits the values for every output, or
+  while off those of the tile clicked (switching back removes the values of single outputs, after asking); what the
+  edited output shows, with an icon and a line for its kind (picture, collection or color), _Next Picture_ for a
+  collection, the fit as linked toggle buttons and the color. The default of a display is what it shows once Sway Things
+  stores no wallpaper for it (`Fallback`): for one display, the wallpaper of all of them if that is stored; else the
+  `bg` line of the user's config (`Model::report`); else sway's, none. While it shows, a dim line says where it comes
+  from; else _Use Default_ (its tooltip names the default) removes the display's stored values, with
+  `Model::let_config_win` so the user's line is sent at once, or for a display that falls back to all of them with
+  `Model::reset`. A change of the fit or the color while the user's picture shows first stores the picture, fit and
+  color of their line (`take_over`), so the generated line draws their picture with the change. A picture whose file is
+  missing or can't be decoded (`images::when_readable`; swaybg reads pictures with the same gdk-pixbuf loaders) gets a
+  warning below, naming `webp-pixbuf-loader`; such a tile shows an icon in place of the thumbnail. The tiles draw the
+  fit as swaybg does: `center` and `tile` show the picture at its own size against the output's pixels (a
+  `gtk::DrawingArea` with cairo). Below, tabs: the pictures of `app.wallpaper_folder` (else the XDG pictures folder,
+  `~/Pictures`) and of its subfolders, which become filter chips, after the _Default_ tile (the default's picture or
+  color, selected while it shows; a click does what _Use Default_ does), with _Choose Image…_; the collections as cards,
+  with the settings and pictures of the open one (_Add Pictures…_, _Add Folder…_, a click removes one, _Delete
+  Collection…_); and colors. The tab's buttons sit at the end of the row of the tabs (a `RowLayout`). Every tile of the
+  grids is a 16:10 frame that the picture fills, cut off where it doesn't fit; a folder or an empty collection shows the
+  background color of the edited output (`images::frame`, one style sheet swapped when the color changes). Folders are
+  listed and thumbnails decoded and scaled off the main loop (`gio::spawn_blocking`; a pixbuf can't leave its thread, so
+  its pixels become a `gdk::MemoryTexture`), once per picture. A picked picture is stored with `~/` for the home folder;
+  picking one, or a color, stops a collection on that output.
 - **Keyboard page** (`crates/gui/src/widgets/keyboard.rs`): `PageView` adds the page's own widgets below some rows. The
   XKB rules come from `crates/gui/src/xkb.rs`, read once. Below the layouts, a `LayoutList` (a row per layout with a
   drag handle, its name, a drop-down of its variants and ✕; Alt+↑/↓ move the focused layout and Delete removes it; the
@@ -145,28 +148,28 @@
   (`night_light::sync_with`, in `gio::spawn_blocking`) once they stood still for 0.8 s. Its footer names
   `80-hooks.conf`.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
-  `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
-  drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that
-  moves becomes a drag instead of a click. Snapping, settling, the slot between two outputs (`slot_at`, `insert`) and
-  moving the layout to 0,0 come from `outputs::layout`; after a drop the tiles slide to their places in a tick callback
-  (200 ms, eased; not with `gtk-enable-animations` off), and so do the others when a dragged tile comes over a slot or
-  leaves it (the drag keeps where `place` would put them, worked out only when the slot changes). The picked tile has a
-  grip in its corner: dragging it projects the movement onto the tile's diagonal, so the tile keeps its proportions, and
-  stores the scale on release; a drop stores the position of every output that is on (`Model::set`), shows the dropped
-  layout until sway reports it or for three seconds, and keeps the arrangement before it for Ctrl+Z (on the whole page).
-  While a risky change waits, the tiles can be picked but not moved (`Canvas::set_locked`), and a trial that changes a
-  display's size has the others follow it at once: the canvas works out the flowed layout against the one before the
-  trial and sends their new places with `Applier::move_along`, which records how to put them back in the trial's undo
-  and stores them on Keep (`Pending::along`); `Applier::try_risky_all` gives a display that is switched on a place right
-  of the others in the same trial. Revert puts back everything that changed. When outputs' sizes change with what is
-  stored for them, the layout flows so that what touched still touches (`outputs::layout::reflow`, for one output or
-  several, like a scale for all of them); the layout to compare with is held while the model is busy or a risky change
-  waits, and for up to three seconds until what is stored catches up with sway's report, so a change from elsewhere
-  (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs picks the output they are for
-  (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the output: the resolutions
-  (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that resolution
-  (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps an
-  `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
+  `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit with `View`, the
+  dragged one drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a
+  press that moves becomes a drag instead of a click. Snapping, settling, the slot between two outputs (`slot_at`,
+  `insert`) and moving the layout to 0,0 come from `outputs::layout`; after a drop the tiles slide to their places in a
+  tick callback (200 ms, eased; not with `gtk-enable-animations` off), and so do the others when a dragged tile comes
+  over a slot or leaves it (the drag keeps where `place` would put them, worked out only when the slot changes). The
+  picked tile has a grip in its corner: dragging it projects the movement onto the tile's diagonal, so the tile keeps
+  its proportions, and stores the scale on release; a drop stores the position of every output that is on
+  (`Model::set`), shows the dropped layout until sway reports it or for three seconds, and keeps the arrangement before
+  it for Ctrl+Z (on the whole page). While a risky change waits, the tiles can be picked but not moved
+  (`Canvas::set_locked`), and a trial that changes a display's size has the others follow it at once: the canvas works
+  out the flowed layout against the one before the trial and sends their new places with `Applier::move_along`, which
+  records how to put them back in the trial's undo and stores them on Keep (`Pending::along`); `Applier::try_risky_all`
+  gives a display that is switched on a place right of the others in the same trial. Revert puts back everything that
+  changed. When outputs' sizes change with what is stored for them, the layout flows so that what touched still touches
+  (`outputs::layout::reflow`, for one output or several, like a scale for all of them); the layout to compare with is
+  held while the model is busy or a risky change waits, and for up to three seconds until what is stored catches up with
+  sway's report, so a change from elsewhere (`swaymsg`) moves nothing. An `OutputPicker` before the rows of the outputs
+  picks the output they are for (`SettingRow::set_device`), and the mode row has two drop-downs whose entries follow the
+  output: the resolutions (`SettingRow::set_choices`, each a whole mode) and beside it the refresh rates of that
+  resolution (`SettingRow::add_control`), each a whole mode as sway reports it, so no rate is rounded. The model keeps
+  an `OutputWatch` like the `DeviceWatch`, and gives the rows the outputs as `Known`, so a value nothing sets shows what
   sway chose. _Identify_ shows each output's number on it for three seconds: a window per output on the overlay layer of
   `wlr-layer-shell` (gtk4-layer-shell), on the GDK monitor whose connector is the output's name, taking no keyboard and
   no input region; the tiles are outlined in the accent meanwhile. Without `wlr-layer-shell` (not sway) the button can't

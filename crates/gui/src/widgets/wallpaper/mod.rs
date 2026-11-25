@@ -5,7 +5,8 @@
 //!
 //! - A notice for each line of the user's config that starts a wallpaper tool or script
 //!   ([`wallpaper::starters`]), which may draw over the background set here.
-//! - The preview: every display as a tile with its wallpaper, placed like the output layout.
+//! - The preview: every display that shows a wallpaper as a tile with it, placed and labeled as
+//!   on the Displays canvas.
 //!   _Same wallpaper on all displays_ edits the values for every output; switched off, a click on
 //!   a tile picks the display whose values are edited.
 //! - What the edited display shows (a picture, a collection or a color) and where it comes from,
@@ -24,8 +25,8 @@
 //! as plain text, and reach sway through the `output` command builder.
 //!
 //! This module holds what the parts share: the state of the page ([`Ui`]) and the small widget
-//! helpers. The parts are `preview`, `pictures`, `collections`, `colors`, `notices`, and
-//! `images`, which reads the pictures off the main thread.
+//! helpers. The parts are `preview`, `stage` (the area its tiles stand in), `pictures`,
+//! `collections`, `colors`, `notices`, and `images`, which reads the pictures off the main thread.
 
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -50,6 +51,7 @@ mod images;
 mod notices;
 mod pictures;
 mod preview;
+mod stage;
 
 use self::preview::{own_outputs, timers};
 
@@ -87,20 +89,11 @@ const THUMBNAIL: (i32, i32) = (320, 200);
 /// The size of a picture in the grid, in pixels.
 const TILE: (i32, i32) = (128, 80);
 
-/// The largest size of the preview of the displays, in pixels.
-const PREVIEW: (f64, f64) = (420.0, 170.0);
-
-/// The space for a display's name below its tile, in pixels.
-const NAME_HEIGHT: i32 = 22;
-
 /// The pictures of a folder, each with the name of its subfolder.
 type Listing = Vec<(Option<String>, PathBuf)>;
 
 /// The outputs with a collection, and when it changes.
 type Timers = Vec<(Option<String>, Change)>;
-
-/// The tiles of the preview: the output, its place and its size.
-type Placed<'a> = Vec<(Option<&'a Output>, (f64, f64, i32, i32))>;
 
 /// The Wallpaper page's body.
 pub fn page(model: &Model) -> gtk::Box {
@@ -185,7 +178,7 @@ struct Ui {
     error: gtk::Label,
     notices: gtk::Box,
     same: gtk::Switch,
-    preview: gtk::Fixed,
+    preview: stage::Stage,
     /// What the edited output shows: its kind as an icon, its name, the kind with where it is,
     /// and for a collection its pictures and when they change.
     kind: gtk::Image,
@@ -257,9 +250,7 @@ impl Ui {
 
         let same = gtk::Switch::new();
         same.set_valign(gtk::Align::Center);
-        let preview = gtk::Fixed::new();
-        preview.set_halign(gtk::Align::Center);
-        preview.set_valign(gtk::Align::End);
+        let preview = stage::Stage::default();
         let kind = gtk::Image::from_icon_name(Kind::Picture.icon());
         kind.set_valign(gtk::Align::Start);
         kind.set_accessible_role(gtk::AccessibleRole::Presentation);
@@ -657,7 +648,8 @@ impl Ui {
         self.syncing.set(false);
     }
 
-    /// The outputs to show: the connected ones, else those with stored values.
+    /// The outputs to show: the connected ones that show a wallpaper (on, and not showing another
+    /// display's picture), else the connected ones, else those with stored values.
     fn outputs(&self) -> Vec<Output> {
         let all: Vec<Output> = self
             .model
@@ -669,7 +661,23 @@ impl Ui {
             .filter(|output| output.is_connected())
             .cloned()
             .collect();
-        if connected.is_empty() { all } else { connected }
+        let mirrors = self.model.mirrors().unwrap_or_default();
+        let showing: Vec<Output> = connected
+            .iter()
+            .filter(|output| {
+                output.is_enabled()
+                    && output.rect().is_some()
+                    && !mirrors.contains_key(output.identifier())
+            })
+            .cloned()
+            .collect();
+        if !showing.is_empty() {
+            showing
+        } else if connected.is_empty() {
+            all
+        } else {
+            connected
+        }
     }
 }
 
@@ -737,18 +745,4 @@ fn grid(name: &str, per_line: u32) -> gtk::FlowBox {
 /// The position of `child` in its grid.
 fn index(child: &gtk::FlowBoxChild) -> Option<usize> {
     usize::try_from(child.index()).ok()
-}
-
-/// `value` rounded to whole pixels.
-#[allow(
-    clippy::cast_possible_truncation,
-    reason = "sizes in the preview, far below the limits of i32"
-)]
-fn px(value: f64) -> i32 {
-    value.round() as i32
-}
-
-/// `count` as a number to compute sizes with.
-fn float(count: usize) -> f64 {
-    f64::from(u32::try_from(count).unwrap_or(u32::MAX))
 }

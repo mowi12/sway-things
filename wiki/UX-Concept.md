@@ -119,6 +119,12 @@ new mode, a rotation and switching an output off go through the safety net.
   else applies to a display that is off. Switched on, a display goes to the place stored for it, else right of the
   others in the same trial, never at 0,0 over another one. Below it a hint: _Drag the displays to where they stand on
   your desk. Pick one to change its settings below._ Without a session the canvas gives way to a hint.
+- **Wallpaper preview:** the Wallpaper page shows the displays as this canvas does: the same places, proportions, room
+  and frame, each tile with its wallpaper (its fit or color) and the display's number small in its top right corner, so
+  most of the picture stays in view; the name is in the tooltip. It only shows: nothing is dragged there, and a click
+  picks the display whose wallpaper is edited (with _Same wallpaper on all displays_ on, the tiles can't be picked).
+  Displays that are off or show another display's picture aren't on it, since they draw no wallpaper of their own; with
+  them gone, the others take more room, at the same places relative to each other.
 - **Dragging:** a tile follows the pointer. Near an edge or the center of another output it snaps, and a guide line in
   the accent runs along the outputs it lines up with; pulled out of a snap twice, that direction stops snapping for the
   rest of the drag. With its center near the edge two outputs share, an accent bar marks that edge instead (only where

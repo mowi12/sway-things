@@ -306,7 +306,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   offered, and one picked for one display is stored, sent and selected; a picture the user's config sets outside the
   folder (a PNG, and a WebP that can't be read, which gets its warning) is the selected _Default_ with where it comes
   from, and after another picture is picked, the _Default_ tile, _Use Default_ and a page reset each bring it back and
-  send the user's line; a wallpaper tool the config starts gets its notice.
+  send the user's line; a wallpaper tool the config starts gets its notice. The preview places the displays as the
+  Displays canvas does, side by side with one that is off (not shown), and one above another, turned and at other
+  scales: the same places and sizes relative to each other on both pages.
 - Notifications (against a stand-in swaync on a private bus, `notifications.rs`): the Do Not Disturb switch becomes
   usable, switches swaync's Do Not Disturb and follows a change made elsewhere, _Send Test Notification_ reaches the
   daemon, and only swaync's sections show.

@@ -21,10 +21,12 @@ mod drag;
 mod geometry;
 mod labels;
 mod placing;
+mod view;
 
 use self::geometry::{details, keep_together, park, parked_size};
 use self::labels::set_tile_labels;
 pub(crate) use self::labels::short_label;
+pub(crate) use self::view::{View, measure};
 use std::time::{Duration, Instant};
 
 use gtk::glib;
@@ -43,8 +45,6 @@ use crate::model::Model;
 const SNAP_DISTANCE: f64 = 12.0;
 /// How far, in pixels on the screen, the pointer moves before a press becomes a drag.
 const DRAG_START: f64 = 4.0;
-/// The room around the layout in the canvas, in pixels.
-const PADDING: f64 = 24.0;
 /// How long a dropped layout is shown while sway doesn't report it yet.
 const SETTLING: Duration = Duration::from_secs(3);
 /// How long a changed size waits for what is stored for it to catch up.
@@ -119,46 +119,6 @@ type Placed = (f64, f64, f64, f64);
 
 /// Where the tiles slide from, and since when.
 type Slide = (std::collections::HashMap<String, Placed>, Instant);
-
-/// How the layout maps onto the canvas: canvas = offset + logical × scale.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct View {
-    scale: f64,
-    x: f64,
-    y: f64,
-}
-
-impl View {
-    /// The view that fits `bounds` into `width` × `height`, centered.
-    fn fit(bounds: Rect, width: f64, height: f64) -> Self {
-        let usable_width = (width - 2.0 * PADDING).max(1.0);
-        let usable_height = (height - 2.0 * PADDING).max(1.0);
-        let scale = (usable_width / f64::from(bounds.width.max(1)))
-            .min(usable_height / f64::from(bounds.height.max(1)));
-        Self {
-            scale,
-            x: (width - f64::from(bounds.width) * scale) / 2.0 - f64::from(bounds.x) * scale,
-            y: (height - f64::from(bounds.height) * scale) / 2.0 - f64::from(bounds.y) * scale,
-        }
-    }
-
-    fn x(self, logical: i32) -> f64 {
-        self.x + f64::from(logical) * self.scale
-    }
-
-    fn y(self, logical: i32) -> f64 {
-        self.y + f64::from(logical) * self.scale
-    }
-
-    /// A distance on the canvas in logical pixels.
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "a distance on the screen divided by a positive scale fits easily"
-    )]
-    fn logical(self, canvas: f64) -> i32 {
-        (canvas / self.scale).round() as i32
-    }
-}
 
 /// A drag in progress.
 #[derive(Debug, Clone)]
@@ -277,10 +237,7 @@ mod imp {
 
     impl WidgetImpl for Canvas {
         fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
-            match orientation {
-                gtk::Orientation::Horizontal => (120, 600, -1, -1),
-                _ => (200, 300, -1, -1),
-            }
+            super::view::measure(orientation)
         }
 
         fn size_allocate(&self, width: i32, height: i32, _baseline: i32) {
