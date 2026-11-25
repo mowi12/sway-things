@@ -252,7 +252,8 @@ Scanners (scanning is basic, see [Vision and Scope](Vision-and-Scope.md#scope-by
 - [x] 🟢 Fill mode: fill / fit / stretch / center / tile
 - [x] 🟢 Solid color background
 - [x] 🟢 Folder browser with thumbnails (`~/Pictures` by default, subfolders as filters)
-- [x] 🟢 Preview of the displays as laid out, one or all edited at a time
+- [x] 🟢 Preview of the displays as laid out, one or all edited at a time, in the same arrangement and look as on the
+      Displays page
 - [x] 🟢 "Managed externally" detection when a custom wallpaper script runs (handover)
 - [x] 🟢 Back to the default: the user's own wallpaper as the first tile, _Use Default_ per display or for all, and
       _Reset page…_
