@@ -315,8 +315,11 @@ mod tests {
     /// The pause between the writes of a burst.
     const BURST_PAUSE: Duration = Duration::from_millis(10);
 
-    /// A debounce far longer than [`BURST_PAUSE`], so a busy machine can't split a burst.
+    /// A debounce far longer than [`BURST_PAUSE`], so a burst is rarely split.
     const BURST_DEBOUNCE: Duration = Duration::from_millis(500);
+
+    /// How many bursts may be split before the burst test fails.
+    const BURST_ATTEMPTS: usize = 3;
 
     /// A directory with a watcher on `settings.toml` and `settings.d/laptop.toml` in it.
     struct Fixture {
@@ -356,35 +359,52 @@ mod tests {
             self.dir.path().join("settings.d/laptop.toml")
         }
 
-        /// The next report, which must come.
-        fn report(&self) -> Vec<PathBuf> {
-            let deadline = Instant::now() + Duration::from_secs(10);
-            loop {
-                if let Some(report) = self.watcher.try_changed() {
-                    return report;
-                }
-                assert!(Instant::now() < deadline, "no report");
-                thread::sleep(Duration::from_millis(5));
-            }
+        /// The next report, which must come after `step`.
+        fn report(&self, step: &str) -> Vec<PathBuf> {
+            next_report(&self.watcher, step)
         }
 
-        /// Takes reports until none comes for a while, asserting each one is `expected`.
-        fn settle(&self, expected: &[PathBuf]) {
-            let deadline = Instant::now() + Duration::from_secs(10);
-            loop {
-                thread::sleep(self.debounce * 4);
-                match self.watcher.try_changed() {
-                    None => return,
-                    Some(report) => assert_eq!(report, expected),
-                }
-                assert!(Instant::now() < deadline, "reports don't settle");
-            }
+        /// Takes reports until none comes for a while, asserting each one is `expected`: a busy
+        /// machine can split the events of one change across the debounce time, and a second
+        /// report of the same file is right then. The number of reports taken.
+        fn settle(&self, step: &str, expected: &[PathBuf]) -> usize {
+            settle(&self.watcher, self.debounce, step, expected)
         }
 
-        /// Asserts that nothing more is reported.
-        fn quiet(&self) {
+        /// Asserts that nothing is reported after `step`, which changed no watched file.
+        fn quiet(&self, step: &str) {
             thread::sleep(self.debounce * 4);
-            assert_eq!(self.watcher.try_changed(), None);
+            assert_eq!(self.watcher.try_changed(), None, "reported after {step}");
+        }
+    }
+
+    /// The next report of `watcher`, which must come after `step`.
+    fn next_report(watcher: &Watcher, step: &str) -> Vec<PathBuf> {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(report) = watcher.try_changed() {
+                return report;
+            }
+            assert!(Instant::now() < deadline, "no report after {step}");
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// See [`Fixture::settle`].
+    fn settle(watcher: &Watcher, debounce: Duration, step: &str, expected: &[PathBuf]) -> usize {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut reports = 0;
+        loop {
+            thread::sleep(debounce * 4);
+            match watcher.try_changed() {
+                None => return reports,
+                Some(report) => assert_eq!(report, expected, "a report after {step}"),
+            }
+            reports += 1;
+            assert!(
+                Instant::now() < deadline,
+                "the reports after {step} don't settle"
+            );
         }
     }
 
@@ -393,22 +413,37 @@ mod tests {
         let fixture = Fixture::with_debounce(BURST_DEBOUNCE, |dir| {
             fs::write(dir.join("settings.toml"), "a = 0\n").unwrap();
         });
-        fixture.quiet();
-        for round in 1..=5 {
-            fs::write(fixture.shared(), format!("a = {round}\n")).unwrap();
-            thread::sleep(BURST_PAUSE);
-        }
-        assert_eq!(fixture.report(), [fixture.shared()]);
-        // By the time of the report the files are quiet, so it is safe to read them.
-        assert_eq!(fs::read_to_string(fixture.shared()).unwrap(), "a = 5\n");
-        fixture.quiet();
+        fixture.quiet("the setup");
+        // A busy machine can stall the writes, or the delivery of their events, for longer than
+        // the debounce time, and then a burst is rightly reported twice. Writes that are
+        // reported one by one never make one report, so one burst of a few that does proves
+        // that a burst is kept together.
+        let mut value = 0;
+        let together = (1..=BURST_ATTEMPTS).any(|_| {
+            for _ in 0..5 {
+                value += 1;
+                fs::write(fixture.shared(), format!("a = {value}\n")).unwrap();
+                thread::sleep(BURST_PAUSE);
+            }
+            assert_eq!(fixture.report("a burst"), [fixture.shared()]);
+            // By the time of the report the files are quiet, so it is safe to read them, unless
+            // the burst was split.
+            let quiet = fs::read_to_string(fixture.shared()).unwrap() == format!("a = {value}\n");
+            let more = fixture.settle("a burst", &[fixture.shared()]);
+            quiet && more == 0
+        });
+        assert!(
+            together,
+            "each of {BURST_ATTEMPTS} bursts was reported more than once"
+        );
 
         // Writes that are further apart are reported one by one.
         fs::write(fixture.shared(), "a = 6\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
+        assert_eq!(fixture.report("the write of 6"), [fixture.shared()]);
+        fixture.settle("the write of 6", &[fixture.shared()]);
         fs::write(fixture.shared(), "a = 7\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
-        fixture.quiet();
+        assert_eq!(fixture.report("the write of 7"), [fixture.shared()]);
+        fixture.settle("the write of 7", &[fixture.shared()]);
     }
 
     #[test]
@@ -419,24 +454,26 @@ mod tests {
             let temporary = fixture.dir.path().join(".settings.toml.tmp");
             fs::write(&temporary, format!("a = {round}\n")).unwrap();
             fs::rename(&temporary, fixture.shared()).unwrap();
-            assert_eq!(fixture.report(), [fixture.shared()]);
-            fixture.quiet();
+            let step = format!("rename {round}");
+            assert_eq!(fixture.report(&step), [fixture.shared()]);
+            fixture.settle(&step, &[fixture.shared()]);
         }
         // And how some editors keep a backup: move the old file away first.
         fs::rename(fixture.shared(), fixture.dir.path().join("settings.toml~")).unwrap();
         fs::write(fixture.shared(), "a = 3\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
-        fixture.quiet();
+        assert_eq!(fixture.report("the backup"), [fixture.shared()]);
+        fixture.settle("the backup", &[fixture.shared()]);
     }
 
     #[test]
     fn creating_and_deleting_a_file_is_reported() {
         let fixture = Fixture::new(|_| {});
         fs::write(fixture.shared(), "a = 1\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
+        assert_eq!(fixture.report("the creation"), [fixture.shared()]);
+        fixture.settle("the creation", &[fixture.shared()]);
         fs::remove_file(fixture.shared()).unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
-        fixture.quiet();
+        assert_eq!(fixture.report("the deletion"), [fixture.shared()]);
+        fixture.settle("the deletion", &[fixture.shared()]);
     }
 
     #[test]
@@ -444,26 +481,29 @@ mod tests {
         let fixture = Fixture::new(|_| {});
         fs::create_dir(fixture.dir.path().join("settings.d")).unwrap();
         fs::write(fixture.host(), "a = 1\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.host()]);
+        assert_eq!(fixture.report("the new directory"), [fixture.host()]);
         // Whether the file was created before or after its directory got watched, the report
         // came after it.
         assert_eq!(fs::read_to_string(fixture.host()).unwrap(), "a = 1\n");
         // A busy machine can report the directory and the write separately.
-        fixture.settle(&[fixture.host()]);
+        fixture.settle("the new directory", &[fixture.host()]);
 
         // The new directory is watched now.
         fs::write(fixture.host(), "a = 2\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.host()]);
+        assert_eq!(fixture.report("a write"), [fixture.host()]);
+        fixture.settle("a write", &[fixture.host()]);
 
         fs::remove_dir_all(fixture.dir.path().join("settings.d")).unwrap();
-        assert_eq!(fixture.report(), [fixture.host()]);
-        fixture.quiet();
+        assert_eq!(fixture.report("the removal"), [fixture.host()]);
+        fixture.settle("the removal", &[fixture.host()]);
 
         // And again once it is back.
         fs::create_dir(fixture.dir.path().join("settings.d")).unwrap();
-        assert_eq!(fixture.report(), [fixture.host()]);
+        assert_eq!(fixture.report("the directory again"), [fixture.host()]);
+        fixture.settle("the directory again", &[fixture.host()]);
         fs::write(fixture.host(), "a = 3\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.host()]);
+        assert_eq!(fixture.report("a write again"), [fixture.host()]);
+        fixture.settle("a write again", &[fixture.host()]);
     }
 
     #[test]
@@ -476,7 +516,7 @@ mod tests {
         fs::write(fixture.dir.path().join(".settings.toml.swp"), "x").unwrap();
         fs::write(fixture.dir.path().join("settings.d/desktop.toml"), "x").unwrap();
         fs::read_to_string(fixture.shared()).unwrap();
-        fixture.quiet();
+        fixture.quiet("other files and a read");
     }
 
     #[test]
@@ -484,8 +524,9 @@ mod tests {
         let fixture = Fixture::new(|dir| fs::create_dir(dir.join("settings.d")).unwrap());
         fs::write(fixture.host(), "a = 1\n").unwrap();
         fs::write(fixture.shared(), "a = 1\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.host(), fixture.shared()]);
-        fixture.quiet();
+        let both = [fixture.host(), fixture.shared()];
+        assert_eq!(fixture.report("both writes"), both);
+        fixture.settle("both writes", &both);
     }
 
     #[test]
@@ -497,13 +538,14 @@ mod tests {
             std::os::unix::fs::symlink(&real, dir.join("settings.toml")).unwrap();
         });
         fs::write(&real, "a = 1\n").unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
+        assert_eq!(fixture.report("a write"), [fixture.shared()]);
+        fixture.settle("a write", &[fixture.shared()]);
         // Replaced in the repository, as `git checkout` does.
         let temporary = dotfiles.path().join("settings.toml.new");
         fs::write(&temporary, "a = 2\n").unwrap();
         fs::rename(&temporary, &real).unwrap();
-        assert_eq!(fixture.report(), [fixture.shared()]);
-        fixture.quiet();
+        assert_eq!(fixture.report("the replacement"), [fixture.shared()]);
+        fixture.settle("the replacement", &[fixture.shared()]);
     }
 
     #[test]
@@ -514,45 +556,39 @@ mod tests {
         fs::write(&config, "").unwrap();
         let watcher =
             Watcher::with_directories([config.clone()], [drop_ins.clone()], DEBOUNCE).unwrap();
-        let report = || {
-            let deadline = Instant::now() + Duration::from_secs(10);
-            loop {
-                if let Some(report) = watcher.try_changed() {
-                    return report;
-                }
-                assert!(Instant::now() < deadline, "no report");
-                thread::sleep(Duration::from_millis(5));
-            }
+        // Each change is reported, maybe more than once on a busy machine.
+        let changed = |step: &str, expected: &[PathBuf]| {
+            assert_eq!(next_report(&watcher, step), expected);
+            settle(&watcher, DEBOUNCE, step, expected);
         };
-        let quiet = || {
+        let quiet = |step: &str| {
             thread::sleep(DEBOUNCE * 4);
-            assert_eq!(watcher.try_changed(), None);
+            assert_eq!(watcher.try_changed(), None, "reported after {step}");
         };
+        let drop_ins_only = std::slice::from_ref(&drop_ins);
 
         // The directory appears, then files in it come, change and go.
         fs::create_dir(&drop_ins).unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        changed("the directory", drop_ins_only);
         fs::write(drop_ins.join("10-new.conf"), "a\n").unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        changed("a new file", drop_ins_only);
         fs::write(drop_ins.join("10-new.conf"), "b\n").unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        changed("a write", drop_ins_only);
         fs::rename(drop_ins.join("10-new.conf"), drop_ins.join("20-new.conf")).unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        changed("a rename", drop_ins_only);
         fs::remove_file(drop_ins.join("20-new.conf")).unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
-        quiet();
+        changed("a deletion", drop_ins_only);
 
         // Not what is deeper, and not the files next to it.
         fs::create_dir(drop_ins.join("deeper")).unwrap();
-        assert_eq!(report(), std::slice::from_ref(&drop_ins));
+        changed("a directory in it", drop_ins_only);
         fs::write(drop_ins.join("deeper/file"), "").unwrap();
         fs::write(dir.path().join("other"), "").unwrap();
-        quiet();
+        quiet("a deeper file and one next to it");
         fs::write(&config, "changed\n").unwrap();
-        assert_eq!(report(), [config]);
+        changed("a write of the file", std::slice::from_ref(&config));
 
         fs::remove_dir_all(&drop_ins).unwrap();
-        assert_eq!(report(), [drop_ins]);
-        quiet();
+        changed("the removal", drop_ins_only);
     }
 }

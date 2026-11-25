@@ -225,6 +225,47 @@ async fn fail_vpn(stand_in: &StandIn) -> Result<()> {
     Ok(())
 }
 
+/// Waits until `ActivateConnection` was called: NetworkManager asks the agent for a VPN's
+/// secrets only once the connection is activating, so a test asks then too, not before.
+async fn activating(stand_in: &StandIn) -> Result<()> {
+    for _ in 0..200 {
+        if !stand_in
+            .calls(MANAGER, "ActivateConnection")
+            .await?
+            .is_empty()
+        {
+            return Ok(());
+        }
+        Timer::after(Duration::from_millis(50)).await;
+    }
+    Err("the connection wasn't activated".into())
+}
+
+/// Makes the stand-in's `ActivateConnection` start an active connection that ends for want of
+/// secrets (reason 9) at once, before the method returns.
+async fn vpn_failing_at_once(stand_in: &StandIn) -> Result<()> {
+    let active = "/org/freedesktop/NetworkManager/ActiveConnection/98";
+    let interface = "org.freedesktop.NetworkManager.Connection.Active";
+    stand_in
+        .add_method(
+            MANAGER,
+            "org.freedesktop.NetworkManager",
+            "ActivateConnection",
+            "ooo",
+            "o",
+            &format!(
+                "self.AddObject('{active}', '{interface}', \
+                 {{'State': dbus.UInt32(1)}}, [])\n\
+                 objects['{active}'].EmitSignal('{interface}', 'StateChanged', 'uu', \
+                 [dbus.UInt32(4), dbus.UInt32(9)])\n\
+                 self.RemoveObject('{active}')\n\
+                 ret = dbus.ObjectPath('{active}')\n"
+            ),
+        )
+        .await?;
+    Ok(())
+}
+
 /// The settings of the call `index` of `method` on the manager.
 async fn sent_settings(
     stand_in: &StandIn,
@@ -570,6 +611,10 @@ fn a_vpn_without_its_password_says_so() -> Result<()> {
         .await;
         failed?;
         assert_eq!(result, Err(NetError::Vpn(9)));
+
+        // A VPN that ends before its activation returns still says why.
+        vpn_failing_at_once(&stand_in).await?;
+        assert_eq!(nm.connect_vpn(&vpn).await, Err(NetError::Vpn(9)));
         Ok(())
     })
 }
@@ -581,7 +626,7 @@ fn a_vpn_whose_plugin_has_no_dialog_says_what_is_missing() -> Result<()> {
         let (stand_in, nm, vpn, agent, _plugins) = with_vpn(FakeDialog::Missing).await?;
         failing_vpn(&stand_in).await?;
         let (result, asked) = future::zip(nm.connect_vpn(&vpn), async {
-            Timer::after(Duration::from_millis(300)).await;
+            activating(&stand_in).await?;
             stand_in
                 .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
                 .await?;
@@ -673,6 +718,7 @@ fn a_failed_or_canceled_openconnect_sign_in_says_why() -> Result<()> {
         let (stand_in, nm, vpn, agent, _dir) = with_openconnect(FakeSignIn::Fails).await?;
         failing_vpn(&stand_in).await?;
         let (result, signed) = future::zip(nm.connect_vpn(&vpn), async {
+            activating(&stand_in).await?;
             stand_in
                 .ask_secrets_of(&agent, &vpn, "vpn", ALLOW_INTERACTION)
                 .await?;

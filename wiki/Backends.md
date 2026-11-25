@@ -68,13 +68,15 @@ is on, or with `app.wifi_search = "manual"` for one after _Search_, which waits 
 (at most 15 s). A new connection is built as `nmcli device wifi connect` builds it: no `connection.permissions` (every
 user), the password with `psk-flags` 0 (kept by NetworkManager), `key-mgmt` from the access point's flags (`wpa-psk`,
 `sae`, `owe`). `wait_connected` follows an active connection until it is up, or reports why it ended: the device's state
-reason, or for a VPN the reason of its `StateChanged` signal. The change stream takes every signal of NetworkManager
-under `/org/freedesktop` and `NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's
-old duplicate `PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed
-path, registered as `io.github.mowi12.SwayThings` with the capability `VPN_HINTS`) is registered while the page is on
-screen and until a connection it started has finished, and again when the owner of `org.freedesktop.NetworkManager`
-changes (NetworkManager forgets agents when it restarts). It answers only NetworkManager: for WPA and WPA3 Personal
-passwords when it may ask the user, and for the `vpn` secrets of a VPN connection through its plugin's auth dialog
+reason, or for a VPN the reason of its `StateChanged` signal; `connect_vpn` subscribes to that signal before it
+activates the VPN, because NetworkManager asks our agent for the secrets at once and a VPN that fails then can end
+before `ActivateConnection` returns. The change stream takes every signal of NetworkManager under `/org/freedesktop` and
+`NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's old duplicate
+`PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed path,
+registered as `io.github.mowi12.SwayThings` with the capability `VPN_HINTS`) is registered while the page is on screen
+and until a connection it started has finished, and again when the owner of `org.freedesktop.NetworkManager` changes
+(NetworkManager forgets agents when it restarts). It answers only NetworkManager: for WPA and WPA3 Personal passwords
+when it may ask the user, and for the `vpn` secrets of a VPN connection through its plugin's auth dialog
 (`network::vpn`). The plugin's `.name` file is looked up as libnm does (`NM_VPN_PLUGIN_DIR`,
 `/usr/lib/NetworkManager/VPN`, `/etc/NetworkManager/VPN`; only files of root or the user that nobody else may write),
 matched by `service` or `aliases`; its `[GNOME]` group names the `auth-dialog` (a bare name is in `/usr/libexec`) and
@@ -222,16 +224,18 @@ without for every sheet of the feeder, then the device's options as separate arg
 crash left are removed); `--batch` works on every SANE version, unlike `--output-file` (1.0.28). The progress comes from
 standard error (`Progress: N%`, `Scanning page N`); the rest of it, at most 16 KiB, is the error's details. A cancel
 sends `SIGTERM`, which makes scanimage cancel the scan with the scanner, and `SIGKILL` 5 s later if it still runs; the
-process isn't waited for until then, so its id can't be reused. Exit statuses and messages become words (`Problem`):
-busy, cover open, paper jammed, feeder empty (the normal end of a feeder scan once a page is in), no access, gone.
-**Saving:** `scanners::save` writes the one file the user picked in the file chooser: the page as scanimage wrote it
-(PNG, JPEG, TIFF), or a PDF of all pages from `scanners::pdf`, our own writer: JPEG pages go in as they are
-(`/DCTDecode`, the size from the frame header), black and white pages come as PNM bitmaps and go in run-length encoded
-(`/RunLengthDecode`, `/Decode [1 0]`), each page as large as the paper at the resolution it was scanned at. So PDF needs
-neither img2pdf nor ImageMagick nor a scanimage with `--format=pdf` (1.1.1), only JPEG support, and pages of the glass
-and the feeder go into one PDF. The file is written next to its place and renamed into it (`atomic::write_bytes`), so a
-failure never leaves half a file. `delegate::scan_app` finds Document Scanner (`simple-scan`), Skanpage or XSane for
-what scanning here doesn't do.
+process isn't waited for until then, so its id can't be reused. scanimage that said `Batch terminated` (the end of every
+batch, also after an error) gets 10 s to end, then it is killed: it can hang for good in `sane_exit` with its pages
+written, and its errors are then read from its output alone. Exit statuses and messages become words (`Problem`): busy,
+cover open, paper jammed, feeder empty (the normal end of a feeder scan once a page is in), no access, gone. **Saving:**
+`scanners::save` writes the one file the user picked in the file chooser: the page as scanimage wrote it (PNG, JPEG,
+TIFF), or a PDF of all pages from `scanners::pdf`, our own writer: JPEG pages go in as they are (`/DCTDecode`, the size
+from the frame header), black and white pages come as PNM bitmaps and go in run-length encoded (`/RunLengthDecode`,
+`/Decode [1 0]`), each page as large as the paper at the resolution it was scanned at. So PDF needs neither img2pdf nor
+ImageMagick nor a scanimage with `--format=pdf` (1.1.1), only JPEG support, and pages of the glass and the feeder go
+into one PDF. The file is written next to its place and renamed into it (`atomic::write_bytes`), so a failure never
+leaves half a file. `delegate::scan_app` finds Document Scanner (`simple-scan`), Skanpage or XSane for what scanning
+here doesn't do.
 
 The system clock isn't a `Backend` either: systemd-timedated owns the time zone, automatic time and the clock.
 `crates/core/src/region/` has a `Timedate` handle on the system bus (zbus, async-io). `GetAll` on
