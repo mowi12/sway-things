@@ -96,6 +96,7 @@ async fn run_app_hook(hook: &Hook, err: &mut dyn Write) -> Option<Exit> {
         | Hook::Mirror
         | Hook::NewDisplay
         | Hook::Clipboard
+        | Hook::NightLight
         | Hook::Wallpaper
         | Hook::NotificationClick { .. }
         | Hook::NotificationDaemon
@@ -138,6 +139,7 @@ pub(super) async fn run_display_hook(
         Hook::Gsettings
         | Hook::Wallpaper
         | Hook::Clipboard
+        | Hook::NightLight
         | Hook::Launch { .. }
         | Hook::Autostart
         | Hook::NotificationClick { .. }
@@ -168,6 +170,7 @@ pub(super) async fn run_hook<V: Validate>(
             let client = session.applier.client();
             return notify::run_notification_hook(hook, client, io.out, io.err).await;
         }
+        Hook::NightLight => return super::light::hook_night_light(session, io),
         Hook::Clipboard => {
             let state = session.applier.state();
             let history = (

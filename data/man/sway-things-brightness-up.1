@@ -1,0 +1,31 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-brightness-up 1 "" "Sway Things 0.5.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-brightness\-up \- Make it brighter by 5 %
+.SH SYNOPSIS
+\fBsway\-things brightness up\fR [\fB\-\-device\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Make it brighter by 5 %
+.SH OPTIONS
+.TP
+\fB\-\-device\fR \fI<NAME>\fR
+The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. `intel_backlight` or `tpacpi::kbd_backlight`
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

@@ -393,8 +393,10 @@ swaybar via our sway include.
 
 ### Brightness & Night Light
 
-- [ ] 🟡 Brightness slider (logind `SetBrightness` / brightnessctl; `ddcutil` for external monitors)
-- [ ] 🟡 Night light: color temperature, schedule or location based (gammastep / wlsunset)
+- [x] 🟡 Brightness slider (logind `SetBrightness`, from 1 %; `ddcutil` for external monitors; the keyboard light;
+      `sway-things brightness`)
+- [x] 🟡 Night light: color temperature, schedule or location based (wlsunset / gammastep; sunset to sunrise from the
+      time zone's place or a location entered by hand, fixed times, always on; `sway-things night-light`)
 
 ### Region & Time
 

@@ -26,7 +26,7 @@ use crate::sound::Sound;
 pub const SWAY_THINGS_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Where the distribution describes itself: the first that exists wins (os-release(5)).
-const OS_RELEASE: [&str; 2] = ["/etc/os-release", "/usr/lib/os-release"];
+pub(crate) const OS_RELEASE: [&str; 2] = ["/etc/os-release", "/usr/lib/os-release"];
 
 /// The kernel release, as `uname -r` prints it.
 const KERNEL_RELEASE: &str = "/proc/sys/kernel/osrelease";
@@ -259,7 +259,7 @@ fn distribution(files: &[&Path]) -> Option<String> {
 
 /// The value of `name` in the os-release text `text`: unquoted, with the escapes of double
 /// quotes undone and control characters removed.
-fn os_release_field(text: &str, name: &str) -> Option<String> {
+pub(crate) fn os_release_field(text: &str, name: &str) -> Option<String> {
     let value = text.lines().rev().find_map(|line| {
         let (key, value) = line.trim().split_once('=')?;
         (key == name).then_some(value)

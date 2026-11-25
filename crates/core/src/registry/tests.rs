@@ -445,6 +445,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // The settings of the notification daemon go to its files, except the blur on SwayFX.
         let is_daemon =
             setting.page() == Page::Notifications && setting.key() != super::notifications::BLUR;
+        // The night light's tool is started by a hook with them.
+        let is_night_light = setting.page() == Page::BrightnessNightLight;
         assert_eq!(
             setting.sway().is_none(),
             is_app
@@ -454,7 +456,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
                 || is_binding
                 || is_capture
                 || is_apps
-                || is_daemon,
+                || is_daemon
+                || is_night_light,
             "{}",
             setting.key()
         );

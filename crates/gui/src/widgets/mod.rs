@@ -5,6 +5,7 @@
 
 mod apps;
 mod bluetooth;
+mod brightness;
 mod capture;
 mod clamp;
 mod cursor;
@@ -18,6 +19,7 @@ mod list;
 mod live;
 mod look;
 mod network;
+mod night_light;
 mod notice;
 mod notifications;
 mod page_header;

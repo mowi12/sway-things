@@ -321,6 +321,8 @@ pub enum ValueError {
     /// The text isn't a file name pattern: empty, with a slash or a line break, or with a `%`
     /// that isn't a known conversion.
     NotAFileName,
+    /// The text isn't a time of day as `HH:MM`, 24-hour.
+    NotATime,
     /// The keys type a character: a key that types needs Super, Ctrl or Alt.
     TypingKeys,
     /// The text isn't a desktop file ID like `org.mozilla.firefox.desktop`.
@@ -408,6 +410,7 @@ impl ValueError {
                  like %Y-%m-%d %H-%M-%S, and %% is a %"
             )
             .into(),
+            Self::NotATime => msg!("must be a time as HH:MM, from 00:00 to 23:59").into(),
             Self::TypingKeys => msg!("keys that type a character need Super, Ctrl or Alt").into(),
             Self::NotADesktopId => msg!(
                 "must be a desktop file ID like org.mozilla.firefox.desktop: letters, digits, \

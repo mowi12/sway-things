@@ -87,12 +87,13 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
 | core | `bindings`, `swayosd` | every key binding of the config and of Sway Things, the bindings the Keyboard Shortcuts page writes, and how a change of them is sent; whether SwayOSD, which the media keys can show, is installed and its server runs ([Key bindings](Reading-Sway.md#key-bindings)) |
+| core | `brightness`, `night_light`, `packages` | the backlights through logind, the external monitors through ddcutil, the night light's tools and their location from the time zone, and the install command of the distribution for a missing program ([Backends](Backends.md#brightness-and-night-light)) |
 | core | `capture` | screenshots, the clipboard history and screen recording: the keys of Screenshots & Clipboard, the tools they run, notifications, the session's processes and locks ([Backends](Backends.md#screenshots-clipboard-and-recording)) |
 | core | `bluetooth`, `network`, `sound`, `printers`, `scanners`, `notifications`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway (the notification daemons: [Notifications](Backends.md#notifications)), `scanners`: SANE's scanimage, what is missing for scanners, and a PDF writer; and the D-Bus helpers BlueZ, NetworkManager and the printers share ([Backends](Backends.md)) |
 | core | `apps` | desktop entries, the installed apps, the terminal and launcher, the default apps, the autostart entries and their runners, and the files of other programs they need ([Apps and autostart](Backends.md#apps-and-autostart)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
-| cli | `lib`, `main`, `change`, `hook`, `capture`, `notify`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; screenshot, record and clipboard; `notifications` and the hooks of the notification daemon; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
+| cli | `lib`, `main`, `change`, `hook`, `capture`, `notify`, `light`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; screenshot, record and clipboard; `notifications` and the hooks of the notification daemon; `brightness`, `night-light` and its hook; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
 | gui | `app`, `args`, `window`, `model` | the application, its argument, the main window, the settings behind it ([UI Architecture](UI-Architecture.md)) |
 | gui | `widgets` | every building block and custom page, one module each |
 | gui | `theme`, `style`, `icons`, `contrast`, `i18n`, `xkb`, `editor` | colors, the style sheet, bundled icons, the runtime contrast check, translations, the XKB names, opening the editor |
@@ -404,7 +405,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf      # the autostart entries and the runner of the XDG autostart entries
-├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard; later: bindswitch lid → sway-things hook lid …
+├── 80-hooks.conf          # sway-things hook gsettings, hook clipboard, hook night-light; later: bindswitch lid → …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
 
@@ -420,8 +421,9 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 `40-behavior.conf`, `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)), `70-autostart.conf` (see
 [Apps and autostart](Backends.md#apps-and-autostart)), `80-hooks.conf` and `90-effects.conf`. `seat` options
 (`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line (also
-the one that starts the notification daemon chosen on the Notifications page) (`20-output.conf` ends with the one that
-keeps a display on), see [No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
+the one that starts the notification daemon chosen on the Notifications page, and the one that starts the night light)
+(`20-output.conf` ends with the one that keeps a display on), see
+[No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
   _Generated config_ and `sway-things show-generated` display; `on_disk` reads the files as they are, with their
@@ -467,8 +469,9 @@ The app never adds this line itself. It shows the line with a copy button and de
 
 ### Other tools
 
-kanshi ([Outputs](Outputs.md)), mako and swaync ([Notifications](Backends.md#notifications)) are built; the other rows
-are the plan for the pages still to come.
+kanshi ([Outputs](Outputs.md)), mako and swaync ([Notifications](Backends.md#notifications)), wlsunset and gammastep
+([Brightness and night light](Backends.md#brightness-and-night-light)) are built; the other rows are the plan for the
+pages still to come.
 
 | Tool | Include support | Strategy |
 | --- | --- | --- |
@@ -479,7 +482,7 @@ are the plan for the pages still to come.
 | mako | yes (`include=`, absolute or `~/` path, only among the global options; later definitions win) | Our file `~/.config/mako/sway-things`; the user adds `include=` after their own global options and before their first `[section]`. With no mako config at all, we create one that only includes ours. See [Notifications](Backends.md#notifications) |
 | swaync | no, but `-c` / `-s` flags | Handover: our `config.json` + `style.css` in `~/.config/sway-things/swaync/`; the user starts swaync with `-c`/`-s`, or the page starts it. See [Notifications](Backends.md#notifications) |
 | dunst | drop-ins in `dunstrc.d/` next to the `dunstrc` dunst found | Not written yet: Do Not Disturb only. A drop-in in `~/.config/dunst/dunstrc.d/` is only read when `~/.config/dunst/dunstrc` exists |
-| gammastep / wlsunset | gammastep has a config file; wlsunset uses arguments | Own config file or our generated `exec` line |
+| wlsunset / gammastep | gammastep has a config file and `-c`; wlsunset uses arguments | Started by `sway-things hook night-light` from `80-hooks.conf`: wlsunset with arguments, gammastep with `-c` and our `~/.config/sway-things/gammastep/config.ini`. See [Brightness and night light](Backends.md#brightness-and-night-light) |
 | environment | `environment.d` is a directory | Our own file `~/.config/environment.d/50-sway-things.conf` |
 | default apps | XDG spec: desktop-specific list | Our own `~/.config/sway-mimeapps.list`, read before `mimeapps.list` under `XDG_CURRENT_DESKTOP=sway`, and `~/.config/sway-xdg-terminals.list` for `xdg-terminal-exec`; the user's `mimeapps.list` is never touched |
 | GTK look, fonts, dark mode, cursor | dconf database | Written via GIO (official API, allowed); see [GSettings](Backends.md#gsettings) |

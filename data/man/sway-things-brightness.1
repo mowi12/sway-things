@@ -1,0 +1,46 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-brightness 1 "" "Sway Things 0.5.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-brightness \- Print or change the brightness of the screen\*(Aqs backlight, through logind
+.SH SYNOPSIS
+\fBsway\-things brightness\fR [\fB\-\-device\fR] [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Print or change the brightness of the screen\*(Aqs backlight, through logind
+.PP
+Without \-\-device, the backlight the firmware drives is preferred, as systemd and GNOME prefer it. A backlight never goes below 1 %, so the screen can\*(Aqt go black. External monitors are set on the Brightness & Night Light page (DDC/CI).
+.SH OPTIONS
+.TP
+\fB\-\-device\fR \fI<NAME>\fR
+The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. `intel_backlight` or `tpacpi::kbd_backlight`
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.SH SUBCOMMANDS
+.TP
+sway\-things\-brightness\-get(1)
+Print the brightness in percent
+.TP
+sway\-things\-brightness\-set(1)
+Set the brightness, in percent: 50% or 50
+.TP
+sway\-things\-brightness\-up(1)
+Make it brighter by 5 %
+.TP
+sway\-things\-brightness\-down(1)
+Make it darker by 5 %, not below 1 % for a backlight

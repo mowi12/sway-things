@@ -244,6 +244,13 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(night-light)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (launch)
 _arguments "${_arguments_options[@]}" : \
 '--color=[Controls when to use color]:WHEN:(auto always never)' \
@@ -327,6 +334,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (clipboard)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(night-light)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -495,6 +506,105 @@ esac
     ;;
 esac
 ;;
+(brightness)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. \`intel_backlight\` or \`tpacpi\:\:kbd_backlight\`]:NAME:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_sway-things__subcmd__brightness_commands" \
+"*::: :->brightness" \
+&& ret=0
+
+    case $state in
+    (brightness)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-brightness-command-$line[1]:"
+        case $line[1] in
+            (get)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. \`intel_backlight\` or \`tpacpi\:\:kbd_backlight\`]:NAME:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. \`intel_backlight\` or \`tpacpi\:\:kbd_backlight\`]:NAME:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':value -- The brightness, from 0 to 100 (a backlight stays at 1 % at least):_default' \
+&& ret=0
+;;
+(up)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. \`intel_backlight\` or \`tpacpi\:\:kbd_backlight\`]:NAME:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(down)
+_arguments "${_arguments_options[@]}" : \
+'--device=[The backlight or keyboard light by its name in /sys/class/backlight or /sys/class/leds, e.g. \`intel_backlight\` or \`tpacpi\:\:kbd_backlight\`]:NAME:_default' \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_sway-things__subcmd__brightness__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-brightness-help-command-$line[1]:"
+        case $line[1] in
+            (get)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(up)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(down)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(night-light)
+_arguments "${_arguments_options[@]}" : \
+'--color=[Controls when to use color]:WHEN:(auto always never)' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':switch -- on, off or toggle:((on\:"Switch it on"
+off\:"Switch it off"
+toggle\:"Switch it to the other state"))' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_sway-things__subcmd__help_commands" \
@@ -603,6 +713,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(night-light)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (launch)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -679,6 +793,42 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(brightness)
+_arguments "${_arguments_options[@]}" : \
+":: :_sway-things__subcmd__help__subcmd__brightness_commands" \
+"*::: :->brightness" \
+&& ret=0
+
+    case $state in
+    (brightness)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:sway-things-help-brightness-command-$line[1]:"
+        case $line[1] in
+            (get)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(up)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(down)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(night-light)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -707,9 +857,78 @@ _sway-things_commands() {
 'record:Start a recording of the screen with wf-recorder or wl-screenrec, or stop the one that runs so its file is complete; the recording key runs this' \
 'clipboard:Pick an entry of the clipboard history, or clear it' \
 'wallpaper:Change the picture of a wallpaper collection' \
+'brightness:Print or change the brightness of the screen'\''s backlight, through logind' \
+'night-light:Switch the night light on or off, as the Brightness & Night Light page does\: stores the switch and starts or ends its tool (wlsunset or gammastep)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sway-things commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness_commands] )) ||
+_sway-things__subcmd__brightness_commands() {
+    local commands; commands=(
+'get:Print the brightness in percent' \
+'set:Set the brightness, in percent\: 50% or 50' \
+'up:Make it brighter by 5 %' \
+'down:Make it darker by 5 %, not below 1 % for a backlight' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things brightness commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__down_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__down_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness down commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__get_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness get commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help_commands() {
+    local commands; commands=(
+'get:Print the brightness in percent' \
+'set:Set the brightness, in percent\: 50% or 50' \
+'up:Make it brighter by 5 %' \
+'down:Make it darker by 5 %, not below 1 % for a backlight' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'sway-things brightness help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help__subcmd__down_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help__subcmd__down_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness help down commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help__subcmd__get_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness help get commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help__subcmd__help_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness help help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help__subcmd__set_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness help set commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__help__subcmd__up_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__help__subcmd__up_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness help up commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__set_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness set commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__brightness__subcmd__up_commands] )) ||
+_sway-things__subcmd__brightness__subcmd__up_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things brightness up commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__clipboard_commands] )) ||
 _sway-things__subcmd__clipboard_commands() {
@@ -779,9 +998,41 @@ _sway-things__subcmd__help_commands() {
 'record:Start a recording of the screen with wf-recorder or wl-screenrec, or stop the one that runs so its file is complete; the recording key runs this' \
 'clipboard:Pick an entry of the clipboard history, or clear it' \
 'wallpaper:Change the picture of a wallpaper collection' \
+'brightness:Print or change the brightness of the screen'\''s backlight, through logind' \
+'night-light:Switch the night light on or off, as the Brightness & Night Light page does\: stores the switch and starts or ends its tool (wlsunset or gammastep)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sway-things help commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__brightness_commands] )) ||
+_sway-things__subcmd__help__subcmd__brightness_commands() {
+    local commands; commands=(
+'get:Print the brightness in percent' \
+'set:Set the brightness, in percent\: 50% or 50' \
+'up:Make it brighter by 5 %' \
+'down:Make it darker by 5 %, not below 1 % for a backlight' \
+    )
+    _describe -t commands 'sway-things help brightness commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__brightness__subcmd__down_commands] )) ||
+_sway-things__subcmd__help__subcmd__brightness__subcmd__down_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help brightness down commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__brightness__subcmd__get_commands] )) ||
+_sway-things__subcmd__help__subcmd__brightness__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help brightness get commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__brightness__subcmd__set_commands] )) ||
+_sway-things__subcmd__help__subcmd__brightness__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help brightness set commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__brightness__subcmd__up_commands] )) ||
+_sway-things__subcmd__help__subcmd__brightness__subcmd__up_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help brightness up commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__help__subcmd__clipboard_commands] )) ||
 _sway-things__subcmd__help__subcmd__clipboard_commands() {
@@ -826,6 +1077,7 @@ _sway-things__subcmd__help__subcmd__hook_commands() {
 'new-display:Ask once whether a display plugged in to a combination set up on the Displays page shows the same picture or extends the desktop, and remember the answer\: run by kanshi when one display more than such a combination is connected' \
 'wallpaper:Show the next picture of each wallpaper collection whose time has come, and start the timers of those that change daily or after an interval\: run when sway starts while a display shows a collection' \
 'clipboard:Start the watcher of the clipboard history (wl-paste --watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not\: run at every start and reload of sway while it is on' \
+'night-light:Start the night light'\''s tool (wlsunset or gammastep) as the Brightness & Night Light page says, and end it if the night light is off\: run at every start and reload of sway while it is on. A night light your config starts itself, or that runs already, is left alone' \
 'launch:Start an installed app by its desktop file ID, as its desktop entry says (in a terminal if it asks for one)\: the autostart entries of Sway Things that are apps run this' \
 'autostart:Hand the session'\''s variables to the systemd user session and start the XDG autostart entries through it (xdg-desktop-autostart.target)\: run at login while Sway Things starts them with systemd' \
 'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
@@ -869,6 +1121,11 @@ _sway-things__subcmd__help__subcmd__hook__subcmd__new-display_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things help hook new-display commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__night-light_commands] )) ||
+_sway-things__subcmd__help__subcmd__hook__subcmd__night-light_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help hook night-light commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__help__subcmd__hook__subcmd__notification-click_commands] )) ||
 _sway-things__subcmd__help__subcmd__hook__subcmd__notification-click_commands() {
     local commands; commands=()
@@ -893,6 +1150,11 @@ _sway-things__subcmd__help__subcmd__hook__subcmd__wallpaper_commands() {
 _sway-things__subcmd__help__subcmd__hook__subcmd__workspaces_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things help hook workspaces commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__help__subcmd__night-light_commands] )) ||
+_sway-things__subcmd__help__subcmd__night-light_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things help night-light commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__help__subcmd__notifications_commands] )) ||
 _sway-things__subcmd__help__subcmd__notifications_commands() {
@@ -976,6 +1238,7 @@ _sway-things__subcmd__hook_commands() {
 'new-display:Ask once whether a display plugged in to a combination set up on the Displays page shows the same picture or extends the desktop, and remember the answer\: run by kanshi when one display more than such a combination is connected' \
 'wallpaper:Show the next picture of each wallpaper collection whose time has come, and start the timers of those that change daily or after an interval\: run when sway starts while a display shows a collection' \
 'clipboard:Start the watcher of the clipboard history (wl-paste --watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not\: run at every start and reload of sway while it is on' \
+'night-light:Start the night light'\''s tool (wlsunset or gammastep) as the Brightness & Night Light page says, and end it if the night light is off\: run at every start and reload of sway while it is on. A night light your config starts itself, or that runs already, is left alone' \
 'launch:Start an installed app by its desktop file ID, as its desktop entry says (in a terminal if it asks for one)\: the autostart entries of Sway Things that are apps run this' \
 'autostart:Hand the session'\''s variables to the systemd user session and start the XDG autostart entries through it (xdg-desktop-autostart.target)\: run at login while Sway Things starts them with systemd' \
 'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
@@ -1015,6 +1278,7 @@ _sway-things__subcmd__hook__subcmd__help_commands() {
 'new-display:Ask once whether a display plugged in to a combination set up on the Displays page shows the same picture or extends the desktop, and remember the answer\: run by kanshi when one display more than such a combination is connected' \
 'wallpaper:Show the next picture of each wallpaper collection whose time has come, and start the timers of those that change daily or after an interval\: run when sway starts while a display shows a collection' \
 'clipboard:Start the watcher of the clipboard history (wl-paste --watch cliphist store) if the Screenshots & Clipboard page has the history on, and end it if not\: run at every start and reload of sway while it is on' \
+'night-light:Start the night light'\''s tool (wlsunset or gammastep) as the Brightness & Night Light page says, and end it if the night light is off\: run at every start and reload of sway while it is on. A night light your config starts itself, or that runs already, is left alone' \
 'launch:Start an installed app by its desktop file ID, as its desktop entry says (in a terminal if it asks for one)\: the autostart entries of Sway Things that are apps run this' \
 'autostart:Hand the session'\''s variables to the systemd user session and start the XDG autostart entries through it (xdg-desktop-autostart.target)\: run at login while Sway Things starts them with systemd' \
 'notification-click:Bring the window of a clicked notification'\''s app to the front\: run by swaync (as a script, with the notification in its environment) and mako (with --mako) while the Notifications page says so' \
@@ -1064,6 +1328,11 @@ _sway-things__subcmd__hook__subcmd__help__subcmd__new-display_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook help new-display commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__night-light_commands] )) ||
+_sway-things__subcmd__hook__subcmd__help__subcmd__night-light_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook help night-light commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__hook__subcmd__help__subcmd__notification-click_commands] )) ||
 _sway-things__subcmd__hook__subcmd__help__subcmd__notification-click_commands() {
     local commands; commands=()
@@ -1104,6 +1373,11 @@ _sway-things__subcmd__hook__subcmd__new-display_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook new-display commands' commands "$@"
 }
+(( $+functions[_sway-things__subcmd__hook__subcmd__night-light_commands] )) ||
+_sway-things__subcmd__hook__subcmd__night-light_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things hook night-light commands' commands "$@"
+}
 (( $+functions[_sway-things__subcmd__hook__subcmd__notification-click_commands] )) ||
 _sway-things__subcmd__hook__subcmd__notification-click_commands() {
     local commands; commands=()
@@ -1128,6 +1402,11 @@ _sway-things__subcmd__hook__subcmd__wallpaper_commands() {
 _sway-things__subcmd__hook__subcmd__workspaces_commands() {
     local commands; commands=()
     _describe -t commands 'sway-things hook workspaces commands' commands "$@"
+}
+(( $+functions[_sway-things__subcmd__night-light_commands] )) ||
+_sway-things__subcmd__night-light_commands() {
+    local commands; commands=()
+    _describe -t commands 'sway-things night-light commands' commands "$@"
 }
 (( $+functions[_sway-things__subcmd__notifications_commands] )) ||
 _sway-things__subcmd__notifications_commands() {

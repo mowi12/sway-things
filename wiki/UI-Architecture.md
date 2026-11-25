@@ -133,6 +133,17 @@
   recording (looked for every two seconds while on screen), _Stop_, which runs `sway-things record`. The page has the
   history's watcher follow its switch and size (`clipboard::sync_with`) once they stood still for 0.8 s. Its footer
   names `50-bindings.conf` and `80-hooks.conf`.
+- **Brightness & Night Light page** (`crates/gui/src/widgets/brightness.rs`, `night_light.rs`): `PageView` starts the
+  page with a "Brightness" section (`brightness::panel`), then the night light's rows from the registry with its parts
+  through `page_view/parts.rs`. The panel builds a row for the screen's backlight and one for the keyboard light from
+  `brightness::devices`, sends through `Logind` one request at a time (the newest value waits) and reads sysfs every
+  second while on screen, a slider moved in the last 1.5 s keeping its place. Each time it is mapped, `ddc::detect` and
+  `ddc::get` run in `gio::spawn_blocking`; a monitor's slider sends `ddc::set` 0.5 s after it stood still. The notes
+  below the night light's switch rebuild only when what they say changes, and walk the switch's list to show the rows of
+  the schedule chosen and lock them while a night light of the user's runs or no tool is installed (every three seconds
+  while on screen, and at each change of the model); the page has the tool follow the settings
+  (`night_light::sync_with`, in `gio::spawn_blocking`) once they stood still for 0.8 s. Its footer names
+  `80-hooks.conf`.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit, the dragged one
   drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a press that

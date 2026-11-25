@@ -13,6 +13,7 @@ mod change;
 mod displays;
 mod doctor;
 mod hook;
+mod light;
 mod notify;
 mod output;
 mod prompt;
@@ -53,6 +54,7 @@ use sway_things_core::system::{self, Details};
 use wallpaper::{follow_collections, wallpaper};
 
 pub use doctor::{DoctorArgs, Look, doctor, doctor_with};
+pub use light::BrightnessAction;
 pub use notify::{NotificationsCommand, Quick, QuickAction, Switch};
 pub use prompt::{Prompt, Terminal};
 pub use spinner::Spinner;
@@ -195,6 +197,27 @@ pub enum Command {
     /// for collections that change daily or after an interval.
     #[command(subcommand)]
     Wallpaper(WallpaperCommand),
+    /// Print or change the brightness of the screen's backlight, through logind
+    ///
+    /// Without --device, the backlight the firmware drives is preferred, as systemd and GNOME
+    /// prefer it. A backlight never goes below 1 %, so the screen can't go black. External
+    /// monitors are set on the Brightness & Night Light page (DDC/CI).
+    Brightness {
+        /// What to do
+        #[command(subcommand)]
+        action: BrightnessAction,
+        /// The backlight or keyboard light by its name in /sys/class/backlight or
+        /// /sys/class/leds, e.g. `intel_backlight` or `tpacpi::kbd_backlight`
+        #[arg(long, global = true, value_name = "NAME")]
+        device: Option<String>,
+    },
+    /// Switch the night light on or off, as the Brightness & Night Light page does: stores the
+    /// switch and starts or ends its tool (wlsunset or gammastep)
+    NightLight {
+        /// on, off or toggle
+        #[arg(value_enum)]
+        switch: Switch,
+    },
 }
 
 /// A command of `sway-things wallpaper`.
@@ -250,6 +273,10 @@ pub enum Hook {
     /// Screenshots & Clipboard page has the history on, and end it if not: run at every start and
     /// reload of sway while it is on
     Clipboard,
+    /// Start the night light's tool (wlsunset or gammastep) as the Brightness & Night Light page
+    /// says, and end it if the night light is off: run at every start and reload of sway while it
+    /// is on. A night light your config starts itself, or that runs already, is left alone.
+    NightLight,
     /// Start an installed app by its desktop file ID, as its desktop entry says (in a terminal
     /// if it asks for one): the autostart entries of Sway Things that are apps run this
     Launch {
@@ -370,6 +397,15 @@ pub async fn run_for_user(command: &Command) -> Exit {
         Command::Screenshot { area } => return capture::screenshot(*area, &mut err).await,
         Command::Record { area } => return capture::record(*area, &mut err).await,
         Command::Clipboard(action) => return capture::clipboard(*action, &mut err).await,
+        Command::Brightness { action, device } => {
+            return light::brightness(
+                action,
+                device.as_deref(),
+                &mut io::stdout().lock(),
+                &mut err,
+            )
+            .await;
+        }
         Command::Hook(
             hook @ (Hook::NotificationClick { .. } | Hook::NotificationDaemon | Hook::Quick { .. }),
         ) => {
@@ -412,6 +448,17 @@ pub async fn run_for_user(command: &Command) -> Exit {
                 let _ = writeln!(err, "{}", error_line(&error.text().translated()));
             }
         }
+    }
+    // So does the night light's tool.
+    let night_light = match command {
+        Command::Set { key, .. } | Command::Reset { key, .. } => {
+            sway_things_core::night_light::KEYS.contains(&key.as_str())
+        }
+        Command::NightLight { .. } => true,
+        _ => false,
+    };
+    if night_light && exit == Exit::Ok && session.applier.client().is_some() {
+        let _ = light::follow_night_light(&session, &mut err);
     }
     exit
 }
@@ -535,6 +582,7 @@ fn reports_its_own_problems(command: &Command) -> bool {
             | Command::Screenshot { .. }
             | Command::Record { .. }
             | Command::Clipboard(_)
+            | Command::Brightness { .. }
     )
 }
 
@@ -549,6 +597,10 @@ const fn layer_of(host: bool, shared: bool) -> Option<Layer> {
 
 /// Runs `command` on `session`. Results go to `out`, errors and warnings to `err`; `prompt` asks
 /// whether to keep a risky change.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm per command of the command line, each handing it on"
+)]
 pub async fn run<V: Validate>(
     command: &Command,
     session: &mut Session<V>,
@@ -653,6 +705,9 @@ pub async fn run<V: Validate>(
             notify::import_swaync(session, file.as_deref(), &mut io).await
         }
         Command::Notifications(command) => notify::notifications(command, io.out, io.err).await,
+        Command::Brightness { .. } | Command::NightLight { .. } => {
+            light::run(command, session, prompt, &mut io).await
+        }
     }
 }
 

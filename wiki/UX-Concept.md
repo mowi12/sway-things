@@ -686,6 +686,60 @@ settings go into files of Sway Things in the daemon's own format (see
   Not Disturb, notifications, media player, volume, brightness, buttons, inhibitors; Do Not Disturb, Wi-Fi, Bluetooth,
   sound, microphone, Sway Things), with buttons to move it up and down; the focus stays where it was after a change.
 
+### Brightness & Night Light
+
+The page has a live part and a part of settings: the brightness is set at once and nothing of it is stored, like the
+Sound page; the night light is settings whose tool Sway Things starts (see
+[Backends → Brightness and night light](Backends.md#brightness-and-night-light)).
+
+```text
+BRIGHTNESS
+Built-in display              ☀ ───────●──── 75 %
+DELL U2720Q                   ☀ ────●─────── 40 %
+DP-1
+Keyboard backlight                [ Off | 1 | 2 ]
+┌ ⓘ External monitors are set over their cable (DDC/CI), which needs   ┐
+│   access to /dev/i2c-*. …   sudo usermod -aG i2c $USER       [Copy] │
+└──────────────────────────────────────────────────────────────────────┘
+
+NIGHT LIGHT
+Night light                                              [  ●]
+Runs with wlsunset.
+Tool                                              [ wlsunset ▾ ]
+Schedule                                 [ Sunset to sunrise ▾ ]
+Location                                [ From the time zone ▾ ]
+Time zone Europe/Berlin: 52.50° N, 13.37° E.
+Night temperature    ───●──────────────  [ 4000 ]
+Day temperature      ─────────────────●  [ 6500 ]
+```
+
+- **Brightness:** a slider for the screen's backlight (_Built-in display_; the one the firmware drives first, as systemd
+  and GNOME prefer it) from 1 % to 100 %, never to black; a slider per external monitor that answers over DDC/CI, with
+  its connector below its name, found in the background each time the page shows (_Looking for external monitors…_
+  meanwhile) and set once the slider stood still for half a second; and the keyboard light as a button per step (_Off_,
+  _1_, _2_), or a slider where it has more than three. The sliders follow the brightness keys and bars every second
+  while the page is on screen; one just moved keeps its place. A change logind refuses shows its reason under the row.
+- **Notes about external monitors** show only while an external display is connected: ddcutil missing (with the install
+  command for the distribution's package manager and _Copy_), no access to `/dev/i2c-*` (the command that adds the user
+  to the `i2c` group), the `i2c-dev` module missing (the command that loads it). Without a backlight and without
+  monitors: "Nothing here can be dimmed".
+- **Night light:** the switch, then _Tool_ only while both wlsunset and gammastep are installed (wlsunset is the
+  default; the other one runs if the chosen one is missing), _Schedule_ (_Sunset to sunrise_, _Fixed times_, _Always
+  on_), and only the rows of the schedule chosen: _Location_ (_From the time zone_, with the zone and its place below,
+  or _Entered by hand_ with latitude and longitude as number fields), _From_ and _To_ (`HH:MM`), the night temperature,
+  and the day temperature except while it is always on. The rows are locked while the switch is off.
+- **Below the switch:** whether the tool runs (_Runs with wlsunset._), _Starts once you stop changing the settings._
+  while a change waits 0.8 s, or why it can't run (no location for the time zone, fixed times that don't span midnight,
+  gammastep's config written by someone else, the tool's own error).
+- **Managed externally:** while a line of the user's config starts a night light (wlsunset, gammastep, its indicator,
+  redshift, wl-gammarelay, sunsetr), a notice names it with file:line and the line, says that only one night light can
+  change the colors, and how to hand over (remove the line, then switch it on here), with _Open config in editor_. A
+  night light that runs and wasn't started from the config or by Sway Things gets the same notice with its process. The
+  rows are locked meanwhile; the switch stays usable while it is on, so it can be switched off.
+- **No tool installed:** the section is locked and a notice gives the command that installs wlsunset (zypper, dnf, apt
+  or pacman, from os-release), with _Copy_; the page looks again every three seconds while it is on screen.
+- From a key or a bar module: `sway-things night-light toggle`; no key is bound by default.
+
 ### Sidebar groups
 
 | Group | Pages |
