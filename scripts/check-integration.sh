@@ -14,8 +14,8 @@
 # a headless sway of its own with two displays and kanshi, not on SwayFX (crates/cli/tests/kanshi_sway.rs). The BlueZ
 # and NetworkManager backends run against python-dbusmock on a private bus (crates/core/tests/bluetooth_bluez.rs,
 # crates/core/tests/network_nm.rs), the notification daemons against stand-ins on a private bus
-# (crates/core/tests/notifications_bus.rs), systemd-timedated against a stand-in on a private bus
-# (crates/core/tests/region_timedate.rs), and the sound backend against a private PipeWire with pipewire-pulse and
+# (crates/core/tests/notifications_bus.rs), systemd-timedated and geoclue against stand-ins on a private bus
+# (crates/core/tests/region_timedate.rs, crates/core/tests/region_geoclue.rs), and the sound backend against a private PipeWire with pipewire-pulse and
 # virtual devices (crates/core/tests/sound_pulse.rs), and the printers backend against the distribution's cupsd run as
 # the user with its own socket, a fake driverless printer on the loopback address, and Avahi and cups-pk-helper on a
 # private bus (crates/core/tests/printers_cups.rs), and the scanners backend against the distribution's scanimage with
@@ -59,7 +59,8 @@ cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway --test 
 # and pacat (the sound server), cupsd (CUPS) and scanimage (SANE).
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
   --test network_nm --test sound_pulse --test notifications_dbus --test printers_cups
-  --test scanners_sane --test notifications_bus --test region_timedate)
+  --test scanners_sane --test notifications_bus --test region_timedate
+  --test region_geoclue)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 

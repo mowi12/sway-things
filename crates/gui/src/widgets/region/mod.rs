@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Region & Time page: the time zone, automatic time and the clock, live from
-//! systemd-timedated.
+//! systemd-timedated, and the automatic time zone from geoclue's location.
 //!
-//! Nothing of the Date & Time section is stored by Sway Things: timedated owns it. Every change
+//! Of the Date & Time section, Sway Things only stores whether the time zone follows the
+//! location (`region.automatic_timezone`); the rest is timedated's own. Every change
 //! goes to timedated, whose polkit rule asks for an administrator's password through the user's
 //! polkit agent. When polkit refuses, the section shows why and the `timedatectl` command that
 //! does the same in a terminal. Zone names come from timedated and tzdata; they are only ever
@@ -20,10 +21,14 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::region::Bus;
+use sway_things_core::registry::Registry;
+use sway_things_core::registry::region::AUTOMATIC_TIMEZONE;
 
 use self::time::TimeSection;
 use crate::i18n::{msg, tr};
+use crate::model::Model;
 use crate::style;
+use crate::widgets::SettingRow;
 
 mod imp {
     use std::cell::{OnceCell, RefCell};
@@ -39,6 +44,13 @@ mod imp {
         /// The only child: the sections, one below the other.
         pub content: gtk::Box,
         pub(super) time: OnceCell<TimeSection>,
+        /// The rows of the settings the page stores.
+        pub rows: RefCell<Vec<crate::widgets::SettingRow>>,
+        /// The automatic time zone as last followed; `None` before the first time.
+        pub automatic: std::cell::Cell<Option<bool>>,
+        /// Set when leaving the page stopped the automatic time zone's lookup: it starts again
+        /// when the page is shown.
+        pub resume: std::cell::Cell<bool>,
         pub tasks: RefCell<Vec<glib::JoinHandle<()>>>,
     }
 
@@ -77,6 +89,9 @@ mod imp {
             self.parent_map();
             if let Some(time) = self.time.get() {
                 time.start_ticking();
+                if self.resume.replace(false) {
+                    time.detect();
+                }
             }
         }
 
@@ -84,6 +99,7 @@ mod imp {
             self.parent_unmap();
             if let Some(time) = self.time.get() {
                 time.stop_ticking();
+                self.resume.set(time.cancel_detect());
             }
         }
     }
@@ -97,13 +113,42 @@ glib::wrapper! {
 }
 
 impl RegionTimePage {
-    /// The page with timedated on `bus`, which it connects to right away and follows.
-    pub fn new(bus: &Bus) -> Self {
+    /// The page with timedated (and geoclue) on `bus`, which it connects to right away and
+    /// follows, and with the rows of the settings it stores from `model`, if there is one.
+    pub fn new(bus: &Bus, model: Option<&Model>) -> Self {
         let page: Self = glib::Object::new();
         let time = TimeSection::new(&page.imp().content, true);
         time.follow(bus.clone());
+        if let Some(row) = model.and_then(|model| {
+            let setting = Registry::builtin().get(AUTOMATIC_TIMEZONE)?;
+            SettingRow::new(model, setting, None)
+        }) {
+            time.insert_row(&row);
+            page.imp().rows.borrow_mut().push(row);
+        }
         let _ = page.imp().time.set(time);
         page
+    }
+
+    /// The rows of the settings the page stores, for search and deep links.
+    pub fn rows(&self) -> Vec<SettingRow> {
+        self.imp().rows.borrow().clone()
+    }
+
+    /// Follows the automatic time zone: turned on (or on when the page opens), the zone where
+    /// the computer is gets set; turned off, a lookup still running stops silently.
+    pub fn set_automatic_timezone(&self, on: bool) {
+        let was = self.imp().automatic.replace(Some(on));
+        let Some(time) = self.imp().time.get() else {
+            return;
+        };
+        if on && was != Some(true) {
+            time.detect();
+        } else if !on && was != Some(false) {
+            time.cancel_detect();
+            time.forget_detect();
+            self.imp().resume.set(false);
+        }
     }
 
     /// The Date & Time section, for tests.

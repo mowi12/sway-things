@@ -29,7 +29,7 @@ with what the app reads.
 | `open [<link>]` (also `sway-things` without a command) | starts the app, or brings the running window up, at a [deep link](Architecture.md#settings-registry): a page id or a setting key. It checks the link first and lists the valid page ids or the keys closest to an unknown key; then it starts `sway-things-gui [<link>]` in a process group of its own, with stdin closed, and returns at once. It reads neither the settings nor sway. The app is the one `SWAY_THINGS_GUI` names, the one next to `sway-things`, or the first in `PATH`. |
 | `notifications dnd [on\|off\|toggle]`, `notifications status\|test\|import-swaync [<file>]` | Do Not Disturb of the daemon that runs (prints `on` or `off`), which daemon runs, a test notification, and the user's swaync config read into the settings ([Notifications](Backends.md#notifications)). |
 | `doctor [--fix [--overwrite]] [--json]` | why settings might not take effect, section by section ([Doctor](#doctor)); `--fix` writes the generated files that are missing or out of date, with `--overwrite` also those changed outside. |
-| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard\|night-light\|launch\|autostart>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
+| `hook <gsettings\|displays\|workspaces\|mirror\|new-display\|wallpaper\|clipboard\|night-light\|timezone\|launch\|autostart>` | the glue that generated config runs at login, on reload and on hotplug, so nothing has to keep running ([No daemon](#no-daemon-the-cli-as-a-hook)). |
 | `screenshot region\|window\|display\|all` | takes a screenshot as Screenshots & Clipboard says ([Backends](Backends.md#screenshots-clipboard-and-recording)); the screenshot keys run it. |
 | `record [region\|display]` | stops the recording Sway Things started, or starts one; without an argument, what the page says. The recording key runs it. |
 | `clipboard pick\|clear` | shows the clipboard history in the launcher and copies the entry picked again, or empties the history. |
@@ -192,7 +192,10 @@ runs from `80-hooks.conf` too and starts the notification daemon chosen on the N
 `hook notification-click` and `hook quick` are run by the notification daemon
 ([Notifications](Backends.md#notifications)). The three are `notify::run_notification_hook` in the CLI, for the user and
 in the tests alike; only `notification-click` gets a sway, and for the user only the one of the session the daemon shows
-on.
+on. `hook timezone` runs once when sway starts (`exec`, not at a reload) while the automatic time zone of Region & Time
+is on: it reads the switch from the settings files, asks geoclue for the location and sets the zone of the nearest city
+through timedated if the system has another (polkit may ask for the password). It needs no sway; it says on stderr which
+zone it set, or why it set none and the command that would.
 
 Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
 They're our files, so that needs no edit of the user's config.

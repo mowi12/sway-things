@@ -190,5 +190,8 @@ from = "21:00"
 to = "06:30"
 temperature_night = 3500
 
+[region]
+automatic_timezone = true
+
 [app]
 safety_net_timeout = 20

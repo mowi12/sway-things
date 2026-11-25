@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! A stand-in for systemd-timedated, for tests: a private `dbus-daemon` and, on it, a service that
-//! owns `org.freedesktop.timedate1` and answers as timedated does, as far as Sway Things uses it.
-//! It can refuse every change as polkit does when the user doesn't give the password. Built with
-//! the `test-support` feature; it needs `dbus-daemon`.
+//! A stand-in for systemd-timedated and geoclue, for tests: a private `dbus-daemon` and, on it, a
+//! service that owns `org.freedesktop.timedate1` and answers as timedated does, and one that owns
+//! `org.freedesktop.GeoClue2` and gives a location, as far as Sway Things uses them. timedated can
+//! refuse every change as polkit does when the user doesn't give the password, geoclue can refuse
+//! Sway Things as when its config doesn't allow it. Built with the `test-support` feature; it
+//! needs `dbus-daemon`.
 
 use std::sync::{Arc, Mutex};
 
@@ -38,6 +40,15 @@ pub struct Record {
     pub deny: bool,
     /// The times `SetTime` was called with, in microseconds.
     pub times: Vec<i64>,
+    /// Whether geoclue gives Sway Things the location.
+    pub geo_allowed: bool,
+    /// Whether geoclue holds `Start` for an agent, as it does for an app its config doesn't name
+    /// when there is no agent: until this is false again.
+    pub geo_waits: bool,
+    /// Where geoclue says the computer is: degrees north and east.
+    pub place: (f64, f64),
+    /// The app id and accuracy level the client was given.
+    pub geo_client: (String, u32),
 }
 
 impl Default for Record {
@@ -52,6 +63,11 @@ impl Default for Record {
                 .to_vec(),
             deny: false,
             times: Vec::new(),
+            geo_allowed: true,
+            geo_waits: false,
+            // Tokyo.
+            place: (35.68, 139.69),
+            geo_client: (String::new(), 0),
         }
     }
 }
@@ -153,6 +169,108 @@ impl Timedated {
     }
 }
 
+/// geoclue's names and objects in the stand-in.
+const GEO_SERVICE: &str = "org.freedesktop.GeoClue2";
+const GEO_MANAGER: &str = "/org/freedesktop/GeoClue2/Manager";
+const GEO_CLIENT: &str = "/org/freedesktop/GeoClue2/Client/1";
+const GEO_LOCATION: &str = "/org/freedesktop/GeoClue2/Client/1/Location/1";
+
+struct GeoManager;
+
+#[zbus::interface(name = "org.freedesktop.GeoClue2.Manager")]
+impl GeoManager {
+    #[allow(clippy::unused_self, reason = "the method of geoclue's interface")]
+    fn get_client(&self) -> zbus::zvariant::OwnedObjectPath {
+        zbus::zvariant::OwnedObjectPath::try_from(GEO_CLIENT)
+            .unwrap_or_else(|_| zbus::zvariant::OwnedObjectPath::default())
+    }
+}
+
+struct GeoClient {
+    shared: Shared,
+}
+
+#[zbus::interface(name = "org.freedesktop.GeoClue2.Client")]
+impl GeoClient {
+    /// Starts locating: refused unless geoclue allows the client, else the location follows.
+    async fn start(
+        &self,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        let (allowed, waits, id) = {
+            let record = lock(&self.shared);
+            (
+                record.geo_allowed,
+                record.geo_waits,
+                record.geo_client.0.clone(),
+            )
+        };
+        if waits {
+            // Until a test lets go: calls to the stand-in wait behind this one.
+            while lock(&self.shared).geo_waits {
+                async_io::Timer::after(std::time::Duration::from_millis(50)).await;
+            }
+        }
+        if !allowed {
+            return Err(zbus::fdo::Error::AccessDenied(format!(
+                "'{id}' disallowed, no agent for UID 1000"
+            )));
+        }
+        let none = zbus::zvariant::ObjectPath::from_static_str_unchecked("/");
+        let location = zbus::zvariant::ObjectPath::from_static_str_unchecked(GEO_LOCATION);
+        let _ = Self::location_updated(&emitter, none, location).await;
+        Ok(())
+    }
+
+    #[allow(clippy::unused_self, reason = "the method of geoclue's interface")]
+    fn stop(&self) {}
+
+    /// geoclue found a new location: the old one's object and the new one's.
+    #[zbus(signal)]
+    async fn location_updated(
+        emitter: &SignalEmitter<'_>,
+        old: zbus::zvariant::ObjectPath<'_>,
+        new: zbus::zvariant::ObjectPath<'_>,
+    ) -> zbus::Result<()>;
+
+    #[zbus(property)]
+    fn desktop_id(&self) -> String {
+        lock(&self.shared).geo_client.0.clone()
+    }
+
+    #[zbus(property)]
+    fn set_desktop_id(&mut self, id: String) {
+        lock(&self.shared).geo_client.0 = id;
+    }
+
+    #[zbus(property)]
+    fn requested_accuracy_level(&self) -> u32 {
+        lock(&self.shared).geo_client.1
+    }
+
+    #[zbus(property)]
+    fn set_requested_accuracy_level(&mut self, level: u32) {
+        lock(&self.shared).geo_client.1 = level;
+    }
+}
+
+struct GeoLocation {
+    shared: Shared,
+}
+
+#[zbus::interface(name = "org.freedesktop.GeoClue2.Location")]
+impl GeoLocation {
+    #[zbus(property)]
+    fn latitude(&self) -> f64 {
+        lock(&self.shared).place.0
+    }
+
+    #[zbus(property)]
+    fn longitude(&self) -> f64 {
+        lock(&self.shared).place.1
+    }
+}
+
 /// A failure to start the stand-in.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -194,7 +312,21 @@ impl StandIn {
                     shared: shared.clone(),
                 },
             )?
+            .serve_at(GEO_MANAGER, GeoManager)?
+            .serve_at(
+                GEO_CLIENT,
+                GeoClient {
+                    shared: shared.clone(),
+                },
+            )?
+            .serve_at(
+                GEO_LOCATION,
+                GeoLocation {
+                    shared: shared.clone(),
+                },
+            )?
             .name(SERVICE)?
+            .name(GEO_SERVICE)?
             .build()
             .await?;
         Ok(Self {

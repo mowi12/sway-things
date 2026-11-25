@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 09:27+0100\n"
+"POT-Creation-Date: 2026-11-25 09:31+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -360,6 +360,13 @@ msgstr ""
 
 #: crates/cli/src/hook.rs
 msgid "HOME isn't set"
+msgstr ""
+
+#. TRANSLATORS: `sway-things hook timezone` set the time zone where the
+#. computer is.
+#: crates/cli/src/hook.rs
+#, rust-format
+msgid "The time zone is now {zone}."
 msgstr ""
 
 #: crates/cli/src/hook.rs
@@ -3051,6 +3058,38 @@ msgid ""
 "ipps://"
 msgstr ""
 
+#: crates/core/src/region/geo.rs
+msgid "The location isn't available: geoclue isn't installed or doesn't run"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+#, rust-format
+msgid ""
+"geoclue doesn't let Sway Things know the location. Allow it once with the "
+"file {file}, which the command below creates (it asks for your password)."
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+#, rust-format
+msgid "The location isn't known: {reason}"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue went away"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue found no location within 30 seconds"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "geoclue gave no coordinates"
+msgstr ""
+
+#: crates/core/src/region/geo.rs
+msgid "tzdata lists no time zone for the location"
+msgstr ""
+
 #: crates/core/src/region/mod.rs
 #, rust-format
 msgid "The system clock can't be changed: {reason}"
@@ -4303,6 +4342,7 @@ msgid "path"
 msgstr ""
 
 #: crates/core/src/registry/capture.rs crates/core/src/registry/night_light.rs
+#: crates/core/src/registry/region.rs
 msgid "location"
 msgstr ""
 
@@ -5931,6 +5971,7 @@ msgid "coordinates"
 msgstr ""
 
 #: crates/core/src/registry/night_light.rs crates/core/src/registry/page.rs
+#: crates/core/src/registry/region.rs
 msgid "time zone"
 msgstr ""
 
@@ -6811,6 +6852,29 @@ msgstr ""
 #: crates/core/src/registry/read.rs
 #, rust-format
 msgid "expected one of {choices}, got {word}"
+msgstr ""
+
+#: crates/core/src/registry/region.rs crates/gui/src/widgets/region/time.rs
+msgid "Date & Time"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "Automatic time zone"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid ""
+"Sets the time zone where you are, at each login and while this page is open. "
+"geoclue finds your city through an online service, which sees your IP "
+"address and may see the Wi-Fi networks nearby."
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "geoclue"
+msgstr ""
+
+#: crates/core/src/registry/region.rs
+msgid "travel"
 msgstr ""
 
 #: crates/core/src/registry/setting.rs
@@ -11025,10 +11089,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/region/clock.rs
 msgid "Set"
-msgstr ""
-
-#: crates/gui/src/widgets/region/time.rs
-msgid "Date & Time"
 msgstr ""
 
 #: crates/gui/src/widgets/region/time.rs

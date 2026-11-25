@@ -1,0 +1,28 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH sway-things-hook-timezone 1 "" "Sway Things 0.5.0" "Sway Things Manual"
+.SH NAME
+sway\-things\-hook\-timezone \- Set the time zone where the computer is, as geoclue finds it, if it isn\*(Aqt the system\*(Aqs already (polkit may ask for the password): run once at login while Region & Time has the automatic time zone on
+.SH SYNOPSIS
+\fBsway\-things hook timezone\fR [\fB\-\-color\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Set the time zone where the computer is, as geoclue finds it, if it isn\*(Aqt the system\*(Aqs already (polkit may ask for the password): run once at login while Region & Time has the automatic time zone on
+.SH OPTIONS
+.TP
+\fB\-\-color\fR \fI<WHEN>\fR [default: auto]
+Controls when to use color
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

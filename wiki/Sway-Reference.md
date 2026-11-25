@@ -283,6 +283,15 @@ swaync 0.12.6 in a headless sway); the CI containers' distributions ship mako 1.
 | The time zone database lists each zone with the coordinates of its main city as ISO 6709 (`±DDMM±DDDMM` or `±DDMMSS±DDDMMSS`) in `zone1970.tab`; `zone.tab` also has the zones that became links (`Europe/Copenhagen`). `/etc/localtime` is a link into `/usr/share/zoneinfo/`. | tzdata `zone1970.tab`, `zone.tab`; `localtime(5)` |
 | The kernel keeps a process's name (`/proc/<pid>/comm`) to 15 characters: `gammastep-indicator` shows as `gammastep-indic`. | `proc_pid_comm(5)` (`TASK_COMM_LEN`) |
 
+## timedated and geoclue
+
+| Fact | Source |
+| --- | --- |
+| `org.freedesktop.timedate1` has the properties `Timezone`, `LocalRTC`, `CanNTP`, `NTP`, `NTPSynchronized`, `TimeUSec`, `RTCTimeUSec` and the methods `SetTime(xbb)`, `SetTimezone(sb)`, `SetLocalRTC(bbb)`, `SetNTP(bb)`, `ListTimezones() → as`; `Timezone`, `NTP` and `LocalRTC` emit `PropertiesChanged`, `NTPSynchronized` doesn't. | `busctl introspect` on openSUSE Tumbleweed, systemd 262 |
+| timedated's polkit actions (`set-time`, `set-timezone`, `set-local-rtc`, `set-ntp`) and localed's (`set-locale`, `set-keyboard`) default to `auth_admin_keep` for active, inactive and any sessions: an administrator's password, remembered for a while. | `/usr/share/polkit-1/actions/org.freedesktop.timedate1.policy`, `org.freedesktop.locale1.policy` (systemd 262) |
+| geoclue gives the location to an app its config lists with `allowed=true` (a group named by the app's desktop id, in `/etc/geoclue/geoclue.conf` or a drop-in of `/etc/geoclue/conf.d/`), or to one an agent approves; the agents it accepts are listed under `[agent] whitelist` (GNOME Shell, Phosh and others, no sway tool). For an app its config doesn't list, `Start` waits for an agent instead of failing; without one geoclue quits after 60 seconds unused and the bus answers the call with `org.freedesktop.DBus.Error.NoReply` ("Remote peer disconnected"). The client names itself through its `DesktopId` property and asks for an accuracy level (`RequestedAccuracyLevel`, 4 for a city). | `/etc/geoclue/geoclue.conf` of geoclue 2.8.2 on openSUSE Tumbleweed, its journal ("Service not used for 60 seconds"); geoclue's D-Bus interface `org.freedesktop.GeoClue2.Client` |
+| tzdata's `zone.tab` lists a zone per country with the coordinates of its main city as ISO 6709 (`±DDMM±DDDMM` or `±DDMMSS±DDDMMSS`), tab-separated after the country code; `zone1970.tab` merges zones that agree since 1970. | `/usr/share/zoneinfo/zone.tab`, `zone1970.tab` (tzdata) |
+
 ## Distributions
 
 | Fact | Source |

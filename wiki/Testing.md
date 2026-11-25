@@ -160,6 +160,10 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   `region::stand_in`, `test-support`): the clock and the zones read, the time zone, automatic time and the clock set
   with each change reported (also one made elsewhere), a zone it doesn't know, setting the clock while automatic time is
   on, polkit's refusal, no NTP service, and timedated missing
+- The automatic time zone against stand-ins for geoclue and timedated (`crates/core/tests/region_geoclue.rs`): the
+  location asked at city level under Sway Things' app id, the zone of the nearest city set only when it differs,
+  geoclue's refusal (or its wait for an agent) with the drop-in to create, polkit's with the command, and geoclue
+  missing
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,

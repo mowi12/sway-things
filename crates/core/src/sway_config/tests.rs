@@ -807,7 +807,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 100);
+    assert_eq!(generated.len(), 101);
     // The quotes for `wordexp` stay; sway removes them when it expands the path.
     let bg = find(&["output", "HEADLESS-1"], "bg");
     assert_eq!(bg.as_deref(), Some("'/etc/passwd' fit #285577"));

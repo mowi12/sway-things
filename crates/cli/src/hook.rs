@@ -5,8 +5,9 @@
 //! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`],
 //! `clipboard` through
 //! [`sway_things_core::capture::clipboard`], `launch` and `autostart` through
-//! [`sway_things_core::apps`], which need neither the settings nor sway, and the hooks of the
-//! notification daemon through [`notify::run_notification_hook`].
+//! [`sway_things_core::apps`], which need neither the settings nor sway, `timezone` through
+//! [`sway_things_core::region::geo`], and the hooks of the notification daemon through
+//! [`notify::run_notification_hook`].
 
 use std::io::Write;
 
@@ -19,7 +20,10 @@ use sway_things_core::ipc::Client;
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks::{self, HookEnv};
 use sway_things_core::outputs::{self};
-use sway_things_core::registry::Registry;
+use sway_things_core::region::geo::{self, Detected};
+use sway_things_core::region::{Bus as RegionBus, Timedate};
+use sway_things_core::registry::region::AUTOMATIC_TIMEZONE;
+use sway_things_core::registry::{Registry, Value};
 use sway_things_core::state::{Paths, State};
 
 use super::{Exit, Hook, Io, Session, fail_with, notify};
@@ -97,6 +101,7 @@ async fn run_app_hook(hook: &Hook, err: &mut dyn Write) -> Option<Exit> {
         | Hook::NewDisplay
         | Hook::Clipboard
         | Hook::NightLight
+        | Hook::Timezone
         | Hook::Wallpaper
         | Hook::NotificationClick { .. }
         | Hook::NotificationDaemon
@@ -140,6 +145,7 @@ pub(super) async fn run_display_hook(
         | Hook::Wallpaper
         | Hook::Clipboard
         | Hook::NightLight
+        | Hook::Timezone
         | Hook::Launch { .. }
         | Hook::Autostart
         | Hook::NotificationClick { .. }
@@ -164,8 +170,9 @@ pub(super) async fn run_hook<V: Validate>(
     match hook {
         Hook::Gsettings => return hook_gsettings(session, io),
         Hook::Wallpaper => return super::wallpaper::hook_wallpaper(session, io).await,
-        // Asks the user through the notification server: only for the user's session.
-        Hook::NewDisplay => return Exit::Ok,
+        // Asks the user through the notification server, or polkit for the password: only for
+        // the user's session.
+        Hook::NewDisplay | Hook::Timezone => return Exit::Ok,
         Hook::NotificationClick { .. } | Hook::NotificationDaemon | Hook::Quick { .. } => {
             let client = session.applier.client();
             return notify::run_notification_hook(hook, client, io.out, io.err).await;
@@ -195,6 +202,46 @@ pub(super) async fn run_hook<V: Validate>(
     match session.applier.client() {
         Some(client) => run_display_hook(hook, client, &env, io.err).await,
         None => Exit::Ok,
+    }
+}
+
+/// `hook timezone`: while the automatic time zone is on, sets the zone geoclue's location gives
+/// if the system has another ([`geo::detect`]). Quiet when nothing changes; it says on stderr
+/// which zone it set, or why it set none and the command that would, for sway's log.
+pub(super) async fn hook_timezone(err: &mut dyn Write) -> Exit {
+    let on = Paths::from_env().is_ok_and(|paths| {
+        State::load(Registry::builtin(), paths).get(AUTOMATIC_TIMEZONE, None)
+            == Some(&Value::Bool(true))
+    });
+    if !on {
+        return Exit::Ok;
+    }
+    let timedate = match Timedate::connect(&RegionBus::System).await {
+        Ok(timedate) => timedate,
+        Err(error) => return fail_with(err, &error.text()),
+    };
+    match geo::detect(&RegionBus::System, &timedate).await {
+        Ok(Detected::Same(_)) => Exit::Ok,
+        Ok(Detected::Set(zone)) => {
+            let _ = writeln!(
+                err,
+                "{}",
+                trf(
+                    // TRANSLATORS: `sway-things hook timezone` set the time zone where the
+                    // computer is.
+                    msg!("The time zone is now {zone}."),
+                    &[("zone", &zone)],
+                )
+            );
+            Exit::Ok
+        }
+        Err(error) => {
+            let exit = fail_with(err, &error.text());
+            if let Some(command) = error.command() {
+                let _ = writeln!(err, "{command}");
+            }
+            exit
+        }
     }
 }
 

@@ -24,7 +24,7 @@ pub(crate) fn check_region_pages() -> Vec<(String, Outcome)> {
 pub(crate) fn check_region_time() -> Outcome {
     let stand_in = async_io::block_on(RegionStandIn::start())
         .map_err(|error| format!("  timedated's stand-in: {error}"))?;
-    let page = RegionTimePage::new(&stand_in.bus());
+    let page = RegionTimePage::new(&stand_in.bus(), None);
     let window = gtk::Window::new();
     window.set_default_size(720, 700);
     window.set_child(Some(&page));
@@ -79,7 +79,7 @@ pub(crate) fn check_region_time() -> Outcome {
 
 /// Without timedated, a placeholder takes the section's place.
 pub(crate) fn check_region_without_timedated() -> Outcome {
-    let page = RegionTimePage::new(&RegionBus::Off);
+    let page = RegionTimePage::new(&RegionBus::Off, None);
     let window = gtk::Window::new();
     window.set_child(Some(&page));
     window.present();
