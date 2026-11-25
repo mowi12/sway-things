@@ -26,7 +26,7 @@ mod view;
 use self::geometry::{details, keep_together, park, parked_size};
 use self::labels::set_tile_labels;
 pub(crate) use self::labels::short_label;
-use self::view::View;
+pub(crate) use self::view::{View, measure};
 use std::time::{Duration, Instant};
 
 use gtk::glib;

@@ -35,7 +35,7 @@ use sway_things_core::outputs::{ENABLED, MODE, Output, Outputs, POSITION, Rect};
 use sway_things_core::registry::{Setting, Value};
 
 pub use canvas::Canvas;
-pub(crate) use canvas::short_label;
+pub(crate) use canvas::{View, measure, short_label};
 pub use mirroring::Mirroring;
 
 use super::SettingRow;

@@ -19,8 +19,11 @@ use sway_things_core::wallpaper::{self, Collection, Moment};
 use super::collections::describe;
 use super::colors::{color_of, rgba, solid};
 use super::images::{own_size_into, set_frame_color, thumbnail_into, when_readable};
-use super::{FITS, Kind, Look, NAME_HEIGHT, PREVIEW, Placed, Timers, Ui, float, px};
+use super::{FITS, Kind, Look, Timers, Ui};
 use crate::i18n::{msg, tr, trf};
+
+/// The size of a screen whose size isn't known, in pixels.
+const SCREEN: (i32, i32) = (1920, 1080);
 
 impl Ui {
     /// The card with the preview, what the edited display shows, the fit and the color.
@@ -45,10 +48,7 @@ impl Ui {
         header.append(&self.same);
         card.append(&header);
 
-        let stage = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        stage.add_css_class("st-wallpaper-stage");
-        stage.append(&self.preview);
-        card.append(&stage);
+        card.append(&self.preview);
 
         let info = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -122,46 +122,55 @@ impl Ui {
 
     /// The tiles of the displays, placed like the output layout.
     pub(super) fn refresh_preview(self: &Rc<Self>, outputs: &[Output], separate: bool) {
-        while let Some(child) = self.preview.first_child() {
-            self.preview.remove(&child);
-        }
-        let placed = place(outputs);
         let selected = self.selected.borrow().clone();
-        for (output, (x, y, width, height)) in placed {
-            let name = output.map(|output| output.identifier().to_owned());
-            let shows = if separate { name.as_deref() } else { None };
-            let tile = self.tile(output, shows, width, height);
-            let editing = separate && name.is_some() && name == selected;
-            if editing {
-                tile.add_css_class("st-editing");
-            }
-            if separate {
-                if let Some(name) = name {
-                    let weak = Rc::downgrade(self);
-                    tile.connect_clicked(move |_| {
-                        if let Some(ui) = weak.upgrade() {
-                            ui.selected.replace(Some(name.clone()));
-                            ui.refresh();
-                        }
-                    });
+        let tiles = arrange(outputs)
+            .into_iter()
+            .map(|(output, rect)| {
+                let name = output.map(|output| output.identifier().to_owned());
+                let shows = if separate { name.as_deref() } else { None };
+                let number = name.as_deref().and_then(|name| self.number(name));
+                let tile = self.tile(output, shows, number);
+                let editing = separate && name.is_some() && name == selected;
+                if editing {
+                    tile.add_css_class("st-editing");
                 }
-            } else {
-                tile.set_can_target(false);
-            }
-            self.preview.put(&tile, x, y);
-        }
+                if separate {
+                    if let Some(name) = name {
+                        let weak = Rc::downgrade(self);
+                        tile.connect_clicked(move |_| {
+                            if let Some(ui) = weak.upgrade() {
+                                ui.selected.replace(Some(name.clone()));
+                                ui.refresh();
+                            }
+                        });
+                    }
+                } else {
+                    tile.set_can_target(false);
+                }
+                (tile, rect)
+            })
+            .collect();
+        self.preview.set_tiles(tiles);
     }
 
-    /// The tile of `output` (`None`: every output) with the wallpaper of `shows`.
+    /// The number of the output `identifier`, as the Displays page shows it: its place among
+    /// the outputs, counting from 1.
+    fn number(&self, identifier: &str) -> Option<usize> {
+        self.model
+            .outputs()?
+            .iter()
+            .position(|output| output.identifier() == identifier)
+            .map(|index| index + 1)
+    }
+
+    /// The tile of `output` (`None`: every output) with the wallpaper of `shows` and `number`.
     pub(super) fn tile(
         &self,
         output: Option<&Output>,
         shows: Option<&str>,
-        width: i32,
-        height: i32,
+        number: Option<usize>,
     ) -> gtk::Button {
         let picture = gtk::Picture::new();
-        picture.set_size_request(width, height);
         picture.set_can_shrink(true);
         picture.add_css_class("st-wallpaper-screen");
         let color = self.color_value(shows);
@@ -182,7 +191,7 @@ impl Ui {
             .and_then(|(width, height)| {
                 Some((i32::try_from(width).ok()?, i32::try_from(height).ok()?))
             })
-            .unwrap_or((1920, 1080));
+            .unwrap_or(SCREEN);
         let path = self.picture_of(shows);
         let screen = gtk::Overlay::new();
         screen.set_child(Some(&picture));
@@ -223,20 +232,29 @@ impl Ui {
             Some(output) => output.name().to_owned(),
             None => tr(msg!("All displays")).to_owned(),
         };
-        let caption = gtk::Label::new(Some(&name));
-        caption.add_css_class("st-wallpaper-caption");
-        caption.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        caption.set_max_width_chars(1);
-        caption.set_hexpand(false);
-        let content = gtk::Box::new(gtk::Orientation::Vertical, 4);
-        content.append(&screen);
-        content.append(&caption);
+        // The number of the display, as on the Displays page, small in the corner.
+        if let Some(number) = number {
+            let label = gtk::Label::new(Some(&number.to_string()));
+            label.add_css_class("st-wallpaper-number");
+            label.set_halign(gtk::Align::End);
+            label.set_valign(gtk::Align::Start);
+            label.set_can_target(false);
+            screen.add_overlay(&label);
+        }
         let tile = gtk::Button::new();
-        tile.set_child(Some(&content));
+        tile.set_child(Some(&screen));
+        tile.set_overflow(gtk::Overflow::Hidden);
         tile.add_css_class("flat");
         tile.add_css_class("st-wallpaper-tile");
         tile.set_tooltip_text(Some(&name));
-        tile.update_property(&[gtk::accessible::Property::Label(&name)]);
+        let description = match number {
+            Some(number) => trf(
+                msg!("Display {number}, {name}"),
+                &[("number", &number), ("name", &name)],
+            ),
+            None => name,
+        };
+        tile.update_property(&[gtk::accessible::Property::Label(&description)]);
         tile
     }
 
@@ -454,72 +472,45 @@ impl Ui {
     }
 }
 
-/// Where the tiles of `outputs` go in the preview: their layout, scaled down, with room for the
-/// names below. Outputs without a place sit side by side; without outputs, one tile stands for
-/// all of them.
-pub(super) fn place(outputs: &[Output]) -> Placed<'_> {
-    let rects: Vec<(&Output, Rect)> = outputs
+/// Where the tiles of `outputs` go in the preview: at their places in the output layout. Without
+/// a session, when no output has a place, they stand side by side at the size of their screens;
+/// without outputs, one tile stands for all of them.
+pub(super) fn arrange(outputs: &[Output]) -> Vec<(Option<&Output>, Rect)> {
+    let placed: Vec<(Option<&Output>, Rect)> = outputs
         .iter()
-        .filter_map(|output| Some((output, output.rect()?)))
+        .filter_map(|output| Some((Some(output), output.rect()?)))
         .collect();
-    if rects.is_empty() {
-        let count = outputs.len().max(1);
-        let width = (PREVIEW.0 / float(count) - 16.0).min(220.0);
-        let height = width * 10.0 / 16.0;
-        if outputs.is_empty() {
-            return vec![(None, (0.0, 0.0, px(width), px(height)))];
-        }
-        return outputs
-            .iter()
-            .enumerate()
-            .map(|(index, output)| {
-                (
-                    Some(output),
-                    ((width + 16.0) * float(index), 0.0, px(width), px(height)),
-                )
-            })
-            .collect();
+    if !placed.is_empty() {
+        return placed;
     }
-    let left = rects.iter().map(|(_, rect)| rect.x).min().unwrap_or(0);
-    let top = rects.iter().map(|(_, rect)| rect.y).min().unwrap_or(0);
-    let right = rects
+    if outputs.is_empty() {
+        return vec![(None, screen_at(0, SCREEN))];
+    }
+    let mut x = 0;
+    outputs
         .iter()
-        .map(|(_, rect)| rect.x + rect.width)
-        .max()
-        .unwrap_or(1);
-    let bottom = rects
-        .iter()
-        .map(|(_, rect)| rect.y + rect.height)
-        .max()
-        .unwrap_or(1);
-    let scale = (PREVIEW.0 / f64::from((right - left).max(1)))
-        .min(PREVIEW.1 / f64::from((bottom - top).max(1)));
-    // A gap between outputs that touch, so the tiles stand apart.
-    let gap = 12.0;
-    let columns: Vec<i32> = {
-        let mut columns: Vec<i32> = rects.iter().map(|(_, rect)| rect.x).collect();
-        columns.sort_unstable();
-        columns.dedup();
-        columns
-    };
-    let rows: Vec<i32> = {
-        let mut rows: Vec<i32> = rects.iter().map(|(_, rect)| rect.y).collect();
-        rows.sort_unstable();
-        rows.dedup();
-        rows
-    };
-    rects
-        .into_iter()
-        .map(|(output, rect)| {
-            let column = float(columns.iter().position(|x| *x == rect.x).unwrap_or(0));
-            let row = float(rows.iter().position(|y| *y == rect.y).unwrap_or(0));
-            let x = f64::from(rect.x - left) * scale + column * gap;
-            let y = f64::from(rect.y - top) * scale + row * (gap + f64::from(NAME_HEIGHT));
-            let width = px(f64::from(rect.width) * scale);
-            let height = px(f64::from(rect.height) * scale);
-            (Some(output), (x, y, width.max(24), height.max(16)))
+        .map(|output| {
+            let size = output
+                .pixels()
+                .and_then(|(width, height)| {
+                    Some((i32::try_from(width).ok()?, i32::try_from(height).ok()?))
+                })
+                .unwrap_or(SCREEN);
+            let rect = screen_at(x, size);
+            x = x.saturating_add(size.0);
+            (Some(output), rect)
         })
         .collect()
+}
+
+/// A screen of `width` × `height` at `x` on the top edge.
+fn screen_at(x: i32, (width, height): (i32, i32)) -> Rect {
+    Rect {
+        x,
+        y: 0,
+        width,
+        height,
+    }
 }
 
 /// The outputs with a wallpaper value of their own: each key and output.

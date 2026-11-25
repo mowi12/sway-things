@@ -13,6 +13,17 @@ pub(crate) fn check_wallpaper() -> Vec<(String, Outcome)> {
             check_wallpaper_picker(),
         ),
         (
+            "wallpaper: the displays side by side, as on the Displays page".to_owned(),
+            check_wallpaper_arrangement(DESK_OUTPUTS, &[(LEFT, "DP-4"), (RIGHT, "DP-5")]),
+        ),
+        (
+            "wallpaper: displays above, turned and scaled, as on the Displays page".to_owned(),
+            check_wallpaper_arrangement(
+                STACKED_OUTPUTS,
+                &[(LEFT, "DP-4"), (RIGHT, "DP-5"), (PANEL, "eDP-1")],
+            ),
+        ),
+        (
             "wallpaper: the config's PNG comes back by its tile, Use Default and Reset page"
                 .to_owned(),
             check_wallpaper_default("png"),
@@ -38,6 +49,130 @@ pub(crate) const LAPTOP_SCREEN: &str = r#"[{"name": "eDP-1", "make": "BOE", "mod
   "modes": [{"width": 1920, "height": 1080, "refresh": 60000}],
   "current_mode": {"width": 1920, "height": 1080, "refresh": 60000},
   "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080}}]"#;
+
+/// A monitor, one turned on its side right of it at 150 %, and a laptop panel at 200 % below,
+/// toward the middle.
+const STACKED_OUTPUTS: &str = r#"[
+  {"name": "DP-4", "active": true, "primary": false, "make": "Samsung", "model": "LF27T850",
+   "serial": "A1", "scale": 1.0, "transform": "normal", "focused": true,
+   "modes": [{"width": 2560, "height": 1440, "refresh": 59951}],
+   "current_mode": {"width": 2560, "height": 1440, "refresh": 59951},
+   "rect": {"x": 0, "y": 0, "width": 2560, "height": 1440}},
+  {"name": "DP-5", "active": true, "primary": false, "make": "Samsung", "model": "LF27T850",
+   "serial": "B2", "scale": 1.5, "transform": "90",
+   "modes": [{"width": 2560, "height": 1440, "refresh": 59951}],
+   "current_mode": {"width": 2560, "height": 1440, "refresh": 59951},
+   "rect": {"x": 2560, "y": 0, "width": 960, "height": 1707}},
+  {"name": "eDP-1", "active": true, "primary": false, "make": "BOE", "model": "0x0BCA",
+   "serial": "C3", "scale": 2.0, "transform": "normal",
+   "modes": [{"width": 2880, "height": 1800, "refresh": 60000}],
+   "current_mode": {"width": 2880, "height": 1800, "refresh": 60000},
+   "rect": {"x": 560, "y": 1440, "width": 1440, "height": 900}}
+]"#;
+
+/// Where the tiles of `tiles` are, each by its name, relative to the first one and in its size:
+/// x, y, width and height. Tiles are a pixel in from their output's edges on both pages.
+fn relative_places(tiles: &[(String, gtk::Widget)]) -> Vec<(String, [f64; 4])> {
+    let bounds: Vec<(String, [f64; 4])> = tiles
+        .iter()
+        .filter_map(|(name, tile)| {
+            let parent = tile.parent()?;
+            let bounds = tile.compute_bounds(&parent)?;
+            Some((
+                name.clone(),
+                [
+                    f64::from(bounds.x()) - 1.0,
+                    f64::from(bounds.y()) - 1.0,
+                    f64::from(bounds.width()) + 2.0,
+                    f64::from(bounds.height()) + 2.0,
+                ],
+            ))
+        })
+        .collect();
+    let Some((_, [x, y, width, height])) = bounds.first().cloned() else {
+        return Vec::new();
+    };
+    bounds
+        .into_iter()
+        .map(|(name, [tx, ty, tw, th])| {
+            (
+                name,
+                [(tx - x) / width, (ty - y) / height, tw / width, th / height],
+            )
+        })
+        .collect()
+}
+
+/// The tiles of the Wallpaper page of `window` place the outputs of `outputs` as the Displays
+/// page does: the same places and sizes, relative to each other, of each output in `shown`
+/// (its identifier and its connector). Outputs that are off don't show on the Wallpaper page.
+fn check_wallpaper_arrangement(outputs: &str, shown: &[(&str, &str)]) -> Outcome {
+    let sway = with_outputs(&[outputs]);
+    let fixture = displays_fixture(&sway, "version = 1\n")?;
+    let window = open(&fixture, Page::Displays)?;
+    let (arrangement, _) = displays(&window)?;
+    let on_displays: Vec<(String, gtk::Widget)> = arrangement
+        .canvas()
+        .tiles()
+        .into_iter()
+        .filter_map(|(id, tile)| {
+            let (_, name) = shown.iter().find(|(known, _)| *known == id)?;
+            Some(((*name).to_owned(), tile.upcast()))
+        })
+        .collect();
+    let displays_places = relative_places(&on_displays);
+
+    window.show_page(Page::Wallpaper);
+    settle(&window)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    let on_wallpaper = || -> Vec<(String, gtk::Widget)> {
+        let tiles: Vec<(String, gtk::Widget)> = all::<gtk::Button>(&content)
+            .into_iter()
+            .filter(|button| button.has_css_class("st-wallpaper-tile"))
+            .filter_map(|tile| {
+                let tooltip = tile.tooltip_text()?;
+                let name = tooltip.rsplit(" \u{b7} ").next()?.to_owned();
+                Some((name, tile.upcast()))
+            })
+            .collect();
+        // In the order of the Displays page.
+        shown
+            .iter()
+            .filter_map(|(_, name)| tiles.iter().find(|(known, _)| known == name).cloned())
+            .chain(
+                tiles
+                    .iter()
+                    .filter(|(known, _)| !shown.iter().any(|(_, name)| name == known))
+                    .cloned(),
+            )
+            .collect()
+    };
+    // Every tile there and placed.
+    let ready = run_until(Duration::from_secs(5), || {
+        let tiles = on_wallpaper();
+        tiles.len() == shown.len() && tiles.iter().all(|(_, tile)| tile.width() > 1)
+    });
+    let names: Vec<String> = on_wallpaper().into_iter().map(|(name, _)| name).collect();
+    ensure(ready, &format!("  the Wallpaper page shows {names:?}"))?;
+    let wallpaper_places = relative_places(&on_wallpaper());
+    let alike = displays_places.len() == shown.len()
+        && displays_places
+            .iter()
+            .zip(&wallpaper_places)
+            .all(|((a, on_a), (b, on_b))| {
+                a == b && on_a.iter().zip(on_b).all(|(x, y)| (x - y).abs() < 0.03)
+            });
+    ensure(
+        alike,
+        &format!(
+            "  the Displays page places {displays_places:?}, the Wallpaper page {wallpaper_places:?}"
+        ),
+    )?;
+    window.destroy();
+    Ok(())
+}
 
 /// A wallpaper folder with two pictures, a file that isn't one, and a subfolder with a picture.
 fn wallpaper_folder() -> Result<tempfile::TempDir, String> {
