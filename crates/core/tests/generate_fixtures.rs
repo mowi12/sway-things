@@ -3,7 +3,8 @@
 
 //! Golden files for the generators: the sample settings in `ci/integration/settings/` in, the
 //! exact files in `ci/integration/generated/` out, once for the oldest supported sway and once
-//! for the oldest supported SwayFX, and Sway Things' environment.d file.
+//! for the oldest supported SwayFX, and Sway Things' environment.d file and portal
+//! configuration.
 //! `scripts/check-integration.sh` feeds the sway files to a real sway: every file must pass
 //! `sway --validate` on its own, and the sample configs include them.
 //!
@@ -52,6 +53,13 @@ fn fixtures_are_up_to_date() -> Result<()> {
         fixtures.push((
             format!("generated/environment/{}", environment::FILE_NAME),
             text,
+        ));
+    }
+    // The same for the portal configuration, while it is on.
+    if environment::portals::enabled(&state) {
+        fixtures.push((
+            format!("generated/environment/{}", environment::portals::FILE_NAME),
+            environment::portals::text(),
         ));
     }
     for (directory, compositor) in compositors {

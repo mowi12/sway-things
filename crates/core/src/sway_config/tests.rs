@@ -807,7 +807,7 @@ fn the_sample_and_generated_configs_parse() {
             .find(|directive| directive.is(block, name))
             .map(|directive| directive.args.join(" "))
     };
-    assert_eq!(generated.len(), 101);
+    assert_eq!(generated.len(), 103);
     // The quotes for `wordexp` stay; sway removes them when it expands the path.
     let bg = find(&["output", "HEADLESS-1"], "bg");
     assert_eq!(bg.as_deref(), Some("'/etc/passwd' fit #285577"));
@@ -961,6 +961,10 @@ fn the_generated_autostart_lines_parse_back() {
     assert_eq!(
         execs,
         [
+            "systemctl --user import-environment WAYLAND_DISPLAY DISPLAY SWAYSOCK I3SOCK \
+             XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XCURSOR_THEME XCURSOR_SIZE",
+            "dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY SWAYSOCK \
+             I3SOCK XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XCURSOR_THEME XCURSOR_SIZE",
             "\"sway-things hook autostart\"",
             "\"nm-applet --indicator\"",
             r#""swaybg -c '#333333' & echo "'"$HOME; a, b"'"#,

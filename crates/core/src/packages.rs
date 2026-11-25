@@ -23,6 +23,9 @@ pub enum Manager {
 }
 
 impl Manager {
+    /// Every package manager.
+    pub const ALL: [Self; 4] = [Self::Zypper, Self::Dnf, Self::Apt, Self::Pacman];
+
     /// The manager of this system, from its os-release file; `None` for another distribution.
     pub fn detect() -> Option<Self> {
         let text = OS_RELEASE

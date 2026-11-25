@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 10:27+0100\n"
+"POT-Creation-Date: 2026-11-25 10:28+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5037,6 +5037,10 @@ msgid "Wayland for older apps"
 msgstr ""
 
 #: crates/core/src/registry/environment.rs
+msgid "Screen sharing & portals"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
 msgid "Qt 5 apps"
 msgstr ""
 
@@ -5172,6 +5176,54 @@ msgstr ""
 
 #: crates/core/src/registry/environment.rs
 msgid "variable"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Portal configuration of Sway Things"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"~/.config/xdg-desktop-portal/sway-portals.conf: wlr for screen sharing and "
+"screenshots, gtk for the rest; only where you have no configuration there"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "xdg-desktop-portal"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "portals.conf"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "screen sharing"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "file picker"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Pass session variables to systemd and D-Bus"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"At login, so the portals and the services they start find the display: "
+"WAYLAND_DISPLAY, XDG_CURRENT_DESKTOP and the others"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "import-environment"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "dbus-update-activation-environment"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "portal"
 msgstr ""
 
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
