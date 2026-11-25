@@ -508,6 +508,10 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
     let system = system_details(found.compositor()).await;
     let apps_check = sway_things_core::doctor::apps::AppsCheck::for_user().await;
     let scanners = sway_things_core::scanners::Look::read();
+    look.spinner
+        .say(tr(msg!("Asking the XDG desktop portals…")));
+    let environment_check =
+        sway_things_core::doctor::environment::EnvironmentCheck::for_user().await;
     let outputs = match Client::connect().await {
         Ok(mut client) => client
             .outputs()
@@ -531,6 +535,7 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
         gsettings: &Gio,
         apps: apps_check.as_ref(),
         scanners: Some(&scanners),
+        environment: environment_check.as_ref(),
     };
     doctor_with(&checkup, Some(&system), args, &mut stdout.lock(), &look).await
 }
@@ -819,6 +824,7 @@ async fn doctor_in<V: Validate>(
         gsettings: desktop.as_ref(),
         apps: None,
         scanners: None,
+        environment: None,
     };
     doctor(&checkup, None, args, out).await
 }

@@ -1085,6 +1085,7 @@ fn doctor_without_sway_skips_validation() {
         gsettings: &NoGSettings,
         apps: None,
         scanners: None,
+        environment: None,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor(&checkup, None, &DoctorArgs::default(), &mut out));
@@ -1144,6 +1145,7 @@ fn doctor_looking(setup: &Setup, args: &DoctorArgs, look: &Look) -> (Exit, Strin
         gsettings: &NoGSettings,
         apps: None,
         scanners: None,
+        environment: None,
     };
     let mut out = Vec::new();
     let exit = block_on(doctor_with(&checkup, None, args, &mut out, look));
@@ -1273,6 +1275,7 @@ fn doctor_starts_with_the_system_details() {
         gsettings: &NoGSettings,
         apps: None,
         scanners: None,
+        environment: None,
     };
     let system = Details {
         compositor: Some(setup.session.applier.compositor()),

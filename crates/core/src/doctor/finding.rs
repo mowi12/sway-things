@@ -49,11 +49,13 @@ pub enum Section {
     Apps,
     /// What scanners need: SANE's scanimage, sane-airscan, ipp-usb, access to USB scanners.
     Scanners,
+    /// Sway Things' environment.d file and the XDG desktop portals.
+    Environment,
 }
 
 impl Section {
     /// Every section, in order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Compositor,
         Self::Config,
         Self::Settings,
@@ -61,10 +63,11 @@ impl Section {
         Self::Conflicts,
         Self::Apps,
         Self::Scanners,
+        Self::Environment,
     ];
 
     /// The id for scripts: `compositor`, `config`, `settings`, `generated`, `conflicts`,
-    /// `apps`, `scanners`.
+    /// `apps`, `scanners`, `environment`.
     pub fn id(self) -> &'static str {
         match self {
             Self::Compositor => "compositor",
@@ -74,6 +77,7 @@ impl Section {
             Self::Conflicts => "conflicts",
             Self::Apps => "apps",
             Self::Scanners => "scanners",
+            Self::Environment => "environment",
         }
     }
 
@@ -87,6 +91,7 @@ impl Section {
             Self::Conflicts => msg!("Conflicts"),
             Self::Apps => msg!("Apps & Autostart"),
             Self::Scanners => msg!("Scanners"),
+            Self::Environment => msg!("Environment"),
         }
     }
 }
@@ -217,6 +222,19 @@ pub enum Code {
     IppUsbNotRunning,
     /// The user can't use a USB scanner.
     ScannerAccess,
+    /// A file of the Environment page can't be written: someone else's, or changed outside.
+    EnvironmentFile,
+    /// xdg-desktop-portal, -wlr or -gtk isn't installed.
+    PortalMissing,
+    /// The portal configuration doesn't pick wlr for screen sharing, or nothing for the file
+    /// pickers.
+    PortalConfig,
+    /// The systemd user manager lacks `WAYLAND_DISPLAY` or `XDG_CURRENT_DESKTOP`.
+    SessionVariables,
+    /// No portal answers on the session bus.
+    PortalNotRunning,
+    /// The portals are installed and set up.
+    PortalsReady,
 }
 
 impl Code {
@@ -281,6 +299,12 @@ impl Code {
             Self::AirscanMissing => "airscan_missing",
             Self::IppUsbNotRunning => "ipp_usb_not_running",
             Self::ScannerAccess => "scanner_access",
+            Self::EnvironmentFile => "environment_file",
+            Self::PortalMissing => "portal_missing",
+            Self::PortalConfig => "portal_config",
+            Self::SessionVariables => "session_variables",
+            Self::PortalNotRunning => "portal_not_running",
+            Self::PortalsReady => "portals_ready",
         }
     }
 
@@ -343,6 +367,12 @@ impl Code {
             | Self::AirscanMissing
             | Self::IppUsbNotRunning
             | Self::ScannerAccess => Section::Scanners,
+            Self::EnvironmentFile
+            | Self::PortalMissing
+            | Self::PortalConfig
+            | Self::SessionVariables
+            | Self::PortalNotRunning
+            | Self::PortalsReady => Section::Environment,
         }
     }
 }
