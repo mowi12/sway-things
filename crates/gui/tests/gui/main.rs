@@ -15,7 +15,8 @@
 //! - `generated`, `about`, `welcome`: the Generated config window, About & Maintenance, the welcome
 //!   screen and the read-only banner.
 //! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`,
-//!   `network`, `printers`, `region`: the pages with parts of their own, the live ones against their stand-ins.
+//!   `network`, `printers`, `region`, `environment`: the pages with parts of their own, the live
+//!   ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
@@ -38,6 +39,7 @@ mod contrast_check;
 mod devices;
 mod displays;
 mod editor;
+mod environment;
 mod generated;
 mod indicators;
 mod keyboard;
@@ -107,6 +109,7 @@ use self::contrast_check::*;
 use self::devices::*;
 use self::displays::*;
 use self::editor::*;
+use self::environment::*;
 use self::generated::*;
 use self::indicators::*;
 use self::keyboard::*;
@@ -230,6 +233,7 @@ fn main() -> ExitCode {
     results.extend(check_places());
     results.extend(check_swayosd());
     results.extend(check_apps());
+    results.extend(check_environment());
     results.extend(check_notifications());
     results.extend(check_welcomes(&settings));
     report(&results)

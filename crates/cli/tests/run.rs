@@ -622,6 +622,29 @@ fn a_reset_removes_the_value() {
 }
 
 #[test]
+fn an_environment_variable_is_checked_like_in_the_app() {
+    let mut setup = Setup::new(EMPTY, INCLUDE, None);
+    let ran = setup.run(&["set", "environment.variables", "HOME=/tmp"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    assert!(ran.err.contains("the session sets it itself"), "{ran:?}");
+    let ran = setup.run(&["set", "environment.variables", "PATH=/opt/bin"]);
+    assert_eq!(ran.exit, Exit::Usage, "{ran:?}");
+    let ran = setup.run(&[
+        "set",
+        "environment.variables",
+        "EDITOR=vim, PATH=$HOME/.local/bin:$PATH",
+    ]);
+    assert_eq!(ran.exit, Exit::Ok, "{ran:?}");
+    assert!(
+        setup
+            .settings()
+            .contains("variables = [\"EDITOR=vim\", \"PATH=$HOME/.local/bin:$PATH\"]"),
+        "{}",
+        setup.settings()
+    );
+}
+
+#[test]
 fn a_reset_sends_the_value_of_the_users_config() {
     let sway = obedient(SWAY_1_10);
     let mut setup = Setup::new(

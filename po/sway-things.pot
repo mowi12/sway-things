@@ -2379,6 +2379,30 @@ msgid ""
 "Take the line out, so sway uses swaybg, or name a program that is installed."
 msgstr ""
 
+#: crates/core/src/environment/syntax.rs
+msgid "a value can't have line breaks or control characters"
+msgstr ""
+
+#: crates/core/src/environment/syntax.rs
+msgid "a quote isn't closed"
+msgstr ""
+
+#: crates/core/src/environment/syntax.rs
+msgid "a value can't end in a backslash"
+msgstr ""
+
+#: crates/core/src/environment/syntax.rs
+msgid "the value is empty, which environment.d ignores"
+msgstr ""
+
+#: crates/core/src/environment/syntax.rs
+msgid "a ${ isn't closed with }"
+msgstr ""
+
+#: crates/core/src/environment/syntax.rs
+msgid "write ${NAME}, ${NAME:-default} or ${NAME:+alternate}; $$ for a $"
+msgstr ""
+
 #: crates/core/src/generate/other.rs
 #, rust-format
 msgid ""
@@ -4968,6 +4992,47 @@ msgid "not whole milliseconds: {value}"
 msgstr ""
 
 #: crates/core/src/registry/environment.rs
+msgid "must be NAME=value"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "a name has letters, digits and _, and doesn't start with a digit"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "a switch on this page sets it: use the switch"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+#, rust-format
+msgid "set it on {page}: that page owns it"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "the session sets it itself: changing it would break the login"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "PATH must keep $PATH or /usr/bin, or no program would be found at login"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"Every program is looked up in PATH: a wrong folder can keep apps from "
+"starting"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"Every program loads these libraries: a wrong one can break the next login"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"Every app looks for its settings and files there: a wrong folder hides them"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
 msgid "Wayland for older apps"
 msgstr ""
 
@@ -5077,6 +5142,36 @@ msgstr ""
 
 #: crates/core/src/registry/environment.rs
 msgid "ozone"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Environment variables"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"Variables for the whole session as NAME=value, in environment.d's syntax: "
+"$NAME and ${NAME:-default} expand, $$ is a $"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "environment.d"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "PATH"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "EDITOR"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "export"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "variable"
 msgstr ""
 
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
@@ -8640,6 +8735,7 @@ msgid "Start Now"
 msgstr ""
 
 #: crates/gui/src/widgets/apps/dialogs.rs
+#: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/printers/dialogs.rs
 #: crates/gui/src/widgets/shortcuts/editor.rs
 msgid "Remove"
@@ -8692,7 +8788,9 @@ msgstr ""
 msgid "Search apps"
 msgstr ""
 
-#: crates/gui/src/widgets/apps/mod.rs crates/gui/src/widgets/shortcuts/parts.rs
+#: crates/gui/src/widgets/apps/mod.rs
+#: crates/gui/src/widgets/environment/variables.rs
+#: crates/gui/src/widgets/shortcuts/parts.rs
 msgid "Open in Editor"
 msgstr ""
 
@@ -8831,6 +8929,7 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
+#: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/generated.rs crates/gui/src/widgets/live.rs
 #: crates/gui/src/widgets/network/dialogs.rs
 #: crates/gui/src/widgets/page_view.rs
@@ -8952,6 +9051,7 @@ msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/bluetooth/rows.rs
+#: crates/gui/src/widgets/environment/variables.rs
 #: crates/gui/src/widgets/network/rows.rs
 msgid "More actions"
 msgstr ""
@@ -9103,6 +9203,7 @@ msgid "Rename “{device}”"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs
+#: crates/gui/src/widgets/environment/variables.rs
 msgid "Name"
 msgstr ""
 
@@ -9521,7 +9622,7 @@ msgid "Display {number}, {label}, {details}, at {x}, {y}"
 msgstr ""
 
 #: crates/gui/src/widgets/displays/kanshi_note.rs
-#: crates/gui/src/widgets/environment.rs
+#: crates/gui/src/widgets/environment/mod.rs
 msgid "Copy Line"
 msgstr ""
 
@@ -9716,13 +9817,100 @@ msgstr ""
 msgid "{number}  {label} · {name} (off)"
 msgstr ""
 
-#: crates/gui/src/widgets/environment.rs
+#: crates/gui/src/widgets/environment/mod.rs
 #, rust-format
 msgid ""
 "Your session doesn't read environment.d: sway started without {names} from "
 "Sway Things. Run this line before sway starts, in ~/.profile or in the "
 "script that starts sway; uwsm, openSUSEway and Fedora's start-sway do it "
 "already."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/mod.rs
+#, rust-format
+msgid "{name} is set again in {place}, which wins over this setting"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/mod.rs
+msgid "Overridden by Sway Things"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/mod.rs
+#, rust-format
+msgid "Overridden by {place}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Add Variable…"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "New Variable"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Edit Variable"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "You already set this variable: edit that line"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+#, rust-format
+msgid "Expands to: {value}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid ""
+"Variables for every app of the session, in Sway Things' environment.d file. "
+"They apply after re-login."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Your variables"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Set elsewhere"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "No variables of your own yet"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+#: crates/gui/src/widgets/network/rows.rs
+msgid "Edit…"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+#, rust-format
+msgid "Actions for {name}"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Overrides yours"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "A file of the system: Sway Things doesn't change it"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid "Value"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+msgid ""
+"$NAME and ${NAME} expand, ${NAME:-default} where it is unset, ${NAME:"
+"+alternate} where it is set; $$ is a $. Quotes keep spaces."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/variables.rs
+#: crates/gui/src/widgets/printers/scan.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/generated.rs
@@ -10183,10 +10371,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/network/rows.rs
 msgid "Details…"
-msgstr ""
-
-#: crates/gui/src/widgets/network/rows.rs
-msgid "Edit…"
 msgstr ""
 
 #: crates/gui/src/widgets/network/rows.rs
@@ -11096,11 +11280,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/printers/scan.rs
 msgid "Save the Scan"
-msgstr ""
-
-#: crates/gui/src/widgets/printers/scan.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Save"
 msgstr ""
 
 #: crates/gui/src/widgets/printers/scan.rs

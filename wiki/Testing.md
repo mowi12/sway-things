@@ -259,6 +259,10 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   takes the place of the config's binding and is bound. The page with entries from every source (with the entries that
   don't start unfolded) and its dialogs are checked for contrast in light and dark; with the XDG directories of a
   desktop (`XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_CONFIG_DIRS`) they show its apps and entries.
+- Environment (`environment.rs`): the four switches have rows and the variables have none, but a list, which shows a
+  stored variable; switching SDL 2 on puts its variable before the user's in the file. _Add Variable…_ opens a dialog
+  whose _Save_ stays insensitive for `HOME` (with the reason) and for a `PATH` without `/usr/bin`, and stores a `PATH`
+  that keeps `$PATH`, which the list then shows.
 - Devices: the selectors list the devices of their type (one with stored values only as "not connected"), picking a
   mouse points the rows at it and a change is stored for it in the host overlay, a type without devices and without
   stored values shows its hint (checked for contrast in light and dark), a value stored for the type brings the rows

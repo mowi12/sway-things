@@ -35,8 +35,8 @@ pub(super) struct Before {
 /// The parts of `page` above its rows: the system details and the generated files on About &
 /// Maintenance, the list of bindings on Keyboard Shortcuts, the notes of Apps Look & Feel and
 /// Environment, the arrangement of the displays, Do Not Disturb on Notifications, the brightness
-/// on Brightness & Night Light. `first` says whether the next
-/// section is the first of the page; a part that is a section takes it.
+/// on Brightness & Night Light. `first` says whether the next section is the first of the page; a
+/// part that is a section takes it.
 pub(super) fn before_rows(
     model: &Model,
     page: Page,
@@ -104,12 +104,21 @@ pub(super) fn after_rows(
     }
 }
 
+/// The widget of `setting`'s page in place of its row, above the rows of its section: the
+/// Environment page's list of variables.
+pub(super) fn instead(model: &Model, setting: &'static Setting) -> Option<gtk::Widget> {
+    environment::instead(model, setting)
+}
+
 /// The row of `setting` on its page, for the whole session or input type: a drop-down where the
 /// page offers choices of its own (the keyboard models, an output's modes, the cursor and GTK
 /// themes, the screens, the installed apps), following what they depend on. A setting of Keyboard
 /// Shortcuts or Apps & Autostart may have no row ([`shortcuts::has_row`], [`apps::has_row`]).
 pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow> {
-    if !shortcuts::has_row(model, setting) || !apps::has_row(setting) {
+    if !shortcuts::has_row(model, setting)
+        || !apps::has_row(setting)
+        || !environment::has_row(setting)
+    {
         return None;
     }
     if setting.key() == outputs::MODE {
@@ -135,9 +144,10 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
 /// option browser, what the keys of a media key switch replace on Keyboard Shortcuts, what the
 /// keys of the terminal and the launcher do now on Apps & Autostart, the notes of Screenshots &
 /// Clipboard, the lists of swaync's widgets and buttons on Notifications, the notes of the night
-/// light.
+/// light, which line of another environment.d file replaces a variable of a setting.
 pub(super) fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     let mut widgets = keyboard::below(model, row);
+    widgets.extend(environment::below(model, row));
     widgets.extend(shortcuts::below(model, row));
     widgets.extend(apps::below(model, row));
     widgets.extend(capture::below(model, row));

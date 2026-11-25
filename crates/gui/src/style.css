@@ -716,6 +716,47 @@ expander.st-autostart-more > box > list {
   margin-top: 2px;
 }
 
+/* Environment: the list of variables like the autostart list, a note below a row whose variable
+   another file sets again. */
+.st-environment {
+  margin-bottom: 14px;
+}
+
+.st-environment-bar {
+  margin: 0 2px 2px 4px;
+}
+
+.st-environment-heading {
+  margin: 8px 4px 0 4px;
+}
+
+st-page list.st-environment-list > row {
+  padding: 0;
+}
+
+.st-environment-row {
+  min-height: 36px;
+  padding: 8px 16px 8px 14px;
+}
+
+.st-environment-subtitle {
+  font-size: 0.9em;
+}
+
+.st-environment-warning {
+  color: @warning_color;
+}
+
+.st-environment-note {
+  padding: 0 12px 10px 12px;
+}
+
+/* Why a variable can't be saved: in the text color, bold, as the error color is too faint in
+   some themes */
+.st-environment-error {
+  font-weight: bold;
+}
+
 /* Printers & Scanners: a line per device, its icon on a tile, its name with a badge, its state in
    words below, and a chevron to its details; the details and the pickers as dialogs. */
 st-page list.st-device-list > row,

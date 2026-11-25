@@ -416,7 +416,9 @@ swaybar via our sway include.
 
 ### Environment
 
-- [ ] 🟡 Environment variables editor (our `~/.config/environment.d/50-sway-things.conf`)
+- [x] 🟡 Environment variables editor (our `~/.config/environment.d/50-sway-things.conf`), in environment.d's syntax
+      with a preview of the expanded value, guarded against the session's own variables and a `PATH` that loses the
+      system's programs; the variables of the other environment.d files read only, with which line wins
 - [x] 🟢 Wayland for older apps, each with a fallback to X11: Qt 5 (`QT_QPA_PLATFORM=wayland;xcb`), SDL 2
       (`SDL_VIDEODRIVER=wayland,x11`), Java (`_JAVA_AWT_WM_NONREPARENTING=1`), Electron 28 to 37
       (`ELECTRON_OZONE_PLATFORM_HINT=auto`), in our `environment.d` file, with a notice when the session doesn't read it

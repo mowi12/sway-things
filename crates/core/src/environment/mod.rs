@@ -17,7 +17,9 @@
 //! variable; someone else's file is never touched. [`session`] finds out whether the session
 //! read it.
 
+pub mod files;
 pub mod session;
+pub mod syntax;
 #[cfg(test)]
 mod tests;
 
@@ -26,7 +28,7 @@ use std::path::PathBuf;
 use crate::apps::Dirs;
 use crate::generate::HEADER;
 use crate::generate::other::Wanted;
-use crate::registry::environment::is_variable_name;
+use crate::registry::environment::{VARIABLES, is_variable_name};
 use crate::registry::{Registry, Variable};
 use crate::state::State;
 
@@ -34,17 +36,33 @@ use crate::state::State;
 /// asks for a two-digit prefix, and a file of the user's with a later name wins over it.
 pub const FILE_NAME: &str = "50-sway-things.conf";
 
+/// How many lines the header of the file has: its first variable is on the line after.
+pub const HEADER_LINES: usize = {
+    let bytes = HEADER.as_bytes();
+    let mut count = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\n' {
+            count += 1;
+        }
+        index += 1;
+    }
+    count
+};
+
 /// The path of the file for `dirs`.
 pub fn path(dirs: &Dirs) -> PathBuf {
     dirs.config_home.join("environment.d").join(FILE_NAME)
 }
 
-/// The variables the settings in `state` write, in the order of the registry. A name written by
-/// two settings keeps the later value. A variable with a name environment.d can't take, or with
+/// The variables the settings in `state` write, in the order of the registry, the user's own
+/// ([`VARIABLES`]) last. A name written by two settings keeps the later value. A variable with a name environment.d can't take, or with
 /// a value that holds a line break or another control character, is left out.
 pub fn variables(registry: &Registry, state: &State) -> Vec<Variable> {
     let mut variables: Vec<Variable> = Vec::new();
-    for setting in registry.iter() {
+    let editor = registry.iter().filter(|setting| setting.key() == VARIABLES);
+    let others = registry.iter().filter(|setting| setting.key() != VARIABLES);
+    for setting in others.chain(editor) {
         let Some(mapping) = setting.environment() else {
             continue;
         };

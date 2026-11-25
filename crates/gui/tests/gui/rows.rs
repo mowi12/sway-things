@@ -202,8 +202,8 @@ pub(crate) fn check_rows() -> Outcome {
             .iter()
             .filter(|setting| setting.page() == page)
             .map(sway_things_core::registry::Setting::key)
-            // The list of bindings and the lists of autostart entries are the pages' own lists; a
-            // switch of media keys shows while its program is installed, the switch of its
+            // The list of bindings, the lists of autostart entries and the list of environment
+            // variables are the pages' own lists; a switch of media keys shows while its program is installed, the switch of its
             // on-screen display while SwayOSD is.
             .filter(|key| {
                 use sway_things_core::bindings::ours::{BINDINGS, Group};
@@ -211,6 +211,7 @@ pub(crate) fn check_rows() -> Outcome {
                     BINDINGS,
                     sway_things_core::apps::autostart::ENTRIES,
                     sway_things_core::apps::autostart::HIDDEN,
+                    sway_things_core::registry::environment::VARIABLES,
                 ]
                 .contains(key)
                     && Group::of(key).is_none_or(Group::installed)
