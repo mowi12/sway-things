@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 10:29+0100\n"
+"POT-Creation-Date: 2026-11-25 14:42+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1801,6 +1801,36 @@ msgstr ""
 msgid ""
 "Import it as a starting point: Import My swaync Config on the Notifications "
 "page, or sway-things notifications import-swaync."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid ""
+"The output chooser chosen in Sway Things doesn't take effect: your own "
+"{file} decides."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"Set chooser_type and chooser_cmd in that file, or remove it to let Sway "
+"Things write its own."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid ""
+"The tool of the output chooser isn't installed, so xdg-desktop-portal-wlr "
+"picks one itself."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+#, rust-format
+msgid ""
+"XDG_CURRENT_DESKTOP is {desktop}, so xdg-desktop-portal-wlr doesn't read "
+"Sway Things' file for sway."
+msgstr ""
+
+#: crates/core/src/doctor/environment.rs
+msgid "Set XDG_CURRENT_DESKTOP=sway before sway starts."
 msgstr ""
 
 #: crates/core/src/doctor/environment.rs
@@ -4361,7 +4391,7 @@ msgstr ""
 msgid "grim"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/capture.rs crates/core/src/registry/environment.rs
 msgid "slurp"
 msgstr ""
 
@@ -5087,6 +5117,22 @@ msgid "not whole milliseconds: {value}"
 msgstr ""
 
 #: crates/core/src/registry/environment.rs
+msgid "xdg-desktop-portal-wlr’s own"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Ask by clicking a display (slurp)"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Pick from a menu"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Always share one display"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
 msgid "must be NAME=value"
 msgstr ""
 
@@ -5319,6 +5365,37 @@ msgstr ""
 
 #: crates/core/src/registry/environment.rs
 msgid "portal"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Output chooser"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"How an app that shares the screen asks which display: ~/.config/xdg-desktop-"
+"portal-wlr/sway"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "xdg-desktop-portal-wlr"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "chooser"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "Display to share"
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid ""
+"Shared without asking, while the chooser is \"Always share one display\""
+msgstr ""
+
+#: crates/core/src/registry/environment.rs
+msgid "output_name"
 msgstr ""
 
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/group_row.rs
@@ -7465,6 +7542,11 @@ msgstr ""
 msgid ""
 "a collection name has 1 to 64 characters, no line breaks and no spaces at "
 "either end"
+msgstr ""
+
+#: crates/core/src/registry/value.rs
+msgid ""
+"must be the name of a display like DP-1: letters, digits, '.', '_' and '-'"
 msgstr ""
 
 #: crates/core/src/registry/value.rs
@@ -10127,6 +10209,43 @@ msgstr ""
 
 #: crates/gui/src/widgets/environment/portals.rs
 msgid "Running"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid "slurp isn't installed"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid "No launcher installed: fuzzel, wofi, rofi, bemenu or wmenu"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid "None chosen"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+#, rust-format
+msgid ""
+"{file} is your own and decides how to choose: Sway Things doesn't change it."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid "To ask by clicking a display, install slurp:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid "To pick from a menu, install a launcher such as fuzzel:"
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+#, rust-format
+msgid "Replaces {file} of the system for xdg-desktop-portal-wlr."
+msgstr ""
+
+#: crates/gui/src/widgets/environment/screencast.rs
+msgid ""
+"XDG_CURRENT_DESKTOP doesn't name sway, so xdg-desktop-portal-wlr doesn't "
+"read Sway Things' file."
 msgstr ""
 
 #: crates/gui/src/widgets/environment/variables.rs

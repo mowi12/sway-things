@@ -16,7 +16,7 @@
 
 use super::read::ReadError;
 use super::sway::{ConfigFile, Context, Directive, RenderError};
-use super::{Apply, Msg, Page, Registry, Setting, Value, ValueError};
+use super::{Apply, Choice, Msg, Page, Registry, Setting, Value, ValueError, When};
 use crate::command::SwayCmd;
 use crate::environment::syntax::{self, SyntaxError};
 use crate::i18n::Text;
@@ -38,6 +38,19 @@ pub const VARIABLES: &str = "environment.variables";
 pub const PORTAL_CONFIG: &str = "environment.portal_config";
 /// The key of the switch that hands the session's variables to systemd and D-Bus at login.
 pub const PASS_SESSION_VARIABLES: &str = "environment.pass_session_variables";
+/// The key of how xdg-desktop-portal-wlr asks for the display to share
+/// ([`crate::environment::screencast`]).
+pub const SCREENCAST_CHOOSER: &str = "environment.screencast_chooser";
+/// The key of the display shared while [`SCREENCAST_CHOOSER`] is `output`.
+pub const SCREENCAST_OUTPUT: &str = "environment.screencast_output";
+
+/// The choices of [`SCREENCAST_CHOOSER`].
+const CHOOSERS: &[Choice] = &[
+    Choice::new("default", msg!("xdg-desktop-portal-wlr\u{2019}s own")),
+    Choice::new("slurp", msg!("Ask by clicking a display (slurp)")),
+    Choice::new("menu", msg!("Pick from a menu")),
+    Choice::new("output", msg!("Always share one display")),
+];
 
 /// An environment variable a setting writes into Sway Things' environment.d file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -273,6 +286,15 @@ fn edited(value: &Value) -> Vec<Variable> {
         .collect()
 }
 
+/// An output name xdg-desktop-portal-wlr can take, or empty for none.
+fn check_output(name: &str) -> Result<(), ValueError> {
+    if name.is_empty() || crate::environment::screencast::is_output_name(name) {
+        Ok(())
+    } else {
+        Err(ValueError::NotAnOutputName)
+    }
+}
+
 /// The lines that hand the session's variables to the systemd user manager and D-Bus
 /// activation, while the switch is on: run at once, and at each login from the generated file.
 fn pass_session_variables(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError> {
@@ -458,6 +480,32 @@ pub(super) fn settings() -> Vec<Setting> {
                 msg!("screen sharing"),
                 msg!("portal"),
             ])
+            .build(),
+        Setting::choice(SCREENCAST_CHOOSER, Page::Environment, "default", CHOOSERS)
+            .section(PORTALS)
+            .title(msg!("Output chooser"))
+            .subtitle(msg!(
+                "How an app that shares the screen asks which display: \
+                 ~/.config/xdg-desktop-portal-wlr/sway"
+            ))
+            .apply(Apply::ToolReload)
+            .keywords(&[
+                msg!("screen sharing"),
+                msg!("xdg-desktop-portal-wlr"),
+                msg!("chooser"),
+                msg!("slurp"),
+            ])
+            .build(),
+        Setting::text(SCREENCAST_OUTPUT, Page::Environment, "")
+            .section(PORTALS)
+            .title(msg!("Display to share"))
+            .subtitle(msg!(
+                "Shared without asking, while the chooser is \"Always share one display\""
+            ))
+            .depends_on(SCREENCAST_CHOOSER, When::OneOf(&["output"]))
+            .check_text(check_output)
+            .apply(Apply::ToolReload)
+            .keywords(&[msg!("screen sharing"), msg!("output_name")])
             .build(),
     ]
 }

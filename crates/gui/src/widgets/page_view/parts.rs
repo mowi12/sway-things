@@ -127,7 +127,8 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     let choices = keyboard::choices(setting)
         .or_else(|| cursor::choices(model, setting))
         .or_else(|| look::choices(setting))
-        .or_else(|| apps::choices(setting));
+        .or_else(|| apps::choices(setting))
+        .or_else(|| environment::choices(model, setting));
     let row = match choices {
         Some(choices) => SettingRow::with_choices(model, setting, None, &choices),
         None => SettingRow::new(model, setting, None),
@@ -137,6 +138,7 @@ pub(super) fn row(model: &Model, setting: &'static Setting) -> Option<SettingRow
     capture::follow(model, &row);
     night_light::follow(&row);
     apps::follow(&row);
+    environment::follow(model, &row);
     Some(row)
 }
 

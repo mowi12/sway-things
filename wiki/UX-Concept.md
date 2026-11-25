@@ -797,6 +797,13 @@ The Environment page sets environment variables for the whole session. They go i
   lines to copy), _Session variables_ (`WAYLAND_DISPLAY` and `XDG_CURRENT_DESKTOP` in the systemd user manager; _Switch
   On_ for the switch below) and _Running_, then _Check Again_. Below the row, the switch _Pass session variables to
   systemd and D-Bus_, which applies at once and at each login. Nothing is installed.
+- **Output chooser:** a drop-down of how an app that shares the screen asks which display: _xdg-desktop-portal-wlr's
+  own_ (it picks a tool), _Ask by clicking a display (slurp)_, _Pick from a menu_, _Always share one display_. An option
+  whose tool isn't installed is insensitive with the reason below its label, and the note below the row gives the
+  install command to copy. _Display to share_, greyed out until the chooser shares one display, picks from the connected
+  displays. While a file of the user's in `~/.config/xdg-desktop-portal-wlr` decides, the row is read only and the note
+  names it with _Open in Editor_; it also says when ours replaces a file of the system, or when `XDG_CURRENT_DESKTOP`
+  doesn't name sway.
 
 ### Sidebar groups
 

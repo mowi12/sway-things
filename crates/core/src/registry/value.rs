@@ -339,6 +339,8 @@ pub enum ValueError {
     NotDaemonText,
     /// The text isn't an environment variable the editor takes.
     NotAVariable(super::environment::VariableError),
+    /// The text isn't the name of an output: letters, digits, `.`, `_` and `-`.
+    NotAnOutputName,
 }
 
 impl ValueError {
@@ -397,6 +399,10 @@ impl ValueError {
             .into(),
             Self::NotABinding(kind) => kind.text(),
             Self::NotAVariable(error) => error.text(),
+            Self::NotAnOutputName => {
+                msg!("must be the name of a display like DP-1: letters, digits, '.', '_' and '-'")
+                    .into()
+            }
             Self::NotAKey => {
                 msg!("must be keys like Print or $mod+Shift+v, joined by +, or empty").into()
             }

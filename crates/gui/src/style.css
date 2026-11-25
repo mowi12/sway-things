@@ -758,6 +758,10 @@ st-page list.st-environment-list > row {
   padding: 8px 16px 8px 14px;
 }
 
+.st-screencast-notes {
+  padding: 0 12px 10px 12px;
+}
+
 .st-portals-step {
   margin-bottom: 4px;
 }
