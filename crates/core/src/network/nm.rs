@@ -403,35 +403,59 @@ impl NetworkManager {
     /// [`Error::Failed`] if it ended without one, [`Error::Unavailable`] while NetworkManager
     /// isn't running.
     pub async fn wait_connected(&self, active: &str, device: Option<&str>) -> Result<(), Error> {
-        // The connection says why it ended only in its `StateChanged` signal, just before it
-        // goes: subscribed first, so it can't be missed.
-        let ended = MatchRule::builder()
+        let ended = self.ends_of(Some(active)).await?;
+        self.wait_until_connected(ended, active, device).await
+    }
+
+    /// A stream of the `StateChanged` signals of the active connection at `active`, or of every
+    /// active connection: the connection says why it ended only there, just before it goes, so
+    /// whoever waits for it subscribes before it can end.
+    async fn ends_of(&self, active: Option<&str>) -> Result<MessageStream, Error> {
+        let mut rule = MatchRule::builder()
             .msg_type(Type::Signal)
             .sender(SERVICE)
-            .and_then(|rule| rule.path(active))
             .and_then(|rule| rule.interface(ACTIVE))
             .and_then(|rule| rule.member("StateChanged"))
-            .map_err(failure)?
-            .build();
-        let mut ended = MessageStream::for_match_rule(ended, &self.connection, None)
-            .await
             .map_err(failure)?;
+        if let Some(active) = active {
+            rule = rule.path(active).map_err(failure)?;
+        }
+        MessageStream::for_match_rule(rule.build(), &self.connection, None)
+            .await
+            .map_err(failure)
+    }
+
+    /// [`wait_connected`](Self::wait_connected) with the signals of `ended` (see
+    /// [`ends_of`](Self::ends_of)), subscribed before.
+    async fn wait_until_connected(
+        &self,
+        mut ended: MessageStream,
+        active: &str,
+        device: Option<&str>,
+    ) -> Result<(), Error> {
         let mut changes = self.changes().await?;
+        // Why the connection ended: the reason of its last `StateChanged` to deactivated, which
+        // comes before the state read that finds it gone. The signals are read on every turn, so
+        // those of other connections don't pile up.
+        let mut reason = 0;
         loop {
-            match self.active_state(active).await? {
+            let state = self.active_state(active).await?;
+            while let Some(Some(Ok(message))) = futures_lite::future::poll_once(ended.next()).await
+            {
+                let ours = message
+                    .header()
+                    .path()
+                    .is_some_and(|path| path.as_str() == active);
+                if let (true, Ok((4, why))) = (ours, message.body().deserialize::<(u32, u32)>()) {
+                    reason = why;
+                }
+            }
+            match state {
                 Some(ActiveState::Activated) => return Ok(()),
                 Some(ActiveState::Activating | ActiveState::Unknown) => {}
                 Some(ActiveState::Deactivating | ActiveState::Deactivated) | None => {
                     if device.is_some() {
                         return Err(self.failure_of(device).await);
-                    }
-                    let mut reason = 0;
-                    while let Some(Some(Ok(message))) =
-                        futures_lite::future::poll_once(ended.next()).await
-                    {
-                        if let Ok((4, why)) = message.body().deserialize::<(u32, u32)>() {
-                            reason = why;
-                        }
                     }
                     return Err(match reason {
                         // Unknown, none, or the user's own doing.
@@ -491,8 +515,11 @@ impl NetworkManager {
         // Without this NetworkManager drops the secrets of our sign-in; a profile it can't
         // change still gets its chance.
         let _ = self.prepare_openconnect(connection).await;
+        // Subscribed before it starts: NetworkManager asks our agent for the secrets at once, and
+        // a sign-in that fails fast can end the connection before `activate` returns.
+        let ended = self.ends_of(None).await?;
         let active = self.activate(connection, None).await?;
-        match self.wait_connected(&active, None).await {
+        match self.wait_until_connected(ended, &active, None).await {
             Err(Error::Vpn(NO_SECRETS)) => Err(self
                 .vpn
                 .take_failure(connection)

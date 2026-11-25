@@ -151,14 +151,15 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   a `DeactivateConnection` that only touches its own devices and an `AddAndActivateConnection` that keeps the settings
   it was sent): snapshot, NetworkManager stopping and starting (a new owner), Wi-Fi and networking on and off, scans and
   `LastScan` moving on after one, a new network with its password, a saved one connected, disconnected and forgotten, a
-  hidden one, a failed connection's reason, a VPN without its password, wired and VPN connections, addresses, the change
-  stream without noise, and the secret agent asking again, being canceled, leaving other questions (802.1X, WireGuard)
-  to others and rejecting a stranger; with a fake VPN plugin (`stand_in::fake_vpn_plugin`, a shell script as auth
-  dialog) it runs the plugin's own window and sends `QUIT`, asks for the fields of external UI mode, cancels a canceled
-  dialog and ends one NetworkManager stopped waiting for, and reports a plugin without a dialog; with a fake openconnect
-  (`stand_in::fake_openconnect`) it signs in through username, password and a TOTP and through a choice, reports a
-  refused login with the server's message, refuses an unverified certificate, cancels when the sign-in is dropped, and
-  starts none without openconnect
+  hidden one, a failed connection's reason, a VPN without its password (also one that ends before its activation
+  returns), wired and VPN connections, addresses, the change stream without noise, and the secret agent asking again,
+  being canceled, leaving other questions (802.1X, WireGuard) to others and rejecting a stranger; with a fake VPN plugin
+  (`stand_in::fake_vpn_plugin`, a shell script as auth dialog) it runs the plugin's own window and sends `QUIT`, asks
+  for the fields of external UI mode, cancels a canceled dialog and ends one NetworkManager stopped waiting for, and
+  reports a plugin without a dialog; with a fake openconnect (`stand_in::fake_openconnect`) it signs in through
+  username, password and a TOTP and through a choice, reports a refused login with the server's message, refuses an
+  unverified certificate, cancels when the sign-in is dropped, and starts none without openconnect. A test that connects
+  a VPN asks the agent for its secrets only once `ActivateConnection` was called, as NetworkManager does
 - The notification daemons against stand-ins for mako, swaync and dunst on a private bus
   (`crates/core/tests/notifications_bus.rs`, stand-in in `notifications::stand_in`, `test-support`): the daemon found by
   its name without starting one, Do Not Disturb read and switched for each (mako's mode not added twice) with the change

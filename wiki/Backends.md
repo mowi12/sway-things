@@ -68,13 +68,15 @@ is on, or with `app.wifi_search = "manual"` for one after _Search_, which waits 
 (at most 15 s). A new connection is built as `nmcli device wifi connect` builds it: no `connection.permissions` (every
 user), the password with `psk-flags` 0 (kept by NetworkManager), `key-mgmt` from the access point's flags (`wpa-psk`,
 `sae`, `owe`). `wait_connected` follows an active connection until it is up, or reports why it ended: the device's state
-reason, or for a VPN the reason of its `StateChanged` signal. The change stream takes every signal of NetworkManager
-under `/org/freedesktop` and `NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's
-old duplicate `PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed
-path, registered as `io.github.mowi12.SwayThings` with the capability `VPN_HINTS`) is registered while the page is on
-screen and until a connection it started has finished, and again when the owner of `org.freedesktop.NetworkManager`
-changes (NetworkManager forgets agents when it restarts). It answers only NetworkManager: for WPA and WPA3 Personal
-passwords when it may ask the user, and for the `vpn` secrets of a VPN connection through its plugin's auth dialog
+reason, or for a VPN the reason of its `StateChanged` signal; `connect_vpn` subscribes to that signal before it
+activates the VPN, because NetworkManager asks our agent for the secrets at once and a VPN that fails then can end
+before `ActivateConnection` returns. The change stream takes every signal of NetworkManager under `/org/freedesktop` and
+`NameOwnerChanged`, without traffic counters, `LastSeen`/`LastScan` and NetworkManager's old duplicate
+`PropertiesChanged` signals. Our secret agent (`org.freedesktop.NetworkManager.SecretAgent` at its fixed path,
+registered as `io.github.mowi12.SwayThings` with the capability `VPN_HINTS`) is registered while the page is on screen
+and until a connection it started has finished, and again when the owner of `org.freedesktop.NetworkManager` changes
+(NetworkManager forgets agents when it restarts). It answers only NetworkManager: for WPA and WPA3 Personal passwords
+when it may ask the user, and for the `vpn` secrets of a VPN connection through its plugin's auth dialog
 (`network::vpn`). The plugin's `.name` file is looked up as libnm does (`NM_VPN_PLUGIN_DIR`,
 `/usr/lib/NetworkManager/VPN`, `/etc/NetworkManager/VPN`; only files of root or the user that nobody else may write),
 matched by `service` or `aliases`; its `[GNOME]` group names the `auth-dialog` (a bare name is in `/usr/libexec`) and
