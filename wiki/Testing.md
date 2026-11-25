@@ -22,7 +22,10 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
   lines)
 - State merge (shared + overlay)
 - Reload and history
-- The file watcher against real files
+- The file watcher against real files: each change is reported, and a burst of writes once. A busy machine can delay or
+  split a change's events across the debounce time, and a second report of the same file is right then, so the tests
+  take the reports until they settle and check each one; the burst test passes when one of three bursts is one report,
+  which writes reported one by one never are. A failure names the step it came from
 - The include detection (every spelling of the line, each status, symbolic links) and its watcher
 - Applying a change against the stand-in for sway and a fake validator (each apply mode, failures, changes on disk, the
   changes that wait for a reload or a re-login and the reload of sway, letting the user's config win, the safety net:
