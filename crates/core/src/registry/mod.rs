@@ -38,6 +38,7 @@ mod behavior;
 pub mod capture;
 pub mod cursor;
 mod effects;
+pub mod environment;
 mod input;
 mod link;
 pub mod look;
@@ -65,6 +66,7 @@ use std::sync::LazyLock;
 use crate::command::{SwayCmd, Target};
 
 pub use cursor::{MAP_AUTOMATIC, MAP_DESKTOP};
+pub use environment::{EnvironmentFn, EnvironmentMapping, Variable};
 pub use link::{Link, LinkError};
 pub use page::{Group, Page};
 pub use read::{ReadError, ReadFn};
@@ -102,6 +104,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(capture::settings());
     settings.extend(night_light::settings());
     settings.extend(region::settings());
+    settings.extend(environment::settings());
     settings.extend(app::settings());
     Registry { settings }
 });
@@ -120,6 +123,16 @@ impl Registry {
     /// Every setting, in the order of the pages and their rows.
     pub fn iter(&self) -> impl Iterator<Item = &Setting> {
         self.settings.iter()
+    }
+
+    /// The setting that owns the environment variable `name`, if any
+    /// ([`EnvironmentMapping::owns`]).
+    pub fn environment_owner(&self, name: &str) -> Option<&Setting> {
+        self.settings.iter().find(|setting| {
+            setting
+                .environment()
+                .is_some_and(|mapping| mapping.owns(name))
+        })
     }
 
     /// The settings that are values of the same sway directive as `setting`, including `setting`

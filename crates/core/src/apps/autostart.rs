@@ -428,39 +428,19 @@ pub struct Systemd {
 /// Asks the systemd user session about `xdg-desktop-autostart.target`, with a timeout of two
 /// seconds per question. Without `systemctl` or a user session, nothing is available.
 pub async fn systemd() -> Systemd {
-    let load = systemctl(&["show", "--property=LoadState", "--value", SYSTEMD_TARGET]).await;
+    let load =
+        crate::systemd::output(&["show", "--property=LoadState", "--value", SYSTEMD_TARGET]).await;
     let available = load.as_deref().map(str::trim) == Some("loaded");
     if !available {
         return Systemd::default();
     }
-    let active = systemctl(&["is-active", SYSTEMD_TARGET]).await;
-    let ours = systemctl(&["is-active", SYSTEMD_UNIT]).await;
+    let active = crate::systemd::output(&["is-active", SYSTEMD_TARGET]).await;
+    let ours = crate::systemd::output(&["is-active", SYSTEMD_UNIT]).await;
     Systemd {
         available,
         active: active.as_deref().map(str::trim) == Some("active"),
         ours_active: ours.as_deref().map(str::trim) == Some("active"),
     }
-}
-
-/// The output of `systemctl --user <args>`, if it ran within two seconds.
-async fn systemctl(args: &[&str]) -> Option<String> {
-    use futures_lite::FutureExt;
-    let run = async {
-        let output = async_process::Command::new("systemctl")
-            .arg("--user")
-            .args(args)
-            .stdin(async_process::Stdio::null())
-            .stderr(async_process::Stdio::null())
-            .output()
-            .await
-            .ok()?;
-        Some(String::from_utf8_lossy(&output.stdout).into_owned())
-    };
-    let timeout = async {
-        async_io::Timer::after(std::time::Duration::from_secs(2)).await;
-        None
-    };
-    run.or(timeout).await
 }
 
 /// What runs the XDG autostart entries in this session.
@@ -582,37 +562,9 @@ pub async fn start_with_systemd() -> Result<(), String> {
     if !set.is_empty() {
         let mut args = vec!["import-environment"];
         args.extend(set);
-        run_systemctl(&args).await?;
+        crate::systemd::run(&args).await?;
     }
-    run_systemctl(&["daemon-reload"]).await?;
-    run_systemctl(&["stop", SYSTEMD_UNIT, SYSTEMD_TARGET]).await?;
-    run_systemctl(&["start", "--no-block", SYSTEMD_UNIT]).await
-}
-
-/// Runs `systemctl --user <args>` and waits for it, at most ten seconds.
-async fn run_systemctl(args: &[&str]) -> Result<(), String> {
-    use futures_lite::FutureExt;
-    let run = async {
-        let output = async_process::Command::new("systemctl")
-            .arg("--user")
-            .args(args)
-            .stdin(async_process::Stdio::null())
-            .output()
-            .await
-            .map_err(|error| format!("systemctl: {error}"))?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(format!(
-                "systemctl --user {}: {}",
-                args.join(" "),
-                String::from_utf8_lossy(&output.stderr).trim()
-            ))
-        }
-    };
-    let timeout = async {
-        async_io::Timer::after(std::time::Duration::from_secs(10)).await;
-        Err(format!("systemctl --user {}: no answer", args.join(" ")))
-    };
-    run.or(timeout).await
+    crate::systemd::run(&["daemon-reload"]).await?;
+    crate::systemd::run(&["stop", SYSTEMD_UNIT, SYSTEMD_TARGET]).await?;
+    crate::systemd::run(&["start", "--no-block", SYSTEMD_UNIT]).await
 }

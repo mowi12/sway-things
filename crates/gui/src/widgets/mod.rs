@@ -11,6 +11,7 @@ mod clamp;
 mod cursor;
 mod device_selector;
 mod displays;
+mod environment;
 mod generated;
 mod group_row;
 mod keyboard;

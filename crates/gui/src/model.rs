@@ -237,7 +237,7 @@ mod imp {
         pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
         /// The files of the Apps & Autostart page that weren't written when last saved, so each
         /// is told once.
-        pub(super) apps_problems: RefCell<Vec<sway_things_core::apps::files::Problem>>,
+        pub(super) other_problems: RefCell<Vec<sway_things_core::generate::other::Problem>>,
     }
 
     #[glib::object_subclass]
@@ -1093,9 +1093,9 @@ impl Model {
                 self.emit_problem(&problem.translated());
             }
         }
-        // A file of the Apps & Autostart page that isn't Sway Things' own stays so: told once.
-        let known = self.imp().apps_problems.replace(persisted.apps.clone());
-        for problem in &persisted.apps {
+        // A file of another program that isn't Sway Things' own stays so: told once.
+        let known = self.imp().other_problems.replace(persisted.others.clone());
+        for problem in &persisted.others {
             if !known.contains(problem) {
                 self.emit_problem(&problem.text().translated());
             }
