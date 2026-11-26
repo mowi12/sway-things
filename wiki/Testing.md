@@ -95,6 +95,48 @@ The file for kanshi: a user's own kanshi config in (`ci/integration/kanshi/confi
 per combination and its own `exec swaymsg workspace` lines) → `ci/integration/generated/kanshi/sway-things.conf` with
 nothing set up on the Displays page and the workspaces placed round robin (`kanshi_fixtures.rs`).
 
+## Architecture tests
+
+`crates/architecture` (dev only, no default member) parses the sources of `core`, `cli` and `gui` with `syn` and builds
+their module graph: one node per module file or inline `mod`, one edge per module whose items another one uses. Edges
+come from `use` items (groups, globs, renames, `self`, `super`, `crate`), from paths of two or more segments in
+expressions, types, patterns and attributes, and from `sway_things_core::…` in the front ends. A path counts for the
+module that defines the item: a re-export like `outputs::MODE` (`registry::output::MODE`) is followed to
+`registry::output`, also through several re-exports and best effort through globs. Importing a module
+(`use crate::state;`) is no edge by itself; the paths through it are. Items behind `#[cfg(test)]`, `#[cfg(doc)]` or the
+`test-support` feature, `tests.rs` files, doc comments and visibilities (`pub(in crate::widgets)`) are left out. It runs
+with `cargo test --workspace`, offline and without sway, in a few seconds.
+
+The rules, in `crates/architecture/src/rules.rs`:
+
+- **R1, layers** (`R1-layers`): a core module may use only its own and lower
+  [layers](Architecture.md#layers-of-the-core); a top-level module without a layer fails its own test.
+- **R2, cycles**: no cycle between the top-level modules of the core (`R2-module-cycles`), and in every crate no cycle
+  between modules of different units (`R2-file-cycles`). A unit is a top-level module, except in the GUI, where each
+  `widgets::<x>` is one, so two pages or building blocks may not depend on each other (`cycle_unit` in `rules.rs`). A
+  cycle inside one unit, like `network::agent` and `network::nm::snapshot` or `widgets::apps::autostart` and
+  `widgets::apps::dialogs`, is allowed. Crate roots and the edges R1 reports are left out: every cycle through an edge
+  to a higher layer ends when R1's repair moves it.
+
+**Baseline.** The violations accepted until they are repaired are in `crates/architecture/baseline.toml`, one entry per
+rule and edge (`rule`, `from`, `to`) with `why`: the reason and the planned repair. The test fails on a violation that
+isn't listed (with the rule, file and line, the edge and what to do), on an entry that no longer occurs (remove it) and
+on an entry without a reason, so the list only shrinks. Fix a new violation by moving the dependency; add one only when
+it can't be repaired in the same change:
+
+```sh
+SWAY_THINGS_UPDATE_BASELINE=1 cargo test -p sway-things-architecture
+```
+
+rewrites the file: entries that still occur keep their `why`, entries that no longer occur go, new ones get a
+placeholder `why` the test refuses until it is replaced with the reason. A pull request that adds entries says why in
+its description.
+
+**Limits.** Macro bodies (`format!`, `msg!`, `glib::clone!`) are token streams, not syntax: they are scanned for `a::b`
+sequences that resolve to a module of the workspace, so a path a macro builds itself is missed. Single-segment paths
+(`load()` after `use crate::state::load`) count through their `use`, an item a glob brings in through the glob's module.
+Resolution is by name: it doesn't tell a module from a function of the same name in another namespace.
+
 ## Fuzzing
 
 The sway config parser with `cargo-fuzz` (`fuzz/`, `scripts/fuzz.sh`), on the stable toolchain without a sanitizer (the

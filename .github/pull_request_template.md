@@ -22,6 +22,7 @@ Either tick an item or cross it out (`~~like this~~`) and give a reason why it d
 - [ ] I have updated `AGENTS.md` if the structure, tooling or conventions changed
 - [ ] I have ticked or struck through the item in `wiki/Feature-Catalog.md`
 - [ ] I have run `scripts/update-pot.sh` after changing UI strings and `scripts/update-cli-docs.sh` after changing the CLI
+- [ ] Every entry I added to `crates/architecture/baseline.toml` has its reason in `why` and is explained here
 
 ### Reviewer
 

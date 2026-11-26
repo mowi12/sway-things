@@ -1,0 +1,404 @@
+// SPDX-FileCopyrightText: 2026 Sway Things contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The rules of the module graph.
+//!
+//! - [`LAYERS`] (R1): every top-level module of the core belongs to one layer and may use only its
+//!   own layer and lower ones.
+//! - [`MODULE_CYCLES`] (R2): no cycle between the top-level modules of the core.
+//! - [`FILE_CYCLES`] (R2): no cycle between the modules of a crate, except inside one
+//!   [cycle unit](cycle_unit): a top-level module, or in the GUI one `widgets::<x>`
+//!   (`network::agent` and `network::nm::snapshot` may cycle, `widgets::keyboard` and
+//!   `widgets::xkb_options` may not).
+//!
+//! The cycle rules leave out the edges R1 reports: an edge to a higher layer is R1's, and every
+//! cycle through it ends when it is repaired.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use crate::graph::{Edge, Graph, Module};
+
+/// The rule of the layers of the core (R1).
+pub const LAYERS: &str = "R1-layers";
+/// The rule against cycles between the top-level modules of the core (R2).
+pub const MODULE_CYCLES: &str = "R2-module-cycles";
+/// The rule against cycles between the modules of a crate across its top-level modules (R2).
+pub const FILE_CYCLES: &str = "R2-file-cycles";
+
+/// The name of the core's unit.
+pub const CORE: &str = "core";
+
+/// One layer of the core.
+#[derive(Debug)]
+pub struct Layer {
+    /// What the layer holds.
+    pub name: &'static str,
+    /// Its top-level modules.
+    pub modules: &'static [&'static str],
+}
+
+/// The layers of the core, from the bottom up. A module may use its own layer and the ones before
+/// it. A new top-level module must be added here.
+pub const CORE_LAYERS: &[Layer] = &[
+    Layer {
+        name: "foundation",
+        modules: &[
+            "i18n", "atomic", "delegate", "dbus", "systemd", "version", "watch", "session",
+        ],
+    },
+    Layer {
+        name: "sway",
+        modules: &["command", "sway_config", "ipc"],
+    },
+    Layer {
+        name: "registry",
+        modules: &["registry"],
+    },
+    Layer {
+        name: "state",
+        modules: &["state", "include", "ui_state"],
+    },
+    Layer {
+        name: "features",
+        modules: &[
+            "apps",
+            "bindings",
+            "bluetooth",
+            "brightness",
+            "capture",
+            "conflict",
+            "cursor",
+            "devices",
+            "editor",
+            "environment",
+            "gsettings",
+            "look",
+            "network",
+            "night_light",
+            "notifications",
+            "outputs",
+            "packages",
+            "printers",
+            "region",
+            "scanners",
+            "sound",
+            "swayosd",
+            "system",
+            "theme",
+            "wallpaper",
+            "xkb",
+        ],
+    },
+    Layer {
+        name: "assembly",
+        modules: &["generate", "view"],
+    },
+    Layer {
+        name: "use cases",
+        modules: &["apply", "doctor"],
+    },
+];
+
+/// The layer of a top-level module of the core: its index (0 is the bottom) and name.
+pub fn layer_of(module: &str) -> Option<(usize, &'static str)> {
+    CORE_LAYERS
+        .iter()
+        .enumerate()
+        .find(|(_, layer)| layer.modules.contains(&module))
+        .map(|(index, layer)| (index, layer.name))
+}
+
+/// A broken rule: `from` uses `to` where it may not.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Violation {
+    /// The rule's id, e.g. [`LAYERS`].
+    pub rule: &'static str,
+    /// The using module, e.g. `core::registry::value`.
+    pub from: String,
+    /// The used module.
+    pub to: String,
+    /// Where it is used: `file:line`.
+    pub location: String,
+    /// What is wrong and what to do.
+    pub message: String,
+}
+
+/// The top-level modules of the core that [`CORE_LAYERS`] doesn't place.
+pub fn unplaced(graph: &Graph) -> Vec<String> {
+    let core = core_unit(graph);
+    graph
+        .modules()
+        .iter()
+        .filter(|module| Some(module.unit) == core && module.path.len() == 1)
+        .filter_map(|module| module.top())
+        .filter(|top| layer_of(top).is_none())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn core_unit(graph: &Graph) -> Option<usize> {
+    graph
+        .modules()
+        .iter()
+        .find(|module| module.path.is_empty() && module.name == CORE)
+        .map(|module| module.unit)
+}
+
+fn location(graph: &Graph, edge: &Edge) -> String {
+    let file = &graph.modules()[edge.from].file;
+    match edge.lines.first() {
+        Some(&line) if line > 0 => format!("{file}:{line}"),
+        _ => file.clone(),
+    }
+}
+
+/// The layers of an edge between two modules of the core, both placed: `(from, to)`.
+fn edge_layers(graph: &Graph, core: Option<usize>, edge: &Edge) -> Option<(usize, usize)> {
+    let modules = graph.modules();
+    let (from, to) = (&modules[edge.from], &modules[edge.to]);
+    if Some(from.unit) != core || from.unit != to.unit {
+        return None;
+    }
+    Some((layer_of(from.top()?)?.0, layer_of(to.top()?)?.0))
+}
+
+/// Whether an edge points to a higher layer of the core, which [`layers`] reports. The cycle rules
+/// leave these edges out: every cycle through one ends when it is repaired.
+fn upward(graph: &Graph, core: Option<usize>, edge: &Edge) -> bool {
+    edge_layers(graph, core, edge).is_some_and(|(from, to)| to > from)
+}
+
+/// The edges between modules of the core that point to a higher layer (R1).
+pub fn layers(graph: &Graph) -> Vec<Violation> {
+    let modules = graph.modules();
+    let core = core_unit(graph);
+    graph
+        .edges()
+        .iter()
+        .filter_map(|edge| {
+            let (from_layer, to_layer) = edge_layers(graph, core, edge)?;
+            if to_layer <= from_layer {
+                return None;
+            }
+            let (from, to) = (&modules[edge.from], &modules[edge.to]);
+            let name = |layer: usize| CORE_LAYERS.get(layer).map_or("", |layer| layer.name);
+            Some(Violation {
+                rule: LAYERS,
+                from: from.name.clone(),
+                to: to.name.clone(),
+                location: location(graph, edge),
+                message: format!(
+                    "{} (layer {from_layer}, {}) uses {} (layer {to_layer}, {}); a module may use only its own \
+                     layer and lower ones. Move what it uses down to layer {from_layer} or lower, or move the user up",
+                    from.name,
+                    name(from_layer),
+                    to.name,
+                    name(to_layer)
+                ),
+            })
+        })
+        .collect()
+}
+
+/// The edges between top-level modules of the core that lie on a cycle (R2), leaving out the
+/// edges [`layers`] reports.
+pub fn module_cycles(graph: &Graph) -> Vec<Violation> {
+    let modules = graph.modules();
+    let core = core_unit(graph);
+    // The top-level modules and, per pair, the first edge between modules in them.
+    let mut tops: BTreeMap<String, usize> = BTreeMap::new();
+    let mut names = Vec::new();
+    let mut pairs: BTreeMap<(usize, usize), Edge> = BTreeMap::new();
+    for edge in graph.edges() {
+        let (from, to) = (&modules[edge.from], &modules[edge.to]);
+        if Some(from.unit) != core || from.unit != to.unit || upward(graph, core, &edge) {
+            continue;
+        }
+        let (Some(a), Some(b)) = (from.top(), to.top()) else {
+            continue;
+        };
+        if a == b {
+            continue;
+        }
+        let mut node = |top: &str| {
+            let next = tops.len();
+            *tops.entry(top.to_owned()).or_insert_with(|| {
+                names.push(format!("{CORE}::{top}"));
+                next
+            })
+        };
+        let (a, b) = (node(a), node(b));
+        pairs.entry((a, b)).or_insert(edge);
+    }
+    let adjacency = adjacency(names.len(), pairs.keys().copied());
+    let mut out = Vec::new();
+    for component in components(&adjacency) {
+        let members: BTreeSet<usize> = component.iter().copied().collect();
+        let mut cycle: Vec<&str> = members.iter().map(|&node| names[node].as_str()).collect();
+        cycle.sort_unstable();
+        for (&(a, b), edge) in &pairs {
+            if members.contains(&a) && members.contains(&b) {
+                out.push(Violation {
+                    rule: MODULE_CYCLES,
+                    from: names[a].clone(),
+                    to: names[b].clone(),
+                    location: location(graph, edge),
+                    message: format!(
+                        "{} uses {} (first: {} → {}), and both lie on a cycle among {}. Break the cycle: move \
+                         what both need into a lower module, or invert the dependency",
+                        names[a],
+                        names[b],
+                        modules[edge.from].name,
+                        modules[edge.to].name,
+                        cycle.join(", ")
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The unit a module belongs to for [`file_cycles`]: the modules of one unit may depend on each
+/// other in a cycle, modules of different units may not. It is the top-level module (`network`
+/// for `network::nm::snapshot`), except in the GUI, where every `widgets::<x>` is a unit of its
+/// own, one per page or building block (`widgets::apps` for `widgets::apps::dialogs`; `widgets`
+/// itself is one too). `None` for a crate root.
+pub fn cycle_unit(module: &Module) -> Option<&[String]> {
+    let depth = if module.name.starts_with("gui::") && module.top() == Some("widgets") {
+        2
+    } else {
+        1
+    };
+    module
+        .path
+        .get(..depth.min(module.path.len()))
+        .filter(|unit| !unit.is_empty())
+}
+
+/// The edges on a cycle between modules of one crate that belong to different
+/// [cycle units](cycle_unit) (R2), in every crate. A cycle inside one unit, between siblings
+/// like `network::agent` and `network::nm` (with its children), is allowed. Crate roots are
+/// left out, like the edges [`layers`] reports.
+pub fn file_cycles(graph: &Graph) -> Vec<Violation> {
+    let modules = graph.modules();
+    let core = core_unit(graph);
+    let edges: Vec<Edge> = graph
+        .edges()
+        .into_iter()
+        .filter(|edge| {
+            let (from, to) = (&modules[edge.from], &modules[edge.to]);
+            from.unit == to.unit
+                && from.parent.is_some()
+                && to.parent.is_some()
+                && !upward(graph, core, edge)
+        })
+        .collect();
+    let adjacency = adjacency(modules.len(), edges.iter().map(|edge| (edge.from, edge.to)));
+    let mut out = Vec::new();
+    for component in components(&adjacency) {
+        let members: BTreeSet<usize> = component.iter().copied().collect();
+        let mut cycle: Vec<&str> = members
+            .iter()
+            .map(|&node| modules[node].name.as_str())
+            .collect();
+        cycle.sort_unstable();
+        for edge in &edges {
+            let (from, to) = (&modules[edge.from], &modules[edge.to]);
+            if !members.contains(&edge.from)
+                || !members.contains(&edge.to)
+                || cycle_unit(from) == cycle_unit(to)
+            {
+                continue;
+            }
+            out.push(Violation {
+                rule: FILE_CYCLES,
+                from: from.name.clone(),
+                to: to.name.clone(),
+                location: location(graph, edge),
+                message: format!(
+                    "{} uses {}, and both lie on a cycle among {}, which crosses units (top-level \
+                     modules; in the GUI each `widgets::<x>`). Break the cycle: move what both need into a module both may use, or invert the dependency",
+                    from.name,
+                    to.name,
+                    cycle.join(", ")
+                ),
+            });
+        }
+    }
+    out
+}
+
+fn adjacency(nodes: usize, edges: impl Iterator<Item = (usize, usize)>) -> Vec<Vec<usize>> {
+    let mut adjacency = vec![Vec::new(); nodes];
+    for (from, to) in edges {
+        if let Some(list) = adjacency.get_mut(from) {
+            list.push(to);
+        }
+    }
+    adjacency
+}
+
+/// The strongly connected components with more than one node (Tarjan's algorithm).
+fn components(adjacency: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    struct State<'a> {
+        adjacency: &'a [Vec<usize>],
+        index: Vec<Option<usize>>,
+        low: Vec<usize>,
+        on_stack: Vec<bool>,
+        stack: Vec<usize>,
+        next: usize,
+        out: Vec<Vec<usize>>,
+    }
+
+    fn visit(state: &mut State<'_>, node: usize) {
+        state.index[node] = Some(state.next);
+        state.low[node] = state.next;
+        state.next += 1;
+        state.stack.push(node);
+        state.on_stack[node] = true;
+        let adjacency = state.adjacency;
+        for &next in &adjacency[node] {
+            match state.index[next] {
+                None => {
+                    visit(state, next);
+                    state.low[node] = state.low[node].min(state.low[next]);
+                }
+                Some(index) if state.on_stack[next] => state.low[node] = state.low[node].min(index),
+                Some(_) => {}
+            }
+        }
+        if Some(state.low[node]) == state.index[node] {
+            let mut component = Vec::new();
+            while let Some(member) = state.stack.pop() {
+                state.on_stack[member] = false;
+                component.push(member);
+                if member == node {
+                    break;
+                }
+            }
+            if component.len() > 1 {
+                component.sort_unstable();
+                state.out.push(component);
+            }
+        }
+    }
+
+    let nodes = adjacency.len();
+    let mut state = State {
+        adjacency,
+        index: vec![None; nodes],
+        low: vec![0; nodes],
+        on_stack: vec![false; nodes],
+        stack: Vec::new(),
+        next: 0,
+        out: Vec::new(),
+    };
+    for node in 0..nodes {
+        if state.index[node].is_none() {
+            visit(&mut state, node);
+        }
+    }
+    state.out.sort();
+    state.out
+}

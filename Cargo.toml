@@ -1,8 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-# Without crates/cli-docs, which writes the committed man pages and completions: a plain `cargo build` and the distro
-# builds never compile the generators. `--workspace` (tests, clippy) still includes it.
+# Without the dev-only crates: crates/cli-docs writes the committed man pages and completions, crates/architecture
+# checks the module graph of the code. A plain `cargo build` and the distro builds never compile them; `--workspace`
+# (tests, clippy) still includes them.
 default-members = ["crates/core", "crates/cli", "crates/gui"]
 
 [workspace.package]
@@ -52,6 +53,8 @@ indicatif = { version = "0.18", default-features = false, features = ["unicode-w
 # Time zones and their offsets from the system's tzdata (`/usr/share/zoneinfo`), no bundled copy.
 jiff = { version = "0.2", default-features = false, features = ["std", "tzdb-zoneinfo"] }
 notify = { version = "8", default-features = false }
+# Line numbers in the architecture test's messages; only that dev-only crate uses proc-macro2 as a normal dependency.
+proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 proptest = { version = "1", default-features = false, features = ["std"] }
 regex = "1"
 roxmltree = { version = "0.21", default-features = false, features = ["std"] }
@@ -61,6 +64,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
 swayipc-types = { version = "2", default-features = false }
+# The architecture test parses the sources; the same major version the derive macros already use.
+syn = { version = "3", default-features = false, features = ["full", "parsing", "visit"] }
 tempfile = "3"
 toml_edit = "0.25"
 # 5.13 is the newest line that builds with the MSRV 1.85. Without tokio: async-io, no blocking API.
