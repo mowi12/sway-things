@@ -1,0 +1,22 @@
+[package]
+name = "sway-things-architecture"
+description = "Checks the layers and cycles of the module graph of Sway Things"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "architecture"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+proc-macro2.workspace = true
+syn.workspace = true
+toml_edit.workspace = true

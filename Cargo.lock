@@ -1558,6 +1558,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "sway-things-architecture"
+version = "0.5.0"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.10",
+ "toml_edit",
+]
+
+[[package]]
 name = "sway-things-cli"
 version = "0.5.0"
 dependencies = [

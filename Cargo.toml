@@ -1,8 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-# Without crates/cli-docs, which writes the committed man pages and completions: a plain `cargo build` and the distro
-# builds never compile the generators. `--workspace` (tests, clippy) still includes it.
+# Without the dev-only crates: crates/cli-docs writes the committed man pages and completions, crates/architecture
+# checks the module graph of the code. A plain `cargo build` and the distro builds never compile them; `--workspace`
+# (tests, clippy) still includes them.
 default-members = ["crates/core", "crates/cli", "crates/gui"]
 
 [workspace.package]

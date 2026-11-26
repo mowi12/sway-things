@@ -1,0 +1,394 @@
+# The violations of the architecture rules that are accepted until they are repaired: one entry per rule and edge, with
+# the reason and the planned repair in `why`. The test fails on a violation that isn't listed and on an entry that no
+# longer occurs. Rewrite it with `SWAY_THINGS_UPDATE_BASELINE=1 cargo test -p sway-things-architecture`, then replace
+# every placeholder `why` with the reason; see wiki/Testing.md, "Architecture tests".
+
+[[violation]]
+rule = "R1-layers"
+from = "core::apps::autostart"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::apps::files"
+to = "core::generate::other"
+why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::apps::mime"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::bindings::listing"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::command"
+to = "core::bindings::keys"
+why = "The `bindsym` command builder takes `bindings::Line` and `Modifiers`; the binding reader moves down into the sway layer next to `command`."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::command"
+to = "core::bindings::line"
+why = "The `bindsym` command builder takes `bindings::Line` and `Modifiers`; the binding reader moves down into the sway layer next to `command`."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment"
+to = "core::generate::other"
+why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment::portals"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment::portals"
+to = "core::generate::other"
+why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment::screencast"
+to = "core::generate"
+why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::environment::screencast"
+to = "core::generate::other"
+why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::apps"
+to = "core::bindings::command"
+why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::apps"
+to = "core::bindings::keys"
+why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::apps"
+to = "core::bindings::line"
+why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::capture"
+to = "core::bindings::keys"
+why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::environment"
+to = "core::apps::autostart"
+why = "The value check reads `apps::autostart::SESSION_VARIABLES`; the constant moves into the registry."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::environment"
+to = "core::environment::screencast"
+why = "The value check calls `environment::screencast::is_output_name`; the check moves into the registry, or the screencast module runs it itself."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::environment"
+to = "core::environment::syntax"
+why = "The value checks parse with `environment::syntax`; the syntax reader moves down into the registry."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::region"
+to = "core::region::locales"
+why = "The value check calls `region::locales::is_locale_name`; the check moves down into the registry."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::shortcuts"
+to = "core::bindings::item"
+why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::value"
+to = "core::bindings::line"
+why = "`ValueError::NotABinding` wraps `bindings::LineErrorKind`; the binding reader moves down into the sway layer."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "cli::displays"
+to = "cli::hook"
+why = "`displays` reuses `hook::kanshi_files`, and the hook runs `wallpaper`, which uses `displays`: the kanshi file helper moves into `displays` or a module of its own."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "cli::hook"
+to = "cli::wallpaper"
+why = "The hook dispatches to `wallpaper::hook_wallpaper`; the cycle ends when `displays` no longer uses `hook` (see that entry)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "cli::wallpaper"
+to = "cli::displays"
+why = "`wallpaper` lists the displays through `displays::Displays`; the cycle ends when `displays` no longer uses `hook` (see that entry)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "core::bindings::ours"
+to = "core::capture::shortcuts"
+why = "`bindings::ours::file_lines` pulls the Screenshots keys from `capture::shortcuts`, which builds them with `ours`: invert it, the assembly layer passes the other pages' lines in."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "core::capture::shortcuts"
+to = "core::bindings::ours"
+why = "Builds its key lines with `bindings::ours` (`FileLine`, `modifier`); fine once `ours` no longer calls back into `capture`."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "core::include"
+to = "core::state::paths"
+why = "The include check reads the paths from `state::Locations`, and saving the state needs the include check's `WriteAccess`: `Locations` moves out of `state` into a module both use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "core::include::watch"
+to = "core::state::paths"
+why = "The include watch reads the paths from `state::Locations`; fine once `Locations` moves out of `state` (see `core::include` → `core::state::paths`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "core::state"
+to = "core::include"
+why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state::paths`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::app"
+to = "gui::window"
+why = "The application builds the window; the cycle ends when the widgets stop reaching the window and the app (see the `gui::widgets` entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::apps"
+to = "gui::widgets::shortcuts"
+why = "The Apps page reuses the key helpers of Keyboard Shortcuts (`GdkKeymap`, `clash_line`, `place`); on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::capture"
+to = "gui::widgets::shortcuts"
+why = "Screenshots & Clipboard reuses the key capture of Keyboard Shortcuts; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::capture"
+to = "gui::widgets::shortcuts::editor"
+why = "Screenshots & Clipboard reuses the key editor of Keyboard Shortcuts; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::cursor"
+to = "gui::widgets::setting_row"
+why = "The Cursor page's parts add to its setting rows, as they should; fine once the group row no longer reads the page's labels (see `group_row` → `cursor`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::group_row"
+to = "gui::widgets::cursor"
+why = "`group_row` and `setting_row` share their helpers both ways (`group_row::value_text`, `setting_row::shows_directives`), and the group row reads the Cursor and Look pages' value labels: move the shared row helpers and labels into a widget module of their own that both rows use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::group_row"
+to = "gui::widgets::look"
+why = "`group_row` and `setting_row` share their helpers both ways (`group_row::value_text`, `setting_row::shows_directives`), and the group row reads the Cursor and Look pages' value labels: move the shared row helpers and labels into a widget module of their own that both rows use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::group_row"
+to = "gui::widgets::setting_row"
+why = "A group row is made of setting rows, as it should; fine once the shared helpers leave `group_row` and `setting_row` (see `group_row` → `setting_row::controls`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::group_row"
+to = "gui::widgets::setting_row::controls"
+why = "`group_row` and `setting_row` share their helpers both ways (`group_row::value_text`, `setting_row::shows_directives`), and the group row reads the Cursor and Look pages' value labels: move the shared row helpers and labels into a widget module of their own that both rows use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::group_row::imp"
+to = "gui::widgets::setting_row"
+why = "A group row is made of setting rows, as it should; fine once the shared helpers leave `group_row` and `setting_row` (see `group_row` → `setting_row::controls`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::keyboard"
+to = "gui::widgets::xkb_options"
+why = "The Keyboard page embeds the XKB option browser, and the browser reuses `keyboard::{follow, plain_row}`: move those two helpers into a widget module of their own."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::look"
+to = "gui::widgets::setting_row"
+why = "The Look page's parts add to its setting rows, as they should; fine once the group row no longer reads the page's labels (see `group_row` → `look`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view"
+to = "gui::widgets::apps"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view"
+to = "gui::widgets::apps::autostart"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view"
+to = "gui::widgets::shortcuts"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view"
+to = "gui::window"
+why = "A widget reaches the window by downcasting `root()` to `Window`; it gets what it needs passed in instead."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::about"
+to = "gui::app"
+why = "The About dialog reads `app::gtk_version`; the version moves into a module of its own that both use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::about"
+to = "gui::window"
+why = "A widget reaches the window by downcasting `root()` to `Window`; it gets what it needs passed in instead."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::parts"
+to = "gui::widgets::apps"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::parts"
+to = "gui::widgets::capture"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::parts"
+to = "gui::widgets::shortcuts"
+why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::setting_row::indicators"
+to = "gui::widgets::group_row"
+why = "`group_row` and `setting_row` share their helpers both ways (`group_row::value_text`, `setting_row::shows_directives`), and the group row reads the Cursor and Look pages' value labels: move the shared row helpers and labels into a widget module of their own that both rows use."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::shortcuts"
+to = "gui::window"
+why = "A widget reaches the window by downcasting `root()` to `Window`; it gets what it needs passed in instead."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::welcome"
+to = "gui::widgets::page_view"
+why = "The welcome page takes `page_view::MARGINS`; on the cycle only through `welcome` → `window` (see that entry), and the margins can move into a widget module of their own."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::welcome"
+to = "gui::window"
+why = "A widget reaches the window by downcasting `root()` to `Window`; it gets what it needs passed in instead."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::xkb_options"
+to = "gui::widgets::keyboard"
+why = "The XKB option browser reuses `keyboard::{follow, plain_row}`; they move into a widget module of their own (see `keyboard` → `xkb_options`)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::window"
+to = "gui::widgets::page_view"
+why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::window"
+to = "gui::widgets::welcome"
+why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::window::imp"
+to = "gui::widgets::welcome"
+why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::apps"
+to = "core::bindings"
+why = "`apps::launchers` builds its key lines with the binding reader; fine once `bindings::ours` no longer pulls the launchers' lines (see `core::bindings` → `core::apps`)."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::bindings"
+to = "core::apps"
+why = "`bindings::ours::file_lines` pulls the launchers' keys from `apps::launchers::BINDINGS`: invert it, the assembly layer passes the other pages' lines in."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::bindings"
+to = "core::capture"
+why = "`bindings::ours::file_lines` pulls the Screenshots keys from `capture::shortcuts`: invert it, the assembly layer passes the other pages' lines in."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::capture"
+to = "core::bindings"
+why = "`capture::shortcuts` builds its key lines with `bindings`; fine once `bindings::ours` no longer pulls them (see `core::bindings` → `core::capture`)."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::include"
+to = "core::state"
+why = "The include check reads the paths from `state::Locations`; `Locations` moves out of `state` into a module both use."
+
+[[violation]]
+rule = "R2-module-cycles"
+from = "core::state"
+to = "core::include"
+why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state`)."
