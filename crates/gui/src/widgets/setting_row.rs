@@ -63,7 +63,7 @@ const SLIDER_WIDTH: i32 = 200;
 const SLIDER_MINIMUM_WIDTH: i32 = 120;
 
 /// The preference that shows the line of the sway config in every row.
-const DIRECTIVES_KEY: &str = "app.show_directives";
+const DIRECTIVES_KEY: &str = sway_things_core::registry::app::SHOW_DIRECTIVES;
 
 /// The control of a row.
 #[derive(Debug)]

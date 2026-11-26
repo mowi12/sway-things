@@ -129,6 +129,10 @@ pub fn focused_output(outputs: &[Output]) -> Option<String> {
 
 /// Lets the user select a region with slurp, offering `boxes` to click.
 ///
+/// # Blocking
+///
+/// Waits for the program to end.
+///
 /// # Errors
 ///
 /// [`CaptureError::Canceled`] when the user canceled, else the errors of [`tools::run`].
@@ -157,6 +161,10 @@ pub fn select(boxes: &[Rect]) -> Result<String, CaptureError> {
 
 /// What to capture for `area`: asks sway for the focused window or display, and slurp for a
 /// region (with the windows on screen to click, if sway can be asked).
+///
+/// # Blocking
+///
+/// Waits for the program to end.
 ///
 /// # Errors
 ///
@@ -225,6 +233,10 @@ pub struct Shot {
 
 /// Takes the picture of `target` with grim, in the format of `ext`.
 ///
+/// # Blocking
+///
+/// Waits for the program to end.
+///
 /// # Errors
 ///
 /// Those of [`tools::run`].
@@ -241,6 +253,10 @@ pub fn grim(target: &Target, ext: &str) -> Result<Vec<u8>, CaptureError> {
 /// Puts `bytes` on the clipboard with wl-copy, of the media type `mime` or, without one, of the
 /// type wl-copy finds. wl-copy forks and stays in the background to hand them out until
 /// something else is copied, so no pipe to its output is kept, which it would hold open.
+///
+/// # Blocking
+///
+/// Waits for wl-copy to take the data.
 ///
 /// # Errors
 ///
@@ -278,6 +294,10 @@ pub fn wl_copy(bytes: &[u8], mime: Option<&str>) -> Result<(), CaptureError> {
 /// before the picture is taken, so a pattern that can't be used costs no picture. Saving and
 /// copying are tried each on their own: when only one of them works, the shot is returned with
 /// [`Shot::failed`] saying why the other didn't, so the picture is never lost.
+///
+/// # Blocking
+///
+/// Waits for wl-copy to take the data.
 ///
 /// # Errors
 ///

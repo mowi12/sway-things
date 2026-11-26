@@ -621,6 +621,10 @@ pub struct Synced {
 /// [`sync_with`] for the settings of `state`; `external` says whether the user's config starts a
 /// night light ([`own_lines`]).
 ///
+/// # Blocking
+///
+/// Waits up to five seconds for another process's change of the night light to end.
+///
 /// # Errors
 ///
 /// Those of [`sync_with`].
@@ -642,6 +646,10 @@ fn log_path() -> Option<PathBuf> {
 /// set. Ends the others Sway Things started in this session and waits for them to end, since
 /// gammastep keeps the colors for a moment while it fades back. `settings` is read once the lock
 /// is held, so of the hook and the app running at once the second acts on what is set by then.
+///
+/// # Blocking
+///
+/// Waits up to five seconds for another process's change of the night light to end.
 ///
 /// # Errors
 ///
@@ -716,6 +724,10 @@ fn wanted_plan(settings: &Settings) -> Result<Plan, Problem> {
 }
 
 /// Ends the processes `pids` and waits up to three seconds for them, then kills those left.
+///
+/// # Blocking
+///
+/// Waits up to three seconds for the processes to end.
 fn end(pids: &[u32]) {
     if pids.is_empty() {
         return;
@@ -735,6 +747,10 @@ fn end(pids: &[u32]) {
 
 /// Starts the tool of `plan` detached, marked with `fingerprint`, and checks a moment later that
 /// it still runs.
+///
+/// # Blocking
+///
+/// Waits for `setsid` to start the tool.
 fn start(plan: &Plan, fingerprint: &str) -> Result<(), Problem> {
     let path = plan.tool.find().ok_or(Problem::NoTool)?;
     let log = log_path();

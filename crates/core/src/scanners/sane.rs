@@ -410,6 +410,10 @@ impl Scan {
     /// Waits until it ends, telling `progress` how it goes: the files of the pages scanned, in
     /// order.
     ///
+    /// # Blocking
+    ///
+    /// Reads the directory of the scan.
+    ///
     /// # Errors
     ///
     /// [`Error::Canceled`] if it was canceled, [`Error::Failed`] if scanimage fails before a
@@ -523,6 +527,10 @@ async fn watch<T>(cancel: &Canceler, batch_ended: &Cell<bool>, killed: &Cell<boo
 }
 
 /// The files `page-NNNN.EXTENSION` in `directory`, in order.
+///
+/// # Blocking
+///
+/// Reads the directory of the scan.
 fn pages_in(directory: &Path, extension: &str) -> Vec<PathBuf> {
     let mut pages: Vec<PathBuf> = std::fs::read_dir(directory)
         .map(|entries| {

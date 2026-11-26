@@ -303,6 +303,10 @@ pub fn user_dir(dirs: &Dirs) -> PathBuf {
 }
 
 /// Every XDG autostart entry that counts, by ID (the first directory wins), sorted by name.
+///
+/// # Blocking
+///
+/// Reads the XDG autostart directories.
 pub fn xdg_entries(dirs: &Dirs) -> Vec<XdgEntry> {
     let mut by_id: Vec<(String, Vec<PathBuf>)> = Vec::new();
     for dir in dirs_of(dirs) {

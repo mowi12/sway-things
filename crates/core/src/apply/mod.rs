@@ -1055,6 +1055,10 @@ impl<V: Validate> Applier<V> {
     /// Brings the files of other programs in line with the settings, recorded in the manifest:
     /// only files of Sway Things are written or deleted. Returns what couldn't be done, and
     /// which of the files that need a program told changed.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the user's autostart directory.
     fn keep_other_files(&self) -> (Vec<crate::generate::other::Problem>, Changed) {
         let Some(dirs) = &self.apps_dirs else {
             return (Vec::new(), Changed::default());

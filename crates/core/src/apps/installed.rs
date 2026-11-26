@@ -137,6 +137,10 @@ pub fn single_line(text: &str) -> String {
 
 /// Every installed app, by ID, the first directory winning; hidden IDs and those whose
 /// `TryExec` program is missing are left out. Sorted by name, then ID.
+///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
 pub fn installed(dirs: &Dirs) -> Vec<App> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut apps = Vec::new();
@@ -181,12 +185,20 @@ pub enum Missing {
 
 /// The installed app of ID `id`, if any: the entry of the first directory that has the ID, unless
 /// it is hidden or its `TryExec` program is missing.
+///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
 pub fn find(dirs: &Dirs, id: &str) -> Option<App> {
     lookup(dirs, id).ok()
 }
 
 /// The installed app of ID `id`, or why there is none. An ID has to be a desktop file ID
 /// ([`is_desktop_id`]): no `/`, nothing that leads out of the directories.
+///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
 ///
 /// # Errors
 ///
@@ -217,6 +229,10 @@ pub fn lookup(dirs: &Dirs, id: &str) -> Result<App, Missing> {
 /// The file below `dir` whose ID is `rest`, as [`entries_below`] names them: `rest` itself, or
 /// a subdirectory `name` (not hidden) followed by `-` and the ID of a file in it, at most
 /// [`MAX_DEPTH`] directories deep. A file in `dir` comes before one in a subdirectory.
+///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
 fn locate(dir: &Path, rest: &str, depth: usize) -> Option<PathBuf> {
     let direct = dir.join(rest);
     if std::fs::metadata(&direct).is_ok_and(|meta| meta.is_file()) {
@@ -242,6 +258,10 @@ fn locate(dir: &Path, rest: &str, depth: usize) -> Option<PathBuf> {
 }
 
 /// The desktop entries below `base`, each with its ID, in a stable order.
+///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
 fn entries_below(base: &Path) -> Vec<(String, PathBuf)> {
     let mut found = Vec::new();
     let mut stack = vec![(base.to_path_buf(), String::new(), 0usize)];

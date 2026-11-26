@@ -18,6 +18,10 @@ pub const INTERFACE: &str = "org.gnome.desktop.interface";
 /// The longest theme name or font description taken; GSettings itself has no limit.
 const MAX_LENGTH: usize = 255;
 
+/// The GTK theme.
+pub const GTK_THEME: &str = "look.gtk_theme";
+/// The icon theme.
+pub const ICON_THEME: &str = "look.icon_theme";
 const STYLE: &str = "look.style";
 const ANTIALIASING: &str = "look.antialiasing";
 
@@ -89,7 +93,7 @@ pub(super) fn settings() -> Vec<Setting> {
             ])
             .gsettings(INTERFACE, "color-scheme")
             .build(),
-        Setting::text("look.gtk_theme", Page::AppsLookFeel, "Adwaita")
+        Setting::text(GTK_THEME, Page::AppsLookFeel, "Adwaita")
             .section(msg!("Style"))
             .title(msg!("GTK theme"))
             .subtitle(msg!(
@@ -106,7 +110,7 @@ pub(super) fn settings() -> Vec<Setting> {
             .check_text(check_theme)
             .gsettings(INTERFACE, "gtk-theme")
             .build(),
-        Setting::text("look.icon_theme", Page::AppsLookFeel, "Adwaita")
+        Setting::text(ICON_THEME, Page::AppsLookFeel, "Adwaita")
             .section(msg!("Style"))
             .title(msg!("Icons"))
             .subtitle(msg!("The icons of apps, folders and files"))

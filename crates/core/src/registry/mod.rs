@@ -39,7 +39,7 @@ pub mod capture;
 pub mod cursor;
 mod effects;
 pub mod environment;
-mod input;
+pub mod input;
 mod link;
 pub mod look;
 pub mod night_light;
@@ -57,7 +57,7 @@ mod sway;
 mod tests;
 mod value;
 pub mod wallpaper;
-mod windows;
+pub mod windows;
 pub mod words;
 pub mod workspaces;
 

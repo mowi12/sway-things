@@ -62,6 +62,10 @@ pub fn search_dirs(dirs: &Dirs) -> Vec<PathBuf> {
 
 /// The `.conf` files in `search`, in the order systemd reads them: by name, the first directory
 /// with a name winning.
+///
+/// # Blocking
+///
+/// Reads the directories of `environment.d`.
 pub fn files(search: &[PathBuf]) -> Vec<PathBuf> {
     let mut found: HashMap<String, PathBuf> = HashMap::new();
     for dir in search {
@@ -88,6 +92,10 @@ pub fn files(search: &[PathBuf]) -> Vec<PathBuf> {
 /// Every line that sets a variable, in the order systemd reads them: the files in `search`, and
 /// `ours` (the variables Sway Things writes) at the place of its own file, `file`, whether that
 /// exists yet or not. A file read from disk at `file` is left out: `ours` is what it will hold.
+///
+/// # Blocking
+///
+/// Reads the directories of `environment.d`.
 pub fn lines(search: &[PathBuf], file: &Path, ours: &[Variable]) -> Vec<Line> {
     let user = search.first().cloned();
     let mut files = files(search);
@@ -134,6 +142,10 @@ pub fn lines(search: &[PathBuf], file: &Path, ours: &[Variable]) -> Vec<Line> {
 
 /// The lines of the user's session: the user's directories from `dirs`, `ours` in Sway Things'
 /// file.
+///
+/// # Blocking
+///
+/// Reads the directories of `environment.d`.
 pub fn of_session(dirs: &Dirs, ours: &[Variable]) -> Vec<Line> {
     lines(&search_dirs(dirs), &super::path(dirs), ours)
 }

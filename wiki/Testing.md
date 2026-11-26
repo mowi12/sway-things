@@ -117,6 +117,24 @@ The rules, in `crates/architecture/src/rules.rs`:
   cycle inside one unit, like `network::agent` and `network::nm::snapshot` or `widgets::apps::autostart` and
   `widgets::apps::dialogs`, is allowed. Crate roots and the edges R1 reports are left out: every cycle through an edge
   to a higher layer ends when R1's repair moves it.
+- **R4, literals**: no string literal outside `core::registry` is a registry key (`R4-key-literals`; the keys come from
+  `Registry::builtin()`): code that reads a setting by name uses the constant of the registry module that defines it, so
+  a renamed key can't miss a reader. No string literal outside `core::command` spells out a hook (`sway-things hook`,
+  `R4-hook-literals`), one violation per module and hook. Literals in code, attributes and macro bodies count; doc
+  comments and test-only items don't.
+- **R5, stand-ins** (`R5-stand-ins`): a module `stand_in` is declared behind
+  `#[cfg(any(test, feature = "test-support"))]`, so the normal build never has one and the front ends' tests can use it.
+- **R5, blocking**: a call graph over the functions of the three crates finds which ones block. It starts from the
+  primitives that wait (`std::thread::sleep`, `read_dir`, `block_on`, a synchronous `std::process` call, the session
+  lock's `wait`) and follows calls by path (`a::f()`, `Type::f()`, `Self::f()`, an imported `f()`, a function passed as
+  a value); what runs inside `gio::spawn_blocking` or `std::thread::spawn` doesn't count. Whole-file reads and writes
+  are no primitives, and a few fast, bounded scans of `/proc` and the state directory don't block (`NOT_BLOCKING` in
+  `rules.rs`, each with its reason). A core function has a `# Blocking` section in its docs exactly when it blocks
+  (`R5-blocking-docs`; methods of trait impls are left out). Nothing blocks the GUI's main context: a GUI function that
+  may run there (one no other GUI function calls by path, like a signal handler or a page's setup, or one such a
+  function calls outside `gio::spawn_blocking`) may not use a primitive or a blocking core function, and no `async fn`
+  of the core may block the executor that polls it (`R5-blocking-calls`). The command line has no main loop and is left
+  out; a core `async fn` that only it runs is still reported.
 
 **Baseline.** The violations accepted until they are repaired are in `crates/architecture/baseline.toml`, one entry per
 rule and edge (`rule`, `from`, `to`) with `why`: the reason and the planned repair. The test fails on a violation that
@@ -135,7 +153,11 @@ its description.
 **Limits.** Macro bodies (`format!`, `msg!`, `glib::clone!`) are token streams, not syntax: they are scanned for `a::b`
 sequences that resolve to a module of the workspace, so a path a macro builds itself is missed. Single-segment paths
 (`load()` after `use crate::state::load`) count through their `use`, an item a glob brings in through the glob's module.
-Resolution is by name: it doesn't tell a module from a function of the same name in another namespace.
+Resolution is by name: it doesn't tell a module from a function of the same name in another namespace. R5 doesn't follow
+method calls (`x.f()`), whose receiver is unknown without types, so blocking reached only through a method is missed
+(`wallpaper::cycle::prepare` reads a directory through `Collection::pictures`); its `std::process` check is a heuristic:
+a function counts when it names `std::process::Command` or `Child` and calls `.status()`, `.output()`, `.wait()` or
+`.wait_with_output()`.
 
 ## Fuzzing
 

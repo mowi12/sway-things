@@ -120,11 +120,19 @@ pub fn raw_of(percent: u32, max: u32) -> u32 {
 
 /// The backlights and keyboard lights of this computer, the screens first (firmware before
 /// platform before raw, as systemd and GNOME prefer them), then by name.
+///
+/// # Blocking
+///
+/// Reads `/sys/class/backlight` and `/sys/class/leds`.
 pub fn devices() -> Vec<Device> {
     devices_in(Path::new(SYSFS))
 }
 
 /// [`devices`] below `root` (the place of `/sys/class`).
+///
+/// # Blocking
+///
+/// Reads `/sys/class/backlight` and `/sys/class/leds`.
 pub fn devices_in(root: &Path) -> Vec<Device> {
     let mut found = Vec::new();
     for (class, keyboard) in [("backlight", false), ("leds", true)] {
@@ -177,11 +185,19 @@ fn read_device(dir: &Path, name: String, keyboard: bool) -> Option<Device> {
 }
 
 /// The device of `name`, read again; `None` if it is gone.
+///
+/// # Blocking
+///
+/// Reads `/sys/class/backlight` and `/sys/class/leds`.
 pub fn device(name: &str) -> Option<Device> {
     devices().into_iter().find(|device| device.name == name)
 }
 
 /// The backlight of the screen: the first of [`devices`] that lights one.
+///
+/// # Blocking
+///
+/// Reads `/sys/class/backlight` and `/sys/class/leds`.
 pub fn screen() -> Option<Device> {
     devices().into_iter().find(|device| device.kind.is_screen())
 }

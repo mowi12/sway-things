@@ -117,6 +117,10 @@ pub fn marked(name: &str, marker: &str) -> Vec<Found> {
 }
 
 /// Sends `signal` (`TERM`, `INT`) to the processes `pids` with `kill`.
+///
+/// # Blocking
+///
+/// Waits for `kill`.
 pub fn signal(pids: &[u32], signal: &str) {
     if pids.is_empty() {
         return;

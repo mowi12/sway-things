@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 
 use architecture::baseline::{self, Entry, PLACEHOLDER};
+use architecture::blocking::Analysis;
 use architecture::graph::{Files, Graph, Unit};
 use architecture::rules;
 
@@ -501,6 +502,326 @@ fn in_the_gui_each_widget_module_is_a_unit_of_its_own() -> Result {
         [
             edge("gui::widgets::keyboard", "gui::widgets::xkb_options"),
             edge("gui::widgets::xkb_options", "gui::widgets::keyboard")
+        ]
+    );
+    Ok(())
+}
+
+fn violations(found: Vec<rules::Violation>) -> Vec<(String, String, String)> {
+    let mut found: Vec<_> = found
+        .into_iter()
+        .map(|violation| (violation.rule.to_owned(), violation.from, violation.to))
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn a_registry_key_as_a_literal_is_reported_outside_the_registry_only() -> Result {
+    let graph = graph(&[
+        ("lib.rs", "mod registry; mod theme; mod view;"),
+        (
+            "registry.rs",
+            "pub const ACCENT: &str = \"windows.accent\";\nfn s() -> &'static str { \"cursor.size\" }",
+        ),
+        (
+            "theme.rs",
+            "/// Reads \"windows.accent\" in its docs.\nconst KEY: &str = \"windows.accent\";\n\
+             fn f() -> String { format!(\"{}\", \"cursor.size\") }\nfn g() -> &'static str { \"windows\" }",
+        ),
+        (
+            "view.rs",
+            "fn f() -> &'static str { crate::registry::ACCENT }\n\
+             #[cfg(test)]\nmod tests { const K: &str = \"windows.accent\"; }",
+        ),
+    ])?;
+    let keys = ["windows.accent", "cursor.size"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(
+        violations(rules::key_literals(&graph, &keys)),
+        [
+            found(rules::KEY_LITERALS, "core::theme", "cursor.size"),
+            found(rules::KEY_LITERALS, "core::theme", "windows.accent")
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_spelled_out_hook_is_reported_by_module_and_hook_outside_command() -> Result {
+    let graph = graph(&[
+        ("lib.rs", "mod command; mod outputs;"),
+        (
+            "command.rs",
+            "pub fn hook(name: &str) -> String { format!(\"exec sway-things hook {name}\") }",
+        ),
+        (
+            "outputs.rs",
+            "const A: &str = \"exec sway-things hook workspaces\";\n\
+             fn b() -> String { format!(\"    exec sway-things hook workspaces\\n\") }\n\
+             fn c() -> String { format!(\"sway-things hook quick {}\", 1) }",
+        ),
+    ])?;
+    assert_eq!(
+        violations(rules::hook_literals(&graph)),
+        [
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook quick"
+            ),
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook workspaces"
+            ),
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook workspaces"
+            )
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_stand_in_must_be_behind_test_or_test_support() -> Result {
+    let graph = graph(&[
+        (
+            "lib.rs",
+            "mod a; mod b; mod c; mod d;\n\
+             #[cfg(any(test, feature = \"test-support\"))]\npub mod stand_in {}",
+        ),
+        (
+            "a.rs",
+            "#[cfg(any(\n    feature = \"test-support\",\n    test,\n))]\npub mod stand_in {}",
+        ),
+        ("b.rs", "pub mod stand_in {}"),
+        ("c.rs", "#[cfg(test)]\nmod stand_in {}"),
+        (
+            "d.rs",
+            "#[cfg(feature = \"test-support\")]\npub mod stand_in {}",
+        ),
+    ])?;
+    assert_eq!(
+        violations(rules::stand_ins(&graph)),
+        [
+            found(rules::STAND_INS, "core::b", "core::b::stand_in"),
+            found(rules::STAND_INS, "core::c", "core::c::stand_in"),
+            found(rules::STAND_INS, "core::d", "core::d::stand_in")
+        ]
+    );
+    Ok(())
+}
+
+/// The core and the GUI, from fixture files.
+fn core_and_gui(core: &[(&str, &str)], gui: &[(&str, &str)]) -> Result<Graph> {
+    Ok(Graph::build(&[
+        unit("core", Some("sway_things_core"), core),
+        unit("gui", Some("sway_things_gui"), gui),
+    ])?)
+}
+
+fn blocking(graph: &Graph, exempt: &[&str]) -> Vec<String> {
+    let analysis = Analysis::build(graph, exempt);
+    let mut names: Vec<String> = analysis
+        .functions
+        .iter()
+        .enumerate()
+        .filter(|&(node, _)| analysis.blocks(node))
+        .map(|(_, function)| function.name.clone())
+        .collect();
+    names.sort();
+    names
+}
+
+fn names(list: &[&str]) -> Vec<String> {
+    list.iter().map(|name| (*name).to_owned()).collect()
+}
+
+#[test]
+fn primitives_block() -> Result {
+    let graph = graph(&[(
+        "lib.rs",
+        "use std::thread;\nuse std::process::Command;\nuse std::fs;\n\
+             pub fn sleeps() { thread::sleep(D); }\n\
+             pub fn lists() { let _ = fs::read_dir(\"/x\"); }\n\
+             pub fn lists_a_path(path: &Path) { let _ = path.read_dir(); }\n\
+             pub fn runs() { let _ = Command::new(\"kill\").status(); }\n\
+             pub fn waits(child: &mut std::process::Child) { let _ = child.wait(); }\n\
+             pub fn spawns_async() { let _ = async_process::Command::new(\"kill\").status(); }\n\
+             pub fn blocks_on() { futures_lite::future::block_on(f()); }\n\
+             pub fn reads() { let _ = fs::read_to_string(\"/x\"); }\n\
+             mod session { pub struct Lock; impl Lock {\n\
+             pub fn wait(name: &str) -> Self { Lock }\n\
+             pub async fn wait_for(name: &str) -> Self { Lock } } }\n\
+             pub fn locks() { let _ = session::Lock::wait(\"x\"); }\n\
+             pub async fn locks_async() { let _ = session::Lock::wait_for(\"x\").await; }",
+    )])?;
+    // `Lock::wait` is a primitive by name; the fixture's has no body that waits.
+    assert_eq!(
+        blocking(&graph, &[]),
+        names(&[
+            "core::blocks_on",
+            "core::lists",
+            "core::lists_a_path",
+            "core::runs",
+            "core::sleeps",
+            "core::waits"
+        ])
+    );
+    Ok(())
+}
+
+#[test]
+fn blocking_follows_path_calls_but_not_method_calls() -> Result {
+    let graph = graph(&[
+        ("lib.rs", "mod a; mod b; mod c;"),
+        (
+            "a.rs",
+            "pub fn scan() { let _ = std::fs::read_dir(\"/x\"); }\n\
+             pub struct Folder;\nimpl Folder {\n\
+             pub fn pictures(&self) { scan(); }\n\
+             pub fn new() -> Self { Self::open(); Folder }\n\
+             fn open() { crate::a::scan(); } }",
+        ),
+        (
+            "b.rs",
+            "use crate::a::scan as list;\n\
+             pub fn by_import() { list(); }\n\
+             pub fn by_type() { let _ = crate::a::Folder::new(); }\n\
+             pub fn by_method(folder: &crate::a::Folder) { folder.pictures(); }\n\
+             pub fn by_value() { let _ = [1].iter().map(crate::a::Folder::new); }\n\
+             pub fn shadowed() { let scan = 1; let _ = scan; }",
+        ),
+        ("c.rs", "fn exempt() { crate::a::scan(); }"),
+    ])?;
+    assert_eq!(blocking(&graph, &["core::a::scan"]), Vec::<String>::new());
+    assert_eq!(
+        blocking(&graph, &[]),
+        names(&[
+            "core::a::Folder::new",
+            "core::a::Folder::open",
+            "core::a::Folder::pictures",
+            "core::a::scan",
+            "core::b::by_import",
+            "core::b::by_type",
+            "core::b::by_value",
+            "core::c::exempt"
+        ])
+    );
+    Ok(())
+}
+
+fn calls(graph: &Graph) -> Vec<(String, String, String)> {
+    let analysis = Analysis::build(graph, &[]);
+    violations(rules::blocking_calls(graph, &analysis))
+}
+
+#[test]
+fn the_gui_may_block_only_inside_spawn_blocking() -> Result {
+    let graph = core_and_gui(
+        &[
+            ("lib.rs", "pub mod files;"),
+            (
+                "files.rs",
+                "pub fn list() { let _ = std::fs::read_dir(\"/x\"); }\npub fn name() {}",
+            ),
+        ],
+        &[
+            ("lib.rs", "mod page; mod worker;"),
+            (
+                "page.rs",
+                "use sway_things_core::files;\n\
+                 fn build() { button.connect_clicked(move |_| files::list()); files::name(); }\n\
+                 fn off() { let _ = gtk::gio::spawn_blocking(move || files::list()); }\n\
+                 fn by_value() { let _ = gio::spawn_blocking(files::list); }\n\
+                 fn helper() { files::list(); }\n\
+                 fn uses_helper() { helper(); }\n\
+                 fn in_thread() { std::thread::spawn(|| crate::worker::work()); }",
+            ),
+            (
+                "worker.rs",
+                "pub fn work() { let _ = std::fs::read_dir(\"/y\"); deeper(); }\n\
+                 fn deeper() { sway_things_core::files::list(); }",
+            ),
+        ],
+    )?;
+    // `helper` is called by path outside spawn_blocking, so it reports where it reaches the core;
+    // `uses_helper` isn't reported: the place where the GUI reaches the core is. `work` and
+    // `deeper` run only in a thread.
+    assert_eq!(
+        calls(&graph),
+        [
+            found(
+                rules::BLOCKING_CALLS,
+                "gui::page::build",
+                "core::files::list"
+            ),
+            found(
+                rules::BLOCKING_CALLS,
+                "gui::page::helper",
+                "core::files::list"
+            )
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn an_async_fn_of_the_core_may_not_block_but_the_cli_may() -> Result {
+    let graph = Graph::build(&[
+        unit(
+            "core",
+            Some("sway_things_core"),
+            &[(
+                "lib.rs",
+                "pub fn list() { let _ = std::fs::read_dir(\"/x\"); }\n\
+                 pub async fn check() { list(); }\n\
+                 pub fn sync_check() { list(); }",
+            )],
+        ),
+        unit(
+            "cli",
+            Some("sway_things_cli"),
+            &[("lib.rs", "pub async fn run() { sway_things_core::list(); }")],
+        ),
+    ])?;
+    assert_eq!(
+        calls(&graph),
+        [found(rules::BLOCKING_CALLS, "core::check", "core::list")]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_core_function_says_blocking_exactly_when_it_blocks() -> Result {
+    let graph = graph(&[(
+        "lib.rs",
+        "/// Lists.\n///\n/// # Blocking\n///\n/// Reads a directory.\n\
+         pub fn documented() { let _ = std::fs::read_dir(\"/x\"); }\n\
+         /// Lists.\npub fn undocumented() { let _ = std::fs::read_dir(\"/x\"); }\n\
+         /// # Blocking\n///\n/// Not really.\npub fn needless() {}\n\
+         struct S;\nimpl std::fmt::Display for S {\n\
+         fn fmt(&self, f: &mut F) -> R { let _ = std::fs::read_dir(\"/x\"); Ok(()) } }",
+    )])?;
+    let analysis = Analysis::build(&graph, &[]);
+    assert_eq!(
+        violations(rules::blocking_docs(&graph, &analysis)),
+        [
+            found(
+                rules::BLOCKING_DOCS,
+                "core::needless",
+                "needless # Blocking"
+            ),
+            found(
+                rules::BLOCKING_DOCS,
+                "core::undocumented",
+                "missing # Blocking"
+            )
         ]
     );
     Ok(())

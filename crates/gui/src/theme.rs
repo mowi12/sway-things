@@ -28,9 +28,9 @@ use crate::contrast;
 use crate::model::Model;
 
 /// The setting whose color is the accent.
-const ACCENT_KEY: &str = "windows.focused.child_border";
+const ACCENT_KEY: &str = sway_things_core::registry::windows::FOCUSED_CHILD_BORDER;
 /// The preference that says where the accent comes from.
-const SOURCE_KEY: &str = "app.accent_source";
+const SOURCE_KEY: &str = sway_things_core::registry::app::ACCENT_SOURCE;
 
 /// The window backgrounds the accent is made readable on: those of GTK's own theme. Other themes
 /// are close enough, as the contrast is checked against the darker or lighter end.

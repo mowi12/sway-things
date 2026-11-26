@@ -188,6 +188,10 @@ impl ScanDir {
     /// A new, empty directory in `parent` (made if missing). Directories older than a day that
     /// a crashed Sway Things left there are removed first.
     ///
+    /// # Blocking
+    ///
+    /// Reads the directory of the scans.
+    ///
     /// # Errors
     ///
     /// If it can't be made.
@@ -213,6 +217,10 @@ impl ScanDir {
     }
 
     /// A new directory in the user's cache.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the directory of the scans.
     ///
     /// # Errors
     ///
@@ -262,6 +270,10 @@ impl Drop for ScanDir {
 }
 
 /// Removes the directories `scan-*` in `parent` older than a day whose process is gone.
+///
+/// # Blocking
+///
+/// Reads the directory of the scans.
 fn remove_stale(parent: &Path) {
     let Ok(entries) = fs::read_dir(parent) else {
         return;

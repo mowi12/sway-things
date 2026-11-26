@@ -161,6 +161,10 @@ fn list(value: &str) -> Vec<String> {
 
 /// The backends in the directories `portals` ([`portal_dirs`]), sorted by name; a name in an
 /// earlier directory hides the same name in a later one.
+///
+/// # Blocking
+///
+/// Reads the directories of the portal backends.
 pub fn backends(portals: &[PathBuf]) -> Vec<Backend> {
     let mut found: HashMap<String, Backend> = HashMap::new();
     for dir in portals {
@@ -458,6 +462,10 @@ pub fn users_config(dirs: &Dirs) -> Option<PathBuf> {
 }
 
 /// The steps that need no program: what is installed and how it is configured, for `dirs`.
+///
+/// # Blocking
+///
+/// Reads the directories of the portal backends.
 pub fn look(dirs: &Dirs) -> Check {
     let portal_dir = std::env::var_os(PORTAL_DIR)
         .map(PathBuf::from)
@@ -466,6 +474,10 @@ pub fn look(dirs: &Dirs) -> Check {
 }
 
 /// [`look`] with `portal_dir` as the value of `XDG_DESKTOP_PORTAL_DIR`.
+///
+/// # Blocking
+///
+/// Reads the directories of the portal backends.
 pub fn look_in(dirs: &Dirs, portal_dir: Option<&Path>) -> Check {
     let mut backends = backends(&portal_dirs(dirs, portal_dir));
     sort_backends(&mut backends, &dirs.desktops);
@@ -510,6 +522,10 @@ pub fn session_variables<S: std::hash::BuildHasher>(
 }
 
 /// Every step: [`look`], then the user manager's environment and the session bus.
+///
+/// # Blocking
+///
+/// Reads the directories of the portal backends.
 pub async fn check(dirs: &Dirs) -> Check {
     let mut check = look(dirs);
     check.session_variables = super::files::user_manager()

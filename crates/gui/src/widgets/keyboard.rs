@@ -35,9 +35,9 @@ const NO_SESSION: Msg = msg!("Only in a running sway session");
 const NOT_CONNECTED: Msg = msg!("The keyboard isn’t connected");
 
 /// The key of the keyboard model.
-const MODEL: &str = "input.keyboard.xkb_model";
+const MODEL: &str = sway_things_core::registry::input::XKB_MODEL;
 /// The key of the XKB options.
-const OPTIONS: &str = "input.keyboard.xkb_options";
+const OPTIONS: &str = sway_things_core::registry::input::XKB_OPTIONS;
 
 /// The choices of a text setting the page offers as a drop-down: the keyboard models, with the
 /// default first. `None` for other settings.

@@ -38,6 +38,10 @@ impl AppsCheck {
 }
 
 /// Adds the findings about the apps to `findings`.
+///
+/// # Blocking
+///
+/// Reads the user's autostart directory.
 pub(super) fn findings(
     check: &AppsCheck,
     state: &State,
@@ -103,6 +107,10 @@ fn desktop(dirs: &Dirs) -> Finding {
 }
 
 /// What runs the XDG autostart entries, and what starts with the session.
+///
+/// # Blocking
+///
+/// Reads the XDG autostart directories.
 fn autostart_findings(
     check: &AppsCheck,
     state: &State,

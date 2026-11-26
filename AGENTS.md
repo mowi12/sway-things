@@ -38,7 +38,7 @@ restating them. Keep it that way: a fact belongs in one place.
 │   │                #   tests/gui/ and gui_pseudo.rs need a display and run in the sway containers
 │   ├── cli-docs/    # dev-only generator of data/man and data/completions; not a default member, never shipped
 │   └── architecture/
-│                    # dev-only architecture tests: layers and cycles of the module graph, baseline.toml; not a
+│                    # dev-only architecture tests: layers, cycles, literals, stand-ins, baseline.toml; not a
 │                    #   default member, never shipped
 ├── data/            # desktop entry and AppStream metainfo templates (*.in, merged with the translations at build
 │                    #   time); icons/: the app icon and its symbolic variant (hand-written SVG); man/ and
@@ -103,6 +103,8 @@ Never break these, even if a task seems to ask for it. Ask instead. They are the
   `baseline.toml` only when it can't be repaired in the same change, and only with a reason
   ([Architecture tests](wiki/Testing.md#architecture-tests), [layers](wiki/Architecture.md#layers-of-the-core)). A new
   top-level core module needs a layer.
+- **Blocking work never runs on the GUI's main context or in a core `async fn`:** run it in `gio::spawn_blocking`, and
+  give a core function that blocks a `# Blocking` section; the architecture test checks both.
 - **Docs in the same change:** update `wiki/` so it describes the new state, and tick or strike through the item in
   `wiki/Feature-Catalog.md`.
 - **MSRV 1.85:** no language features or crates that need a newer rustc. `check-packaging.sh` checks that the MSRV and

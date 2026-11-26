@@ -24,13 +24,13 @@ use crate::i18n::{msg, tr, trf};
 use crate::model::Model;
 
 /// The key of the cursor theme.
-const THEME: &str = "cursor.theme";
+const THEME: &str = sway_things_core::registry::cursor::THEME;
 /// The key of the cursor size.
-const SIZE: &str = "cursor.size";
+const SIZE: &str = sway_things_core::registry::cursor::SIZE;
 /// The keys of the settings that map a device to a screen.
 const MAPS: [&str; 2] = [
-    "input.tablet_tool.map_to_output",
-    "input.touch.map_to_output",
+    sway_things_core::registry::cursor::TABLET_MAP,
+    sway_things_core::registry::cursor::TOUCH_MAP,
 ];
 
 /// The size the arrows of the theme list are drawn at.

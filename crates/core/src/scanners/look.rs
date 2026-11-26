@@ -138,11 +138,19 @@ pub struct Look {
 
 impl Look {
     /// Looks at this computer, with scanimage and ipp-usb looked up in `PATH`.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/sys/bus/usb/devices`.
     pub fn read() -> Self {
         Self::read_at(Path::new("/"), std::env::var_os("PATH").as_deref())
     }
 
     /// Looks at the installation below `root`, with programs looked up in `path`.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/sys/bus/usb/devices`.
     pub fn read_at(root: &Path, path: Option<&OsStr>) -> Self {
         let family = Family::read_at(root);
         let ipp_usb = find_program("ipp-usb", path).is_some()
@@ -308,6 +316,10 @@ struct UsbDevice {
 }
 
 /// The USB devices in `root/sys/bus/usb/devices`.
+///
+/// # Blocking
+///
+/// Reads `/sys/bus/usb/devices`.
 fn usb_devices(root: &Path) -> Vec<UsbDevice> {
     let base = root.join("sys/bus/usb/devices");
     let Ok(entries) = fs::read_dir(&base) else {
@@ -369,6 +381,10 @@ fn usb_devices(root: &Path) -> Vec<UsbDevice> {
 }
 
 /// The USB IDs (`04a9:1909`) libsane's udev hwdb and rules mark as scanners.
+///
+/// # Blocking
+///
+/// Reads the udev directories for libsane's rules.
 fn libsane_ids(root: &Path) -> HashSet<String> {
     let mut ids = HashSet::new();
     for base in ["usr/lib/udev", "lib/udev", "etc/udev"] {
@@ -448,6 +464,10 @@ fn group_of(root: &Path, node: &Path) -> Option<String> {
 
 /// Whether SANE's backend `name` is installed: `libsane-NAME.so` in one of the places the
 /// distributions keep the backends.
+///
+/// # Blocking
+///
+/// Reads the directories of SANE's backends.
 fn has_backend(root: &Path, name: &str) -> bool {
     let file = format!("libsane-{name}.so");
     let mut dirs = vec![

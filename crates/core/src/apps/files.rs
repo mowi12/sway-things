@@ -22,6 +22,10 @@ pub use crate::generate::other::{Problem, Wanted, keep};
 use crate::state::State;
 
 /// The files the settings in `state` want, for `dirs`.
+///
+/// # Blocking
+///
+/// Reads the user's autostart directory.
 pub fn wanted(state: &State, dirs: &Dirs) -> Vec<Wanted> {
     // Only the apps chosen are looked up, not every installed one: this runs at each save.
     let apps: Vec<App> = Kind::ALL

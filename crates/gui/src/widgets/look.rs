@@ -27,9 +27,9 @@ use crate::i18n::{msg, tr};
 use crate::theme;
 
 /// The key of the GTK theme.
-const GTK_THEME: &str = "look.gtk_theme";
+const GTK_THEME: &str = sway_things_core::registry::look::GTK_THEME;
 /// The key of the icon theme.
-const ICON_THEME: &str = "look.icon_theme";
+const ICON_THEME: &str = sway_things_core::registry::look::ICON_THEME;
 
 /// The icons an icon theme is shown with: a folder, a document, settings and the trash, which
 /// every complete theme has.

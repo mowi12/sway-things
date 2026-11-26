@@ -239,6 +239,10 @@ pub fn record(
 }
 
 /// [`record`], with `start` to start the recorder with its arguments.
+///
+/// # Blocking
+///
+/// Waits for `setsid` to start the recorder.
 pub(super) fn record_with(
     recorder: Program,
     target: &Target,

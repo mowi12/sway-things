@@ -51,6 +51,10 @@ impl Lock {
     /// Takes the lock `name` as [`Self::take`] does, blocking the thread while another process
     /// holds it, at most `wait`.
     ///
+    /// # Blocking
+    ///
+    /// Retries until the other process gives up the lock, for up to `wait`.
+    ///
     /// # Errors
     ///
     /// [`LockError::NoRuntimeDir`] without `XDG_RUNTIME_DIR`, [`LockError::Busy`] if it is still

@@ -276,6 +276,9 @@
   executor-agnostic, async-io based crates (zbus, async-process, and our own IPC wire format on async-io); the CLI uses
   `async_io::block_on`. No tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly
   in futures without bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
+  Blocking work (a directory listing, a synchronous process, a lock that waits) never runs on the main context: the GUI
+  calls it inside `gio::spawn_blocking` and hands the result back. A core function that blocks says so in a `# Blocking`
+  section of its docs; the [architecture test](Testing.md#architecture-tests) checks both.
 
 ## Internationalization
 

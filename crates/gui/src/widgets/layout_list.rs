@@ -22,9 +22,9 @@ use crate::style;
 use crate::xkb;
 
 /// The key of the layouts.
-pub const LAYOUTS: &str = "input.keyboard.xkb_layout";
+pub const LAYOUTS: &str = sway_things_core::registry::input::XKB_LAYOUT;
 /// The key of the variants, one for each layout.
-pub const VARIANTS: &str = "input.keyboard.xkb_variant";
+pub const VARIANTS: &str = sway_things_core::registry::input::XKB_VARIANT;
 
 /// The layouts and variants (as many as layouts) a list shows, and why they are locked.
 type Shown = (Vec<String>, Vec<String>, Option<String>);

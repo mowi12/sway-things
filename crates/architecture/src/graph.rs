@@ -77,6 +77,7 @@ pub struct Module {
     imports: BTreeMap<String, Vec<String>>,
     globs: Vec<Vec<String>>,
     items: Vec<Item>,
+    declarations: Vec<Declaration>,
 }
 
 impl Module {
@@ -84,6 +85,38 @@ impl Module {
     pub fn top(&self) -> Option<&str> {
         self.path.first().map(String::as_str)
     }
+
+    /// Its items, without the modules it declares and without the items the normal build leaves
+    /// out (`#[cfg(test)]`, `test-support`).
+    pub fn items(&self) -> &[Item] {
+        &self.items
+    }
+
+    /// The modules it declares (`mod x;`, `mod x { … }`), also those the normal build leaves out.
+    pub fn declarations(&self) -> &[Declaration] {
+        &self.declarations
+    }
+}
+
+/// A `mod` item.
+#[derive(Debug, Clone)]
+pub struct Declaration {
+    /// The module's name.
+    pub name: String,
+    /// The line of `mod`.
+    pub line: usize,
+    /// Whether it is declared behind `#[cfg(any(test, feature = "test-support"))]` (in either order).
+    pub test_support: bool,
+}
+
+/// What a path names: a module, or an item defined in a module with the path inside it (`["f"]`
+/// for a function, `["Type", "f"]` for an associated function).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Named {
+    /// A module.
+    Module(usize),
+    /// An item of this module and its path below the module.
+    Item(usize, Vec<String>),
 }
 
 /// An edge: `from` uses something defined in `to`.
@@ -233,9 +266,17 @@ impl Graph {
             imports: BTreeMap::new(),
             globs: Vec::new(),
             items: Vec::new(),
+            declarations: Vec::new(),
         });
         let mut kept = Vec::new();
         for item in items {
+            if let Item::Mod(module) = &item {
+                self.modules[id].declarations.push(Declaration {
+                    name: module.ident.to_string(),
+                    line: line(module.mod_token.span),
+                    test_support: test_support_gate(&module.attrs),
+                });
+            }
             if test_only(item_attrs(&item)) {
                 continue;
             }
@@ -353,6 +394,107 @@ impl Graph {
     }
 }
 
+impl Graph {
+    /// What a path written in module `ctx` names, with the item's name as it is defined (an import
+    /// `use a::f as g` makes `g` name `f` of `a`). `None` for a path that leaves the workspace.
+    pub fn resolve_named(&self, ctx: usize, segments: &[String]) -> Option<Named> {
+        self.resolve_named_in(ctx, segments, &mut Seen::new())
+    }
+
+    fn resolve_named_in(&self, ctx: usize, segments: &[String], seen: &mut Seen) -> Option<Named> {
+        let (first, mut rest) = segments.split_first()?;
+        let unit = self.modules[ctx].unit;
+        let mut current = match first.as_str() {
+            "::" => {
+                let (name, after) = rest.split_first()?;
+                rest = after;
+                Named::Module(*self.externs.get(name)?)
+            }
+            "crate" => Named::Module(*self.roots.get(unit)?),
+            "self" => Named::Module(ctx),
+            "super" => Named::Module(self.modules[ctx].parent?),
+            name => match self.lookup_named(ctx, name, seen) {
+                Some(named) => named,
+                None => Named::Module(*self.externs.get(name)?),
+            },
+        };
+        for segment in rest {
+            current = match current {
+                Named::Module(module) => match segment.as_str() {
+                    "self" => Named::Module(module),
+                    "super" => Named::Module(self.modules[module].parent?),
+                    name => self
+                        .lookup_named(module, name, seen)
+                        .unwrap_or_else(|| Named::Item(module, vec![name.to_owned()])),
+                },
+                Named::Item(module, mut path) => {
+                    path.push(segment.clone());
+                    Named::Item(module, path)
+                }
+            };
+        }
+        Some(current)
+    }
+
+    fn lookup_named(&self, module: usize, name: &str, seen: &mut Seen) -> Option<Named> {
+        if !seen.insert((module, name.to_owned())) {
+            return None;
+        }
+        let data = &self.modules[module];
+        if let Some(&child) = data.children.get(name) {
+            return Some(Named::Module(child));
+        }
+        if let Some(segments) = data.imports.get(name) {
+            return self.resolve_named_in(module, segments, seen);
+        }
+        if data.defined.contains(name) {
+            return Some(Named::Item(module, vec![name.to_owned()]));
+        }
+        data.globs
+            .iter()
+            .find_map(|glob| match self.resolve_named_in(module, glob, seen) {
+                Some(Named::Module(source)) if source != module => {
+                    self.lookup_named(source, name, seen)
+                }
+                _ => None,
+            })
+    }
+
+    /// A path written in module `ctx` with its first segment replaced through the module's
+    /// imports, for paths that leave the workspace: `thread::sleep` after `use std::thread;` is
+    /// `std::thread::sleep`. A leading `::` is dropped.
+    pub fn expand(&self, ctx: usize, segments: &[String]) -> Vec<String> {
+        let mut path: Vec<String> = segments
+            .iter()
+            .skip_while(|segment| *segment == "::")
+            .cloned()
+            .collect();
+        let imports = &self.modules[ctx].imports;
+        for _ in 0..8 {
+            let Some(first) = path.first() else {
+                break;
+            };
+            if self.modules[ctx].children.contains_key(first) {
+                break;
+            }
+            let Some(import) = imports.get(first) else {
+                break;
+            };
+            if import.first() == Some(first) && import.len() == 1 {
+                break;
+            }
+            let mut expanded: Vec<String> = import
+                .iter()
+                .skip_while(|segment| *segment == "::")
+                .cloned()
+                .collect();
+            expanded.extend(path.into_iter().skip(1));
+            path = expanded;
+        }
+        path
+    }
+}
+
 fn join(dir: &str, name: &str) -> String {
     if dir.is_empty() {
         name.to_owned()
@@ -373,7 +515,7 @@ fn parse(unit: &Unit, file: &str, text: &str) -> Result<syn::File, Error> {
     })
 }
 
-fn line(span: Span) -> usize {
+pub(crate) fn line(span: Span) -> usize {
     span.start().line
 }
 
@@ -621,9 +763,35 @@ impl<'ast> Visit<'ast> for Edges<'_> {
     fn visit_visibility(&mut self, _: &'ast syn::Visibility) {}
 }
 
+/// Whether attributes hold `#[cfg(any(test, feature = "test-support"))]`, in either order.
+fn test_support_gate(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        if !attr.path().is_ident("cfg") {
+            return false;
+        }
+        let Ok(Meta::List(list)) = attr.parse_args::<Meta>() else {
+            return false;
+        };
+        if !list.path.is_ident("any") {
+            return false;
+        }
+        let Ok(args) = list.parse_args_with(Punctuated::<Meta, syn::Token![,]>::parse_terminated)
+        else {
+            return false;
+        };
+        let test = args.iter().any(|meta| matches!(meta, Meta::Path(path) if path.is_ident("test")));
+        let support = args.iter().any(|meta| {
+            matches!(meta, Meta::NameValue(pair) if pair.path.is_ident("feature")
+                && matches!(&pair.value, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(value), .. })
+                    if value.value() == "test-support"))
+        });
+        args.len() == 2 && test && support
+    })
+}
+
 /// Whether the attributes keep an item out of the normal build: `#[cfg(test)]`, `#[cfg(doc)]`,
 /// `#[cfg(feature = "test-support")]` and `any`/`all` combinations of them.
-fn test_only(attrs: &[Attribute]) -> bool {
+pub(crate) fn test_only(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| {
         attr.path().is_ident("cfg")
             && attr
@@ -656,7 +824,7 @@ fn test_only_predicate(meta: &Meta) -> bool {
     }
 }
 
-fn item_attrs(item: &Item) -> &[Attribute] {
+pub(crate) fn item_attrs(item: &Item) -> &[Attribute] {
     match item {
         Item::Const(item) => &item.attrs,
         Item::Enum(item) => &item.attrs,
@@ -677,7 +845,7 @@ fn item_attrs(item: &Item) -> &[Attribute] {
     }
 }
 
-fn impl_item_attrs(item: &ImplItem) -> &[Attribute] {
+pub(crate) fn impl_item_attrs(item: &ImplItem) -> &[Attribute] {
     match item {
         ImplItem::Const(item) => &item.attrs,
         ImplItem::Fn(item) => &item.attrs,
@@ -687,7 +855,7 @@ fn impl_item_attrs(item: &ImplItem) -> &[Attribute] {
     }
 }
 
-fn trait_item_attrs(item: &TraitItem) -> &[Attribute] {
+pub(crate) fn trait_item_attrs(item: &TraitItem) -> &[Attribute] {
     match item {
         TraitItem::Const(item) => &item.attrs,
         TraitItem::Fn(item) => &item.attrs,

@@ -204,11 +204,18 @@ impl Gtk {
 
     /// The GTK of the installed swaync, from `swaync --version` (`swaync 0.12.6`), asked once;
     /// GTK 4 if it can't be told.
+    ///
+    /// # Blocking
+    ///
+    /// Waits for `swaync --version`.
     pub fn installed() -> Self {
         static INSTALLED: std::sync::OnceLock<Gtk> = std::sync::OnceLock::new();
         *INSTALLED.get_or_init(Self::ask)
     }
 
+    /// # Blocking
+    ///
+    /// Waits for `swaync --version`.
     fn ask() -> Self {
         std::process::Command::new("swaync")
             .arg("--version")

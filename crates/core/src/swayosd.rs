@@ -51,6 +51,10 @@ pub enum Server {
 /// the user's `config` with `swayosd-server` in it (outside the files Sway Things generates in
 /// `ours`), or an enabled systemd user unit of SwayOSD. Reads `/proc` and the directories of
 /// the units; nothing is run.
+///
+/// # Blocking
+///
+/// Reads the systemd user unit directories.
 pub fn server(config: &SwayConfig, ours: &Path) -> Server {
     if !crate::outputs::session_processes(SERVER).is_empty() {
         return Server::Runs;
@@ -60,6 +64,10 @@ pub fn server(config: &SwayConfig, ours: &Path) -> Server {
 
 /// What starts the server, without asking whether it runs: `config` outside `ours`, then the
 /// systemd units enabled in `units` (the `*.wants` directories in them).
+///
+/// # Blocking
+///
+/// Reads the systemd user unit directories.
 pub fn started(config: &SwayConfig, ours: &Path, units: &[PathBuf]) -> Server {
     let line = config.directives.iter().find(|directive| {
         directive.block.is_empty()
@@ -104,6 +112,10 @@ fn unit_directories() -> Vec<PathBuf> {
 
 /// The first unit of SwayOSD's server enabled in `directories`: a `swayosd…` service in one of
 /// their `*.wants` directories, other than the libinput backend, which is a system service.
+///
+/// # Blocking
+///
+/// Reads the systemd user unit directories.
 fn enabled_unit(directories: &[PathBuf]) -> Option<String> {
     directories.iter().find_map(|directory| {
         let mut wants: Vec<PathBuf> = std::fs::read_dir(directory)

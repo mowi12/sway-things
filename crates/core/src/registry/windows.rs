@@ -16,6 +16,13 @@ use crate::command::{Color, SwayCmd, Target};
 use crate::i18n::{Msg, Text};
 use crate::msg;
 
+/// The background of the focused window's title bar.
+pub const FOCUSED_BACKGROUND: &str = "windows.focused.background";
+/// The text of the focused window's title bar.
+pub const FOCUSED_TEXT: &str = "windows.focused.text";
+/// The border of the focused window's content; the app's accent color follows it.
+pub const FOCUSED_CHILD_BORDER: &str = "windows.focused.child_border";
+
 const GAPS_INNER: &str = "windows.gaps.inner";
 const GAPS_OUTER: &str = "windows.gaps.outer";
 const SMART_GAPS: &str = "windows.smart_gaps";
@@ -58,10 +65,10 @@ const STATES: [State; 4] = [
         keywords: &[msg!("color"), msg!("focus"), msg!("active"), msg!("theme")],
         keys: [
             "windows.focused.border",
-            "windows.focused.background",
-            "windows.focused.text",
+            FOCUSED_BACKGROUND,
+            FOCUSED_TEXT,
             "windows.focused.indicator",
-            "windows.focused.child_border",
+            FOCUSED_CHILD_BORDER,
         ],
         defaults: [
             Color::rgb(0x4c, 0x78, 0x99),

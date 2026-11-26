@@ -205,6 +205,10 @@ pub fn recorder() -> Option<Program> {
 /// Runs `program` with `args` (never through a shell), with `input` on its standard input, and
 /// returns what it printed on its standard output. Standard error is kept for the error.
 ///
+/// # Blocking
+///
+/// Waits for the program to end.
+///
 /// # Errors
 ///
 /// [`CaptureError::Missing`] if it isn't installed, [`CaptureError::Failed`] if it can't be
