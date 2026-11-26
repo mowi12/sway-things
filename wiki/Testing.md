@@ -117,6 +117,13 @@ The rules, in `crates/architecture/src/rules.rs`:
   cycle inside one unit, like `network::agent` and `network::nm::snapshot` or `widgets::apps::autostart` and
   `widgets::apps::dialogs`, is allowed. Crate roots and the edges R1 reports are left out: every cycle through an edge
   to a higher layer ends when R1's repair moves it.
+- **R4, literals**: no string literal outside `core::registry` is a registry key (`R4-key-literals`; the keys come from
+  `Registry::builtin()`): code that reads a setting by name uses the constant of the registry module that defines it, so
+  a renamed key can't miss a reader. No string literal outside `core::command` spells out a hook (`sway-things hook`,
+  `R4-hook-literals`), one violation per module and hook. Literals in code, attributes and macro bodies count; doc
+  comments and test-only items don't.
+- **R5, stand-ins** (`R5-stand-ins`): a module `stand_in` is declared behind
+  `#[cfg(any(test, feature = "test-support"))]`, so the normal build never has one and the front ends' tests can use it.
 
 **Baseline.** The violations accepted until they are repaired are in `crates/architecture/baseline.toml`, one entry per
 rule and edge (`rule`, `from`, `to`) with `why`: the reason and the planned repair. The test fails on a violation that

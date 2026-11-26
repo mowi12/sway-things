@@ -392,3 +392,75 @@ rule = "R2-module-cycles"
 from = "core::state"
 to = "core::include"
 why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state`)."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "cli::notify"
+to = "sway-things hook notification-click"
+why = "An error message names the hook it comes from. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::apps::autostart"
+to = "sway-things hook autostart"
+why = "The command of the autostart runner in the generated config. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::doctor"
+to = "sway-things hook"
+why = "Finds our hooks in the generated files by their prefix. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::doctor::kanshi"
+to = "sway-things hook displays"
+why = "A hint tells the user to run the hook. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::notifications::mako"
+to = "sway-things hook notification-click"
+why = "The click action in the mako config. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::notifications::starts"
+to = "sway-things hook notification-daemon"
+why = "The line that starts the notification daemon. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::notifications::swaync"
+to = "sway-things hook notification-click"
+why = "The click action in the swaync config. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::notifications::swaync"
+to = "sway-things hook quick"
+why = "The commands of the quick settings buttons in the swaync config. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::outputs::profiles"
+to = "sway-things hook mirror"
+why = "An `exec` line of a kanshi profile. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::outputs::profiles"
+to = "sway-things hook new-display"
+why = "An `exec` line of the kanshi profile for a new display. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::outputs::profiles"
+to = "sway-things hook workspaces"
+why = "An `exec` line of a kanshi profile. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."
+
+[[violation]]
+rule = "R4-hook-literals"
+from = "core::registry::apps"
+to = "sway-things hook launch"
+why = "The command that starts an app from its desktop entry. The core's `Hook` type (one name type that the command line maps from) replaces the spelled-out hook."

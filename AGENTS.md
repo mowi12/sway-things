@@ -38,7 +38,7 @@ restating them. Keep it that way: a fact belongs in one place.
 │   │                #   tests/gui/ and gui_pseudo.rs need a display and run in the sway containers
 │   ├── cli-docs/    # dev-only generator of data/man and data/completions; not a default member, never shipped
 │   └── architecture/
-│                    # dev-only architecture tests: layers and cycles of the module graph, baseline.toml; not a
+│                    # dev-only architecture tests: layers, cycles, literals, stand-ins, baseline.toml; not a
 │                    #   default member, never shipped
 ├── data/            # desktop entry and AppStream metainfo templates (*.in, merged with the translations at build
 │                    #   time); icons/: the app icon and its symbolic variant (hand-written SVG); man/ and

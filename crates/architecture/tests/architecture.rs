@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The architecture test: the layers and cycles of the module graph of `core`, `cli` and `gui`
-//! match the baseline in `baseline.toml`.
+//! The architecture test: the rules of the module graph of `core`, `cli` and `gui` (layers,
+//! cycles, literals, stand-ins) match the baseline in `baseline.toml`.
 //!
 //! Rewrite the baseline with `SWAY_THINGS_UPDATE_BASELINE=1 cargo test -p sway-things-architecture`,
 //! then give every new entry its reason; see `wiki/Testing.md`, "Architecture tests".
 
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,7 @@ use architecture::baseline::{self, Entry};
 use architecture::graph::Graph;
 use architecture::rules::{self, Violation};
 use architecture::workspace;
+use sway_things_core::registry::Registry;
 
 const UPDATE: &str = "SWAY_THINGS_UPDATE_BASELINE";
 
@@ -39,11 +41,18 @@ fn every_top_level_module_of_the_core_has_a_layer() {
 }
 
 #[test]
-fn the_layers_and_cycles_match_the_baseline() {
+fn the_rules_match_the_baseline() {
     let graph = graph().unwrap();
+    let keys: BTreeSet<String> = Registry::builtin()
+        .iter()
+        .map(|setting| setting.key().to_owned())
+        .collect();
     let mut violations: Vec<Violation> = rules::layers(&graph);
     violations.extend(rules::module_cycles(&graph));
     violations.extend(rules::file_cycles(&graph));
+    violations.extend(rules::key_literals(&graph, &keys));
+    violations.extend(rules::hook_literals(&graph));
+    violations.extend(rules::stand_ins(&graph));
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("baseline.toml");
     let text = fs::read_to_string(&path).unwrap_or_default();
@@ -88,5 +97,5 @@ fn the_layers_and_cycles_match_the_baseline() {
             entry.rule, entry.from, entry.to
         );
     }
-    panic!("the module graph doesn't match the baseline:\n\n{report}");
+    panic!("the code doesn't match the baseline:\n\n{report}");
 }

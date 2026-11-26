@@ -505,3 +505,113 @@ fn in_the_gui_each_widget_module_is_a_unit_of_its_own() -> Result {
     );
     Ok(())
 }
+
+fn violations(found: Vec<rules::Violation>) -> Vec<(String, String, String)> {
+    let mut found: Vec<_> = found
+        .into_iter()
+        .map(|violation| (violation.rule.to_owned(), violation.from, violation.to))
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn a_registry_key_as_a_literal_is_reported_outside_the_registry_only() -> Result {
+    let graph = graph(&[
+        ("lib.rs", "mod registry; mod theme; mod view;"),
+        (
+            "registry.rs",
+            "pub const ACCENT: &str = \"windows.accent\";\nfn s() -> &'static str { \"cursor.size\" }",
+        ),
+        (
+            "theme.rs",
+            "/// Reads \"windows.accent\" in its docs.\nconst KEY: &str = \"windows.accent\";\n\
+             fn f() -> String { format!(\"{}\", \"cursor.size\") }\nfn g() -> &'static str { \"windows\" }",
+        ),
+        (
+            "view.rs",
+            "fn f() -> &'static str { crate::registry::ACCENT }\n\
+             #[cfg(test)]\nmod tests { const K: &str = \"windows.accent\"; }",
+        ),
+    ])?;
+    let keys = ["windows.accent", "cursor.size"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(
+        violations(rules::key_literals(&graph, &keys)),
+        [
+            found(rules::KEY_LITERALS, "core::theme", "cursor.size"),
+            found(rules::KEY_LITERALS, "core::theme", "windows.accent")
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_spelled_out_hook_is_reported_by_module_and_hook_outside_command() -> Result {
+    let graph = graph(&[
+        ("lib.rs", "mod command; mod outputs;"),
+        (
+            "command.rs",
+            "pub fn hook(name: &str) -> String { format!(\"exec sway-things hook {name}\") }",
+        ),
+        (
+            "outputs.rs",
+            "const A: &str = \"exec sway-things hook workspaces\";\n\
+             fn b() -> String { format!(\"    exec sway-things hook workspaces\\n\") }\n\
+             fn c() -> String { format!(\"sway-things hook quick {}\", 1) }",
+        ),
+    ])?;
+    assert_eq!(
+        violations(rules::hook_literals(&graph)),
+        [
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook quick"
+            ),
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook workspaces"
+            ),
+            found(
+                rules::HOOK_LITERALS,
+                "core::outputs",
+                "sway-things hook workspaces"
+            )
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_stand_in_must_be_behind_test_or_test_support() -> Result {
+    let graph = graph(&[
+        (
+            "lib.rs",
+            "mod a; mod b; mod c; mod d;\n\
+             #[cfg(any(test, feature = \"test-support\"))]\npub mod stand_in {}",
+        ),
+        (
+            "a.rs",
+            "#[cfg(any(\n    feature = \"test-support\",\n    test,\n))]\npub mod stand_in {}",
+        ),
+        ("b.rs", "pub mod stand_in {}"),
+        ("c.rs", "#[cfg(test)]\nmod stand_in {}"),
+        (
+            "d.rs",
+            "#[cfg(feature = \"test-support\")]\npub mod stand_in {}",
+        ),
+    ])?;
+    assert_eq!(
+        violations(rules::stand_ins(&graph)),
+        [
+            found(rules::STAND_INS, "core::b", "core::b::stand_in"),
+            found(rules::STAND_INS, "core::c", "core::c::stand_in"),
+            found(rules::STAND_INS, "core::d", "core::d::stand_in")
+        ]
+    );
+    Ok(())
+}

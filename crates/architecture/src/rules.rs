@@ -11,12 +11,18 @@
 //!   (`network::agent` and `network::nm::snapshot` may cycle, `widgets::keyboard` and
 //!   `widgets::xkb_options` may not).
 //!
+//! - [`KEY_LITERALS`] (R4): no registry key as a string literal outside `core::registry`.
+//! - [`HOOK_LITERALS`] (R4): no `sway-things hook` in a string literal outside `core::command`.
+//! - [`STAND_INS`] (R5): a module `stand_in` is declared behind
+//!   `#[cfg(any(test, feature = "test-support"))]`.
+//!
 //! The cycle rules leave out the edges R1 reports: an edge to a higher layer is R1's, and every
 //! cycle through it ends when it is repaired.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::graph::{Edge, Graph, Module};
+use crate::literals;
 
 /// The rule of the layers of the core (R1).
 pub const LAYERS: &str = "R1-layers";
@@ -24,6 +30,16 @@ pub const LAYERS: &str = "R1-layers";
 pub const MODULE_CYCLES: &str = "R2-module-cycles";
 /// The rule against cycles between the modules of a crate across its top-level modules (R2).
 pub const FILE_CYCLES: &str = "R2-file-cycles";
+
+/// The rule against registry keys spelled as string literals (R4).
+pub const KEY_LITERALS: &str = "R4-key-literals";
+/// The rule against hooks spelled out in string literals (R4).
+pub const HOOK_LITERALS: &str = "R4-hook-literals";
+/// The rule that stand-ins are built only for tests (R5).
+pub const STAND_INS: &str = "R5-stand-ins";
+
+/// The words a hand-written hook starts with.
+pub const HOOK: &str = "sway-things hook";
 
 /// The name of the core's unit.
 pub const CORE: &str = "core";
@@ -327,6 +343,103 @@ pub fn file_cycles(graph: &Graph) -> Vec<Violation> {
         }
     }
     out
+}
+
+/// Whether a module is `parent` or below it, e.g. `core::registry::app` for `core::registry`.
+fn within(module: &Module, parent: &str) -> bool {
+    module.name == parent || module.name.starts_with(&format!("{parent}::"))
+}
+
+/// The string literals equal to a registry key outside `core::registry` (R4). The constants of the
+/// registry name them instead.
+pub fn key_literals(graph: &Graph, keys: &BTreeSet<String>) -> Vec<Violation> {
+    let modules = graph.modules();
+    literals::literals(graph)
+        .into_iter()
+        .filter(|literal| keys.contains(&literal.value))
+        .filter_map(|literal| {
+            let module = &modules[literal.module];
+            if within(module, "core::registry") {
+                return None;
+            }
+            Some(Violation {
+                rule: KEY_LITERALS,
+                from: module.name.clone(),
+                to: literal.value.clone(),
+                location: format!("{}:{}", module.file, literal.line),
+                message: format!(
+                    "{} spells the registry key \"{}\" as a literal. Use the constant of the registry module that \
+                     defines the setting (export one there if there is none), so a renamed key can't miss a reader",
+                    module.name, literal.value
+                ),
+            })
+        })
+        .collect()
+}
+
+/// The string literals that spell out a hook (`sway-things hook …`) outside `core::command` (R4).
+/// A violation names the hook, so one per module and hook.
+pub fn hook_literals(graph: &Graph) -> Vec<Violation> {
+    let modules = graph.modules();
+    literals::literals(graph)
+        .into_iter()
+        .filter_map(|literal| {
+            let module = &modules[literal.module];
+            let start = literal.value.find(HOOK)?;
+            if within(module, "core::command") {
+                return None;
+            }
+            let rest = &literal.value[start + HOOK.len()..];
+            let name: String = rest
+                .trim_start_matches(' ')
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+                .collect();
+            let hook = if name.is_empty() {
+                HOOK.to_owned()
+            } else {
+                format!("{HOOK} {name}")
+            };
+            Some(Violation {
+                rule: HOOK_LITERALS,
+                from: module.name.clone(),
+                message: format!(
+                    "{} spells out \"{hook}\" in a literal. Build it from the hook's name in `core::command`, \
+                     which the command line maps from, so a renamed hook can't miss a caller",
+                    module.name
+                ),
+                to: hook,
+                location: format!("{}:{}", module.file, literal.line),
+            })
+        })
+        .collect()
+}
+
+/// The modules `stand_in` that aren't declared behind `#[cfg(any(test, feature = "test-support"))]`
+/// (R5): a stand-in replaces a service or sway for tests, and the normal build must not have one.
+pub fn stand_ins(graph: &Graph) -> Vec<Violation> {
+    graph
+        .modules()
+        .iter()
+        .flat_map(|module| {
+            module
+                .declarations()
+                .iter()
+                .filter(|declaration| declaration.name == "stand_in")
+                .filter(|declaration| !declaration.test_support)
+                .map(move |declaration| Violation {
+                    rule: STAND_INS,
+                    from: module.name.clone(),
+                    to: format!("{}::stand_in", module.name),
+                    location: format!("{}:{}", module.file, declaration.line),
+                    message: format!(
+                        "{}::stand_in isn't declared behind #[cfg(any(test, feature = \"test-support\"))]. Put that \
+                         attribute on its `mod` item, so only tests build it",
+                        module.name
+                    ),
+                })
+        })
+        .collect()
 }
 
 fn adjacency(nodes: usize, edges: impl Iterator<Item = (usize, usize)>) -> Vec<Vec<usize>> {

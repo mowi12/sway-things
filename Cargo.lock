@@ -1562,6 +1562,7 @@ name = "sway-things-architecture"
 version = "0.5.0"
 dependencies = [
  "proc-macro2",
+ "sway-things-core",
  "syn 3.0.10",
  "toml_edit",
 ]
