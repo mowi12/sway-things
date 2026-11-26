@@ -5,6 +5,7 @@ allow-panic-in-tests = true
 doc-valid-idents = [
   "SwayFX",
   "BlueZ",
+  "UPower",
   "NetworkManager",
   "OpenVPN",
   "OpenConnect",

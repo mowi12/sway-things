@@ -3,7 +3,8 @@
 
 //! A stand-in for BlueZ, for tests: python-dbusmock's `bluez5` template on a private D-Bus bus,
 //! with methods to add adapters and devices, change their properties and replace their methods.
-//! Built with the `test-support` feature.
+//! On request UPower's stand-in runs next to it (the `upower` template), with batteries of
+//! devices. Built with the `test-support` feature.
 //!
 //! It needs `dbus-daemon` and python-dbusmock (`python3 -m dbusmock`), which the integration
 //! containers have; the tests that use it are ignored by a plain `cargo test`.
@@ -25,6 +26,12 @@ use super::agent;
 const MOCK: &str = "org.bluez.Mock";
 /// The interface dbusmock puts on every object.
 const DBUS_MOCK: &str = "org.freedesktop.DBus.Mock";
+/// The bus name and interface of UPower.
+const UPOWER: &str = "org.freedesktop.UPower";
+/// UPower's main object.
+const UPOWER_PATH: &str = "/org/freedesktop/UPower";
+/// The interface of a UPower device.
+const UPOWER_DEVICE: &str = "org.freedesktop.UPower.Device";
 
 /// The error of a stand-in.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -38,6 +45,7 @@ pub struct StandIn {
     connection: Connection,
     daemon: Child,
     mock: Option<Child>,
+    upower: Option<Child>,
     /// Holds the bus socket and dbusmock's log.
     dir: TempDir,
 }
@@ -61,6 +69,7 @@ impl StandIn {
             connection,
             daemon,
             mock: None,
+            upower: None,
             dir,
         };
         stand_in.start_bluez().await?;
@@ -101,35 +110,143 @@ impl StandIn {
     /// If python-dbusmock is missing or doesn't come up within ten seconds.
     pub async fn start_bluez(&mut self) -> Result<(), Error> {
         self.stop_bluez();
-        let mock = Command::new("python3")
-            .args([
-                "-m",
-                "dbusmock",
-                "--session",
-                "--template",
-                "bluez5",
-                "--logfile",
-            ])
-            .arg(self.dir.path().join("dbusmock.log"))
+        self.mock = Some(self.spawn("bluez5", "dbusmock.log")?);
+        self.wait_for("org.bluez", "dbusmock.log").await
+    }
+
+    /// Starts UPower's stand-in (again), with no device but the display device every UPower
+    /// has.
+    ///
+    /// # Errors
+    ///
+    /// If python-dbusmock is missing or doesn't come up within ten seconds.
+    pub async fn start_upower(&mut self) -> Result<(), Error> {
+        self.stop_upower();
+        self.upower = Some(self.spawn("upower", "upower.log")?);
+        self.wait_for(UPOWER, "upower.log").await
+    }
+
+    /// Stops UPower's stand-in, as when `upower.service` stops.
+    pub fn stop_upower(&mut self) {
+        if let Some(mut upower) = self.upower.take() {
+            let _ = upower.kill();
+            let _ = upower.wait();
+        }
+    }
+
+    /// Adds a device to UPower's stand-in as UPower reports a peripheral's battery: `name` is
+    /// the last part of its object path (`mouse_hidpp_battery_7`), `properties` those of
+    /// `org.freedesktop.UPower.Device` (`NativePath`, `Serial`, `State`, `Percentage`, …).
+    /// Announces it with `DeviceAdded`; its path.
+    ///
+    /// # Errors
+    ///
+    /// If the stand-in refuses.
+    pub async fn add_upower_device(
+        &self,
+        name: &str,
+        properties: &[(&str, Value<'_>)],
+    ) -> Result<String, Error> {
+        let path = format!("{UPOWER_PATH}/devices/{name}");
+        let mut all: HashMap<&str, &Value<'_>> = HashMap::new();
+        let present = Value::from(true);
+        let not_power_supply = Value::from(false);
+        let update_time = Value::from(0u64);
+        all.insert("IsPresent", &present);
+        all.insert("PowerSupply", &not_power_supply);
+        all.insert("UpdateTime", &update_time);
+        all.extend(properties.iter().map(|(name, value)| (*name, value)));
+        let methods: Vec<(&str, &str, &str, &str)> = Vec::new();
+        self.upower_call(
+            UPOWER_PATH,
+            DBUS_MOCK,
+            "AddObject",
+            &(path.as_str(), UPOWER_DEVICE, all, methods),
+        )
+        .await?;
+        let args = vec![Value::from(ObjectPath::try_from(path.as_str())?)];
+        self.upower_call(
+            UPOWER_PATH,
+            DBUS_MOCK,
+            "EmitSignal",
+            &(UPOWER, "DeviceAdded", "o", args),
+        )
+        .await?;
+        Ok(path)
+    }
+
+    /// Changes properties of the UPower device at `path`, with `PropertiesChanged`.
+    ///
+    /// # Errors
+    ///
+    /// If the stand-in refuses.
+    pub async fn update_upower_device(
+        &self,
+        path: &str,
+        properties: &[(&str, Value<'_>)],
+    ) -> Result<(), Error> {
+        let properties: HashMap<&str, &Value<'_>> = properties
+            .iter()
+            .map(|(name, value)| (*name, value))
+            .collect();
+        self.upower_call(
+            path,
+            DBUS_MOCK,
+            "UpdateProperties",
+            &(UPOWER_DEVICE, properties),
+        )
+        .await
+    }
+
+    /// Starts python-dbusmock with `template` on the bus, logging to `log` in our directory.
+    fn spawn(&self, template: &str, log: &str) -> Result<Child, Error> {
+        Ok(Command::new("python3")
+            .args(["-m", "dbusmock", "--session", "--template", template])
+            .arg("--logfile")
+            .arg(self.dir.path().join(log))
             .env("DBUS_SESSION_BUS_ADDRESS", &self.address)
             .env("DBUS_SYSTEM_BUS_ADDRESS", &self.address)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|error| format!("can't start python3 -m dbusmock: {error}"))?;
-        self.mock = Some(mock);
+            .map_err(|error| format!("can't start python3 -m dbusmock: {error}"))?)
+    }
+
+    /// Waits up to ten seconds for `name` on the bus; the stand-in logs to `log`.
+    async fn wait_for(&self, name: &'static str, log: &str) -> Result<(), Error> {
         let dbus = zbus::fdo::DBusProxy::new(&self.connection).await?;
         for _ in 0..100 {
-            if dbus
-                .name_has_owner(BusName::from_static_str("org.bluez")?)
-                .await?
-            {
+            if dbus.name_has_owner(BusName::from_static_str(name)?).await? {
                 return Ok(());
             }
             Timer::after(Duration::from_millis(100)).await;
         }
-        Err(format!("BlueZ's stand-in didn't start; its log:\n{}", self.log()).into())
+        let log = std::fs::read_to_string(self.dir.path().join(log)).unwrap_or_default();
+        Err(format!("the stand-in for {name} didn't start; its log:\n{log}").into())
+    }
+
+    /// Calls `method` of `interface` at `path` on UPower's stand-in, ignoring what it returns.
+    async fn upower_call<B>(
+        &self,
+        path: &str,
+        interface: &str,
+        method: &str,
+        body: &B,
+    ) -> Result<(), Error>
+    where
+        B: serde::Serialize + DynamicType,
+    {
+        self.connection
+            .call_method(
+                Some(UPOWER),
+                ObjectPath::try_from(path)?,
+                Some(interface),
+                method,
+                body,
+            )
+            .await?;
+        Ok(())
     }
 
     /// What dbusmock logged: the calls it got.
@@ -396,6 +513,7 @@ fn connection_code(connected: bool) -> String {
 impl Drop for StandIn {
     fn drop(&mut self) {
         self.stop_bluez();
+        self.stop_upower();
         let _ = self.daemon.kill();
         let _ = self.daemon.wait();
     }

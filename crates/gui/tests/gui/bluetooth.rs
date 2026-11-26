@@ -245,7 +245,181 @@ pub(crate) fn check_bluetooth_pages() -> Vec<(String, Outcome)> {
             "bluetooth: searching only with the Search button (dark)".to_owned(),
             check_bluetooth_manual(true),
         ),
+        (
+            "bluetooth: batteries that charge (light)".to_owned(),
+            check_bluetooth_batteries(false),
+        ),
+        (
+            "bluetooth: batteries that charge (dark)".to_owned(),
+            check_bluetooth_batteries(true),
+        ),
     ]
+}
+
+/// A stand-in for BlueZ and UPower with four connected devices: a mouse whose kernel driver
+/// reports it charging (matched by its serial, the address in lower case), a keyboard UPower
+/// knows from BlueZ as fully charged (matched by its object path), a headset discharging, and a
+/// phone with a battery only in BlueZ. The path of the mouse's UPower device.
+fn battery_stand_in() -> Result<(StandIn, String), String> {
+    async_io::block_on(async {
+        let mut stand_in = StandIn::start().await?;
+        stand_in.start_upower().await?;
+        stand_in.add_adapter("hci0", "laptop").await?;
+        let mut paths = Vec::new();
+        for (address, name, percent) in [
+            ("DF:54:EE:3C:AC:81", "Mouse", 55u8),
+            ("CA:5D:65:B1:7F:7A", "Keyboard", 100),
+            ("AA:BB:CC:DD:EE:FF", "Headset", 40),
+            ("11:22:33:44:55:66", "Phone", 42),
+        ] {
+            let path = stand_in.add_device("hci0", address, name).await?;
+            stand_in.pair_device("hci0", address).await?;
+            stand_in
+                .update(
+                    &path,
+                    "org.bluez.Device1",
+                    &[("Connected", zbus::zvariant::Value::from(true))],
+                )
+                .await?;
+            stand_in
+                .add_properties(
+                    &path,
+                    "org.bluez.Battery1",
+                    &[("Percentage", zbus::zvariant::Value::from(percent))],
+                )
+                .await?;
+            paths.push(path);
+        }
+        let mouse = stand_in
+            .add_upower_device(
+                "mouse_hidpp_battery_7",
+                &[
+                    ("NativePath", zbus::zvariant::Value::from("hidpp_battery_7")),
+                    ("Serial", zbus::zvariant::Value::from("df:54:ee:3c:ac:81")),
+                    ("State", zbus::zvariant::Value::from(1u32)),
+                    ("Percentage", zbus::zvariant::Value::from(60.0f64)),
+                ],
+            )
+            .await?;
+        stand_in
+            .add_upower_device(
+                "keyboard_dev_CA_5D_65_B1_7F_7A",
+                &[
+                    ("NativePath", zbus::zvariant::Value::from(paths[1].as_str())),
+                    ("Serial", zbus::zvariant::Value::from("CA:5D:65:B1:7F:7A")),
+                    ("State", zbus::zvariant::Value::from(4u32)),
+                    ("Percentage", zbus::zvariant::Value::from(100.0f64)),
+                ],
+            )
+            .await?;
+        stand_in
+            .add_upower_device(
+                "headset_dev_AA_BB_CC_DD_EE_FF",
+                &[
+                    ("NativePath", zbus::zvariant::Value::from(paths[2].as_str())),
+                    ("Serial", zbus::zvariant::Value::from("AA:BB:CC:DD:EE:FF")),
+                    ("State", zbus::zvariant::Value::from(2u32)),
+                    ("Percentage", zbus::zvariant::Value::from(40.0f64)),
+                ],
+            )
+            .await?;
+        Ok::<_, sway_things_core::bluetooth::stand_in::Error>((stand_in, mouse))
+    })
+    .map_err(|error| format!("  the stand-ins for BlueZ and UPower: {error}"))
+}
+
+/// The Bluetooth page with UPower: each device says whether it charges where that is known, with
+/// a battery icon only then, and the note that the device estimates its level, follows a change, and reaches
+/// AA contrast in the color scheme.
+fn check_bluetooth_batteries(dark: bool) -> Outcome {
+    let settings = gtk::Settings::default().ok_or("  no GTK settings")?;
+    set_dark(&settings, dark);
+    let (stand_in, mouse) = battery_stand_in()?;
+    let page = BluetoothPage::new(&BluetoothBus::Address(stand_in.address().to_owned()));
+    let window = gtk::Window::new();
+    window.set_default_size(720, 700);
+    window.set_child(Some(&page));
+    window.present();
+    settle(&window)?;
+    let statuses = || {
+        let mut rows: Vec<(String, String)> = page
+            .device_rows(true)
+            .into_iter()
+            .map(|(name, status, _)| (name, status))
+            .collect();
+        rows.sort();
+        rows
+    };
+    let expected = |rows: &[(&str, &str)]| {
+        rows.iter()
+            .map(|(name, status)| ((*name).to_owned(), (*status).to_owned()))
+            .collect::<Vec<_>>()
+    };
+    let shown = expected(&[
+        ("Headset", "Connected \u{b7} Battery 40 %"),
+        ("Keyboard", "Connected \u{b7} Fully charged"),
+        ("Mouse", "Connected \u{b7} Charging, 60 %"),
+        // Only in BlueZ: the level, nothing about charging.
+        ("Phone", "Connected \u{b7} Battery 42 %"),
+    ]);
+    let result = (|| {
+        ensure(
+            run_until(Duration::from_secs(10), || statuses() == shown),
+            &format!("  the batteries: {:?}", statuses()),
+        )?;
+        let (icon, note) = page
+            .device_battery("Mouse")
+            .ok_or("  no battery icon for the charging mouse")?;
+        ensure(
+            icon.contains("charging"),
+            &format!("  the charging mouse has the icon {icon}"),
+        )?;
+        ensure(
+            note.contains("estimates"),
+            &format!("  the note on the level: {note:?}"),
+        )?;
+        let (icon, _) = page
+            .device_battery("Keyboard")
+            .ok_or("  no battery icon for the keyboard")?;
+        ensure(
+            icon.contains("charged"),
+            &format!("  the fully charged keyboard has the icon {icon}"),
+        )?;
+        let (icon, _) = page
+            .device_battery("Headset")
+            .ok_or("  no battery icon for the discharging headset")?;
+        ensure(
+            !icon.contains("charg"),
+            &format!("  the discharging headset has the icon {icon}"),
+        )?;
+        // Only in BlueZ: no icon, which would claim it doesn't charge.
+        ensure(
+            page.device_battery("Phone").is_none(),
+            "  the phone, which says nothing about charging, has a battery icon",
+        )?;
+        let problems = check_screen(&window, None)?;
+        ensure(problems.is_empty(), &problems)?;
+        // The cable is out: UPower says so, and the page follows.
+        async_io::block_on(stand_in.update_upower_device(
+            &mouse,
+            &[
+                ("State", zbus::zvariant::Value::from(2u32)),
+                ("Percentage", zbus::zvariant::Value::from(41.0f64)),
+            ],
+        ))
+        .map_err(|error| format!("  UPower's stand-in: {error}"))?;
+        ensure(
+            run_until(Duration::from_secs(5), || {
+                statuses().iter().any(|(name, status)| {
+                    name == "Mouse" && status == "Connected \u{b7} Battery 41 %"
+                })
+            }),
+            &format!("  the mouse after charging: {:?}", statuses()),
+        )
+    })();
+    window.destroy();
+    set_dark(&settings, false);
+    result
 }
 
 /// The Bluetooth page with searches only on request: no discovery until _Search_, one after it,

@@ -49,9 +49,12 @@ tests that need a running sway, a display or the stand-ins for D-Bus services, t
 - The command line in-process against the stand-in for sway and a fake validator (`crates/cli/tests/run.rs`; the
   stand-in comes from the core's `test-support` feature), and the binary in a temporary home with the stand-in in
   `$SWAYSOCK` for the commands that write nothing (`crates/cli/tests/binary.rs`)
-- Bluetooth: the snapshot from BlueZ's objects (adapters, devices, battery, names cleaned of control characters), error
-  mapping, the agent's checks of PINs and passkeys, rfkill events from a socket and the unblock event, the delegates'
-  `PATH` lookup and the UUIDs nm-connection-editor gets
+- Bluetooth: the snapshot from BlueZ's objects (adapters, devices, battery, names cleaned of control characters), the
+  batteries of UPower and the kernel's power supplies (sample directories) tied to devices by object path or address,
+  never by a serial that isn't an address, to the computer's own battery or to a device that isn't connected (the same
+  address on a second adapter), UPower's 0 % without a state as no level, the computer's batteries left out of the
+  change stream, error mapping, the agent's checks of PINs and passkeys, rfkill events from a socket and the unblock
+  event, the delegates' `PATH` lookup and the UUIDs nm-connection-editor gets
 - Network: the snapshot from NetworkManager's objects (devices, speed, addresses and DNS, access points merged into
   networks by SSID, saved networks out of range, VPNs), security from an access point's flags, signal levels and bands,
   SSIDs cleaned of control characters, the checks of SSIDs and passwords, the settings of a new connection (for every
@@ -210,9 +213,12 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
   IPC command succeeds, and hostile strings set as bar IDs from a config and as seat names over IPC come back unchanged
 - The BlueZ backend against python-dbusmock's `bluez5` template on a private bus
   (`crates/core/tests/bluetooth_bluez.rs`, stand-in in `bluetooth::stand_in`, `test-support`): snapshot, BlueZ stopping
-  and starting, power, discovery, pair, connect, rename, forget, the change stream without noise, the battery, and the
-  agent's flows (confirm, reject, passkey, PIN, display, cancel) with a `Pair` that calls the agent from BlueZ's own
-  connection, and a stranger's call rejected
+  and starting, power, discovery, pair, connect, rename, forget, the change stream without noise, the battery, against
+  UPower's stand-in (the `upower` template, `StandIn::start_upower`) a charging, a fully charged and a discharging
+  device, one only in BlueZ and the computer's battery ignored, a disconnected device back to BlueZ's level, a change of
+  the charging state reported (a change of `UpdateTime` only or of the computer's battery not) and UPower going away,
+  and the agent's flows (confirm, reject, passkey, PIN, display, cancel) with a `Pair` that calls the agent from BlueZ's
+  own connection, and a stranger's call rejected
 - The NetworkManager backend against python-dbusmock's `networkmanager` template (`crates/core/tests/network_nm.rs`,
   stand-in in `network::stand_in`, extended by an agent manager, a device's `Disconnect`, `ActivateConnection` with "/",
   a `DeactivateConnection` that only touches its own devices and an `AddAndActivateConnection` that keeps the settings
@@ -390,7 +396,7 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   its row, the preview of the C locale, polkit's refusal of the system's locale with the `localectl` command, and
   without localed _System Default…_ insensitive with the reason.
 - About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the
-  distribution, NetworkManager and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
+  distribution, NetworkManager, UPower and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
   delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment,
   and the links go to the website, the repository and its issues.
 - Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same
@@ -414,7 +420,9 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   the agent's dialog and connects, shows no _Search_ button, with searches only on request no discovery runs until
   _Search_, which reads _Stop_ and ends it, and switching back to automatic hides the button and looks for devices
   again, and it stops looking once the radio is off, which, turned off while the headset connects slowly, cancels the
-  connection first and keeps the knob off until BlueZ answers; test windows reach no Bluetooth but the stand-in.
+  connection first and keeps the knob off until BlueZ answers; with UPower's stand-in a charging, a fully charged, a
+  discharging and a BlueZ-only device say so with their icons and the note on estimated levels, the page follows the end
+  of charging, and it reaches AA contrast in light and dark; test windows reach no Bluetooth but the stand-in.
 - Network: the page against the NetworkManager stand-in shows the known networks (also one out of range) and the other
   networks with their state and security, the wired device and the VPN, asks for scans with the spinner and registers
   the agent while shown, shows no _Search_ button, with scans only on request none runs until _Search_ and one does

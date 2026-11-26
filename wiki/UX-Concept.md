@@ -50,15 +50,15 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **About** is the first section of About & Maintenance, part of the page (and so of search and deep links) instead of a
   dialog: a row per line of the system details, with the value selectable for bug reports: the versions of Sway Things,
   the running compositor (for SwayFX with the sway it is based on), GTK (the runtime version), the distribution
-  (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_), CUPS (or _Not running_),
-  whether cups-pk-helper is installed, and the kernel, then _Installed_ or _Not installed_ for nm-connection-editor,
-  blueman-manager, pwvucontrol, pavucontrol and system-config-printer, and for the programs of Screenshots & Clipboard
-  (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec). Below the rows, a centered _Copy System
-  Details_ button copies them as a plain-text block in the same order, the one `sway-things doctor` starts with, like
-  GNOME Settings' System Details, and then says _Copied_ for two seconds. They are read again each time the section
-  shows. Below the button, a centered line of links with a symbolic icon each: _Website_ (a globe), _Source Code
-  (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default browser; the app itself makes no
-  network request.
+  (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_), UPower (or _Not running_),
+  CUPS (or _Not running_), whether cups-pk-helper is installed, and the kernel, then _Installed_ or _Not installed_ for
+  nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol and system-config-printer, and for the programs of
+  Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec). Below the rows, a
+  centered _Copy System Details_ button copies them as a plain-text block in the same order, the one
+  `sway-things doctor` starts with, like GNOME Settings' System Details, and then says _Copied_ for two seconds. They
+  are read again each time the section shows. Below the button, a centered line of links with a symbolic icon each:
+  _Website_ (a globe), _Source Code (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default
+  browser; the app itself makes no network request.
 - A **setting row** has a title, optional plain-language subtitle and the control on the right. For sway settings an app
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a
@@ -493,8 +493,13 @@ and no generated file.
   (_My devices_, _Other devices_) and points to the switch. The Bluetooth section stays, with _Visible to other devices_
   and the ⋮ menu insensitive. A soft block (airplane mode, `rfkill`) says so and that the switch lifts it; a hard block
   says how to turn the radio back on. The devices come back as soon as the radio is on.
-- **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery
-  level, _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first).
+- **My devices:** the paired devices, connected first: icon, name, _Connected_ or _Not connected_ with the battery,
+  _Connect_ or _Disconnect_, and a ⋮ menu with _Rename…_ and _Forget…_ (which asks first). The battery reads _Charging,
+  60 %_, _Fully charged_ or _Battery 40 %_ (a coarse level for devices without a percentage: _Battery high_), with a
+  battery icon in the row (its charging variant while charging). Whether it charges comes from UPower or the kernel;
+  where neither knows (BlueZ only), the row shows just the level and no icon, since a battery without the bolt would
+  read as not charging. The level's tooltip says that the device estimates it itself, so it can jump while charging and
+  right after.
 - **Other devices:** the devices around, as BlueZ knows them. _Connect_ pairs, trusts and connects in one step.
 - **Connecting and pairing:** while a device connects or pairs, its status reads _Connecting…_ or _Pairing…_ and its
   button _Cancel_ (the ⋮ menu is insensitive). _Cancel_ ends the attempt, as BlueZ does when it fails on its own with a

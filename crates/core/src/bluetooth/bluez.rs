@@ -5,6 +5,8 @@
 //! actions, the pairing agent, and a stream of its signals.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use async_channel::Receiver;
 use futures_lite::{Stream, StreamExt};
@@ -14,6 +16,7 @@ use zbus::zvariant::{DynamicType, ObjectPath, OwnedObjectPath, Value};
 use zbus::{Connection, MatchRule, Message, MessageStream};
 
 use super::agent::{self, Agent, AgentEvent};
+use super::battery::{self, Battery, ChargeSource, Level, Supply};
 use super::{Adapter, Device, Error, Snapshot, check_alias, clean, sort};
 use crate::dbus::{self, Properties, flag, text};
 use crate::i18n::Text;
@@ -52,11 +55,17 @@ const NOISY: &[&str] = &[
 type Interfaces = HashMap<String, Properties>;
 
 /// A connection to BlueZ on the system bus, with our pairing agent on it. Cheap to clone; every
-/// clone shares the connection.
+/// clone shares the connection. UPower, on the same bus, says whether devices charge.
 #[derive(Debug, Clone)]
 pub struct Bluez {
     connection: Connection,
     agent_events: Receiver<AgentEvent>,
+    /// Where the kernel's power supplies are read without UPower; `None` on a bus other than the
+    /// system bus, whose devices aren't the machine's.
+    power_supply: Option<PathBuf>,
+    /// The object paths of UPower's batteries that power the computer, as last read: their
+    /// changes aren't reported.
+    upower_system: Arc<Mutex<Vec<String>>>,
 }
 
 impl Bluez {
@@ -70,7 +79,7 @@ impl Bluez {
         let builder = zbus::connection::Builder::system().map_err(|error| {
             Error::Unavailable(Text::new(msg!("no system bus ({error})")).arg("error", error))
         })?;
-        Self::build(builder).await
+        Self::build(builder, Some(PathBuf::from(battery::POWER_SUPPLY))).await
     }
 
     /// Connects to the bus at `address` instead of the system bus: a private bus with a stand-in
@@ -87,12 +96,15 @@ impl Bluez {
                     .arg("error", error),
             )
         })?;
-        Self::build(builder).await
+        Self::build(builder, None).await
     }
 
     /// Connects with the agent served from the start: an object added to a connection that is
     /// already up can miss the calls that arrive right after.
-    async fn build(builder: zbus::connection::Builder<'_>) -> Result<Self, Error> {
+    async fn build(
+        builder: zbus::connection::Builder<'_>,
+        power_supply: Option<PathBuf>,
+    ) -> Result<Self, Error> {
         let (events, agent_events) = agent::channel();
         let connection = builder
             .serve_at(agent::PATH, Agent { events })
@@ -105,6 +117,8 @@ impl Bluez {
         Ok(Self {
             connection,
             agent_events,
+            power_supply,
+            upower_system: Arc::default(),
         })
     }
 
@@ -119,7 +133,8 @@ impl Bluez {
         self.agent_events.clone()
     }
 
-    /// The adapters and their devices, as BlueZ reports them now.
+    /// The adapters and their devices, as BlueZ reports them now, with whether the devices
+    /// charge as UPower reports it, or without UPower the kernel's power supplies.
     ///
     /// # Errors
     ///
@@ -139,7 +154,34 @@ impl Bluez {
             .map_err(failure)?;
         let objects: HashMap<OwnedObjectPath, Interfaces> =
             reply.body().deserialize().map_err(failure)?;
-        Ok(snapshot(&objects))
+        let mut snapshot = snapshot(&objects);
+        if let Some(upower) = battery::upower(&self.connection).await {
+            attach(&mut snapshot, &upower.supplies);
+            snapshot.charge_source = ChargeSource::UPower;
+            *self
+                .upower_system
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner) = upower.system_paths;
+        } else if let Some(dir) = &self.power_supply {
+            let supplies = battery::kernel_unblocked(dir.clone()).await;
+            let matched = attach(&mut snapshot, &supplies);
+            // Read again now and then while a battery may show up or change: a supply can
+            // appear a moment after its device connects.
+            let connected = snapshot
+                .devices
+                .iter()
+                .any(|device| device.paired && device.connected);
+            if matched || connected || !supplies.is_empty() {
+                snapshot.charge_source = ChargeSource::Kernel;
+            }
+        }
+        Ok(snapshot)
+    }
+
+    /// UPower's version (`1.91.5`), which says whether devices report charging through it;
+    /// `None` while it isn't running.
+    pub async fn upower_version(&self) -> Option<String> {
+        battery::upower_version(&self.connection).await
     }
 
     /// Turns the radio of `adapter` (its path) on or off.
@@ -287,8 +329,10 @@ impl Bluez {
     }
 
     /// A stream with one item whenever something the snapshot shows may have changed: a property
-    /// of an adapter, a device or a battery, an object that came or went, or BlueZ that started
-    /// or stopped. Read a new [`snapshot`](Self::snapshot) then; items can come in bursts.
+    /// of an adapter, a device or a battery, an object that came or went, BlueZ that started or
+    /// stopped, or the same of UPower's devices and UPower. Read a new
+    /// [`snapshot`](Self::snapshot) then; items can come in bursts. The kernel's power supplies
+    /// report nothing: with [`ChargeSource::Kernel`], read a snapshot now and then.
     ///
     /// # Errors
     ///
@@ -309,27 +353,50 @@ impl Bluez {
             .and_then(|rule| rule.path("/"))
             .map_err(failure)?
             .build();
-        let owner = MatchRule::builder()
+        let owner = |name: &'static str| {
+            MatchRule::builder()
+                .msg_type(Type::Signal)
+                .sender("org.freedesktop.DBus")
+                .and_then(|rule| rule.interface("org.freedesktop.DBus"))
+                .and_then(|rule| rule.member("NameOwnerChanged"))
+                .and_then(|rule| rule.arg(0, name))
+                .map(zbus::match_rule::Builder::build)
+                .map_err(failure)
+        };
+        let upower_properties = MatchRule::builder()
             .msg_type(Type::Signal)
-            .sender("org.freedesktop.DBus")
-            .and_then(|rule| rule.interface("org.freedesktop.DBus"))
-            .and_then(|rule| rule.member("NameOwnerChanged"))
-            .and_then(|rule| rule.arg(0, SERVICE))
+            .sender(battery::UPOWER)
+            .and_then(|rule| rule.interface(PROPERTIES))
+            .and_then(|rule| rule.member("PropertiesChanged"))
+            .and_then(|rule| rule.path_namespace(battery::UPOWER_DEVICES))
             .map_err(failure)?
             .build();
-        let properties = MessageStream::for_match_rule(properties, &self.connection, None)
-            .await
-            .map_err(failure)?;
-        let objects = MessageStream::for_match_rule(objects, &self.connection, None)
-            .await
-            .map_err(failure)?;
-        let owner = MessageStream::for_match_rule(owner, &self.connection, None)
-            .await
-            .map_err(failure)?;
+        // `DeviceAdded` and `DeviceRemoved`.
+        let upower_devices = MatchRule::builder()
+            .msg_type(Type::Signal)
+            .sender(battery::UPOWER)
+            .and_then(|rule| rule.interface(battery::UPOWER))
+            .and_then(|rule| rule.path(battery::UPOWER_PATH))
+            .map_err(failure)?
+            .build();
+        let upower_system = Arc::clone(&self.upower_system);
+        let stream = |rule| MessageStream::for_match_rule(rule, &self.connection, None);
+        let properties = stream(properties).await.map_err(failure)?;
+        let objects = stream(objects).await.map_err(failure)?;
+        let bluez_owner = stream(owner(SERVICE)?).await.map_err(failure)?;
+        let upower_properties = stream(upower_properties).await.map_err(failure)?;
+        let upower_devices = stream(upower_devices).await.map_err(failure)?;
+        let upower_owner = stream(owner(battery::UPOWER)?).await.map_err(failure)?;
         Ok(properties
             .or(objects)
-            .or(owner)
-            .filter_map(|message| relevant(&message.ok()?).then_some(())))
+            .or(bluez_owner)
+            .or(upower_properties)
+            .or(upower_devices)
+            .or(upower_owner)
+            .filter_map(move |message| {
+                let system = upower_system.lock().unwrap_or_else(PoisonError::into_inner);
+                relevant(&message.ok()?, &system).then_some(())
+            }))
     }
 
     /// Registers our agent with BlueZ, unless it is already. BlueZ forgets it when it restarts,
@@ -446,10 +513,15 @@ fn method_error(name: &str, description: Option<&str>) -> Error {
 
 /// Whether `message` can change the snapshot: every message of the streams except a
 /// `PropertiesChanged` of another interface or of noisy properties only.
-fn relevant(message: &Message) -> bool {
+fn relevant(message: &Message, upower_system: &[String]) -> bool {
     let header = message.header();
     if header.member().map(zbus::names::MemberName::as_str) != Some("PropertiesChanged") {
         return true;
+    }
+    if let Some(path) = header.path() {
+        if !relevant_path(path.as_str(), upower_system) {
+            return false;
+        }
     }
     let Ok((interface, changed, invalidated)) = message
         .body()
@@ -460,10 +532,48 @@ fn relevant(message: &Message) -> bool {
     relevant_change(&interface, changed.keys().chain(&invalidated))
 }
 
+/// Whether a change of the object at `path` can concern a Bluetooth device: not UPower's
+/// display device nor one of its batteries that power the computer (`upower_system`).
+fn relevant_path(path: &str, upower_system: &[String]) -> bool {
+    path != battery::UPOWER_DISPLAY_DEVICE && !upower_system.iter().any(|system| system == path)
+}
+
 /// Whether a change of the properties `names` of `interface` can change the snapshot.
 fn relevant_change<'a>(interface: &str, mut names: impl Iterator<Item = &'a String>) -> bool {
+    if interface == battery::UPOWER_DEVICE {
+        return names.any(|name| battery::UPOWER_SHOWN.contains(&name.as_str()));
+    }
     [ADAPTER, DEVICE, BATTERY].contains(&interface)
         && names.any(|name| !NOISY.contains(&name.as_str()))
+}
+
+/// Ties the connected devices of `snapshot` to the batteries among `supplies`: each with a
+/// battery there gets its level and whether it charges. Only connected ones: a device paired
+/// with two adapters has the same address twice, and only the connected one has a live battery.
+/// Whether any device got one.
+fn attach(snapshot: &mut Snapshot, supplies: &[Supply]) -> bool {
+    let mut any = false;
+    for device in snapshot
+        .devices
+        .iter_mut()
+        .filter(|device| device.connected)
+    {
+        let Some(supply) = battery::find(&device.path, &device.address, supplies) else {
+            continue;
+        };
+        let bluez = match device.battery {
+            Some(Battery {
+                level: Level::Percent(percent),
+                ..
+            }) => Some(percent),
+            _ => None,
+        };
+        if let Some(found) = battery::battery(bluez, Some(supply)) {
+            device.battery = Some(found);
+            any = true;
+        }
+    }
+    any
 }
 
 /// The snapshot of BlueZ's `objects`.
@@ -483,7 +593,11 @@ fn snapshot(objects: &HashMap<OwnedObjectPath, Interfaces>) -> Snapshot {
         })
         .collect();
     sort(&mut devices);
-    Snapshot { adapters, devices }
+    Snapshot {
+        adapters,
+        devices,
+        charge_source: ChargeSource::None,
+    }
 }
 
 /// The adapter at `path` with these `properties`.
@@ -524,7 +638,8 @@ fn device(path: &str, interfaces: &Interfaces) -> Option<Device> {
         .get(BATTERY)
         .and_then(|battery| battery.get("Percentage"))
         .and_then(|value| u8::try_from(value).ok())
-        .filter(|percent| *percent <= 100);
+        .filter(|percent| *percent <= 100)
+        .and_then(|percent| battery::battery(Some(percent), None));
     Some(Device {
         path: path.to_owned(),
         adapter,
@@ -622,12 +737,111 @@ mod tests {
             .unwrap();
         assert_eq!(headset.name, "Headset");
         assert!(headset.named);
-        assert_eq!(headset.battery, Some(80));
+        assert_eq!(
+            headset.battery,
+            Some(Battery {
+                level: Level::Percent(80),
+                charge: battery::Charge::Unknown
+            })
+        );
         let unnamed = snapshot
             .device("/org/bluez/hci0/dev_11_22_33_44_55_66")
             .unwrap();
         assert!(!unnamed.named);
         assert_eq!(unnamed.battery, None);
+    }
+
+    #[test]
+    fn batteries_are_tied_to_their_devices() {
+        let mut mouse = device_object("/org/bluez/hci0", "DF:54:EE:3C:AC:81", "Mouse");
+        mouse.insert(
+            BATTERY.to_owned(),
+            HashMap::from([("Percentage".to_owned(), value(55u8))]),
+        );
+        let connect = |device: &mut Interfaces| {
+            if let Some(properties) = device.get_mut(DEVICE) {
+                properties.insert("Connected".to_owned(), value(true));
+            }
+        };
+        // The same mouse paired with a second adapter too, not connected there: its battery
+        // stays BlueZ's.
+        let mut stale = mouse.clone();
+        stale.insert(
+            DEVICE.to_owned(),
+            device_object("/org/bluez/hci1", "DF:54:EE:3C:AC:81", "Mouse")
+                .remove(DEVICE)
+                .unwrap(),
+        );
+        connect(&mut mouse);
+        let mut speaker = device_object("/org/bluez/hci0", "11:22:33:44:55:66", "Speaker");
+        speaker.insert(
+            BATTERY.to_owned(),
+            HashMap::from([("Percentage".to_owned(), value(70u8))]),
+        );
+        connect(&mut speaker);
+        let objects = HashMap::from([
+            (
+                path("/org/bluez/hci0"),
+                adapter_object("00:00:00:00:00:00", true),
+            ),
+            (
+                path("/org/bluez/hci1"),
+                adapter_object("11:11:11:11:11:11", true),
+            ),
+            (path("/org/bluez/hci0/dev_DF_54_EE_3C_AC_81"), mouse),
+            (path("/org/bluez/hci1/dev_DF_54_EE_3C_AC_81"), stale),
+            (path("/org/bluez/hci0/dev_11_22_33_44_55_66"), speaker),
+        ]);
+        let mut snapshot = snapshot(&objects);
+        let supplies = [Supply {
+            native_path: "hidpp_battery_7".to_owned(),
+            serial: "df:54:ee:3c:ac:81".to_owned(),
+            percent: Some(60.0),
+            coarse: None,
+            charge: battery::Charge::Charging,
+            present: true,
+            powers_system: false,
+        }];
+        assert!(attach(&mut snapshot, &supplies));
+        let battery_of = |path: &str| snapshot.device(path).and_then(|device| device.battery);
+        assert_eq!(
+            battery_of("/org/bluez/hci0/dev_DF_54_EE_3C_AC_81"),
+            Some(Battery {
+                level: Level::Percent(60),
+                charge: battery::Charge::Charging
+            })
+        );
+        assert_eq!(
+            battery_of("/org/bluez/hci1/dev_DF_54_EE_3C_AC_81"),
+            Some(Battery {
+                level: Level::Percent(55),
+                charge: battery::Charge::Unknown
+            })
+        );
+        // Only in BlueZ: its percentage, nothing about charging.
+        assert_eq!(
+            battery_of("/org/bluez/hci0/dev_11_22_33_44_55_66"),
+            Some(Battery {
+                level: Level::Percent(70),
+                charge: battery::Charge::Unknown
+            })
+        );
+        assert!(!attach(&mut snapshot, &[]));
+    }
+
+    #[test]
+    fn the_computers_batteries_are_no_relevant_change() {
+        let system = ["/org/freedesktop/UPower/devices/battery_BAT0".to_owned()];
+        assert!(!relevant_path(
+            "/org/freedesktop/UPower/devices/battery_BAT0",
+            &system
+        ));
+        assert!(!relevant_path(battery::UPOWER_DISPLAY_DEVICE, &system));
+        assert!(relevant_path(
+            "/org/freedesktop/UPower/devices/mouse_hidpp_battery_7",
+            &system
+        ));
+        assert!(relevant_path("/org/bluez/hci0", &system));
     }
 
     #[test]
@@ -666,6 +880,14 @@ mod tests {
             names(&["RSSI", "Connected"]).iter()
         ));
         assert!(relevant_change(BATTERY, names(&["Percentage"]).iter()));
+        assert!(relevant_change(
+            battery::UPOWER_DEVICE,
+            names(&["UpdateTime", "State"]).iter()
+        ));
+        assert!(!relevant_change(
+            battery::UPOWER_DEVICE,
+            names(&["UpdateTime", "EnergyRate", "TimeToEmpty"]).iter()
+        ));
         assert!(!relevant_change(
             "org.bluez.MediaControl1",
             names(&["Connected"]).iter()

@@ -886,6 +886,11 @@ impl Window {
         self.imp().sound_server.borrow().clone()
     }
 
+    /// Where the Bluetooth page finds BlueZ; the About section asks UPower there too.
+    pub fn bluetooth_bus(&self) -> BluetoothBus {
+        self.imp().bluetooth_bus.borrow().clone()
+    }
+
     /// Where the Network page finds NetworkManager; the About section asks it there too.
     pub fn network_bus(&self) -> NetworkBus {
         self.imp().network_bus.borrow().clone()

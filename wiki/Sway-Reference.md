@@ -204,6 +204,10 @@ swaync 0.12.6 in a headless sway); the CI containers' distributions ship mako 1.
 | `Device1.Connect` has no timeout of its own: it returns when BlueZ connects or gives up; `Disconnect` also cancels a pending `Connect` before its reply, and `CancelPairing` cancels a `Pair`. | `doc/org.bluez.Device.rst` (BlueZ 5.88) |
 | `/dev/rfkill` speaks 8-byte events (`idx`, `type`, `op`, `soft`, `hard`); `RFKILL_OP_CHANGE_ALL` sets every radio of a type. | `include/uapi/linux/rfkill.h` |
 | systemd's udev rules tag `/dev/rfkill` with `uaccess`, so the user of the active session may write it. | systemd `src/login/70-uaccess.rules.in` |
+| `org.bluez.Battery1` has `Percentage` (and `Source`), no charging state. | `doc/org.bluez.Battery.rst`; checked against a Logitech MX Master 3S (`Source` "GATT Battery Service") |
+| UPower's devices for BlueZ batteries have the BlueZ object path as `NativePath`, the address in upper case as `Serial` and `State` 0 (unknown). A HID++ device's battery (hid-logitech-hidpp) is a kernel power supply (`hidpp_battery_N`, scope `Device`) whose `serial_number` is the Bluetooth address in lower case; UPower's device for it has the supply's name as `NativePath`, the same `Serial` and a real `State`, and UPower lists only it, not BlueZ's battery of the same device. | checked with UPower 1.91.5 and kernel 7.3 against a Logitech MX Master 3S (`State` 2, 55 %, `status` Discharging) |
+| UPower's `State`: 0 unknown, 1 charging, 2 discharging, 3 empty, 4 fully charged, 5 pending charge, 6 pending discharge. `BatteryLevel`: 1 none (use `Percentage`), 3 low, 4 critical, 6 normal, 7 high, 8 full. `PowerSupply` is true for batteries that power the computer. | UPower `src/org.freedesktop.UPower.Device.xml` |
+| A power supply's `status` is `Unknown`, `Charging`, `Discharging`, `Not charging` or `Full`; `capacity_level` stands in for `capacity` on devices that report only levels. | kernel `Documentation/ABI/testing/sysfs-class-power` |
 
 ## NetworkManager
 

@@ -141,7 +141,7 @@ Native basics, delegate advanced cases. Backend: PulseAudio API via pipewire-pul
 - [x] 🟢 Cancel a connection or pairing while it runs
 - [x] 🟢 Lift an rfkill soft block when switching on; explain a hard block
 - [x] 🟢 Several adapters: pick the one the page shows
-- [x] 🟢 Battery level of connected devices
+- [x] 🟢 Battery level of connected devices, and whether they charge (UPower or the kernel)
 - [x] 🟢 Rename a device
 - [x] 🟢 Rename the adapter: the name other devices see
 - [x] 🟢 Make the computer visible to other devices for a while

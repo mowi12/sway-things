@@ -34,6 +34,7 @@ use clap::{Parser, Subcommand};
 use displays::{Displays, follow_combination, note_kanshi};
 use hook::{hook_clipboard, hook_for_user, kanshi_files, read_history, run_hook};
 use sway_things_core::apply::Applier;
+use sway_things_core::bluetooth::Bluez;
 use sway_things_core::command;
 use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
@@ -152,7 +153,7 @@ pub enum Command {
     ///
     /// The report starts with the system details for bug reports: the versions of Sway Things,
     /// the compositor, GTK (from sway-things-gui --version), the distribution, NetworkManager, the
-    /// sound server and CUPS (while they run) and the kernel, whether cups-pk-helper is
+    /// sound server, UPower and CUPS (while they run) and the kernel, whether cups-pk-helper is
     /// installed, and whether the tools the pages delegate to (nm-connection-editor,
     /// blueman-manager, pwvucontrol, pavucontrol, system-config-printer) and those of
     /// screenshots, the clipboard history and recording (grim, slurp, wl-copy, cliphist, swappy,
@@ -564,7 +565,8 @@ async fn doctor_for_user(args: &DoctorArgs, err: &mut dyn Write) -> Exit {
 }
 
 /// The system details for `doctor`, with `compositor`. The GTK version is the app's, from
-/// `sway-things-gui --version`; NetworkManager is asked on the system bus, CUPS on its socket.
+/// `sway-things-gui --version`; NetworkManager and UPower are asked on the system bus, CUPS on
+/// its socket.
 async fn system_details(compositor: Option<Compositor>) -> Details {
     let gtk = find_gui().and_then(|gui| {
         let output = std::process::Command::new(gui)
@@ -581,12 +583,14 @@ async fn system_details(compositor: Option<Compositor>) -> Details {
     });
     let network_manager = NetworkManager::connect().await.ok();
     let sound = Sound::connect().ok();
+    let bluez = Bluez::connect().await.ok();
     let cups = Cups::local().ok();
     Details::read(
         compositor,
         gtk,
         network_manager.as_ref(),
         sound.as_ref(),
+        bluez.as_ref(),
         cups.as_ref(),
     )
     .await

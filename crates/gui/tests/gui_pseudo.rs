@@ -65,6 +65,7 @@ const PRODUCTS: &[&str] = &[
     "sway",
     "GTK",
     "NetworkManager",
+    "UPower",
     "nm-connection-editor",
     "blueman-manager",
     "pwvucontrol",
@@ -386,7 +387,7 @@ fn data() -> Vec<String> {
         data.push(known.command.to_owned());
     }
     // The system details About shows: the distribution and the kernel of this machine.
-    let system = async_io::block_on(Details::read(None, None, None, None, None));
+    let system = async_io::block_on(Details::read(None, None, None, None, None, None));
     data.extend(system.distribution);
     data.extend(system.kernel);
     // The time zone of this machine, which Brightness & Night Light names below the location
