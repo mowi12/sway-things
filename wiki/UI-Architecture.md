@@ -134,8 +134,9 @@
   while on screen); below the history, the password note, the user's own history (`clipboard::own_history`, or a foreign
   watcher) and _Clear History…_ after an `AlertDialog`; below the recording switch, while `record::running` finds a
   recording (looked for every two seconds while on screen), _Stop_, which runs `sway-things record`. The page has the
-  history's watcher follow its switch and size (`clipboard::sync_with`) once they stood still for 0.8 s. Its footer
-  names `50-bindings.conf` and `80-hooks.conf`.
+  history's watcher follow its switch and size (`clipboard::sync_with`) once they stood still for 0.8 s, off the main
+  loop (`gio::spawn_blocking`), reading them once it holds the lock. Its footer names `50-bindings.conf` and
+  `80-hooks.conf`.
 - **Brightness & Night Light page** (`crates/gui/src/widgets/brightness.rs`, `night_light.rs`): `PageView` starts the
   page with a "Brightness" section (`brightness::panel`), then the night light's rows from the registry with its parts
   through `page_view/parts.rs`. The panel builds a row for the screen's backlight and one for the keyboard light from

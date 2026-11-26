@@ -19,6 +19,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use gtk::gdk;
 use gtk::glib;
@@ -496,6 +497,9 @@ fn recording_status() -> gtk::Widget {
 fn follow_history(model: &Model) {
     let synced: Rc<Cell<Option<(bool, u32)>>> = Rc::new(Cell::new(None));
     let pending: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+    // What the switch and size ask for by now, read once the sync holds the lock, so of two
+    // syncs waiting for it the one that gets it last still acts on the latest.
+    let wanted = Arc::new(Mutex::new((false, 750)));
     let follow = move |model: &Model| {
         let view = |key: &str| {
             Registry::builtin()
@@ -516,19 +520,33 @@ fn follow_history(model: &Model) {
         if let Some(source) = pending.borrow_mut().take() {
             source.remove();
         }
+        *wanted.lock().unwrap_or_else(PoisonError::into_inner) = (on, max);
         let done = Rc::clone(&pending);
+        let wanted = Arc::clone(&wanted);
         let source = glib::timeout_add_local_once(SETTLE, move || {
             done.borrow_mut().take();
-            if on || clipboard::watching() {
-                // Without a session or while the hook holds the lock for long, the hook at the
-                // next start of sway does it.
-                let _ = clipboard::sync_with(|| (on, max));
-            }
+            // Off the main loop: the lock can be held for seconds, and the process scan takes a
+            // moment too.
+            glib::spawn_future_local(async move {
+                let _ = gtk::gio::spawn_blocking(move || sync_history(&wanted)).await;
+            });
         });
         pending.replace(Some(source));
     };
     follow(model);
     model.connect_changed(follow);
+}
+
+/// Has the history's watcher follow `wanted`, unless the history is off and none of ours runs.
+/// Blocks while the lock is held, so it runs off the main loop.
+fn sync_history(wanted: &Mutex<(bool, u32)>) {
+    let read = || *wanted.lock().unwrap_or_else(PoisonError::into_inner);
+    let (on, _) = read();
+    if on || clipboard::watching() {
+        // Without a session or while the hook holds the lock for long, the hook at the next
+        // start of sway does it.
+        let _ = clipboard::sync_with(read);
+    }
 }
 
 /// How long the history's switch and size stand still before its watcher follows them.
