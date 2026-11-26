@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-25 18:12+0100\n"
+"POT-Creation-Date: 2026-11-26 13:53+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2141,9 +2141,8 @@ msgid ""
 msgstr ""
 
 #: crates/core/src/doctor/kanshi.rs
-msgid ""
-"Run: sway-things hook displays (it writes the file again and has kanshi read "
-"it)"
+#, rust-format
+msgid "Run: {command} (it writes the file again and has kanshi read it)"
 msgstr ""
 
 #: crates/core/src/doctor/kanshi.rs

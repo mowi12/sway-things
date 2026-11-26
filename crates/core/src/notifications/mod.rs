@@ -205,7 +205,7 @@ pub struct Colors {
 /// (swaync with our files, `-c` and `-s`), unless a daemon runs already, so a reload of sway
 /// also starts one that ended.
 pub fn start_line() -> SwayCmd {
-    crate::command::hook("notification-daemon")
+    crate::command::hook(crate::command::Hook::NotificationDaemon)
 }
 
 /// The command that has sway run the hook once, now (over IPC).

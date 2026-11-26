@@ -121,7 +121,7 @@ impl<V: Validate> Checkup<'_, V> {
             || generated.as_ref().is_some_and(|files| {
                 files
                     .iter()
-                    .any(|file| file.text().contains("sway-things hook "))
+                    .any(|file| crate::command::runs_hook(&file.text()))
             });
         if let Some(path) = self.path.as_ref().filter(|_| hooks) {
             Self::hook_program(

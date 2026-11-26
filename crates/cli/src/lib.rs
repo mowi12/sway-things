@@ -34,6 +34,7 @@ use clap::{Parser, Subcommand};
 use displays::{Displays, follow_combination, note_kanshi};
 use hook::{hook_clipboard, hook_for_user, kanshi_files, read_history, run_hook};
 use sway_things_core::apply::Applier;
+use sway_things_core::command;
 use sway_things_core::conflict::Known;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{self, Locations, SwayValidator, Validate};
@@ -311,6 +312,28 @@ pub enum Hook {
         /// toggle button, else toggle
         action: Option<QuickAction>,
     },
+}
+
+impl Hook {
+    /// The core's hook this one is: the name the generated files and kanshi's profiles run it by.
+    pub fn name(&self) -> command::Hook {
+        match self {
+            Self::Gsettings => command::Hook::Gsettings,
+            Self::Displays => command::Hook::Displays,
+            Self::Workspaces => command::Hook::Workspaces,
+            Self::Mirror => command::Hook::Mirror,
+            Self::NewDisplay => command::Hook::NewDisplay,
+            Self::Wallpaper => command::Hook::Wallpaper,
+            Self::Clipboard => command::Hook::Clipboard,
+            Self::NightLight => command::Hook::NightLight,
+            Self::Launch { .. } => command::Hook::Launch,
+            Self::Autostart => command::Hook::Autostart,
+            Self::NotificationClick { .. } => command::Hook::NotificationClick,
+            Self::NotificationDaemon => command::Hook::NotificationDaemon,
+            Self::Timezone => command::Hook::Timezone,
+            Self::Quick { .. } => command::Hook::Quick,
+        }
+    }
 }
 
 /// The binary of the app.

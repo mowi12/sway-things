@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use super::Dirs;
 use super::entry::DesktopEntry;
 use super::installed::{shows_in, single_line};
-use crate::command::{SwayCmd, SwayText};
+use crate::command::{Hook, SwayCmd, SwayText};
 use crate::generate::HEADER;
 use crate::registry::Value;
 pub use crate::registry::apps::{
@@ -78,10 +78,10 @@ impl Runner {
 
     /// The command line of `70-autostart.conf` that starts it: for systemd a hook that hands
     /// the session's environment to systemd first, so the apps find the display.
-    pub const fn line(self) -> &'static str {
+    pub fn line(self) -> String {
         match self {
-            Self::Systemd => "sway-things hook autostart",
-            Self::Dex => "dex --autostart --environment sway",
+            Self::Systemd => Hook::Autostart.command_line(&[]),
+            Self::Dex => "dex --autostart --environment sway".to_owned(),
         }
     }
 }

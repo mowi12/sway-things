@@ -40,6 +40,7 @@ use super::mirror::{Mirror, Scaling};
 use super::workspaces::Placing;
 use super::{ENABLED, MODE, Output, Outputs, POSITION, SCALE, TRANSFORM};
 use crate::atomic;
+use crate::command::Hook;
 use crate::command::output::{Mode, Transform, parse_position};
 use crate::i18n::Text;
 use crate::msg;
@@ -875,10 +876,10 @@ pub fn kanshi_config_with(
     let mut extra = Vec::new();
     if let Some(placing) = placing {
         extra.extend(placing.heading().map(|heading| format!("# {heading}")));
-        extra.push("exec sway-things hook workspaces".to_owned());
+        extra.push(format!("exec {}", Hook::Workspaces.command_line(&[])));
     }
     if mirrors {
-        extra.push("exec sway-things hook mirror".to_owned());
+        extra.push(format!("exec {}", Hook::Mirror.command_line(&[])));
     }
     // Before the profiles of a display alone, which would otherwise win where the user's own
     // profile names one display.
@@ -946,8 +947,9 @@ fn ask_profiles(profiles: &Profiles, theirs: &[super::kanshi_config::UserProfile
         };
         let _ = write!(
             block,
-            "\nprofile {} {{\n{lines}    output *\n    exec sway-things hook new-display\n}}\n",
-            profile.one_more_name()
+            "\nprofile {} {{\n{lines}    output *\n    exec {}\n}}\n",
+            profile.one_more_name(),
+            Hook::NewDisplay.command_line(&[])
         );
     }
     if block.is_empty() {
@@ -1101,11 +1103,11 @@ fn kanshi_profile(
         for line in profile.placement_lines(placing) {
             let _ = writeln!(block, "    # {line}");
         }
-        block.push_str("    exec sway-things hook workspaces\n");
+        let _ = writeln!(block, "    exec {}", Hook::Workspaces.command_line(&[]));
     }
     if mirrors {
         // Ends the mirrors of another combination, and starts this one's.
-        block.push_str("    exec sway-things hook mirror\n");
+        let _ = writeln!(block, "    exec {}", Hook::Mirror.command_line(&[]));
     }
     block.push_str("}\n");
     Some(block)

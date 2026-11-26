@@ -13,6 +13,7 @@ pub mod behavior;
 mod color;
 mod criteria;
 pub mod effects;
+mod hook;
 pub mod input;
 #[cfg(test)]
 pub(crate) mod model;
@@ -31,6 +32,7 @@ use crate::version::{SwayFxVersion, SwayVersion};
 
 pub use color::{Color, ColorError};
 pub use criteria::{Criteria, CriteriaKey};
+pub use hook::{Hook, QUICK_STATE, QuickSwitch, runs_hook};
 pub use text::{SwayText, TextError};
 
 /// Where a rendered command goes.
@@ -551,21 +553,21 @@ pub fn reload() -> SwayCmd {
 
 /// `exec_always sway-things hook <hook>`: runs a hook of the command line whenever sway starts or
 /// reloads its config. Only for generated files: over IPC it would run once, now.
-pub fn hook(hook: &'static str) -> SwayCmd {
+pub fn hook(hook: Hook) -> SwayCmd {
     SwayCmd::new("exec_always")
         .keyword("sway-things")
         .keyword("hook")
-        .keyword(hook)
+        .keyword(hook.name())
         .config_only()
 }
 
 /// `exec sway-things hook <hook>`: runs a hook of the command line once, when sway starts, but
 /// not when it reloads its config. Only for generated files.
-pub fn hook_at_start(hook: &'static str) -> SwayCmd {
+pub fn hook_at_start(hook: Hook) -> SwayCmd {
     SwayCmd::new("exec")
         .keyword("sway-things")
         .keyword("hook")
-        .keyword(hook)
+        .keyword(hook.name())
         .config_only()
 }
 

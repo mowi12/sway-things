@@ -10,6 +10,7 @@ use std::io::Write;
 
 use clap::{Subcommand, ValueEnum};
 use sway_things_core::bluetooth::Bluez;
+use sway_things_core::command::{self, QuickSwitch};
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::ipc::Client;
 use sway_things_core::msg;
@@ -68,6 +69,19 @@ pub enum Quick {
     Sound,
     /// The default microphone (on is not muted)
     Microphone,
+}
+
+impl Quick {
+    /// The core's switch this one is: the name swaync's buttons run it by.
+    pub fn switch(self) -> QuickSwitch {
+        match self {
+            Self::Dnd => QuickSwitch::Dnd,
+            Self::Wifi => QuickSwitch::Wifi,
+            Self::Bluetooth => QuickSwitch::Bluetooth,
+            Self::Sound => QuickSwitch::Sound,
+            Self::Microphone => QuickSwitch::Microphone,
+        }
+    }
 }
 
 /// What to do with a switch of swaync's button grid.
@@ -367,7 +381,11 @@ pub async fn notification_click(
     err: &mut dyn Write,
 ) -> Exit {
     let mut say = |text: &dyn fmt::Display| {
-        let _ = writeln!(err, "sway-things hook notification-click: {text}");
+        let _ = writeln!(
+            err,
+            "{}: {text}",
+            command::Hook::NotificationClick.command_line(&[])
+        );
     };
     let server = match bus {
         Some(bus) => bus.server().await.ok().flatten(),
