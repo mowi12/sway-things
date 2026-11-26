@@ -79,3 +79,7 @@ required-features = ["test-support"]
 [[test]]
 name = "notifications_bus"
 required-features = ["test-support"]
+
+[[test]]
+name = "brightness_logind"
+required-features = ["test-support"]

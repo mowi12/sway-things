@@ -243,6 +243,9 @@ virtual DRM node): apply over IPC, read back, validate generated files (incl. `9
 - systemd-localed against a stand-in on the same private bus (`crates/core/tests/region_localed.rs`): the system's
   language and formats read and set, polkit's refusal with the `localectl` command, a variable localed doesn't take, and
   localed missing
+- Backlights through logind's session against a stand-in on a private bus (`crates/core/tests/brightness_logind.rs`,
+  stand-in in `brightness::stand_in`, `test-support`): `SetBrightness` asked with the subsystem, the device and the raw
+  value, a screen's raised to its lowest value, a keyboard's light down to 0
 - The sound backend against a private PipeWire with WirePlumber (its monitors of ALSA, Bluetooth and cameras off, so it
   never opens the machine's sound cards) and pipewire-pulse, with null sinks and sources and `pacat` as apps
   (`crates/core/tests/sound_pulse.rs`, stand-in in `sound::stand_in`, `test-support`): the devices and defaults,

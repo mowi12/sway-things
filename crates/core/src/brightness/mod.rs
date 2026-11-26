@@ -14,6 +14,8 @@
 //! value, so there is nothing to store.
 
 pub mod ddc;
+#[cfg(any(test, feature = "test-support"))]
+pub mod stand_in;
 
 use std::path::{Path, PathBuf};
 
