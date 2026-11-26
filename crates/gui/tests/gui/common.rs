@@ -198,6 +198,15 @@ pub(crate) fn run_until(timeout: Duration, mut done: impl FnMut() -> bool) -> bo
     }
 }
 
+/// `page` in a scrolled window, as the app shows every page: a compositor may give a test's
+/// window less height than the whole page needs.
+pub(crate) fn scrolled(page: &impl IsA<gtk::Widget>) -> gtk::ScrolledWindow {
+    gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(page)
+        .build()
+}
+
 /// Runs the main loop until `window` is mapped and laid out, and nothing is pending.
 pub(crate) fn settle(window: &impl IsA<gtk::Widget>) -> Outcome {
     if !run_until(Duration::from_secs(10), || {

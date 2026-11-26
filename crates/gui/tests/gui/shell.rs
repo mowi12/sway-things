@@ -487,6 +487,10 @@ pub(crate) fn check_narrow() -> Vec<(String, Outcome)> {
             check_row_wrap(),
         ),
         (
+            "narrow: a row's text that can't wrap keeps its minimum width".to_owned(),
+            check_row_wide_text(),
+        ),
+        (
             "narrow: one pane at a time, Esc and the back button".to_owned(),
             check_narrow_panes(),
         ),
@@ -724,6 +728,66 @@ pub(crate) fn check_row_wrap() -> Outcome {
         let _ = writeln!(
             problems,
             "    the row can't get narrower than {minimum} px, the width it needs beside"
+        );
+    }
+    window.destroy();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
+
+/// A row whose text can't wrap below a width wider than the text keeps beside its controls (the
+/// Wallpaper page's tabs, a stack switcher, beside the tab's buttons): the controls stay beside it
+/// only while it gets its minimum width, and move below it on a narrower row. Measuring it below
+/// its minimum makes GTK warn, which the group of these checks fails on.
+pub(crate) fn check_row_wide_text() -> Outcome {
+    let stack = gtk::Stack::new();
+    for title in ["Pictures with a long name", "Collections", "Colors"] {
+        stack.add_titled(&gtk::Label::new(None), Some(title), title);
+    }
+    let switcher = gtk::StackSwitcher::new();
+    switcher.set_stack(Some(&stack));
+    let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    buttons.append(&gtk::Button::with_label("Add Pictures…"));
+    buttons.append(&gtk::Button::with_label("Remove"));
+    let layout = RowLayout::default();
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    row.set_layout_manager(Some(layout.clone()));
+    row.append(&switcher);
+    row.append(&buttons);
+    let window = gtk::Window::new();
+    window.set_child(Some(&row));
+    window.present();
+    let (text_minimum, _, _, _) = switcher.measure(gtk::Orientation::Horizontal, -1);
+    let (controls_minimum, _, _, _) = buttons.measure(gtk::Orientation::Horizontal, -1);
+    let beside = layout.beside_width(&row);
+    let height = |width: i32| row.measure(gtk::Orientation::Vertical, width).0;
+    let mut problems = String::new();
+    if text_minimum <= sway_things_gui::widgets::TEXT_WIDTH {
+        let _ = writeln!(
+            problems,
+            "    the switcher needs only {text_minimum} px, so this checks nothing"
+        );
+    }
+    if beside < text_minimum + controls_minimum {
+        let _ = writeln!(
+            problems,
+            "    the controls stay beside the text down to {beside} px, but the text needs \
+             {text_minimum} px and the controls {controls_minimum} px"
+        );
+    }
+    let (minimum, _, _, _) = row.measure(gtk::Orientation::Horizontal, -1);
+    for width in [minimum, beside - 1, beside, beside + 40] {
+        let _ = height(width);
+    }
+    if height(beside - 1) <= height(beside) {
+        let _ = writeln!(
+            problems,
+            "    at {} px the row isn't higher than at {beside} px: the controls didn't move below \
+             the text",
+            beside - 1
         );
     }
     window.destroy();

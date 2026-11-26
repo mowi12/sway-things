@@ -190,11 +190,17 @@ impl Parts {
         (minimum, natural.max(minimum + self.growth))
     }
 
+    /// The width the text keeps beside the controls: [`TEXT_WIDTH`], or less if it needs less,
+    /// but never less than its minimum (a stack switcher can't wrap).
+    fn text_beside(&self) -> i32 {
+        let (text_minimum, text_natural) = self.text_widths();
+        text_natural.min(TEXT_WIDTH).max(text_minimum)
+    }
+
     /// The narrowest the row can be with the controls beside the text.
     fn beside_width(&self) -> i32 {
-        let (_, text_natural) = self.text_widths();
         let (controls_minimum, _) = self.controls_widths();
-        text_natural.min(TEXT_WIDTH) + SPACING + controls_minimum
+        self.text_beside() + SPACING + controls_minimum
     }
 
     fn natural_width(&self) -> i32 {
@@ -208,10 +214,9 @@ impl Parts {
     }
 
     fn place(&self, width: i32) -> Place {
-        let (_, text_natural) = self.text_widths();
         let (controls_minimum, controls_natural) = self.controls_widths();
         if width >= self.beside_width() {
-            let beside = width - SPACING - text_natural.min(TEXT_WIDTH);
+            let beside = width - SPACING - self.text_beside();
             let controls_width = controls_natural.min(beside).max(controls_minimum);
             let text_height = Self::height(&self.text, width - SPACING - controls_width);
             let height = text_height.max(Self::height(&self.controls, controls_width));

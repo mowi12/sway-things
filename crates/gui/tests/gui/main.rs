@@ -18,6 +18,8 @@
 //!   `sound`, `network`, `printers`, `region`, `environment`: the pages with parts of their own,
 //!   the live ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
+//! - `measured`: GTK's warnings that a layout gave a widget less than its minimum size; each group
+//!   of checks fails on the ones it caused.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
 //! without a session or in the session of the stand-in for sway. It never saves by itself, and
@@ -45,6 +47,7 @@ mod generated;
 mod indicators;
 mod keyboard;
 mod look;
+mod measured;
 mod network;
 mod notifications;
 mod place;
@@ -97,8 +100,8 @@ use sway_things_gui::theme;
 use sway_things_gui::widgets::{
     Arrangement, BluetoothBus, BluetoothPage, DeviceSelector, FULL_OFFSET, GdkKeymap, GroupRow,
     LayoutList, NetworkBus, NetworkPage, OptionBrowser, OutputPicker, PageView, PrintService,
-    PrintersPage, RegionTimePage, ScanDialog, ScanService, SettingRow, ShortcutEditor, SoundPage,
-    SoundServer, TestArea,
+    PrintersPage, RegionTimePage, RowLayout, ScanDialog, ScanService, SettingRow, ShortcutEditor,
+    SoundPage, SoundServer, TestArea,
 };
 use sway_things_gui::window::{NARROW_WIDTH, Window};
 
@@ -145,6 +148,7 @@ fn main() -> ExitCode {
         println!("GUI tests skipped: they need a display (run with `-- --ignored`)");
         return ExitCode::SUCCESS;
     }
+    measured::watch();
     if let Err(error) = gtk::init() {
         eprintln!("error: can't initialize GTK: {error}");
         return ExitCode::FAILURE;
@@ -194,51 +198,75 @@ fn main() -> ExitCode {
         }
         use_sane(&window, sane.as_ref().ok());
         window.present();
+        let mut pages = Vec::new();
         for page in Page::ALL {
             let outcome = check_page(&window, page, screenshots.as_deref(), scheme);
-            results.push((format!("contrast: {} ({scheme})", page.id()), outcome));
+            pages.push((format!("contrast: {} ({scheme})", page.id()), outcome));
         }
         window.destroy();
-        results.extend(check_screens(screenshots.as_deref(), scheme));
+        results.extend(measured::checked(&format!("contrast ({scheme})"), pages));
+        results.extend(measured::checked(
+            &format!("screens ({scheme})"),
+            check_screens(screenshots.as_deref(), scheme),
+        ));
     }
     set_dark(&settings, false);
-    results.push(("keyboard: sidebar".to_owned(), check_sidebar_keyboard()));
-    results.push(("keyboard: Esc goes back".to_owned(), check_escape()));
-    results.extend(check_links());
-    results.extend(check_searches());
-    results.extend(check_narrow());
-    results.extend(check_setting_rows());
-    results.extend(check_safety_net());
-    results.extend(check_reload());
-    results.extend(check_generated());
-    results.push((
-        "about: the versions and the project's links".to_owned(),
-        check_about(),
-    ));
-    results.extend(check_sections());
-    results.push((
-        "theme: the accent follows sway's focus color".to_owned(),
-        check_accent(),
-    ));
-    results.extend(check_devices());
-    results.extend(check_displays());
-    results.extend(check_wallpaper());
-    results.extend(check_bluetooth_pages());
-    results.extend(check_sound_pages());
-    results.extend(check_network_pages());
-    results.extend(check_printers_pages());
-    results.extend(check_region_pages());
-    results.extend(check_keyboard());
-    results.extend(check_indicators());
-    results.extend(check_look());
-    results.extend(check_shortcuts());
-    results.extend(check_places().into_iter().chain(check_swayosd()));
-    results.extend(check_apps());
-    results.extend(check_environment());
-    results.extend(check_notifications());
-    results.extend(check_bar_pages());
-    results.extend(check_welcomes(&settings));
+    results.extend(check_the_rest(&settings));
     report(&results)
+}
+
+/// The checks after the contrast of every page, group by group.
+fn check_the_rest(settings: &gtk::Settings) -> Vec<(String, Outcome)> {
+    let mut results: Vec<(String, Outcome)> = Vec::new();
+    results.extend(measured::checked(
+        "keyboard navigation",
+        vec![
+            ("keyboard: sidebar".to_owned(), check_sidebar_keyboard()),
+            ("keyboard: Esc goes back".to_owned(), check_escape()),
+        ],
+    ));
+    results.extend(measured::checked("links", check_links()));
+    results.extend(measured::checked("searches", check_searches()));
+    results.extend(measured::checked("narrow", check_narrow()));
+    results.extend(measured::checked("setting rows", check_setting_rows()));
+    results.extend(measured::checked("safety net", check_safety_net()));
+    results.extend(measured::checked("reload", check_reload()));
+    results.extend(measured::checked("generated", check_generated()));
+    results.extend(measured::checked(
+        "about",
+        vec![(
+            "about: the versions and the project's links".to_owned(),
+            check_about(),
+        )],
+    ));
+    results.extend(measured::checked("sections", check_sections()));
+    results.extend(measured::checked(
+        "theme",
+        vec![(
+            "theme: the accent follows sway's focus color".to_owned(),
+            check_accent(),
+        )],
+    ));
+    results.extend(measured::checked("devices", check_devices()));
+    results.extend(measured::checked("displays", check_displays()));
+    results.extend(measured::checked("wallpaper", check_wallpaper()));
+    results.extend(measured::checked("bluetooth", check_bluetooth_pages()));
+    results.extend(measured::checked("sound", check_sound_pages()));
+    results.extend(measured::checked("network", check_network_pages()));
+    results.extend(measured::checked("printers", check_printers_pages()));
+    results.extend(measured::checked("region", check_region_pages()));
+    results.extend(measured::checked("keyboard", check_keyboard()));
+    results.extend(measured::checked("indicators", check_indicators()));
+    results.extend(measured::checked("look", check_look()));
+    results.extend(measured::checked("shortcuts", check_shortcuts()));
+    results.extend(measured::checked("places", check_places()));
+    results.extend(measured::checked("swayosd", check_swayosd()));
+    results.extend(measured::checked("apps", check_apps()));
+    results.extend(measured::checked("environment", check_environment()));
+    results.extend(measured::checked("notifications", check_notifications()));
+    results.extend(measured::checked("bar", check_bar_pages()));
+    results.extend(measured::checked("welcome", check_welcomes(settings)));
+    results
 }
 
 /// Prints each result as the test harness does and the summary; fails if one failed.

@@ -31,7 +31,7 @@ pub(crate) fn check_region_time() -> Outcome {
     let page = RegionTimePage::new(&stand_in.bus(), None);
     let window = gtk::Window::new();
     window.set_default_size(720, 700);
-    window.set_child(Some(&page));
+    window.set_child(Some(&scrolled(&page)));
     window.present();
     settle(&window)?;
     let time = page.time_section().ok_or("  no Date & Time section")?;
@@ -96,7 +96,7 @@ pub(crate) fn check_region_language() -> Outcome {
     let page = RegionTimePage::new(&stand_in.bus(), Some(&fixture.model));
     let window = gtk::Window::new();
     window.set_default_size(720, 900);
-    window.set_child(Some(&page));
+    window.set_child(Some(&scrolled(&page)));
     window.present();
     settle(&window)?;
     let section = page
@@ -151,7 +151,7 @@ pub(crate) fn check_region_language() -> Outcome {
     // Without localed, the button says why it can't be used.
     let page = RegionTimePage::new(&RegionBus::Off, None);
     let window = gtk::Window::new();
-    window.set_child(Some(&page));
+    window.set_child(Some(&scrolled(&page)));
     window.present();
     settle(&window)?;
     let section = page
@@ -178,7 +178,7 @@ pub(crate) fn check_region_language() -> Outcome {
 pub(crate) fn check_region_without_timedated() -> Outcome {
     let page = RegionTimePage::new(&RegionBus::Off, None);
     let window = gtk::Window::new();
-    window.set_child(Some(&page));
+    window.set_child(Some(&scrolled(&page)));
     window.present();
     settle(&window)?;
     let time = page.time_section().ok_or("  no Date & Time section")?;
