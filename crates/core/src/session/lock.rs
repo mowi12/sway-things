@@ -196,4 +196,31 @@ mod tests {
         // Nothing else is left in the directory.
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
     }
+
+    #[test]
+    fn a_lock_held_long_is_kept_while_its_holder_runs() {
+        use std::time::{Duration, SystemTime};
+        let age = |path: &std::path::Path| {
+            let file = std::fs::File::options().write(true).open(path).unwrap();
+            file.set_modified(SystemTime::now() - Duration::from_secs(20))
+                .unwrap();
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.lock");
+        // Held for longer than ten seconds (a region being selected) by a process that runs.
+        let held = Lock::take_in(dir.path(), "test.lock").unwrap();
+        age(&path);
+        assert!(Lock::take_in(dir.path(), "test.lock").is_none());
+        // The same lock once its holder is gone: taken over.
+        let mut gone = std::process::Command::new("true").spawn().unwrap();
+        let pid = gone.id();
+        gone.wait().unwrap();
+        std::fs::write(&path, format!("{pid} 1 0")).unwrap();
+        age(&path);
+        let taken = Lock::take_in(dir.path(), "test.lock").unwrap();
+        drop(held);
+        assert!(path.exists());
+        drop(taken);
+        assert!(!path.exists());
+    }
 }

@@ -297,12 +297,12 @@ needs, so a key press is quick. The facts behind it are in the
   servers may read it as markup. The command waits for a button or the notification to close, at most two minutes, only
   if the server shows buttons (`GetCapabilities`). Errors go to standard error and to a notification, since a key has no
   terminal.
-- **Processes and locks** (`session::process`, `session::lock`): the watcher and a recorder are found in `/proc` by their name, the
-  marker in their environment and the caller's sway session (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`); a caller without
-  either finds none, so a command from a TTY or ssh never ends another session's processes. Paths of the arguments are
-  kept byte for byte. A lock is `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR` with a token of its holder; one older
-  than ten seconds is taken over by renaming a file with a new token over it and reading it back, and only the holder
-  whose token is in it removes it. These locks are the page's own, apart from the mirror's.
+- **Processes and locks** (`session::process`, `session::lock`): the watcher and a recorder are found in `/proc` by
+  their name, the marker in their environment and the caller's sway session (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`); a
+  caller without either finds none, so a command from a TTY or ssh never ends another session's processes. Paths of the
+  arguments are kept byte for byte. A lock is `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR`, the same `session::Lock`
+  as the mirror's ([Outputs](Outputs.md#a-picture-that-went-comes-back)): taken over only once its holder's process is
+  gone or after ten minutes, however long the holder takes, and only the holder whose token is in it removes it.
 - **Recording** (`capture::record`): `sway-things record` holds the lock `record` from looking for a recording until a
   new one runs, so a second press meanwhile starts none (it says so). The file is made empty with `create_new` first, so
   no other file is written over, and wf-recorder gets `-y` (it would ask before writing over it); then

@@ -23,7 +23,7 @@ use sway_things_core::capture::{
 use sway_things_core::i18n::{Msg, tr, trf};
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks;
-use sway_things_core::session::process::{Lock, LockError};
+use sway_things_core::session::{Lock, LockError};
 
 use crate::{Exit, error_line};
 
@@ -264,9 +264,10 @@ fn spawn_with_input(
 }
 
 /// `record`: stops the recording that runs, or starts one. A lock of the session is held from
-/// looking for a recording until a new one runs, so a second press meanwhile starts none.
+/// looking for a recording until a new one runs, so a second press meanwhile starts none, however
+/// long the region is being selected.
 pub async fn record(area: Option<RecordArea>, err: &mut dyn Write) -> Exit {
-    let lock = match Lock::take("record", Duration::ZERO) {
+    let lock = match Lock::take("sway-things-record.lock") {
         Ok(lock) => lock,
         // Another press is busy with it: this one does nothing.
         Err(LockError::Busy) => return report(msg!("Recording"), &CaptureError::Busy, err).await,
