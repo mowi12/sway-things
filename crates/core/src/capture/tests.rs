@@ -337,17 +337,37 @@ fn the_focused_display_is_found_by_its_name() {
 #[test]
 fn recorders_and_the_watcher_get_their_arguments() {
     let target = shot::Target::Geometry("0,0 10x10".to_owned());
-    let args = record::args(tools::WF_RECORDER, &target, Path::new("/v/a b.mp4"), true);
+    let args = record::args(
+        tools::WF_RECORDER,
+        &target,
+        Path::new("/v/a b.mp4"),
+        true,
+        Some(record::CODECS[1]),
+    );
     // The file is made empty beforehand: wf-recorder must not ask before writing over it.
     assert_eq!(
         args,
-        ["-g", "0,0 10x10", "-y", "-f", "/v/a b.mp4", "--audio"]
+        [
+            "-g",
+            "0,0 10x10",
+            "-c",
+            "libopenh264",
+            "-x",
+            "yuv420p",
+            "-F",
+            "crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0",
+            "-y",
+            "-f",
+            "/v/a b.mp4",
+            "--audio"
+        ]
     );
     let args = record::args(
         tools::WL_SCREENREC,
         &shot::Target::Output("DP-1".to_owned()),
         Path::new("/v/a.mkv"),
         false,
+        None,
     );
     assert_eq!(args, ["-o", "DP-1", "-f", "/v/a.mkv"]);
     assert_eq!(
@@ -466,4 +486,145 @@ fn the_users_own_history_line_is_found() {
     let config = crate::sway_config::parse(Path::new("/home/me/.config/sway/config"), &files);
     let line = clipboard::own_history(&config.directives).unwrap();
     assert_eq!(line.line, 2);
+}
+
+#[test]
+fn wf_recorder_tries_h264_then_vp9_in_the_container_each_needs() {
+    let encoders: Vec<&str> = record::codecs(tools::WF_RECORDER)
+        .iter()
+        .map(|codec| codec.encoder)
+        .collect();
+    assert_eq!(encoders, ["libx264", "libopenh264", "libvpx-vp9"]);
+    assert_eq!(record::codecs(tools::WL_SCREENREC), []);
+    let [x264, _, vp9] = record::CODECS;
+    // H.264 goes into the name's container, VP9 into Matroska.
+    assert_eq!(record::with_container("a.b.mp4", Some(x264)), "a.b.mp4");
+    assert_eq!(record::with_container("a.mkv", Some(x264)), "a.mkv");
+    assert_eq!(record::with_container("a.b.mp4", Some(vp9)), "a.b.mkv");
+    assert_eq!(record::with_container("a.mkv", Some(vp9)), "a.mkv");
+    assert_eq!(record::with_container("a.mp4", None), "a.mp4");
+}
+
+/// What `attempts` returns: the folder, the codec and file of each attempt, and the result.
+type Attempts = (
+    tempfile::TempDir,
+    Vec<(Option<String>, PathBuf)>,
+    Result<PathBuf, CaptureError>,
+);
+
+/// The attempts of `record_with` in a new folder: for each, the codec and the file it got, and
+/// what the fake recorder does then (`None` runs).
+fn attempts(
+    recorder: tools::Program,
+    name: &str,
+    outcomes: Vec<Option<record::Failure>>,
+) -> Attempts {
+    let dir = tempfile::tempdir().unwrap();
+    let mut outcomes = outcomes.into_iter();
+    let mut seen = Vec::new();
+    let target = shot::Target::Geometry("0,0 11x11".to_owned());
+    let result = record::record_with(recorder, &target, dir.path(), name, false, |args| {
+        let codec = args
+            .iter()
+            .position(|arg| arg == "-c")
+            .map(|index| args[index + 1].to_string_lossy().into_owned());
+        let file = PathBuf::from(args.last().unwrap());
+        // The file was made empty for this attempt.
+        assert_eq!(std::fs::read(&file).unwrap(), b"");
+        seen.push((codec, file));
+        outcomes.next().unwrap().map_or(Ok(()), Err)
+    });
+    (dir, seen, result)
+}
+
+fn ended(message: &str) -> record::Failure {
+    record::Failure::Ended(CaptureError::Failed {
+        program: "wf-recorder".to_owned(),
+        message: message.to_owned(),
+    })
+}
+
+#[test]
+fn a_recorder_that_ends_at_once_gets_the_next_codec() {
+    let (dir, seen, result) = attempts(
+        tools::WF_RECORDER,
+        "clip.mp4",
+        vec![Some(ended("Failed to find the given codec: libx264")), None],
+    );
+    // The first attempt's file went, so the second makes it anew.
+    let file = dir.path().join("clip.mp4");
+    assert_eq!(
+        seen,
+        [
+            (Some("libx264".to_owned()), file.clone()),
+            (Some("libopenh264".to_owned()), file.clone())
+        ]
+    );
+    assert_eq!(result.unwrap(), dir.path().join("clip.mp4"));
+    assert!(dir.path().join("clip.mp4").exists());
+
+    // VP9 last, into `.mkv`; the empty files of the failed attempts go, and the last says why.
+    let (dir, seen, result) = attempts(
+        tools::WF_RECORDER,
+        "clip.mp4",
+        vec![Some(ended("one")), Some(ended("two")), None],
+    );
+    assert_eq!(
+        seen[2],
+        (Some("libvpx-vp9".to_owned()), dir.path().join("clip.mkv"))
+    );
+    assert_eq!(result.unwrap(), dir.path().join("clip.mkv"));
+    assert!(!dir.path().join("clip.mp4").exists());
+    let (dir, seen, result) = attempts(
+        tools::WF_RECORDER,
+        "clip.mp4",
+        vec![Some(ended("one")), Some(ended("two")), Some(ended("three"))],
+    );
+    assert_eq!(seen.len(), 3);
+    assert_eq!(result.unwrap_err().to_string(), "wf-recorder failed: three");
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn other_failures_and_wl_screenrec_try_no_other_codec() {
+    let (dir, seen, result) = attempts(
+        tools::WF_RECORDER,
+        "clip.mkv",
+        vec![Some(record::Failure::Other(CaptureError::Missing {
+            program: "wf-recorder",
+            package: "wf-recorder",
+        }))],
+    );
+    assert_eq!(seen.len(), 1);
+    assert!(matches!(result, Err(CaptureError::Missing { .. })));
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+
+    let (_dir, seen, result) = attempts(tools::WL_SCREENREC, "clip.mp4", vec![Some(ended("no"))]);
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].0, None);
+    assert!(result.is_err());
+
+    // Someone else's file of the same name is never touched: the attempt numbers its own.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("clip.mkv"), b"theirs").unwrap();
+    let target = shot::Target::Output("DP-1".to_owned());
+    let mut files = Vec::new();
+    let result = record::record_with(
+        tools::WF_RECORDER,
+        &target,
+        dir.path(),
+        "clip.mp4",
+        false,
+        |args| {
+            files.push(PathBuf::from(args.last().unwrap()));
+            Err(record::Failure::Ended(CaptureError::Canceled))
+        },
+    );
+    assert!(result.is_err());
+    assert_eq!(files[2], dir.path().join("clip (2).mkv"));
+    assert_eq!(
+        std::fs::read(dir.path().join("clip.mkv")).unwrap(),
+        b"theirs"
+    );
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
 }

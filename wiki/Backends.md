@@ -308,12 +308,18 @@ needs, so a key press is quick. The facts behind it are in the
   no other file is written over, and wf-recorder gets `-y` (it would ask before writing over it); then
   `setsid -f wf-recorder` (else wl-screenrec) `-g <geometry>` or `-o <display>` `-f <file>` `[--audio]`, detached like
   `wl-mirror`, with `SWAY_THINGS_RECORDING=<notification id>` in its environment and its standard error in
-  `$XDG_RUNTIME_DIR/sway-things-recording.log`; 0.7 s later it must still run, or the last line of the log is the error
-  and the empty file goes. Only `.mp4` and `.mkv`: both recorders encode H.264 by default, which WebM can't hold. The
-  notification that says it records goes after the server's usual time, so it isn't recorded for long, and takes the
-  place of the last one about a recording (its id in `$XDG_RUNTIME_DIR/sway-things-recording.notification`). The next
-  press finds the recorder, sends `SIGINT` (`kill -s INT`), waits up to ten seconds for it to end, so the file is
-  complete, lets go of the lock and replaces the notification with where the file is and _Open_. The page looks for a
+  `$XDG_RUNTIME_DIR/sway-things-recording.log`; 0.7 s later it must still run, else its empty file goes. wf-recorder is
+  asked for a codec, since its built-in default need not suit the container (openSUSE's is utvideo, which `.mp4` can't
+  hold): `-c libx264`, else `libopenh264` (H.264, in the name's `.mp4` or `.mkv`), else `libvpx-vp9` (always `.mkv`),
+  each with `-x yuv420p` and `-F crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0`, which crops an odd width or height by a pixel,
+  since the H.264 encoders refuse odd sizes in `yuv420p`. A wf-recorder that ended within the 0.7 s gets the next codec,
+  with a file of its own; any other failure (no recorder, `setsid` failing, a file that can't be made) tries no other.
+  No `ffmpeg` command is needed to find the encoders. After the last codec, the last line of the log is the error.
+  wl-screenrec gets no codec. Only `.mp4` and `.mkv` are offered: WebM needs VP8 or VP9, which wl-screenrec can't
+  encode. The notification that says it records goes after the server's usual time, so it isn't recorded for long, and
+  takes the place of the last one about a recording (its id in `$XDG_RUNTIME_DIR/sway-things-recording.notification`).
+  The next press finds the recorder, sends `SIGINT` (`kill -s INT`), waits up to ten seconds for it to end, so the file
+  is complete, lets go of the lock and replaces the notification with where the file is and _Open_. The page looks for a
   recording every two seconds while it is on screen and shows _Stop_, which runs `sway-things record` without waiting
   for it.
 - **Clipboard history** (`capture::clipboard`): `sync_with` has exactly the watcher run that the settings ask for:
