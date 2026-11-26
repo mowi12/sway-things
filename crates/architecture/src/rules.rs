@@ -15,12 +15,17 @@
 //! - [`HOOK_LITERALS`] (R4): no `sway-things hook` in a string literal outside `core::command`.
 //! - [`STAND_INS`] (R5): a module `stand_in` is declared behind
 //!   `#[cfg(any(test, feature = "test-support"))]`.
+//! - [`BLOCKING_DOCS`] (R5): a function of the core has a `# Blocking` section in its docs exactly
+//!   when it [blocks](crate::blocking).
+//! - [`BLOCKING_CALLS`] (R5): nothing blocks the main context of the GUI or the executor of an
+//!   `async fn` of the core.
 //!
 //! The cycle rules leave out the edges R1 reports: an edge to a higher layer is R1's, and every
 //! cycle through it ends when it is repaired.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::blocking::{Analysis, Target};
 use crate::graph::{Edge, Graph, Module};
 use crate::literals;
 
@@ -37,9 +42,39 @@ pub const KEY_LITERALS: &str = "R4-key-literals";
 pub const HOOK_LITERALS: &str = "R4-hook-literals";
 /// The rule that stand-ins are built only for tests (R5).
 pub const STAND_INS: &str = "R5-stand-ins";
+/// The rule that the docs of a core function say whether it blocks (R5).
+pub const BLOCKING_DOCS: &str = "R5-blocking-docs";
+/// The rule against blocking calls on the main context and in async functions (R5).
+pub const BLOCKING_CALLS: &str = "R5-blocking-calls";
 
 /// The words a hand-written hook starts with.
 pub const HOOK: &str = "sway-things hook";
+
+/// The functions that read a directory but don't count as blocking (R5): fast scans with a small,
+/// bounded result, each with the reason. They are no source of [blocking](crate::blocking).
+pub const NOT_BLOCKING: &[(&str, &str)] = &[
+    (
+        "core::session::process::scan",
+        "reads /proc, which the kernel serves from memory, for the processes of the session",
+    ),
+    (
+        "core::outputs::session_processes",
+        "reads /proc, which the kernel serves from memory, for the processes of the session",
+    ),
+    (
+        "core::scanners::look::runs",
+        "reads /proc, which the kernel serves from memory, for a running process",
+    ),
+    (
+        "core::state::history::list",
+        "reads the app's own state directory, which holds a few snapshots",
+    ),
+];
+
+/// The names of [`NOT_BLOCKING`], for [`Analysis::build`].
+pub fn not_blocking() -> Vec<&'static str> {
+    NOT_BLOCKING.iter().map(|(name, _)| *name).collect()
+}
 
 /// The name of the core's unit.
 pub const CORE: &str = "core";
@@ -345,6 +380,12 @@ pub fn file_cycles(graph: &Graph) -> Vec<Violation> {
     out
 }
 
+/// The crate a module belongs to: `core`, `cli` or `gui` (a binary counts as its crate).
+fn crate_of(module: &Module) -> &str {
+    let unit = module.name.split("::").next().unwrap_or_default();
+    unit.strip_suffix("-bin").unwrap_or(unit)
+}
+
 /// Whether a module is `parent` or below it, e.g. `core::registry::app` for `core::registry`.
 fn within(module: &Module, parent: &str) -> bool {
     module.name == parent || module.name.starts_with(&format!("{parent}::"))
@@ -440,6 +481,150 @@ pub fn stand_ins(graph: &Graph) -> Vec<Violation> {
                 })
         })
         .collect()
+}
+
+/// The functions of the core whose docs don't say right whether they block (R5): one that blocks
+/// needs a `# Blocking` section, one that doesn't may not have one. Methods of trait impls are left
+/// out; their docs are the trait's.
+pub fn blocking_docs(graph: &Graph, analysis: &Analysis) -> Vec<Violation> {
+    let modules = graph.modules();
+    analysis
+        .functions
+        .iter()
+        .enumerate()
+        .filter(|(_, function)| crate_of(&modules[function.module]) == CORE && !function.trait_impl)
+        .filter_map(|(node, function)| {
+            let blocks = analysis.blocks(node);
+            if blocks == function.documented {
+                return None;
+            }
+            let (to, message) = if blocks {
+                let why = analysis.blocking[node]
+                    .and_then(|index| function.uses.get(index))
+                    .map_or_else(
+                        || "it is a primitive".to_owned(),
+                        |used| format!("line {}: {}", used.line, analysis.chain(graph, &used.target)),
+                    );
+                (
+                    "missing # Blocking",
+                    format!(
+                        "{} blocks ({why}), but its docs have no `# Blocking` section. Add one that says what it \
+                         waits for, so callers on the main context know to use gio::spawn_blocking",
+                        function.name
+                    ),
+                )
+            } else {
+                (
+                    "needless # Blocking",
+                    format!(
+                        "{} has a `# Blocking` section, but nothing it calls blocks. Remove the section (or, if \
+                         it does block through a method call the test can't follow, say so in the code)",
+                        function.name
+                    ),
+                )
+            };
+            Some(Violation {
+                rule: BLOCKING_DOCS,
+                from: function.name.clone(),
+                to: to.to_owned(),
+                location: function.location.clone(),
+                message,
+            })
+        })
+        .collect()
+}
+
+/// The GUI functions that run only off the main context: every function that calls them by path
+/// does so inside `gio::spawn_blocking` (or `std::thread::spawn`), or is such a function itself.
+/// A function no other one calls by path is none: a signal handler, a method or a page's setup
+/// runs on the main context.
+fn gui_workers(graph: &Graph, analysis: &Analysis) -> BTreeSet<usize> {
+    let modules = graph.modules();
+    let mut workers: BTreeSet<usize> = analysis
+        .functions
+        .iter()
+        .enumerate()
+        .filter(|&(node, function)| {
+            crate_of(&modules[function.module]) == "gui" && !analysis.callers[node].is_empty()
+        })
+        .map(|(node, _)| node)
+        .collect();
+    loop {
+        let before = workers.len();
+        let kept: BTreeSet<usize> = workers
+            .iter()
+            .copied()
+            .filter(|&node| {
+                analysis.callers[node].iter().all(|&(caller, index)| {
+                    analysis.functions[caller]
+                        .uses
+                        .get(index)
+                        .is_some_and(|used| used.off_thread)
+                        || workers.contains(&caller)
+                })
+            })
+            .collect();
+        workers = kept;
+        if workers.len() == before {
+            return workers;
+        }
+    }
+}
+
+/// The calls that block where nothing may (R5):
+/// - in the GUI, on the main context: a use of a primitive or of a blocking function of the core,
+///   outside `gio::spawn_blocking`, in a GUI function that may run on the main context (see
+///   [`gui_workers`]). A call from one GUI function to another isn't reported: the place where the
+///   GUI reaches the primitive or the core is;
+/// - in the body of an `async fn` of the core, which blocks the executor that polls it.
+///
+/// The command line is left out: it has no main loop to block.
+pub fn blocking_calls(graph: &Graph, analysis: &Analysis) -> Vec<Violation> {
+    let modules = graph.modules();
+    let workers = gui_workers(graph, analysis);
+    let mut out = Vec::new();
+    for (node, function) in analysis.functions.iter().enumerate() {
+        let krate = crate_of(&modules[function.module]);
+        let gui = krate == "gui" && !workers.contains(&node);
+        let core_async = krate == CORE && function.is_async;
+        if !gui && !core_async {
+            continue;
+        }
+        for used in &function.uses {
+            if used.off_thread || !analysis.target_blocks(&used.target) {
+                continue;
+            }
+            if let Target::Function(module, _) = &used.target {
+                if gui && crate_of(&modules[*module]) == "gui" {
+                    continue;
+                }
+            }
+            let to = analysis.target_name(graph, &used.target);
+            let chain = analysis.chain(graph, &used.target);
+            let file = function.location.split(':').next().unwrap_or_default();
+            let message = if gui {
+                format!(
+                    "{} calls {to} on the main context, and it blocks ({chain}). Run it in \
+                     gio::spawn_blocking and hand the result back to the main context",
+                    function.name
+                )
+            } else {
+                format!(
+                    "the async fn {} calls {to}, which blocks ({chain}) the executor that polls it. Use an \
+                     async counterpart, or run it in a thread",
+                    function.name
+                )
+            };
+            out.push(Violation {
+                rule: BLOCKING_CALLS,
+                from: function.name.clone(),
+                to,
+                location: format!("{file}:{}", used.line),
+                message,
+            });
+        }
+    }
+    out
 }
 
 fn adjacency(nodes: usize, edges: impl Iterator<Item = (usize, usize)>) -> Vec<Vec<usize>> {

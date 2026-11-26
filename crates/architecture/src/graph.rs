@@ -109,6 +109,16 @@ pub struct Declaration {
     pub test_support: bool,
 }
 
+/// What a path names: a module, or an item defined in a module with the path inside it (`["f"]`
+/// for a function, `["Type", "f"]` for an associated function).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Named {
+    /// A module.
+    Module(usize),
+    /// An item of this module and its path below the module.
+    Item(usize, Vec<String>),
+}
+
 /// An edge: `from` uses something defined in `to`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge {
@@ -381,6 +391,107 @@ impl Graph {
                 Some(Target::Module(source)) if source != module => self.lookup(source, name, seen),
                 _ => None,
             })
+    }
+}
+
+impl Graph {
+    /// What a path written in module `ctx` names, with the item's name as it is defined (an import
+    /// `use a::f as g` makes `g` name `f` of `a`). `None` for a path that leaves the workspace.
+    pub fn resolve_named(&self, ctx: usize, segments: &[String]) -> Option<Named> {
+        self.resolve_named_in(ctx, segments, &mut Seen::new())
+    }
+
+    fn resolve_named_in(&self, ctx: usize, segments: &[String], seen: &mut Seen) -> Option<Named> {
+        let (first, mut rest) = segments.split_first()?;
+        let unit = self.modules[ctx].unit;
+        let mut current = match first.as_str() {
+            "::" => {
+                let (name, after) = rest.split_first()?;
+                rest = after;
+                Named::Module(*self.externs.get(name)?)
+            }
+            "crate" => Named::Module(*self.roots.get(unit)?),
+            "self" => Named::Module(ctx),
+            "super" => Named::Module(self.modules[ctx].parent?),
+            name => match self.lookup_named(ctx, name, seen) {
+                Some(named) => named,
+                None => Named::Module(*self.externs.get(name)?),
+            },
+        };
+        for segment in rest {
+            current = match current {
+                Named::Module(module) => match segment.as_str() {
+                    "self" => Named::Module(module),
+                    "super" => Named::Module(self.modules[module].parent?),
+                    name => self
+                        .lookup_named(module, name, seen)
+                        .unwrap_or_else(|| Named::Item(module, vec![name.to_owned()])),
+                },
+                Named::Item(module, mut path) => {
+                    path.push(segment.clone());
+                    Named::Item(module, path)
+                }
+            };
+        }
+        Some(current)
+    }
+
+    fn lookup_named(&self, module: usize, name: &str, seen: &mut Seen) -> Option<Named> {
+        if !seen.insert((module, name.to_owned())) {
+            return None;
+        }
+        let data = &self.modules[module];
+        if let Some(&child) = data.children.get(name) {
+            return Some(Named::Module(child));
+        }
+        if let Some(segments) = data.imports.get(name) {
+            return self.resolve_named_in(module, segments, seen);
+        }
+        if data.defined.contains(name) {
+            return Some(Named::Item(module, vec![name.to_owned()]));
+        }
+        data.globs
+            .iter()
+            .find_map(|glob| match self.resolve_named_in(module, glob, seen) {
+                Some(Named::Module(source)) if source != module => {
+                    self.lookup_named(source, name, seen)
+                }
+                _ => None,
+            })
+    }
+
+    /// A path written in module `ctx` with its first segment replaced through the module's
+    /// imports, for paths that leave the workspace: `thread::sleep` after `use std::thread;` is
+    /// `std::thread::sleep`. A leading `::` is dropped.
+    pub fn expand(&self, ctx: usize, segments: &[String]) -> Vec<String> {
+        let mut path: Vec<String> = segments
+            .iter()
+            .skip_while(|segment| *segment == "::")
+            .cloned()
+            .collect();
+        let imports = &self.modules[ctx].imports;
+        for _ in 0..8 {
+            let Some(first) = path.first() else {
+                break;
+            };
+            if self.modules[ctx].children.contains_key(first) {
+                break;
+            }
+            let Some(import) = imports.get(first) else {
+                break;
+            };
+            if import.first() == Some(first) && import.len() == 1 {
+                break;
+            }
+            let mut expanded: Vec<String> = import
+                .iter()
+                .skip_while(|segment| *segment == "::")
+                .cloned()
+                .collect();
+            expanded.extend(path.into_iter().skip(1));
+            path = expanded;
+        }
+        path
     }
 }
 

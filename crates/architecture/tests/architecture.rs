@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The architecture test: the rules of the module graph of `core`, `cli` and `gui` (layers,
-//! cycles, literals, stand-ins) match the baseline in `baseline.toml`.
+//! cycles, literals, stand-ins, blocking calls) match the baseline in `baseline.toml`.
 //!
 //! Rewrite the baseline with `SWAY_THINGS_UPDATE_BASELINE=1 cargo test -p sway-things-architecture`,
 //! then give every new entry its reason; see `wiki/Testing.md`, "Architecture tests".
@@ -13,6 +13,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use architecture::baseline::{self, Entry};
+use architecture::blocking::Analysis;
 use architecture::graph::Graph;
 use architecture::rules::{self, Violation};
 use architecture::workspace;
@@ -41,6 +42,28 @@ fn every_top_level_module_of_the_core_has_a_layer() {
 }
 
 #[test]
+fn every_function_that_may_not_block_exists() {
+    let graph = graph().unwrap();
+    let analysis = Analysis::build(&graph, &[]);
+    let missing: Vec<&str> = rules::NOT_BLOCKING
+        .iter()
+        .map(|(name, _)| *name)
+        .filter(|name| {
+            !analysis
+                .functions
+                .iter()
+                .any(|function| function.name == *name)
+        })
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "these functions of NOT_BLOCKING in crates/architecture/src/rules.rs no longer exist: {}. Remove or \
+         rename them there and in wiki/Testing.md",
+        missing.join(", ")
+    );
+}
+
+#[test]
 fn the_rules_match_the_baseline() {
     let graph = graph().unwrap();
     let keys: BTreeSet<String> = Registry::builtin()
@@ -53,6 +76,9 @@ fn the_rules_match_the_baseline() {
     violations.extend(rules::key_literals(&graph, &keys));
     violations.extend(rules::hook_literals(&graph));
     violations.extend(rules::stand_ins(&graph));
+    let analysis = Analysis::build(&graph, &rules::not_blocking());
+    violations.extend(rules::blocking_docs(&graph, &analysis));
+    violations.extend(rules::blocking_calls(&graph, &analysis));
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("baseline.toml");
     let text = fs::read_to_string(&path).unwrap_or_default();

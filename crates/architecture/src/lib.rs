@@ -10,6 +10,7 @@
 //! distributions, never shipped.
 
 pub mod baseline;
+pub mod blocking;
 pub mod graph;
 pub mod literals;
 pub mod rules;
