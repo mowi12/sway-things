@@ -61,7 +61,7 @@ pub use place::Place;
 pub use placeholder::Placeholder;
 pub use printers::{PrintersPage, ScanDialog, ScanService, Service as PrintService};
 pub use region::RegionTimePage;
-pub use row_layout::RowLayout;
+pub use row_layout::{RowLayout, TEXT_WIDTH};
 pub use scroll_line::{FULL_OFFSET, ScrollLine, scroller_in};
 pub use setting_row::SettingRow;
 pub use shortcuts::{Captured, Editor as ShortcutEditor, GdkKeymap, ShortcutList, capture};

@@ -292,15 +292,20 @@ own theme in light and dark and scrolled through a window height at a time, must
 text 3:1). The check reads what GTK draws: the render nodes say where each text is and which colors are painted under it
 (after opacity; the worst stop of a gradient), and the rendered pixels give the text color as the user sees it.
 
+GTK only prints a warning when a layout measures a widget below its minimum
+(`Trying to measure … but it needs at least …`), so `measured.rs` collects these warnings with a GLib log writer, and
+each group of checks gets one more check that fails on the ones it caused.
+
 - Keyboard: arrow keys move through the sidebar without opening pages, Enter opens one, Esc goes back from the content.
 - Narrow mode: each of the four v0.1 pages, groups expanded, fits next to the sidebar at the threshold with every row's
   controls beside its text (measured from each row's width beside, since a tiled window can't be resized) and the window
   can get narrower; every page fits 544 px (a third of a laptop screen) and scrolls sideways when narrower; a slider row
-  shrinks its slider first, then moves its controls below its text and gets higher; narrow (the tests move the
-  threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows it with the back
-  button and the focus in it, Esc and the back button show the sidebar at the open page, switching keeps the page, the
-  pane with the focus and the focus, a search on the page shows the sidebar with the results and the focused field, a
-  result and a deep link show their page and focus their row, and Esc goes back to the result.
+  shrinks its slider first, then moves its controls below its text and gets higher; a row whose text can't wrap (a stack
+  switcher, like the Wallpaper page's tabs) keeps its controls beside it only while it gets its minimum width; narrow
+  (the tests move the threshold, since a tiled window can't be resized), the sidebar comes first, opening a page shows
+  it with the back button and the focus in it, Esc and the back button show the sidebar at the open page, switching
+  keeps the page, the pane with the focus and the focus, a search on the page shows the sidebar with the results and the
+  focused field, a result and a deep link show their page and focus their row, and Esc goes back to the result.
 - Deep links: a link opens its page, a link to a setting tints its row, focuses its control and the tint goes again, one
   to a member of a collapsed group expands the group first, and one to a row hidden for want of devices only opens the
   page.
