@@ -30,7 +30,7 @@ pub mod swaync;
 mod tests;
 
 use crate::command::{Color, SwayCmd};
-use crate::registry::{self, Registry, Value, notifications as keys};
+use crate::registry::{self, Registry, Value, notifications as keys, windows};
 use crate::state::State;
 
 pub use bus::{Notifications, Server};
@@ -175,9 +175,9 @@ impl<'a> Stored<'a> {
     pub fn colors(&self) -> Option<Colors> {
         match self.text(keys::COLORS)? {
             "windows" => Some(Colors {
-                background: self.color("windows.focused.background")?,
-                text: self.color("windows.focused.text")?,
-                border: self.color("windows.focused.child_border")?,
+                background: self.color(windows::FOCUSED_BACKGROUND)?,
+                text: self.color(windows::FOCUSED_TEXT)?,
+                border: self.color(windows::FOCUSED_CHILD_BORDER)?,
             }),
             "custom" => Some(Colors {
                 background: self.color(keys::BACKGROUND)?,

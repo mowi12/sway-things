@@ -72,7 +72,7 @@ const NO_RELOADS: Msg = msg!("Reloads of sway from elsewhere won’t show: {erro
 const NO_DISPLAYS: Msg = msg!("Displays can't be listed: {error}");
 
 /// The preference whether collapsed sections are remembered across restarts.
-const REMEMBER_SECTIONS: &str = "app.remember_collapsed_sections";
+const REMEMBER_SECTIONS: &str = sway_things_core::registry::app::REMEMBER_COLLAPSED_SECTIONS;
 
 /// Whether `state` asks to remember collapsed sections (`app.remember_collapsed_sections`).
 fn remembers_sections(state: &State) -> bool {

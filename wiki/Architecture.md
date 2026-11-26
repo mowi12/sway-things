@@ -286,7 +286,10 @@ and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `c
 `capture::shortcuts`); the check of its keys uses `bindings::keys` the same way. The keys of Apps & Autostart, the kinds
 of default apps, the autostart entries and the checks of their values are `registry::apps` (re-exported by
 `apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and launcher's
-commands and keys use the same binding reader.
+commands and keys use the same binding reader. A key that code reads by name, in the core or a front end, is a constant
+of the registry module that defines the setting (`registry::app::SAFETY_NET_TIMEOUT`,
+`registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …), never a string literal; the architecture
+test checks it (R4).
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
 (Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, and the key buttons and notes

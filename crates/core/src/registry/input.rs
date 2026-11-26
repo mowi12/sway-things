@@ -135,10 +135,14 @@ const CLICK_METHODS: &[Choice] = &[
     Choice::new("clickfinger", msg!("Number of fingers")),
     Choice::new("none", msg!("None")),
 ];
-const XKB_LAYOUT: &str = "input.keyboard.xkb_layout";
-const XKB_VARIANT: &str = "input.keyboard.xkb_variant";
-const XKB_MODEL: &str = "input.keyboard.xkb_model";
-const XKB_OPTIONS: &str = "input.keyboard.xkb_options";
+/// The keyboard layouts.
+pub const XKB_LAYOUT: &str = "input.keyboard.xkb_layout";
+/// The variants of the keyboard layouts, one per layout.
+pub const XKB_VARIANT: &str = "input.keyboard.xkb_variant";
+/// The keyboard model.
+pub const XKB_MODEL: &str = "input.keyboard.xkb_model";
+/// The XKB options.
+pub const XKB_OPTIONS: &str = "input.keyboard.xkb_options";
 const REPEAT_DELAY: &str = "input.keyboard.repeat_delay";
 const REPEAT_RATE: &str = "input.keyboard.repeat_rate";
 const XKB_NUMLOCK: &str = "input.keyboard.xkb_numlock";

@@ -9,7 +9,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::apply::{Pending, Until};
-use sway_things_core::registry::{ConfigFile, Link, Page, Registry, Value};
+use sway_things_core::registry::{self, ConfigFile, Link, Page, Registry, Value};
 
 use crate::i18n::{msg, msg_plural, ntrf, tr, trf};
 use crate::model::Model;
@@ -898,7 +898,7 @@ impl Window {
             let body = SoundPage::new(&self.imp().sound_server.borrow());
             if let Some(model) = self.imp().model.get() {
                 let weak = body.downgrade();
-                follow_toggle(model, "app.sound_above_100", move |above| {
+                follow_toggle(model, registry::app::SOUND_ABOVE_100, move |above| {
                     if let Some(body) = weak.upgrade() {
                         body.set_above_100(above);
                     }
@@ -912,7 +912,7 @@ impl Window {
             let body = BluetoothPage::new(&self.imp().bluetooth_bus.borrow());
             if let Some(model) = self.imp().model.get() {
                 let weak = body.downgrade();
-                follow_manual_search(model, "app.bluetooth_search", move |manual| {
+                follow_manual_search(model, registry::app::BLUETOOTH_SEARCH, move |manual| {
                     if let Some(body) = weak.upgrade() {
                         body.set_manual_search(manual);
                     }
@@ -925,7 +925,7 @@ impl Window {
             let body = NetworkPage::new(&self.imp().network_bus.borrow());
             if let Some(model) = self.imp().model.get() {
                 let weak = body.downgrade();
-                follow_manual_search(model, "app.wifi_search", move |manual| {
+                follow_manual_search(model, registry::app::WIFI_SEARCH, move |manual| {
                     if let Some(body) = weak.upgrade() {
                         body.set_manual_search(manual);
                     }

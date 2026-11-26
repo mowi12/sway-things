@@ -34,6 +34,20 @@ const SEARCH_MODES: &[Choice] = &[
 /// The folder whose pictures the Wallpaper page shows; empty for the pictures folder
 /// (`~/Pictures`).
 pub const WALLPAPER_FOLDER: &str = "app.wallpaper_folder";
+/// The seconds the safety net waits for a risky change to be kept.
+pub const SAFETY_NET_TIMEOUT: &str = "app.safety_net_timeout";
+/// Where the app's accent color comes from.
+pub const ACCENT_SOURCE: &str = "app.accent_source";
+/// Whether every setting row shows its sway directive.
+pub const SHOW_DIRECTIVES: &str = "app.show_directives";
+/// Whether the collapsed sections are remembered.
+pub const REMEMBER_COLLAPSED_SECTIONS: &str = "app.remember_collapsed_sections";
+/// Whether the sound volume may go above 100 %.
+pub const SOUND_ABOVE_100: &str = "app.sound_above_100";
+/// When the Bluetooth page searches for devices.
+pub const BLUETOOTH_SEARCH: &str = "app.bluetooth_search";
+/// When the Wi-Fi page searches for networks.
+pub const WIFI_SEARCH: &str = "app.wifi_search";
 
 pub(super) fn settings() -> Vec<Setting> {
     let mut all = general();
@@ -44,7 +58,7 @@ pub(super) fn settings() -> Vec<Setting> {
 /// The preferences that apply to the whole app.
 fn general() -> Vec<Setting> {
     vec![
-        Setting::integer("app.safety_net_timeout", Page::About, 15, 5, 120)
+        Setting::integer(SAFETY_NET_TIMEOUT, Page::About, 15, 5, 120)
             .section(msg!("Sway Things"))
             .title(msg!("Safety net timeout"))
             .subtitle(msg!(
@@ -52,7 +66,7 @@ fn general() -> Vec<Setting> {
             ))
             .keywords(&[msg!("revert"), msg!("countdown"), msg!("keep")])
             .build(),
-        Setting::choice("app.accent_source", Page::About, "sway", ACCENT_SOURCES)
+        Setting::choice(ACCENT_SOURCE, Page::About, "sway", ACCENT_SOURCES)
             .section(msg!("Sway Things"))
             .title(msg!("Accent color"))
             .subtitle(msg!(
@@ -77,7 +91,7 @@ fn general() -> Vec<Setting> {
             ])
             .check_text(check_command)
             .build(),
-        Setting::toggle("app.show_directives", Page::About, false)
+        Setting::toggle(SHOW_DIRECTIVES, Page::About, false)
             .section(msg!("Sway Things"))
             .title(msg!("Show sway directives"))
             .subtitle(msg!("Show the line of the sway config below each setting"))
@@ -88,7 +102,7 @@ fn general() -> Vec<Setting> {
                 msg!("learn"),
             ])
             .build(),
-        Setting::toggle("app.remember_collapsed_sections", Page::About, true)
+        Setting::toggle(REMEMBER_COLLAPSED_SECTIONS, Page::About, true)
             .section(msg!("Sway Things"))
             .title(msg!("Remember collapsed sections"))
             .subtitle(msg!(
@@ -107,7 +121,7 @@ fn general() -> Vec<Setting> {
 /// The preferences of single pages.
 fn page_preferences() -> Vec<Setting> {
     vec![
-        Setting::toggle("app.sound_above_100", Page::About, false)
+        Setting::toggle(SOUND_ABOVE_100, Page::About, false)
             .section(msg!("Sway Things"))
             .title(msg!("Allow volume above 100 %"))
             .subtitle(msg!(
@@ -122,20 +136,15 @@ fn page_preferences() -> Vec<Setting> {
                 msg!("volume"),
             ])
             .build(),
-        Setting::choice(
-            "app.bluetooth_search",
-            Page::About,
-            "automatic",
-            SEARCH_MODES,
-        )
-        .section(msg!("Sway Things"))
-        .title(msg!("Search for Bluetooth devices"))
-        .subtitle(msg!(
-            "Automatically while the Bluetooth page is open, or only when you press Search"
-        ))
-        .keywords(&[msg!("discovery"), msg!("scan"), msg!("bluetooth")])
-        .build(),
-        Setting::choice("app.wifi_search", Page::About, "automatic", SEARCH_MODES)
+        Setting::choice(BLUETOOTH_SEARCH, Page::About, "automatic", SEARCH_MODES)
+            .section(msg!("Sway Things"))
+            .title(msg!("Search for Bluetooth devices"))
+            .subtitle(msg!(
+                "Automatically while the Bluetooth page is open, or only when you press Search"
+            ))
+            .keywords(&[msg!("discovery"), msg!("scan"), msg!("bluetooth")])
+            .build(),
+        Setting::choice(WIFI_SEARCH, Page::About, "automatic", SEARCH_MODES)
             .section(msg!("Sway Things"))
             .title(msg!("Search for Wi-Fi networks"))
             .subtitle(msg!(

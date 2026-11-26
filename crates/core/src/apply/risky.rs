@@ -29,7 +29,7 @@ use crate::state::{State, StateError};
 use crate::view::{SettingView, Source};
 
 /// The preference that says how long a risky change waits to be kept.
-const TIMEOUT: &str = "app.safety_net_timeout";
+const TIMEOUT: &str = crate::registry::app::SAFETY_NET_TIMEOUT;
 
 /// When a risky change that wasn't kept is reverted. It only measures time: the caller reverts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

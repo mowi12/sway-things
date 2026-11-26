@@ -22,14 +22,18 @@ pub const DEFAULT_SIZE: u32 = 24;
 /// `default` (often a link to the distribution's theme), and falls back to its built-in cursor.
 pub const DEFAULT_THEME: &str = "default";
 
-const THEME: &str = "cursor.theme";
-const SIZE: &str = "cursor.size";
+/// The cursor theme.
+pub const THEME: &str = "cursor.theme";
+/// The cursor size.
+pub const SIZE: &str = "cursor.size";
 const HIDE: &str = "cursor.hide";
 const HIDE_AFTER: &str = "cursor.hide_after";
 const HIDE_WHEN_TYPING: &str = "cursor.hide_when_typing";
-const TABLET_MAP: &str = "input.tablet_tool.map_to_output";
+/// The display a drawing tablet maps to.
+pub const TABLET_MAP: &str = "input.tablet_tool.map_to_output";
 const TABLET_TOOL_MODE: &str = "input.tablet_tool.tool_mode";
-const TOUCH_MAP: &str = "input.touch.map_to_output";
+/// The display a touchscreen maps to.
+pub const TOUCH_MAP: &str = "input.touch.map_to_output";
 
 /// The seconds of inactivity before the cursor hides, unless set.
 const DEFAULT_HIDE_AFTER: f64 = 5.0;
