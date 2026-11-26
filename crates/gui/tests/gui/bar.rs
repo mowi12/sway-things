@@ -126,6 +126,11 @@ pub(crate) fn check_bar_pages() -> Vec<(String, Outcome)> {
             check_bar_looks(),
         ),
         (
+            "bar: items become groups in the lanes, by a drop, the keyboard and the menus"
+                .to_owned(),
+            check_bar_groups(),
+        ),
+        (
             "bar: the user's own style is a look, and other looks turn it off".to_owned(),
             check_bar_own_style(),
         ),
@@ -279,9 +284,7 @@ fn check_bar_parts() -> Outcome {
         .ok_or_else(|| "  the center lane takes no drops".to_owned())?;
     let left = list_value(model, keys::MODULES_LEFT)?;
     // The signal takes the dropped value as a boxed GValue.
-    let payload = gtk::glib::value::BoxedValue(
-        format!("{}\n{}", keys::MODULES_LEFT, left.len() - 1).to_value(),
-    );
+    let payload = gtk::glib::value::BoxedValue(format!("0\n{}", left.len() - 1).to_value());
     let dropped: bool = drop.emit_by_name("drop", &[&payload, &10.0f64, &60.0f64]);
     ensure(dropped, "  the drop wasn't taken")?;
     wait_for_model(model)?;
@@ -816,15 +819,33 @@ fn check_bar_preview() -> Outcome {
         names == strings(&["clock", "custom-pomodoro"]),
         &format!("  the group shows {names:?}"),
     )?;
+    // A drawer: its first member, then the others in a closed revealer with the drawer's class.
     let info = children(&named(bar, "info")?);
     let names: Vec<String> = info
         .iter()
+        .filter(|widget| widget.css_name() == "widget")
         .flat_map(children)
         .map(|widget| widget.widget_name().to_string())
         .collect();
     ensure(
         names == strings(&["cpu"]),
         &format!("  the drawer shows {names:?}"),
+    )?;
+    let drawer = info
+        .iter()
+        .find_map(|widget| widget.clone().downcast::<gtk::Revealer>().ok())
+        .ok_or_else(|| "  the drawer has no revealer".to_owned())?;
+    let hidden: Vec<gtk::Widget> = all::<gtk::Widget>(drawer.upcast_ref())
+        .into_iter()
+        .filter(|widget| widget.css_name() == "widget")
+        .collect();
+    ensure(
+        !drawer.reveals_child()
+            && drawer.has_css_class("drawer")
+            && hidden.len() == 1
+            && hidden[0].has_css_class("drawer-child")
+            && named(&hidden[0], "memory").is_ok(),
+        "  the drawer's other members aren't in a closed revealer as drawer children",
     )?;
     // A command of the user's shows its format with its name, and never ran.
     let media = named(bar, "custom-media")?
@@ -1281,6 +1302,320 @@ fn check_bar_own_style() -> Outcome {
             && value(model, keys::THEME)? == Some(Value::Choice("plain".to_owned()))
             && colored(&preview_clock()?, [1, 2, 3]),
         "  Your style didn't bring the user's stylesheet back",
+    )?;
+    window.destroy();
+    Ok(())
+}
+
+/// The first controller of type `T` of `widget`.
+fn controller_of<T: IsA<gtk::EventController> + IsA<gtk::glib::Object>>(
+    widget: &gtk::Widget,
+) -> Result<T, String> {
+    widget
+        .observe_controllers()
+        .into_iter()
+        .filter_map(Result::ok)
+        .find_map(|controller| controller.downcast::<T>().ok())
+        .ok_or_else(|| "  no such controller".to_owned())
+}
+
+/// The row named `name` in `lane`, at any depth.
+fn row_named(lane: &gtk::ListBox, name: &str) -> Result<gtk::ListBoxRow, String> {
+    rows_of(lane)
+        .into_iter()
+        .find(|row| row.widget_name() == name)
+        .ok_or_else(|| format!("  no row {name}"))
+}
+
+/// Clicks the entry `label` of the menu button `menu`.
+fn menu_entry(menu: &gtk::MenuButton, label: &str) -> Outcome {
+    let popover = menu
+        .popover()
+        .ok_or_else(|| "  the menu has no popover".to_owned())?;
+    button_with(popover.upcast_ref(), label)?.emit_clicked();
+    Ok(())
+}
+
+/// The members of group `name`, as `bar.jsonc` holds them.
+fn members(model: &Model, name: &str) -> Result<Vec<String>, String> {
+    let modules = model
+        .bar_modules()
+        .and_then(Result::ok)
+        .ok_or_else(|| "  bar.jsonc can't be read".to_owned())?;
+    Ok(sway_things_core::bar::groups::members_of(&modules, name))
+}
+
+/// Groups as a newcomer meets them: a tip; an item dragged onto the middle of another shows
+/// "Drop to group" and makes one group of both, whose name is edited at once; the group is a
+/// card with its items inside; its menu makes it a drawer, which marks the first item _Always
+/// shown_; Alt+Up moves an item into the group, the item's menu makes it the first and moves it
+/// out; pointing at the group marks its pill in the preview and opens the drawer there;
+/// _Ungroup_ puts the items back. With screenshots of each.
+#[expect(clippy::too_many_lines, reason = "one user's way through groups")]
+fn check_bar_groups() -> Outcome {
+    use gtk::gdk::{Key, ModifierType};
+    use sway_things_core::registry::bar as keys;
+    let fixture = fixture(
+        SWAY,
+        "version = 1\n\n[bar]\nbackend = \"waybar\"\nmodules_right = [\"pulseaudio\", \
+         \"backlight\", \"battery\", \"clock\"]\nspacing = 0\n\n[bar.style]\ntheme = \"custom\"\n\
+         shape = \"pills\"\npadding = 10\nradius = 999\nopacity = 0.45\nbackground = \"#121216\"\n\
+         text = \"#d4d4d8\"\nhover = \"#00000059\"\nfocused = \"#a74ed0\"\n",
+        USERS,
+        true,
+    )?;
+    let model = &fixture.model;
+    let window = open(&fixture, Page::Bar)?;
+    let content = window
+        .content()
+        .ok_or_else(|| "  no content pane".to_owned())?;
+    ensure(
+        texts(&content)
+            .iter()
+            .any(|text| text.starts_with("Tip: drag an item onto another")),
+        "  no tip about groups",
+    )?;
+    let lane = lanes(&window)?;
+    scroll_to(&window, &lane[2])?;
+    let lane_root = lane_box(&lane[2])?;
+    let drop = controller_of::<gtk::DropTarget>(&lane_root)?;
+    let target = row_named(&lane[2], "pulseaudio")?;
+    let bounds = target
+        .compute_bounds(&lane_root)
+        .ok_or_else(|| "  the row has no place".to_owned())?;
+    let (x, y) = (
+        f64::from(bounds.x() + bounds.width() / 2.0),
+        f64::from(bounds.y() + bounds.height() / 2.0),
+    );
+    // Over the middle of an item, the drop says it makes a group.
+    let _: gtk::gdk::DragAction = drop.emit_by_name("motion", &[&x, &y]);
+    let hint = all::<gtk::Label>(target.upcast_ref())
+        .into_iter()
+        .find(|label| label.text() == "Drop to group")
+        .ok_or_else(|| "  no hint on the row".to_owned())?;
+    ensure(
+        target.has_css_class("st-drop-combine") && hint.is_visible(),
+        "  the middle of an item doesn't offer to group",
+    )?;
+    let payload = gtk::glib::value::BoxedValue("2\n1".to_value());
+    let dropped: bool = drop.emit_by_name("drop", &[&payload, &x, &y]);
+    ensure(dropped, "  the drop wasn't taken")?;
+    wait_for_model(model)?;
+    settle(&window)?;
+    let right = list_value(model, keys::MODULES_RIGHT)?;
+    ensure(
+        right.len() == 3
+            && right[0].starts_with("group/")
+            && right[1..] == strings(&["battery", "clock"])[..],
+        &format!("  the drop gave {right:?}"),
+    )?;
+    ensure(
+        members(model, &right[0])? == strings(&["pulseaudio", "backlight"]),
+        "  the group doesn't hold the two items",
+    )?;
+    // Its name is edited at once.
+    let editable = all::<gtk::EditableLabel>(&content)
+        .into_iter()
+        .find(gtk::EditableLabel::is_editing)
+        .ok_or_else(|| "  the new group's name isn't being edited".to_owned())?;
+    editable.set_text("Audio");
+    editable.stop_editing(true);
+    wait_for_model(model)?;
+    settle(&window)?;
+    ensure(
+        list_value(model, keys::MODULES_RIGHT)?
+            .first()
+            .map(String::as_str)
+            == Some("group/audio"),
+        "  renaming didn't name the group",
+    )?;
+    let card = row_named(&lane[2], "group/audio")?;
+    ensure(
+        texts(card.upcast_ref())
+            .iter()
+            .any(|text| text == "2 items"),
+        "  the card doesn't count its items",
+    )?;
+    // The group's menu makes it a drawer.
+    let menu = all::<gtk::MenuButton>(card.upcast_ref())
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  the card has no menu".to_owned())?;
+    menu_entry(&menu, "Show the Others Only on Hover")?;
+    wait_for_model(model)?;
+    settle(&window)?;
+    let modules = model
+        .bar_modules()
+        .and_then(Result::ok)
+        .ok_or_else(|| "  bar.jsonc can't be read".to_owned())?;
+    ensure(
+        modules
+            .definition("group/audio")
+            .as_ref()
+            .and_then(sway_things_core::bar::groups::drawer)
+            .is_some(),
+        "  the menu didn't make a drawer",
+    )?;
+    let card = row_named(&lane[2], "group/audio")?;
+    let said = texts(card.upcast_ref());
+    ensure(
+        said.iter().any(|text| text == "Always shown")
+            && said.iter().any(|text| text == "Shown on hover"),
+        &format!("  the drawer's members aren't marked: {said:?}"),
+    )?;
+    // Alt+Up moves the item below the group into it, at its end.
+    press(
+        &row_named(&lane[2], "battery")?,
+        Key::Up,
+        ModifierType::ALT_MASK,
+    )?;
+    wait_for_model(model)?;
+    settle(&window)?;
+    ensure(
+        members(model, "group/audio")? == strings(&["pulseaudio", "backlight", "battery"]),
+        &format!(
+            "  Alt+Up gave the members {:?}",
+            members(model, "group/audio")?
+        ),
+    )?;
+    let battery = row_named(&lane[2], "battery")?;
+    ensure(
+        battery.is_focus(),
+        "  the focus didn't follow the item into the group",
+    )?;
+    // Its menu makes it the one always shown, then moves it out again.
+    let item_menu = all::<gtk::MenuButton>(battery.upcast_ref())
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  a member has no menu".to_owned())?;
+    menu_entry(&item_menu, "Make Always Shown")?;
+    wait_for_model(model)?;
+    settle(&window)?;
+    ensure(
+        members(model, "group/audio")?.first().map(String::as_str) == Some("battery"),
+        "  Make Always Shown didn't put the item first",
+    )?;
+    scroll_to(&window, &lane[2])?;
+    shoot_both(&window, "groups-ux-lanes")?;
+    // The same hint over the clock, for its picture.
+    let clock = row_named(&lane[2], "clock")?;
+    let bounds = clock
+        .compute_bounds(&lane_root)
+        .ok_or_else(|| "  the row has no place".to_owned())?;
+    let _: gtk::gdk::DragAction = drop.emit_by_name(
+        "motion",
+        &[
+            &f64::from(bounds.x() + bounds.width() / 2.0),
+            &f64::from(bounds.y() + bounds.height() / 2.0),
+        ],
+    );
+    settle(&window)?;
+    shoot(window.upcast_ref(), "groups-ux-drop-light")?;
+    drop.emit_by_name::<()>("leave", &[]);
+    let card = row_named(&lane[2], "group/audio")?;
+    let menu = all::<gtk::MenuButton>(card.upcast_ref())
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  the card has no menu".to_owned())?;
+    // A popover is a surface of its own: its entries are shown in a window for the picture.
+    let popover = menu
+        .popover()
+        .ok_or_else(|| "  the menu has no popover".to_owned())?;
+    let entries = popover
+        .child()
+        .ok_or_else(|| "  the menu is empty".to_owned())?;
+    popover.set_child(None::<&gtk::Widget>);
+    let shown = gtk::Window::new();
+    shown.set_title(Some("Group menu"));
+    shown.set_child(Some(&entries));
+    shown.present();
+    settle(&shown)?;
+    shoot(&shown, "groups-ux-menu-light")?;
+    shown.set_child(None::<&gtk::Widget>);
+    shown.destroy();
+    popover.set_child(Some(&entries));
+    ensure(
+        texts(&entries)
+            .iter()
+            .any(|text| text == "Open Toward the Left")
+            && texts(&entries).iter().any(|text| text == "Ungroup"),
+        "  the group's menu lacks the drawer's direction or Ungroup",
+    )?;
+    let battery = row_named(&lane[2], "battery")?;
+    let item_menu = all::<gtk::MenuButton>(battery.upcast_ref())
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  a member has no menu".to_owned())?;
+    menu_entry(&item_menu, "Move Out of the Group")?;
+    wait_for_model(model)?;
+    settle(&window)?;
+    ensure(
+        list_value(model, keys::MODULES_RIGHT)? == strings(&["group/audio", "battery", "clock"])
+            && members(model, "group/audio")? == strings(&["pulseaudio", "backlight"]),
+        "  Move Out of the Group didn't put the item after the group",
+    )?;
+    // Pointing at the group marks its pill in the preview and opens its drawer there.
+    let card = row_named(&lane[2], "group/audio")?;
+    let motion = controller_of::<gtk::EventControllerMotion>(card.upcast_ref())?;
+    motion.emit_by_name::<()>("enter", &[&1.0f64, &1.0f64]);
+    let bar = all::<gtk::Box>(&content)
+        .into_iter()
+        .find(|widget| {
+            widget
+                .css_classes()
+                .iter()
+                .any(|class| class.starts_with("st-wb-"))
+        })
+        .ok_or_else(|| "  no waybar window in the preview".to_owned())?;
+    let pill = named(bar.upcast_ref(), "audio")?;
+    let outer = pill
+        .parent()
+        .ok_or_else(|| "  the group's pill has no `widget`".to_owned())?;
+    let drawer = all::<gtk::Revealer>(&pill)
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  the drawer has no revealer in the preview".to_owned())?;
+    ensure(
+        outer.has_css_class("st-bar-marked") && drawer.reveals_child(),
+        "  pointing at the group doesn't mark its pill and open its drawer",
+    )?;
+    let page = page_view(&window).ok_or_else(|| "  no page".to_owned())?;
+    let viewport = find::<gtk::Viewport>(page.upcast_ref());
+    if let Some(viewport) = viewport {
+        viewport.scroll_to(&bar, None);
+    }
+    run_until(Duration::from_millis(600), || false);
+    shoot_both(&window, "groups-ux-preview")?;
+    motion.emit_by_name::<()>("leave", &[]);
+    ensure(
+        !outer.has_css_class("st-bar-marked"),
+        "  the mark stays after the pointer left",
+    )?;
+    // A click on the group's pill opens its settings: its items and the drawer.
+    let pill_click = controller_of::<gtk::GestureClick>(&outer)?;
+    pill_click.emit_by_name::<()>("released", &[&1i32, &5.0f64, &5.0f64]);
+    let dialog = window_titled("Audio")?;
+    let said = texts(dialog.upcast_ref());
+    ensure(
+        said.iter()
+            .any(|text| text == "Show the others only on hover")
+            && said.iter().any(|text| text.contains("Volume")),
+        &format!("  the group's settings say {said:?}"),
+    )?;
+    shoot(&dialog, "groups-ux-settings-light")?;
+    dialog.close();
+    // Ungroup puts the items back into the lane.
+    let card = row_named(&lane[2], "group/audio")?;
+    let menu = all::<gtk::MenuButton>(card.upcast_ref())
+        .into_iter()
+        .next()
+        .ok_or_else(|| "  the card has no menu".to_owned())?;
+    menu_entry(&menu, "Ungroup")?;
+    wait_for_model(model)?;
+    ensure(
+        list_value(model, keys::MODULES_RIGHT)?
+            == strings(&["pulseaudio", "backlight", "battery", "clock"]),
+        "  Ungroup didn't put the items back",
     )?;
     window.destroy();
     Ok(())

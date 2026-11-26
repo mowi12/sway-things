@@ -22,7 +22,7 @@ use gtk::prelude::*;
 use sway_things_core::bar::catalog::{self, Works};
 use sway_things_core::bar::preview::Extra;
 use sway_things_core::bar::style::{self, Look};
-use sway_things_core::bar::{Backend, Modules, kind_of, modules::members};
+use sway_things_core::bar::{Backend, Modules, groups, kind_of, modules::members};
 use sway_things_core::command::Color;
 use sway_things_core::registry::{Value, bar as keys};
 
@@ -196,7 +196,7 @@ fn swaybar_look(font: Option<style::CssFont>) -> Look {
 
 /// The name an item has on the page: the catalog's title, with the instance (`bat2`), or the
 /// name after `custom/` or `group/`.
-pub(crate) fn item_title(modules: &Modules, name: &str) -> String {
+pub(crate) fn item_title(_modules: &Modules, name: &str) -> String {
     let kind = kind_of(name);
     let instance = name.split_once('#').map(|(_, instance)| instance);
     let base = if let Some(custom) = kind.strip_prefix("custom/") {
@@ -204,14 +204,8 @@ pub(crate) fn item_title(modules: &Modules, name: &str) -> String {
             || custom.to_owned(),
             |template| tr(template.title).to_owned(),
         )
-    } else if let Some(group) = kind.strip_prefix("group/") {
-        let count = modules
-            .definition(name)
-            .map_or(0, |definition| members(&definition).len());
-        trf(
-            msg!("{group} (group of {count})"),
-            &[("group", &group), ("count", &count)],
-        )
+    } else if kind.starts_with("group/") {
+        return group_title(name);
     } else {
         catalog::find(name).map_or_else(|| kind.to_owned(), |module| tr(module.title).to_owned())
     };
@@ -219,6 +213,11 @@ pub(crate) fn item_title(modules: &Modules, name: &str) -> String {
         Some(instance) => format!("{base} ({instance})"),
         None => base,
     }
+}
+
+/// The name of group `name` on the page: its name after `group/` in words.
+pub(crate) fn group_title(name: &str) -> String {
+    groups::title(name)
 }
 
 /// The time now: hour, minute, second.
@@ -675,6 +674,7 @@ fn refresh(ctx: &Rc<Ctx>, class: &str, provider: &gtk::CssProvider, parts: &Part
     let mut counts = Vec::new();
     let mut no_icon_font = false;
     let mut commands = false;
+    let mut shown_items = Vec::new();
     for (key, lane, lane_class) in lanes {
         let items = gtk::Box::new(orientation, if waybar { spacing } else { 0 });
         if waybar {
@@ -708,6 +708,7 @@ fn refresh(ctx: &Rc<Ctx>, class: &str, provider: &gtk::CssProvider, parts: &Part
                 if let Some((widget, iconless)) = mimic::item(ctx, &modules, &name) {
                     no_icon_font |= iconless;
                     items.append(&widget);
+                    shown_items.push((name.clone(), widget.upcast()));
                 }
             } else {
                 let (button, iconless) = item_button(ctx, &name, &title, sample.as_deref());
@@ -722,6 +723,7 @@ fn refresh(ctx: &Rc<Ctx>, class: &str, provider: &gtk::CssProvider, parts: &Part
         sentences.push(trf(LANE, &[("lane", &lane), ("items", &words.join(", "))]));
         boxes.push(items);
     }
+    ctx.set_shown(shown_items);
     let mut boxes = boxes.into_iter();
     let lanes_box = if waybar { bar_lanes } else { strip };
     lanes_box.set_start_widget(boxes.next().as_ref());

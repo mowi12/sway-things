@@ -639,12 +639,20 @@ there.
 - **Templates** (`bar::templates`): custom modules the page offers, each a module definition and for most a POSIX `sh`
   script that ships inside the program (`crates/core/src/bar/templates/*.sh`, GPL, with our SPDX header and the line
   `# Sway Things template:`): a pomodoro timer, camera in use, updates available, a low battery warning, VPN status, the
-  highest system load, a power menu (swaynag) and swaync's notification center. Scripts keep their state in
+  highest system load, a power menu (swaynag) and swaync's notification center. The pomodoro timer reports its phase as
+  classes (`work`, `short`, `long`, `paused`, `ending`; stopped `idle` or `ready` with `next-<phase>`) for the looks,
+  waits for a click between phases and redraws the bar at once with signal 10. Scripts keep their state in
   `$XDG_RUNTIME_DIR` (never `/tmp`; without it they say so) or `$XDG_STATE_HOME`, and read it as data, never as shell. A
   script is copied on request to `~/.config/sway-things/waybar/scripts/` (executable); a copy that is there is replaced
   only while it is byte for byte a version Sway Things shipped (this one, or an older one by its SHA-256 in
   `templates::SHIPPED`), so an edited copy stays and the page says so. From then on it is the user's: waybar runs it,
   Sway Things never does.
+- **Groups** (`bar::groups`): a group is an item of a lane whose members are in its definition in `bar.jsonc`
+  (`"modules"`, a drawer's options under `"drawer"`: `transition-duration`, `transition-left-to-right`,
+  `click-to-reveal`, `children-class`), so a member is in exactly one place. `group`, `ungroup` and `move_item` change
+  the lists and the definitions together, `free_name` names a group after its title without taking a module's CSS id,
+  and `styled` tells the stylesheet which groups are pills and which are parts of another; the page stores both as one
+  step of Ctrl+Z.
 - **`doctor`** reports, while a bar is set up here, each file for waybar (`bar_file`: up to date, missing or out of
   date, which `--fix` writes, or someone else's), waybar missing (`bar_waybar_missing`), which waybar runs
   (`bar_running`: ours, none, or one with another config, with the line to change; a line that may start it; what went

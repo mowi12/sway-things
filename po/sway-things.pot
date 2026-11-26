@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:07+0100\n"
+"POT-Creation-Date: 2026-11-26 22:31+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1458,8 +1458,8 @@ msgstr ""
 
 #: crates/core/src/bar/templates.rs
 msgid ""
-"Work and break phases; click to start or pause, right click to reset, scroll "
-"to change the time"
+"Work and break phases; click to start or pause, right click to reset, middle "
+"click for the next phase, scroll to change the time"
 msgstr ""
 
 #: crates/core/src/bar/templates.rs
@@ -4818,7 +4818,7 @@ msgstr ""
 msgid "floating"
 msgstr ""
 
-#: crates/core/src/registry/bar.rs
+#: crates/core/src/registry/bar.rs crates/gui/src/widgets/bar/dialog.rs
 msgid "Items"
 msgstr ""
 
@@ -10835,6 +10835,34 @@ msgid "Clock format"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/dialog.rs
+msgid "No items yet"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Toward the left"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Toward the right"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Show the others only on hover"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "The others slide out"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Slide time (milliseconds)"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
+msgid "Open on a click instead of on hover"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/dialog.rs
 msgid "waybar's default"
 msgstr ""
 
@@ -10875,8 +10903,9 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
 msgid ""
-"Drag to move it. Alt+Up and Alt+Down move it in its lane, Alt+Left and "
-"Alt+Right to the lane beside it; Delete removes it, Enter opens its settings"
+"Drag to move it, or onto another item to make one pill of both. Alt+Up and "
+"Alt+Down move it, also into and out of groups, Alt+Left and Alt+Right to the "
+"lane beside it; Delete removes it, Enter opens its settings"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
@@ -10886,7 +10915,22 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
+msgid "{item}, in group {group}, {position} of {count}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Group {group} with {count} items, {position} of {total} in {lane}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
 msgid "{item} moved to {lane}, position {position} of {count}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "{item} moved into group {group}, {position} of {count}"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
@@ -10896,13 +10940,45 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
 #, rust-format
+msgid "{first} and {second} are now group {group}, one pill on the bar"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
 msgid "Move to {lane}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Always shown"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Shown on hover"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Drop to group"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
 msgid ""
 "swaybar doesn't show these items: it shows the workspaces, the binding mode "
 "and the text of a status command. They stay saved for Waybar."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid ""
+"Tip: drag an item onto another to combine them into one pill. A group can "
+"also show its other items only on hover."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/toast.rs
+#: crates/gui/src/window.rs
+msgid "Dismiss"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Dismiss the tip"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
@@ -10940,7 +11016,46 @@ msgid "Menu of {item}"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
+msgid "A drawer: the first item always shows, the others on hover"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "One pill: all its items always show"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "The group's name; click to change it"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Name of group {group}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Group menu"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Menu of group {group}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Items of group {group}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "No items. Drag items here."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
 msgid "Settings…"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Group With…"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
@@ -10949,6 +11064,65 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/lanes.rs
 msgid "Move Down"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Make Always Shown"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Move Out of the Group"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bluetooth/mod.rs
+msgid "Rename"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Show the Others Only on Hover"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Open Toward the Left"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Open Toward the Right"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Open on Click Instead"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+msgid "Ungroup"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Remove the Group and Its Item"
+msgid_plural "Remove the Group and Its {count} Items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Add to {group}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Group With {item}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Group renamed {group}"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/lanes.rs
+#, rust-format
+msgid "Group {group} ungrouped; its items are in the lane again"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/mod.rs
@@ -11098,11 +11272,6 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/preview.rs
 msgid "nothing"
-msgstr ""
-
-#: crates/gui/src/widgets/bar/preview.rs
-#, rust-format
-msgid "{group} (group of {count})"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/preview.rs
@@ -11639,10 +11808,6 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/toast.rs crates/gui/src/window.rs
-msgid "Dismiss"
-msgstr ""
-
 #: crates/gui/src/widgets/bluetooth/actions.rs
 msgid "Leave it empty to use the adapter's own name."
 msgstr ""
@@ -11926,10 +12091,6 @@ msgstr ""
 #: crates/gui/src/widgets/bluetooth/mod.rs
 #: crates/gui/src/widgets/environment/variables.rs
 msgid "Name"
-msgstr ""
-
-#: crates/gui/src/widgets/bluetooth/mod.rs
-msgid "Rename"
 msgstr ""
 
 #: crates/gui/src/widgets/bluetooth/mod.rs

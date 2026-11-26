@@ -473,19 +473,20 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   (`window#waybar`, `.modules-left`, `#workspaces button.focused`, `#clock.date`, `#custom-media`, a group as `#net`),
   so the user's pills, colors and fonts show as on the screen. The user's stylesheet only ever reaches the preview:
   `@import`, animations and remote pictures are left out, and what GTK 4 can't read is skipped. A group shows its
-  members, a drawer only its first one, as Waybar shows it closed. A script of the user's never runs here: its item
-  shows its format with its name for the output (`♪ media`), or its name. Items that only show while something happens
-  (the binding mode, the privacy dots) aren't drawn, nor is an item that can't work here (no battery; its lane row says
-  why). Where an icon font's glyph has no installed font, the caption says the icons need Font Awesome or a Nerd Font. A
-  click on an item, or Enter on it, opens its settings. One caption below: _Sample values; select an item to change it.
-  Your scripts don't run here: their items show a sample or their name. 8 items: 2 left, 1 center, 5 right._, _Your
-  stylesheet … can't be read, so the preview leaves it out._ when it can't, and _Scroll sideways to see all of it._ when
-  the bar is wider than the preview. A wide bar pans sideways with a drag (mouse or touch; a press that moves less than
-  a few pixels stays a click on the item), with the mouse wheel (up and down move it across) and the touchpad, and the
-  item that gets the keyboard focus with Tab scrolls into view; a thin scrollbar of its own sits at the bottom edge of
-  the preview, below the bar, never over the items. The bar in words (_Left: Workspaces, Binding mode (resize). Center:
-  …_) is the preview's accessible description, not shown. With swaybar it shows what swaybar shows: the workspaces and
-  the status command's text, in its look's colors.
+  members in one pill, a drawer its first one with the others in a closed revealer, which opens while the pointer is
+  over it, as in Waybar. A script of the user's never runs here: its item shows its format with its name for the output
+  (`♪ media`), or its name. Items that only show while something happens (the binding mode, the privacy dots) aren't
+  drawn, nor is an item that can't work here (no battery; its lane row says why). Where an icon font's glyph has no
+  installed font, the caption says the icons need Font Awesome or a Nerd Font. A click on an item, or Enter on it, opens
+  its settings. One caption below: _Sample values; select an item to change it. Your scripts don't run here: their items
+  show a sample or their name. 8 items: 2 left, 1 center, 5 right._, _Your stylesheet … can't be read, so the preview
+  leaves it out._ when it can't, and _Scroll sideways to see all of it._ when the bar is wider than the preview. A wide
+  bar pans sideways with a drag (mouse or touch; a press that moves less than a few pixels stays a click on the item),
+  with the mouse wheel (up and down move it across) and the touchpad, and the item that gets the keyboard focus with Tab
+  scrolls into view; a thin scrollbar of its own sits at the bottom edge of the preview, below the bar, never over the
+  items. The bar in words (_Left: Workspaces, Binding mode (resize). Center: …_) is the preview's accessible
+  description, not shown. With swaybar it shows what swaybar shows: the workspaces and the status command's text, in its
+  look's colors.
 - **Bar program:** one card: _Bar program: Waybar_ (or swaybar, or _No bar is set up here_), its state in one line
   (_Runs with these settings._, _Not running; it starts with sway._, _Not installed: install the waybar package._, in
   bold when it needs the user), _Change…_ (_Set Up a Bar…_ while none is), and _Details_ with how the bar runs, which
@@ -543,6 +544,24 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   note (_Removed Clock from the bar._ _Undo_) for ten seconds; Ctrl+Z anywhere on the page takes back the last move,
   removal, size or look, one at a time. Enter or a double click opens an item's settings. With swaybar the lanes stay,
   greyed, with a sentence that swaybar shows other things and the items stay saved for Waybar.
+- **Groups:** several items as one pill. Until there is one, a tip above the lanes says _Tip: drag an item onto another
+  to combine them into one pill._ (dismissible). Dragging an item over the middle of another frames it and shows _Drop
+  to group_; dropping makes a group of both at that place, named from them (_Network & Audio_ for two of that category,
+  else the first one's name), with its name in edit at once. _Group With…_ in an item's menu does the same by keyboard
+  or touch: it lists the lane's other items (_Group With Clock_) and groups (_Add to Audio_). A group is a card in its
+  lane, a rounded frame like its pill: a header with a symbol (one pill, or a drawer), its name, which a click edits in
+  place, the number of its items and a ⋯ menu, and its items as rows inside. The group's menu: _Rename_, _Show the
+  Others Only on Hover_ (a drawer), _Open Toward the Left_ / _Right_ and _Open on Click Instead_ for a drawer,
+  _Settings…_, the moves, _Ungroup_ and _Remove the Group and Its 3 Items_. In a drawer the first item says _Always
+  shown_ and the others _Shown on hover_; an item's menu there has _Make Always Shown_ and _Move Out of the Group_.
+  Items move in and out by drag (a line between a group's rows, the group's frame for its end), by Alt+↑/↓ (a step into
+  a group passes into it, its first or last place; a step beyond its ends leaves it) and by the menus; a group itself
+  moves like an item and never into another group. A screen reader hears _Battery moved into group Audio, 3 of 3_, and a
+  member row is _Battery, in group Audio, 3 of 3_. Pointing at a group card, or the focus in it, marks its pill in the
+  preview with a dashed outline and opens its drawer there; the preview opens a drawer under the pointer too, and a
+  click on a group's pill opens its settings: its items, _Show the others only on hover_, where they slide out, the
+  slide time and _Open on a click instead of on hover_. Ungrouping puts the items back where the group was; removing a
+  group's last item removes the group.
 - **Add Item…** opens the picker for its lane: a search and the items by category (_Basics_, _Sway_, _System_, _Network
   & Audio_, _Media_, _Privacy_, _Custom_), each with its icon, name, what it does, a sample (_Shows: 76%_) and badges:
   _Not available here: No battery here_ (the row can't be picked), _Needs playerctl_, _Uses the network_, _In the bar:
@@ -572,18 +591,20 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   items a little quieter; the item under the pointer (and a workspace button) as a smaller shape of the same kind inset
   3 px in its pill or bar, in the look's hover color, with every frame, gradient and shadow of the GTK theme (or a
   `gtk.css` of the user's) taken away; an empty module takes no room; the states modules report (`warning`/`warn`,
-  `critical`/`crit`/`limited`, `ok`, the quiet `down` and `paused`) in the look's colors, also in a drawer; and digits
-  of one width. While the user has a stylesheet of their own, _Your style_ comes first, with the file's name: their
-  stylesheet alone, on. A card sets the style (and the space around the bar it needs) at once, never the items, with a
-  note and _Undo_ (Ctrl+Z too). Since the user's own stylesheet is read last and overrides every look, any other look
-  turns it off (its path stays) so the look really shows, in the preview and the bar, and says so: _Applied the look
-  “Simple”. Your own stylesheet is off now, so this look shows._; _Your style_ turns it on again. The look in use is
-  unmistakable: an accent outline around its card, a check badge in the corner of its small bar, a bold title and an _In
-  use_ pill in the accent; the others answer the pointer, and screen readers hear which one is selected. While the
-  user's own stylesheet is on, _Your style_ is the look in use. Below: _Colors_ (_Waybar's own look_, the default; _Same
-  as your windows_, following the Windows page and the user's config; _Your own colors_; _None: only your own
-  stylesheet_), _Style_ (_Connected bar_ or _Islands_), opacity, rounded corners, room inside items, font (also with
-  Waybar's own look) and, on SwayFX, _Blur behind the bar_ (with the bar above floating windows).
+  `critical`/`crit`/`limited`, `ok`, the quiet `down` and `paused`) in the look's colors, also in a drawer; the
+  pomodoro's phases (work warm, a break green, paused dim, the next phase waiting in the accent, breathing, the last
+  minute pulsing; no animation where the desktop turns animations off); and digits of one width. While the user has a
+  stylesheet of their own, _Your style_ comes first, with the file's name: their stylesheet alone, on. A card sets the
+  style (and the space around the bar it needs) at once, never the items, with a note and _Undo_ (Ctrl+Z too). Since the
+  user's own stylesheet is read last and overrides every look, any other look turns it off (its path stays) so the look
+  really shows, in the preview and the bar, and says so: _Applied the look “Simple”. Your own stylesheet is off now, so
+  this look shows._; _Your style_ turns it on again. The look in use is unmistakable: an accent outline around its card,
+  a check badge in the corner of its small bar, a bold title and an _In use_ pill in the accent; the others answer the
+  pointer, and screen readers hear which one is selected. While the user's own stylesheet is on, _Your style_ is the
+  look in use. Below: _Colors_ (_Waybar's own look_, the default; _Same as your windows_, following the Windows page and
+  the user's config; _Your own colors_; _None: only your own stylesheet_), _Style_ (_Connected bar_ or _Islands_),
+  opacity, rounded corners, room inside items, font (also with Waybar's own look) and, on SwayFX, _Blur behind the bar_
+  (with the bar above floating windows).
 - **Colors:** background, text, under the pointer, focused workspace, warning, critical, urgent workspace; below the
   text color its contrast on the background (_12.6:1, easy to read_, or a warning below 4.5:1).
 - **Placement:** a check button per display (none checked: all), _Reserve space_, margins and the space between items.
