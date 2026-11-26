@@ -281,7 +281,10 @@ include.
 - [x] 🟡 Module catalog: clock, battery, network, pulseaudio, tray, cpu, memory, …, with what each needs here
 - [x] 🟡 Per-module settings form, driven by a schema per module; unknown options kept as JSON
 - [x] 🟡 Custom script modules (`custom/<name>`), and templates (pomodoro, camera, updates, battery warning, VPN, system
-      load, power menu, notification center)
+      load, power menu, notification center; unofficial agent usage limits: Claude Code, Codex, and one pill of them
+      that shows the other agent only near its limit), a template that reaches the network added only after a dialog
+      says what it sends where
+- [ ] 🟡 Antigravity's usage limits as a template, without posing as its client or renewing its login in the background
 - [x] 🟡 Styling: colors (yours or sway's window colors), font, padding, rounded corners, transparency, a pill per
       module (generated `style.css`), presets, your own stylesheet read after ours
 - [x] 🟡 Groups: drag an item onto another to make one pill of both, a card in the lane with its items inside; rename in

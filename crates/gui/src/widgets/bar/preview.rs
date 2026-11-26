@@ -22,7 +22,7 @@ use gtk::prelude::*;
 use sway_things_core::bar::catalog::{self, Works};
 use sway_things_core::bar::preview::Extra;
 use sway_things_core::bar::style::{self, Look};
-use sway_things_core::bar::{Backend, Modules, groups, kind_of, modules::members};
+use sway_things_core::bar::{Backend, Modules, groups, kind_of, modules::members, templates};
 use sway_things_core::command::Color;
 use sway_things_core::registry::{Value, bar as keys};
 
@@ -199,6 +199,9 @@ fn swaybar_look(font: Option<style::CssFont>) -> Look {
 pub(crate) fn item_title(_modules: &Modules, name: &str) -> String {
     let kind = kind_of(name);
     let instance = name.split_once('#').map(|(_, instance)| instance);
+    if let Some(title) = part_title(name) {
+        return title;
+    }
     let base = if let Some(custom) = kind.strip_prefix("custom/") {
         sway_things_core::bar::templates::find(custom).map_or_else(
             || custom.to_owned(),
@@ -215,9 +218,27 @@ pub(crate) fn item_title(_modules: &Modules, name: &str) -> String {
     }
 }
 
-/// The name of group `name` on the page: its name after `group/` in words.
+/// The name of group `name` on the page: its name after `group/` in words, or the name of the
+/// template's group it is.
 pub(crate) fn group_title(name: &str) -> String {
-    groups::title(name)
+    match kind_of(name) {
+        "group/ai-usage" => tr(msg!("Agents' usage")).to_owned(),
+        "group/ai-usage-head" => tr(msg!("Always shown")).to_owned(),
+        _ => groups::title(name),
+    }
+}
+
+/// The name of a module of the agents' usage pill: the agent's usage, its alert or its details.
+fn part_title(name: &str) -> Option<String> {
+    let (kind, agent) = name.split_once('#')?;
+    let agent = templates::agent_name(agent)?;
+    let title = match kind {
+        "custom/ai-usage" => msg!("{agent} usage"),
+        "custom/ai-alert" => msg!("{agent} near its limit"),
+        "custom/ai-detail" => msg!("{agent} in detail"),
+        _ => return None,
+    };
+    Some(trf(title, &[("agent", &agent)]))
 }
 
 /// The time now: hour, minute, second.
