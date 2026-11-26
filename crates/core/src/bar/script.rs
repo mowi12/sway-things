@@ -203,6 +203,10 @@ pub fn locate(program: &str, path: Option<&std::ffi::OsStr>) -> Result<PathBuf, 
 /// # Errors
 ///
 /// [`TestError`] if it can't be started.
+///
+/// # Blocking
+///
+/// Waits for the command, up to `limit`.
 pub fn test(
     words: &[String],
     limit: Duration,

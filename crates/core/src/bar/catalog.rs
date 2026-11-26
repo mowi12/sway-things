@@ -97,6 +97,10 @@ impl Need {
     }
 
     /// [`Need::check`] with the system's files under `root` and `$PATH` given, for tests.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the directories under `root` and `$PATH`.
     pub fn check_in(self, root: &Path, path: Option<&std::ffi::OsStr>) -> Works {
         let any_in = |dir: &str, test: &dyn Fn(&Path) -> bool| {
             std::fs::read_dir(root.join(dir)).is_ok_and(|entries| {

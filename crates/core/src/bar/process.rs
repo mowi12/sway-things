@@ -96,6 +96,10 @@ fn is_waybar_process(dir: &Path) -> bool {
 }
 
 /// The waybar processes of this session. Reads `/proc`; nothing is run.
+///
+/// # Blocking
+///
+/// Reads `/proc`.
 pub fn running() -> Vec<Waybar> {
     crate::outputs::session_processes_where(is_waybar_process)
         .into_iter()
@@ -235,6 +239,10 @@ pub fn last_problem() -> Option<ProcessError> {
 }
 
 /// Sends `signal` to each of `targets` that is still the same process. Says how many got it.
+///
+/// # Blocking
+///
+/// Waits for `kill`.
 fn signal(targets: &[Waybar], signal: &str) -> Result<usize, ProcessError> {
     let pids: Vec<String> = targets
         .iter()
@@ -263,6 +271,10 @@ fn signal(targets: &[Waybar], signal: &str) -> Result<usize, ProcessError> {
 }
 
 /// The waybar processes of this session that run our config.
+///
+/// # Blocking
+///
+/// Reads `/proc`.
 pub fn ours(files: &WaybarFiles) -> Vec<Waybar> {
     running()
         .into_iter()
@@ -276,6 +288,10 @@ pub fn ours(files: &WaybarFiles) -> Vec<Waybar> {
 /// # Errors
 ///
 /// [`ProcessError::Tool`] if `kill` can't be run.
+///
+/// # Blocking
+///
+/// Reads `/proc` and waits for `kill`.
 pub fn stop(files: &WaybarFiles) -> Result<usize, ProcessError> {
     signal(&ours(files), "TERM")
 }
@@ -306,6 +322,10 @@ pub fn surplus(starter: &Starter, running: &[Waybar], files: &WaybarFiles) -> Ve
 /// # Errors
 ///
 /// [`ProcessError::Tool`] if `kill` can't be run.
+///
+/// # Blocking
+///
+/// Reads `/proc` and waits for `kill`.
 pub fn stop_started(files: &WaybarFiles) -> Result<usize, ProcessError> {
     let started: Vec<Waybar> = ours(files)
         .into_iter()
@@ -316,6 +336,10 @@ pub fn stop_started(files: &WaybarFiles) -> Result<usize, ProcessError> {
 
 /// The version of the waybar that is installed, as `waybar --version` says it (`0.16.0`).
 /// Runs it: call it off the main loop.
+///
+/// # Blocking
+///
+/// Waits for `waybar --version`.
 pub fn version() -> Option<String> {
     let output = Command::new("waybar")
         .arg("--version")
@@ -351,6 +375,10 @@ pub enum Reloaded {
 /// # Errors
 ///
 /// [`ProcessError`] if `kill` can't be run, or waybar ended and couldn't be started again.
+///
+/// # Blocking
+///
+/// Reads `/proc` and waits for `kill` and, if waybar ended, for `setsid`.
 pub async fn reload(files: &WaybarFiles) -> Result<Reloaded, ProcessError> {
     let before = ours(files);
     if signal(&before, "USR2")? == 0 {
@@ -372,6 +400,10 @@ pub async fn reload(files: &WaybarFiles) -> Result<Reloaded, ProcessError> {
 ///
 /// [`ProcessError::NotInstalled`], [`ProcessError::Tool`] if `setsid` can't be run, and
 /// [`ProcessError::Ended`] if no waybar of ours runs a moment later.
+///
+/// # Blocking
+///
+/// Waits for `setsid` and reads `/proc`.
 pub async fn start_checked(files: &WaybarFiles) -> Result<(), ProcessError> {
     if !installed() {
         return Err(ProcessError::NotInstalled);
@@ -432,6 +464,10 @@ pub enum Ensured {
 /// # Errors
 ///
 /// What [`start_checked`] says.
+///
+/// # Blocking
+///
+/// Reads `/proc` and waits for `kill` and `setsid`.
 pub async fn ensure(files: &WaybarFiles, starter: &Starter) -> Result<Ensured, ProcessError> {
     let Some(_lock) = Lock::take().await else {
         return Ok(Ensured::Busy);

@@ -208,6 +208,10 @@ pub(crate) fn session_processes(name: &str) -> Vec<std::path::PathBuf> {
 
 /// The processes of this user in this session for which `matches` holds, given their `/proc`
 /// directory: their `/proc` directories. Reads `/proc`; nothing is run.
+///
+/// # Blocking
+///
+/// Reads `/proc`.
 pub(crate) fn session_processes_where(
     matches: impl Fn(&std::path::Path) -> bool,
 ) -> Vec<std::path::PathBuf> {

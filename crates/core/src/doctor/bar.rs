@@ -119,6 +119,10 @@ impl<V: Validate> Checkup<'_, V> {
 
     /// Which waybar runs, what went wrong when it was last started, and a line that may start
     /// it.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/proc` for the running waybar processes.
     fn bar_running(&self, files: &WaybarFiles, findings: &mut Vec<Finding>) {
         let generated = self.locations.directory();
         let running = process::running();

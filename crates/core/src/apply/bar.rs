@@ -95,6 +95,10 @@ impl<V: Validate> Applier<V> {
     }
 
     /// [`process::reload`], with what went wrong noted.
+    ///
+    /// # Blocking
+    ///
+    /// Waits for `kill` and, if waybar ended, for `setsid` to start it again.
     async fn reload_waybar(&mut self, files: &WaybarFiles) {
         match process::reload(files).await {
             Ok(process::Reloaded::Restarted) => {
@@ -116,6 +120,10 @@ impl<V: Validate> Applier<V> {
 
     /// How waybar is started outside Sway Things' files, as the user's sway config and the
     /// running processes say.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/proc` for the running waybar processes.
     pub fn bar_starter(&self) -> Starter {
         let (Some(config), Some(files)) = (self.bar.sway.as_ref(), self.waybar_files()) else {
             return Starter::Nothing;
@@ -131,6 +139,10 @@ impl<V: Validate> Applier<V> {
     /// Sets up the bar as the settings say: see the module's description. What runs is looked
     /// at each time, not remembered, so a change from the command line or the first one after
     /// the app started hands the bar back as well.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/proc` and waits for `kill` and `setsid` to end or start waybar.
     pub(crate) async fn keep_bar(&mut self, access: &WriteAccess) {
         let backend = Backend::of(&self.state);
         let Some(files) = self.waybar_files() else {
@@ -229,6 +241,10 @@ impl<V: Validate> Applier<V> {
     }
 
     /// Writes waybar's files and has ours read them, or has sway start it through the hook.
+    ///
+    /// # Blocking
+    ///
+    /// Reads `/proc` and waits for `kill` and `setsid` to end or start waybar.
     async fn keep_waybar(&mut self, files: &WaybarFiles, access: &WriteAccess) {
         let modules = match self.bar_modules() {
             Ok(modules) => modules,
