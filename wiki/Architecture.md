@@ -62,14 +62,15 @@ the [Feature Catalog](Feature-Catalog.md) and below under _planned_.
 | `crates/cli` | `sway-things` | no | `get` / `set` / `reset` / `open` / `doctor` / `show-generated` / `hook` / `screenshot` / `record` / `clipboard` |
 | `crates/gui` | `sway-things-gui` | yes | GTK4 application: shell, sidebar, search, rows built from the registry, custom pages |
 | `crates/cli-docs` | – (dev only) | no | Writes the man pages and shell completions in `data/` from the clap definitions of the CLI and of the app's one argument |
+| `crates/architecture` | – (dev only) | no | The architecture tests: parses the sources of `core`, `cli` and `gui` and checks the [layers](#layers-of-the-core) and cycles of their module graph ([Testing](Testing.md#architecture-tests)) |
 
 All crates share the package metadata and lints of the root `Cargo.toml`: edition 2024, MSRV 1.85, `unsafe_code`
 forbidden, clippy pedantic, and no `unwrap`, `expect`, `panic!`, `todo!` or `dbg!` outside tests. The core also denies
 `println!` and requires docs for its public API.
 
-`crates/cli-docs` is no default member (`default-members` in the root `Cargo.toml`): a plain `cargo build` and the
-distro builds compile only the three shipped crates, never `clap_mangen`, `clap_complete` or `roff`. `--workspace`
-includes it, so its tests and clippy run with the others.
+`crates/cli-docs` and `crates/architecture` are no default members (`default-members` in the root `Cargo.toml`): a plain
+`cargo build` and the distro builds compile only the three shipped crates, never `clap_mangen`, `clap_complete`, `roff`
+or `syn`. `--workspace` includes them, so their tests and clippy run with the others.
 
 The CLI deliberately has no GTK dependency, so hooks that run at login or on hotplug start fast and stay small.
 `sway-things` with no arguments, or `sway-things open [<link>]`, starts or activates the GUI.
@@ -99,6 +100,29 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | gui | `app`, `args`, `window`, `model` | the application, its argument, the main window, the settings behind it ([UI Architecture](UI-Architecture.md)) |
 | gui | `widgets` | every building block and custom page, one module each |
 | gui | `theme`, `style`, `icons`, `contrast`, `i18n`, `xkb`, `editor` | colors, the style sheet, bundled icons, the runtime contrast check, translations, the XKB names, opening the editor |
+
+### Layers of the core
+
+Every top-level module of the core belongs to one layer. A module may use its own layer and the ones below it, never a
+higher one, and no two top-level modules may depend on each other in a cycle; the architecture test enforces both
+([Testing](Testing.md#architecture-tests)). The table is `CORE_LAYERS` in `crates/architecture/src/rules.rs`; a new
+top-level module fails the test until it has a layer there and here.
+
+| Layer | Core modules |
+| --- | --- |
+| 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session` |
+| 1 sway | `command`, `sway_config`, `ipc` |
+| 2 registry | `registry` |
+| 3 state | `state`, `include`, `ui_state` |
+| 4 features | `apps`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
+| 5 assembly | `generate`, `view` |
+| 6 use cases | `apply`, `doctor` |
+
+A layer is assigned per top-level module, its submodules included. Features may use each other as long as no cycle
+forms. In `cli` and `gui`, cycles are allowed only inside one top-level module, and in the GUI only inside one
+`widgets::<x>`, one per page or building block (`widgets::apps::autostart` and `widgets::apps::dialogs` may use each
+other; `widgets::keyboard` and `widgets::xkb_options`, or `window` and `widgets`, may not). The violations of today are
+listed, each with its repair, in `crates/architecture/baseline.toml`.
 
 ## Settings registry
 
@@ -249,14 +273,16 @@ may need more, like sticky drag lock on sway 1.11; SwayFX settings go to `90-eff
 settings that name a `SettingGroup` are exactly those that render one directive together, next to each other on one page
 and in one section.
 
-The registry is the bottom layer of the core: it imports none of the modules that use it (outputs, GSettings, the
-editor, cursors). Keys and defaults other modules share with it are defined in the registry and re-exported there:
-`outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY` is
-`registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
+The registry is layer 2 of the core ([Layers of the core](#layers-of-the-core)): it may use only the foundation and the
+sway layer, none of the modules that use it (outputs, GSettings, the editor, cursors), and the architecture test reports
+every edge to a higher layer. Keys and defaults other modules share with it are defined in the registry and re-exported
+there: `outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY`
+is `registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
 the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`. The keys of Keyboard Shortcuts are
 `registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
-reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state. The keys,
-defaults and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
+reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state, but still sits
+in the features layer: these edges are in the baseline until the reader moves down to the sway layer. The keys, defaults
+and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
 `capture::shortcuts`); the check of its keys uses `bindings::keys` the same way. The keys of Apps & Autostart, the kinds
 of default apps, the autostart entries and the checks of their values are `registry::apps` (re-exported by
 `apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and launcher's
