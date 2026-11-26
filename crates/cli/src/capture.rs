@@ -342,7 +342,7 @@ async fn start_recording(settings: &Settings, region: bool) -> Result<(), Captur
         let mut client = hooks::connect().await.ok();
         shot::target(area, client.as_mut()).await?
     };
-    let file = rec::new_file(settings)?;
+    let name = rec::file_name(settings)?;
     let notifier = Notifier::connect().await.ok();
     let body = if settings.recording_keys.is_empty() {
         tr(msg!("Run sway-things record again to stop it")).to_owned()
@@ -367,16 +367,21 @@ async fn start_recording(settings: &Settings, region: bool) -> Result<(), Captur
             .unwrap_or(0);
         rec::remember_notification(id);
     }
-    let args = rec::args(recorder, &target, &file, settings.audio);
-    let started = rec::start(recorder, &args, id);
+    let started = rec::record(
+        recorder,
+        &target,
+        &settings.folder,
+        &name,
+        settings.audio,
+        id,
+    );
     if started.is_err() {
-        // The empty file made for it goes, and so does the notification; `report` says why.
-        let _ = std::fs::remove_file(&file);
+        // The notification goes; `report` says why.
         if let Some(notifier) = &notifier {
             let _ = notifier.close(id).await;
         }
     }
-    started
+    started.map(|_| ())
 }
 
 /// `clipboard pick` and `clipboard clear`.
