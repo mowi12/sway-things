@@ -31,7 +31,6 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256};
 
 pub use self::location::Coordinates;
-use crate::capture::process::{self, Lock, LockError};
 use crate::delegate::find_program;
 use crate::i18n::Text;
 use crate::msg;
@@ -40,6 +39,7 @@ pub use crate::registry::night_light::{
     SCHEDULE, TEMPERATURE_DAY, TEMPERATURE_NIGHT, TO, TOOL, check_time, parse_time,
 };
 use crate::registry::{Registry, Value};
+use crate::session::process::{self, Lock, LockError};
 use crate::state::State;
 use crate::sway_config::{Directive, SwayConfig};
 

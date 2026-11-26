@@ -23,10 +23,10 @@ use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use super::process::{self, Lock, LockError};
 use super::tools::{self, CLIPHIST, WL_COPY, WL_PASTE};
 use super::{CaptureError, HISTORY, MAX_ENTRIES, Settings};
 use crate::msg;
+use crate::session::process::{self, Lock, LockError};
 use crate::state::State;
 
 /// The environment variable that marks the watcher Sway Things started.

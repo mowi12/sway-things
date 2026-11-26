@@ -297,7 +297,7 @@ needs, so a key press is quick. The facts behind it are in the
   servers may read it as markup. The command waits for a button or the notification to close, at most two minutes, only
   if the server shows buttons (`GetCapabilities`). Errors go to standard error and to a notification, since a key has no
   terminal.
-- **Processes and locks** (`capture::process`): the watcher and a recorder are found in `/proc` by their name, the
+- **Processes and locks** (`session::process`, `session::lock`): the watcher and a recorder are found in `/proc` by their name, the
   marker in their environment and the caller's sway session (`XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY`); a caller without
   either finds none, so a command from a TTY or ssh never ends another session's processes. Paths of the arguments are
   kept byte for byte. A lock is `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR` with a token of its holder; one older

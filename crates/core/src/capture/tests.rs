@@ -453,8 +453,8 @@ fn notification_bodies_escape_markup() {
 #[test]
 fn without_a_session_no_process_is_found() {
     // Not every process of the user: none.
-    assert_eq!(process::find_in(None, "cargo", "ANY"), []);
-    assert_eq!(process::find_in(None, "sway", "ANY"), []);
+    assert_eq!(crate::session::process::find_in(None, "cargo", "ANY"), []);
+    assert_eq!(crate::session::process::find_in(None, "sway", "ANY"), []);
 }
 
 #[test]

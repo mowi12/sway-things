@@ -215,7 +215,7 @@ another one noted. It runs where Sway Things runs anyway: `hook workspaces` (kan
 reload of sway while a rule places), `hook displays` and `hook mirror` (which start them as before), and the app
 (`Applier::heal_mirrors`, queued as `Op::HealMirrors` when it opens and three seconds after the last change of the
 outputs, `HEAL_AFTER`, so kanshi's own hooks went first). `mirror::apply` takes a lock in `$XDG_RUNTIME_DIR`
-(`outputs::SessionLock`), so two of them never start a picture twice. A `SessionLock` is a file made with `create_new`
+(`session::Lock`), so two of them never start a picture twice. A `session::Lock` is a file made with `create_new`
 holding a token (process number, time, counter); `Drop` removes it only while it still holds that token. One whose
 process is gone (or older than ten minutes) is taken over by moving it aside first, which only one process can do, and
 put back with a hard link if what was moved was a newer lock. The focus goes back only if it is on a picture's workspace

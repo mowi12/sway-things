@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The processes Sway Things starts for the page (the history's watcher, a recorder), found in
-//! `/proc` again, and the locks that keep two of its commands from starting the same one twice.
+//! The processes Sway Things starts for the session (the clipboard history's watcher, a
+//! recorder, the night light), found in `/proc` again.
 //!
 //! A process counts only if it belongs to this sway session: the same `XDG_RUNTIME_DIR` and
 //! `WAYLAND_DISPLAY` in its environment. A caller without either (a TTY, ssh) finds nothing, so

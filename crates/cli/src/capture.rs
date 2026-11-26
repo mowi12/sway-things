@@ -15,7 +15,6 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use sway_things_core::capture::notify::{Notification, Notifier};
-use sway_things_core::capture::process::{Lock, LockError};
 use sway_things_core::capture::shot::{self, Area, Shot};
 use sway_things_core::capture::tools::{self, SATTY, SWAPPY};
 use sway_things_core::capture::{
@@ -24,6 +23,7 @@ use sway_things_core::capture::{
 use sway_things_core::i18n::{Msg, tr, trf};
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks;
+use sway_things_core::session::process::{Lock, LockError};
 
 use crate::{Exit, error_line};
 
