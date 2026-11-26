@@ -39,6 +39,7 @@ pub mod printers;
 pub mod region;
 pub mod registry;
 pub mod scanners;
+pub mod session;
 pub mod sound;
 pub mod state;
 pub mod sway_config;

@@ -23,11 +23,15 @@ use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use super::process::{self, Lock, LockError};
 use super::tools::{self, CLIPHIST, WL_COPY, WL_PASTE};
 use super::{CaptureError, HISTORY, MAX_ENTRIES, Settings};
 use crate::msg;
+use crate::session::process;
+use crate::session::{Lock, LockError};
 use crate::state::State;
+
+/// The lock held while the watcher is started or ended.
+const LOCK: &str = "sway-things-clipboard.lock";
 
 /// The environment variable that marks the watcher Sway Things started.
 pub const MARKER: &str = "SWAY_THINGS_CLIPBOARD";
@@ -119,7 +123,7 @@ pub fn sync_with(settings: impl FnOnce() -> (bool, u32)) -> Result<Synced, SyncE
     if !in_session {
         return Err(SyncError::NoSession);
     }
-    let _lock = Lock::take("clipboard", Duration::from_secs(3)).map_err(|error| match error {
+    let _lock = Lock::wait(LOCK, Duration::from_secs(3)).map_err(|error| match error {
         LockError::NoRuntimeDir => SyncError::NoSession,
         LockError::Busy => SyncError::Busy,
     })?;

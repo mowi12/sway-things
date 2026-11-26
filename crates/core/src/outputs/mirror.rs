@@ -86,7 +86,7 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
     // One at a time in a session: a kanshi hook and the app can run at once, and a mirror
     // started by one shows in `/proc` only a moment later. Whoever comes second leaves it to
     // the first, which has the same profiles.
-    let Some(_lock) = super::SessionLock::take("sway-things-mirror.lock") else {
+    let Ok(_lock) = crate::session::Lock::take("sway-things-mirror.lock") else {
         return 0;
     };
     let wanted = wanted(profiles, outputs);
@@ -158,7 +158,7 @@ pub async fn start(
     // One at a time in a session, the hooks and the app alike: each notes the workspaces it
     // moves in `displays.toml`, so the profiles are read again once it is this one's turn. A
     // holder that doesn't finish is waited for at most fifteen seconds.
-    let _turn = super::SessionLock::wait_for(
+    let _turn = crate::session::Lock::wait_for(
         "sway-things-mirror-start.lock",
         std::time::Duration::from_secs(15),
     )

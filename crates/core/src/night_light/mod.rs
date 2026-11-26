@@ -31,7 +31,6 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256};
 
 pub use self::location::Coordinates;
-use crate::capture::process::{self, Lock, LockError};
 use crate::delegate::find_program;
 use crate::i18n::Text;
 use crate::msg;
@@ -40,7 +39,12 @@ pub use crate::registry::night_light::{
     SCHEDULE, TEMPERATURE_DAY, TEMPERATURE_NIGHT, TO, TOOL, check_time, parse_time,
 };
 use crate::registry::{Registry, Value};
+use crate::session::process;
+use crate::session::{Lock, LockError};
 use crate::state::State;
+
+/// The lock held while the night light is started or ended.
+const LOCK: &str = "sway-things-night-light.lock";
 use crate::sway_config::{Directive, SwayConfig};
 
 /// The environment variable that marks the tool Sway Things started; its value is the
@@ -650,7 +654,7 @@ pub fn sync_with(settings: impl FnOnce() -> Settings, external: bool) -> Result<
     if !in_session {
         return Err(SyncError::NoSession);
     }
-    let _lock = Lock::take("night-light", Duration::from_secs(5)).map_err(|error| match error {
+    let _lock = Lock::wait(LOCK, Duration::from_secs(5)).map_err(|error| match error {
         LockError::NoRuntimeDir => SyncError::NoSession,
         LockError::Busy => SyncError::Busy,
     })?;

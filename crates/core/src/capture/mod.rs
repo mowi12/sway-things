@@ -18,12 +18,12 @@
 //!   session like `wl-mirror`), picking an entry and clearing it.
 //! - [`notify`]: the notification afterwards, with _Open_ and _Edit_.
 //! - [`tools`]: which programs each part needs, and the launchers and editors that are installed.
-//! - [`process`]: the watcher and the recorder found again in `/proc`, and the session's locks.
+//!
+//! The watcher and the recorder are found again in `/proc` with [`crate::session::process`].
 
 pub mod clipboard;
 pub mod name;
 pub mod notify;
-pub mod process;
 pub mod record;
 pub mod shortcuts;
 pub mod shot;

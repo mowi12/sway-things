@@ -509,25 +509,3 @@ fn a_profile_of_the_users_after_ours_sets_up_the_displays_it_matches() {
     .unwrap();
     assert!(!files.sets_up(&desk()));
 }
-
-#[test]
-fn a_session_lock_is_held_once_and_taken_over_only_when_left_behind() {
-    use super::SessionLock;
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.lock");
-    let held = SessionLock::take_in(dir.path(), "test.lock").unwrap();
-    // A live holder (this process): nobody else gets it.
-    assert!(SessionLock::take_in(dir.path(), "test.lock").is_none());
-    drop(held);
-    assert!(!path.exists());
-    // Left behind by a process that is gone: taken over.
-    std::fs::write(&path, "4294967295 1 0").unwrap();
-    let taken = SessionLock::take_in(dir.path(), "test.lock").unwrap();
-    assert_ne!(std::fs::read_to_string(&path).unwrap(), "4294967295 1 0");
-    // Taken over meanwhile by someone else: dropping ours leaves theirs.
-    std::fs::write(&path, "1 2 3").unwrap();
-    drop(taken);
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "1 2 3");
-    // Nothing else is left in the directory.
-    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
-}

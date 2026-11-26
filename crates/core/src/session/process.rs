@@ -1,19 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The processes Sway Things starts for the page (the history's watcher, a recorder), found in
-//! `/proc` again, and the locks that keep two of its commands from starting the same one twice.
+//! The processes Sway Things starts for the session (the clipboard history's watcher, a
+//! recorder, the night light), found in `/proc` again.
 //!
 //! A process counts only if it belongs to this sway session: the same `XDG_RUNTIME_DIR` and
 //! `WAYLAND_DISPLAY` in its environment. A caller without either (a TTY, ssh) finds nothing, so
 //! it can never end the watcher or the recorder of another session.
 
 use std::ffi::OsString;
-use std::io::{Read as _, Write as _};
 use std::os::unix::ffi::OsStringExt as _;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant, SystemTime};
 
 /// A process of this session, found in `/proc`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,103 +133,4 @@ pub fn signal(pids: &[u32], signal: &str) {
 /// Whether the process `pid` still runs.
 pub fn runs(pid: u32) -> bool {
     PathBuf::from(format!("/proc/{pid}")).exists()
-}
-
-/// Why a lock can't be taken.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LockError {
-    /// `XDG_RUNTIME_DIR` isn't set, so there is no place for it.
-    NoRuntimeDir,
-    /// Another command holds it, and didn't let go in time.
-    Busy,
-}
-
-/// A lock of the session: the file `sway-things-<name>.lock` in `$XDG_RUNTIME_DIR` with a token
-/// of its holder, made only if it isn't there, and removed when dropped if it still holds the
-/// token. One older than ten seconds was left behind: it is taken over by renaming a file with a
-/// new token over it and reading it back, so of two that take it over at once only the one whose
-/// token is there holds it.
-#[derive(Debug)]
-pub struct Lock {
-    path: PathBuf,
-    token: String,
-}
-
-/// How old a lock is when it counts as left behind.
-const STALE: Duration = Duration::from_secs(10);
-
-impl Lock {
-    /// Takes the lock `name`, waiting up to `wait` while another command holds it.
-    ///
-    /// # Errors
-    ///
-    /// [`LockError::NoRuntimeDir`] without `XDG_RUNTIME_DIR`, [`LockError::Busy`] if it is still
-    /// held after `wait`.
-    pub fn take(name: &str, wait: Duration) -> Result<Self, LockError> {
-        let dir = std::env::var_os("XDG_RUNTIME_DIR")
-            .filter(|dir| !dir.is_empty())
-            .map(PathBuf::from)
-            .ok_or(LockError::NoRuntimeDir)?;
-        let path = dir.join(format!("sway-things-{name}.lock"));
-        let nanos = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_or(0, |since| since.as_nanos());
-        let token = format!("{} {nanos}", std::process::id());
-        let start = Instant::now();
-        loop {
-            if Self::create(&path, &token) || Self::take_over(&path, &token) {
-                return Ok(Self { path, token });
-            }
-            if start.elapsed() >= wait {
-                return Err(LockError::Busy);
-            }
-            std::thread::sleep(Duration::from_millis(100));
-        }
-    }
-
-    fn create(path: &PathBuf, token: &str) -> bool {
-        std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .and_then(|mut file| file.write_all(token.as_bytes()))
-            .is_ok()
-    }
-
-    fn take_over(path: &PathBuf, token: &str) -> bool {
-        let stale = std::fs::metadata(path)
-            .and_then(|meta| meta.modified())
-            .ok()
-            .and_then(|modified| modified.elapsed().ok())
-            .is_some_and(|age| age > STALE);
-        if !stale {
-            return false;
-        }
-        let mut new = path.clone().into_os_string();
-        new.push(format!(".{}", std::process::id()));
-        let new = PathBuf::from(new);
-        if std::fs::write(&new, token).is_err() || std::fs::rename(&new, path).is_err() {
-            let _ = std::fs::remove_file(&new);
-            return false;
-        }
-        // Another one may rename its own over it at the same moment: the token that is there
-        // after a moment holds the lock.
-        std::thread::sleep(Duration::from_millis(50));
-        Self::holds(path, token)
-    }
-
-    fn holds(path: &PathBuf, token: &str) -> bool {
-        let mut text = String::new();
-        std::fs::File::open(path)
-            .and_then(|mut file| file.read_to_string(&mut text))
-            .is_ok_and(|_| text == token)
-    }
-}
-
-impl Drop for Lock {
-    fn drop(&mut self) {
-        if Self::holds(&self.path, &self.token) {
-            let _ = std::fs::remove_file(&self.path);
-        }
-    }
 }

@@ -230,7 +230,7 @@ pub fn note_asked(session: &str, id: i64) -> bool {
 /// [`note_asked`] with the note in `dir`.
 fn note_asked_in(dir: &std::path::Path, session: &str, id: i64) -> bool {
     // One hook at a time between reading and writing the note.
-    let Some(_lock) = super::SessionLock::take_in(dir, "sway-things-new-display.lock") else {
+    let Some(_lock) = crate::session::Lock::take_in(dir, "sway-things-new-display.lock") else {
         return true;
     };
     let path = dir.join(ASKED);
@@ -244,8 +244,8 @@ fn note_asked_in(dir: &std::path::Path, session: &str, id: i64) -> bool {
 /// The lock held while the display `display` (by its name in the settings) is asked about in
 /// the sway `session`: plugged in again meanwhile, it isn't asked about a second time, and the
 /// answer to the first question counts. `None` while another process asks about it.
-pub fn asking(session: &str, display: &str) -> Option<super::SessionLock> {
-    super::SessionLock::take(&asking_lock(session, display))
+pub fn asking(session: &str, display: &str) -> Option<crate::session::Lock> {
+    crate::session::Lock::take(&asking_lock(session, display)).ok()
 }
 
 /// The name of the lock of [`asking`].
@@ -534,10 +534,10 @@ mod tests {
             super::asking_lock("/run/other.sock", "Make Beamer 1")
         );
         let dir = tempfile::tempdir().unwrap();
-        let held = crate::outputs::SessionLock::take_in(dir.path(), &first).unwrap();
-        assert!(crate::outputs::SessionLock::take_in(dir.path(), &first).is_none());
+        let held = crate::session::Lock::take_in(dir.path(), &first).unwrap();
+        assert!(crate::session::Lock::take_in(dir.path(), &first).is_none());
         drop(held);
-        assert!(crate::outputs::SessionLock::take_in(dir.path(), &first).is_some());
+        assert!(crate::session::Lock::take_in(dir.path(), &first).is_some());
     }
 
     #[test]

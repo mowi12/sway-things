@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 use super::CaptureError;
 use super::shot::Target;
 use super::tools::{Program, WF_RECORDER, WL_SCREENREC};
+use crate::session::process;
 
 /// The environment variable that marks a recorder Sway Things started; its value is the id of
 /// the notification that says it records.
@@ -69,7 +70,7 @@ fn file_of(args: &[OsString]) -> Option<PathBuf> {
 pub fn running() -> Vec<Recording> {
     [WF_RECORDER, WL_SCREENREC]
         .iter()
-        .flat_map(|recorder| super::process::marked(recorder.name, MARKER))
+        .flat_map(|recorder| process::marked(recorder.name, MARKER))
         .map(|process| Recording {
             pid: process.pid,
             file: file_of(&process.args),
@@ -178,10 +179,10 @@ pub fn start(recorder: Program, args: &[OsString], notification: u32) -> Result<
 /// Stops `recording` with `SIGINT`, as Ctrl+C would, and waits until the recorder ended (at most
 /// ten seconds), so its file is complete. Returns whether it ended.
 pub fn stop(recording: &Recording) -> bool {
-    super::process::signal(&[recording.pid], "INT");
+    process::signal(&[recording.pid], "INT");
     let start = Instant::now();
-    while super::process::runs(recording.pid) && start.elapsed() < Duration::from_secs(10) {
+    while process::runs(recording.pid) && start.elapsed() < Duration::from_secs(10) {
         std::thread::sleep(Duration::from_millis(100));
     }
-    !super::process::runs(recording.pid)
+    !process::runs(recording.pid)
 }
