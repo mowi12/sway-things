@@ -61,7 +61,7 @@ cli_tests=(cargo test --locked --package sway-things-cli --test cli_sway --test 
 dbus_tests=(cargo test --locked --package sway-things-core --features test-support --test bluetooth_bluez
   --test network_nm --test sound_pulse --test notifications_dbus --test printers_cups
   --test scanners_sane --test notifications_bus --test region_timedate
-  --test region_geoclue --test region_localed)
+  --test region_geoclue --test region_localed --test brightness_logind)
 # The tests that need a display.
 gui_tests=(cargo test --locked --package sway-things-gui --test gui --test gui_pseudo)
 

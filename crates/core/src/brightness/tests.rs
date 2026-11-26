@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 
 use super::ddc::{self, Access, Level, Monitor};
-use super::{Device, Kind, Logind, devices_in, percent_of, raw_of};
+use super::{Device, Kind, devices_in, percent_of, raw_of};
 
 fn write_device(root: &Path, class: &str, name: &str, kind: Option<&str>, value: u32, max: u32) {
     let dir = root.join(class).join(name);
@@ -175,69 +174,4 @@ fn access_tells_missing_buses_from_missing_rights() {
     // Regular files stand in for the buses: one that can be opened is enough.
     std::fs::write(dev.path().join("i2c-3"), "").unwrap();
     assert_eq!(ddc::access_in(dev.path()), Access::Granted);
-}
-
-/// A stand-in for logind's session, which notes what it was asked to set.
-struct Session {
-    calls: Arc<Mutex<Vec<(String, String, u32)>>>,
-}
-
-#[zbus::interface(name = "org.freedesktop.login1.Session")]
-impl Session {
-    fn set_brightness(&self, subsystem: String, name: String, brightness: u32) {
-        if let Ok(mut calls) = self.calls.lock() {
-            calls.push((subsystem, name, brightness));
-        }
-    }
-}
-
-#[test]
-fn logind_is_asked_for_the_raw_value_within_the_limits() {
-    async_io::block_on(async {
-        let bus = crate::dbus::TestBus::start().await.unwrap();
-        let calls = Arc::new(Mutex::new(Vec::new()));
-        let path = "/org/freedesktop/login1/session/auto";
-        let server = zbus::connection::Builder::address(bus.address.as_str())
-            .unwrap()
-            .name("org.freedesktop.login1")
-            .unwrap()
-            .serve_at(
-                path,
-                Session {
-                    calls: Arc::clone(&calls),
-                },
-            )
-            .unwrap()
-            .build()
-            .await
-            .unwrap();
-        let logind = Logind::with(bus.connection.clone(), path);
-        let panel = Device {
-            name: "intel_backlight".into(),
-            kind: Kind::Raw,
-            brightness: 600,
-            max: 1200,
-        };
-        logind.set(&panel, 0).await.unwrap();
-        logind.set(&panel, 900).await.unwrap();
-        let keyboard = Device {
-            name: "tpacpi::kbd_backlight".into(),
-            kind: Kind::Keyboard,
-            brightness: 1,
-            max: 2,
-        };
-        logind.set(&keyboard, 0).await.unwrap();
-        assert_eq!(
-            *calls.lock().unwrap(),
-            [
-                ("backlight".into(), "intel_backlight".into(), 12),
-                ("backlight".into(), "intel_backlight".into(), 900),
-                ("leds".into(), "tpacpi::kbd_backlight".into(), 0),
-            ]
-        );
-        drop(server);
-        let mut daemon = bus.daemon;
-        let _ = daemon.kill();
-        let _ = daemon.wait();
-    });
 }
