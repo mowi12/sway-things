@@ -14,6 +14,7 @@
 use std::fmt::Write as _;
 
 use super::{HEADER, Stored};
+use crate::command::Hook;
 use crate::registry::notifications::{self as keys, mako};
 
 /// The section that hides every notification while Do Not Disturb is on.
@@ -21,8 +22,12 @@ pub const DND_SECTION: &str = "[mode=do-not-disturb]";
 
 /// What mako runs on a left click while clicking shows the app: our hook, with the id mako sets
 /// as `$id` in the shell it runs the command in. It invokes the default action itself.
-pub const CLICK_BINDING: &str =
-    "on-button-left=exec sway-things hook notification-click --mako \"$id\"";
+pub fn click_binding() -> String {
+    format!(
+        "on-button-left=exec {}",
+        Hook::NotificationClick.command_line(&["--mako", "\"$id\""])
+    )
+}
 
 /// The text of our file for the values in `stored`.
 pub fn generate(stored: &Stored<'_>) -> String {
@@ -72,7 +77,7 @@ pub fn generate(stored: &Stored<'_>) -> String {
         line(format!("progress-color=over {}", with_alpha(colors.border)));
     }
     if stored.bool(keys::CLICK_FOCUS) == Some(true) {
-        line(CLICK_BINDING.to_owned());
+        line(click_binding());
     }
     if let Some(seconds) = stored.integer(mako::CRITICAL_TIMEOUT) {
         line(String::new());

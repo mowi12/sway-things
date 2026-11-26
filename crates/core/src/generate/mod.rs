@@ -429,7 +429,7 @@ fn notification_daemon(state: &State) -> Option<Line> {
         return None;
     };
     Daemon::from_program(program)?;
-    Some(hook_line("notification-daemon", vec![START]))
+    Some(hook_line(command::Hook::NotificationDaemon, vec![START]))
 }
 
 /// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
@@ -448,24 +448,30 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
         .filter(|key| state.get(key, None).is_some())
         .collect();
     if !keys.is_empty() {
-        lines.push(hook_line("gsettings", keys));
+        lines.push(hook_line(command::Hook::Gsettings, keys));
     }
     if crate::capture::is_on(state, crate::capture::HISTORY) {
-        lines.push(hook_line("clipboard", vec![crate::capture::HISTORY]));
+        lines.push(hook_line(
+            command::Hook::Clipboard,
+            vec![crate::capture::HISTORY],
+        ));
     }
     if crate::night_light::Settings::of(state).on {
-        lines.push(hook_line("night-light", vec![crate::night_light::ENABLED]));
+        lines.push(hook_line(
+            command::Hook::NightLight,
+            vec![crate::night_light::ENABLED],
+        ));
     }
     if outputs::workspaces::Rule::of(state).places() {
         lines.push(hook_line(
-            "workspaces",
+            command::Hook::Workspaces,
             vec![crate::registry::workspaces::PLACEMENT],
         ));
     }
     let automatic_timezone = crate::registry::region::AUTOMATIC_TIMEZONE;
     if state.get(automatic_timezone, None) == Some(&crate::registry::Value::Bool(true)) {
         lines.push(line_of(
-            &command::hook_at_start("timezone"),
+            &command::hook_at_start(command::Hook::Timezone),
             vec![automatic_timezone],
         ));
     }
@@ -473,8 +479,8 @@ fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
 }
 
 /// The line that runs `sway-things hook <name>`, for the settings `keys`.
-fn hook_line(name: &'static str, keys: Vec<&'static str>) -> Line {
-    line_of(&command::hook(name), keys)
+fn hook_line(hook: command::Hook, keys: Vec<&'static str>) -> Line {
+    line_of(&command::hook(hook), keys)
 }
 
 /// The line of `command`, for the settings `keys`; a comment if it can't be rendered.

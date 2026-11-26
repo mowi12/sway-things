@@ -59,7 +59,7 @@ pub use crate::registry::output::{ENABLED, MODE, POSITION, SCALE, TRANSFORM};
 /// The command the generated config runs at every start and reload of sway while Sway Things
 /// stores anything for an output: `exec_always sway-things hook displays` ([`ensure_one_on`]).
 pub fn guard_command() -> crate::command::SwayCmd {
-    crate::command::hook("displays")
+    crate::command::hook(crate::command::Hook::Displays)
 }
 
 /// Switches an output on if none is on but one is connected, so an output stored as off never

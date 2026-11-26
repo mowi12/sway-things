@@ -20,6 +20,7 @@ use std::fmt::Write as _;
 use serde_json::{Map, Value as Json, json};
 
 use super::{HEADER, Stored};
+use crate::command::{Hook, QuickSwitch};
 use crate::registry::notifications::{self as keys, swaync};
 use crate::registry::{Registry, Value};
 
@@ -88,23 +89,23 @@ fn position(id: &str) -> (&'static str, &'static str) {
 
 /// A button of the `buttons-grid` widget: our hook, so no shell code goes into the config.
 fn button(preset: &str) -> Option<Json> {
-    let toggle = |label: &str, name: &str| {
-        json!({
-            "label": label,
-            "type": "toggle",
-            "command": format!("sway-things hook quick {name}"),
-            "update-command": format!("sway-things hook quick {name} state"),
-        })
+    if preset == "settings" {
+        return Some(json!({ "label": "Settings", "command": "sway-things open notifications" }));
+    }
+    let switch = QuickSwitch::from_name(preset)?;
+    let label = match switch {
+        QuickSwitch::Dnd => "Do Not Disturb",
+        QuickSwitch::Wifi => "Wi-Fi",
+        QuickSwitch::Bluetooth => "Bluetooth",
+        QuickSwitch::Sound => "Sound",
+        QuickSwitch::Microphone => "Microphone",
     };
-    Some(match preset {
-        "dnd" => toggle("Do Not Disturb", "dnd"),
-        "wifi" => toggle("Wi-Fi", "wifi"),
-        "bluetooth" => toggle("Bluetooth", "bluetooth"),
-        "sound" => toggle("Sound", "sound"),
-        "microphone" => toggle("Microphone", "microphone"),
-        "settings" => json!({ "label": "Settings", "command": "sway-things open notifications" }),
-        _ => return None,
-    })
+    Some(json!({
+        "label": label,
+        "type": "toggle",
+        "command": switch.toggle_line(),
+        "update-command": switch.state_line(),
+    }))
 }
 
 /// The text of our `config.json` for the values in `stored`, on top of `base` (swaync's
@@ -166,7 +167,7 @@ pub fn config(stored: &Stored<'_>, mut base: Map<String, Json>) -> String {
             scripts.insert(
                 CLICK_SCRIPT.to_owned(),
                 json!({
-                    "exec": "sway-things hook notification-click",
+                    "exec": Hook::NotificationClick.command_line(&[]),
                     "app-name": ".*",
                     "run-on": "action",
                 }),

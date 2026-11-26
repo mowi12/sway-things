@@ -445,8 +445,9 @@ pub fn hook_literals(graph: &Graph) -> Vec<Violation> {
                 rule: HOOK_LITERALS,
                 from: module.name.clone(),
                 message: format!(
-                    "{} spells out \"{hook}\" in a literal. Build it from the hook's name in `core::command`, \
-                     which the command line maps from, so a renamed hook can't miss a caller",
+                    "{} spells out \"{hook}\" in a literal. Build it from `core::command::Hook` \
+                     (`command::hook`, `Hook::command_line`), which the command line maps from, so a renamed hook \
+                     can't miss a caller",
                     module.name
                 ),
                 to: hook,

@@ -80,12 +80,15 @@ pub fn config_in(args: &[String]) -> Option<PathBuf> {
 /// it is read from the file, since the parser leaves our files out.
 pub fn start_lines(config: &SwayConfig, ours: &Path, chosen: Option<Daemon>) -> Vec<StartLine> {
     let hooks = ours.join(crate::registry::ConfigFile::Hooks.file_name());
+    let hook_line = super::start_line()
+        .render(crate::command::Target::Config)
+        .ok();
     let hook = chosen.and_then(|daemon| {
         let text = std::fs::read_to_string(&hooks).ok()?;
         let (index, line) = text
             .lines()
             .enumerate()
-            .find(|(_, line)| line.trim() == HOOK_LINE)?;
+            .find(|(_, line)| Some(line.trim()) == hook_line.as_deref())?;
         Some(StartLine {
             daemon,
             file: hooks.clone(),
@@ -114,9 +117,6 @@ pub fn start_lines(config: &SwayConfig, ours: &Path, chosen: Option<Daemon>) -> 
     lines.extend(hook);
     lines
 }
-
-/// Our line that starts the daemon chosen on the page.
-const HOOK_LINE: &str = "exec_always sway-things hook notification-daemon";
 
 /// How the daemon that runs was started, as far as can be told.
 #[derive(Debug, Clone, PartialEq, Eq)]

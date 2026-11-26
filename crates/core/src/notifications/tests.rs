@@ -71,7 +71,7 @@ fn mako_gets_only_what_is_stored_and_always_the_dnd_section() {
             "text-color=#ffffffff",
             "border-color=#4c7899ff",
             "progress-color=over #4c7899ff",
-            mako::CLICK_BINDING,
+            &mako::click_binding(),
             "",
             "[urgency=critical]",
             "default-timeout=0",

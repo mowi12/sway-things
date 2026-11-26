@@ -17,9 +17,11 @@ use std::path::{Path, PathBuf};
 use async_io::block_on;
 use clap::Parser;
 use sway_things_cli::{
-    Cli, Command, DoctorArgs, Exit, Hook, Look, Prompt, Session, Spinner, doctor, doctor_with, run,
+    Cli, Command, DoctorArgs, Exit, Hook, Look, Prompt, QuickAction, Session, Spinner, doctor,
+    doctor_with, run,
 };
 use sway_things_core::apply::{Applier, Countdown};
+use sway_things_core::command::{self, QuickSwitch};
 use sway_things_core::delegate;
 use sway_things_core::doctor::{Checkup, Found, Installed};
 use sway_things_core::generate::{ConfigError, Locations, Validate};
@@ -28,6 +30,7 @@ use sway_things_core::i18n::Text;
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Compositor;
 use sway_things_core::ipc::stand_in::{FakeSway, SWAY_1_10, obedient};
+use sway_things_core::notifications::mako;
 use sway_things_core::registry::{Registry, Value};
 use sway_things_core::state::{Paths, State};
 use sway_things_core::sway_config::Disk;
@@ -755,6 +758,56 @@ fn problems_in_the_settings_files_are_warnings() {
     let ran = setup.run(&["get", "windows.gaps.inner"]);
     assert_eq!(ran.exit, Exit::Ok);
     assert!(ran.err.starts_with("warning: "), "{}", ran.err);
+}
+
+/// Parses a command line the core writes for a program to run, which splits it at spaces.
+fn parse_written(line: &str) -> Result<Hook, String> {
+    match Cli::try_parse_from(line.split(' ')) {
+        Ok(Cli {
+            command: Some(Command::Hook(hook)),
+            ..
+        }) => Ok(hook),
+        Ok(cli) => Err(format!("{line} runs {:?}, not a hook", cli.command)),
+        Err(error) => Err(format!("{line}: {error}")),
+    }
+}
+
+#[test]
+fn every_hook_the_core_writes_runs_that_hook() {
+    for hook in command::Hook::ALL {
+        let args: &[&str] = match hook {
+            command::Hook::Launch => &["org.example.App.desktop"],
+            command::Hook::Quick => &["dnd"],
+            _ => &[],
+        };
+        let line = hook.command_line(args);
+        assert_eq!(parse_written(&line).unwrap().name(), hook, "{line}");
+    }
+    for switch in QuickSwitch::ALL {
+        for (line, action) in [
+            (switch.toggle_line(), None),
+            (switch.state_line(), Some(QuickAction::State)),
+        ] {
+            let Hook::Quick {
+                which,
+                action: parsed,
+            } = parse_written(&line).unwrap()
+            else {
+                panic!("{line} isn't the quick hook");
+            };
+            assert_eq!((which.switch(), parsed), (switch, action), "{line}");
+        }
+    }
+    // mako's click binding, with the id mako puts in for `$id`.
+    let binding = mako::click_binding();
+    let line = binding
+        .strip_prefix("on-button-left=exec ")
+        .unwrap()
+        .replace("\"$id\"", "7");
+    assert_eq!(
+        parse_written(&line),
+        Ok(Hook::NotificationClick { mako: Some(7) })
+    );
 }
 
 #[test]

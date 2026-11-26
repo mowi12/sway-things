@@ -6,6 +6,7 @@
 //! of.
 
 use super::{Checkup, Code, Finding, Severity};
+use crate::command::Hook;
 use crate::generate::Validate;
 use crate::i18n::Text;
 use crate::msg;
@@ -233,9 +234,14 @@ impl<V: Validate> Checkup<'_, V> {
                 .arg("file", files.ours.display()),
             ),
         };
-        findings.push(finding.with_hint(msg!(
-            "Run: sway-things hook displays (it writes the file again and has kanshi read it)"
-        )));
+        findings.push(
+            finding.with_hint(
+                Text::new(msg!(
+                    "Run: {command} (it writes the file again and has kanshi read it)"
+                ))
+                .arg("command", Hook::Displays.command_line(&[])),
+            ),
+        );
     }
 
     /// The user's kanshi profiles that come before our include, which kanshi tries first: one

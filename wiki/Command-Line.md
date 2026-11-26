@@ -198,6 +198,13 @@ is on: it reads the switch from the settings files, asks geoclue for the locatio
 through timedated if the system has another (polkit may ask for the password). It needs no sway; it says on stderr which
 zone it set, or why it set none and the command that would.
 
+The names of the hooks, and the switches of `hook quick`, are spelled out once, in `core::command::{Hook, QuickSwitch}`:
+the core builds every line that runs a hook from them (`command::hook` and `hook_at_start` for sway's `exec` lines,
+`Hook::command_line` for kanshi, mako, swaync, the autostart runner and the doctor). The CLI's clap enums map to them
+with an exhaustive `match` (`Hook::name`, `Quick::switch`), and `every_hook_the_core_writes_runs_that_hook` in
+`crates/cli/tests/run.rs` parses each name, each switch and mako's click binding as the CLI does, so a renamed hook
+fails the build or that test instead of a line in the user's config that runs nothing.
+
 Our generated `20-output.conf` can also contain the `exec kanshi` line, and `hook displays` runs `kanshictl reload`.
 They're our files, so that needs no edit of the user's config.
 

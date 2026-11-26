@@ -45,7 +45,7 @@ const SLACK: Duration = Duration::from_secs(5 * 60);
 /// starts: a reload would move on a collection that changes at login. It names no output, so no
 /// identifier of a screen reaches the shell that runs the line.
 pub fn start_command() -> SwayCmd {
-    crate::command::hook_at_start("wallpaper")
+    crate::command::hook_at_start(crate::command::Hook::Wallpaper)
 }
 
 /// The picture `link` points at.

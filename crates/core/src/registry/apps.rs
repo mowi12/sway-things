@@ -271,7 +271,7 @@ impl Entry {
     pub fn command_line(&self) -> String {
         match &self.item {
             Item::Exec(line) => line.clone(),
-            Item::App(id) => format!("sway-things hook launch {id}"),
+            Item::App(id) => crate::command::Hook::Launch.command_line(&[id]),
         }
     }
 
