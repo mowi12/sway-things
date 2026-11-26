@@ -1336,6 +1336,7 @@ fn doctor_starts_with_the_system_details() {
         distribution: Some("Debian GNU/Linux 13 (trixie)".to_owned()),
         network_manager: None,
         sound_server: Some("PulseAudio (on PipeWire 1.6.9)".to_owned()),
+        upower: Some("1.91.5".to_owned()),
         cups: Some("2.4".to_owned()),
         cups_pk_helper: false,
         kernel: Some("6.12.48+deb13-amd64".to_owned()),
@@ -1355,7 +1356,7 @@ fn doctor_starts_with_the_system_details() {
     let expected = format!(
         "System\n  Sway Things: {}\n  Compositor: sway 1.10.1\n  GTK: 4.18.6\n  \
          Distribution: Debian GNU/Linux 13 (trixie)\n  NetworkManager: not running\n  \
-         Sound server: PulseAudio (on PipeWire 1.6.9)\n  CUPS: 2.4\n  \
+         Sound server: PulseAudio (on PipeWire 1.6.9)\n  UPower: 1.91.5\n  CUPS: 2.4\n  \
          cups-pk-helper: not installed\n  Kernel: 6.12.48+deb13-amd64\n  \
          nm-connection-editor: not installed\n  blueman-manager: installed\n\nCompositor\n",
         env!("CARGO_PKG_VERSION")
@@ -1378,6 +1379,7 @@ fn doctor_starts_with_the_system_details() {
             "distribution": "Debian GNU/Linux 13 (trixie)",
             "network_manager": null,
             "sound_server": "PulseAudio (on PipeWire 1.6.9)",
+            "upower": "1.91.5",
             "cups": "2.4",
             "cups_pk_helper": false,
             "kernel": "6.12.48+deb13-amd64",

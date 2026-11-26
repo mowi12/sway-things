@@ -9,6 +9,8 @@ use std::time::Duration;
 
 use gtk::glib;
 use gtk::prelude::*;
+use sway_things_core::bluetooth::Bluez;
+use sway_things_core::ipc::Compositor;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::printers::{Cups, Endpoint};
 use sway_things_core::registry::{Msg, Page};
@@ -21,7 +23,7 @@ use crate::icons;
 use crate::model::Model;
 use crate::style;
 use crate::widgets::list::list_row;
-use crate::widgets::{NetworkBus, PrintService, SoundServer};
+use crate::widgets::{BluetoothBus, NetworkBus, PrintService, SoundServer};
 
 /// The project's links below the "About" section: what they are called, their icon and where
 /// they lead.
@@ -67,6 +69,7 @@ pub(super) fn about_section(model: &Model, body: &gtk::Box) -> Section {
         distribution: None,
         network_manager: None,
         sound_server: None,
+        upower: None,
         cups: None,
         cups_pk_helper: false,
         kernel: None,
@@ -90,48 +93,14 @@ pub(super) fn about_section(model: &Model, body: &gtk::Box) -> Section {
         copy,
         move |list| {
             let window = list.root().and_downcast::<crate::window::Window>();
-            let bus = window
-                .as_ref()
-                .map_or(NetworkBus::Off, crate::window::Window::network_bus);
-            let server = window
-                .as_ref()
-                .map_or(SoundServer::Off, crate::window::Window::sound_server);
-            let print_service = window
-                .as_ref()
-                .map_or(PrintService::Off, crate::window::Window::print_service);
+            let services = Services::of(window.as_ref());
             let values = values.clone();
             let details = details.clone();
             glib::spawn_future_local(glib::clone!(
                 #[weak]
                 copy,
                 async move {
-                    let nm = match &bus {
-                        NetworkBus::System => NetworkManager::connect().await.ok(),
-                        NetworkBus::Address(address) => {
-                            NetworkManager::connect_to(address).await.ok()
-                        }
-                        NetworkBus::Off => None,
-                    };
-                    let sound = match &server {
-                        SoundServer::Session => Sound::connect().ok(),
-                        SoundServer::Address(address) => Sound::connect_to(Some(address)).ok(),
-                        SoundServer::Off => None,
-                    };
-                    let cups = match &print_service {
-                        PrintService::System => Cups::local().ok(),
-                        PrintService::At { socket, .. } => {
-                            Some(Cups::at(Endpoint::Socket(socket.clone())))
-                        }
-                        PrintService::Off => None,
-                    };
-                    let read = Details::read(
-                        compositor,
-                        Some(crate::app::gtk_version()),
-                        nm.as_ref(),
-                        sound.as_ref(),
-                        cups.as_ref(),
-                    )
-                    .await;
+                    let read = read_details(compositor, services).await;
                     for (label, (_, value)) in values.iter().zip(read.lines()) {
                         label.set_label(&shown(&value));
                     }
@@ -149,6 +118,60 @@ pub(super) fn about_section(model: &Model, body: &gtk::Box) -> Section {
     }
     section.body.append(&links);
     section
+}
+
+/// Where the system details ask the services: where the window's pages find them.
+struct Services {
+    network: NetworkBus,
+    sound: SoundServer,
+    bluetooth: BluetoothBus,
+    print: PrintService,
+}
+
+impl Services {
+    /// Where `window`'s pages find the services; none without a window.
+    fn of(window: Option<&crate::window::Window>) -> Self {
+        use crate::window::Window;
+        Self {
+            network: window.map_or(NetworkBus::Off, Window::network_bus),
+            sound: window.map_or(SoundServer::Off, Window::sound_server),
+            bluetooth: window.map_or(BluetoothBus::Off, Window::bluetooth_bus),
+            print: window.map_or(PrintService::Off, Window::print_service),
+        }
+    }
+}
+
+/// Reads the system details, asking the `services`.
+async fn read_details(compositor: Option<Compositor>, services: Services) -> Details {
+    let nm = match services.network {
+        NetworkBus::System => NetworkManager::connect().await.ok(),
+        NetworkBus::Address(address) => NetworkManager::connect_to(&address).await.ok(),
+        NetworkBus::Off => None,
+    };
+    let sound = match services.sound {
+        SoundServer::Session => Sound::connect().ok(),
+        SoundServer::Address(address) => Sound::connect_to(Some(&address)).ok(),
+        SoundServer::Off => None,
+    };
+    let bluez = match services.bluetooth {
+        BluetoothBus::System => Bluez::connect().await.ok(),
+        BluetoothBus::Address(address) => Bluez::connect_to(&address).await.ok(),
+        BluetoothBus::Off => None,
+    };
+    let cups = match services.print {
+        PrintService::System => Cups::local().ok(),
+        PrintService::At { socket, .. } => Some(Cups::at(Endpoint::Socket(socket))),
+        PrintService::Off => None,
+    };
+    Details::read(
+        compositor,
+        Some(crate::app::gtk_version()),
+        nm.as_ref(),
+        sound.as_ref(),
+        bluez.as_ref(),
+        cups.as_ref(),
+    )
+    .await
 }
 
 /// The button that copies `details` once they are read, and says so for a moment.

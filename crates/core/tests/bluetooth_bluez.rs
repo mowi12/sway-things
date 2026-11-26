@@ -369,6 +369,8 @@ fn upower_says_which_devices_charge() -> Result<()> {
         let (stand_in, bluez, _, [mouse, keyboard, headset, phone]) = with_batteries().await?;
         let snapshot = bluez.snapshot().await?;
         assert_eq!(snapshot.charge_source, ChargeSource::UPower);
+        // python-dbusmock's template reports this version.
+        assert_eq!(bluez.upower_version().await.as_deref(), Some("0.99"));
         let battery = |path: &str| snapshot.device(path).and_then(|d| d.battery);
         let expected = |percent, charge| {
             Some(Battery {
@@ -454,6 +456,7 @@ fn charging_changes_and_upower_going_away_are_reported() -> Result<()> {
             snapshot.charge_source == ChargeSource::None
         })
         .await?;
+        assert_eq!(bluez.upower_version().await, None);
         assert_eq!(
             snapshot.device(&mouse).and_then(|d| d.battery),
             Some(Battery {

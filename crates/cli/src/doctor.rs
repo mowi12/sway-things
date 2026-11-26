@@ -316,6 +316,7 @@ fn system_json(system: &Details) -> Json {
         "distribution": system.distribution,
         "network_manager": system.network_manager,
         "sound_server": system.sound_server,
+        "upower": system.upower,
         "cups": system.cups,
         "cups_pk_helper": system.cups_pk_helper,
         "kernel": system.kernel,

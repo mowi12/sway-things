@@ -5,8 +5,8 @@
 //! `sway-things doctor`.
 //!
 //! Only what helps sorting out a bug and can be read cheaply and reliably: the versions of Sway
-//! Things, the compositor, GTK, the distribution, NetworkManager, the sound server, CUPS and the
-//! kernel, whether cups-pk-helper is there, and whether the tools the pages delegate to are
+//! Things, the compositor, GTK, the distribution, NetworkManager, the sound server, UPower (which
+//! says whether Bluetooth devices charge), CUPS and the kernel, whether cups-pk-helper is there, and whether the tools the pages delegate to are
 //! installed. Not BlueZ (no version on D-Bus, and
 //! `bluetoothd` lives in a different place per distribution) and not wlroots (neither sway's IPC
 //! nor `sway --version` report it).
@@ -14,6 +14,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::bluetooth::Bluez;
 use crate::delegate::{self, Tool};
 use crate::i18n::{Msg, Text};
 use crate::ipc::Compositor;
@@ -80,6 +81,9 @@ pub struct Details {
     /// The sound server's name with its version (`PulseAudio (on PipeWire 1.6.9)`); `None` while
     /// none runs.
     pub sound_server: Option<String>,
+    /// UPower's version; `None` while it isn't running. Without it, whether Bluetooth devices
+    /// charge comes from the kernel's power supplies, or isn't known.
+    pub upower: Option<String>,
     /// CUPS's version (`2.4`); `None` while it isn't running.
     pub cups: Option<String>,
     /// Whether cups-pk-helper is installed, which makes printer changes for users CUPS doesn't
@@ -129,12 +133,13 @@ impl Value {
 impl Details {
     /// Reads the details. `compositor` and `gtk` come from the caller, which knows them;
     /// NetworkManager is asked on `network_manager`'s bus, the sound server on the `sound`
-    /// connection and CUPS through `cups`, if there are those.
+    /// connection, UPower on `bluez`'s bus and CUPS through `cups`, if there are those.
     pub async fn read(
         compositor: Option<Compositor>,
         gtk: Option<String>,
         network_manager: Option<&NetworkManager>,
         sound: Option<&Sound>,
+        bluez: Option<&Bluez>,
         cups: Option<&Cups>,
     ) -> Self {
         let network_manager = match network_manager {
@@ -143,6 +148,10 @@ impl Details {
         };
         let sound_server = match sound {
             Some(sound) => sound.server().await.ok().map(|server| server.label()),
+            None => None,
+        };
+        let upower = match bluez {
+            Some(bluez) => bluez.upower_version().await,
             None => None,
         };
         let cups = match cups {
@@ -160,6 +169,7 @@ impl Details {
             distribution: distribution(&OS_RELEASE.map(Path::new)),
             network_manager,
             sound_server,
+            upower,
             cups,
             cups_pk_helper,
             kernel: kernel(Path::new(KERNEL_RELEASE)),
@@ -204,6 +214,10 @@ impl Details {
                 self.sound_server
                     .clone()
                     .map_or(Value::NotRunning, Value::Text),
+            ),
+            (
+                Text::data("UPower"),
+                self.upower.clone().map_or(Value::NotRunning, Value::Text),
             ),
             (
                 Text::data("CUPS"),
@@ -318,6 +332,7 @@ mod tests {
             distribution: Some("openSUSE Tumbleweed".to_owned()),
             network_manager: Some("1.52.0".to_owned()),
             sound_server: Some("PulseAudio (on PipeWire 1.6.9)".to_owned()),
+            upower: Some("1.91.5".to_owned()),
             cups: Some("2.4".to_owned()),
             cups_pk_helper: true,
             kernel: Some("6.17.7-1-default".to_owned()),
@@ -339,6 +354,7 @@ mod tests {
                  Distribution: openSUSE Tumbleweed\n\
                  NetworkManager: 1.52.0\n\
                  Sound server: PulseAudio (on PipeWire 1.6.9)\n\
+                 UPower: 1.91.5\n\
                  CUPS: 2.4\n\
                  cups-pk-helper: installed\n\
                  Kernel: 6.17.7-1-default\n\
@@ -356,6 +372,7 @@ mod tests {
             distribution: None,
             network_manager: None,
             sound_server: None,
+            upower: None,
             cups: None,
             cups_pk_helper: false,
             kernel: None,
@@ -370,6 +387,7 @@ mod tests {
                  Distribution: unknown\n\
                  NetworkManager: not running\n\
                  Sound server: not running\n\
+                 UPower: not running\n\
                  CUPS: not running\n\
                  cups-pk-helper: not installed\n\
                  Kernel: unknown\n\

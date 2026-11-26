@@ -178,6 +178,12 @@ impl Bluez {
         Ok(snapshot)
     }
 
+    /// UPower's version (`1.91.5`), which says whether devices report charging through it;
+    /// `None` while it isn't running.
+    pub async fn upower_version(&self) -> Option<String> {
+        battery::upower_version(&self.connection).await
+    }
+
     /// Turns the radio of `adapter` (its path) on or off.
     ///
     /// # Errors

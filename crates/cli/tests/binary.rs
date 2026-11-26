@@ -166,6 +166,7 @@ fn doctor_reports_without_writing() {
         "{out}"
     );
     assert!(out.contains("\n  NetworkManager: not running\n"), "{out}");
+    assert!(out.contains("\n  UPower: not running\n"), "{out}");
     assert!(
         out.contains("\n  nm-connection-editor: not installed\n  blueman-manager: not installed\n"),
         "{out}"
@@ -186,6 +187,7 @@ fn doctor_reports_without_writing() {
     assert_eq!(json["system"]["compositor"], "sway 1.10.1");
     assert_eq!(json["system"]["gtk"], serde_json::Value::Null);
     assert_eq!(json["system"]["network_manager"], serde_json::Value::Null);
+    assert_eq!(json["system"]["upower"], serde_json::Value::Null);
     assert_eq!(json["system"]["tools"]["blueman-manager"], false);
     assert_eq!(json["status"], "problem");
     assert_eq!(json["fix"]["result"], "read_only");
@@ -326,6 +328,7 @@ const PRODUCTS: &[&str] = &[
     "Sway Things",
     "GTK",
     "NetworkManager",
+    "UPower",
     "CUPS",
     "cups-pk-helper",
 ];

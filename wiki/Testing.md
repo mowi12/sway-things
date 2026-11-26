@@ -396,7 +396,7 @@ text 3:1). The check reads what GTK draws: the render nodes say where each text 
   its row, the preview of the C locale, polkit's refusal of the system's locale with the `localectl` command, and
   without localed _System Default…_ insensitive with the reason.
 - About: About & Maintenance shows the system details (Sway Things, the compositor with SwayFX's sway base, GTK, the
-  distribution, NetworkManager and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
+  distribution, NetworkManager, UPower and CUPS as not running, whether cups-pk-helper is installed, the kernel and the
   delegated tools), _Copy System Details_ copies them as the block `doctor` starts with and says _Copied_ for a moment,
   and the links go to the website, the repository and its issues.
 - Generated config: a footer's _Show_ opens the window at its file without writing it, a second one switches the same

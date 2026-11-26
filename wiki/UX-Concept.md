@@ -50,15 +50,15 @@ looks like the user's other GTK4 apps and takes its accent color from sway.
 - **About** is the first section of About & Maintenance, part of the page (and so of search and deep links) instead of a
   dialog: a row per line of the system details, with the value selectable for bug reports: the versions of Sway Things,
   the running compositor (for SwayFX with the sway it is based on), GTK (the runtime version), the distribution
-  (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_), CUPS (or _Not running_),
-  whether cups-pk-helper is installed, and the kernel, then _Installed_ or _Not installed_ for nm-connection-editor,
-  blueman-manager, pwvucontrol, pavucontrol and system-config-printer, and for the programs of Screenshots & Clipboard
-  (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec). Below the rows, a centered _Copy System
-  Details_ button copies them as a plain-text block in the same order, the one `sway-things doctor` starts with, like
-  GNOME Settings' System Details, and then says _Copied_ for two seconds. They are read again each time the section
-  shows. Below the button, a centered line of links with a symbolic icon each: _Website_ (a globe), _Source Code
-  (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default browser; the app itself makes no
-  network request.
+  (`PRETTY_NAME`), NetworkManager (or _Not running_), the sound server (or _Not running_), UPower (or _Not running_),
+  CUPS (or _Not running_), whether cups-pk-helper is installed, and the kernel, then _Installed_ or _Not installed_ for
+  nm-connection-editor, blueman-manager, pwvucontrol, pavucontrol and system-config-printer, and for the programs of
+  Screenshots & Clipboard (grim, slurp, wl-copy, cliphist, swappy, satty, wf-recorder, wl-screenrec). Below the rows, a
+  centered _Copy System Details_ button copies them as a plain-text block in the same order, the one
+  `sway-things doctor` starts with, like GNOME Settings' System Details, and then says _Copied_ for two seconds. They
+  are read again each time the section shows. Below the button, a centered line of links with a symbolic icon each:
+  _Website_ (a globe), _Source Code (GitHub)_ (code brackets) and _Report a Bug_ (a bug). They open in the default
+  browser; the app itself makes no network request.
 - A **setting row** has a title, optional plain-language subtitle and the control on the right. For sway settings an app
   preference (_Show sway directives_, off by default) adds the **sway directive in monospace** as a line below the
   subtitle (`pointer_accel 0.30`), so users who want to learn the config language see it as they go and the others get a

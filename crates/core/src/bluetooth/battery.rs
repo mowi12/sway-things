@@ -221,9 +221,35 @@ pub(super) async fn upower(connection: &Connection) -> Option<UPowerDevices> {
     .await
 }
 
-/// What UPower reports. Asks who owns UPower's bus name first and sends the questions to that
-/// owner, so they never start UPower.
-async fn upower_devices(connection: &Connection) -> Option<UPowerDevices> {
+/// UPower's version (`1.91.5`), from its `DaemonVersion` property; `None` while it isn't
+/// running or doesn't answer within [`UPOWER_TIMEOUT`]. Asks only UPower's owner, so the question
+/// never starts it.
+pub(super) async fn upower_version(connection: &Connection) -> Option<String> {
+    let version = async {
+        let owner = upower_owner(connection).await?;
+        let reply = connection
+            .call_method(
+                Some(owner.as_str()),
+                UPOWER_PATH,
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &(UPOWER, "DaemonVersion"),
+            )
+            .await
+            .ok()?;
+        let value: zbus::zvariant::OwnedValue = reply.body().deserialize().ok()?;
+        let version = clean(&String::try_from(value).ok()?);
+        (!version.is_empty()).then_some(version)
+    };
+    future::or(version, async {
+        Timer::after(UPOWER_TIMEOUT).await;
+        None
+    })
+    .await
+}
+
+/// Who owns UPower's bus name; `None` while it isn't running.
+async fn upower_owner(connection: &Connection) -> Option<String> {
     let reply = connection
         .call_method(
             Some("org.freedesktop.DBus"),
@@ -234,7 +260,13 @@ async fn upower_devices(connection: &Connection) -> Option<UPowerDevices> {
         )
         .await
         .ok()?;
-    let owner: String = reply.body().deserialize().ok()?;
+    reply.body().deserialize().ok()
+}
+
+/// What UPower reports. Asks who owns UPower's bus name first and sends the questions to that
+/// owner, so they never start UPower.
+async fn upower_devices(connection: &Connection) -> Option<UPowerDevices> {
+    let owner = upower_owner(connection).await?;
     let reply = connection
         .call_method(
             Some(owner.as_str()),
