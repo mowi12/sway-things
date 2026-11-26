@@ -41,6 +41,12 @@ why = "The `bindsym` command builder takes `bindings::Line` and `Modifiers`; the
 
 [[violation]]
 rule = "R1-layers"
+from = "core::command::bar"
+to = "core::bar::takeover"
+why = "The `swaybar_command` builder names the launcher of Sway Things' bar, `bar::takeover::LAUNCHER`; the constant moves down into `command::bar`, which `bar::takeover` then uses."
+
+[[violation]]
+rule = "R1-layers"
 from = "core::environment"
 to = "core::generate"
 why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
@@ -92,6 +98,12 @@ rule = "R1-layers"
 from = "core::registry::apps"
 to = "core::bindings::line"
 why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
+
+[[violation]]
+rule = "R1-layers"
+from = "core::registry::bar"
+to = "core::bar"
+why = "The check of a module name reads `bar::is_module_name`, the syntax of a name in waybar's module lists; the check moves down into `registry::bar`, which `bar` then uses."
 
 [[violation]]
 rule = "R1-layers"
@@ -197,6 +209,12 @@ why = "The Apps page reuses the key helpers of Keyboard Shortcuts (`GdkKeymap`, 
 
 [[violation]]
 rule = "R2-file-cycles"
+from = "gui::widgets::bar::files"
+to = "gui::window"
+why = "The Bar page's files row downcasts `root()` to `Window` to open the generated config; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
 from = "gui::widgets::capture"
 to = "gui::widgets::shortcuts"
 why = "Screenshots & Clipboard reuses the key capture of Keyboard Shortcuts; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
@@ -296,6 +314,12 @@ rule = "R2-file-cycles"
 from = "gui::widgets::page_view::parts"
 to = "gui::widgets::apps"
 why = "The page view builds the custom pages, as it should; on the cycle only through `widgets::shortcuts` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
+
+[[violation]]
+rule = "R2-file-cycles"
+from = "gui::widgets::page_view::parts"
+to = "gui::widgets::bar"
+why = "The page view adds the Bar page's parts, as it should; on the cycle only through `widgets::bar::files` → `window`; it ends when the widgets stop downcasting `root()` to `Window` (see those entries)."
 
 [[violation]]
 rule = "R2-file-cycles"
@@ -407,9 +431,27 @@ why = "Starts missing mirrors with synchronous `setsid` inside the async apply. 
 
 [[violation]]
 rule = "R5-blocking-calls"
+from = "core::apply::Applier::keep_bar"
+to = "core::bar::process::stop"
+why = "Ends our waybar with a synchronous `kill` and reads `/proc` inside the async apply. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
+
+[[violation]]
+rule = "R5-blocking-calls"
 from = "core::apply::Applier::keep_daemon_files"
 to = "core::notifications::swaync::Gtk::installed"
 why = "Asks `swaync --version` synchronously (once per run, cached) inside the async apply. Repair: ask it with async_process."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::apply::Applier::keep_waybar"
+to = "core::bar::process::ours"
+why = "Reads `/proc` for our waybar inside the async apply. Repair: read it in a thread, or once before the apply."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::apply::Applier::reload_waybar"
+to = "core::bar::process::reload"
+why = "`process::reload` is async but sends `kill` and reads `/proc` synchronously. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
 
 [[violation]]
 rule = "R5-blocking-calls"
@@ -428,6 +470,60 @@ rule = "R5-blocking-calls"
 from = "core::apps::launch::launch"
 to = "core::apps::installed::lookup"
 why = "Finds the desktop entry by reading the application directories inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::ensure"
+to = "core::bar::process::ours"
+why = "Reads `/proc` between its waits. Repair: read it in a thread (blocking::unblock) or make `ensure` a blocking function the callers run off the executor."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::ensure"
+to = "core::bar::process::running"
+why = "Reads `/proc` between its waits. Repair: read it in a thread (blocking::unblock) or make `ensure` a blocking function the callers run off the executor."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::ensure"
+to = "core::bar::process::signal"
+why = "Ends a second waybar of ours with a synchronous `kill`. Repair: send it with async_process."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::ensure"
+to = "core::bar::process::start_checked"
+why = "`start_checked` is async but runs `setsid` and reads `/proc` synchronously (see its entries); this edge ends with them."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::reload"
+to = "core::bar::process::ours"
+why = "Reads `/proc` before and after its wait. Repair: read it in a thread (blocking::unblock)."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::reload"
+to = "core::bar::process::signal"
+why = "Sends `SIGUSR2` with a synchronous `kill`. Repair: send it with async_process."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::reload"
+to = "core::bar::process::start_checked"
+why = "`start_checked` is async but runs `setsid` and reads `/proc` synchronously (see its entries); this edge ends with them."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::start_checked"
+to = "core::bar::process::ours"
+why = "Polls `/proc` for the started waybar between its timers. Repair: read it in a thread (blocking::unblock)."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "core::bar::process::start_checked"
+to = "std::process (synchronous)"
+why = "Starts waybar with a synchronous `setsid -f`, which returns at once. Repair: run it with async_process."
 
 [[violation]]
 rule = "R5-blocking-calls"
@@ -530,6 +626,18 @@ rule = "R5-blocking-calls"
 from = "gui::widgets::apps::autostart::AutostartList::update"
 to = "core::apps::autostart::xdg_entries"
 why = "Reads the XDG autostart directories on every update of the list; repair: run it in gio::spawn_blocking and hand the result back to the main context."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "gui::widgets::bar::status::Status::waybar"
+to = "core::bar::process::running"
+why = "Reads `/proc` for the running waybar on every update of the status row; repair: run it in gio::spawn_blocking and hand the result back to the main context."
+
+[[violation]]
+rule = "R5-blocking-calls"
+from = "gui::widgets::bar::takeover::ours_runs"
+to = "core::bar::process::ours"
+why = "Reads `/proc` for our waybar when the takeover row updates; repair: run it in gio::spawn_blocking and hand the result back to the main context."
 
 [[violation]]
 rule = "R5-blocking-calls"
