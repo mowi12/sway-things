@@ -73,6 +73,10 @@ pub struct Cli {
     /// When to use colors: `--color auto|always|never`. Only `doctor` colors its report.
     #[command(flatten)]
     pub color: colorchoice_clap::Color,
+    /// The ID sway gives the program of a bar (`swaybar_command`): with it, `sway-things` runs
+    /// Sway Things' waybar as that bar. Only sway passes it.
+    #[arg(short = 'b', value_name = "BAR_ID", hide = true)]
+    pub bar: Option<String>,
 }
 
 /// A command of `sway-things`.
@@ -313,6 +317,10 @@ pub enum Hook {
         /// toggle button, else toggle
         action: Option<QuickAction>,
     },
+    /// Write the config and stylesheet of Sway Things for waybar and start waybar with them,
+    /// unless one runs already or your sway config starts it: run at every start and reload of
+    /// sway while waybar is the bar
+    Waybar,
 }
 
 impl Hook {
@@ -333,6 +341,7 @@ impl Hook {
             Self::NotificationDaemon => command::Hook::NotificationDaemon,
             Self::Timezone => command::Hook::Timezone,
             Self::Quick { .. } => command::Hook::Quick,
+            Self::Waybar => command::Hook::Waybar,
         }
     }
 }
@@ -498,6 +507,62 @@ fn fail_with(err: &mut dyn Write, text: &sway_things_core::i18n::Text) -> Exit {
     Exit::Failure
 }
 
+/// `sway-things -b <id>`, run by sway as the program of a bar of the user's that Sway Things took
+/// over (`bar <id> swaybar_command sway-things` in `75-bar.conf`): becomes waybar with the config
+/// and stylesheet of Sway Things, an argument list without a shell. If waybar can't be run (it was
+/// uninstalled, say), it becomes `swaybar -b <id>`, the bar sway would run without the takeover,
+/// so the user keeps a bar; the log still says what went wrong. It returns only if neither can be
+/// run.
+pub fn run_bar(id: &str, err: &mut dyn Write) -> Exit {
+    let files = Paths::from_env().ok().and_then(|paths| {
+        paths
+            .path(Layer::Shared)
+            .parent()
+            .map(sway_things_core::bar::WaybarFiles::in_config_dir)
+    });
+    let Some(files) = files else {
+        return fail_with(
+            err,
+            &msg!("The folder of the settings of Sway Things isn't known: HOME isn't set.").into(),
+        );
+    };
+    let mut command = std::process::Command::new("waybar");
+    command.args(sway_things_core::bar::takeover::launch_arguments(&files));
+    // waybar's output goes to a log of ours, so the page can say what went wrong.
+    let log = sway_things_core::bar::takeover::log_path()
+        .and_then(|path| std::fs::File::create(path).ok());
+    if let Some(log) = &log {
+        if let (Ok(out), Ok(errors)) = (log.try_clone(), log.try_clone()) {
+            command.stdout(out).stderr(errors);
+        }
+    }
+    let error = command.exec();
+    let text = sway_things_core::i18n::Text::from(msg!("waybar can't be started: {error}"))
+        .arg("error", error);
+    if let Some(mut log) = log.as_ref() {
+        let _ = writeln!(
+            log,
+            "{}{}",
+            sway_things_core::bar::takeover::LOG_FAILED,
+            text.translated()
+        );
+    }
+    let _ = writeln!(err, "{}", error_line(&text.translated()));
+    let mut swaybar = std::process::Command::new("swaybar");
+    swaybar.args(sway_things_core::bar::takeover::fallback_arguments(id));
+    if let Some(log) = &log {
+        if let (Ok(out), Ok(errors)) = (log.try_clone(), log.try_clone()) {
+            swaybar.stdout(out).stderr(errors);
+        }
+    }
+    let error = swaybar.exec();
+    fail_with(
+        err,
+        &sway_things_core::i18n::Text::from(msg!("swaybar can't be started either: {error}"))
+            .arg("error", error),
+    )
+}
+
 /// `doctor` for the user who runs `sway-things`. It works without a session and without sway,
 /// when the others can't: then the installed `sway` validates the generated files, if there is
 /// one. On a terminal, the report is colored and a spinner tells what it checks; never for
@@ -616,6 +681,7 @@ fn reports_its_own_problems(command: &Command) -> bool {
                     | Hook::NotificationClick { .. }
                     | Hook::NotificationDaemon
                     | Hook::Quick { .. }
+                    | Hook::Waybar
             )
             | Command::Screenshot { .. }
             | Command::Record { .. }

@@ -136,7 +136,7 @@ countdown, and save only on `y`. Without a TTY it refuses unless `--yes` is give
 | --- | --- | --- |
 | live | gaps, colors, input options | IPC command + persist |
 | reload | settings sway only honors at load | persist + `reload` after the user confirmed (reload banner) |
-| tool reload | the notification daemon's settings ([Notifications](Backends.md#notifications)); planned: waybar (kanshi reloads through the [display profiles](Outputs.md)) | mako's `Reload`, swaync's `ReloadConfig` and `ReloadCss` over D-Bus; planned: `SIGUSR2` to waybar |
+| tool reload | the notification daemon's settings ([Notifications](Backends.md#notifications)) and the bar's ([Bar](Backends.md#bar)) (kanshi reloads through the [display profiles](Outputs.md)) | mako's `Reload`, swaync's `ReloadConfig` and `ReloadCss` over D-Bus; `SIGUSR2` to the waybar that runs our config |
 | re-login | `xwayland` (sway reads it only at startup), environment variables ([Environment](Backends.md#environment)) | persist + "takes effect after re-login" badge |
 | risky | see above | live + safety net, persist on _Keep_ |
 

@@ -34,6 +34,7 @@
 
 pub mod app;
 pub mod apps;
+pub mod bar;
 mod behavior;
 pub mod capture;
 pub mod cursor;
@@ -95,6 +96,7 @@ static BUILTIN: LazyLock<Registry> = LazyLock::new(|| {
     settings.extend(effects::settings());
     settings.extend(wallpaper::settings());
     settings.extend(look::settings());
+    settings.extend(bar::settings());
     settings.extend(behavior::settings());
     settings.extend(workspaces::settings());
     settings.extend(behavior::new_workspaces());

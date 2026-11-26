@@ -211,6 +211,7 @@ fn an_include_of_some_files_is_partial() {
                 ConfigFile::Behavior,
                 ConfigFile::Bindings,
                 ConfigFile::Autostart,
+                ConfigFile::Bar,
                 ConfigFile::Hooks,
                 ConfigFile::Effects,
             ],
@@ -220,6 +221,7 @@ fn an_include_of_some_files_is_partial() {
             vec![
                 ConfigFile::Bindings,
                 ConfigFile::Autostart,
+                ConfigFile::Bar,
                 ConfigFile::Hooks,
                 ConfigFile::Effects,
             ],
@@ -243,7 +245,7 @@ fn an_include_of_some_files_is_partial() {
             .english(),
         "Not enabled yet: your config includes only some of the Sway Things files \
          (~/.config/sway/config:1). Not included: 50-bindings.conf, 70-autostart.conf, \
-         80-hooks.conf, 90-effects.conf. Use this line instead:\n\n    \
+         75-bar.conf, 80-hooks.conf, 90-effects.conf. Use this line instead:\n\n    \
          include ~/.config/sway/sway-things/*.conf"
     );
     // Two lines that cover everything together are fine.

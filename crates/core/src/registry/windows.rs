@@ -22,6 +22,12 @@ pub const FOCUSED_BACKGROUND: &str = "windows.focused.background";
 pub const FOCUSED_TEXT: &str = "windows.focused.text";
 /// The border of the focused window's content; the app's accent color follows it.
 pub const FOCUSED_CHILD_BORDER: &str = "windows.focused.child_border";
+/// The background of the title bar of a focused window that isn't the one with the focus.
+pub const FOCUSED_INACTIVE_BACKGROUND: &str = "windows.focused_inactive.background";
+/// The background of an unfocused window's title bar.
+pub const UNFOCUSED_BACKGROUND: &str = "windows.unfocused.background";
+/// The background of an urgent window's title bar.
+pub const URGENT_BACKGROUND: &str = "windows.urgent.background";
 
 const GAPS_INNER: &str = "windows.gaps.inner";
 const GAPS_OUTER: &str = "windows.gaps.outer";
@@ -86,7 +92,7 @@ const STATES: [State; 4] = [
         keywords: &[msg!("color"), msg!("focused inactive"), msg!("theme")],
         keys: [
             "windows.focused_inactive.border",
-            "windows.focused_inactive.background",
+            FOCUSED_INACTIVE_BACKGROUND,
             "windows.focused_inactive.text",
             "windows.focused_inactive.indicator",
             "windows.focused_inactive.child_border",
@@ -107,7 +113,7 @@ const STATES: [State; 4] = [
         keywords: &[msg!("color"), msg!("inactive"), msg!("theme")],
         keys: [
             "windows.unfocused.border",
-            "windows.unfocused.background",
+            UNFOCUSED_BACKGROUND,
             "windows.unfocused.text",
             "windows.unfocused.indicator",
             "windows.unfocused.child_border",
@@ -133,7 +139,7 @@ const STATES: [State; 4] = [
         ],
         keys: [
             "windows.urgent.border",
-            "windows.urgent.background",
+            URGENT_BACKGROUND,
             "windows.urgent.text",
             "windows.urgent.indicator",
             "windows.urgent.child_border",

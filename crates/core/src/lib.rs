@@ -11,6 +11,7 @@
 pub mod apply;
 pub mod apps;
 mod atomic;
+pub mod bar;
 pub mod bindings;
 pub mod bluetooth;
 pub mod brightness;

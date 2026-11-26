@@ -343,18 +343,19 @@ impl Model {
         ));
     }
 
+    /// Takes the applier out of the core for one operation, with the include status it works with.
+    fn take_applier(&self) -> Option<(Applier, IncludeStatus)> {
+        let mut core = self.imp().core.borrow_mut();
+        let core = core.as_mut()?;
+        let applier = core.applier.take()?;
+        Some((applier, core.status.clone()))
+    }
+
     pub(super) async fn run(&self, op: Op) {
-        let (applier, status) = {
-            let mut core = self.imp().core.borrow_mut();
-            let Some(core) = core.as_mut() else { return };
-            let Some(applier) = core.applier.take() else {
-                return;
-            };
-            (applier, core.status.clone())
+        let Some((mut applier, status)) = self.take_applier() else {
+            return;
         };
-        let mut applier = applier;
-        // A change of the bindings is worked out against the user's config as last read.
-        applier.set_user_config(&status);
+        give_user_config(&mut applier, &status);
         self.follow_displays(&mut applier, matches!(op, Op::Persist));
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
@@ -441,10 +442,28 @@ impl Model {
                 self.fix_placement_now(&mut applier, &workspace, &display, access)
                     .await;
             }
+            (op @ (Op::BarModules(_) | Op::ReloadBar), access) => {
+                self.bar_now(&mut applier, op, access).await;
+            }
             // Nothing can be saved or loaded without the include line; it is shown elsewhere.
             (Op::Persist | Op::Reload, Err(_)) => {}
         }
         self.give_back(applier, was_pending);
+    }
+
+    /// The bar's operations: storing the module definitions, and reloading waybar.
+    async fn bar_now(&self, applier: &mut Applier, op: Op, access: Result<WriteAccess, ReadOnly>) {
+        match (op, access) {
+            (Op::BarModules(modules), Ok(access)) => {
+                if let Err(error) = applier.set_bar_modules(&modules, &access).await {
+                    self.emit_problem(&error.text().translated());
+                }
+            }
+            (Op::BarModules(_), Err(read_only)) => self.emit_problem(&explained(&read_only)),
+            _ => {
+                applier.reload_bar().await;
+            }
+        }
     }
 
     /// Saves and writes the files, replacing the generated files `overwrite` changed outside.
@@ -511,6 +530,9 @@ impl Model {
         if let Some(problem) = applier.take_daemon_problem() {
             self.emit_problem(&problem.translated());
         }
+        if let Some(problem) = applier.take_bar_problem() {
+            self.emit_problem(&problem.translated());
+        }
         let pending = applier.pending().cloned();
         if let Some(countdown) = pending.as_ref().map(Pending::countdown) {
             if was_pending != Some(countdown) {
@@ -528,4 +550,11 @@ impl Model {
         }
         self.emit_by_name::<()>("changed", &[]);
     }
+}
+
+/// Hands `applier` the user's config as last read: a change of the bindings is worked out
+/// against it, and the bar's style can follow its colors, which also says what starts waybar.
+fn give_user_config(applier: &mut Applier, status: &IncludeStatus) {
+    applier.set_user_config(status);
+    applier.set_sway_config(status.config().clone());
 }

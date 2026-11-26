@@ -227,6 +227,52 @@ fn every_live_setting_renders_for_ipc() {
     }
 }
 
+/// SwayFX 0.6 crashes (scenefx 0.5, `wlr_scene_blur_set_transparency_mask_source` with no
+/// source) at the next frame after a mapped layer surface loses `blur_ignore_transparent`, sent
+/// over IPC or read from the config when sway reloads. That took down a whole session when the
+/// Bar page's presets switched blur off.
+#[test]
+fn nothing_takes_blur_ignore_transparent_away() {
+    for (setting, _) in sway_settings() {
+        let mut targets = vec![Target::Config];
+        if setting.apply().is_live() {
+            targets.push(Target::Ipc);
+        }
+        for target in targets {
+            for sample in samples(setting) {
+                for line in lines(setting, &sample, target) {
+                    let words: Vec<&str> = line.split_whitespace().collect();
+                    assert!(
+                        !(words.first() == Some(&"layer_effects")
+                            && words.contains(&"blur_ignore_transparent")
+                            && words.last() != Some(&"enable")),
+                        "{} = {sample:?} for {target:?}: {line}",
+                        setting.key()
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn blur_behind_the_bar_is_only_switched_off() {
+    let blur = setting("bar.blur");
+    for target in [Target::Config, Target::Ipc] {
+        assert_eq!(
+            lines(blur, &Value::Bool(true), target),
+            [
+                "layer_effects waybar blur enable",
+                "layer_effects waybar blur_ignore_transparent enable"
+            ]
+        );
+        assert_eq!(
+            lines(blur, &Value::Bool(false), target),
+            ["layer_effects waybar blur disable"]
+        );
+    }
+}
+
 #[test]
 fn config_only_commands_force_a_reload() {
     let mut found = false;
@@ -461,6 +507,9 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
         // Region & Time: the hook of the automatic time zone and, for the language and formats,
         // our environment.d file.
         let is_region = setting.page() == Page::RegionTime;
+        // The bar's settings go to waybar's files or to swaybar's lines; only the blur behind
+        // waybar is a sway directive.
+        let is_bar = setting.page() == Page::Bar && setting.key() != "bar.blur";
         assert_eq!(
             setting.sway().is_none(),
             is_app
@@ -473,7 +522,8 @@ fn app_preferences_and_collections_have_no_sway_mapping() {
                 || is_daemon
                 || is_night_light
                 || is_environment
-                || is_region,
+                || is_region
+                || is_bar,
             "{}",
             setting.key()
         );

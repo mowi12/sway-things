@@ -94,6 +94,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | core | `bluetooth`, `network`, `sound`, `printers`, `scanners`, `region`, `notifications`, `gsettings`, `delegate`, `dbus` | the services and tools besides sway (the notification daemons: [Notifications](Backends.md#notifications); `bluetooth::battery`: whether Bluetooth devices charge, from UPower or the kernel), `scanners`: SANE's scanimage, what is missing for scanners, and a PDF writer; `region`: systemd-timedated, the time zones from tzdata, geoclue, the installed locales and systemd-localed; and the D-Bus helpers BlueZ, NetworkManager and the printers share ([Backends](Backends.md)) |
 | core | `environment` | Sway Things' environment.d file, collected from the settings that declare variables, and whether the session read it; `syntax` reads and expands environment.d's syntax, `files` every environment.d file in systemd's order ([Environment](Backends.md#environment)); `portals` checks the XDG desktop portals and makes Sway Things' portal configuration ([XDG desktop portals](Backends.md#xdg-desktop-portals)) |
 | core | `apps` | desktop entries, the installed apps, the terminal and launcher, the default apps, the autostart entries and their runners, and the files of other programs they need ([Apps and autostart](Backends.md#apps-and-autostart)) |
+| core | `bar` | the bar: waybar's files, what starts and runs it, the import of the user's config, swaybar's lines ([Bar](Backends.md#bar)) |
 | core | `doctor`, `system` | the checkup and the system details ([Doctor](Command-Line.md#doctor)) |
 | core | `i18n`, `theme` | translations, colors and contrast ([Internationalization](UI-Architecture.md#internationalization)) |
 | cli | `lib`, `main`, `change`, `hook`, `capture`, `notify`, `light`, `displays`, `doctor`, `output`, `prompt`, `spinner` | the arguments and `run`; get, set, reset and show-generated; the hooks; screenshot, record and clipboard; `notifications` and the hooks of the notification daemon; `brightness`, `night-light` and its hook; the displays a command names; the doctor's report, `get`'s output, the safety-net prompt, the spinner ([Command Line](Command-Line.md)) |
@@ -114,7 +115,7 @@ top-level module fails the test until it has a layer there and here.
 | 1 sway | `command`, `sway_config`, `ipc` |
 | 2 registry | `registry` |
 | 3 state | `state`, `include`, `ui_state` |
-| 4 features | `apps`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
+| 4 features | `apps`, `bar`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
 | 5 assembly | `generate`, `view` |
 | 6 use cases | `apply`, `doctor` |
 
@@ -291,9 +292,10 @@ of the registry module that defines the setting (`registry::app::SAFETY_NET_TIME
 `registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …), never a string literal; the architecture
 test checks it (R4).
 
-Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas and the pages of the live services
-(Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, and the key buttons and notes
-of Screenshots & Clipboard; the bar layout editor is planned. They still read and write settings through the registry.
+Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the pages of the live services
+(Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, the key buttons and notes of
+Screenshots & Clipboard, and the bar layout editor (the module chips of the Bar page). They still read and write
+settings through the registry.
 
 ## State
 
@@ -436,6 +438,7 @@ $XDG_CONFIG_HOME/sway/sway-things/
 ├── 50-bindings.conf       # the bindings of Keyboard Shortcuts
 ├── 60-idle.conf           # planned: swayidle exec line, if the user handed idle over
 ├── 70-autostart.conf      # the autostart entries and the runner of the XDG autostart entries
+├── 75-bar.conf            # swaybar's `bar sway-things …` lines, or the hook that starts waybar
 ├── 80-hooks.conf          # hook gsettings, clipboard, night-light, timezone; later: bindswitch lid → hook lid …
 └── 90-effects.conf        # SwayFX only; comments instead of directives on vanilla sway
 ```
@@ -450,10 +453,10 @@ input "1267:12377:ELAN1300:00_04F3:3059_Touchpad" tap disabled
 
 `crates/core/src/generate/` makes these files. So far there are `10-input.conf`, `20-output.conf`, `30-appearance.conf`,
 `40-behavior.conf`, `50-bindings.conf` (see [Key bindings](Reading-Sway.md#key-bindings)), `70-autostart.conf` (see
-[Apps and autostart](Backends.md#apps-and-autostart)), `80-hooks.conf` and `90-effects.conf`. `seat` options
-(`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that run hooks of the command line (also
-the one that starts the notification daemon chosen on the Notifications page, and the one that starts the night light)
-(`20-output.conf` ends with the one that keeps a display on), see
+[Apps and autostart](Backends.md#apps-and-autostart)), `75-bar.conf` (see [Bar](Backends.md#bar)), `80-hooks.conf` and
+`90-effects.conf`. `seat` options (`seat * xcursor_theme`) go to `10-input.conf`; `80-hooks.conf` holds the lines that
+run hooks of the command line (also the one that starts the notification daemon chosen on the Notifications page, and
+the one that starts the night light) (`20-output.conf` ends with the one that keeps a display on), see
 [No daemon](Command-Line.md#no-daemon-the-cli-as-a-hook).
 
 - **Content:** `generate` turns the stored settings into file contents without writing anything, which is also what
@@ -500,14 +503,15 @@ The app never adds this line itself. It shows the line with a copy button and de
 
 ### Other tools
 
-kanshi ([Outputs](Outputs.md)), mako and swaync ([Notifications](Backends.md#notifications)), wlsunset and gammastep
-([Brightness and night light](Backends.md#brightness-and-night-light)) and the environment.d file
-([Environment](Backends.md#environment)) are built; the other rows are the plan for the pages still to come.
+kanshi ([Outputs](Outputs.md)), mako and swaync ([Notifications](Backends.md#notifications)), waybar
+([Bar](Backends.md#bar)), wlsunset and gammastep ([Brightness and night light](Backends.md#brightness-and-night-light))
+and the environment.d file ([Environment](Backends.md#environment)) are built; the other rows are the plan for the pages
+still to come.
 
 | Tool | Include support | Strategy |
 | --- | --- | --- |
 | kanshi | yes (`include`, wordexp) | Our file `~/.config/kanshi/sway-things.conf`; the user adds `include` to their kanshi config. With no kanshi config at all, we create `~/.config/kanshi/config` ourselves |
-| waybar | `include` exists, but **the first definition wins**, so included files can only add, never override | **Handover:** our complete config + CSS in `~/.config/sway-things/waybar/`; the user starts waybar with `-c`/`-s` (instructions), or we create `~/.config/waybar/config.jsonc` if none exists. "Import as starting point" reads their file into our state |
+| waybar | `include` exists, but **the first definition wins**, so included files can only add, never override | **Handover:** our complete config + CSS in `~/.config/sway-things/waybar/`; the user's `exec waybar` line gets `-c`/`-s` (a line to copy), a `bar { swaybar_command waybar }` block goes (sway can't give that command options), a systemd unit gets a drop-in, and without either our `75-bar.conf` starts it. "Import as starting point" reads their file into our state. See [Bar](Backends.md#bar) |
 | swaylock | no | Our config `~/.config/sway-things/swaylock/config`; our generated swayidle line calls `swaylock -C <path>` |
 | swayidle | n/a (started via `exec`) | Our generated `60-idle.conf` holds the `exec swayidle …` line. If the user's config already starts swayidle, the page shows "managed externally" plus a handover explanation |
 | mako | yes (`include=`, absolute or `~/` path, only among the global options; later definitions win) | Our file `~/.config/mako/sway-things`; the user adds `include=` after their own global options and before their first `[section]`. With no mako config at all, we create one that only includes ours. See [Notifications](Backends.md#notifications) |

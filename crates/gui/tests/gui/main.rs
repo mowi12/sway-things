@@ -14,9 +14,9 @@
 //!   from the registry and what they do.
 //! - `generated`, `about`, `welcome`: the Generated config window, About & Maintenance, the welcome
 //!   screen and the read-only banner.
-//! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bluetooth`, `sound`,
-//!   `network`, `printers`, `region`, `environment`: the pages with parts of their own, the live
-//!   ones against their stand-ins.
+//! - `keyboard`, `shortcuts`, `displays` (with the Workspaces map), `look`, `bar`, `bluetooth`,
+//!   `sound`, `network`, `printers`, `region`, `environment`: the pages with parts of their own,
+//!   the live ones against their stand-ins.
 //! - `common`: the fixtures and helpers they share.
 //!
 //! The window works on settings files in a temporary directory and a sway config in memory,
@@ -33,6 +33,7 @@
 
 mod about;
 mod apps_autostart;
+mod bar;
 mod bluetooth;
 mod common;
 mod contrast_check;
@@ -103,6 +104,7 @@ use sway_things_gui::window::{NARROW_WIDTH, Window};
 
 use self::about::*;
 use self::apps_autostart::*;
+use self::bar::*;
 use self::bluetooth::*;
 use self::common::*;
 use self::contrast_check::*;
@@ -230,11 +232,11 @@ fn main() -> ExitCode {
     results.extend(check_indicators());
     results.extend(check_look());
     results.extend(check_shortcuts());
-    results.extend(check_places());
-    results.extend(check_swayosd());
+    results.extend(check_places().into_iter().chain(check_swayosd()));
     results.extend(check_apps());
     results.extend(check_environment());
     results.extend(check_notifications());
+    results.extend(check_bar_pages());
     results.extend(check_welcomes(&settings));
     report(&results)
 }

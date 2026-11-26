@@ -343,10 +343,18 @@ pub enum ValueError {
     NotAnOutputName,
     /// The text isn't the name of a UTF-8 locale like `de_DE.UTF-8`.
     NotALocale,
+    /// The text isn't the name of a waybar module like `clock`, `custom/media` or `battery#bat2`.
+    NotAModule,
+    /// The text isn't an absolute path without control characters.
+    NotAPath,
 }
 
 impl ValueError {
     /// What is wrong with the value, to show.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one arm per error, read best as a list"
+    )]
     pub fn text(&self) -> Text {
         match self {
             Self::WrongType { expected, found } => {
@@ -443,6 +451,13 @@ impl ValueError {
             Self::NotALocale => {
                 msg!("must be a UTF-8 locale like de_DE.UTF-8 or sr_RS.UTF-8@latin, or empty")
                     .into()
+            }
+            Self::NotAModule => msg!(
+                "must be a module name like clock, custom/media or battery#bat2, without spaces"
+            )
+            .into(),
+            Self::NotAPath => {
+                msg!("must be a full path starting with /, without line breaks").into()
             }
         }
     }

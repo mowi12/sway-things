@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The hooks generated config runs: `gsettings` and `wallpaper` in the session, `displays`,
-//! `workspaces`, `mirror` and `new-display` through [`sway_things_core::outputs::hooks`],
-//! `clipboard` through
+//! The hooks generated config runs: `gsettings`, `wallpaper` and `waybar` in the session,
+//! `displays`, `workspaces`, `mirror` and `new-display` through
+//! [`sway_things_core::outputs::hooks`], `clipboard` through
 //! [`sway_things_core::capture::clipboard`], `launch` and `autostart` through
 //! [`sway_things_core::apps`], which need neither the settings nor sway, `timezone` through
 //! [`sway_things_core::region::geo`], and the hooks of the notification daemon through
@@ -12,6 +12,7 @@
 use std::io::Write;
 
 use sway_things_core::apps;
+use sway_things_core::bar::{self, process};
 use sway_things_core::capture::clipboard::{self, Synced};
 use sway_things_core::capture::{self as capture, HISTORY, Settings};
 use sway_things_core::generate::Validate;
@@ -105,7 +106,8 @@ async fn run_app_hook(hook: &Hook, err: &mut dyn Write) -> Option<Exit> {
         | Hook::Wallpaper
         | Hook::NotificationClick { .. }
         | Hook::NotificationDaemon
-        | Hook::Quick { .. } => None,
+        | Hook::Quick { .. }
+        | Hook::Waybar => None,
     }
 }
 
@@ -150,7 +152,8 @@ pub(super) async fn run_display_hook(
         | Hook::Autostart
         | Hook::NotificationClick { .. }
         | Hook::NotificationDaemon
-        | Hook::Quick { .. } => {
+        | Hook::Quick { .. }
+        | Hook::Waybar => {
             return Exit::Ok;
         }
     };
@@ -178,6 +181,7 @@ pub(super) async fn run_hook<V: Validate>(
             return notify::run_notification_hook(hook, client, io.out, io.err).await;
         }
         Hook::NightLight => return super::light::hook_night_light(session, io),
+        Hook::Waybar => return hook_waybar(session, io).await,
         Hook::Clipboard => {
             let state = session.applier.state();
             let history = (
@@ -291,5 +295,93 @@ pub(super) fn hook_clipboard(history: impl FnOnce() -> (bool, u32), err: &mut dy
         }
         Ok(_) => Exit::Ok,
         Err(error) => fail_with(err, &error.text()),
+    }
+}
+
+/// `hook waybar`: writes waybar's files of Sway Things (they may have come with the dotfiles
+/// from another machine) and starts waybar with them, unless one runs with them already or the
+/// user's sway config or a systemd unit starts waybar. A waybar it started goes when the user's
+/// own waybar is back (their `bar` block, say) or the backend is no longer waybar, so two bars
+/// never show. Quiet when there is nothing to do.
+pub(super) async fn hook_waybar<V: Validate>(session: &mut Session<V>, io: &mut Io<'_>) -> Exit {
+    let state = session.applier.state();
+    let Some(files) = bar::WaybarFiles::of(state) else {
+        return Exit::Ok;
+    };
+    if bar::Backend::of(state) != bar::Backend::Waybar {
+        // A waybar Sway Things started stays no longer than its backend.
+        if let Err(error) = process::stop_started(&files) {
+            io.error(error.text().translated());
+        }
+        return Exit::Ok;
+    }
+    if let Ok(access) = session.status.write_access() {
+        let modules = match session.applier.bar_modules() {
+            Ok(modules) => modules,
+            Err(error) => {
+                io.error(error.text().translated());
+                return Exit::Failure;
+            }
+        };
+        if let Err(error) = bar::waybar::write(
+            &files,
+            state,
+            &modules,
+            Some(session.status.config()),
+            &access,
+        ) {
+            io.error(error.text().translated());
+        }
+    }
+    let starter = process::Starter::detect(
+        session.status.config(),
+        session.applier.locations().directory(),
+        &process::running(),
+        &files,
+    );
+    let handover = process::handover(&starter, &files).unwrap_or_default();
+    match process::ensure(&files, &starter).await {
+        Ok(process::Ensured::Other(pid)) => {
+            // To sway's log: two bars would show.
+            io.warn(trf(
+                msg!(
+                    "A waybar with another config runs (process {pid}), so Sway Things doesn't \
+                     start a second one. To use the bar of the Bar page, start it with: {line}"
+                ),
+                &[
+                    ("pid", &pid),
+                    ("line", &format!("waybar {}", process::arguments(&files))),
+                ],
+            ));
+            Exit::Ok
+        }
+        Ok(process::Ensured::Elsewhere) => {
+            if let process::Starter::Maybe(line) = &starter {
+                io.warn(trf(
+                    msg!(
+                        "{place} may start waybar, so Sway Things doesn't start a second one. To \
+                         use the bar of the Bar page there, the line is: {line}"
+                    ),
+                    &[
+                        ("place", &format!("{}:{}", line.file.display(), line.line)),
+                        ("line", &handover),
+                    ],
+                ));
+            }
+            Exit::Ok
+        }
+        Ok(process::Ensured::Runs) if bar::hold_key(state).is_some() => {
+            // After a reload of sway, the bar config waybar follows while a key is held may be
+            // new: waybar only asks for it when it reads its files.
+            if let Err(error) = process::reload(&files).await {
+                io.error(error.text().translated());
+            }
+            Exit::Ok
+        }
+        Ok(_) => Exit::Ok,
+        Err(error) => {
+            io.error(error.text().translated());
+            Exit::Failure
+        }
     }
 }

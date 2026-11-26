@@ -58,6 +58,11 @@ size = 32
 [effects]
 corner_radius = 8
 
+[bar]
+backend = "waybar"
+visibility = "hold"
+modifier = "Mod1"
+
 [windows]
 font = "Inter \"Display\" $11"
 
@@ -194,6 +199,16 @@ exec \"sway-things hook launch org.example.App.desktop\"
         )
     );
     assert_eq!(
+        text(&files, ConfigFile::Bar),
+        format!(
+            "{HEADER}exec_always sway-things hook waybar
+bar sway-things-waybar swaybar_command true
+bar sway-things-waybar mode hide
+bar sway-things-waybar modifier Mod1
+"
+        )
+    );
+    assert_eq!(
         text(&files, ConfigFile::Hooks),
         format!("{HEADER}exec_always sway-things hook gsettings\n")
     );
@@ -229,6 +244,31 @@ fn the_workspaces_hook_runs_while_a_rule_places_them() {
 }
 
 #[test]
+fn the_user_s_bars_are_taken_over_by_their_ids() {
+    let (_dir, taking) = state(
+        "version = 1\n\n[bar]\nbackend = \"waybar\"\ntake_over = [\"bar-0\", \"my bar\"]\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &taking, SWAY_1_10);
+    assert_eq!(
+        text(&files, ConfigFile::Bar),
+        format!(
+            "{HEADER}exec_always sway-things hook waybar
+bar \"bar-0\" swaybar_command sway-things
+bar \"my bar\" swaybar_command true
+"
+        )
+    );
+    // Without waybar, their bars are theirs again.
+    let (_other, back) = state(
+        "version = 1\n\n[bar]\nbackend = \"none\"\ntake_over = [\"bar-0\"]\n",
+        "",
+    );
+    let files = generate(Registry::builtin(), &back, SWAY_1_10);
+    assert!(!text(&files, ConfigFile::Bar).contains("swaybar_command"));
+}
+
+#[test]
 fn the_same_state_generates_the_same_bytes() {
     let (_dir, first) = sample();
     let (_dir, second) = sample();
@@ -247,7 +287,7 @@ fn what_the_compositor_does_not_support_becomes_a_comment() {
         text(&files, ConfigFile::Effects),
         format!("{HEADER}# effects.corner_radius: requires SwayFX 0.5 or newer\n")
     );
-    let effects = &files[7];
+    let effects = &files[8];
     assert!(!effects.is_empty());
     assert_eq!(
         effects.lines()[0].skipped.as_deref(),
@@ -405,13 +445,14 @@ impl Written {
     }
 }
 
-const ALL_FILES: [&str; 8] = [
+const ALL_FILES: [&str; 9] = [
     "10-input.conf",
     "20-output.conf",
     "30-appearance.conf",
     "40-behavior.conf",
     "50-bindings.conf",
     "70-autostart.conf",
+    "75-bar.conf",
     "80-hooks.conf",
     "90-effects.conf",
 ];
@@ -422,7 +463,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Written }; 8]
+        [const { Outcome::Written }; 9]
     );
     assert_eq!(written.names(), ALL_FILES);
     for file in &written.files {
@@ -432,7 +473,7 @@ fn files_are_validated_then_written_and_recorded() {
     }
     // Each file was staged under a name the include `*.conf` doesn't match, with its content.
     let staged = validator.staged.borrow();
-    assert_eq!(staged.len(), 8);
+    assert_eq!(staged.len(), 9);
     for ((name, content), file) in staged.iter().zip(&written.files) {
         assert!(name.starts_with(&format!(".{}.", file.file().file_name())));
         assert!(name.ends_with(".staged"), "{name}");
@@ -444,7 +485,7 @@ fn files_are_validated_then_written_and_recorded() {
     let validator = FakeValidator::default();
     assert_eq!(
         written.write(&validator, &[]),
-        [const { Outcome::Unchanged }; 8]
+        [const { Outcome::Unchanged }; 9]
     );
     assert!(validator.staged.borrow().is_empty());
 }
@@ -520,7 +561,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
 
     let outcomes = written.write(&FakeValidator::default(), &[]);
     assert_eq!(outcomes[0], Outcome::EditedOutside);
-    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 7]);
+    assert_eq!(outcomes[1..], [const { Outcome::Unchanged }; 8]);
     assert!(
         fs::read_to_string(&input)
             .unwrap()
@@ -535,7 +576,7 @@ fn a_file_changed_outside_is_only_replaced_when_asked_to() {
     assert_eq!(fs::read_to_string(&input).unwrap(), written.files[0].text());
     assert_eq!(
         written.write(&FakeValidator::default(), &[]),
-        [const { Outcome::Unchanged }; 8]
+        [const { Outcome::Unchanged }; 9]
     );
 }
 
@@ -562,6 +603,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Written,
             Outcome::Written,
             Outcome::Written,
+            Outcome::Written,
             Outcome::Written
         ]
     );
@@ -578,6 +620,7 @@ fn files_from_another_machine_are_adopted_and_foreign_files_are_never_written() 
             Outcome::Unchanged,
             Outcome::Written,
             Outcome::Foreign,
+            Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Unchanged,
             Outcome::Unchanged,
@@ -602,6 +645,7 @@ fn empty_files_are_not_created_but_existing_ones_are_emptied() {
             not_created.clone(),
             not_created.clone(),
             Outcome::Written,
+            not_created.clone(),
             not_created.clone(),
             not_created.clone(),
             not_created.clone(),
@@ -724,14 +768,14 @@ fn files_on_disk_are_read_without_writing_anything() {
     assert!(before.iter().all(|file| file.content.is_none()));
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 8]
+        [const { Ok(super::Ownership::Absent) }; 9]
     );
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
     assert_eq!(
         ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 8]
+        [const { Ok(super::Ownership::Current) }; 9]
     );
 
     let input = written.path(ConfigFile::Input);

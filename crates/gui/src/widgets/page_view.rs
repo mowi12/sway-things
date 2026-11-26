@@ -86,6 +86,9 @@ mod imp {
         pub(super) sections: RefCell<Vec<super::Section>>,
         /// On the Displays page, the arrangement and the picker of the output.
         pub(super) displays: RefCell<Option<(super::OutputPicker, super::Arrangement)>>,
+        /// The widgets that stand for the rows a page doesn't show, by key: where a deep link
+        /// to one of them points.
+        pub(super) anchors: RefCell<Vec<(&'static str, gtk::Widget)>>,
     }
 
     #[glib::object_subclass]
@@ -256,8 +259,15 @@ impl PageView {
             {
                 group.rows.push(row.clone());
             }
-            grouping.add(model, setting, &row, &list, &mut groups);
-            for widget in parts::below(model, &row) {
+            for widget in parts::above(model, page, &row) {
+                list.append(&list_row(&widget));
+            }
+            // A row a page shows in its own way (the Bar page's program and item lists) is
+            // built, for search and the widgets that change its setting, but not shown.
+            if !parts::is_hidden(page, setting) {
+                grouping.add(model, setting, &row, &list, &mut groups);
+            }
+            for widget in parts::below(model, page, &row) {
                 list.append(&list_row(&widget));
             }
             rows.push(row);
@@ -283,6 +293,7 @@ impl PageView {
         view.imp().groups.replace(grouping.rows);
         view.imp().sections.replace(sections);
         view.imp().displays.replace(displays);
+        view.imp().anchors.replace(parts::anchors(page));
         view.add_page_reset(model, page);
         Some(view)
     }
@@ -426,6 +437,19 @@ impl PageView {
     /// keyboard focus. The tint fades after a moment, or goes at once without animations.
     pub fn point_to(&self, row: &SettingRow) {
         let imp = self.imp();
+        if row.parent().is_none() {
+            let key = row.setting().map(Setting::key);
+            let anchor = imp
+                .anchors
+                .borrow()
+                .iter()
+                .find(|(anchor, _)| Some(*anchor) == key)
+                .map(|(_, widget)| widget.clone());
+            if let Some(anchor) = anchor {
+                self.point_to_widget(&anchor);
+            }
+            return;
+        }
         // A collapsed section opens for the moment, which isn't stored as the user's choice.
         if let Some(section) = imp
             .sections
@@ -481,6 +505,46 @@ impl PageView {
                     if !control.grab_focus() {
                         control.child_focus(gtk::DirectionType::TabForward);
                     }
+                }
+                glib::ControlFlow::Break
+            }
+        ));
+        imp.pointing.replace(Some(tick));
+    }
+}
+
+impl PageView {
+    /// Points to `widget`, which stands for a row the page doesn't show: opens its section,
+    /// scrolls it into view once it is laid out and gives it the keyboard focus.
+    fn point_to_widget(&self, widget: &gtk::Widget) {
+        let imp = self.imp();
+        if let Some(section) = imp
+            .sections
+            .borrow()
+            .iter()
+            .find(|section| widget.is_ancestor(&section.body))
+        {
+            section.show(true);
+        }
+        if let Some(old) = imp.pointing.take() {
+            old.remove();
+        }
+        let tick = widget.add_tick_callback(glib::clone!(
+            #[weak(rename_to = view)]
+            self,
+            #[upgrade_or]
+            glib::ControlFlow::Break,
+            move |widget, _| {
+                if !widget.is_mapped() || widget.height() == 0 {
+                    return glib::ControlFlow::Continue;
+                }
+                view.imp().pointing.take();
+                if let Some(viewport) = view.imp().scroller.child().and_downcast::<gtk::Viewport>()
+                {
+                    viewport.scroll_to(widget, None);
+                }
+                if !widget.grab_focus() {
+                    widget.child_focus(gtk::DirectionType::TabForward);
                 }
                 glib::ControlFlow::Break
             }

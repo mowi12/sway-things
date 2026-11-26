@@ -138,6 +138,7 @@ fn a_change_is_sent_stored_saved_and_generated() {
             (ConfigFile::Behavior, Outcome::NotCreated),
             (ConfigFile::Bindings, Outcome::NotCreated),
             (ConfigFile::Autostart, Outcome::NotCreated),
+            (ConfigFile::Bar, Outcome::NotCreated),
             (ConfigFile::Hooks, Outcome::NotCreated),
             (ConfigFile::Effects, Outcome::NotCreated),
         ]
@@ -2609,4 +2610,33 @@ fn the_daemon_files_are_left_alone_until_the_page_asks_for_them() {
         config.ends_with("include=~/.config/mako/sway-things\n"),
         "{config}"
     );
+}
+
+#[test]
+fn swaybar_follows_its_settings_live_and_a_font_taken_away_waits_for_a_reload() {
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n\n[bar]\nbackend = \"swaybar\"\n");
+    let result = setup
+        .set("bar.style.font", Value::Text("Noto Sans 11".to_owned()))
+        .unwrap();
+    assert_eq!(result.effect, Effect::AfterToolReload);
+    setup.persist(&[]);
+    let sent = sway.commands();
+    assert!(
+        sent.iter()
+            .any(|command| command == "bar sway-things mode dock"),
+        "{sent:?}"
+    );
+    // The displays start from every display, so one taken out leaves the running bar too.
+    let all = sent
+        .iter()
+        .position(|command| command == "bar sway-things output *");
+    assert!(all.is_some(), "{sent:?}");
+    assert!(
+        sent.iter()
+            .any(|command| command == "bar sway-things font \"pango:Noto Sans 11\"")
+    );
+    let result = setup.reset("bar.style.font").unwrap();
+    assert_eq!(result.effect, Effect::AfterReload);
+    assert!(setup.applier.waiting().any(super::Until::Reload));
 }

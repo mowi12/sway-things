@@ -13,7 +13,9 @@
     "website/dist",
     "**/node_modules",
     "**/package-lock.json",
-    "**/*.svg"
+    "**/*.svg",
+    "crates/core/src/bar/waybar-default",
+    "crates/core/src/bar/fixtures"
   ],
   "plugins": [
     "https://plugins.dprint.dev/markdown-0.28.2.wasm@77d0095123be1df7c802ef1b8875433c757f79238c26a58d1c49b8cafca44e2c",

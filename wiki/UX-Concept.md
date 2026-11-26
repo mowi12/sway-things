@@ -438,6 +438,163 @@ a line per item. What is rare or technical is in a dialog or a tooltip, not on e
   does nothing but say so.
 - **Missing programs:** below each switch, which programs aren't installed and the packages that have them.
 
+### Bar
+
+Waybar, the bar most sway users run, set up without editing JSON and CSS by hand; swaybar as the alternative. A beginner
+can go from the top to the looks and meet no technical word; JSON, CSS and the real option names come only under
+_Advanced_ and in an item's _Advanced_ expander.
+
+```text
+┌ preview ───────────────────────────────────────────────────────────────┐
+│ [1 2 3] resize          Sway Things             64% · Home · 76% · 14:32 ● ● ● │
+└────────────────────────────────────────────────────────────────────────┘
+Preview, close to the real bar: same colors, sizes and fonts, sample values. Select an item to change it.
+Left: Workspaces, Binding mode. Center: Window title (Sway Things). Right: …, Clock (14:32), Tray.
+
+┌ ▣ Bar program: Waybar                                        [Change…] ┐
+│   Sway Things writes Waybar's config and starts it; yours stays as it is.│
+│   (how the bar runs: what starts it, whether ours runs, the import)      │
+└──────────────────────────────────────────────────────────────────────────┘
+BAR      Position · Show the bar (Always / While a key is held) · Key · Size [S|M|L|Huge] · Height · Layer
+ITEMS    ┌ Left ─────────┐ ┌ Center ───────┐ ┌ Right ────────┐
+         │ ▦ Workspaces  ⋯ │ │ ▢ Window…    ⋯ │ │ ◷ Clock      ⋯ │
+         │ + Add Item…   │ │ + Add Item…   │ │ + Add Item…   │
+LOOK     cards: Simple · GNOME-like · Floating islands · Minimal · Large & high contrast · Like your windows ·
+         Classic Waybar · Glass (SwayFX); Colors · Style · Opacity · Rounded corners · Room · Font · Blur
+COLORS   seven colors, with the contrast of the text on the background
+PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own stylesheet, swaybar's status command,
+                      the files Sway Things writes
+```
+
+- **Preview** at the top: the bar as Waybar draws it, at its real size, with sample values (the clock shows the time
+  now, the battery 76 %), over a slice of the top (or bottom) of the wallpaper the Wallpaper page sets (a dark stand-in
+  where none is known; never a screenshot); a vertical bar for left and right. It is drawn with the same stylesheet
+  Waybar gets: the look's rules and the user's own stylesheet, on widgets with Waybar's names and classes
+  (`window#waybar`, `.modules-left`, `#workspaces button.focused`, `#clock.date`, `#custom-media`, a group as `#net`),
+  so the user's pills, colors and fonts show as on the screen. The user's stylesheet only ever reaches the preview:
+  `@import`, animations and remote pictures are left out, and what GTK 4 can't read is skipped. A group shows its
+  members, a drawer only its first one, as Waybar shows it closed. A script of the user's never runs here: its item
+  shows its format with its name for the output (`♪ media`), or its name. Items that only show while something happens
+  (the binding mode, the privacy dots) aren't drawn, nor is an item that can't work here (no battery; its lane row says
+  why). Where an icon font's glyph has no installed font, the caption says the icons need Font Awesome or a Nerd Font. A
+  click on an item, or Enter on it, opens its settings. One caption below: _Sample values; select an item to change it.
+  Your scripts don't run here: their items show a sample or their name. 8 items: 2 left, 1 center, 5 right._, _Your
+  stylesheet … can't be read, so the preview leaves it out._ when it can't, and _Scroll sideways to see all of it._ when
+  the bar is wider than the preview. A wide bar pans sideways with a drag (mouse or touch; a press that moves less than
+  a few pixels stays a click on the item), with the mouse wheel (up and down move it across) and the touchpad, and the
+  item that gets the keyboard focus with Tab scrolls into view; a thin scrollbar of its own sits at the bottom edge of
+  the preview, below the bar, never over the items. The bar in words (_Left: Workspaces, Binding mode (resize). Center:
+  …_) is the preview's accessible description, not shown. With swaybar it shows what swaybar shows: the workspaces and
+  the status command's text, in its look's colors.
+- **Bar program:** one card: _Bar program: Waybar_ (or swaybar, or _No bar is set up here_), its state in one line
+  (_Runs with these settings._, _Not running; it starts with sway._, _Not installed: install the waybar package._, in
+  bold when it needs the user), _Change…_ (_Set Up a Bar…_ while none is), and _Details_ with how the bar runs, which
+  open by themselves once when a line of the user's needs a change. The dialog offers _Waybar_ (with _Installed: Waybar
+  0.16.0_ or _Not installed_), _swaybar_ and _None: keep your own bar_, each with what it can do, and before a switch
+  says what stays and what the other program can't show (_Not shown by swaybar: Network, Volume and 12 more items,
+  islands, …_). Nothing is dropped: every setting stays saved, and switching back brings it all back. The default stays
+  _None_, so the user's own bar is never replaced unasked. The details say how the bar runs, in plain sentences: who
+  starts Waybar. Without a line of the user's, Sway Things starts it with its own files when sway starts, and right away
+  the first time. If the user's sway config starts Waybar (an `exec` line, or `swaybar_command waybar` in a `bar` block
+  that can't be taken over), the card says the user makes the change themselves, in numbered steps: a command for a
+  terminal, with _Copy_ and one sentence on what it does, that keeps a copy of the file (`.bak-sway-things`) and puts
+  `#` in front of that line or of the whole `bar { … }` block
+  (`cp FILE FILE.bak-sway-things && sed -i '12s/^/# /' FILE`, with the file's real path, links such as `~/.config/sway`
+  → `~/dotfiles/…` resolved), the command that takes it back (`sed -i '12s/^# //' FILE`), or the file opened at the line
+  (_Open in Editor_); then reload sway (_Reload Sway_, over IPC, or log in again for an `exec` line). Sway Things never
+  runs these commands. Once the change is read, the steps give way to what starts Waybar now and, until ours runs,
+  _Reload Sway_. For a Waybar that runs as a systemd service (or that a line starts with `systemctl`), the drop-in to
+  add. A line that runs a script naming waybar may start it: the card says it can't tell, starts no second bar, and
+  offers the line to use instead. Whether ours runs (with a check mark), with _Reload waybar_, which only works on a
+  Waybar of ours: insensitive otherwise, with the reason in a line below it (the user's own Waybar is never signaled),
+  and confirmed in a line once it ran. And what went wrong when it was last started. A `bar` block of the user's that
+  starts swaybar next to ours is a warning with its line. If Waybar isn't installed, the state line says to install it.
+- **Your own bar:** where the user's sway config starts their bar in a `bar { … }` block before our include, the card
+  says _Your bar: your own Waybar, started by your sway config. Sway Things can show its bar instead: your config and
+  your own Waybar config stay untouched, and you can switch back at any time._ with _Use Sway Things' Bar_ (the
+  suggested button then). It stores the IDs of their bars, reloads sway, which shows Sway Things' Waybar as their first
+  bar and nothing for the others. The banner says _Starting Sway Things' bar…_ until it runs, then asks _Keep this bar?
+  Switching back in 15 s_ (15 s from when it shows) with _Keep_ and _Switch Back_. Without _Keep_ it switches back by
+  itself; if Sway Things' Waybar ends, ends right after it started, or doesn't run 6 s after the reload, it switches
+  back at once and says why (_Sway Things' Waybar ended right after it started._, _… didn't start. Is waybar
+  installed?_), with what Waybar wrote under _What Waybar said_. While Sway Things' bar shows, _Switch Back to My Own
+  Bar_ is always there: it removes our lines and reloads, so their bar comes back exactly as before (_Your own bar is
+  back, exactly as your sway config sets it._). No editing of the config is needed; the numbered steps above remain only
+  for what can't be taken over (an `exec` line, a script, a unit, a block after our include).
+- **The user's files stay theirs** (hard rule 1): the takeover, the handover, the import and the preview of the user's
+  stylesheet only read the user's sway config, Waybar config, stylesheet and scripts (and anything under a dotfiles
+  folder they link to); they never write, move, rename or touch them. Sway Things writes only its own files:
+  `75-bar.conf`, its Waybar files, the launcher's log and its settings. Where a change in the user's own file is the
+  only way, the page gives the command and the user runs it.
+- **Import as Starting Point…**: shown while the user has a Waybar config of their own. It asks first, then the bar set
+  up here becomes the user's (where it stands, the items, every item with all its options, the user's stylesheet read
+  after ours with no look of ours under it), and says in a dialog what couldn't be taken over. The user's files are only
+  read.
+- **Bar:** position (swaybar only top or bottom); _Show the bar_: _Always_ or _While a key is held_ (it lies over the
+  windows then and leaves them the whole screen), with the key (_Super_, _Alt_, _Ctrl_, _Shift_), a row shown only then;
+  _Size_, four linked buttons (_Small_, _Medium_, _Large_, _Huge_) that set the height and the text size together; the
+  height (0 fits the items) and the layer. With Waybar a key-held bar needs a bar config of sway's that only a reload
+  reads, so the change counts in the reload banner until sway reloads.
+- **Items:** three lanes, _Left_, _Center_ and _Right_, side by side as on the bar. A row has the item's icon and name,
+  what it shows (or why it can't work here, with a warning icon) and a ⋯ menu: _Settings…_, _Move Up_, _Move Down_,
+  _Move to Left/Center/Right_, _Remove_. Every move has three ways: drag a row within or between lanes (a line shows
+  where it lands); Alt+↑/↓ within its lane and Alt+←/→ to the lane beside it; or the menu. The focus follows the moved
+  row, and a screen reader hears _Clock moved to Right, position 2 of 4_. Delete or _Remove_ take an item out with a
+  note (_Removed Clock from the bar._ _Undo_) for ten seconds; Ctrl+Z anywhere on the page takes back the last move,
+  removal, size or look, one at a time. Enter or a double click opens an item's settings. With swaybar the lanes stay,
+  greyed, with a sentence that swaybar shows other things and the items stay saved for Waybar.
+- **Add Item…** opens the picker for its lane: a search and the items by category (_Basics_, _Sway_, _System_, _Network
+  & Audio_, _Media_, _Privacy_, _Custom_), each with its icon, name, what it does, a sample (_Shows: 76%_) and badges:
+  _Not available here: No battery here_ (the row can't be picked), _Needs playerctl_, _Uses the network_, _In the bar:
+  adds another_. Enter in the search adds the first match. _Custom_ starts with _Your own command…_; the templates
+  (pomodoro, camera, updates, …) are in their categories.
+- **An item's settings:** a dialog with _Basic_ rows in plain words for the common items: the clock's format as examples
+  with the time now (_14:32_, _2:32 PM_, _14:32:05_, _Sat 21 Nov 14:32_, …; seconds update every second), what the
+  battery, volume, network and keyboard layout show, the battery's _Warn below_ and _Critical below_, the workspaces of
+  every display and switching with the scroll wheel, the window title's length and icon, the tray's sizes; for other
+  items the format with what it shows and how often it updates. _Advanced: every option_ (collapsed where there are
+  basic rows) has a field per option the catalog knows, with the option's real name, format strings with _Shows as_,
+  numbers checked against their range, choices with waybar's default first, and the rest of its options as JSON, kept as
+  they are. The basic rows fill in the advanced fields; _Save_ stores it, _Reset to Default_ goes back to waybar's
+  default definition.
+- **Your own command:** a name, the program (typed, or _Choose…_ a file) and its arguments, one per line; how it runs
+  (_Every few seconds_ with what it costs, _Runs 60 times a minute_; _Once; it prints a line per update_; _When it gets
+  a signal_, with the `pkill -RTMIN+n waybar` that triggers it) and whether it prints plain text or JSON. Sway Things
+  quotes each argument into Waybar's `exec`, so nothing in them is read by the shell. _Test_ runs it once, without a
+  shell, with no input and a time limit, and shows the exit code, the time, what it printed, its errors and the JSON
+  fields, with a warning where it takes longer than it runs every, isn't found or isn't executable. Nothing else runs it
+  but Waybar. A command that uses the shell (a pipe, a variable) stays text under _Advanced_, and _Test_ is off.
+- **Look:** the looks as cards with a small bar in each look, built and drawn as the preview is (the first of the user's
+  own items as Waybar's widgets, the stylesheet the look gives Waybar with the user's own stylesheet after it, drawn at
+  real size and scaled down, over the wallpaper), so a card shows what applying it gives: _Simple_, _GNOME-like_,
+  _Floating islands_, _Minimal_, _Large & high contrast_, _Like your windows_, _Classic Waybar_ and, on SwayFX, _Glass_.
+  Every look of Sway Things' own (not _Classic Waybar_) draws a group as one pill, its items 3 px inside it, a drawer's
+  items a little quieter; the item under the pointer (and a workspace button) as a smaller shape of the same kind inset
+  3 px in its pill or bar, in the look's hover color, with every frame, gradient and shadow of the GTK theme (or a
+  `gtk.css` of the user's) taken away; an empty module takes no room; the states modules report (`warning`/`warn`,
+  `critical`/`crit`/`limited`, `ok`, the quiet `down` and `paused`) in the look's colors, also in a drawer; and digits
+  of one width. While the user has a stylesheet of their own, _Your style_ comes first, with the file's name: their
+  stylesheet alone, on. A card sets the style (and the space around the bar it needs) at once, never the items, with a
+  note and _Undo_ (Ctrl+Z too). Since the user's own stylesheet is read last and overrides every look, any other look
+  turns it off (its path stays) so the look really shows, in the preview and the bar, and says so: _Applied the look
+  “Simple”. Your own stylesheet is off now, so this look shows._; _Your style_ turns it on again. The look in use is
+  unmistakable: an accent outline around its card, a check badge in the corner of its small bar, a bold title and an _In
+  use_ pill in the accent; the others answer the pointer, and screen readers hear which one is selected. While the
+  user's own stylesheet is on, _Your style_ is the look in use. Below: _Colors_ (_Waybar's own look_, the default; _Same
+  as your windows_, following the Windows page and the user's config; _Your own colors_; _None: only your own
+  stylesheet_), _Style_ (_Connected bar_ or _Islands_), opacity, rounded corners, room inside items, font (also with
+  Waybar's own look) and, on SwayFX, _Blur behind the bar_ (with the bar above floating windows).
+- **Colors:** background, text, under the pointer, focused workspace, warning, critical, urgent workspace; below the
+  text color its contrast on the background (_12.6:1, easy to read_, or a warning below 4.5:1).
+- **Placement:** a check button per display (none checked: all), _Reserve space_, margins and the space between items.
+- **Advanced:** _Your own stylesheet_ (read after ours, so its rules win; it stays the user's and isn't checked) with
+  _Use on top of the look_ (`bar.style.extra_css_on`) for those who want both: on, it overrides the look; a look card
+  turns it off and _Your style_ on again, swaybar's status command, and _Files Sway Things writes_ with _Show Files…_:
+  Waybar's `config.jsonc`, `style.css` and `theme.css` read-only, a tab each with the path and _Copy Path_ (with
+  swaybar, `75-bar.conf` in _Generated config_).
+- **Applied:** at once, as everywhere: Waybar reads its files again (only the Waybar that runs ours), swaybar changes
+  live. Handing the bar back hides swaybar until sway reloads, and ends the Waybar Sway Things started.
+
 ### Sound
 
 The Sound page shows the sound server's live state (pipewire-pulse or PulseAudio); nothing of it is stored by Sway
@@ -1011,17 +1168,25 @@ line is little to ask for it. On first run (or whenever the line is missing) it 
 
 ## Handover flows for companion tools
 
-Planned with the Bar, Notifications and Power & Lock pages. When a tool is configured by a hand-written file that we may
-not write (e.g. `~/.config/waybar/config.jsonc`):
+Built for the Bar page, planned with the Notifications and Power & Lock pages. When a tool is configured by a
+hand-written file that we may not write (e.g. `~/.config/waybar/config.jsonc`):
 
 ```text
-Your waybar uses ~/.config/waybar/config.jsonc (not created by Sway Things).
-
-To manage the bar here, Sway Things keeps its own copy:
-  1. [Import as starting point]  (reads your file, changes nothing)
-  2. Start waybar with:  waybar -c ~/.config/sway-things/waybar/config.jsonc \
-                                -s ~/.config/sway-things/waybar/style.css   [Copy]
+⚠ Your sway config starts its own waybar (~/.config/sway/config:334), so the bar set up here doesn't show.
+  To change that, edit a line of that file; it is not a command for a terminal.
+    1. Open ~/.config/sway/config, your sway config, at line 334, inside bar { … }.  [Open in Editor]
+    2. Remove that whole bar { … } block (the one with swaybar_command waybar), or put # in front
+       of each of its lines.
+       Changing the swaybar_command line isn't enough: sway runs it without options, …
+    3. Save the file and reload sway: with the button, or with your reload shortcut.  [Reload Sway]
+waybar runs, but with another config.                                                 [Reload waybar] (insensitive)
+Nothing to reload yet: the waybar that runs has its own config, and Sway Things leaves it alone. …
+Your waybar config: ~/.config/waybar/config.jsonc                         [Import as Starting Point…]
 ```
+
+An `exec waybar` line gets _2. Replace exec waybar with this line:_ and the line with _Copy_ instead.
+
+Without a line of the user's that starts the tool, our include starts it with our files.
 
 For tools with include support (sway, kanshi; both built), the flow is the same as the first-run instructions: one line
 to paste.

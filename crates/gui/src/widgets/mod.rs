@@ -4,6 +4,7 @@
 //! The building blocks of the app.
 
 mod apps;
+mod bar;
 mod bluetooth;
 mod brightness;
 mod capture;

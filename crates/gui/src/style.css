@@ -875,3 +875,184 @@ window.st-dialog list.st-printer-picker > row {
 .st-scan-note {
   font-size: 0.9em;
 }
+
+/* The Bar page */
+/* The preview: the bar on a stand-in for the desktop, a caption and the bar in words */
+st-page .st-bar-preview {
+  margin-bottom: 18px;
+}
+
+/* The stand-in for the desktop stands for a wallpaper, which is the user's picture and not part
+   of the app: a dark one, the common case, in both color schemes, so the bar's own colors show
+   as they will. */
+st-page .st-bar-backdrop {
+  border-radius: 12px;
+  border: 1px solid @borders;
+  background-color: #1d2430;
+  background-image: linear-gradient(160deg, #3a4b63, #1d2430 65%);
+}
+
+st-page .st-bar-backdrop scrolledwindow,
+st-page .st-bar-backdrop viewport {
+  background: none;
+}
+
+/* The wallpaper beside the bar */
+st-page .st-bar-slice {
+  min-height: 18px;
+}
+
+/* The card of the bar program, framed like a notice */
+st-page .st-bar-program {
+  padding: 14px 16px;
+  border: 1px solid @borders;
+  border-radius: 12px;
+  margin-bottom: 6px;
+}
+
+/* The details of the card: how the bar runs */
+st-page .st-bar-details > box {
+  margin-top: 8px;
+}
+
+/* The program's state, bold when something needs the user */
+st-page .st-bar-program .st-attention {
+  font-weight: bold;
+}
+
+/* The lanes of items */
+st-page .st-bar-lane {
+  padding: 0 8px;
+}
+
+st-page .st-bar-lane-columns > separator {
+  margin: 2px 0;
+}
+
+st-page .st-bar-lane-heading {
+  padding: 2px 4px 6px;
+}
+
+st-page list.st-bar-lane-list {
+  background: none;
+}
+
+st-page list.st-bar-lane-list > row {
+  border-radius: 8px;
+  padding: 4px 4px 4px 2px;
+  margin: 1px 0;
+}
+
+st-page .st-bar-lane-empty {
+  padding: 14px 8px;
+}
+
+/* Where a dragged item lands: a line above or below the row under the pointer */
+st-page list.st-bar-lane-list > row.st-drop-before {
+  box-shadow: inset 0 2px @theme_selected_bg_color;
+}
+
+st-page list.st-bar-lane-list > row.st-drop-after {
+  box-shadow: inset 0 -2px @theme_selected_bg_color;
+}
+
+st-page .st-bar-lane-add {
+  margin-top: 2px;
+}
+
+/* The note with Undo after a removal or a preset */
+.st-bar-toast {
+  margin-top: 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 10px;
+  background-color: alpha(currentColor, 0.08);
+}
+
+.st-bar-menu {
+  padding: 4px;
+}
+
+/* The looks as cards */
+
+st-page button.st-bar-preset {
+  padding: 8px;
+  border-radius: 10px;
+}
+
+st-page button.st-bar-preset.st-current {
+  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
+}
+
+/* A card's small bar over a slice of the wallpaper */
+st-page .st-bar-thumb {
+  padding-bottom: 10px;
+  border-radius: 8px;
+}
+
+st-page .st-bar-in-use {
+  font-size: 0.85em;
+}
+
+/* Rows of the page's own: the sizes, the contrast, the files */
+
+/* The picker, an item's settings and the bar program's dialog */
+.st-bar-picker-header {
+  padding: 20px 20px 12px;
+}
+
+.st-bar-picker-body {
+  padding: 4px 20px 20px;
+}
+
+.st-bar-badge {
+  font-size: 0.85em;
+  border: 1px solid @borders;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.st-bar-badge.st-attention {
+  border-color: @warning_color;
+}
+
+.st-bar-badge.st-attention > image {
+  color: @warning_color;
+}
+
+.st-bar-dialog-content {
+  padding: 20px;
+}
+
+.st-bar-dialog-buttons {
+  padding: 10px 16px;
+}
+
+/* The lists of the dialogs, framed like the sections of a page */
+window.st-dialog list.st-section {
+  border: 1px solid @borders;
+  border-radius: 10px;
+}
+
+window.st-dialog list.st-section > row {
+  padding: 12px 16px;
+}
+
+window.st-dialog list.st-section > row:not(:last-child) {
+  border-bottom: 1px solid @borders;
+}
+
+window.st-dialog .st-section-heading {
+  font-size: 0.8em;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+}
+
+.st-bar-advanced {
+  margin-top: 8px;
+}
+
+.st-bar-test-result {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: alpha(currentColor, 0.06);
+}
