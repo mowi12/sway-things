@@ -108,11 +108,19 @@ pub fn find() -> Option<PathBuf> {
 
 /// Whether the I²C buses can be used: opens each `/dev/i2c-*` for reading and writing, which
 /// sends nothing to the monitor.
+///
+/// # Blocking
+///
+/// Reads `/dev` for the I²C devices.
 pub fn access() -> Access {
     access_in(Path::new("/dev"))
 }
 
 /// [`access`] for the devices in `dev`.
+///
+/// # Blocking
+///
+/// Reads `/dev` for the I²C devices.
 pub fn access_in(dev: &Path) -> Access {
     let Ok(entries) = std::fs::read_dir(dev) else {
         return Access::NoBuses;
@@ -140,6 +148,10 @@ pub fn access_in(dev: &Path) -> Access {
 }
 
 /// Runs ddcutil with `args` and returns what it printed.
+///
+/// # Blocking
+///
+/// Waits for ddcutil, which talks to the monitor and can take seconds.
 fn run(args: &[OsString]) -> Result<String, DdcError> {
     let program = find().ok_or(DdcError::Missing)?;
     let output = Command::new(program)
@@ -176,6 +188,10 @@ fn clean(text: &str) -> String {
 }
 
 /// The external monitors that answer over DDC/CI (`ddcutil detect --brief`).
+///
+/// # Blocking
+///
+/// Waits for ddcutil, which talks to the monitor and can take seconds.
 ///
 /// # Errors
 ///
@@ -251,6 +267,10 @@ pub fn parse_detect(output: &str) -> Vec<Monitor> {
 
 /// The brightness of the monitor on `bus` (`ddcutil getvcp 10 --bus <n> --brief`).
 ///
+/// # Blocking
+///
+/// Waits for ddcutil, which talks to the monitor and can take seconds.
+///
 /// # Errors
 ///
 /// [`DdcError::Missing`], [`DdcError::Failed`], [`DdcError::Unreadable`] for an answer that
@@ -285,6 +305,10 @@ pub fn parse_level(output: &str) -> Option<Level> {
 
 /// Sets the brightness of the monitor on `bus` to `value` (`ddcutil setvcp 10 <value> --bus
 /// <n>`).
+///
+/// # Blocking
+///
+/// Waits for ddcutil, which talks to the monitor and can take seconds.
 ///
 /// # Errors
 ///

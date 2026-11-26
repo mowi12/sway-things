@@ -158,6 +158,10 @@ pub fn unit_of(pid: u32) -> Option<String> {
 /// The daemons that have a D-Bus service file for `org.freedesktop.Notifications`, which the
 /// bus starts when something calls it while none runs: in `$XDG_DATA_HOME/dbus-1/services` and
 /// `$XDG_DATA_DIRS/dbus-1/services`.
+///
+/// # Blocking
+///
+/// Reads the D-Bus service directories.
 pub fn activatable() -> Vec<Daemon> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME")

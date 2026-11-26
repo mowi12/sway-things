@@ -272,6 +272,10 @@ impl<V: Validate> Applier<V> {
     /// own content (`mirror`), or with `None` its own again, for the combination connected now.
     /// Saved at once, written for kanshi, and the mirrors are started or ended now.
     ///
+    /// # Blocking
+    ///
+    /// Waits for `setsid` and `kill` to start and end the mirrors.
+    ///
     /// # Errors
     ///
     /// [`ApplyError::NoSession`] without a session or profiles, and the IPC errors.
@@ -394,6 +398,10 @@ impl<V: Validate> Applier<V> {
     /// the app calls it when it opens and when displays come and go. Nothing happens while
     /// every picture runs. Says how many pictures it started.
     ///
+    /// # Blocking
+    ///
+    /// Waits for `setsid` and `kill` to start and end the mirrors.
+    ///
     /// # Errors
     ///
     /// The IPC errors of asking sway and of the commands.
@@ -413,6 +421,10 @@ impl<V: Validate> Applier<V> {
     /// kanshi reads it again, so what set the displays up before Sway Things did applies again:
     /// a profile of the user's own for these displays, or what the displays run with. The
     /// pictures end and their workspaces come back. Says whether anything was forgotten.
+    ///
+    /// # Blocking
+    ///
+    /// Waits for `setsid` and `kill` to start and end the mirrors.
     ///
     /// # Errors
     ///

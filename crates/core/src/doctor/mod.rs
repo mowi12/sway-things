@@ -100,6 +100,10 @@ impl<V: Validate> Checkup<'_, V> {
 
     /// Checks everything like [`Checkup::diagnose`], and calls `progress` with each [`Step`]
     /// before it starts.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the user's autostart directory.
     pub async fn diagnose_with(&self, mut progress: impl FnMut(Step)) -> Diagnosis {
         let mut findings = Vec::new();
         progress(Step::Section(Section::Compositor));

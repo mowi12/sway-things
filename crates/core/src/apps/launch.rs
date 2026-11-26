@@ -111,6 +111,10 @@ pub fn command(dirs: &Dirs, app: &App) -> Result<(Vec<String>, Option<PathBuf>),
 /// An app without `Exec` that is `DBusActivatable` is activated over the session bus
 /// (`org.freedesktop.Application.Activate`), as the Desktop Entry Specification describes.
 ///
+/// # Blocking
+///
+/// Reads the application directories of the XDG data directories.
+///
 /// # Errors
 ///
 /// A [`LaunchError`] if there is no such app or it can't be started.

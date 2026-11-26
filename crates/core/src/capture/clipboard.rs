@@ -97,6 +97,10 @@ impl SyncError {
 
 /// [`sync_with`] for the settings of `state`.
 ///
+/// # Blocking
+///
+/// Waits up to three seconds for another process's change of the history to end.
+///
 /// # Errors
 ///
 /// Those of [`sync_with`].
@@ -111,6 +115,10 @@ pub fn sync(state: &State) -> Result<Synced, SyncError> {
 /// many entries as set. Ends the others Sway Things started in this session. `settings` gives
 /// the switch and the number of entries; it is read once the lock is held, so of the hook and
 /// the app running at once the second acts on what is set by then.
+///
+/// # Blocking
+///
+/// Waits up to three seconds for another process's change of the history to end.
 ///
 /// # Errors
 ///
@@ -212,6 +220,10 @@ pub fn canceled(status: Option<i32>, stderr: &[u8]) -> bool {
 }
 
 /// Runs the launcher on `list` and returns the line picked.
+///
+/// # Blocking
+///
+/// Waits until the user picks an entry in the launcher or closes it.
 fn launch(launcher: tools::Launcher, list: &[u8]) -> Result<Vec<u8>, CaptureError> {
     use std::io::Write as _;
     let path = launcher.program.require()?;
@@ -256,6 +268,10 @@ fn launch(launcher: tools::Launcher, list: &[u8]) -> Result<Vec<u8>, CaptureErro
 /// Shows the history in the launcher that is installed and copies the entry picked again, with
 /// the type of a picture it has.
 ///
+/// # Blocking
+///
+/// Waits until the user picks an entry in the launcher or closes it.
+///
 /// # Errors
 ///
 /// [`CaptureError::Canceled`] if nothing was picked, [`CaptureError::EmptyHistory`],
@@ -281,6 +297,10 @@ pub fn pick() -> Result<(), CaptureError> {
 
 /// Removes every entry of the history (`cliphist wipe`).
 ///
+/// # Blocking
+///
+/// Waits for the program to end.
+///
 /// # Errors
 ///
 /// [`CaptureError::Missing`] without cliphist, else its error.
@@ -290,6 +310,10 @@ pub fn clear() -> Result<(), CaptureError> {
 
 /// The first version number (`2.3.0`, `v0.7.0`) in what `program` prints for `args`, on
 /// standard output or error.
+///
+/// # Blocking
+///
+/// Waits for the clipboard tools to print their version.
 fn version(program: tools::Program, args: &[&str]) -> Option<(u32, u32, u32)> {
     let output = Command::new(program.find()?)
         .args(args)
@@ -323,6 +347,10 @@ pub fn parse_version(text: &str) -> Option<(u32, u32, u32)> {
 /// Whether the history skips what a password manager copies: wl-clipboard 2.3.0 or newer and
 /// cliphist 0.5.0 or newer. `None` if a version can't be told (a tool missing, a version it
 /// doesn't print).
+///
+/// # Blocking
+///
+/// Waits for the clipboard tools to print their version.
 pub fn skips_passwords() -> Option<bool> {
     let wl = version(WL_PASTE, &["--version"])?;
     let cliphist = version(CLIPHIST, &["version"])?;

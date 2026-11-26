@@ -61,6 +61,10 @@ impl<V: Validate> Applier<V> {
     /// chosen on the page, and never where mako runs with a config of its own (`-c`) or a
     /// system-wide one exists. When a file changed, the daemon that runs reads its config again.
     /// Best effort: a problem is kept for [`Applier::take_daemon_problem`].
+    ///
+    /// # Blocking
+    ///
+    /// Waits for `swaync --version`.
     pub(super) async fn keep_daemon_files(&mut self) {
         let Some(daemon) = self.daemon.clone() else {
             return;
@@ -137,6 +141,10 @@ impl<V: Validate> Applier<V> {
     /// chosen is ended first only if our hook started it ([`notifications::started_by_us`]);
     /// one the user started (a line of their config, a systemd unit, D-Bus activation) is left
     /// alone, and the returned text says how to switch.
+    ///
+    /// # Blocking
+    ///
+    /// Waits for `kill` to end the daemon our hook started.
     async fn switch_daemon(
         &mut self,
         bus: &Notifications,

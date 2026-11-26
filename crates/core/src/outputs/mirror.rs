@@ -82,6 +82,10 @@ pub fn installed() -> bool {
 /// don't run yet, so running it twice changes nothing. Returns how many it started. A mirror
 /// whose display or source isn't on, or that is part of a chain or a cycle (a display that is
 /// shown elsewhere and shows another one itself), isn't started; without `wl-mirror`, none is.
+///
+/// # Blocking
+///
+/// Waits for `setsid` and `kill` to start and end the mirrors.
 pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
     // One at a time in a session: a kanshi hook and the app can run at once, and a mirror
     // started by one shows in `/proc` only a moment later. Whoever comes second leaves it to
@@ -145,6 +149,10 @@ pub fn missing(profiles: &Profiles, outputs: &Outputs) -> bool {
 /// again ([`leave_ended`]). Returns how many pictures it started. Nothing happens while no
 /// combination mirrors.
 ///
+/// # Blocking
+///
+/// Waits for `setsid` and `kill` to start and end the mirrors.
+///
 /// # Errors
 ///
 /// The IPC errors of asking sway and of the commands.
@@ -188,6 +196,10 @@ pub async fn start(
 
 /// [`apply`], with the focus given back to the workspace that had it if the window of a picture
 /// that starts takes it ([`keep_focus`]).
+///
+/// # Blocking
+///
+/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -273,6 +285,10 @@ async fn keep_focus(
 /// for, nothing is sent and no picture of another combination is ended. Sway Things keeps
 /// nothing running to notice a picture that went: the hooks and the app call this where they
 /// run anyway. Returns how many pictures it started.
+///
+/// # Blocking
+///
+/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -670,12 +686,20 @@ fn running() -> Vec<(String, Vec<String>)> {
 }
 
 /// Ends the mirrors Sway Things started in this session.
+///
+/// # Blocking
+///
+/// Waits for `kill`.
 pub fn stop() {
     let pids: Vec<String> = running().into_iter().map(|(pid, _)| pid).collect();
     kill(&pids);
 }
 
 /// Ends the processes `pids` with `kill`.
+///
+/// # Blocking
+///
+/// Waits for `kill`.
 fn kill(pids: &[String]) {
     if pids.is_empty() {
         return;

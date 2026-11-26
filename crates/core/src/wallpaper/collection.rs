@@ -32,6 +32,10 @@ pub fn is_picture(path: &Path) -> bool {
 
 /// The pictures in `folder` (not in its subfolders), by name.
 ///
+/// # Blocking
+///
+/// Reads the folder of the pictures.
+///
 /// # Errors
 ///
 /// The error of the operating system if the folder can't be read.
@@ -165,6 +169,10 @@ impl Collection {
 
     /// The pictures of the collection: each picture, and the pictures in each folder, in order
     /// and without repeats. Entries that are gone or can't be read are left out.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the folder of the pictures.
     pub fn pictures(&self, home: Option<&Path>) -> Vec<PathBuf> {
         let mut pictures = Vec::new();
         for entry in &self.entries {

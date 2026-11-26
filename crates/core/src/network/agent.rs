@@ -286,6 +286,10 @@ impl Agent {
     }
 
     /// The secrets of `request` from its plugin's auth dialog.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the directories of NetworkManager's VPN plugins.
     async fn plugin_secrets(
         &self,
         request: &Request,

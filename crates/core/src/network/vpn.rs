@@ -69,6 +69,10 @@ pub(super) struct Plugin {
 
 /// The plugin for the VPN `service` (`org.freedesktop.NetworkManager.openvpn`), from the first of
 /// `dirs` that has one.
+///
+/// # Blocking
+///
+/// Reads the directories of NetworkManager's VPN plugins.
 pub(super) fn find_plugin(dirs: &[PathBuf], service: &str) -> Option<Plugin> {
     let uid = rustix::process::getuid().as_raw();
     dirs.iter().find_map(|dir| {
