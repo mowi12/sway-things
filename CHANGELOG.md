@@ -2,6 +2,74 @@
 
 All notable changes to Sway Things, written for users. git-cliff drafts each section from the Conventional Commits.
 
+## 0.6.0 (2026-11-27)
+
+A new Bar page for waybar and swaybar, and three System pages: Brightness & Night Light, Region & Time and Environment.
+Printers became Printers & Scanners and scans documents into files.
+
+### Pages
+
+- **Bar:** set up waybar, or swaybar as the alternative, from a preview of the bar over your wallpaper. Add items from a
+  picker with search and a sample of each, drag them between the Left, Center and Right lanes (or move them with Alt and
+  the arrow keys), and change each item's basic settings in plain words, with every option under _Advanced_. Group items
+  into one pill, with a drawer that shows the others only on hover. Pick a look (Simple, GNOME-like, Floating islands,
+  Minimal, Large & high contrast, Like your windows, Classic Waybar, Glass on SwayFX), the size and the position, and
+  show the bar always or only while a key is held. Your own commands run as items with a test run, and templates cover a
+  pomodoro timer with its phases, the camera, updates, a battery warning, VPN, system load, a power menu and the
+  notification center. Your existing waybar config can be imported as a starting point. Sway Things' bar can take the
+  place of the `bar { … }` block of your config without editing it, and _Switch Back to My Own Bar_ brings yours back.
+- **Usage limits of Claude Code and Codex in the bar:** three templates in the picker's _Custom_ category show how much
+  of their usage limits the two command line agents have used, each on its own or as one pill that always shows your
+  main agent and the other one only at 80 % or at its limit; hovering shows the details and a click refreshes. These
+  templates, and the check for updates, reach the network, so the page asks before it adds them and says what they send
+  where and how often. Waybar runs them, never Sway Things. Each sends your login only to its own vendor and asks it at
+  most every five minutes.
+- **Brightness & Night Light:** the brightness of the screen, of external monitors through ddcutil and of the keyboard
+  light, also as `sway-things brightness`; a night light with wlsunset or gammastep, from sunset to sunrise where you
+  are, at fixed times or always on, also as `sway-things night-light`.
+- **Region & Time:** the time zone, automatic time and the clock through systemd-timedated; a time zone that follows
+  where the computer is, through geoclue and off by default; and the language and formats for you, with a preview, and
+  for the whole system through systemd-localed.
+- **Environment:** the Wayland variables for older Qt 5, SDL 2, Java and Electron apps, each falling back to X11; an
+  editor for your environment variables in Sway Things' own `environment.d` file, with the variables of the other files
+  shown read only; a check of the XDG desktop portals for screen sharing and file pickers, with fixes in Sway Things'
+  own files; and the choice of how screen sharing picks a display.
+- **Printers & Scanners:** the Printers page, redesigned after GNOME Settings, now lists the scanners SANE finds and the
+  driverless ones on the network, says what is missing for the others (scanimage, sane-airscan, ipp-usb, access to a USB
+  scanner), and scans into PNG, JPEG, TIFF or PDF, with a preview and every sheet of the document feeder in one PDF. A
+  printer's queue opens from the jobs on its line, and new printers are added unshared. `sway-things open printers`
+  still opens the page.
+
+### Displays and Wallpaper
+
+- The Wallpaper page shows the displays in the same arrangement and look as the Displays page.
+- The Wallpaper page's tabs, and the text of rows beside their controls, get the width they need.
+
+### Bluetooth and Network
+
+- Bluetooth shows whether a device is charging, from UPower or the kernel, and its battery level no longer jumps after
+  charging.
+- A VPN that fails before it is connected says why.
+
+### Screenshots & Clipboard
+
+- Recording the screen works where ffmpeg has no libx264: wf-recorder is asked for a codec and falls back to the next.
+- A second press of the record key while a region is being selected no longer starts a second recording.
+- The window no longer freezes for up to three seconds after the clipboard history is switched.
+
+### App and command line
+
+- `sway-things doctor` checks the XDG desktop portals in an Environment section, names UPower in the system details, and
+  reports what is missing for scanners.
+
+### Packages
+
+- Same distributions as 0.5: openSUSE Tumbleweed, Fedora 43 and 44, Debian 13 and Ubuntu 26.04 from the openSUSE Build
+  Service; Fedora Rawhide and Debian unstable on a best-effort basis.
+- The new pages use optional tools when installed and say what to install otherwise: waybar, curl and jq for the usage
+  templates, ddcutil, wlsunset or gammastep, geoclue, systemd's timedated and localed, xdg-desktop-portal-wlr and
+  xdg-desktop-portal-gtk, SANE's scanimage with sane-airscan and ipp-usb, and UPower.
+
 ## 0.5.0 (2026-11-23)
 
 Five new pages for the desktop around your windows: Keyboard Shortcuts, Screenshots & Clipboard, Apps & Autostart,
