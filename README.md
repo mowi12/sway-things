@@ -39,7 +39,7 @@ Sway Things gives sway the familiar shape of a desktop settings app: a searchabl
 instantly, and a safety net for risky changes. It doesn't pull in a desktop environment, and it doesn't take over your
 hand-written config.
 
-> **Status: 0.5.0.** It covers the pages listed under [Features](#features); packages are in
+> **Status: 0.6.0.** It covers the pages listed under [Features](#features); packages are in
 > [Installation](#installation), and the [changes](CHANGELOG.md) per release are in the changelog.
 
 ## Why
@@ -70,8 +70,9 @@ and the everyday system basics (sound, Bluetooth, Wi-Fi, power) in one window.
 Released so far are the pages **Mouse & Touchpad**, **Keyboard**, **Windows** (with the SwayFX effects) and **Window
 Behavior** (v0.1), **Bluetooth** and **Network** (v0.2), **Cursor & Tablet**, **Displays**, **Sound**, **Apps Look &
 Feel** and **Workspaces** (v0.3), **Wallpaper** (v0.4), **Keyboard Shortcuts**, **Screenshots & Clipboard**, **Apps &
-Autostart**, **Notifications** and **Printers** (v0.5), and on About & Maintenance the system details for bug reports,
-the view of the generated config and the app's own preferences. The other pages below are planned.
+Autostart**, **Notifications** and **Printers** (v0.5), **Bar**, **Brightness & Night Light**, **Region & Time**,
+**Environment** and scanning on **Printers & Scanners** (v0.6), and on About & Maintenance the system details for bug
+reports, the view of the generated config and the app's own preferences. The other pages below are planned.
 
 ### Devices
 
@@ -82,7 +83,8 @@ the view of the generated config and the app's own preferences. The other pages 
 - **Sound:** output and input devices, volume, per-app volume, device profiles
 - **Bluetooth:** turning it on and off, finding, pairing and connecting devices
 - **Network:** Wi-Fi networks and their passwords, hidden networks, wired and VPN connections, VPN sign-in
-- **Printers:** driverless printers added in a click, their state and ink, the default printer and the print queue
+- **Printers & Scanners:** driverless printers added in a click, their state and ink, the default printer and the print
+  queue; the scanners SANE finds, and scans into images or PDF
 
 ### Appearance
 
@@ -90,7 +92,8 @@ the view of the generated config and the app's own preferences. The other pages 
 - **Wallpaper:** an image, a collection whose pictures take turns (at login, daily or every few minutes), or a color,
   for all displays or one, with a preview of the displays and a picture browser
 - **Apps Look & Feel:** light or dark style, GTK theme, icons, fonts, text size and font rendering (Qt themes planned)
-- **Bar:** waybar or swaybar layout, modules and style
+- **Bar:** waybar or swaybar, items in lanes and groups from a picker, looks, a preview over your wallpaper, templates
+  such as a pomodoro timer or the usage limits of Claude Code and Codex
 
 ### Desktop
 
@@ -104,8 +107,11 @@ the view of the generated config and the app's own preferences. The other pages 
 ### System
 
 - **Power & Lock:** idle timeouts, lock screen, power profile, battery
-- **Brightness & Night Light** · **Region & Time** · **Accessibility**
-- **Environment:** Wayland compatibility toggles, environment variables
+- **Brightness & Night Light:** screen, external monitor and keyboard brightness, a night light with wlsunset or
+  gammastep
+- **Region & Time:** time zone, automatic time and time zone, language and formats
+- **Accessibility**
+- **Environment:** Wayland variables for older apps, environment variables, the XDG portal check, screen sharing
 - **About & Maintenance:** system details, dependency check, generated config, export / import
 
 The complete list is in the [Feature Catalog](wiki/Feature-Catalog.md).
@@ -133,14 +139,20 @@ sway-things doctor                        # system details, setup and conflicts
   display; both are optional.
 - The Wallpaper page sets the wallpaper through sway, which draws it with swaybg; webp-pixbuf-loader is optional, for
   WebP pictures.
-- The Printers page uses CUPS, Avahi to find printers and cups-pk-helper for changes without CUPS's administrator group;
-  system-config-printer is optional, for its _Advanced…_ button.
+- The Printers & Scanners page uses CUPS, Avahi to find printers and cups-pk-helper for changes without CUPS's
+  administrator group; system-config-printer is optional, for its _Advanced…_ button. Scanning uses SANE's scanimage,
+  with sane-airscan for driverless scanners and ipp-usb for those on USB. The Bluetooth page reads whether a device
+  charges from UPower.
 - Screenshots & Clipboard uses grim and slurp, wl-clipboard, cliphist for the history, swappy or satty to edit and
   wf-recorder or wl-screenrec to record; Keyboard Shortcuts uses SwayOSD for its on-screen display; Notifications works
   with mako, swaync or dunst; Apps & Autostart uses dex where nothing else starts the XDG autostart entries. All are
   optional.
-- Later pages will use further optional companion tools, for example swayidle, swaylock, waybar, gammastep or wlsunset
-  and brightnessctl. Pages for missing tools stay visible and tell you how to install them.
+- The Bar page sets up waybar, or swaybar; its usage templates for Claude Code and Codex need curl and jq. Brightness &
+  Night Light uses systemd-logind, ddcutil for external monitors, and wlsunset or gammastep. Region & Time uses
+  systemd-timedated and systemd-localed, and geoclue for the automatic time zone. Environment checks
+  xdg-desktop-portal-wlr and xdg-desktop-portal-gtk. All are optional.
+- Later pages will use further optional companion tools, for example swayidle and swaylock. Pages for missing tools stay
+  visible and tell you how to install them.
 
 ## Installation
 

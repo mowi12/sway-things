@@ -6,14 +6,18 @@
   { "id": "sound", "name": "Sound", "gallery": true },
   { "id": "bluetooth", "name": "Bluetooth", "gallery": true },
   { "id": "network", "name": "Network", "gallery": true },
-  { "id": "printers", "name": "Printers" },
+  { "id": "printers-scanners", "name": "Printers & Scanners" },
   { "id": "windows", "name": "Windows", "gallery": true },
   { "id": "wallpaper", "name": "Wallpaper" },
   { "id": "apps-look-feel", "name": "Apps Look & Feel", "gallery": true },
+  { "id": "bar", "name": "Bar", "gallery": true },
   { "id": "window-behavior", "name": "Window Behavior" },
   { "id": "workspaces", "name": "Workspaces" },
   { "id": "keyboard-shortcuts", "name": "Keyboard Shortcuts" },
   { "id": "notifications", "name": "Notifications", "gallery": true },
   { "id": "apps-autostart", "name": "Apps & Autostart" },
-  { "id": "screenshots-clipboard", "name": "Screenshots & Clipboard" }
+  { "id": "screenshots-clipboard", "name": "Screenshots & Clipboard" },
+  { "id": "brightness-night-light", "name": "Brightness & Night Light" },
+  { "id": "region-time", "name": "Region & Time" },
+  { "id": "environment", "name": "Environment" }
 ]
