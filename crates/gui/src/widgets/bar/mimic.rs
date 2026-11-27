@@ -289,7 +289,7 @@ fn module(
                 } else {
                     item_sample(modules, name).unwrap_or_else(|| item_title(modules, name))
                 };
-                // A module without text is hidden, as in waybar.
+                // A module without text (an alert while all is well) is hidden, as in waybar.
                 if text.is_empty() {
                     return None;
                 }

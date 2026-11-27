@@ -566,7 +566,17 @@ PLACEMENT, ADVANCED   displays, reserved space, margins, spacing; your own style
   & Audio_, _Media_, _Privacy_, _Custom_), each with its icon, name, what it does, a sample (_Shows: 76%_) and badges:
   _Not available here: No battery here_ (the row can't be picked), _Needs playerctl_, _Uses the network_, _In the bar:
   adds another_. Enter in the search adds the first match. _Custom_ starts with _Your own command…_; the templates
-  (pomodoro, camera, updates, …) are in their categories.
+  (pomodoro, camera, updates, …) are in their categories. A template that uses the network is added only after a dialog,
+  _This item connects to the internet_, says what it sends where and how often, and that Waybar runs it, not Sway
+  Things; _Cancel_ is the default, _Add Anyway_ adds it. The unofficial usage modules of command line agents are in
+  _Custom_, each titled _(unofficial)_ and described as using the tool's own login and an undocumented endpoint that may
+  change or break: Claude and Codex alone, and _Agents' usage pill_, which asks _Which agent do you use most?_ (Claude,
+  Codex) and adds a drawer group: the main agent always shows with its more critical window (a clock for the 5 hours, a
+  calendar for the week) and from 90 % its reset countdown; the other agent joins it only at 80 % or at its limit (then
+  with the countdown); hovering slides out each agent in detail (the other window, the weekly limits of models); a click
+  asks again now, a right click opens the vendor's usage page. An agent's name marks its numbers, or its picture where
+  `~/.config/sway-things/waybar/icons/<agent>.svg` exists (no vendor's logo ships). Nothing reaches the network while
+  the page is open.
 - **An item's settings:** a dialog with _Basic_ rows in plain words for the common items: the clock's format as examples
   with the time now (_14:32_, _2:32 PM_, _14:32:05_, _Sat 21 Nov 14:32_, …; seconds update every second), what the
   battery, volume, network and keyboard layout show, the battery's _Warn below_ and _Critical below_, the workspaces of

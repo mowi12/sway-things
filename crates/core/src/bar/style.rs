@@ -278,6 +278,7 @@ pub fn stylesheet(state: &State, sway: Option<&SwayConfig>, modules: &Modules) -
     let pills = matches!(value(state, keys::SHAPE), Value::Choice(id) if id == "pills");
     let lists = super::waybar::lists(state);
     let groups = super::groups::styled(&lists, modules);
+    let logos = super::templates::logos(state, modules, &lists);
     generated(
         &Look {
             colors,
@@ -288,6 +289,7 @@ pub fn stylesheet(state: &State, sway: Option<&SwayConfig>, modules: &Modules) -
             font,
         },
         &groups,
+        &logos,
     )
 }
 
@@ -522,12 +524,17 @@ fn blend(bottom: Color, top: Color, alpha: f64) -> Color {
 pub const INSET: i64 = 3;
 
 /// The rules of a generated stylesheet for `look`, with the groups `groups` the bar shows (each
-/// one pill, its members inside it).
+/// one pill, its members inside it) and the logos `logos` of the agents' usage modules that have
+/// one (the id of the agent and the `file://` URL of its picture).
 #[expect(
     clippy::too_many_lines,
     reason = "the rules of one stylesheet, read best in order"
 )]
-pub fn generated(look: &Look, groups: &[super::groups::Styled]) -> String {
+pub fn generated(
+    look: &Look,
+    groups: &[super::groups::Styled],
+    logos: &[(String, String)],
+) -> String {
     let Colors {
         background, text, ..
     } = look.colors;
@@ -672,6 +679,22 @@ pub fn generated(look: &Look, groups: &[super::groups::Styled]) -> String {
     css.push_str(&button_rules(look, inner));
     css.push_str(&state_rules(look));
     css.push_str(&pomodoro_rules(look));
+    for (agent, url) in logos {
+        let id: String = agent.chars().filter(char::is_ascii_alphanumeric).collect();
+        if id.is_empty() {
+            continue;
+        }
+        let _ = write!(
+            css,
+            "#custom-ai-usage.{id}.logo,\n#custom-ai-alert.{id}.logo,\n#custom-ai-detail.{id}.logo {{\n    \
+             background-image: url({url});\n    background-repeat: no-repeat;\n    \
+             background-position: {position}px center;\n    background-size: 14px 14px;\n    \
+             padding-left: {left}px;\n}}\n\n",
+            url = css_string(url),
+            position = member_padding_css,
+            left = member_padding_css + 19,
+        );
+    }
     let _ = write!(
         css,
         "tooltip,\ntooltip.background {{\n    background-color: {tooltip};\n    \
@@ -1107,7 +1130,7 @@ mod tests {
             radius: 999,
             font: css_font("Evil\"} * { color: red; } x 12"),
         };
-        let css = generated(&look, &[]);
+        let css = generated(&look, &[], &[]);
         assert!(css.contains("font-family: \"Evil\\\"} * { color: red; } x\";"));
         assert!(css.contains("background-color: rgba(1, 2, 3, 0.500);"));
         assert!(css.contains("rgba(0, 0, 0, 0.200)"));

@@ -8,7 +8,9 @@
 //! one). Enter or a click adds the item to the lane the picker was opened for.
 //!
 //! Templates are items with a script of their own, copied on request to Sway Things' waybar
-//! directory. _Your own command…_ opens the form for a command of the user's.
+//! directory. One that reaches the network is added only after a dialog says what it sends where
+//! and the user chose _Add Anyway_. _Your own command…_ opens the form for a command of the
+//! user's.
 
 use std::rc::Rc;
 
@@ -38,6 +40,15 @@ const SCRIPT_KEPT_DETAIL: Msg = msg!(
 const TEMPLATE_FAILED: Msg = msg!("The template couldn't be added");
 /// What an item shows, as a sample.
 const SAMPLE: Msg = msg!("Shows: {sample}");
+/// Asked before a template that reaches the network is added.
+const NETWORK: Msg = msg!("This item connects to the internet");
+/// Who runs it, below what it sends where.
+const NETWORK_RUNS: Msg = msg!(
+    "Waybar runs it, not Sway Things. Once added, the script is yours: you can read it, change it \
+     or remove the item."
+);
+/// The button that adds it all the same.
+const ADD_ANYWAY: Msg = msg!("Add Anyway");
 
 /// What a row of the picker adds.
 #[derive(Debug, Clone, Copy)]
@@ -358,20 +369,148 @@ fn add(ctx: &Rc<Ctx>, anchor: &gtk::Widget, key: &'static str, pick: Pick) {
             (name, tr(module.title).to_owned())
         }
         Pick::Template(template) => {
-            let Some(definition) = install(ctx, anchor, template) else {
-                return;
-            };
-            let name = lanes::free_name(ctx, &template.module_name());
-            if let Some(Ok(mut modules)) = ctx.model().bar_modules() {
-                modules.set(&name, definition);
-                ctx.model().set_bar_modules(modules);
+            match template.network {
+                Some(network) => confirm_network(ctx, anchor, key, template, network),
+                None => add_template(ctx, anchor, key, template),
             }
-            (name, tr(template.title).to_owned())
+            return;
         }
     };
     lanes::add_item(ctx, key, &name);
     let text = trf(ADDED, &[("item", &title), ("lane", &lane_name(key))]);
     ctx.announce(&text);
+}
+
+/// Says what `template` sends where over the network (`network`) and adds it to lane `key`
+/// only if the user chooses _Add Anyway_; _Cancel_ is the default.
+fn confirm_network(
+    ctx: &Rc<Ctx>,
+    anchor: &gtk::Widget,
+    key: &'static str,
+    template: &'static Template,
+    network: Msg,
+) {
+    let detail = format!("{}\n\n{}", tr(network), tr(NETWORK_RUNS));
+    let dialog = gtk::AlertDialog::builder()
+        .message(tr(NETWORK))
+        .detail(detail)
+        .buttons([tr(msg!("Cancel")), tr(ADD_ANYWAY)])
+        .cancel_button(0)
+        .default_button(0)
+        .modal(true)
+        .build();
+    let window = anchor.root().and_downcast::<gtk::Window>();
+    let weak = Rc::downgrade(ctx);
+    let anchor = anchor.downgrade();
+    dialog.choose(
+        window.as_ref(),
+        gtk::gio::Cancellable::NONE,
+        move |answer| {
+            let (Some(ctx), Some(anchor)) = (weak.upgrade(), anchor.upgrade()) else {
+                return;
+            };
+            if answer.ok() == Some(1) {
+                add_template(&ctx, &anchor, key, template);
+            }
+        },
+    );
+}
+
+/// Copies `template`'s script and adds its item to lane `key`; the agents' pill first asks for
+/// the main agent.
+fn add_template(
+    ctx: &Rc<Ctx>,
+    anchor: &gtk::Widget,
+    key: &'static str,
+    template: &'static Template,
+) {
+    if template.chooses_main() {
+        choose_main(ctx, anchor, key, template);
+        return;
+    }
+    let Some(definition) = install(ctx, anchor, template) else {
+        return;
+    };
+    let name = lanes::free_name(ctx, &template.module_name());
+    if let Some(Ok(mut modules)) = ctx.model().bar_modules() {
+        modules.set(&name, definition);
+        ctx.model().set_bar_modules(modules);
+    }
+    lanes::add_item(ctx, key, &name);
+    let text = trf(
+        ADDED,
+        &[("item", &tr(template.title)), ("lane", &lane_name(key))],
+    );
+    ctx.announce(&text);
+}
+
+/// Asks which agent `template` (the pill of the agents) shows first, then adds it with
+/// all its modules to lane `key`. A pill that is in the bar already gets the new main agent.
+fn choose_main(
+    ctx: &Rc<Ctx>,
+    anchor: &gtk::Widget,
+    key: &'static str,
+    template: &'static Template,
+) {
+    let agents = templates::AGENTS;
+    let mut buttons: Vec<String> = agents
+        .iter()
+        .map(|agent| templates::agent_name(agent).unwrap_or(agent).to_owned())
+        .collect();
+    buttons.push(tr(msg!("Cancel")).to_owned());
+    let dialog = gtk::AlertDialog::builder()
+        .message(tr(msg!("Which agent do you use most?")))
+        .detail(tr(msg!(
+            "It always shows in the pill, with its more critical limit. The other joins it only at \
+             80 % or at its limit, and hovering the pill shows each in detail. Only agents you are \
+             logged in to show."
+        )))
+        .buttons(buttons.iter().map(String::as_str).collect::<Vec<_>>())
+        .cancel_button(i32::try_from(agents.len()).unwrap_or(2))
+        .default_button(0)
+        .modal(true)
+        .build();
+    let window = anchor.root().and_downcast::<gtk::Window>();
+    let weak = Rc::downgrade(ctx);
+    let anchor = anchor.downgrade();
+    dialog.choose(
+        window.as_ref(),
+        gtk::gio::Cancellable::NONE,
+        move |answer| {
+            let (Some(ctx), Some(anchor)) = (weak.upgrade(), anchor.upgrade()) else {
+                return;
+            };
+            let Some(main) = answer
+                .ok()
+                .and_then(|at| usize::try_from(at).ok())
+                .and_then(|at| agents.get(at))
+            else {
+                return;
+            };
+            let (Some(_), Some(files)) =
+                (install(&ctx, &anchor, template), ctx.model().waybar_files())
+            else {
+                return;
+            };
+            let Some(Ok(mut modules)) = ctx.model().bar_modules() else {
+                return;
+            };
+            let definitions = template.definitions(&files, main);
+            let name = template.module_name();
+            for (part, definition) in definitions {
+                modules.set(&part, definition);
+            }
+            ctx.model().set_bar_modules(modules);
+            if !lanes::taken(&ctx, &name) {
+                lanes::add_item(&ctx, key, &name);
+            }
+            let text = trf(
+                ADDED,
+                &[("item", &tr(template.title)), ("lane", &lane_name(key))],
+            );
+            ctx.announce(&text);
+        },
+    );
 }
 
 /// Copies `template`'s script, if it has one; its module's definition, or `None` if the script

@@ -102,10 +102,14 @@ reasons are in [wiki/Architecture.md](wiki/Architecture.md#security-model).
    keeps running: what has to happen without the window runs as a short CLI hook from generated config
    ([No daemon](wiki/Command-Line.md#no-daemon-the-cli-as-a-hook)).
 7. **Validate before replacing.** Generated sway config must pass `sway --validate` before it replaces the old file.
-   Writes are atomic. **No network access, no telemetry.** **Nothing is exposed by default:** whatever opens a port,
-   shares something on the network or makes this computer or its data visible to others (sharing a printer, Bluetooth
-   visibility, a listening service) starts off, also where the service below would turn it on by itself, and only the
-   user turns it on, for that one thing.
+   Writes are atomic. **No network access, no telemetry.** The one exception is a bar template whose script reaches the
+   network (the check for updates, the agents' usage limits): Sway Things ships it but never runs it, Waybar does, and
+   the page adds it only after a dialog says what it sends where and how often. Such a script sends nothing but what it
+   needs to its own service, never poses as another program (no borrowed User-Agent), never starts another vendor's tool
+   in the background, and never copies, stores or renews a login. **Nothing is exposed by default:** whatever opens a
+   port, shares something on the network or makes this computer or its data visible to others (sharing a printer,
+   Bluetooth visibility, a listening service) starts off, also where the service below would turn it on by itself, and
+   only the user turns it on, for that one thing.
 8. **No tokio, executor-agnostic core.** Async I/O uses async-io based crates on the glib main loop, so UI updates run
    directly in futures and CLI hooks start fast.
 9. **REUSE headers.** Every source file (`.rs`, scripts) starts with:

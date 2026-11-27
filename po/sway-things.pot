@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-26 22:31+0100\n"
+"POT-Creation-Date: 2026-11-27 08:46+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1479,6 +1479,13 @@ msgid "How many package updates there are, hidden while there are none"
 msgstr ""
 
 #: crates/core/src/bar/templates.rs
+msgid ""
+"On Arch, checkupdates downloads a fresh copy of the package lists from your "
+"mirrors every half hour. With apt, dnf or zypper it reads the lists as they "
+"were last refreshed and uses no network."
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
 msgid "Low battery warning"
 msgstr ""
 
@@ -1520,6 +1527,62 @@ msgstr ""
 msgid ""
 "swaync's bell with the number of notifications; click to open, right click "
 "for Do Not Disturb"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Agents' usage pill (unofficial)"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"Unofficial: one pill with the usage limits of your main command line agent, "
+"Claude Code or Codex; the other joins it only near its limit, and hovering "
+"shows each in detail. Uses each tool's own login and undocumented endpoints "
+"that may change or break"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"At most every five minutes, and when you click it, it sends Claude Code's "
+"login from ~/.claude/.credentials.json to api.anthropic.com and the Codex "
+"CLI's login from ~/.codex/auth.json to chatgpt.com, and asks each for your "
+"usage. These endpoints are unofficial: they may change or stop working at "
+"any time."
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Claude usage (unofficial)"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"Unofficial: uses Claude Code's own login and an undocumented endpoint that "
+"may change or break"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"At most every five minutes, and when you click it, it sends Claude Code's "
+"login from ~/.claude/.credentials.json to api.anthropic.com and asks for "
+"your usage. This endpoint is unofficial: it may change or stop working at "
+"any time."
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid "Codex usage (unofficial)"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"Unofficial: uses the Codex CLI's own login and an undocumented endpoint that "
+"may change or break"
+msgstr ""
+
+#: crates/core/src/bar/templates.rs
+msgid ""
+"At most every five minutes, and when you click it, it sends the Codex CLI's "
+"login from ~/.codex/auth.json to chatgpt.com and asks for your usage. This "
+"endpoint is unofficial: it may change or stop working at any time."
 msgstr ""
 
 #: crates/core/src/bindings/command.rs
@@ -10666,7 +10729,7 @@ msgid "Which bar should Sway Things set up?"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/backend.rs crates/gui/src/widgets/bar/dialog.rs
-#: crates/gui/src/widgets/bar/status.rs
+#: crates/gui/src/widgets/bar/picker.rs crates/gui/src/widgets/bar/status.rs
 #: crates/gui/src/widgets/bluetooth/dialogs.rs
 #: crates/gui/src/widgets/bluetooth/mod.rs crates/gui/src/widgets/capture.rs
 #: crates/gui/src/widgets/environment/variables.rs
@@ -10948,7 +11011,7 @@ msgstr ""
 msgid "Move to {lane}"
 msgstr ""
 
-#: crates/gui/src/widgets/bar/lanes.rs
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
 msgid "Always shown"
 msgstr ""
 
@@ -11188,6 +11251,20 @@ msgid "Shows: {sample}"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/picker.rs
+msgid "This item connects to the internet"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid ""
+"Waybar runs it, not Sway Things. Once added, the script is yours: you can "
+"read it, change it or remove the item."
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Add Anyway"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
 msgid "Search items"
 msgstr ""
 
@@ -11221,6 +11298,17 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/picker.rs
 msgid "In the bar: adds another"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid "Which agent do you use most?"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/picker.rs
+msgid ""
+"It always shows in the pill, with its more critical limit. The other joins "
+"it only at 80 % or at its limit, and hovering the pill shows each in detail. "
+"Only agents you are logged in to show."
 msgstr ""
 
 #: crates/gui/src/widgets/bar/presets.rs
@@ -11272,6 +11360,25 @@ msgstr ""
 
 #: crates/gui/src/widgets/bar/preview.rs
 msgid "nothing"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+msgid "Agents' usage"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{agent} usage"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{agent} near its limit"
+msgstr ""
+
+#: crates/gui/src/widgets/bar/preview.rs
+#, rust-format
+msgid "{agent} in detail"
 msgstr ""
 
 #: crates/gui/src/widgets/bar/preview.rs

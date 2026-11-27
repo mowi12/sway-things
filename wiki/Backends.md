@@ -641,12 +641,23 @@ there.
   `# Sway Things template:`): a pomodoro timer, camera in use, updates available, a low battery warning, VPN status, the
   highest system load, a power menu (swaynag) and swaync's notification center. The pomodoro timer reports its phase as
   classes (`work`, `short`, `long`, `paused`, `ending`; stopped `idle` or `ready` with `next-<phase>`) for the looks,
-  waits for a click between phases and redraws the bar at once with signal 10. Scripts keep their state in
-  `$XDG_RUNTIME_DIR` (never `/tmp`; without it they say so) or `$XDG_STATE_HOME`, and read it as data, never as shell. A
-  script is copied on request to `~/.config/sway-things/waybar/scripts/` (executable); a copy that is there is replaced
-  only while it is byte for byte a version Sway Things shipped (this one, or an older one by its SHA-256 in
-  `templates::SHIPPED`), so an edited copy stays and the page says so. From then on it is the user's: waybar runs it,
-  Sway Things never does.
+  waits for a click between phases and redraws the bar at once with signal 10. A template that reaches the network says
+  what it sends where in `Template::network`, and the page asks before it adds it: the check for updates (`checkupdates`
+  on Arch) and the unofficial usage limits of command line agents (Claude Code, Codex; `Group::AgentUsage`, in the
+  picker's _Custom_), all from one script, `ai-usage.sh`, whose modes are the parts of the agents' pill (`head`,
+  `alert`, `detail`) or one agent (`show`). They read the login where the vendor's tool keeps it
+  (`~/.claude/.credentials.json`, `~/.codex/auth.json`) and never renew it (an expired one says to run the tool once),
+  send it only to that vendor's endpoint (`api.anthropic.com`, `chatgpt.com`), as a header on curl's standard input
+  (never on a command line), with curl's own User-Agent and without starting another program, keep nothing but the
+  answers' percentages and reset times in one cache that every module of the pill shares
+  (`$XDG_CACHE_HOME/sway-things/ai-usage`, `umask 077`, at most one request per vendor in five minutes, under `flock`
+  for all displays), wait a minute after a failure and ten after "too many requests", and are marked as using an
+  undocumented endpoint that may change or break. A click (`refresh`) asks now and redraws the pill with signal 9; every
+  command Sway Things writes for them is the quoted script with words, no shell code. The pill's template is several
+  definitions (`Template::parts`): `group/ai-usage`, a drawer whose first member, `group/ai-usage-head`, holds the main
+  agent's `custom/ai-usage#<agent>` and the other's `custom/ai-alert#<agent>`, with `custom/ai-detail#<agent>` in the
+  drawer. The looks draw an agent's picture where `~/.config/sway-things/waybar/icons/<agent>.svg` exists
+  (`templates::logos`), the script then leaves out its name.
 - **Groups** (`bar::groups`): a group is an item of a lane whose members are in its definition in `bar.jsonc`
   (`"modules"`, a drawer's options under `"drawer"`: `transition-duration`, `transition-left-to-right`,
   `click-to-reveal`, `children-class`), so a member is in exactly one place. `group`, `ungroup` and `move_item` change

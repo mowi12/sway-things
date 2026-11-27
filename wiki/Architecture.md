@@ -542,10 +542,12 @@ copy button). Alternatively the user deletes or renames their own file, and we c
 ## Security model
 
 **Runs as the user. No privileged code, no daemon, no network**. These rules are the app's: the CLI, the GUI and what
-they generate. The install script (`scripts/install-from-obs.sh`, served at sway-things.org/install) is distribution
-tooling outside them, as a package manager is: run once by the user, it becomes root (directly, through `sudo` or
-`doas`) to add the repository and install the package, and it downloads from the openSUSE Build Service. Its own row in
-the table says what protects it.
+they generate. A bar template that reaches the network is the user's script once added, run by Waybar, never by Sway
+Things, and added only after a dialog says what it sends where
+([rule 7](../CONTRIBUTING.md#engineering-rules-non-negotiable), [Templates](Backends.md#bar)). The install script
+(`scripts/install-from-obs.sh`, served at sway-things.org/install) is distribution tooling outside them, as a package
+manager is: run once by the user, it becomes root (directly, through `sudo` or `doas`) to add the repository and install
+the package, and it downloads from the openSUSE Build Service. Its own row in the table says what protects it.
 
 | Threat | Mitigation |
 | --- | --- |
