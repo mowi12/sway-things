@@ -45,9 +45,10 @@
 - name: "page:network"
   color: "115e59"
   description: "Network page"
-- name: "page:printers"
+- name: "page:printers-scanners"
   color: "115e59"
-  description: "Printers page"
+  description: "Printers & Scanners page"
+  aliases: ["page:printers"]
 - name: "page:windows"
   color: "0d9488"
   description: "Windows page (incl. SwayFX effects)"
