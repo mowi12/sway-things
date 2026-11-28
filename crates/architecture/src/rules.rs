@@ -11,6 +11,9 @@
 //!   (`network::agent` and `network::nm::snapshot` may cycle, `widgets::keyboard` and
 //!   `widgets::xkb_options` may not).
 //!
+//! - [`PARTICIPANTS`] (R7): `apply`, `generate` and `doctor` reach a feature only through the
+//!   participant list (`core::participant`), not by naming the feature's module.
+//!
 //! - [`KEY_LITERALS`] (R4): no registry key as a string literal outside `core::registry`.
 //! - [`HOOK_LITERALS`] (R4): no `sway-things hook` in a string literal outside `core::command`.
 //! - [`STAND_INS`] (R5): a module `stand_in` is declared behind
@@ -35,6 +38,15 @@ pub const LAYERS: &str = "R1-layers";
 pub const MODULE_CYCLES: &str = "R2-module-cycles";
 /// The rule against cycles between the modules of a crate across its top-level modules (R2).
 pub const FILE_CYCLES: &str = "R2-file-cycles";
+
+/// The rule that the use cases and the assembly reach features through the participants (R7).
+pub const PARTICIPANTS: &str = "R7-participants";
+
+/// The top-level modules of the core that may name a feature only through `participant` (R7).
+pub const THROUGH_PARTICIPANTS: &[&str] = &["apply", "generate", "doctor"];
+
+/// The layer of the features, which [`THROUGH_PARTICIPANTS`] doesn't name.
+const FEATURES: &str = "features";
 
 /// The rule against registry keys spelled as string literals (R4).
 pub const KEY_LITERALS: &str = "R4-key-literals";
@@ -144,7 +156,7 @@ pub const CORE_LAYERS: &[Layer] = &[
     },
     Layer {
         name: "assembly",
-        modules: &["generate", "view"],
+        modules: &["participant", "generate", "view"],
     },
     Layer {
         name: "use cases",
@@ -247,6 +259,44 @@ pub fn layers(graph: &Graph) -> Vec<Violation> {
                     name(from_layer),
                     to.name,
                     name(to_layer)
+                ),
+            })
+        })
+        .collect()
+}
+
+/// The edges from `apply`, `generate` or `doctor` to a module of the features layer (R7): they
+/// reach a feature through the participant list instead, so a new feature adds a participant
+/// rather than an arm in each of them.
+pub fn participants(graph: &Graph) -> Vec<Violation> {
+    let modules = graph.modules();
+    let core = core_unit(graph);
+    graph
+        .edges()
+        .iter()
+        .filter_map(|edge| {
+            let (from, to) = (&modules[edge.from], &modules[edge.to]);
+            if Some(from.unit) != core || from.unit != to.unit {
+                return None;
+            }
+            let from_top = from.top()?;
+            if !THROUGH_PARTICIPANTS.contains(&from_top) {
+                return None;
+            }
+            let (_, to_layer) = layer_of(to.top()?)?;
+            if to_layer != FEATURES {
+                return None;
+            }
+            Some(Violation {
+                rule: PARTICIPANTS,
+                from: from.name.clone(),
+                to: to.name.clone(),
+                location: location(graph, edge),
+                message: format!(
+                    "{} uses the feature module {}; `apply`, `generate` and `doctor` reach a feature only \
+                     through the participant list. Add what it needs to the feature's participant \
+                     (core::participant) and use it from there",
+                    from.name, to.name
                 ),
             })
         })

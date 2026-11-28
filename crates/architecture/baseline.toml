@@ -206,3 +206,429 @@ rule = "R2-file-cycles"
 from = "gui::window::imp"
 to = "gui::widgets::welcome"
 why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::apps"
+why = "The applier holds the XDG directories (`apps::Dirs`) the participants' files go to. Repair: move `Dirs` down next to `paths`."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::bar"
+why = "The applier names the bar for its problems and the bar's setup after persist. Repair: the bar's participant reports them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::bindings::live"
+why = "A change of the bindings is worked out as the difference of the whole table (`bindings::live`). Repair: the bindings' participant gives the commands of a change."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::conflict"
+why = "Every change checks its conflicts with the user's config through `conflict`, which is no feature of its own but sits in the features layer. Repair: move `conflict` down to the state layer."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::gsettings"
+why = "The applier copies a setting with a GSettings key to GSettings for every change (`GSettingsStore`). Repair: a GSettings participant that follows a change."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::notifications::bus"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::notifications::files"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::outputs"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::outputs::kanshi"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply"
+to = "core::outputs::profiles"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar::modules"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar::process"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar::starter"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar::swaybar"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::bar"
+to = "core::bar::waybar"
+why = "The applier sets up the bar after persist itself (`keep_bar`: waybar's files, its process, swaybar's lines). Repair: the bar's participant keeps them, with the applier's bar fields."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications::bus"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications::files"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications::mako"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications::starts"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::daemon"
+to = "core::notifications::swaync"
+why = "The applier keeps the notification daemon's files and switches the daemon itself (`keep_daemon_files`, `switch_daemon`), with three fields of its own. Repair: the daemon's participant holds them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::displays"
+to = "core::outputs"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::displays"
+to = "core::outputs::kanshi"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::displays"
+to = "core::outputs::mirror"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::displays"
+to = "core::outputs::profiles"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::displays"
+to = "core::outputs::workspaces"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::error"
+to = "core::bar::modules"
+why = "The applier names the bar for its problems and the bar's setup after persist. Repair: the bar's participant reports them."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::error"
+to = "core::devices"
+why = "Risky changes of input devices and their errors use `devices` (the lockout of a device). Repair: the devices' participant gives the lockout, or `devices::Lockout` moves down."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::page"
+to = "core::conflict"
+why = "Every change checks its conflicts with the user's config through `conflict`, which is no feature of its own but sits in the features layer. Repair: move `conflict` down to the state layer."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::risky"
+to = "core::conflict"
+why = "Every change checks its conflicts with the user's config through `conflict`, which is no feature of its own but sits in the features layer. Repair: move `conflict` down to the state layer."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::risky"
+to = "core::devices"
+why = "Risky changes of input devices and their errors use `devices` (the lockout of a device). Repair: the devices' participant gives the lockout, or `devices::Lockout` moves down."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::risky"
+to = "core::outputs"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::apply::view"
+to = "core::outputs"
+why = "The displays, kanshi and the mirrors are part of the applier and its safety net (9 fields, `Displays`). Repair: a displays participant (`DisplaysSync`) holds them; the last step of the seam, since it touches the safety net."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::capture::tools"
+why = "The doctor's checks of `capture` read it directly. Repair: the participant of `capture` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::conflict"
+why = "The doctor's checks of `conflict` read it directly. Repair: the participant of `conflict` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::gsettings"
+why = "The doctor's checks of `gsettings` read it directly. Repair: the participant of `gsettings` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::outputs"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::outputs::kanshi"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor"
+to = "core::scanners::look"
+why = "The doctor's checks of `scanners` read it directly. Repair: the participant of `scanners` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::apps"
+to = "core::apps"
+why = "The doctor's checks of `apps` read it directly. Repair: the participant of `apps` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::apps"
+to = "core::apps::autostart"
+why = "The doctor's checks of `apps` read it directly. Repair: the participant of `apps` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::apps"
+to = "core::apps::files"
+why = "The doctor's checks of `apps` read it directly. Repair: the participant of `apps` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar::modules"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar::process"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar::starter"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar::takeover"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::bar"
+to = "core::bar::waybar"
+why = "The doctor's checks of `bar` read it directly. Repair: the participant of `bar` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::capture"
+to = "core::capture"
+why = "The doctor's checks of `capture` read it directly. Repair: the participant of `capture` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::capture"
+to = "core::capture::clipboard"
+why = "The doctor's checks of `capture` read it directly. Repair: the participant of `capture` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::capture"
+to = "core::capture::tools"
+why = "The doctor's checks of `capture` read it directly. Repair: the participant of `capture` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::daemon"
+to = "core::notifications"
+why = "The doctor's checks of `notifications` read it directly. Repair: the participant of `notifications` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::daemon"
+to = "core::notifications::bus"
+why = "The doctor's checks of `notifications` read it directly. Repair: the participant of `notifications` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::daemon"
+to = "core::notifications::files"
+why = "The doctor's checks of `notifications` read it directly. Repair: the participant of `notifications` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::daemon"
+to = "core::notifications::mako"
+why = "The doctor's checks of `notifications` read it directly. Repair: the participant of `notifications` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::daemon"
+to = "core::notifications::starts"
+why = "The doctor's checks of `notifications` read it directly. Repair: the participant of `notifications` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::environment"
+to = "core::apps"
+why = "The doctor's checks of `apps` read it directly. Repair: the participant of `apps` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::environment"
+to = "core::environment"
+why = "The doctor's checks of `environment` read it directly. Repair: the participant of `environment` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::environment"
+to = "core::environment::portals"
+why = "The doctor's checks of `environment` read it directly. Repair: the participant of `environment` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::environment"
+to = "core::environment::screencast"
+why = "The doctor's checks of `environment` read it directly. Repair: the participant of `environment` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::environment"
+to = "core::packages"
+why = "The doctor's checks of `packages` read it directly. Repair: the participant of `packages` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::kanshi"
+to = "core::outputs::kanshi"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::kanshi"
+to = "core::outputs::kanshi_config"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::kanshi"
+to = "core::outputs::profiles"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::kanshi"
+to = "core::outputs::workspaces"
+why = "The doctor's checks of `outputs` read it directly. Repair: the participant of `outputs` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::scanners"
+to = "core::scanners::look"
+why = "The doctor's checks of `scanners` read it directly. Repair: the participant of `scanners` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::doctor::wallpaper"
+to = "core::wallpaper"
+why = "The doctor's checks of `wallpaper` read it directly. Repair: the participant of `wallpaper` gives its checks (async today, so a `checks` method of the seam first needs an async form)."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::generate"
+to = "core::outputs"
+why = "The lines for the displays with kanshi and the display guard (`output_tail`, `Displays::detect`) are written by `generate`. Repair: the displays participant writes them, and `Displays` moves out of `generate`."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::generate"
+to = "core::outputs::kanshi"
+why = "The lines for the displays with kanshi and the display guard (`output_tail`, `Displays::detect`) are written by `generate`. Repair: the displays participant writes them, and `Displays` moves out of `generate`."
+
+[[violation]]
+rule = "R7-participants"
+from = "core::generate"
+to = "core::outputs::mirror"
+why = "The lines for the displays with kanshi and the display guard (`output_tail`, `Displays::detect`) are written by `generate`. Repair: the displays participant writes them, and `Displays` moves out of `generate`."
