@@ -29,18 +29,6 @@ why = "Uses `generate::HEADER` for a file it writes; the header and the manifest
 
 [[violation]]
 rule = "R1-layers"
-from = "core::command"
-to = "core::bindings::keys"
-why = "The `bindsym` command builder takes `bindings::Line` and `Modifiers`; the binding reader moves down into the sway layer next to `command`."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::command"
-to = "core::bindings::line"
-why = "The `bindsym` command builder takes `bindings::Line` and `Modifiers`; the binding reader moves down into the sway layer next to `command`."
-
-[[violation]]
-rule = "R1-layers"
 from = "core::command::bar"
 to = "core::bar::takeover"
 why = "The `swaybar_command` builder names the launcher of Sway Things' bar, `bar::takeover::LAUNCHER`; the constant moves down into `command::bar`, which `bar::takeover` then uses."
@@ -83,33 +71,9 @@ why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, 
 
 [[violation]]
 rule = "R1-layers"
-from = "core::registry::apps"
-to = "core::bindings::command"
-why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::apps"
-to = "core::bindings::keys"
-why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::apps"
-to = "core::bindings::line"
-why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
-
-[[violation]]
-rule = "R1-layers"
 from = "core::registry::bar"
 to = "core::bar"
 why = "The check of a module name reads `bar::is_module_name`, the syntax of a name in waybar's module lists; the check moves down into `registry::bar`, which `bar` then uses."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::capture"
-to = "core::bindings::keys"
-why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
 
 [[violation]]
 rule = "R1-layers"
@@ -136,18 +100,6 @@ to = "core::region::locales"
 why = "The value check calls `region::locales::is_locale_name`; the check moves down into the registry."
 
 [[violation]]
-rule = "R1-layers"
-from = "core::registry::shortcuts"
-to = "core::bindings::item"
-why = "The registry checks binding values with the binding reader of `bindings`; the reader moves down into the sway layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::value"
-to = "core::bindings::line"
-why = "`ValueError::NotABinding` wraps `bindings::LineErrorKind`; the binding reader moves down into the sway layer."
-
-[[violation]]
 rule = "R2-file-cycles"
 from = "cli::displays"
 to = "cli::hook"
@@ -164,18 +116,6 @@ rule = "R2-file-cycles"
 from = "cli::wallpaper"
 to = "cli::displays"
 why = "`wallpaper` lists the displays through `displays::Displays`; the cycle ends when `displays` no longer uses `hook` (see that entry)."
-
-[[violation]]
-rule = "R2-file-cycles"
-from = "core::bindings::ours"
-to = "core::capture::shortcuts"
-why = "`bindings::ours::file_lines` pulls the Screenshots keys from `capture::shortcuts`, which builds them with `ours`: invert it, the assembly layer passes the other pages' lines in."
-
-[[violation]]
-rule = "R2-file-cycles"
-from = "core::capture::shortcuts"
-to = "core::bindings::ours"
-why = "Builds its key lines with `bindings::ours` (`FileLine`, `modifier`); fine once `ours` no longer calls back into `capture`."
 
 [[violation]]
 rule = "R2-file-cycles"
@@ -380,30 +320,6 @@ rule = "R2-file-cycles"
 from = "gui::window::imp"
 to = "gui::widgets::welcome"
 why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::apps"
-to = "core::bindings"
-why = "`apps::launchers` builds its key lines with the binding reader; fine once `bindings::ours` no longer pulls the launchers' lines (see `core::bindings` → `core::apps`)."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::bindings"
-to = "core::apps"
-why = "`bindings::ours::file_lines` pulls the launchers' keys from `apps::launchers::BINDINGS`: invert it, the assembly layer passes the other pages' lines in."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::bindings"
-to = "core::capture"
-why = "`bindings::ours::file_lines` pulls the Screenshots keys from `capture::shortcuts`: invert it, the assembly layer passes the other pages' lines in."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::capture"
-to = "core::bindings"
-why = "`capture::shortcuts` builds its key lines with `bindings`; fine once `bindings::ours` no longer pulls them (see `core::bindings` → `core::capture`)."
 
 [[violation]]
 rule = "R2-module-cycles"

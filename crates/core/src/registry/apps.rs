@@ -14,10 +14,10 @@
 //! the bottom layer.
 
 use super::{Choice, Msg, Page, Setting, ValueError};
-use crate::bindings::keys::{self, Modifiers};
-use crate::bindings::{Action, Line, LineError};
 use crate::command::{SwayCmd, SwayText};
 use crate::msg;
+use crate::sway_config::bindings::keys::{self, Modifiers};
+use crate::sway_config::bindings::{Action, Line, LineError};
 
 /// The key of the terminal's command.
 pub const TERMINAL: &str = "apps.terminal";
@@ -163,7 +163,7 @@ pub fn line(keys_text: &str, command: &str) -> Result<Line, LineError> {
     let line = Line {
         unbind: false,
         code: false,
-        flags: crate::bindings::Flags::default(),
+        flags: crate::sway_config::bindings::Flags::default(),
         input: None,
         keys: keys_text.to_owned(),
         combo,

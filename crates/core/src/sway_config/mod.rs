@@ -35,6 +35,7 @@
 //! assert!(config.diagnostics.is_empty());
 //! ```
 
+pub mod bindings;
 mod expand;
 mod files;
 pub(crate) mod line;

@@ -357,11 +357,11 @@ fn bindings(state: &State) -> Vec<Line> {
         .map(|file_line| {
             // An item that can't be written is named, so the comment and `doctor` say which.
             let item = match file_line.origin {
-                crate::bindings::Origin::Item(index) => items.get(index),
+                crate::sway_config::bindings::Origin::Item(index) => items.get(index),
                 _ => None,
             };
             let source = Source {
-                keys: vec![file_line.key()],
+                keys: vec![crate::bindings::ours::key(&file_line)],
                 device: None,
             };
             let text = file_line

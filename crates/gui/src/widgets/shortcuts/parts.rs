@@ -8,9 +8,8 @@
 use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::bindings::{
-    BindCommand, DEFAULT_MODE, Device, Keymap, Listing, Modifiers, Origin, Row, RowKind,
-};
+use sway_things_core::bindings::{DEFAULT_MODE, Listing, Row, RowKind};
+use sway_things_core::sway_config::bindings::{BindCommand, Device, Keymap, Modifiers, Origin};
 
 use crate::i18n::{Msg, msg, tr, trf};
 use crate::model::Model;

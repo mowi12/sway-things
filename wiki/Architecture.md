@@ -280,15 +280,16 @@ every edge to a higher layer. Keys and defaults other modules share with it are 
 there: `outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY`
 is `registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
 the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`. The keys of Keyboard Shortcuts are
-`registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
-reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state, but still sits
-in the features layer: these edges are in the baseline until the reader moves down to the sway layer. The keys, defaults
-and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
-`capture::shortcuts`); the check of its keys uses `bindings::keys` the same way. The keys of Apps & Autostart, the kinds
-of default apps, the autostart entries and the checks of their values are `registry::apps` (re-exported by
-`apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and launcher's
-commands and keys use the same binding reader. A key that code reads by name, in the core or a front end, is a constant
-of the registry module that defines the setting (`registry::app::SAFETY_NET_TIMEOUT`,
+`registry::shortcuts` (re-exported by `bindings::ours`), with the main modifier they stand for; the check of its binding
+lines reads them with the binding reader of the sway layer (`sway_config::bindings`: `item`, `line`, `keys`, `command`,
+and who wrote a line, `Origin` and `FileLine`), which uses only `sway_config::line`, `command` and `i18n`. A `SwayCmd`
+holds a binding line as its two rendered texts (`Line::sway_cmd`), so `command` doesn't name the reader's types. The
+keys, defaults and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name`
+and `capture::shortcuts`); the check of its keys uses `sway_config::bindings::keys` the same way. The keys of Apps &
+Autostart, the kinds of default apps, the autostart entries and the checks of their values are `registry::apps`
+(re-exported by `apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and
+launcher's commands and keys use the same binding reader. A key that code reads by name, in the core or a front end, is
+a constant of the registry module that defines the setting (`registry::app::SAFETY_NET_TIMEOUT`,
 `registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …), never a string literal; the architecture
 test checks it (R4).
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-28 11:04+0100\n"
+"POT-Creation-Date: 2026-11-28 11:40+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1145,8 +1145,8 @@ msgstr ""
 msgid "Show Scroll Lock"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
-#: crates/core/src/registry/page.rs
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/page.rs
+#: crates/core/src/sway_config/bindings/command.rs
 msgid "Workspaces"
 msgstr ""
 
@@ -1270,8 +1270,8 @@ msgstr ""
 msgid "Sway"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
-#: crates/core/src/registry/page.rs crates/core/src/system.rs
+#: crates/core/src/bar/catalog.rs crates/core/src/registry/page.rs
+#: crates/core/src/sway_config/bindings/command.rs crates/core/src/system.rs
 msgid "System"
 msgstr ""
 
@@ -1279,7 +1279,8 @@ msgstr ""
 msgid "Network & Audio"
 msgstr ""
 
-#: crates/core/src/bar/catalog.rs crates/core/src/bindings/command.rs
+#: crates/core/src/bar/catalog.rs
+#: crates/core/src/sway_config/bindings/command.rs
 msgid "Media"
 msgstr ""
 
@@ -1585,539 +1586,6 @@ msgid ""
 "endpoint is unofficial: it may change or stop working at any time."
 msgstr ""
 
-#: crates/core/src/bindings/command.rs
-msgid "the command is empty"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "the command can't contain a line break or tab"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "the command can't contain a backslash"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "the command can't end with a brace"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "a quote or [ in the command isn't closed"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#, rust-format
-msgid "sway has no command {name}"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "the program to run is empty or contains a backslash or line break"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "workspace numbers start at 1"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs crates/core/src/registry/page.rs
-msgid "Windows"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs crates/gui/src/widgets/sound/mod.rs
-msgid "Apps"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Other"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#, rust-format
-msgid "Run {command}"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Close the window"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Toggle fullscreen"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Toggle floating"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Switch the focus between tiling and floating"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the parent container"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the child container"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Move the window to the scratchpad"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#, rust-format
-msgid "Go to workspace {name}"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Go to the next workspace"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Go to the previous workspace"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Go back to the last workspace"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#, rust-format
-msgid "Move the window to workspace {name}"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Show the scratchpad"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Stacked layout"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Tabbed layout"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Toggle the split layout"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Split horizontally"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Split vertically"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Make the window narrower"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Make the window wider"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Make the window shorter"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Make the window taller"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Reload the sway config"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Exit sway"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Leave the mode"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-#, rust-format
-msgid "Enter the mode {mode}"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Raise the volume"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Lower the volume"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Mute or unmute the microphone"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Mute or unmute the sound"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Brighten the screen"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Dim the screen"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Play or pause"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Next track"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Previous track"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Stop playing"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Lock the screen"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Exit sway, after asking"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Take a screenshot of an area"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Take a screenshot"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Raise the volume, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Lower the volume, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Mute or unmute the sound, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Raise the microphone volume, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Lower the microphone volume, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Mute or unmute the microphone, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Brighten the screen, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Dim the screen, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Play or pause, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Next track, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Previous track, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Stop playing, with an on-screen display"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the window to the left"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the window to the right"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the window above"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Focus the window below"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Move the window left"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Move the window right"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Move the window up"
-msgstr ""
-
-#: crates/core/src/bindings/command.rs
-msgid "Move the window down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/behavior.rs
-msgid "Super"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
-#: crates/core/src/registry/behavior.rs crates/gui/src/widgets/xkb_options.rs
-msgid "Ctrl"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
-#: crates/core/src/registry/behavior.rs crates/core/src/registry/shortcuts.rs
-msgid "Alt"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
-#: crates/core/src/registry/behavior.rs
-msgid "Shift"
-msgstr ""
-
-#. TRANSLATORS: What the Caps Lock key does: what it says on it.
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/xkb_options.rs
-msgid "Caps Lock"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Num Lock"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "only one layout group can be given"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "invalid layout group {group}"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "{button}: only buttons 1 to 9 have names"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "invalid key {key}"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "key {code}"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Left Button"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Right Button"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Middle Button"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Back Button"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Forward Button"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Scroll Up"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Scroll Down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Scroll Left"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Scroll Right"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "Button {code}"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#, rust-format
-msgid "Keypad {key}"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Enter"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Space"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Esc"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Backspace"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-#: crates/gui/src/widgets/wallpaper/collections.rs
-msgid "Delete"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Insert"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Tab"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Home"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "End"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Page Up"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Page Down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
-#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
-#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Left"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/core/src/registry/bar.rs
-#: crates/core/src/registry/input.rs crates/core/src/registry/windows.rs
-#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
-#: crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Right"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Up"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/shortcuts/editor.rs
-msgid "Down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Print"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Volume Up"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Volume Down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/sound/volume.rs
-msgid "Mute"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Microphone Mute"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Brightness Up"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Brightness Down"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Play"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/printers/details.rs
-msgid "Pause"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs crates/gui/src/widgets/capture.rs
-#: crates/gui/src/widgets/search_button.rs
-msgid "Stop"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Next Track"
-msgstr ""
-
-#: crates/core/src/bindings/keys.rs
-msgid "Previous Track"
-msgstr ""
-
-#: crates/core/src/bindings/line.rs
-msgid "the keys can't be read"
-msgstr ""
-
-#: crates/core/src/bindings/line.rs
-msgid ""
-"the command can't be empty, end with a brace or contain a backslash or line "
-"break"
-msgstr ""
-
-#: crates/core/src/bindings/line.rs
-msgid "must start with bindsym, bindcode, unbindsym or unbindcode"
-msgstr ""
-
-#: crates/core/src/bindings/line.rs
-msgid "the keys or the command are missing"
-msgstr ""
-
-#: crates/core/src/bindings/line.rs
-msgid ""
-"keys and devices can only have letters, digits, _ and the + between keys"
-msgstr ""
-
 #: crates/core/src/bindings/ours.rs crates/core/src/registry/shortcuts.rs
 msgid "Volume keys"
 msgstr ""
@@ -2305,10 +1773,6 @@ msgstr ""
 
 #: crates/core/src/command/mod.rs
 msgid "a command after criteria can't contain criteria or for_window"
-msgstr ""
-
-#: crates/core/src/command/mod.rs
-msgid "the binding can't be written as a sway command"
 msgstr ""
 
 #: crates/core/src/command/mod.rs
@@ -4805,12 +4269,45 @@ msgstr ""
 msgid "Super (the logo key)"
 msgstr ""
 
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/registry/shortcuts.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Alt"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Ctrl"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/behavior.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Shift"
+msgstr ""
+
 #: crates/core/src/registry/bar.rs
 msgid "Top"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
 msgid "Bottom"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/input.rs
+#: crates/core/src/registry/windows.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Left"
+msgstr ""
+
+#: crates/core/src/registry/bar.rs crates/core/src/registry/input.rs
+#: crates/core/src/registry/windows.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/bar/lanes.rs crates/gui/src/widgets/bar/preview.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Right"
 msgstr ""
 
 #: crates/core/src/registry/bar.rs
@@ -5529,6 +5026,11 @@ msgstr ""
 #: crates/gui/src/widgets/group_row.rs crates/gui/src/widgets/network/rows.rs
 #: crates/gui/src/widgets/xkb_options.rs
 msgid "Off"
+msgstr ""
+
+#: crates/core/src/registry/behavior.rs
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Super"
 msgstr ""
 
 #: crates/core/src/registry/behavior.rs
@@ -8527,6 +8029,11 @@ msgstr ""
 msgid "Printers & Scanners"
 msgstr ""
 
+#: crates/core/src/registry/page.rs
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Windows"
+msgstr ""
+
 #: crates/core/src/registry/page.rs crates/core/src/registry/wallpaper.rs
 msgid "Wallpaper"
 msgstr ""
@@ -10076,6 +9583,508 @@ msgstr ""
 
 #: crates/core/src/state/paths.rs
 msgid "the host name can't be used as a file name"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "the command is empty"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "the command can't contain a line break or tab"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "the command can't contain a backslash"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "the command can't end with a brace"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "a quote or [ in the command isn't closed"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#, rust-format
+msgid "sway has no command {name}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "the program to run is empty or contains a backslash or line break"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "workspace numbers start at 1"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#: crates/gui/src/widgets/sound/mod.rs
+msgid "Apps"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Other"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#, rust-format
+msgid "Run {command}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Close the window"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Toggle fullscreen"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Toggle floating"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Switch the focus between tiling and floating"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the parent container"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the child container"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Move the window to the scratchpad"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#, rust-format
+msgid "Go to workspace {name}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Go to the next workspace"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Go to the previous workspace"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Go back to the last workspace"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#, rust-format
+msgid "Move the window to workspace {name}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Show the scratchpad"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Stacked layout"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Tabbed layout"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Toggle the split layout"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Split horizontally"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Split vertically"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Make the window narrower"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Make the window wider"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Make the window shorter"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Make the window taller"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Reload the sway config"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Exit sway"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Leave the mode"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+#, rust-format
+msgid "Enter the mode {mode}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Raise the volume"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Lower the volume"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Mute or unmute the microphone"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Mute or unmute the sound"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Brighten the screen"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Dim the screen"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Play or pause"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Next track"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Previous track"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Stop playing"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Lock the screen"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Exit sway, after asking"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Take a screenshot of an area"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Take a screenshot"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Raise the volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Lower the volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Mute or unmute the sound, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Raise the microphone volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Lower the microphone volume, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Mute or unmute the microphone, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Brighten the screen, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Dim the screen, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Play or pause, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Next track, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Previous track, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Stop playing, with an on-screen display"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the window to the left"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the window to the right"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the window above"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Focus the window below"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Move the window left"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Move the window right"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Move the window up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/command.rs
+msgid "Move the window down"
+msgstr ""
+
+#. TRANSLATORS: What the Caps Lock key does: what it says on it.
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/xkb_options.rs
+msgid "Caps Lock"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Num Lock"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "only one layout group can be given"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "invalid layout group {group}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "{button}: only buttons 1 to 9 have names"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "invalid key {key}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "key {code}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Left Button"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Right Button"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Middle Button"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Back Button"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Forward Button"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Scroll Up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Scroll Down"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Scroll Left"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Scroll Right"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "Button {code}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#, rust-format
+msgid "Keypad {key}"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Enter"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Space"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Esc"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Backspace"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/wallpaper/collections.rs
+msgid "Delete"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Insert"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Tab"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Home"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "End"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Page Up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Page Down"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/shortcuts/editor.rs
+msgid "Down"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Print"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Volume Up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Volume Down"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/sound/volume.rs
+msgid "Mute"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Microphone Mute"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Brightness Up"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Brightness Down"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Play"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/printers/details.rs
+msgid "Pause"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+#: crates/gui/src/widgets/capture.rs crates/gui/src/widgets/search_button.rs
+msgid "Stop"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Next Track"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/keys.rs
+msgid "Previous Track"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/line.rs
+msgid "the keys can't be read"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/line.rs
+msgid ""
+"the command can't be empty, end with a brace or contain a backslash or line "
+"break"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/line.rs
+msgid "must start with bindsym, bindcode, unbindsym or unbindcode"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/line.rs
+msgid "the keys or the command are missing"
+msgstr ""
+
+#: crates/core/src/sway_config/bindings/line.rs
+msgid ""
+"keys and devices can only have letters, digits, _ and the + between keys"
 msgstr ""
 
 #: crates/core/src/sway_config/expand.rs

@@ -8,7 +8,8 @@
 
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::bindings::{ClashKind, Keymap, Listing, Row, RowKind, edit};
+use sway_things_core::bindings::{ClashKind, Listing, Row, RowKind, edit};
+use sway_things_core::sway_config::bindings::Keymap;
 
 use super::{clash_text, keycaps, labels, locked_reason, store, title_of};
 use crate::i18n::{msg, tr};

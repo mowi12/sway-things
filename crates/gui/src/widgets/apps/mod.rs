@@ -35,8 +35,9 @@ use sway_things_core::apps::autostart::{self as core_autostart, RUNNER, Runner, 
 use sway_things_core::apps::launchers::{self, Binding};
 use sway_things_core::apps::mime::{self, Kind, Source};
 use sway_things_core::apps::{App, Dirs, installed};
-use sway_things_core::bindings::{ClashKind, DEFAULT_MODE, Keymap, Listing, Origin, RowKind};
+use sway_things_core::bindings::{ClashKind, DEFAULT_MODE, Listing, RowKind};
 use sway_things_core::registry::{Registry, Setting, Value};
+use sway_things_core::sway_config::bindings::{Keymap, Origin};
 
 pub use autostart::AutostartList;
 

@@ -13,8 +13,8 @@ mod common;
 
 use common::{Result, push_line};
 use sway_things_core::bindings::ours::{self, GROUPS};
-use sway_things_core::bindings::{Action, Line, Modifiers};
 use sway_things_core::command::{SwayCmd, Target};
+use sway_things_core::sway_config::bindings::{Action, Line, Modifiers};
 
 /// Items as `shortcuts.bindings` stores them: every option, quotes, `;`, `$` and criteria in
 /// commands, keycodes, mouse buttons, a device and a layout group.
@@ -42,18 +42,18 @@ fn lines() -> Result<Vec<SwayCmd>> {
                 command: Some("nop".to_owned()),
                 ..line.clone()
             };
-            commands.push(SwayCmd::binding(&placeholder, Modifiers::SUPER, true)?);
+            commands.push(placeholder.sway_cmd(Modifiers::SUPER, true)?);
         }
-        commands.push(SwayCmd::binding(&line, Modifiers::SUPER, false)?);
+        commands.push(line.sway_cmd(Modifiers::SUPER, false)?);
     }
     // What the editor makes of a program to run.
     let run = Action::Run("printf '%s' \"$1\" | wl-copy".to_owned()).command()?;
     let line = ours::parse_item(&format!("bindsym $mod+c {run}"))?;
-    commands.push(SwayCmd::binding(&line, Modifiers::ALT, false)?);
+    commands.push(line.sway_cmd(Modifiers::ALT, false)?);
     for group in GROUPS {
         for osd in [false, true] {
             for line in group.lines(osd) {
-                commands.push(SwayCmd::binding(&line, Modifiers::SUPER, true)?);
+                commands.push(line.sway_cmd(Modifiers::SUPER, true)?);
             }
         }
     }

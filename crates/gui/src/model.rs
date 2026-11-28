@@ -801,7 +801,7 @@ impl Model {
     /// compares keysym and keycode bindings. `None` if the settings couldn't be loaded.
     pub fn bindings(
         &self,
-        keymap: Option<&dyn sway_things_core::bindings::Keymap>,
+        keymap: Option<&dyn sway_things_core::sway_config::bindings::Keymap>,
     ) -> Option<sway_things_core::bindings::Listing> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;

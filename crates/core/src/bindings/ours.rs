@@ -19,35 +19,25 @@
 //! `swayosd-client`, which changes the volume, the brightness or the player itself and shows
 //! the new value ([`Group::osd_keys`], [`crate::swayosd`]).
 
-use super::keys::{self, Modifiers};
-use super::line::{Flags, Line, LineError};
-use super::table::Origin;
-use crate::command::SwayCmd;
 use crate::i18n::Msg;
 use crate::msg;
 use crate::registry::Value;
 use crate::state::State;
+use crate::sway_config::bindings::keys::{self, Modifiers};
+use crate::sway_config::bindings::{FileLine, Origin};
+use crate::sway_config::bindings::{Flags, Line, LineError};
 
-pub use super::item::{CHANGE, Item, item_text, parse, parse_item, parse_strict};
 pub use crate::registry::shortcuts::{
     BINDINGS, BRIGHTNESS, BRIGHTNESS_OSD, MODIFIER, PLAYER, PLAYER_OSD, VOLUME, VOLUME_OSD,
-    check_item,
+    check_item, modifier_of,
 };
-
-/// The modifier `shortcuts.modifier` stands for, by the id of its choice.
-pub fn modifier_of(id: &str) -> Modifiers {
-    match id {
-        "alt" => Modifiers::ALT,
-        _ => Modifiers::SUPER,
-    }
-}
+pub use crate::sway_config::bindings::item::{
+    CHANGE, Item, item_text, parse, parse_item, parse_strict,
+};
 
 /// The main modifier stored in `state`.
 pub fn modifier(state: &State) -> Modifiers {
-    match state.get(MODIFIER, None) {
-        Some(Value::Choice(id)) => modifier_of(id),
-        _ => Modifiers::SUPER,
-    }
+    crate::registry::shortcuts::modifier(state.get(MODIFIER, None))
 }
 
 /// `line` with [`keys::MOD`] replaced by `modifier`, its keys read again.
@@ -179,7 +169,9 @@ impl Group {
         let keys = if osd { self.osd_keys } else { self.keys };
         keys.iter()
             .filter_map(|(keys, run)| {
-                let command = super::Action::Run((*run).to_owned()).command().ok()?;
+                let command = crate::sway_config::bindings::Action::Run((*run).to_owned())
+                    .command()
+                    .ok()?;
                 Some(Line {
                     unbind: false,
                     code: false,
@@ -207,36 +199,10 @@ impl Group {
     }
 }
 
-/// A line of `50-bindings.conf`: a binding of Sway Things, with its keys for the main modifier.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileLine {
-    /// Where it comes from.
-    pub origin: Origin,
-    /// The line; `Err` for an item that can't be written, which becomes a comment.
-    pub line: Result<Line, LineError>,
-    /// Whether it is written with `--no-warn`: it may replace a binding of the user's, which
-    /// the page says.
-    pub no_warn: bool,
-}
-
-impl FileLine {
-    /// The command for the generated file.
-    ///
-    /// # Errors
-    ///
-    /// The [`LineError`] of a line that can't be written.
-    pub fn command(&self) -> Result<SwayCmd, LineError> {
-        let line = self.line.as_ref().map_err(Clone::clone)?;
-        SwayCmd::binding(line, Modifiers::NONE, self.no_warn)
-    }
-
-    /// The setting the line comes from.
-    pub fn key(&self) -> &'static str {
-        match self.origin {
-            Origin::Group(key) | Origin::Feature(key) | Origin::App(key) => key,
-            Origin::User | Origin::Item(_) | Origin::Placeholder(_) => BINDINGS,
-        }
-    }
+/// The setting a line of `50-bindings.conf` comes from: another page's or a group's, else
+/// `shortcuts.bindings`.
+pub fn key(line: &FileLine) -> &'static str {
+    line.setting().unwrap_or(BINDINGS)
 }
 
 /// The items of `shortcuts.bindings` stored in `state`, as written.

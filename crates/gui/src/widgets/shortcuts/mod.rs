@@ -32,10 +32,9 @@ use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::bindings::ours::{BINDINGS, Group};
-use sway_things_core::bindings::{
-    Category, Clash, ClashKind, DEFAULT_MODE, Flags, Keymap, Listing, Origin, Row, RowKind, Source,
-};
+use sway_things_core::bindings::{Clash, ClashKind, DEFAULT_MODE, Listing, Row, RowKind, Source};
 use sway_things_core::registry::{Link, Page, Registry, Value};
+use sway_things_core::sway_config::bindings::{Category, Flags, Keymap, Origin};
 
 use super::setting_row::tilde;
 use super::{Place, SettingRow};
@@ -71,7 +70,7 @@ impl GdkKeymap {
             else {
                 continue;
             };
-            let canonical = sway_things_core::bindings::keys::keysym_key(&name);
+            let canonical = sway_things_core::sway_config::bindings::keys::keysym_key(&name);
             keymap
                 .codes
                 .entry(canonical)
