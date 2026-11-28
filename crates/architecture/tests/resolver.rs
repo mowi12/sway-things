@@ -781,6 +781,8 @@ fn an_async_fn_of_the_core_may_not_block_but_the_cli_may() -> Result {
                 "lib.rs",
                 "pub fn list() { let _ = std::fs::read_dir(\"/x\"); }\n\
                  pub async fn check() { list(); }\n\
+                 pub async fn unblocked() { blocking::unblock(move || list()).await; }\n\
+                 pub async fn by_value() { blocking::unblock(list).await; }\n\
                  pub fn sync_check() { list(); }",
             )],
         ),

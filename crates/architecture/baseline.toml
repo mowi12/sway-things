@@ -527,18 +527,6 @@ why = "Starts waybar with a synchronous `setsid -f`, which returns at once. Repa
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "core::bluetooth::battery::kernel_unblocked"
-to = "core::bluetooth::battery::kernel"
-why = "Runs `kernel` inside `blocking::unblock`, on the blocking pool; the rule doesn't yet see that a closure handed to `blocking::unblock` leaves the executor. Repair: teach the rule that, then this entry goes."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bluetooth::bluez::Bluez::snapshot"
-to = "core::bluetooth::battery::kernel_unblocked"
-why = "Reaches `kernel` only through `kernel_unblocked`, which runs it on the blocking pool; follows from the entry for `kernel_unblocked` and goes with it."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "core::capture::shot::target"
 to = "core::capture::shot::select"
 why = "Waits for slurp, where the user picks a region, inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
@@ -668,15 +656,3 @@ rule = "R5-blocking-calls"
 from = "gui::widgets::shortcuts::osd::server_text"
 to = "core::swayosd::server"
 why = "Reads the systemd user unit directories when the note on SwayOSD is built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-docs"
-from = "core::bluetooth::battery::kernel_unblocked"
-to = "missing # Blocking"
-why = "Doesn't block its caller: it awaits `kernel` on the blocking pool; follows from the entry for `kernel_unblocked` under R5-blocking-calls and goes with it."
-
-[[violation]]
-rule = "R5-blocking-docs"
-from = "core::bluetooth::bluez::Bluez::snapshot"
-to = "missing # Blocking"
-why = "Doesn't block its caller: the power supplies are read on the blocking pool through `kernel_unblocked`; goes with the entry for `kernel_unblocked` under R5-blocking-calls."
