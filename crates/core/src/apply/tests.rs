@@ -2669,3 +2669,39 @@ fn only_a_wallpaper_change_points_the_link_of_a_collection_at_a_picture() {
         pictures.path().join("lake.png")
     );
 }
+
+#[test]
+fn a_binding_is_sent_at_once_only_while_the_applier_follows_the_user_s_config() {
+    use crate::include::IncludeStatus;
+    use crate::sway_config::MemoryFiles;
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, "version = 1\n");
+    let bindings = Value::List(vec!["bindsym Mod4+p exec foot".to_owned()]);
+    assert_eq!(
+        setup
+            .set(crate::registry::shortcuts::BINDINGS, bindings.clone())
+            .unwrap()
+            .effect,
+        Effect::AfterReload
+    );
+    let main = "/home/me/.config/sway/config";
+    let files = MemoryFiles::new().var("HOME", "/home/me").file(
+        main,
+        "bindsym Mod4+Return exec foot\ninclude ~/.config/sway/sway-things/*.conf\n",
+    );
+    let locations = Locations::new(
+        std::path::Path::new("/home/me/.config/sway/sway-things"),
+        std::path::Path::new("/home/me/.local/state/sway-things"),
+    );
+    let status = IncludeStatus::detect(Some(std::path::Path::new(main)), &files, &locations);
+    setup.applier.follow(&status);
+    let changed = Value::List(vec!["bindsym Mod4+q exec foot".to_owned()]);
+    let effect = setup
+        .set(crate::registry::shortcuts::BINDINGS, changed)
+        .unwrap()
+        .effect;
+    assert!(
+        matches!(&effect, Effect::Live { commands } if !commands.is_empty()),
+        "{effect:?}"
+    );
+}

@@ -33,7 +33,7 @@ use clap::builder::PossibleValuesParser;
 use clap::{Parser, Subcommand};
 use displays::{Displays, follow_combination, note_kanshi};
 use hook::{hook_clipboard, hook_for_user, kanshi_files, read_history, run_hook};
-use sway_things_core::apply::Applier;
+use sway_things_core::apply::{Applier, Opened};
 use sway_things_core::bluetooth::Bluez;
 use sway_things_core::command;
 use sway_things_core::conflict::Known;
@@ -457,17 +457,14 @@ pub async fn run_for_user(command: &Command) -> Exit {
         }
         _ => {}
     }
-    let (mut applier, main) = match Applier::open().await {
+    let Opened {
+        applier, status, ..
+    } = match Applier::open().await {
         Ok(opened) => opened,
         Err(error) => {
             return fail_with(&mut err, &error.text());
         }
     };
-    let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
-    // While kanshi sets up the displays, no output lines of ours contradict it.
-    applier.set_displays(generate::Displays::detect(&status, applier.locations()));
-    // A change of the bindings is sent to sway as the difference to what the config binds.
-    applier.set_user_config(&status);
     let mut session = Session { applier, status };
     let exit = run(
         command,

@@ -355,7 +355,8 @@ impl Model {
         let Some((mut applier, status)) = self.take_applier() else {
             return;
         };
-        give_user_config(&mut applier, &status);
+        // The user's config as last read: the bindings and the bar follow it.
+        applier.follow(&status);
         self.follow_displays(&mut applier, matches!(op, Op::Persist));
         let was_pending = applier.pending().map(Pending::countdown);
         match (op, status.write_access()) {
@@ -550,11 +551,4 @@ impl Model {
         }
         self.emit_by_name::<()>("changed", &[]);
     }
-}
-
-/// Hands `applier` the user's config as last read: a change of the bindings is worked out
-/// against it, and the bar's style can follow its colors, which also says what starts waybar.
-fn give_user_config(applier: &mut Applier, status: &IncludeStatus) {
-    applier.set_user_config(status);
-    applier.set_sway_config(status.config().clone());
 }

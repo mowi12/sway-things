@@ -38,8 +38,9 @@ pub(crate) struct BarRun {
 
 impl<V: Validate> Applier<V> {
     /// Tells the applier the user's sway config: the bar's style can follow the colors it sets
-    /// for the windows, and what starts waybar decides whether ours is started.
-    pub fn set_sway_config(&mut self, config: SwayConfig) {
+    /// for the windows, and what starts waybar decides whether ours is started. Part of
+    /// [`Applier::follow`].
+    pub(crate) fn set_sway_config(&mut self, config: SwayConfig) {
         self.bar.sway = Some(config);
     }
 

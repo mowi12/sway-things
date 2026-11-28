@@ -327,13 +327,13 @@ single line, its keys and its command are read in `crates/core/src/sway_config/b
 - **Applied live** (`bindings::live`, `Applier::apply_bindings`): the table of the whole config is worked out with the
   bindings before and after the change, and only the difference in the default mode is sent: a binding that is gone is
   unbound (after a placeholder), a new or changed one is bound with `--no-warn`. So undoing a change binds the user's
-  line again with its command from their config. The applier knows the user's config through `Applier::set_user_config`
-  (the app before each change, the command line once); without it, or for a binding that can't be sent exactly (a user's
-  command with a backslash), the change waits for a reload. A command sway rejects (an unknown key) undoes what was sent
-  and keeps nothing. A binding whose options changed is bound again (every option counts but `--no-warn`); one whose
-  `--to-code` changed is unbound first, since sway may keep it in another list. The commands follow the order of the
-  table, so where several bindings change at once, a binding sent later replaces an earlier one of the same keys, as in
-  the file; the list sway ends up with is the same, though its order (which decides between two bindings that clash
+  line again with its command from their config. The applier knows the user's config through `Applier::follow`
+  (`Applier::open` once, the app again before each change); without it, or for a binding that can't be sent exactly (a
+  user's command with a backslash), the change waits for a reload. A command sway rejects (an unknown key) undoes what
+  was sent and keeps nothing. A binding whose options changed is bound again (every option counts but `--no-warn`); one
+  whose `--to-code` changed is unbound first, since sway may keep it in another list. The commands follow the order of
+  the table, so where several bindings change at once, a binding sent later replaces an earlier one of the same keys, as
+  in the file; the list sway ends up with is the same, though its order (which decides between two bindings that clash
   without being the same) can differ from that after a reload.
 - **Editing** (`bindings::edit`): the page's changes as new lists of items: `add` (a binding of the user's on the same
   keys becomes a change item; one of Sway Things' is replaced, a change on the same keys keeps only its unbind),

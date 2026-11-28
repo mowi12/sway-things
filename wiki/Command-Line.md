@@ -8,8 +8,10 @@
 `crates/cli/` is the `sway-things` binary. `src/lib.rs` runs a command on a `Session` (an `Applier` and the
 `IncludeStatus`), so the tests run it in-process; `src/main.rs` only parses the arguments (clap) and opens the user's
 session with `Applier::open`, the same start as the app: settings and generated files in their usual places, the running
-sway or, without one, the installed `sway`, and the main config sway loaded or would find. `doctor` starts on its own so
-it works where that fails, and `open` needs none of it.
+sway or, without one, the installed `sway`, and the main config sway loaded or would find, with its include status read
+and followed and the displays' owner (sway or kanshi) detected: `Applier::open` returns a ready applier (`Opened`), and
+the app's include watch starts from the status it read (`IncludeWatch::starting_from`). `doctor` starts on its own so it
+works where that fails, and `open` needs none of it.
 
 The man pages (`data/man/`, one per command plus `sway-things-gui.1`) and the shell completions for bash, zsh and fish
 (`data/completions/`) are generated from these clap definitions by `crates/cli-docs` and committed, like the translation
