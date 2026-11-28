@@ -72,6 +72,7 @@ fn the_rules_match_the_baseline() {
         .collect();
     let mut violations: Vec<Violation> = rules::layers(&graph);
     violations.extend(rules::module_cycles(&graph));
+    violations.extend(rules::participants(&graph));
     violations.extend(rules::file_cycles(&graph));
     violations.extend(rules::key_literals(&graph, &keys));
     violations.extend(rules::hook_literals(&graph));

@@ -135,17 +135,6 @@ pub struct Persisted {
     pub others: Vec<crate::manifest::Problem>,
 }
 
-/// Which files of other programs [`Applier::persist`] changed whose program has to be told.
-#[derive(Debug, Clone, Copy, Default)]
-struct Changed {
-    /// The environment.d file: the user manager reloads.
-    environment: bool,
-    /// The portal configuration: the portals restart.
-    portals: bool,
-    /// xdg-desktop-portal-wlr's configuration: it restarts.
-    screencast: bool,
-}
-
 impl Persisted {
     /// Whether every generated file is in place with its new content.
     pub fn is_complete(&self) -> bool {
@@ -855,10 +844,7 @@ impl<V: Validate> Applier<V> {
         changed: bool,
         before: State,
     ) -> Result<Applied, ApplyError> {
-        let live = if crate::registry::shortcuts::KEYS.contains(&setting.key())
-            || crate::capture::shortcuts::KEYS.contains(&setting.key())
-            || crate::apps::launchers::KEYS.contains(&setting.key())
-        {
+        let live = if crate::participant::binds(setting.key()) {
             self.apply_bindings(&before).await
         } else {
             self.apply_live(setting, device, Some(&before), &BTreeMap::new())
@@ -929,12 +915,11 @@ impl<V: Validate> Applier<V> {
         Ok(Effect::Live { commands: sent })
     }
 
-    /// [`crate::wallpaper::prepare`] on the blocking pool: the links of the collections point at
-    /// a picture before a `bg` line names them. Best effort: a link that can't be made leaves the
-    /// color in place of the picture.
-    async fn prepare_wallpaper(&self) {
+    /// [`crate::participant::prepare`] on the blocking pool: what the lines name exists before
+    /// they are written or sent (the links of the wallpaper collections point at a picture).
+    async fn prepare_lines(&self) {
         let state = self.state.clone();
-        let _ = blocking::unblock(move || crate::wallpaper::prepare(&state)).await;
+        blocking::unblock(move || crate::participant::prepare(&state)).await;
     }
 
     /// Brings the session to the values in the state for the directive of `setting`, with those
@@ -979,11 +964,10 @@ impl<V: Validate> Applier<V> {
         {
             return Ok(Effect::Unsupported(unmet));
         }
-        // The `bg` line of a collection names the link to its current picture, which must exist.
-        // A link that can't be made leaves the color in place of the picture. Only a wallpaper
-        // setting changes the `bg` lines, and the folders are listed on the blocking pool.
-        if setting.page() == crate::registry::Page::Wallpaper {
-            self.prepare_wallpaper().await;
+        // What a line names must exist (the `bg` line of a collection names the link to its
+        // current picture): only after a change of a setting that changes such a line.
+        if crate::participant::prepares_for(setting) {
+            self.prepare_lines().await;
         }
         // What goes into the generated file must be a command too.
         let config = render(&self.state, over, setting, device, Target::Config)?;
@@ -1081,24 +1065,22 @@ impl<V: Validate> Applier<V> {
         self.state.save(access)?;
         self.remember_displays().await;
         self.keep_kanshi_file().await;
-        self.prepare_wallpaper().await;
+        self.prepare_lines().await;
         self.keep_daemon_files().await;
         let files = self.generate();
         let files =
             generate::write(&files, &self.locations, &self.validator, overwrite, access).await?;
-        let (others, changed) = self.keep_other_files();
-        // The user manager reads environment.d again for the services it starts from now on,
-        // and doesn't keep the old variables when it outlives a quick logout. Without systemd
-        // the file waits for the next login all the same.
-        if changed.environment {
-            let _ = crate::environment::reload_user_manager().await;
-        }
-        // The portals read their configuration only when they start; restarting them all
-        // restarts xdg-desktop-portal-wlr too.
-        if changed.portals {
-            let _ = crate::environment::portals::restart().await;
-        } else if changed.screencast {
-            let _ = crate::environment::screencast::restart().await;
+        // The participants may read the user's directories: on the blocking pool.
+        let (state, dirs, locations) = (
+            self.state.clone(),
+            self.apps_dirs.clone(),
+            self.locations.clone(),
+        );
+        let (others, follow_ups) =
+            blocking::unblock(move || keep_other_files(&state, dirs.as_ref(), &locations)).await;
+        // Best effort: a service that isn't there reads its files when it starts.
+        for follow_up in follow_ups {
+            let _ = follow_up.run().await;
         }
         let persisted = Persisted {
             saved,
@@ -1109,49 +1091,6 @@ impl<V: Validate> Applier<V> {
         let unwritten: Vec<ConfigFile> = persisted.problems().map(|(file, _)| file).collect();
         self.waiting.written(&unwritten);
         Ok(persisted)
-    }
-
-    /// Brings the files of other programs in line with the settings, recorded in the manifest:
-    /// only files of Sway Things are written or deleted. Returns what couldn't be done, and
-    /// which of the files that need a program told changed.
-    ///
-    /// # Blocking
-    ///
-    /// Reads the user's autostart directory.
-    fn keep_other_files(&self) -> (Vec<crate::manifest::Problem>, Changed) {
-        let Some(dirs) = &self.apps_dirs else {
-            return (Vec::new(), Changed::default());
-        };
-        let mut wanted = crate::apps::files::wanted(&self.state, dirs);
-        let environment = crate::environment::wanted(&self.state, dirs);
-        let portals = crate::environment::portals::wanted(&self.state, dirs);
-        let screencast = crate::environment::screencast::wanted(&self.state, dirs);
-        let environment_path = environment.path.clone();
-        let portals_path = portals.path.clone();
-        let screencast_path = screencast.path.clone();
-        let read = |path: &std::path::Path| std::fs::read(path).ok();
-        let before = (
-            read(&environment_path),
-            read(&portals_path),
-            read(&screencast_path),
-        );
-        wanted.push(environment);
-        wanted.push(portals);
-        wanted.push(screencast);
-        let mut manifest = crate::manifest::Manifest::load(self.locations.manifest());
-        let mut problems = crate::manifest::keep(&wanted, &mut manifest);
-        if let Err(error) = manifest.save() {
-            problems.push(crate::manifest::Problem::Io(
-                self.locations.manifest().to_owned(),
-                error.to_string(),
-            ));
-        }
-        let changed = Changed {
-            environment: read(&environment_path) != before.0,
-            portals: read(&portals_path) != before.1,
-            screencast: read(&screencast_path) != before.2,
-        };
-        (problems, changed)
     }
 
     /// The stored changes that wait for a reload of sway or the next login.
@@ -1331,4 +1270,53 @@ fn render(
         device,
         target,
     )?)
+}
+
+/// Brings the files of other programs of every participant in line with the settings,
+/// recorded in the manifest: only files of Sway Things are written or deleted. Returns what
+/// couldn't be done, and what has to follow the files that changed
+/// ([`Participant::when_written`](crate::participant::Participant::when_written)).
+///
+/// A participant may read the user's directories to see what is there (a method call the
+/// architecture test can't follow), so [`Applier::persist`] runs this on the blocking pool.
+fn keep_other_files(
+    state: &State,
+    dirs: Option<&crate::apps::Dirs>,
+    locations: &Locations,
+) -> (
+    Vec<crate::manifest::Problem>,
+    Vec<crate::participant::FollowUp>,
+) {
+    let Some(dirs) = dirs else {
+        return (Vec::new(), Vec::new());
+    };
+    let read = |path: &std::path::Path| std::fs::read(path).ok();
+    let mut wanted = Vec::new();
+    // The files of each participant that wants to know when they changed, as they were.
+    let mut watched = Vec::new();
+    for participant in crate::participant::PARTICIPANTS {
+        let files = participant.other_files(state, dirs);
+        if let Some(follow_up) = participant.when_written() {
+            let before: Vec<(std::path::PathBuf, Option<Vec<u8>>)> = files
+                .iter()
+                .map(|file| (file.path.clone(), read(&file.path)))
+                .collect();
+            watched.push((before, follow_up));
+        }
+        wanted.extend(files);
+    }
+    let mut manifest = crate::manifest::Manifest::load(locations.manifest());
+    let mut problems = crate::manifest::keep(&wanted, &mut manifest);
+    if let Err(error) = manifest.save() {
+        problems.push(crate::manifest::Problem::Io(
+            locations.manifest().to_owned(),
+            error.to_string(),
+        ));
+    }
+    let follow_ups = watched
+        .into_iter()
+        .filter(|(before, _)| before.iter().any(|(path, was)| read(path) != *was))
+        .map(|(_, follow_up)| follow_up)
+        .collect();
+    (problems, crate::participant::merged(follow_ups))
 }

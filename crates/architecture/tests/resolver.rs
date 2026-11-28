@@ -324,6 +324,35 @@ fn an_edge_to_a_higher_layer_breaks_the_layers_but_no_cycle_rule() -> Result {
 }
 
 #[test]
+fn apply_generate_and_doctor_reach_a_feature_only_through_the_participants() -> Result {
+    let graph = graph(&[
+        (
+            "lib.rs",
+            "mod apply; mod doctor; mod generate; mod participant; mod outputs; mod state;",
+        ),
+        (
+            "apply.rs",
+            "fn a() { crate::participant::lines(); crate::outputs::g(); crate::state::s(); }",
+        ),
+        ("doctor.rs", "fn d() { crate::participant::lines(); }"),
+        ("generate.rs", "fn g() { crate::outputs::g(); }"),
+        ("participant.rs", "pub fn lines() { crate::outputs::g(); }"),
+        ("outputs.rs", "pub fn g() {}"),
+        ("state.rs", "pub fn s() {}"),
+    ])?;
+    let mut reported = violations(rules::participants(&graph));
+    reported.sort();
+    assert_eq!(
+        reported,
+        [
+            found(rules::PARTICIPANTS, "core::apply", "core::outputs"),
+            found(rules::PARTICIPANTS, "core::generate", "core::outputs"),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
 fn a_cycle_between_top_level_modules_is_reported_but_not_one_between_siblings() -> Result {
     let violations = layered(&[
         ("lib.rs", "mod apps; mod bindings; mod network;"),

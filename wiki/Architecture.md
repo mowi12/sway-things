@@ -116,14 +116,15 @@ top-level module fails the test until it has a layer there and here.
 | 2 registry | `registry` |
 | 3 state | `paths`, `state`, `include`, `ui_state` |
 | 4 features | `apps`, `bar`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
-| 5 assembly | `generate`, `view` |
+| 5 assembly | `participant`, `generate`, `view` |
 | 6 use cases | `apply`, `doctor` |
 
 A layer is assigned per top-level module, its submodules included. Features may use each other as long as no cycle
-forms. In `cli` and `gui`, cycles are allowed only inside one top-level module, and in the GUI only inside one
-`widgets::<x>`, one per page or building block (`widgets::apps::autostart` and `widgets::apps::dialogs` may use each
-other; `widgets::keyboard` and `widgets::xkb_options`, or `window` and `widgets`, may not). The violations of today are
-listed, each with its repair, in `crates/architecture/baseline.toml`.
+forms. `apply`, `generate` and `doctor` reach a feature only through the [participants](#participants). In `cli` and
+`gui`, cycles are allowed only inside one top-level module, and in the GUI only inside one `widgets::<x>`, one per page
+or building block (`widgets::apps::autostart` and `widgets::apps::dialogs` may use each other; `widgets::keyboard` and
+`widgets::xkb_options`, or `window` and `widgets`, may not). The violations of today are listed, each with its repair,
+in `crates/architecture/baseline.toml`.
 
 ## Settings registry
 
@@ -424,6 +425,21 @@ for the [include detection](Reading-Sway.md#include-detection).
   watcher.
 - The watcher debounces on its own thread and hands reports over through a channel. It needs no particular executor:
   await the next report on the glib main loop, or block on it in the CLI.
+
+## Participants
+
+A feature that adds something beyond the registry's lines is a participant (`core::participant`), and `PARTICIPANTS`
+lists them, in the order of their lines in each file. A participant adds lines to the generated files (pure, from the
+stored settings, with `Line::plain`, `Line::rendered` and `Line::comment`); names the files of other programs it keeps
+(`other_files`, kept like the generated files through `manifest::keep`) and what happens once one of them changed
+(`when_written`); says whether a key is applied as a change of the bindings (`binds`); makes what its lines name exist
+before they are written (`prepare`, the wallpaper's links); and says what follows a change in the running session
+(`follow_ups`). Follow-ups are data (`FollowUp`: the clipboard history's watcher, the night light's tool, the user
+manager reading environment.d again, the portals restarting); the one who applies runs them off its main loop
+(`FollowUp::run`) and reports what they say (`Done`): `Applier::persist` the ones of the files it wrote, the command
+line the ones of a change. So `generate`, `apply` and `doctor` don't name the features, and the architecture test holds
+them to it (`R7-participants`); what they still name is in the baseline, each with the participant that takes it over:
+the displays and kanshi, the notification daemon's files, the bar's process and the doctor's checks.
 
 ## Generated files and the file rule
 

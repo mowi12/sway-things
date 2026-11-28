@@ -45,39 +45,20 @@ use write::parse_error;
 
 use std::collections::BTreeSet;
 
-use crate::command::{self, Target};
+use crate::command::Target;
 use crate::ipc::Compositor;
 use crate::manifest::HEADER;
 use crate::outputs;
+use crate::participant::{self, Context};
 use crate::registry::{ConfigFile, Registry, Setting};
 use crate::state::State;
+
+pub use crate::participant::{Line, Source};
 
 pub use write::{
     ConfigError, InvalidLine, Locations, OnDisk, Outcome, Report, SwayValidator, Validate,
     WriteError, on_disk, write,
 };
-
-/// The stored settings a line of a generated file comes from.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Source {
-    /// The keys of the stored settings. Several, if they are values of one directive.
-    pub keys: Vec<&'static str>,
-    /// The input device the line is for, or `None` for the whole session or input type.
-    pub device: Option<String>,
-}
-
-/// A line of a generated file below the header.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Line {
-    /// The text, without the line break.
-    pub text: String,
-    /// The settings the line comes from.
-    pub source: Source,
-    /// `None` for a command. Otherwise the line is a comment that names the settings and says why
-    /// their command is left out: the compositor doesn't support it, or a stored value can't be
-    /// turned into a command.
-    pub skipped: Option<String>,
-}
 
 /// The contents of one generated file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,28 +214,14 @@ pub fn generate_for(
     }
     if let Some(file) = files
         .iter_mut()
-        .find(|file| file.file == ConfigFile::Bindings)
-    {
-        file.lines.extend(bindings(state));
-    }
-    if let Some(file) = files
-        .iter_mut()
-        .find(|file| file.file == ConfigFile::Autostart)
-    {
-        file.lines.extend(autostart(state));
-    }
-    if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Bar) {
-        file.lines.extend(bar_lines(state));
-    }
-    if let Some(file) = files.iter_mut().find(|file| file.file == ConfigFile::Hooks) {
-        file.lines.extend(hooks(registry, state));
-        file.lines.extend(notification_daemon(state));
-    }
-    if let Some(file) = files
-        .iter_mut()
         .find(|file| file.file == ConfigFile::Output)
     {
         file.lines.extend(output_tail(state, displays));
+    }
+    for (target, line) in participant::lines(&Context { registry, state }) {
+        if let Some(file) = files.iter_mut().find(|file| file.file == target) {
+            file.lines.push(line);
+        }
     }
     files.into()
 }
@@ -268,42 +235,23 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
         .iter()
         .any(|entry| entry.setting.sets_up_display());
     if displays.is_kanshi() && for_displays {
-        lines.push(Line {
-            text: "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf."
-                .to_owned(),
-            source: Source {
-                keys: Vec::new(),
-                device: None,
-            },
-            skipped: None,
-        });
+        lines.push(Line::plain(
+            "# kanshi sets up the displays from ~/.config/kanshi/sway-things.conf.",
+            Source::none(),
+        ));
     }
     if displays == (Displays::Kanshi { start: true }) {
         if let Ok(text) = crate::command::SwayCmd::new("exec")
             .keyword("kanshi")
             .render(Target::Config)
         {
-            lines.push(Line {
-                text,
-                source: Source {
-                    keys: Vec::new(),
-                    device: None,
-                },
-                skipped: None,
-            });
+            lines.push(Line::plain(text, Source::none()));
         }
     }
     // The picture of another display doesn't take the focus when it starts.
     if displays.is_kanshi() {
         if let Ok(text) = crate::outputs::mirror::no_focus_command().render(Target::Config) {
-            lines.push(Line {
-                text,
-                source: Source {
-                    keys: Vec::new(),
-                    device: None,
-                },
-                skipped: None,
-            });
+            lines.push(Line::plain(text, Source::none()));
         }
     }
     // With kanshi, the hook also has kanshi apply its profile again and places the
@@ -313,287 +261,11 @@ fn output_tail(state: &State, displays: Displays) -> Vec<Line> {
             outputs::guard_command()
                 .render(Target::Config)
                 .ok()
-                .map(|text| Line {
-                    text,
-                    source: Source {
-                        keys: Vec::new(),
-                        device: None,
-                    },
-                    skipped: None,
-                })
+                .map(|text| Line::plain(text, Source::none()))
         })?
     });
     lines.extend(guard);
-    // One line for every output with a collection: it names none, see `wallpaper::start_command`.
-    if let Some(first) = crate::wallpaper::shown(state).first() {
-        if let Ok(text) = crate::wallpaper::start_command().render(Target::Config) {
-            lines.push(Line {
-                text,
-                source: Source {
-                    keys: vec![crate::wallpaper::COLLECTION],
-                    device: first.output.clone(),
-                },
-                skipped: None,
-            });
-        }
-    }
     lines
-}
-
-/// The lines of `50-bindings.conf`: the bindings of the Keyboard Shortcuts page
-/// ([`crate::bindings::ours::file_lines`]). An item that can't be written becomes a comment.
-fn bindings(state: &State) -> Vec<Line> {
-    let items = crate::bindings::ours::items(state);
-    crate::bindings::ours::file_lines(state)
-        .into_iter()
-        .map(|file_line| {
-            // An item that can't be written is named, so the comment and `doctor` say which.
-            let item = match file_line.origin {
-                crate::sway_config::bindings::Origin::Item(index) => items.get(index),
-                _ => None,
-            };
-            let source = Source {
-                keys: vec![crate::bindings::ours::key(&file_line)],
-                device: None,
-            };
-            let text = file_line
-                .command()
-                .map_err(|error| match item {
-                    Some(item) => format!("{item}: {}", error.text().english()),
-                    None => error.text().english(),
-                })
-                .and_then(|command| {
-                    command
-                        .render(Target::Config)
-                        .map_err(|error| error.to_string())
-                });
-            match text {
-                Ok(text) => Line {
-                    text,
-                    source,
-                    skipped: None,
-                },
-                Err(reason) => Line {
-                    text: format!("# {}: {reason}", source.keys.join(", ")),
-                    source,
-                    skipped: Some(reason),
-                },
-            }
-        })
-        .collect()
-}
-
-/// The lines of `70-autostart.conf`: the runner of the XDG autostart entries and the entries of
-/// the Apps & Autostart page ([`crate::apps::autostart::file_lines`]). An item that can't be
-/// written becomes a comment.
-fn autostart(state: &State) -> Vec<Line> {
-    crate::apps::autostart::file_lines(state)
-        .into_iter()
-        .map(|file_line| {
-            let source = Source {
-                keys: vec![file_line.key],
-                device: None,
-            };
-            let text = file_line.command.and_then(|command| {
-                command
-                    .render(Target::Config)
-                    .map_err(|error| error.to_string())
-            });
-            match text {
-                Ok(text) => Line {
-                    text,
-                    source,
-                    skipped: None,
-                },
-                Err(reason) => Line {
-                    text: format!("# {}: {reason}", source.keys.join(", ")),
-                    source,
-                    skipped: Some(reason),
-                },
-            }
-        })
-        .collect()
-}
-
-/// The line of `80-hooks.conf` that starts the notification daemon chosen on the
-/// Notifications page (`notifications.start`) through `sway-things hook notification-daemon`.
-fn notification_daemon(state: &State) -> Option<Line> {
-    use crate::notifications::Daemon;
-    use crate::registry::notifications::START;
-    let Some(crate::registry::Value::Choice(program)) = state.get(START, None) else {
-        return None;
-    };
-    Daemon::from_program(program)?;
-    Some(hook_line(command::Hook::NotificationDaemon, vec![START]))
-}
-
-/// The lines of `80-hooks.conf`: `sway-things hook gsettings` while a setting with a GSettings key
-/// is stored, so its value reaches GSettings at login and after each reload, also when the
-/// settings file came from another machine; and `sway-things hook workspaces` while the
-/// workspaces are placed, since sway forgets their displays at a reload; `sway-things hook
-/// clipboard` while the clipboard history is on, which starts its watcher once per session;
-/// `sway-things hook night-light` while the night light is on, which starts its tool; and
-/// `sway-things hook timezone` once at login while the automatic time zone is on.
-fn hooks(registry: &Registry, state: &State) -> Vec<Line> {
-    let mut lines = Vec::new();
-    let keys: Vec<&'static str> = registry
-        .iter()
-        .filter(|setting| setting.gsettings().is_some())
-        .map(Setting::key)
-        .filter(|key| state.get(key, None).is_some())
-        .collect();
-    if !keys.is_empty() {
-        lines.push(hook_line(command::Hook::Gsettings, keys));
-    }
-    if crate::capture::is_on(state, crate::capture::HISTORY) {
-        lines.push(hook_line(
-            command::Hook::Clipboard,
-            vec![crate::capture::HISTORY],
-        ));
-    }
-    if crate::night_light::Settings::of(state).on {
-        lines.push(hook_line(
-            command::Hook::NightLight,
-            vec![crate::night_light::ENABLED],
-        ));
-    }
-    if outputs::workspaces::Rule::of(state).places() {
-        lines.push(hook_line(
-            command::Hook::Workspaces,
-            vec![crate::registry::workspaces::PLACEMENT],
-        ));
-    }
-    let automatic_timezone = crate::registry::region::AUTOMATIC_TIMEZONE;
-    if state.get(automatic_timezone, None) == Some(&crate::registry::Value::Bool(true)) {
-        lines.push(line_of(
-            &command::hook_at_start(command::Hook::Timezone),
-            vec![automatic_timezone],
-        ));
-    }
-    lines
-}
-
-/// The lines of `75-bar.conf`: with waybar, the hook that starts it with our config unless
-/// something else starts it; with swaybar, its `bar sway-things …` lines.
-fn bar_lines(state: &State) -> Vec<Line> {
-    use crate::bar::{Backend, swaybar};
-    use crate::registry::bar as keys;
-    match Backend::of(state) {
-        Backend::None => Vec::new(),
-        Backend::Waybar => {
-            let mut lines = vec![hook_line(command::Hook::Waybar, vec![keys::BACKEND])];
-            // The user's bars it takes over: the first runs our waybar, the others nothing.
-            let taken = match state.get(keys::TAKE_OVER, None) {
-                Some(crate::registry::Value::List(ids)) => ids.clone(),
-                _ => Vec::new(),
-            };
-            for (at, id) in taken.iter().enumerate() {
-                let command = if at == 0 {
-                    crate::command::bar::take_over(id)
-                } else {
-                    crate::command::bar::silence(id)
-                };
-                let source = Source {
-                    keys: vec![keys::BACKEND, keys::TAKE_OVER],
-                    device: None,
-                };
-                lines.push(
-                    match command
-                        .map_err(|error| error.to_string())
-                        .and_then(|command| {
-                            command
-                                .render(Target::Config)
-                                .map_err(|error| error.to_string())
-                        }) {
-                        Ok(text) => Line {
-                            text,
-                            source,
-                            skipped: None,
-                        },
-                        Err(error) => Line {
-                            text: format!("# {}: {error}", keys::TAKE_OVER),
-                            source,
-                            skipped: Some(error),
-                        },
-                    },
-                );
-            }
-            if let Some(key) = crate::bar::hold_key(state) {
-                for command in crate::command::bar::waybar_hold(key) {
-                    let source = Source {
-                        keys: vec![keys::VISIBILITY, keys::MODIFIER],
-                        device: None,
-                    };
-                    lines.push(match command.render(Target::Config) {
-                        Ok(text) => Line {
-                            text,
-                            source,
-                            skipped: None,
-                        },
-                        Err(error) => Line {
-                            text: format!("# {}: {error}", keys::VISIBILITY),
-                            source,
-                            skipped: Some(error.to_string()),
-                        },
-                    });
-                }
-            }
-            lines
-        }
-        Backend::Swaybar => swaybar::lines(state, None)
-            .into_iter()
-            .map(|line| match line {
-                swaybar::Line::Command(key, command) => {
-                    let source = Source {
-                        keys: vec![key],
-                        device: None,
-                    };
-                    match command.render(Target::Config) {
-                        Ok(text) => Line {
-                            text,
-                            source,
-                            skipped: None,
-                        },
-                        Err(error) => Line {
-                            text: format!("# {key}: {error}"),
-                            source,
-                            skipped: Some(error.to_string()),
-                        },
-                    }
-                }
-                swaybar::Line::Skipped(key, reason) => Line {
-                    text: format!("# {key}: {reason}"),
-                    source: Source {
-                        keys: vec![key],
-                        device: None,
-                    },
-                    skipped: Some(reason),
-                },
-            })
-            .collect(),
-    }
-}
-
-/// The line that runs `sway-things hook <name>`, for the settings `keys`.
-fn hook_line(hook: command::Hook, keys: Vec<&'static str>) -> Line {
-    line_of(&command::hook(hook), keys)
-}
-
-/// The line of `command`, for the settings `keys`; a comment if it can't be rendered.
-fn line_of(command: &command::SwayCmd, keys: Vec<&'static str>) -> Line {
-    let source = Source { keys, device: None };
-    match command.render(Target::Config) {
-        Ok(text) => Line {
-            text,
-            source,
-            skipped: None,
-        },
-        Err(error) => Line {
-            text: format!("# {}: {error}", source.keys.join(", ")),
-            source,
-            skipped: Some(error.to_string()),
-        },
-    }
 }
 
 /// While Sway Things stores anything for an output, the line that runs `sway-things hook
@@ -608,14 +280,13 @@ fn display_guard(state: &State) -> Option<Line> {
         .iter()
         .find(|entry| entry.setting.sets_up_display())?;
     let text = outputs::guard_command().render(Target::Config).ok()?;
-    Some(Line {
+    Some(Line::plain(
         text,
-        source: Source {
+        Source {
             keys: vec![first.setting.key()],
             device: first.device.map(ToOwned::to_owned),
         },
-        skipped: None,
-    })
+    ))
 }
 
 /// The lines for the directive of `setting`: its commands, or one comment if they are left out.
@@ -653,11 +324,7 @@ fn lines(
             return skipped(unmet.to_string());
         }
         match command.render(Target::Config) {
-            Ok(text) => lines.push(Line {
-                text,
-                source: source.clone(),
-                skipped: None,
-            }),
+            Ok(text) => lines.push(Line::plain(text, source.clone())),
             Err(error) => return skipped(error.to_string()),
         }
     }

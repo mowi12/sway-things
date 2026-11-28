@@ -557,16 +557,13 @@ fn follow_history(model: &Model) {
     model.connect_changed(follow);
 }
 
-/// Has the history's watcher follow `wanted`, unless the history is off and none of ours runs.
-/// Blocks while the lock is held, so it runs off the main loop.
+/// Has the history's watcher follow `wanted` ([`clipboard::follow`], the rule the command line
+/// follows too). Blocks while the lock is held, so it runs off the main loop.
 fn sync_history(wanted: &Mutex<(bool, u32)>) {
     let read = || *wanted.lock().unwrap_or_else(PoisonError::into_inner);
-    let (on, _) = read();
-    if on || clipboard::watching() {
-        // Without a session or while the hook holds the lock for long, the hook at the next
-        // start of sway does it.
-        let _ = clipboard::sync_with(read);
-    }
+    // Without a session or while the hook holds the lock for long, the hook at the next start of
+    // sway does it.
+    let _ = clipboard::follow(read);
 }
 
 /// How long the history's switch and size stand still before its watcher follows them.

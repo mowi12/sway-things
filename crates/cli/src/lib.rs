@@ -47,6 +47,7 @@ use sway_things_core::ipc::Compositor;
 use sway_things_core::msg;
 use sway_things_core::network::NetworkManager;
 use sway_things_core::outputs::{self, Outputs};
+use sway_things_core::participant::{self, Done};
 use sway_things_core::paths::{Layer, Paths};
 use sway_things_core::printers::Cups;
 use sway_things_core::registry::{ConfigFile, Link, Registry};
@@ -474,29 +475,46 @@ pub async fn run_for_user(command: &Command) -> Exit {
         &mut err,
     )
     .await;
-    // The clipboard history's watcher follows its switch at once, in the session it runs in.
-    if let (Command::Set { key, .. } | Command::Reset { key, .. }, Exit::Ok) = (command, exit) {
-        if sway_things_core::capture::clipboard::KEYS.contains(&key.as_str())
-            && session.applier.client().is_some()
-        {
-            if let Err(error) = sway_things_core::capture::clipboard::sync(session.applier.state())
-            {
-                let _ = writeln!(err, "{}", error_line(&error.text().translated()));
-            }
-        }
-    }
-    // So does the night light's tool.
-    let night_light = match command {
-        Command::Set { key, .. } | Command::Reset { key, .. } => {
-            sway_things_core::night_light::KEYS.contains(&key.as_str())
-        }
-        Command::NightLight { .. } => true,
-        _ => false,
+    // What follows the change at once, in the session it runs in: the clipboard history's
+    // watcher, the night light's tool.
+    let keys: Vec<&str> = match command {
+        Command::Set { key, .. } | Command::Reset { key, .. } => vec![key.as_str()],
+        Command::NightLight { .. } => sway_things_core::night_light::KEYS.to_vec(),
+        _ => Vec::new(),
     };
-    if night_light && exit == Exit::Ok && session.applier.client().is_some() {
-        let _ = light::follow_night_light(&session, &mut err);
+    if exit == Exit::Ok && !keys.is_empty() && session.applier.client().is_some() {
+        let change = participant::Change {
+            keys: &keys,
+            state: session.applier.state(),
+            config: Some(session.status.config()),
+        };
+        for follow_up in participant::follow_ups(&change) {
+            report_follow_up(follow_up.run().await, &mut err);
+        }
     }
     exit
+}
+
+/// Says on `err` what went wrong with a follow-up, and why the night light runs none.
+fn report_follow_up(done: Done, err: &mut dyn Write) {
+    match done {
+        Done::NightLight {
+            result: Ok(synced),
+            external,
+        } => light::report(&synced, external, err),
+        Done::NightLight {
+            result: Err(error), ..
+        } => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+        }
+        Done::Clipboard(Err(error)) => {
+            let _ = writeln!(err, "{}", error_line(&error.text().translated()));
+        }
+        Done::Service(Err(error)) => {
+            let _ = writeln!(err, "{}", error_line(&error));
+        }
+        Done::Clipboard(Ok(_)) | Done::Service(Ok(())) => {}
+    }
 }
 
 /// Prints `text` as an error line on `err` and returns [`Exit::Failure`].

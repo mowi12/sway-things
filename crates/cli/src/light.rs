@@ -151,7 +151,7 @@ pub(super) fn follow_night_light<V: Validate>(session: &Session<V>, err: &mut dy
 }
 
 /// Says on `err` why the night light runs none, if it doesn't.
-fn report(synced: &Synced, external: bool, err: &mut dyn Write) {
+pub(super) fn report(synced: &Synced, external: bool, err: &mut dyn Write) {
     if let Some(foreign) = &synced.foreign {
         let _ = writeln!(
             err,

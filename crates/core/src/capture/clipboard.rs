@@ -110,6 +110,26 @@ pub fn sync(state: &State) -> Result<Synced, SyncError> {
     sync_with(|| (on, max))
 }
 
+/// Has the watcher follow the settings ([`sync_with`]), unless the history is off and none of
+/// ours runs: then there is nothing to end or start, and nothing is looked at. The one rule the
+/// app and the command line follow after a change ([`crate::participant::FollowUp`]).
+/// `settings` is read once before and once more under the lock.
+///
+/// # Blocking
+///
+/// Waits up to three seconds for another process's change of the history to end.
+///
+/// # Errors
+///
+/// Those of [`sync_with`].
+pub fn follow(settings: impl Fn() -> (bool, u32)) -> Result<Synced, SyncError> {
+    let (on, _) = settings();
+    if !on && !watching() {
+        return Ok(Synced::default());
+    }
+    sync_with(settings)
+}
+
 /// Has exactly the watcher run that the settings ask for: none while the history is off (or
 /// wl-paste or cliphist is missing, or a watcher of the user's own runs), else one that keeps as
 /// many entries as set. Ends the others Sway Things started in this session. `settings` gives
