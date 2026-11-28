@@ -58,6 +58,7 @@ pub fn panel() -> gtk::Widget {
         backlights: RefCell::new(Vec::new()),
         monitors: RefCell::new(Vec::new()),
         detecting: Cell::new(false),
+        reading: Cell::new(false),
     });
     ui.build_backlights();
     ui.follow();
@@ -81,12 +82,27 @@ struct Ui {
     monitors: RefCell<Vec<gtk::ListBoxRow>>,
     /// Whether ddcutil is looking for monitors now.
     detecting: Cell<bool>,
+    /// Whether the backlights are being read now.
+    reading: Cell<bool>,
 }
 
 impl Ui {
-    /// A row for the screen's backlight and one for the keyboard light, if there are.
+    /// A row for the screen's backlight and one for the keyboard light, if there are, once
+    /// they are read off the main context.
     fn build_backlights(self: &Rc<Self>) {
-        let devices = brightness::devices();
+        let weak = Rc::downgrade(self);
+        glib::spawn_future_local(async move {
+            let devices = gtk::gio::spawn_blocking(brightness::devices)
+                .await
+                .unwrap_or_default();
+            if let Some(ui) = weak.upgrade() {
+                ui.show_backlights(&devices);
+            }
+        });
+    }
+
+    /// Adds the rows for `devices`.
+    fn show_backlights(self: &Rc<Self>, devices: &[Device]) {
         let screen = devices.iter().find(|device| device.kind.is_screen());
         let keyboard = devices.iter().find(|device| device.kind == Kind::Keyboard);
         for device in screen.into_iter().chain(keyboard) {
@@ -128,15 +144,35 @@ impl Ui {
             let Some(ui) = weak.upgrade() else {
                 return glib::ControlFlow::Break;
             };
-            if ui.list.is_mapped() {
-                for row in ui.backlights.borrow().iter() {
-                    // Read the name first: `show` replaces the device, so the
-                    // borrow must end before it runs.
-                    let name = row.device.borrow().name.clone();
-                    if let Some(device) = brightness::device(&name) {
-                        row.show(&device);
+            if ui.list.is_mapped() && !ui.reading.replace(true) {
+                let names: Vec<String> = ui
+                    .backlights
+                    .borrow()
+                    .iter()
+                    .map(|row| row.device.borrow().name.clone())
+                    .collect();
+                let weak = Rc::downgrade(&ui);
+                glib::spawn_future_local(async move {
+                    let devices = gtk::gio::spawn_blocking(move || {
+                        names
+                            .iter()
+                            .map(|name| brightness::device(name))
+                            .collect::<Vec<_>>()
+                    })
+                    .await
+                    .unwrap_or_default();
+                    let Some(ui) = weak.upgrade() else {
+                        return;
+                    };
+                    ui.reading.set(false);
+                    // Collect the rows first: `show` replaces a row's device.
+                    let rows: Vec<Rc<BacklightRow>> = ui.backlights.borrow().clone();
+                    for (row, device) in rows.iter().zip(devices) {
+                        if let Some(device) = device {
+                            row.show(&device);
+                        }
                     }
-                }
+                });
             }
             glib::ControlFlow::Continue
         });
@@ -155,32 +191,43 @@ impl Ui {
     /// Looks for the external monitors in the background and shows them, unless it looks
     /// already; without ddcutil or the access to the buses, says how to get them.
     fn detect(self: &Rc<Self>) {
-        if self.detecting.get() {
+        if self.detecting.replace(true) {
             return;
         }
         while let Some(child) = self.notes.first_child() {
             self.notes.remove(&child);
         }
-        let external = external_connected();
-        let Some(_) = ddc::find() else {
-            if external {
-                self.notes.append(&missing_ddcutil());
-            }
-            return;
-        };
-        match ddc::access() {
-            Access::Granted => {}
-            access => {
-                if external {
-                    self.notes.append(&access_notice(access));
-                }
-                return;
-            }
-        }
-        self.detecting.set(true);
-        self.show_hint();
         let weak = Rc::downgrade(self);
         glib::spawn_future_local(async move {
+            let checked = gtk::gio::spawn_blocking(|| {
+                let external = external_connected();
+                let access = ddc::find().map(|_| ddc::access());
+                (external, access)
+            })
+            .await;
+            let Some(ui) = weak.upgrade() else {
+                return;
+            };
+            let (external, access) = checked.unwrap_or((false, None));
+            match access {
+                Some(Access::Granted) => {}
+                None => {
+                    ui.detecting.set(false);
+                    if external {
+                        ui.notes.append(&missing_ddcutil());
+                    }
+                    return;
+                }
+                Some(access) => {
+                    ui.detecting.set(false);
+                    if external {
+                        ui.notes.append(&access_notice(access));
+                    }
+                    return;
+                }
+            }
+            ui.show_hint();
+            drop(ui);
             let found = gtk::gio::spawn_blocking(|| {
                 ddc::detect().map(|monitors| {
                     monitors

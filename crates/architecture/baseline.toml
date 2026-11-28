@@ -641,30 +641,6 @@ why = "Reads `/proc` for our waybar when the takeover row updates; repair: run i
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "gui::widgets::brightness::Ui::build_backlights"
-to = "core::brightness::devices"
-why = "Reads /sys/class/backlight and /sys/class/leds when the page is built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::brightness::Ui::detect"
-to = "core::brightness::ddc::access"
-why = "Reads /dev for the I²C devices when the page looks for external monitors; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::brightness::Ui::follow"
-to = "core::brightness::device"
-why = "Reads /sys/class/backlight again when a light changes; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::brightness::external_connected"
-to = "read_dir"
-why = "Reads /sys/class/drm when the page looks for external monitors; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "gui::widgets::capture::confirm_clear"
 to = "core::capture::clipboard::clear"
 why = "Runs `cliphist wipe` and waits for it after the user confirms; repair: run it in gio::spawn_blocking and hand the result back to the main context."
