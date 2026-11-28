@@ -608,9 +608,3 @@ rule = "R5-blocking-calls"
 from = "gui::widgets::bar::takeover::ours_runs"
 to = "core::bar::process::ours"
 why = "Reads `/proc` for our waybar when the takeover row updates; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::shortcuts::osd::server_text"
-to = "core::swayosd::server"
-why = "Reads the systemd user unit directories when the note on SwayOSD is built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
