@@ -8,8 +8,8 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::conflict::{Report, UserLine};
 use sway_things_core::outputs;
+use sway_things_core::paths::Layer;
 use sway_things_core::registry::{Apply, Scope};
-use sway_things_core::state::Layer;
 use sway_things_core::view::{Locked, SettingView, Source};
 
 use super::super::device_selector::all_of_type;

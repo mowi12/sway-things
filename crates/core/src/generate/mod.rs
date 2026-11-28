@@ -19,7 +19,8 @@
 //! use sway_things_core::generate::generate;
 //! use sway_things_core::ipc::Compositor;
 //! use sway_things_core::registry::{ConfigFile, Registry, Value};
-//! use sway_things_core::state::{Paths, State};
+//! use sway_things_core::paths::Paths;
+//! use sway_things_core::state::State;
 //! use sway_things_core::version::SwayVersion;
 //!
 //! # let dir = tempfile::tempdir()?;

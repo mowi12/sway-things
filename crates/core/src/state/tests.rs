@@ -7,9 +7,10 @@ use std::path::Path;
 
 use tempfile::TempDir;
 
-use super::{ChangedKey, Changes, Layer, Paths, ProblemKind, State, StateError};
+use super::{ChangedKey, Changes, ProblemKind, State, StateError};
 use crate::command::{Color, Target};
 use crate::include::WriteAccess;
+use crate::paths::{Layer, Paths};
 use crate::registry::{Registry, Value, ValueError, Values};
 
 const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";

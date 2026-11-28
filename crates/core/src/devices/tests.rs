@@ -8,8 +8,9 @@ use crate::command::input::{InputSelector, InputType, XkbSwitch};
 use crate::ipc::IpcError;
 use crate::ipc::tests::{SWAY_1_10, obedient, with_inputs};
 use crate::ipc::types::Input;
+use crate::paths::Paths;
 use crate::registry::{Registry, Value};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 const KEYBOARD: &str = "1:1:AT_Translated_Set_2_keyboard";
 const USB_KEYBOARD: &str = "1241:662:USB-HID_Keyboard";

@@ -16,8 +16,9 @@ use crate::include::WriteAccess;
 use crate::ipc::tests::{FakeSway, message, obedient};
 use crate::ipc::{IpcError, Unmet};
 use crate::manifest::HEADER;
+use crate::paths::Layer;
 use crate::registry::{ConfigFile, GSettingsKey, Value};
-use crate::state::{ChangedKey, Layer, StateError};
+use crate::state::{ChangedKey, StateError};
 use crate::version::SwayFxVersion;
 
 const SWAY: &str = crate::ipc::tests::SWAY_1_10;

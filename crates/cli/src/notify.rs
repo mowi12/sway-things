@@ -597,9 +597,10 @@ async fn switch_quick(
 pub async fn notification_daemon(bus: Option<&Notifications>, err: &mut dyn Write) -> Exit {
     use sway_things_core::notifications::files::Files;
     use sway_things_core::notifications::{Stored, mako, spawn, swaync};
+    use sway_things_core::paths::Paths;
     use sway_things_core::registry::Registry;
     use sway_things_core::registry::notifications::START;
-    use sway_things_core::state::{Paths, State};
+    use sway_things_core::state::State;
     let mut say = |text: &dyn fmt::Display| {
         let _ = writeln!(err, "{}", error_line(text));
     };

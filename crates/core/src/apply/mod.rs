@@ -19,7 +19,8 @@
 //! use sway_things_core::generate::Locations;
 //! use sway_things_core::include::IncludeStatus;
 //! use sway_things_core::registry::{Registry, Value};
-//! use sway_things_core::state::{Paths, State};
+//! use sway_things_core::paths::Paths;
+//! use sway_things_core::state::State;
 //! use sway_things_core::sway_config::{Disk, default_path};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -70,10 +71,11 @@ use crate::msg;
 use crate::outputs::Outputs;
 use crate::outputs::kanshi::{self, KanshiFiles};
 use crate::outputs::profiles::Profiles;
+use crate::paths::{Layer, Paths};
 use crate::registry::{
     Apply, ConfigFile, Registry, Scope, Setting, SwayMapping, Value, Values, workspaces,
 };
-use crate::state::{ChangedKey, Changes, Layer, Paths, State, StateError};
+use crate::state::{ChangedKey, Changes, State, StateError};
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
 /// being dragged) is saved once.
@@ -521,7 +523,7 @@ impl<V: Validate> Applier<V> {
 
     /// Sets `key` to `value`, for the whole session or input type, or for one `device`: checks
     /// the value, sends the commands to the session and stores the value in memory. A new value
-    /// goes to the [default file](crate::state::Layer::default_for) of the setting, a changed one
+    /// goes to the [default file](crate::paths::Layer::default_for) of the setting, a changed one
     /// stays where it is.
     ///
     /// # Errors

@@ -4,7 +4,7 @@
 //! Taking turns: the current picture of an output's collection, and what changes it.
 //!
 //! The `bg` line of an output with a collection names a symbolic link in the state folder
-//! ([`Paths::wallpaper_link`](crate::state::Paths::wallpaper_link)), which points at the current
+//! ([`Paths::wallpaper_link`](crate::paths::Paths::wallpaper_link)), which points at the current
 //! picture. The generated config stays the same while the pictures change, and sway shows the
 //! current picture at login and after a reload. The time of the last change is the link's own
 //! modification time.
@@ -29,9 +29,9 @@ use crate::command::{SwayCmd, Target};
 use crate::i18n::Text;
 use crate::ipc::{Client, IpcError};
 use crate::msg;
+use crate::paths::escape;
 use crate::registry::{Registry, RenderError, Value};
 use crate::state::State;
-use crate::state::escape;
 
 /// The name of the timer and service units, for every output; one output's add
 /// `-<identifier>`, [escaped](escape).
@@ -507,7 +507,7 @@ mod tests {
 
     use super::{Moment, choose, current, escape, is_due, point, start_command, unit};
     use crate::command::Target;
-    use crate::state::Paths;
+    use crate::paths::Paths;
     use crate::wallpaper::{Change, DAY, Order};
 
     fn pictures() -> Vec<PathBuf> {

@@ -283,8 +283,8 @@ fn config_finding(check: &Check, state: &State) -> Finding {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::paths::Paths;
     use crate::registry::Registry;
-    use crate::state::Paths;
 
     fn load(toml: &str) -> (tempfile::TempDir, State) {
         let dir = tempfile::tempdir().unwrap();

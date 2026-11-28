@@ -12,8 +12,9 @@ use sway_things_core::generate::{Outcome, Validate};
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::WriteAccess;
 use sway_things_core::msg;
+use sway_things_core::paths::Layer;
 use sway_things_core::registry::{Apply, ConfigFile, DeviceError, Setting, Value};
-use sway_things_core::state::{Layer, StateError};
+use sway_things_core::state::StateError;
 use sway_things_core::view::SettingView;
 
 use super::{Exit, Io, Prompt, Session, output};

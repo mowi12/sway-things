@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-28 11:40+0100\n"
+"POT-Creation-Date: 2026-11-28 11:41+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3392,6 +3392,14 @@ msgstr ""
 
 #: crates/core/src/outputs/profiles.rs
 msgid "the remembered displays aren't in a form Sway Things knows"
+msgstr ""
+
+#: crates/core/src/paths.rs
+msgid "neither XDG_CONFIG_HOME and XDG_STATE_HOME nor HOME are set"
+msgstr ""
+
+#: crates/core/src/paths.rs
+msgid "the host name can't be used as a file name"
 msgstr ""
 
 #: crates/core/src/printers/admin.rs
@@ -9576,14 +9584,6 @@ msgstr ""
 #: crates/core/src/state/mod.rs
 #, rust-format
 msgid "snapshot {id} holds a file that can't be loaded"
-msgstr ""
-
-#: crates/core/src/state/paths.rs
-msgid "neither XDG_CONFIG_HOME and XDG_STATE_HOME nor HOME are set"
-msgstr ""
-
-#: crates/core/src/state/paths.rs
-msgid "the host name can't be used as a file name"
 msgstr ""
 
 #: crates/core/src/sway_config/bindings/command.rs

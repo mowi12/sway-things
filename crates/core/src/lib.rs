@@ -37,6 +37,7 @@ pub mod night_light;
 pub mod notifications;
 pub mod outputs;
 pub mod packages;
+pub mod paths;
 pub mod printers;
 pub mod region;
 pub mod registry;

@@ -20,7 +20,7 @@ use crate::command::SwayCmd;
 use crate::i18n::Text;
 use crate::ipc::Client;
 use crate::msg;
-use crate::state::xdg_dir;
+use crate::paths::xdg_dir;
 use crate::sway_config::SwayConfig;
 
 /// The first line of the files Sway Things writes for kanshi.

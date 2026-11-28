@@ -6,8 +6,9 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 
 use super::*;
+use crate::paths::Paths;
 use crate::registry::Registry;
-use crate::state::{Paths, State};
+use crate::state::State;
 
 fn write(path: &Path, text: &str) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();

@@ -1745,8 +1745,8 @@ fn a_mapping_to_a_screen_renders_automatic_only_over_ipc() {
     );
     assert!(tablet.host_by_default());
     assert_eq!(
-        crate::state::Layer::default_for(tablet, None),
-        crate::state::Layer::Host
+        crate::paths::Layer::default_for(tablet, None),
+        crate::paths::Layer::Host
     );
 }
 

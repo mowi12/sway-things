@@ -175,8 +175,8 @@ fn colors(state: &State, sway: Option<&SwayConfig>, lines: &mut Vec<Line>) {
 mod tests {
     use super::*;
     use crate::command::Target;
+    use crate::paths::Paths;
     use crate::registry::Registry;
-    use crate::state::Paths;
 
     #[test]
     fn swaybar_gets_the_settings_it_has() {

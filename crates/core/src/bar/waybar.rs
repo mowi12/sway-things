@@ -184,8 +184,8 @@ pub fn write(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::paths::Paths;
     use crate::registry::Registry;
-    use crate::state::Paths;
     use serde_json::json;
 
     fn state(dir: &std::path::Path) -> State {

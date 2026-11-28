@@ -1,18 +1,45 @@
 // SPDX-FileCopyrightText: 2026 Sway Things contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Where the settings files and their history are, and the links to the pictures of the
-//! wallpaper collections.
+//! Where Sway Things keeps its files: the two settings files ([`Layer`]) and their history, the
+//! links to the pictures of the wallpaper collections ([`Paths`]), and the generated sway files
+//! with their manifest ([`Locations`]). Below `state` and `include`, which both use it.
 
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use super::Layer;
 use crate::i18n::Text;
 use crate::msg;
-use crate::registry::ConfigFile;
+use crate::registry::{ConfigFile, Scope, Setting};
+
+/// One of the two settings files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Layer {
+    /// `settings.toml`: shared between machines, e.g. in a dotfiles repository.
+    Shared,
+    /// `settings.d/<hostname>.toml`: this machine only. Wins over the shared file key by key.
+    Host,
+}
+
+impl Layer {
+    /// Both files, the shared one first.
+    pub(crate) const ALL: [Self; 2] = [Self::Shared, Self::Host];
+
+    /// The file a new value of `setting` goes to unless the user chooses otherwise: values bound
+    /// to this machine's hardware go to the host overlay.
+    pub fn default_for(setting: &Setting, device: Option<&str>) -> Self {
+        if setting.host_by_default() {
+            return Self::Host;
+        }
+        match (setting.scope(), device) {
+            (Scope::Global | Scope::PerCollection, _)
+            | (Scope::PerDevice(_) | Scope::PerOutput, None) => Self::Shared,
+            (Scope::PerHost, _) | (Scope::PerDevice(_) | Scope::PerOutput, Some(_)) => Self::Host,
+        }
+    }
+}
 
 /// The paths of the two settings files and of their history.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -219,7 +246,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{Paths, PathsError, xdg_dir};
-    use crate::state::Layer;
+    use crate::paths::Layer;
 
     #[test]
     fn files_are_named_after_the_host() {

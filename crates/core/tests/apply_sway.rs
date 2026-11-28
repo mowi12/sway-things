@@ -20,8 +20,9 @@ use sway_things_core::generate::{Locations, Outcome, SwayValidator};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::ipc::Client;
 use sway_things_core::ipc::types::{Node, NodeType};
+use sway_things_core::paths::Paths;
 use sway_things_core::registry::{ConfigFile, Registry, Value};
-use sway_things_core::state::{Paths, State};
+use sway_things_core::state::State;
 use sway_things_core::sway_config::Disk;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;

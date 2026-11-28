@@ -15,8 +15,9 @@ use super::{
 use crate::include::WriteAccess;
 use crate::ipc::Compositor;
 use crate::manifest::{HEADER, Manifest, Ownership};
+use crate::paths::Paths;
 use crate::registry::{ConfigFile, Registry};
-use crate::state::{Paths, State};
+use crate::state::State;
 use crate::version::{SwayFxVersion, SwayVersion};
 
 pub(crate) const TOUCHPAD: &str = "1267:12377:ELAN1300:00_04F3:3059_Touchpad";

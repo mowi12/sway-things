@@ -108,7 +108,7 @@ pub const CORE_LAYERS: &[Layer] = &[
     },
     Layer {
         name: "state",
-        modules: &["state", "include", "ui_state"],
+        modules: &["paths", "state", "include", "ui_state"],
     },
     Layer {
         name: "features",

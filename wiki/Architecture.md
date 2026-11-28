@@ -82,7 +82,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | Crate | Module | What it is |
 | --- | --- | --- |
 | core | `registry` | every setting, defined once ([Settings registry](#settings-registry)) |
-| core | `state`, `ui_state`, `watch`, `atomic` | the settings files, the window state, the file watcher, atomic writes ([State](#state)) |
+| core | `paths`, `state`, `ui_state`, `watch`, `atomic` | where Sway Things keeps its files, the settings files, the window state, the file watcher, atomic writes ([State](#state)) |
 | core | `generate`, `manifest`, `command`, `version` | the generated sway files and the record of every generated file, the typed sway commands, version gating ([Generated files](#generated-files-and-the-file-rule), [command builders](Applying-Settings.md#sway-command-builders)) |
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
@@ -114,7 +114,7 @@ top-level module fails the test until it has a layer there and here.
 | 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session`, `manifest` |
 | 1 sway | `command`, `sway_config`, `ipc` |
 | 2 registry | `registry` |
-| 3 state | `state`, `include`, `ui_state` |
+| 3 state | `paths`, `state`, `include`, `ui_state` |
 | 4 features | `apps`, `bar`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
 | 5 assembly | `generate`, `view` |
 | 6 use cases | `apply`, `doctor` |
@@ -308,7 +308,9 @@ Sway Things keeps its own settings files as the source of truth instead of readi
 report many values (client colors, gaps, the font) and can't tell a value the user chose from a sway default, and
 rewriting sway syntax in place is fragile. The CLI and the history build on the same files, and so will export and
 import (planned). The per-machine overlay exists because dotfiles are shared between machines, and some values differ
-per machine.
+per machine. Where the files are is the module `paths` (`Layer`, `Paths` for the settings files, `Locations` for the
+generated files and their manifest), below both `state` and `include`; the permission to write (`WriteAccess`) stays in
+`include`, where only an include status that found the line can make one.
 
 ```text
 $XDG_CONFIG_HOME/sway-things/

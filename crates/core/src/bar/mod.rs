@@ -125,7 +125,7 @@ impl WaybarFiles {
 
     /// The files next to the settings files of `state`.
     pub fn of(state: &State) -> Option<Self> {
-        let shared = state.paths().path(crate::state::Layer::Shared);
+        let shared = state.paths().path(crate::paths::Layer::Shared);
         shared.parent().map(Self::in_config_dir)
     }
 

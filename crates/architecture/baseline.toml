@@ -23,24 +23,6 @@ why = "`wallpaper` lists the displays through `displays::Displays`; the cycle en
 
 [[violation]]
 rule = "R2-file-cycles"
-from = "core::include"
-to = "core::state::paths"
-why = "The include check reads the paths from `state::Locations`, and saving the state needs the include check's `WriteAccess`: `Locations` moves out of `state` into a module both use."
-
-[[violation]]
-rule = "R2-file-cycles"
-from = "core::include::watch"
-to = "core::state::paths"
-why = "The include watch reads the paths from `state::Locations`; fine once `Locations` moves out of `state` (see `core::include` → `core::state::paths`)."
-
-[[violation]]
-rule = "R2-file-cycles"
-from = "core::state"
-to = "core::include"
-why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state::paths`)."
-
-[[violation]]
-rule = "R2-file-cycles"
 from = "gui::app"
 to = "gui::window"
 why = "The application builds the window; the cycle ends when the widgets stop reaching the window and the app (see the `gui::widgets` entries)."
@@ -224,15 +206,3 @@ rule = "R2-file-cycles"
 from = "gui::window::imp"
 to = "gui::widgets::welcome"
 why = "The window builds its pages from the widgets, as it should; the cycle ends when the widgets stop reaching the window (see the `gui::widgets` entries)."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::include"
-to = "core::state"
-why = "The include check reads the paths from `state::Locations`; `Locations` moves out of `state` into a module both use."
-
-[[violation]]
-rule = "R2-module-cycles"
-from = "core::state"
-to = "core::include"
-why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state`)."

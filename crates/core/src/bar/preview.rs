@@ -660,7 +660,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut state = State::load(
             crate::registry::Registry::builtin(),
-            crate::state::Paths::new(
+            crate::paths::Paths::new(
                 &dir.path().join("config"),
                 &dir.path().join("state"),
                 "host",

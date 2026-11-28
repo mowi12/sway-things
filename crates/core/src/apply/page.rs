@@ -187,8 +187,9 @@ pub fn resets_to_users_line(
 #[cfg(test)]
 mod tests {
     use super::PageReset;
+    use crate::paths::Paths;
     use crate::registry::{Page, Registry};
-    use crate::state::{Paths, State};
+    use crate::state::State;
 
     #[test]
     fn a_page_reset_removes_every_value_but_those_that_can_lock_the_user_out() {

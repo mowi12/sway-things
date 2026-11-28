@@ -57,8 +57,9 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::Compositor;
 use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::profiles::Profiles;
+use sway_things_core::paths::Layer;
 use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value};
-use sway_things_core::state::{Layer, State};
+use sway_things_core::state::State;
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
 

@@ -21,11 +21,12 @@ use sway_things_core::ipc::Client;
 use sway_things_core::msg;
 use sway_things_core::outputs::hooks::{self, HookEnv};
 use sway_things_core::outputs::{self};
+use sway_things_core::paths::Paths;
 use sway_things_core::region::geo::{self, Detected};
 use sway_things_core::region::{Bus as RegionBus, Timedate};
 use sway_things_core::registry::region::AUTOMATIC_TIMEZONE;
 use sway_things_core::registry::{Registry, Value};
-use sway_things_core::state::{Paths, State};
+use sway_things_core::state::State;
 
 use super::{Exit, Hook, Io, Session, fail_with, notify};
 

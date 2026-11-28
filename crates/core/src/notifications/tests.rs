@@ -8,9 +8,10 @@ use serde_json::Value as Json;
 use super::files::{Files, Inclusion};
 use super::{Daemon, HEADER, Stored, mako, starts, swaync};
 use crate::command::Color;
+use crate::paths::Paths;
 use crate::registry::notifications::{self as keys, mako as mako_keys, swaync as swaync_keys};
 use crate::registry::{Registry, Value};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 fn state(dir: &Path, values: &[(&str, Value)]) -> State {
     let mut state = State::load(

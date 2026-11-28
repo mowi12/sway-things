@@ -14,8 +14,9 @@ use super::mime::{self, Kind, Source};
 use super::{Dirs, launch};
 use crate::command::{SwayCmd, SwayText, Target, model};
 use crate::manifest::{HEADER, Manifest};
+use crate::paths::Paths;
 use crate::registry::{Registry, ValueError};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 /// A home with its own XDG directories, a system data and config directory, and a `PATH`.
 struct Home {

@@ -235,7 +235,7 @@ pub trait Values {
 
     /// The current picture of the wallpaper collection of `output` (`None`: every output) as a
     /// `bg` line names it: the link in the state folder that points at it
-    /// ([`Paths::wallpaper_picture`](crate::state::Paths::wallpaper_picture)). `None` while it
+    /// ([`Paths::wallpaper_picture`](crate::paths::Paths::wallpaper_picture)). `None` while it
     /// points at no picture, and for values that don't know where the links are; the color then
     /// fills the screen.
     fn wallpaper_picture(&self, output: Option<&str>) -> Option<PathBuf> {
