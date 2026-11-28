@@ -48,7 +48,7 @@ use gtk::glib;
 use gtk::glib::closure_local;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::apply::{Applier, Pending, Persisted, Waiting};
+use sway_things_core::apply::{Applier, Opened, Pending, Persisted, Waiting};
 use sway_things_core::conflict::{Known, Report};
 use sway_things_core::devices::Devices;
 use sway_things_core::generate::{self, GeneratedFile, Locations, OnDisk};
@@ -330,16 +330,15 @@ impl Model {
     }
 
     async fn connect() -> Result<(Applier, IncludeWatch), String> {
-        let (mut applier, main) = Applier::open()
+        let Opened {
+            applier,
+            status,
+            main,
+        } = Applier::open()
             .await
             .map_err(|error| error.text().translated())?;
-        let watch = IncludeWatch::new(main, applier.locations().clone())
+        let watch = IncludeWatch::starting_from(main, applier.locations().clone(), status)
             .map_err(|error| error.text().translated())?;
-        // While kanshi sets up the displays, no output lines of ours contradict it.
-        applier.set_displays(generate::Displays::detect(
-            watch.status(),
-            applier.locations(),
-        ));
         Ok((applier, watch))
     }
 

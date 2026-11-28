@@ -63,12 +63,36 @@ impl IncludeWatch {
         Self::with_debounce(main, locations, watch::DEBOUNCE)
     }
 
+    /// Like [`IncludeWatch::new`], starting from `status`, the include status of `main` read a
+    /// moment ago (by [`Applier::open`](crate::apply::Applier::open)): what changed since is
+    /// reported like any later change.
+    ///
+    /// # Errors
+    ///
+    /// Like [`IncludeWatch::new`].
+    pub fn starting_from(
+        main: MainConfig,
+        locations: Locations,
+        status: IncludeStatus,
+    ) -> Result<Self, WatchError> {
+        Self::watching(main, locations, watch::DEBOUNCE, status)
+    }
+
     fn with_debounce(
         main: MainConfig,
         locations: Locations,
         debounce: Duration,
     ) -> Result<Self, WatchError> {
         let status = IncludeStatus::detect(main.path().as_deref(), &Disk, &locations);
+        Self::watching(main, locations, debounce, status)
+    }
+
+    fn watching(
+        main: MainConfig,
+        locations: Locations,
+        debounce: Duration,
+        status: IncludeStatus,
+    ) -> Result<Self, WatchError> {
         let targets = targets(&main, &status);
         let watcher = Watcher::with_directories(targets.0.clone(), targets.1.clone(), debounce)?;
         let mut watch = Self {

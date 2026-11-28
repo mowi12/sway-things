@@ -65,7 +65,7 @@ use crate::conflict;
 use crate::generate::{self, GeneratedFile, Locations, Outcome, Report, SwayValidator, Validate};
 use crate::gsettings::{self, GSettingsError, GSettingsStore, Gio, NoGSettings};
 use crate::i18n::Text;
-use crate::include::{MainConfig, WriteAccess};
+use crate::include::{IncludeStatus, MainConfig, WriteAccess};
 use crate::ipc::{Client, Compositor, IpcError, Unmet};
 use crate::msg;
 use crate::outputs::Outputs;
@@ -76,6 +76,7 @@ use crate::registry::{
     Apply, ConfigFile, Registry, Scope, Setting, SwayMapping, Value, Values, workspaces,
 };
 use crate::state::{ChangedKey, Changes, State, StateError};
+use crate::sway_config::Disk;
 
 /// How long the app waits after the last change before it saves, so a burst of changes (a slider
 /// being dragged) is saved once.
@@ -219,7 +220,7 @@ pub struct Applier<V = SwayValidator> {
     kanshi_file_missing: bool,
     /// The user's sway config, with the index of the first directive sway reads after the
     /// generated files: what a change of the bindings is worked out against. `None` until
-    /// [`Applier::set_user_config`]; bindings then change with a reload.
+    /// [`Applier::follow`]; bindings then change with a reload.
     user_config: Option<(Vec<crate::sway_config::Directive>, Option<usize>)>,
     /// The XDG directories the files of other programs go to ([`crate::apps::files`],
     /// [`crate::environment`]); `None` for an applier made for tests, which writes none.
@@ -235,18 +236,31 @@ pub struct Applier<V = SwayValidator> {
     bar: bar::BarRun,
 }
 
+/// What [`Applier::open`] made: an applier ready for every operation, and what it read to get
+/// there.
+#[derive(Debug)]
+pub struct Opened {
+    /// The applier, following [`Opened::status`] and the displays it found.
+    pub applier: Applier<SwayValidator>,
+    /// The include status of the user's main sway config.
+    pub status: IncludeStatus,
+    /// The main sway config: the one the running sway loaded, or without a session the one sway
+    /// would find. The app watches it ([`crate::include::IncludeWatch::starting_from`]).
+    pub main: MainConfig,
+}
+
 impl Applier<SwayValidator> {
     /// Loads this user's settings and connects like [`Applier::connect`], with the files in
-    /// their usual places ([`Paths::from_env`], [`Locations::from_env`]). Also returns the main
-    /// sway config: the one the running sway loaded, or without a session the one sway would
-    /// find. The app and the command line start with this, and read the
-    /// [`IncludeStatus`](crate::include::IncludeStatus) of that config.
+    /// their usual places ([`Paths::from_env`], [`Locations::from_env`]), and makes the applier
+    /// ready for every operation: it reads the [`IncludeStatus`] of the main sway config and
+    /// follows it ([`Applier::follow`]), and generates for whoever sets up the displays
+    /// ([`generate::Displays::detect`]). The app and the command line start with this.
     ///
     /// # Errors
     ///
     /// [`ApplyError::Paths`] if the directories of the files can't be found, and the errors of
     /// [`Applier::connect`].
-    pub async fn open() -> Result<(Self, MainConfig), ApplyError> {
+    pub async fn open() -> Result<Opened, ApplyError> {
         let paths = Paths::from_env().map_err(ApplyError::Paths)?;
         let locations = Locations::from_env().map_err(ApplyError::Paths)?;
         let state = State::load(Registry::builtin(), paths);
@@ -283,7 +297,15 @@ impl Applier<SwayValidator> {
             },
             None => MainConfig::Default,
         };
-        Ok((applier, main))
+        let status = IncludeStatus::detect(main.path().as_deref(), &Disk, applier.locations());
+        // While kanshi sets up the displays, no output lines of ours contradict it.
+        applier.set_displays(generate::Displays::detect(&status, applier.locations()));
+        applier.follow(&status);
+        Ok(Opened {
+            applier,
+            status,
+            main,
+        })
     }
 
     /// An applier for this user: connected to the session in `$SWAYSOCK`, or without a session
@@ -461,14 +483,18 @@ impl<V: Validate> Applier<V> {
         )
     }
 
-    /// Works out changes of the bindings against the user's config in `status` from now on, so
-    /// they are sent to sway at once ([`crate::bindings::live`]); call it again when the config
-    /// changes. Without it, a change of the bindings takes effect with a reload of sway.
-    pub fn set_user_config(&mut self, status: &crate::include::IncludeStatus) {
+    /// Follows the user's config in `status` from now on; call it again when the config changes.
+    /// A change of the bindings is worked out against it, so it is sent to sway at once
+    /// ([`crate::bindings::live`]), and the bar's style follows the colors it sets for the
+    /// windows, which also says what starts waybar. [`Applier::open`] follows the status it read;
+    /// an applier made for tests follows none until this is called: a change of the bindings
+    /// then takes effect with a reload of sway.
+    pub fn follow(&mut self, status: &IncludeStatus) {
         self.user_config = Some((
             status.config().directives.clone(),
             status.position(ConfigFile::Bindings),
         ));
+        self.set_sway_config(status.config().clone());
     }
 
     /// Writes the files of other programs for `dirs` from now on (default apps, switched-off
@@ -871,7 +897,7 @@ impl<V: Validate> Applier<V> {
     }
 
     /// Brings the bindings of the session from those of `before` to those of the state: only
-    /// what differs is sent. Without the user's config ([`Applier::set_user_config`]), or with
+    /// what differs is sent. Without the user's config ([`Applier::follow`]), or with
     /// a binding that can't be sent exactly, the change waits for a reload. After a command
     /// failed, the bindings of `before` are put back as far as sway allows.
     async fn apply_bindings(&mut self, before: &State) -> Result<Effect, ApplyError> {
