@@ -142,6 +142,8 @@ struct Parts {
     running: RefCell<Option<Canceler>>,
     /// Whether the pages are being saved, off the main loop.
     saving: Cell<bool>,
+    /// Whether the dialog's folder is being made for a scan that starts then.
+    preparing: Cell<bool>,
     /// The file saved last.
     saved_path: RefCell<Option<PathBuf>>,
     /// Whether the dialog closed: what still runs drops its result.
@@ -354,6 +356,7 @@ impl ScanDialog {
                 pages_type: Cell::new(None),
                 running: RefCell::new(None),
                 saving: Cell::new(false),
+                preparing: Cell::new(false),
                 saved_path: RefCell::new(None),
                 closed: Cell::new(false),
             }),
@@ -715,7 +718,7 @@ impl ScanDialog {
     /// Scans a page (or the feeder's sheets), or a preview.
     fn scan(&self, preview: bool) {
         let parts = &self.parts;
-        if parts.running.borrow().is_some() || parts.saving.get() {
+        if parts.running.borrow().is_some() || parts.saving.get() || parts.preparing.get() {
             return;
         }
         let Some(request) = self.request(preview) else {
@@ -723,6 +726,10 @@ impl ScanDialog {
         };
         self.show_error_text("", "");
         parts.saved.set_visible(false);
+        if parts.dir.borrow().is_none() {
+            self.make_dir(preview);
+            return;
+        }
         let Some(batch) = self.batch() else {
             return;
         };
@@ -804,22 +811,36 @@ impl ScanDialog {
         });
     }
 
+    /// Makes the dialog's own directory off the main context (it clears out old ones), then
+    /// scans; if it can't be made, the dialog shows why.
+    fn make_dir(&self, preview: bool) {
+        self.parts.preparing.set(true);
+        let dialog = self.clone();
+        glib::spawn_future_local(async move {
+            let made = gio::spawn_blocking(ScanDir::new).await;
+            dialog.parts.preparing.set(false);
+            if dialog.parts.closed.get() {
+                return;
+            }
+            match made {
+                Ok(Ok(made)) => {
+                    let mut dir = dialog.parts.dir.borrow_mut();
+                    if dir.is_none() {
+                        *dir = Some(made);
+                    }
+                    drop(dir);
+                    dialog.scan(preview);
+                }
+                Ok(Err(error)) => dialog.show_error(&ScanError::Io(error.to_string())),
+                Err(_) => {}
+            }
+        });
+    }
+
     /// A new directory for the pages of a scan, in the dialog's own; `None` if it can't be
     /// made, which the dialog shows.
     fn batch(&self) -> Option<PathBuf> {
-        let mut dir = self.parts.dir.borrow_mut();
-        if dir.is_none() {
-            match ScanDir::new() {
-                Ok(made) => *dir = Some(made),
-                Err(error) => {
-                    drop(dir);
-                    self.show_error(&ScanError::Io(error.to_string()));
-                    return None;
-                }
-            }
-        }
-        let batch = dir.as_ref().map(ScanDir::batch);
-        drop(dir);
+        let batch = self.parts.dir.borrow().as_ref().map(ScanDir::batch);
         match batch {
             Some(Ok(batch)) => Some(batch),
             Some(Err(error)) => {
@@ -1023,7 +1044,7 @@ impl ScanDialog {
 
     /// Whether a scan runs; for tests.
     pub fn is_scanning(&self) -> bool {
-        self.parts.running.borrow().is_some()
+        self.parts.running.borrow().is_some() || self.parts.preparing.get()
     }
 
     /// Whether the pages are being saved; for tests.

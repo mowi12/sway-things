@@ -617,24 +617,6 @@ why = "Reads `/proc` for our waybar when the takeover row updates; repair: run i
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "gui::widgets::printers::scan::ScanDialog::batch"
-to = "core::scanners::ScanDir::new"
-why = "Makes the scan directory and removes old ones (read_dir) when a scan starts; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::printers::scanners::ScanService::look"
-to = "core::scanners::look::Look::read"
-why = "Reads /sys/bus/usb/devices and the SANE and udev directories when the page looks for scanners; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::printers::scanners::ScanService::look"
-to = "core::scanners::look::Look::read_at"
-why = "Reads /sys/bus/usb/devices and the SANE and udev directories when the page looks for scanners; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "gui::widgets::shortcuts::osd::server_text"
 to = "core::swayosd::server"
 why = "Reads the systemd user unit directories when the note on SwayOSD is built; repair: run it in gio::spawn_blocking and hand the result back to the main context."

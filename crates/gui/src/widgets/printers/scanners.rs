@@ -355,7 +355,11 @@ async fn search(service: &ScanService) -> Searched {
         }
     };
     let (listed, around) = future::zip(listing, avahi(&service.bus())).await;
-    let look = service.look();
+    // Reading what is installed lists directories: off the main context.
+    let owned = service.clone();
+    let look = gtk::gio::spawn_blocking(move || ScanService::look(&owned))
+        .await
+        .unwrap_or_default();
     let (scanners, error) = match listed {
         Ok(scanners) => (scanners, None),
         Err(error) => (Vec::new(), Some(error)),
