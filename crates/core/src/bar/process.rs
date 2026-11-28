@@ -270,6 +270,46 @@ fn signal(targets: &[Waybar], signal: &str) -> Result<usize, ProcessError> {
     }
 }
 
+/// [`signal`] with `kill` run by `async_process`, for async callers.
+async fn signal_async(targets: &[Waybar], signal: &str) -> Result<usize, ProcessError> {
+    let pids: Vec<String> = targets
+        .iter()
+        .filter(|waybar| waybar.is_alive())
+        .map(|waybar| waybar.pid.to_string())
+        .collect();
+    if pids.is_empty() {
+        return Ok(0);
+    }
+    let status = async_process::Command::new("kill")
+        .arg("-s")
+        .arg(signal)
+        .arg("--")
+        .args(&pids)
+        .stdin(async_process::Stdio::null())
+        .stdout(async_process::Stdio::null())
+        .stderr(async_process::Stdio::null())
+        .status()
+        .await
+        .map_err(|_| ProcessError::Tool("kill"))?;
+    // A process that ended in between makes `kill` fail too; the others got it.
+    if status.success() || targets.iter().any(|waybar| !waybar.is_alive()) {
+        Ok(pids.len())
+    } else {
+        Err(ProcessError::Tool("kill"))
+    }
+}
+
+/// [`running`] on a thread of the blocking pool, for async callers.
+pub async fn running_unblocked() -> Vec<Waybar> {
+    blocking::unblock(running).await
+}
+
+/// [`ours`] on a thread of the blocking pool, for async callers.
+pub async fn ours_unblocked(files: &WaybarFiles) -> Vec<Waybar> {
+    let files = files.clone();
+    blocking::unblock(move || ours(&files)).await
+}
+
 /// The waybar processes of this session that run our config.
 ///
 /// # Blocking
@@ -294,6 +334,16 @@ pub fn ours(files: &WaybarFiles) -> Vec<Waybar> {
 /// Reads `/proc` and waits for `kill`.
 pub fn stop(files: &WaybarFiles) -> Result<usize, ProcessError> {
     signal(&ours(files), "TERM")
+}
+
+/// [`stop`] off the executor: `/proc` is read on the blocking pool, `kill` runs by
+/// `async_process`.
+///
+/// # Errors
+///
+/// [`ProcessError::Tool`] if `kill` can't be run.
+pub async fn stop_async(files: &WaybarFiles) -> Result<usize, ProcessError> {
+    signal_async(&ours_unblocked(files).await, "TERM").await
 }
 
 /// The waybars of ours among `running` that would be a second bar: those Sway Things started
@@ -375,17 +425,13 @@ pub enum Reloaded {
 /// # Errors
 ///
 /// [`ProcessError`] if `kill` can't be run, or waybar ended and couldn't be started again.
-///
-/// # Blocking
-///
-/// Reads `/proc` and waits for `kill` and, if waybar ended, for `setsid`.
 pub async fn reload(files: &WaybarFiles) -> Result<Reloaded, ProcessError> {
-    let before = ours(files);
-    if signal(&before, "USR2")? == 0 {
+    let before = ours_unblocked(files).await;
+    if signal_async(&before, "USR2").await? == 0 {
         return Ok(Reloaded::NoneRuns);
     }
     async_io::Timer::after(Duration::from_millis(1500)).await;
-    if before.iter().any(Waybar::is_alive) || !ours(files).is_empty() {
+    if before.iter().any(Waybar::is_alive) || !ours_unblocked(files).await.is_empty() {
         return Ok(Reloaded::Read);
     }
     start_checked(files).await?;
@@ -400,25 +446,22 @@ pub async fn reload(files: &WaybarFiles) -> Result<Reloaded, ProcessError> {
 ///
 /// [`ProcessError::NotInstalled`], [`ProcessError::Tool`] if `setsid` can't be run, and
 /// [`ProcessError::Ended`] if no waybar of ours runs a moment later.
-///
-/// # Blocking
-///
-/// Waits for `setsid` and reads `/proc`.
 pub async fn start_checked(files: &WaybarFiles) -> Result<(), ProcessError> {
     if !installed() {
         return Err(ProcessError::NotInstalled);
     }
-    let started = Command::new("setsid")
+    let started = async_process::Command::new("setsid")
         .arg("-f")
         .arg("waybar")
         .arg("-c")
         .arg(files.config())
         .arg("-s")
         .arg(files.style())
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdin(async_process::Stdio::null())
+        .stdout(async_process::Stdio::null())
+        .stderr(async_process::Stdio::null())
         .status()
+        .await
         .map_err(|_| ProcessError::Tool("setsid"))?;
     if !started.success() {
         return Err(ProcessError::Tool("setsid"));
@@ -427,7 +470,7 @@ pub async fn start_checked(files: &WaybarFiles) -> Result<(), ProcessError> {
     let until = Instant::now() + Duration::from_secs(3);
     let mut seen = Vec::new();
     while Instant::now() < until {
-        seen = ours(files);
+        seen = ours_unblocked(files).await;
         if !seen.is_empty() {
             break;
         }
@@ -464,26 +507,22 @@ pub enum Ensured {
 /// # Errors
 ///
 /// What [`start_checked`] says.
-///
-/// # Blocking
-///
-/// Reads `/proc` and waits for `kill` and `setsid`.
 pub async fn ensure(files: &WaybarFiles, starter: &Starter) -> Result<Ensured, ProcessError> {
     let Some(_lock) = Lock::take().await else {
         return Ok(Ensured::Busy);
     };
     // A waybar of ours next to the user's own (their `bar` block came back, say): ours goes.
-    let all = running();
+    let all = running_unblocked().await;
     let surplus = surplus(starter, &all, files);
     if !surplus.is_empty() {
-        signal(&surplus, "TERM")?;
+        signal_async(&surplus, "TERM").await?;
         note(None);
         return Ok(match all.iter().find(|waybar| !waybar.runs(files)) {
             Some(theirs) if !starter.is_elsewhere() => Ensured::Other(theirs.pid),
             _ => Ensured::Elsewhere,
         });
     }
-    if !ours(files).is_empty() {
+    if !ours_unblocked(files).await.is_empty() {
         note(None);
         return Ok(Ensured::Runs);
     }
@@ -492,7 +531,11 @@ pub async fn ensure(files: &WaybarFiles, starter: &Starter) -> Result<Ensured, P
     }
     let until = Instant::now() + Duration::from_secs(2);
     loop {
-        if let Some(other) = running().into_iter().find(|waybar| !waybar.runs(files)) {
+        if let Some(other) = running_unblocked()
+            .await
+            .into_iter()
+            .find(|waybar| !waybar.runs(files))
+        {
             return Ok(Ensured::Other(other.pid));
         }
         if Instant::now() >= until {

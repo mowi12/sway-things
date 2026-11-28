@@ -419,81 +419,9 @@ why = "Saving the state takes the include check's `WriteAccess`; fine once `Loca
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "core::apply::Applier::keep_bar"
-to = "core::bar::process::stop"
-why = "Ends our waybar with a synchronous `kill` and reads `/proc` inside the async apply. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::keep_waybar"
-to = "core::bar::process::ours"
-why = "Reads `/proc` for our waybar inside the async apply. Repair: read it in a thread, or once before the apply."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::reload_waybar"
-to = "core::bar::process::reload"
-why = "`process::reload` is async but sends `kill` and reads `/proc` synchronously. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "core::apps::launch::launch"
 to = "core::apps::installed::lookup"
 why = "Finds the desktop entry by reading the application directories inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::ensure"
-to = "core::bar::process::ours"
-why = "Reads `/proc` between its waits. Repair: read it in a thread (blocking::unblock) or make `ensure` a blocking function the callers run off the executor."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::ensure"
-to = "core::bar::process::running"
-why = "Reads `/proc` between its waits. Repair: read it in a thread (blocking::unblock) or make `ensure` a blocking function the callers run off the executor."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::ensure"
-to = "core::bar::process::signal"
-why = "Ends a second waybar of ours with a synchronous `kill`. Repair: send it with async_process."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::ensure"
-to = "core::bar::process::start_checked"
-why = "`start_checked` is async but runs `setsid` and reads `/proc` synchronously (see its entries); this edge ends with them."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::reload"
-to = "core::bar::process::ours"
-why = "Reads `/proc` before and after its wait. Repair: read it in a thread (blocking::unblock)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::reload"
-to = "core::bar::process::signal"
-why = "Sends `SIGUSR2` with a synchronous `kill`. Repair: send it with async_process."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::reload"
-to = "core::bar::process::start_checked"
-why = "`start_checked` is async but runs `setsid` and reads `/proc` synchronously (see its entries); this edge ends with them."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::start_checked"
-to = "core::bar::process::ours"
-why = "Polls `/proc` for the started waybar between its timers. Repair: read it in a thread (blocking::unblock)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::bar::process::start_checked"
-to = "std::process (synchronous)"
-why = "Starts waybar with a synchronous `setsid -f`, which returns at once. Repair: run it with async_process."
 
 [[violation]]
 rule = "R5-blocking-calls"
