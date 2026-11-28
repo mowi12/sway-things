@@ -596,15 +596,3 @@ rule = "R5-blocking-calls"
 from = "core::scanners::sane::Scan::finish"
 to = "core::scanners::sane::pages_in"
 why = "Lists the scanned pages after the scan ended, inside an async fn the Printers & Scanners page awaits. Repair: list them in gio::spawn_blocking or with async_fs."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::bar::status::Status::waybar"
-to = "core::bar::process::running"
-why = "Reads `/proc` for the running waybar on every update of the status row; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::bar::takeover::ours_runs"
-to = "core::bar::process::ours"
-why = "Reads `/proc` for our waybar when the takeover row updates; repair: run it in gio::spawn_blocking and hand the result back to the main context."

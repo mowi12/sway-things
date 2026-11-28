@@ -19,7 +19,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use gtk::glib;
 use gtk::prelude::*;
-use sway_things_core::bar::{process, takeover};
+use sway_things_core::bar::{WaybarFiles, process, takeover};
 use sway_things_core::registry::{Value, bar as keys};
 
 use super::{Ctx, follow};
@@ -138,11 +138,9 @@ pub fn offers(ctx: &Ctx) -> bool {
     !takeable(ctx).0.is_empty()
 }
 
-/// Whether a waybar with the config of Sway Things runs.
-fn ours_runs(ctx: &Ctx) -> bool {
-    ctx.model()
-        .waybar_files()
-        .is_some_and(|files| !process::ours(&files).is_empty())
+/// Whether a waybar with the config `files` of Sway Things runs.
+fn ours_runs(files: Option<&WaybarFiles>) -> bool {
+    files.is_some_and(|files| !process::ours(files).is_empty())
 }
 
 /// Stores `backend` with the bars `taken` over and reloads sway, which starts the bar they say.
@@ -162,12 +160,36 @@ fn wrapped(text: &str) -> gtk::Label {
 }
 
 impl Part {
-    /// Brings the part to the settings now and the switch that waits, if one does.
+    /// Brings the part to the settings now and the switch that waits, if one does: whether
+    /// Sway Things' waybar runs is read off the main context first.
     fn refresh(self: &Rc<Self>) {
         let Some(ctx) = self.ctx.upgrade() else {
             return;
         };
-        self.check_trial(&ctx);
+        if self.trial.borrow().is_none() {
+            self.show(&ctx, None);
+            return;
+        }
+        let files = ctx.model().waybar_files();
+        let weak = Rc::downgrade(self);
+        glib::spawn_future_local(async move {
+            let runs = gtk::gio::spawn_blocking(move || ours_runs(files.as_ref()))
+                .await
+                .unwrap_or(false);
+            let Some(part) = weak.upgrade() else {
+                return;
+            };
+            if let Some(ctx) = part.ctx.upgrade() {
+                part.show(&ctx, Some(runs));
+            }
+        });
+    }
+
+    /// Shows the part, after following the switch that waits with whether our waybar `runs`.
+    fn show(self: &Rc<Self>, ctx: &Rc<Ctx>, runs: Option<bool>) {
+        if let Some(runs) = runs {
+            self.check_trial(ctx, runs);
+        }
         let backend = ctx
             .value(keys::BACKEND)
             .unwrap_or(Value::Choice("none".to_owned()));
@@ -203,9 +225,9 @@ impl Part {
         if let Some(trial) = trial {
             self.banner(&trial);
         } else if active {
-            self.switch_back(&ctx);
+            self.switch_back(ctx);
         } else if backend != Value::Choice("swaybar".to_owned()) {
-            self.offer(&ctx);
+            self.offer(ctx);
         }
     }
 
@@ -213,7 +235,7 @@ impl Part {
     /// waybar runs, and switches back when the time to keep it is up, when it ends, or when it
     /// doesn't run [`STARTS_WITHIN`] after the reload (at once if the launcher says it can't run
     /// waybar): the values before come back, and the page says why.
-    fn check_trial(&self, ctx: &Ctx) {
+    fn check_trial(&self, ctx: &Ctx, runs: bool) {
         let reason = {
             let mut trial = self.trial.borrow_mut();
             let Some(trial) = trial.as_mut() else {
@@ -227,7 +249,6 @@ impl Part {
             {
                 trial.reloaded = Some(Instant::now());
             }
-            let runs = ours_runs(ctx);
             if runs && trial.running.is_none() {
                 trial.running = Some(Instant::now());
             }
