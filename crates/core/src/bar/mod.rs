@@ -40,6 +40,7 @@ pub mod waybar;
 
 use std::path::{Path, PathBuf};
 
+pub use crate::registry::bar::is_module_name;
 pub use modules::{Modules, ModulesError};
 
 use crate::atomic;
@@ -56,20 +57,6 @@ pub const HEADER: &str =
 /// The second line: where to change it.
 pub const HEADER_HINT: &str =
     "Change the bar on the Bar page of Sway Things. Hand edits are overwritten.";
-
-/// The longest a module name may be.
-const MAX_MODULE_NAME: usize = 128;
-
-/// Whether `name` can be a module in waybar's module lists: `clock`, `custom/media`,
-/// `battery#bat2`, `group/net`. Not empty, at most 128 bytes, without blanks or control
-/// characters.
-pub fn is_module_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= MAX_MODULE_NAME
-        && !name
-            .chars()
-            .any(|char| char.is_whitespace() || char.is_control())
-}
 
 /// The kind of a module: the part of its name before a `#` (`battery` for `battery#bat2`), which
 /// is what waybar makes it from. `custom/<name>` and `group/<name>` keep their names, and so on.

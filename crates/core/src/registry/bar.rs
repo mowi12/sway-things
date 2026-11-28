@@ -17,6 +17,20 @@ use crate::msg;
 use crate::registry::ValueError;
 use crate::version::SwayFxVersion;
 
+/// The longest a module name may be.
+const MAX_MODULE_NAME: usize = 128;
+
+/// Whether `name` can be a module in waybar's module lists: `clock`, `custom/media`,
+/// `battery#bat2`, `group/net`. Not empty, at most 128 bytes, without blanks or control
+/// characters.
+pub fn is_module_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MAX_MODULE_NAME
+        && !name
+            .chars()
+            .any(|char| char.is_whitespace() || char.is_control())
+}
+
 /// The key of the bar program.
 pub const BACKEND: &str = "bar.backend";
 /// The key of the edge the bar stands at.
@@ -158,7 +172,7 @@ pub const DEFAULT_BACKGROUND: Color = Color::rgb(0x2b, 0x30, 0x3b);
 
 /// A module's name as a module list takes it: `clock`, `custom/media`, `battery#bat2`.
 pub(crate) fn check_module(name: &str) -> Result<(), ValueError> {
-    if crate::bar::is_module_name(name) {
+    if is_module_name(name) {
         Ok(())
     } else {
         Err(ValueError::NotAModule)

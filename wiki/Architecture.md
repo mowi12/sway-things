@@ -288,10 +288,14 @@ keys, defaults and checks of Screenshots & Clipboard are `registry::capture` (re
 and `capture::shortcuts`); the check of its keys uses `sway_config::bindings::keys` the same way. The keys of Apps &
 Autostart, the kinds of default apps, the autostart entries and the checks of their values are `registry::apps`
 (re-exported by `apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and
-launcher's commands and keys use the same binding reader. A key that code reads by name, in the core or a front end, is
-a constant of the registry module that defines the setting (`registry::app::SAFETY_NET_TIMEOUT`,
-`registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …), never a string literal; the architecture
-test checks it (R4).
+launcher's commands and keys use the same binding reader. The same holds for the other pure checks a value check needs:
+environment.d's syntax, the output name of xdg-desktop-portal-wlr and the variables handed to the user manager are
+`registry::environment` (re-exported by `environment::syntax`, `environment::screencast` and `apps::autostart`), a
+locale's name is `registry::region` (re-exported by `region::locales`), a module name of waybar is `registry::bar`
+(re-exported by `bar`), and the launcher of a bar taken over is `command::bar::LAUNCHER`. A key that code reads by name,
+in the core or a front end, is a constant of the registry module that defines the setting
+(`registry::app::SAFETY_NET_TIMEOUT`, `registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …),
+never a string literal; the architecture test checks it (R4).
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the pages of the live services
 (Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, the key buttons and notes of

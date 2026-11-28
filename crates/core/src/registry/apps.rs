@@ -31,6 +31,23 @@ pub const LAUNCHER_KEYS: &str = "apps.launcher_keys";
 /// The keys of the settings whose change changes the bindings.
 pub const KEYS: [&str; 4] = [TERMINAL, TERMINAL_KEYS, LAUNCHER, LAUNCHER_KEYS];
 
+/// The variables `sway-things hook autostart` hands to systemd before it starts the entries:
+/// those of sway's own `50-systemd-user.conf` and of sway-systemd, which tell apps the display,
+/// the session, the desktop and the cursor. Nothing else: the user manager is shared by every
+/// session and service of the user, so `PATH` (which a login shell may set differently) and
+/// secrets such as `SSH_AUTH_SOCK` stay as the user manager has them. Apps started by dex, in
+/// contrast, get all of sway's environment.
+pub const SESSION_VARIABLES: [&str; 8] = [
+    "WAYLAND_DISPLAY",
+    "DISPLAY",
+    "SWAYSOCK",
+    "I3SOCK",
+    "XDG_CURRENT_DESKTOP",
+    "XDG_SESSION_TYPE",
+    "XCURSOR_THEME",
+    "XCURSOR_SIZE",
+];
+
 /// The key of Sway Things' autostart entries.
 pub const ENTRIES: &str = "autostart.entries";
 /// The key of the XDG autostart entries Sway Things switches off.

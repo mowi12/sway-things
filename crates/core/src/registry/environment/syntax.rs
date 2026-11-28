@@ -14,9 +14,9 @@
 //! in Sway Things: one line, quotes closed, every `${` closed and well formed. [`expand`]
 //! expands a value.
 
+use super::is_variable_name;
 use crate::i18n::{Msg, Text};
 use crate::msg;
-use crate::registry::environment::is_variable_name;
 
 /// A variable a file sets.
 #[derive(Debug, Clone, PartialEq, Eq)]

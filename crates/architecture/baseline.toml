@@ -4,42 +4,6 @@
 # every placeholder `why` with the reason; see wiki/Testing.md, "Architecture tests".
 
 [[violation]]
-rule = "R1-layers"
-from = "core::command::bar"
-to = "core::bar::takeover"
-why = "The `swaybar_command` builder names the launcher of Sway Things' bar, `bar::takeover::LAUNCHER`; the constant moves down into `command::bar`, which `bar::takeover` then uses."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::bar"
-to = "core::bar"
-why = "The check of a module name reads `bar::is_module_name`, the syntax of a name in waybar's module lists; the check moves down into `registry::bar`, which `bar` then uses."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::environment"
-to = "core::apps::autostart"
-why = "The value check reads `apps::autostart::SESSION_VARIABLES`; the constant moves into the registry."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::environment"
-to = "core::environment::screencast"
-why = "The value check calls `environment::screencast::is_output_name`; the check moves into the registry, or the screencast module runs it itself."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::environment"
-to = "core::environment::syntax"
-why = "The value checks parse with `environment::syntax`; the syntax reader moves down into the registry."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::registry::region"
-to = "core::region::locales"
-why = "The value check calls `region::locales::is_locale_name`; the check moves down into the registry."
-
-[[violation]]
 rule = "R2-file-cycles"
 from = "cli::displays"
 to = "cli::hook"

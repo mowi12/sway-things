@@ -21,7 +21,7 @@ pub mod files;
 pub mod portals;
 pub mod screencast;
 pub mod session;
-pub mod syntax;
+pub use crate::registry::environment::syntax;
 #[cfg(test)]
 mod tests;
 

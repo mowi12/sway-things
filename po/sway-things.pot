@@ -2917,30 +2917,6 @@ msgid ""
 "Take the line out, so sway uses swaybg, or name a program that is installed."
 msgstr ""
 
-#: crates/core/src/environment/syntax.rs
-msgid "a value can't have line breaks or control characters"
-msgstr ""
-
-#: crates/core/src/environment/syntax.rs
-msgid "a quote isn't closed"
-msgstr ""
-
-#: crates/core/src/environment/syntax.rs
-msgid "a value can't end in a backslash"
-msgstr ""
-
-#: crates/core/src/environment/syntax.rs
-msgid "the value is empty, which environment.d ignores"
-msgstr ""
-
-#: crates/core/src/environment/syntax.rs
-msgid "a ${ isn't closed with }"
-msgstr ""
-
-#: crates/core/src/environment/syntax.rs
-msgid "write ${NAME}, ${NAME:-default} or ${NAME:+alternate}; $$ for a $"
-msgstr ""
-
 #: crates/core/src/generate/write.rs
 #, rust-format
 msgid "{file} was changed outside Sway Things, so it was left alone"
@@ -5531,7 +5507,8 @@ msgstr ""
 msgid "grim"
 msgstr ""
 
-#: crates/core/src/registry/capture.rs crates/core/src/registry/environment.rs
+#: crates/core/src/registry/capture.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "slurp"
 msgstr ""
 
@@ -6213,286 +6190,310 @@ msgstr ""
 msgid "not whole milliseconds: {value}"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "xdg-desktop-portal-wlr’s own"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Ask by clicking a display (slurp)"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Pick from a menu"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Always share one display"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "must be NAME=value"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "a name has letters, digits and _, and doesn't start with a digit"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "a switch on this page sets it: use the switch"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 #, rust-format
 msgid "set it on {page}: that page owns it"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "the session sets it itself: changing it would break the login"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "PATH must keep $PATH or /usr/bin, or no program would be found at login"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "Every program is looked up in PATH: a wrong folder can keep apps from "
 "starting"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "Every program loads these libraries: a wrong one can break the next login"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "Every app looks for its settings and files there: a wrong folder hides them"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Wayland for older apps"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Screen sharing & portals"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Qt 5 apps"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "QT_QPA_PLATFORM=wayland;xcb: Qt 6 finds Wayland by itself, Qt 5 only when "
 "the session type is wayland"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "QT_QPA_PLATFORM"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Qt"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "KDE apps"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Xwayland"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "SDL 2 games"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "SDL_VIDEODRIVER=wayland,x11: SDL 3 and sdl2-compat find Wayland by "
 "themselves, games with an older SDL 2 don't"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "SDL_VIDEODRIVER"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "SDL"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "games"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Java apps"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "_JAVA_AWT_WM_NONREPARENTING=1: Java apps on Xwayland otherwise show grey or "
 "empty windows"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "_JAVA_AWT_WM_NONREPARENTING"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Java"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Swing"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "AWT"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "JetBrains"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "grey window"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Electron 28 to 37 apps"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "ELECTRON_OZONE_PLATFORM_HINT=auto: Electron 38 and newer and Chromium 140 "
 "and newer use Wayland by themselves"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "ELECTRON_OZONE_PLATFORM_HINT"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Electron"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Chromium"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "ozone"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Environment variables"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "Variables for the whole session as NAME=value, in environment.d's syntax: "
 "$NAME and ${NAME:-default} expand, $$ is a $"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "environment.d"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "PATH"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "EDITOR"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "export"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "variable"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Portal configuration of Sway Things"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "~/.config/xdg-desktop-portal/sway-portals.conf: wlr for screen sharing and "
 "screenshots, gtk for the rest; only where you have no configuration there"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "xdg-desktop-portal"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "portals.conf"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "screen sharing"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "file picker"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Pass session variables to systemd and D-Bus"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "At login, so the portals and the services they start find the display: "
 "WAYLAND_DISPLAY, XDG_CURRENT_DESKTOP and the others"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "import-environment"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "dbus-update-activation-environment"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "portal"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Output chooser"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "How an app that shares the screen asks which display: ~/.config/xdg-desktop-"
 "portal-wlr/sway"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "xdg-desktop-portal-wlr"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "chooser"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "Display to share"
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid ""
 "Shared without asking, while the chooser is \"Always share one display\""
 msgstr ""
 
-#: crates/core/src/registry/environment.rs
+#: crates/core/src/registry/environment/mod.rs
 msgid "output_name"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "a value can't have line breaks or control characters"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "a quote isn't closed"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "a value can't end in a backslash"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "the value is empty, which environment.d ignores"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "a ${ isn't closed with }"
+msgstr ""
+
+#: crates/core/src/registry/environment/syntax.rs
+msgid "write ${NAME}, ${NAME:-default} or ${NAME:+alternate}; $$ for a $"
 msgstr ""
 
 #: crates/core/src/registry/input.rs crates/gui/src/widgets/bar/dialog.rs
