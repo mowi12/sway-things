@@ -83,7 +83,7 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | --- | --- | --- |
 | core | `registry` | every setting, defined once ([Settings registry](#settings-registry)) |
 | core | `state`, `ui_state`, `watch`, `atomic` | the settings files, the window state, the file watcher, atomic writes ([State](#state)) |
-| core | `generate`, `command`, `version` | the generated sway files, the typed sway commands, version gating ([Generated files](#generated-files-and-the-file-rule), [command builders](Applying-Settings.md#sway-command-builders)) |
+| core | `generate`, `manifest`, `command`, `version` | the generated sway files and the record of every generated file, the typed sway commands, version gating ([Generated files](#generated-files-and-the-file-rule), [command builders](Applying-Settings.md#sway-command-builders)) |
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
@@ -111,7 +111,7 @@ top-level module fails the test until it has a layer there and here.
 
 | Layer | Core modules |
 | --- | --- |
-| 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session` |
+| 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session`, `manifest` |
 | 1 sway | `command`, `sway_config`, `ipc` |
 | 2 registry | `registry` |
 | 3 state | `state`, `include`, `ui_state` |
@@ -477,7 +477,9 @@ the one that starts the night light) (`20-output.conf` ends with the one that ke
   If sway rejects the file, the old one stays, and each error carries the line and the settings behind it. If sway can't
   be run, nothing is replaced.
 - **Manifest:** `manifest.toml` records the SHA-256 hash of each generated file by absolute path (the value `sha256sum`
-  prints). Before a file is replaced, its content is compared:
+  prints). The record, the header and the handling of other programs' files (`Wanted`, `keep`, `Problem`) are the
+  foundation module `manifest`, so `generate` and every feature that writes such a file share them. Before a file is
+  replaced, its content is compared:
 
   | The file on disk… | Result |
   | --- | --- |

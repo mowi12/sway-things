@@ -8,9 +8,10 @@
 use super::{Code, Finding, Severity};
 use crate::apps::Dirs;
 use crate::environment::portals::{self, Check, Component};
-use crate::generate::other::Problem;
-use crate::generate::{Locations, Manifest, Ownership};
+use crate::generate::Locations;
 use crate::i18n::Text;
+use crate::manifest::Problem;
+use crate::manifest::{Manifest, Ownership};
 use crate::msg;
 use crate::packages::Manager;
 use crate::state::State;

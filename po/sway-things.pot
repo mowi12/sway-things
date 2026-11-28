@@ -2941,26 +2941,6 @@ msgstr ""
 msgid "write ${NAME}, ${NAME:-default} or ${NAME:+alternate}; $$ for a $"
 msgstr ""
 
-#: crates/core/src/generate/other.rs
-#, rust-format
-msgid ""
-"{file} is your own file: Sway Things doesn't change it, so its choice there "
-"doesn't take effect"
-msgstr ""
-
-#: crates/core/src/generate/other.rs
-#, rust-format
-msgid ""
-"{file} was changed outside Sway Things and is left as it is; delete it to "
-"have Sway Things write it again"
-msgstr ""
-
-#: crates/core/src/generate/other.rs crates/core/src/night_light/mod.rs
-#: crates/core/src/notifications/files.rs
-#, rust-format
-msgid "{file} can't be written: {error}"
-msgstr ""
-
 #: crates/core/src/generate/write.rs
 #, rust-format
 msgid "{file} was changed outside Sway Things, so it was left alone"
@@ -3163,6 +3143,26 @@ msgstr ""
 #: crates/core/src/ipc/mod.rs
 #, rust-format
 msgid "sway rejected `{command}`: {message}"
+msgstr ""
+
+#: crates/core/src/manifest/other.rs
+#, rust-format
+msgid ""
+"{file} is your own file: Sway Things doesn't change it, so its choice there "
+"doesn't take effect"
+msgstr ""
+
+#: crates/core/src/manifest/other.rs
+#, rust-format
+msgid ""
+"{file} was changed outside Sway Things and is left as it is; delete it to "
+"have Sway Things write it again"
+msgstr ""
+
+#: crates/core/src/manifest/other.rs crates/core/src/night_light/mod.rs
+#: crates/core/src/notifications/files.rs
+#, rust-format
+msgid "{file} can't be written: {error}"
 msgstr ""
 
 #: crates/core/src/network/mod.rs

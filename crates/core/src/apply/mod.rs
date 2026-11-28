@@ -128,8 +128,8 @@ pub struct Persisted {
     /// What happened to each generated file.
     pub files: Report,
     /// The files of other programs that couldn't be written or deleted
-    /// ([`crate::generate::other`]): someone else's file, or one changed outside.
-    pub others: Vec<crate::generate::other::Problem>,
+    /// ([`crate::manifest`]): someone else's file, or one changed outside.
+    pub others: Vec<crate::manifest::Problem>,
 }
 
 /// Which files of other programs [`Applier::persist`] changed whose program has to be told.
@@ -1090,7 +1090,7 @@ impl<V: Validate> Applier<V> {
     /// # Blocking
     ///
     /// Reads the user's autostart directory.
-    fn keep_other_files(&self) -> (Vec<crate::generate::other::Problem>, Changed) {
+    fn keep_other_files(&self) -> (Vec<crate::manifest::Problem>, Changed) {
         let Some(dirs) = &self.apps_dirs else {
             return (Vec::new(), Changed::default());
         };
@@ -1110,10 +1110,10 @@ impl<V: Validate> Applier<V> {
         wanted.push(environment);
         wanted.push(portals);
         wanted.push(screencast);
-        let mut manifest = generate::Manifest::load(self.locations.manifest());
-        let mut problems = crate::generate::other::keep(&wanted, &mut manifest);
+        let mut manifest = crate::manifest::Manifest::load(self.locations.manifest());
+        let mut problems = crate::manifest::keep(&wanted, &mut manifest);
         if let Err(error) = manifest.save() {
-            problems.push(crate::generate::other::Problem::Io(
+            problems.push(crate::manifest::Problem::Io(
                 self.locations.manifest().to_owned(),
                 error.to_string(),
             ));

@@ -27,7 +27,7 @@ use super::Dirs;
 use super::entry::DesktopEntry;
 use super::installed::{shows_in, single_line};
 use crate::command::{Hook, SwayCmd, SwayText};
-use crate::generate::HEADER;
+use crate::manifest::HEADER;
 use crate::registry::Value;
 pub use crate::registry::apps::{
     ENTRIES, Entry, HIDDEN, Item, RUNNER, RUNNERS, check_entry, check_hidden,

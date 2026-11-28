@@ -241,7 +241,7 @@ mod imp {
         pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
         /// The files of the Apps & Autostart page that weren't written when last saved, so each
         /// is told once.
-        pub(super) other_problems: RefCell<Vec<sway_things_core::generate::other::Problem>>,
+        pub(super) other_problems: RefCell<Vec<sway_things_core::manifest::Problem>>,
     }
 
     #[glib::object_subclass]
@@ -303,7 +303,7 @@ impl Model {
                 let outdated = model.generated().await.is_some_and(|files| {
                     files.iter().any(|(file, on_disk)| {
                         on_disk.file == ConfigFile::Output
-                            && on_disk.ownership == Ok(generate::Ownership::Ours)
+                            && on_disk.ownership == Ok(sway_things_core::manifest::Ownership::Ours)
                             && on_disk.content.as_deref() != Some(file.text().as_str())
                     })
                 });

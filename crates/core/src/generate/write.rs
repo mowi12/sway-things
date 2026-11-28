@@ -13,11 +13,12 @@ use std::process::Stdio;
 
 use async_process::Command;
 
-use super::{GeneratedFile, Manifest, Ownership, Source};
+use super::{GeneratedFile, Source};
 use crate::atomic;
 use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::ipc::Compositor;
+use crate::manifest::{Manifest, Ownership};
 use crate::msg;
 use crate::registry::ConfigFile;
 pub use crate::state::Locations;

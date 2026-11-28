@@ -9,11 +9,12 @@ use std::path::{Path, PathBuf};
 use async_io::block_on;
 
 use super::{
-    ConfigError, GeneratedFile, HEADER, InvalidLine, Locations, Manifest, Outcome, Source,
-    Validate, WriteError, generate, parse_error, write,
+    ConfigError, GeneratedFile, InvalidLine, Locations, Outcome, Source, Validate, WriteError,
+    generate, parse_error, write,
 };
 use crate::include::WriteAccess;
 use crate::ipc::Compositor;
+use crate::manifest::{HEADER, Manifest, Ownership};
 use crate::registry::{ConfigFile, Registry};
 use crate::state::{Paths, State};
 use crate::version::{SwayFxVersion, SwayVersion};
@@ -753,7 +754,7 @@ fn problems_with_generated_files_read_well() {
 #[test]
 fn files_on_disk_are_read_without_writing_anything() {
     let written = Written::new();
-    let ownership = |written: &Written| -> Vec<Result<super::Ownership, String>> {
+    let ownership = |written: &Written| -> Vec<Result<Ownership, String>> {
         super::on_disk(&written.files, &written.locations)
             .into_iter()
             .map(|file| file.ownership)
@@ -766,17 +767,11 @@ fn files_on_disk_are_read_without_writing_anything() {
         ConfigFile::ALL
     );
     assert!(before.iter().all(|file| file.content.is_none()));
-    assert_eq!(
-        ownership(&written),
-        [const { Ok(super::Ownership::Absent) }; 9]
-    );
+    assert_eq!(ownership(&written), [const { Ok(Ownership::Absent) }; 9]);
     assert!(!written.locations.directory().exists());
 
     written.write(&FakeValidator::default(), &[]);
-    assert_eq!(
-        ownership(&written),
-        [const { Ok(super::Ownership::Current) }; 9]
-    );
+    assert_eq!(ownership(&written), [const { Ok(Ownership::Current) }; 9]);
 
     let input = written.path(ConfigFile::Input);
     let edited = format!("{HEADER}input * tap enabled\n");
@@ -788,10 +783,10 @@ fn files_on_disk_are_read_without_writing_anything() {
     .unwrap();
     let files = super::on_disk(&written.files, &written.locations);
     assert_eq!(files[0].path, input);
-    assert_eq!(files[0].ownership, Ok(super::Ownership::Edited));
+    assert_eq!(files[0].ownership, Ok(Ownership::Edited));
     assert_eq!(files[0].content.as_deref(), Some(edited.as_str()));
     // Recorded, so changed outside even without the header.
-    assert_eq!(files[3].ownership, Ok(super::Ownership::Edited));
+    assert_eq!(files[3].ownership, Ok(Ownership::Edited));
 }
 
 #[test]

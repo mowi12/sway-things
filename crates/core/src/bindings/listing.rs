@@ -11,9 +11,9 @@ use std::sync::Arc;
 
 use super::ours;
 use super::table::{Bound, DEFAULT_MODE, Entry, Fate, Source, Table, user_lines};
-use crate::generate::HEADER;
 use crate::i18n::Text;
 use crate::include::IncludeStatus;
+use crate::manifest::HEADER;
 use crate::registry::ConfigFile;
 use crate::state::State;
 use crate::sway_config::Directive;

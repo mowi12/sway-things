@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::*;
-use crate::generate::HEADER;
+use crate::manifest::HEADER;
 use crate::registry::Registry;
 use crate::state::{Paths, State};
 

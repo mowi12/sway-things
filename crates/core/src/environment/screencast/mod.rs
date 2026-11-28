@@ -16,8 +16,8 @@ use std::path::{Path, PathBuf};
 
 use crate::apps::Dirs;
 use crate::capture::tools::Program;
-use crate::generate::HEADER;
-use crate::generate::other::Wanted;
+use crate::manifest::HEADER;
+use crate::manifest::Wanted;
 use crate::registry::Value;
 use crate::registry::environment::{SCREENCAST_CHOOSER, SCREENCAST_OUTPUT};
 use crate::state::State;

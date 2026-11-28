@@ -5,69 +5,9 @@
 
 [[violation]]
 rule = "R1-layers"
-from = "core::apps::autostart"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::apps::files"
-to = "core::generate::other"
-why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::apps::mime"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::bindings::listing"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
 from = "core::command::bar"
 to = "core::bar::takeover"
 why = "The `swaybar_command` builder names the launcher of Sway Things' bar, `bar::takeover::LAUNCHER`; the constant moves down into `command::bar`, which `bar::takeover` then uses."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment"
-to = "core::generate::other"
-why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment::portals"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment::portals"
-to = "core::generate::other"
-why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment::screencast"
-to = "core::generate"
-why = "Uses `generate::HEADER` for a file it writes; the header and the manifest of the generated files move out of `generate` into the state layer."
-
-[[violation]]
-rule = "R1-layers"
-from = "core::environment::screencast"
-to = "core::generate::other"
-why = "Uses the handling of other programs' files (`generate::other`: `Wanted`, `Problem`, `keep`); it moves out of `generate` into the state layer."
 
 [[violation]]
 rule = "R1-layers"

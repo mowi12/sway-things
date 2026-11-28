@@ -95,6 +95,7 @@ pub const CORE_LAYERS: &[Layer] = &[
         name: "foundation",
         modules: &[
             "i18n", "atomic", "delegate", "dbus", "systemd", "version", "watch", "session",
+            "manifest",
         ],
     },
     Layer {

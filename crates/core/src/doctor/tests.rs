@@ -11,11 +11,12 @@ use super::{
     Checkup, Code, Diagnosis, Finding, Fix, FixError, Found, Installed, Section, Severity, Step,
 };
 use crate::generate::tests::{SWAY_1_10, SWAYFX_0_5, TOUCHPAD};
-use crate::generate::{ConfigError, HEADER, Locations, Outcome, Report, Validate};
+use crate::generate::{ConfigError, Locations, Outcome, Report, Validate};
 use crate::gsettings::{GSettingsError, GSettingsStore, NoGSettings};
 use crate::i18n::Text;
 use crate::include::{IncludeStatus, WriteAccess};
 use crate::ipc::Compositor;
+use crate::manifest::HEADER;
 use crate::registry::{ConfigFile, GSettingsKey, Registry, Value};
 use crate::state::{Paths, State};
 use crate::sway_config::Disk;

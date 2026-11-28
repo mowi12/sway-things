@@ -13,7 +13,7 @@ use super::launchers::{self, Binding, LAUNCHER, TERMINAL};
 use super::mime::{self, Kind, Source};
 use super::{Dirs, launch};
 use crate::command::{SwayCmd, SwayText, Target, model};
-use crate::generate::{HEADER, Manifest};
+use crate::manifest::{HEADER, Manifest};
 use crate::registry::{Registry, ValueError};
 use crate::state::{Paths, State};
 

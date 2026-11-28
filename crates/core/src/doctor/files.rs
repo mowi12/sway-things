@@ -7,8 +7,9 @@
 use std::collections::BTreeSet;
 
 use super::{Checkup, Code, Finding, Fix, Severity, Step, validated};
-use crate::generate::{GeneratedFile, HEADER, Manifest, Ownership, Validate};
+use crate::generate::{GeneratedFile, Validate};
 use crate::i18n::Text;
+use crate::manifest::{HEADER, Manifest, Ownership};
 use crate::msg;
 use crate::registry::{ConfigFile, SwayMapping};
 

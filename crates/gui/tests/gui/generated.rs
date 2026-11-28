@@ -186,7 +186,7 @@ pub(crate) fn check_generated_about() -> Outcome {
 pub(crate) fn check_generated_edited() -> Outcome {
     let fixture = fixture(SWAYFX, STORED, USERS, true)?;
     let path = fixture.locations.path(ConfigFile::Appearance);
-    let edited = format!("{}gaps inner 30\n", sway_things_core::generate::HEADER);
+    let edited = format!("{}gaps inner 30\n", sway_things_core::manifest::HEADER);
     write_file(&path, &edited)?;
     let window = open(&fixture, Page::Windows)?;
     window.show_generated(Some(ConfigFile::Appearance));
@@ -263,7 +263,7 @@ pub(crate) fn check_generated_not_overwritten() -> Outcome {
         &read_only.locations.path(ConfigFile::Input),
         &format!(
             "{}input * tap enabled\n",
-            sway_things_core::generate::HEADER
+            sway_things_core::manifest::HEADER
         ),
     )?;
     let window = open(&read_only, Page::MouseTouchpad)?;
@@ -295,7 +295,7 @@ pub(crate) fn check_generated_screen(screenshots: Option<&Path>, scheme: &str) -
     let fixture = fixture(SWAYFX, STORED, USERS, true)?;
     write_file(
         &fixture.locations.path(ConfigFile::Appearance),
-        &format!("{}gaps inner 30\n", sway_things_core::generate::HEADER),
+        &format!("{}gaps inner 30\n", sway_things_core::manifest::HEADER),
     )?;
     let window = open(&fixture, Page::Windows)?;
     window.show_generated(Some(ConfigFile::Appearance));
