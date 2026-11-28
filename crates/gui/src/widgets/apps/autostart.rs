@@ -16,7 +16,7 @@
 //!
 //! _Add App…_ opens a list of the installed apps, searchable, whose first item adds a command.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gtk::glib;
@@ -55,6 +55,8 @@ pub struct AutostartList {
     add: gtk::Button,
     /// What a click on each line of `list` and of `more_list` opens, by index.
     opens: Rc<RefCell<(Vec<Open>, Vec<Open>)>>,
+    /// Counts the reads of the XDG autostart entries, so only the newest is shown.
+    turn: Rc<Cell<u64>>,
 }
 
 impl std::fmt::Debug for AutostartList {
@@ -108,6 +110,7 @@ impl AutostartList {
             more_list,
             add,
             opens: Rc::new(RefCell::new((Vec::new(), Vec::new()))),
+            turn: Rc::new(Cell::new(0)),
         };
         shown.update(model);
         for (list, second) in [(&shown.list, false), (&shown.more_list, true)] {
@@ -167,8 +170,31 @@ impl AutostartList {
         &self.more
     }
 
-    /// Shows what starts, as `model` says now.
+    /// Shows what starts, as `model` says now, once the XDG autostart entries are read off the
+    /// main context; only the newest read is shown.
     fn update(&self, model: &Model) {
+        let started = self.turn.get().wrapping_add(1);
+        self.turn.set(started);
+        let dirs = DIRS.with(Clone::clone);
+        let shown = self.clone();
+        let model = model.downgrade();
+        glib::spawn_future_local(async move {
+            let xdg = match dirs {
+                Some(dirs) => gtk::gio::spawn_blocking(move || core_autostart::xdg_entries(&dirs))
+                    .await
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            };
+            if let Some(model) = model.upgrade() {
+                if shown.turn.get() == started {
+                    shown.show(&model, &xdg);
+                }
+            }
+        });
+    }
+
+    /// Shows what starts, as `model` and the XDG autostart entries `xdg` say.
+    fn show(&self, model: &Model, xdg: &[XdgEntry]) {
         let writable = model.status().is_some_and(|status| status.is_active());
         self.add.set_sensitive(writable);
         let mut main: Vec<Line> = Vec::new();
@@ -180,9 +206,6 @@ impl AutostartList {
         }
         let runs = runners(model, systemd()).any();
         let hidden = model.list(HIDDEN);
-        let xdg = DIRS
-            .with(|dirs| dirs.as_ref().map(core_autostart::xdg_entries))
-            .unwrap_or_default();
         for entry in xdg.iter().filter(|entry| entry.starts != Starts::NotAnApp) {
             let line = xdg_line(entry, runs, &hidden, writable);
             if starts_here(entry) {

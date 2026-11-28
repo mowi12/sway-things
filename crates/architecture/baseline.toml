@@ -599,12 +599,6 @@ why = "Lists the scanned pages after the scan ended, inside an async fn the Prin
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "gui::widgets::apps::autostart::AutostartList::update"
-to = "core::apps::autostart::xdg_entries"
-why = "Reads the XDG autostart directories on every update of the list; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "gui::widgets::bar::status::Status::waybar"
 to = "core::bar::process::running"
 why = "Reads `/proc` for the running waybar on every update of the status row; repair: run it in gio::spawn_blocking and hand the result back to the main context."
