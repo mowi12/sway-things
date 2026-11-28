@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sway-things\n"
 "Report-Msgid-Bugs-To: https://github.com/mowi12/sway-things/issues\n"
-"POT-Creation-Date: 2026-11-27 08:46+0100\n"
+"POT-Creation-Date: 2026-11-28 11:04+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -12438,6 +12438,24 @@ msgid "Records with {recorder}; a region is selected with slurp."
 msgstr ""
 
 #: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"Your config starts a clipboard history already, at {place}; while it runs, "
+"Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+#, rust-format
+msgid ""
+"A clipboard history of your own runs already (wl-paste, process {pid}); "
+"while it runs, Sway Things starts none."
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
+msgid "Clear History…"
+msgstr ""
+
+#: crates/gui/src/widgets/capture.rs
 msgid ""
 "The history keeps everything you copy. Passwords that your password manager "
 "marks as such (as KeePassXC does) are left out."
@@ -12454,24 +12472,6 @@ msgid ""
 "The history keeps everything you copy, passwords too unless your password "
 "manager marks them and wl-clipboard 2.3 and cliphist 0.5 or newer are "
 "installed."
-msgstr ""
-
-#: crates/gui/src/widgets/capture.rs
-#, rust-format
-msgid ""
-"Your config starts a clipboard history already, at {place}; while it runs, "
-"Sway Things starts none."
-msgstr ""
-
-#: crates/gui/src/widgets/capture.rs
-#, rust-format
-msgid ""
-"A clipboard history of your own runs already (wl-paste, process {pid}); "
-"while it runs, Sway Things starts none."
-msgstr ""
-
-#: crates/gui/src/widgets/capture.rs
-msgid "Clear History…"
 msgstr ""
 
 #: crates/gui/src/widgets/capture.rs

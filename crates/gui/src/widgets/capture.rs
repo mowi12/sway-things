@@ -332,21 +332,18 @@ fn next_name(model: &Model, key: &'static str, extensions: &'static [&'static st
 /// _Clear History…_.
 fn history_note(model: &Model) -> gtk::Widget {
     let note = note_box();
-    let privacy = match clipboard::skips_passwords() {
-        Some(true) => msg!(
-            "The history keeps everything you copy. Passwords that your password manager marks as \
-             such (as KeePassXC does) are left out."
-        ),
-        Some(false) => msg!(
-            "The history keeps everything you copy, passwords too: leaving out what a password \
-             manager marks needs wl-clipboard 2.3 and cliphist 0.5 or newer."
-        ),
-        None => msg!(
-            "The history keeps everything you copy, passwords too unless your password manager \
-             marks them and wl-clipboard 2.3 and cliphist 0.5 or newer are installed."
-        ),
-    };
-    note.append(&note_label(tr(privacy)));
+    let label = note_label(tr(privacy_text(None)));
+    note.append(&label);
+    // Asking the tools for their versions waits for them: off the main context.
+    glib::spawn_future_local(glib::clone!(
+        #[weak]
+        label,
+        async move {
+            if let Ok(skips) = gtk::gio::spawn_blocking(clipboard::skips_passwords).await {
+                label.set_label(tr(privacy_text(skips)));
+            }
+        }
+    ));
     if let Some(place) = own_history(model) {
         note.append(&note_label(&trf(
             msg!(
@@ -370,6 +367,25 @@ fn history_note(model: &Model) -> gtk::Widget {
     clear.connect_clicked(confirm_clear);
     note.append(&clear);
     note.upcast()
+}
+
+/// What the history note says about passwords, from whether the tools leave them out (`None`
+/// when that isn't known).
+fn privacy_text(skips: Option<bool>) -> Msg {
+    match skips {
+        Some(true) => msg!(
+            "The history keeps everything you copy. Passwords that your password manager marks as \
+         such (as KeePassXC does) are left out."
+        ),
+        Some(false) => msg!(
+            "The history keeps everything you copy, passwords too: leaving out what a password \
+         manager marks needs wl-clipboard 2.3 and cliphist 0.5 or newer."
+        ),
+        None => msg!(
+            "The history keeps everything you copy, passwords too unless your password manager \
+         marks them and wl-clipboard 2.3 and cliphist 0.5 or newer are installed."
+        ),
+    }
 }
 
 /// Where the user's config starts cliphist or clipman itself, as `file:line`.
@@ -407,12 +423,15 @@ fn confirm_clear(button: &gtk::Button) {
                 if answer != Ok(1) {
                     return;
                 }
-                if let Err(error) = clipboard::clear() {
-                    button.set_tooltip_text(Some(&trf(
-                        NOT_CLEARED,
-                        &[("error", &error.text().translated())],
-                    )));
-                }
+                glib::spawn_future_local(async move {
+                    // `cliphist wipe` is waited for: off the main context.
+                    if let Ok(Err(error)) = gtk::gio::spawn_blocking(clipboard::clear).await {
+                        button.set_tooltip_text(Some(&trf(
+                            NOT_CLEARED,
+                            &[("error", &error.text().translated())],
+                        )));
+                    }
+                });
             }
         ),
     );

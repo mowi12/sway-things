@@ -901,6 +901,14 @@ impl<V: Validate> Applier<V> {
         Ok(Effect::Live { commands: sent })
     }
 
+    /// [`crate::wallpaper::prepare`] on the blocking pool: the links of the collections point at
+    /// a picture before a `bg` line names them. Best effort: a link that can't be made leaves the
+    /// color in place of the picture.
+    async fn prepare_wallpaper(&self) {
+        let state = self.state.clone();
+        let _ = blocking::unblock(move || crate::wallpaper::prepare(&state)).await;
+    }
+
     /// Brings the session to the values in the state for the directive of `setting`, with those
     /// in `over` in place of the state's. After a command failed, the commands for `previous`
     /// undo those that were sent before it.
@@ -944,8 +952,11 @@ impl<V: Validate> Applier<V> {
             return Ok(Effect::Unsupported(unmet));
         }
         // The `bg` line of a collection names the link to its current picture, which must exist.
-        // A link that can't be made leaves the color in place of the picture.
-        let _ = crate::wallpaper::prepare(&self.state);
+        // A link that can't be made leaves the color in place of the picture. Only a wallpaper
+        // setting changes the `bg` lines, and the folders are listed on the blocking pool.
+        if setting.page() == crate::registry::Page::Wallpaper {
+            self.prepare_wallpaper().await;
+        }
         // What goes into the generated file must be a command too.
         let config = render(&self.state, over, setting, device, Target::Config)?;
         if let Some(unmet) = config
@@ -1042,7 +1053,7 @@ impl<V: Validate> Applier<V> {
         self.state.save(access)?;
         self.remember_displays().await;
         self.keep_kanshi_file().await;
-        let _ = crate::wallpaper::prepare(&self.state);
+        self.prepare_wallpaper().await;
         self.keep_daemon_files().await;
         let files = self.generate();
         let files =

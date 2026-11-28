@@ -97,10 +97,6 @@ pub async fn displays(client: &mut Client, env: &HookEnv) -> Result<Option<Strin
 /// `hook workspaces`: puts the workspaces on the displays by the rule of the Workspaces page,
 /// as remembered for the displays connected now. Returns how many workspaces it moved.
 ///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
-///
 /// # Errors
 ///
 /// The IPC errors.
@@ -129,10 +125,6 @@ pub async fn workspaces(client: &mut Client, env: &HookEnv) -> Result<usize, Ipc
 /// `hook mirror`, run by kanshi after it set up a profile: ends the mirrors Sway Things started
 /// and starts those of the displays connected now, as [`mirror::apply`]. Without remembered
 /// profiles that mirror, nothing happens. Returns how many mirrors it started.
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -170,10 +162,6 @@ pub enum NewDisplay {
 /// connected: once the displays stand, asks about the new display
 /// ([`new_display::decide`]), remembers the answer for the new combination and sets it up.
 /// Not where a profile of the user's own sets these displays up.
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -235,10 +223,6 @@ pub async fn new_display(client: &mut Client, env: &HookEnv) -> Result<NewDispla
 /// Remembers `profile` for its combination in the profiles at `path` and sets it up: kanshi
 /// reads its file with the new profile and applies it, and the pictures start. Not if the
 /// displays changed meanwhile, or the combination was set up elsewhere meanwhile (the app).
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 async fn remember_new_combination(
     client: &mut Client,
     env: &HookEnv,
@@ -321,10 +305,6 @@ async fn refresh_kanshi(env: &HookEnv, profiles: &Profiles) -> bool {
 /// The session for a hook kanshi runs: `$SWAYSOCK`, or where kanshi was started without it (a
 /// systemd unit, say), sway's newest socket in `$XDG_RUNTIME_DIR`.
 ///
-/// # Blocking
-///
-/// Reads `$XDG_RUNTIME_DIR` for sway's sockets.
-///
 /// # Errors
 ///
 /// The error of connecting.
@@ -332,7 +312,7 @@ pub async fn connect() -> Result<Client, IpcError> {
     if std::env::var_os("SWAYSOCK").is_some() {
         return Client::connect().await;
     }
-    match newest_socket() {
+    match blocking::unblock(newest_socket).await {
         Some(socket) => Client::connect_to(socket).await,
         None => Client::connect().await,
     }

@@ -12,6 +12,7 @@
 //!   it replaces one of Sway Things' variables or is replaced itself, and _Open in Editor_ for
 //!   the user's own files.
 
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -54,6 +55,8 @@ pub struct VariableList {
     others: gtk::ListBox,
     others_heading: gtk::Label,
     add: gtk::Button,
+    /// Counts the reads of the other files, so only the newest is shown.
+    turn: Rc<Cell<u64>>,
 }
 
 impl std::fmt::Debug for VariableList {
@@ -109,6 +112,7 @@ impl VariableList {
             others,
             others_heading,
             add,
+            turn: Rc::new(Cell::new(0)),
         };
         shown.update(model);
         let weak = shown.root.downgrade();
@@ -163,11 +167,21 @@ impl VariableList {
         &self.others
     }
 
-    /// Shows the variables, as `model` says now.
+    /// Shows the variables, as `model` says now, once the other files are read.
     fn update(&self, model: &Model) {
+        let shown = self.clone();
+        let model_weak = model.downgrade();
+        Listing::load(model, &self.turn, move |listing| {
+            if let Some(model) = model_weak.upgrade() {
+                shown.show(&model, &listing);
+            }
+        });
+    }
+
+    /// Shows the variables of `model` and `listing`.
+    fn show(&self, model: &Model, listing: &Listing) {
         let writable = model.status().is_some_and(|status| status.is_active());
         self.add.set_sensitive(writable);
-        let listing = Listing::of(model);
         clear(&self.ours);
         clear(&self.others);
         let items = model.list(VARIABLES);
@@ -176,7 +190,7 @@ impl VariableList {
                 continue;
             };
             self.ours
-                .append(&our_line(model, &listing, index, name, value, writable));
+                .append(&our_line(model, listing, index, name, value, writable));
         }
         self.ours.set_visible(!items.is_empty());
         list::set_hint(
@@ -188,7 +202,7 @@ impl VariableList {
         let mut others = 0;
         for (index, line) in listing.lines.iter().enumerate() {
             if line.origin != Origin::Ours {
-                self.others.append(&other_line(model, &listing, index));
+                self.others.append(&other_line(model, listing, index));
                 others += 1;
             }
         }

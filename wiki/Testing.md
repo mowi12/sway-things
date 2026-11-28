@@ -137,14 +137,14 @@ The rules, in `crates/architecture/src/rules.rs`:
 - **R5, blocking**: a call graph over the functions of the three crates finds which ones block. It starts from the
   primitives that wait (`std::thread::sleep`, `read_dir`, `block_on`, a synchronous `std::process` call, the session
   lock's `wait`) and follows calls by path (`a::f()`, `Type::f()`, `Self::f()`, an imported `f()`, a function passed as
-  a value); what runs inside `gio::spawn_blocking` or `std::thread::spawn` doesn't count. Whole-file reads and writes
-  are no primitives, and a few fast, bounded scans of `/proc` and the state directory don't block (`NOT_BLOCKING` in
-  `rules.rs`, each with its reason). A core function has a `# Blocking` section in its docs exactly when it blocks
-  (`R5-blocking-docs`; methods of trait impls are left out). Nothing blocks the GUI's main context: a GUI function that
-  may run there (one no other GUI function calls by path, like a signal handler or a page's setup, or one such a
-  function calls outside `gio::spawn_blocking`) may not use a primitive or a blocking core function, and no `async fn`
-  of the core may block the executor that polls it (`R5-blocking-calls`). The command line has no main loop and is left
-  out; a core `async fn` that only it runs is still reported.
+  a value); what runs inside `gio::spawn_blocking`, `blocking::unblock` or `std::thread::spawn` doesn't count.
+  Whole-file reads and writes are no primitives, and a few fast, bounded scans of `/proc` and the state directory don't
+  block (`NOT_BLOCKING` in `rules.rs`, each with its reason). A core function has a `# Blocking` section in its docs
+  exactly when it blocks (`R5-blocking-docs`; methods of trait impls are left out). Nothing blocks the GUI's main
+  context: a GUI function that may run there (one no other GUI function calls by path, like a signal handler or a page's
+  setup, or one such a function calls outside `gio::spawn_blocking`) may not use a primitive or a blocking core
+  function, and no `async fn` of the core may block the executor that polls it (`R5-blocking-calls`). The command line
+  has no main loop and is left out; a core `async fn` that only it runs is still reported.
 
 **Baseline.** The violations accepted until they are repaired are in `crates/architecture/baseline.toml`, one entry per
 rule and edge (`rule`, `from`, `to`) with `why`: the reason and the planned repair. The test fails on a violation that

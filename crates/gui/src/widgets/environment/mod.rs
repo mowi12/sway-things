@@ -23,7 +23,7 @@ use sway_things_core::apps::Dirs;
 use sway_things_core::environment::files::{self, Line, Origin};
 use sway_things_core::environment::{self, session};
 use sway_things_core::registry::environment::{PORTAL_CONFIG, VARIABLES};
-use sway_things_core::registry::{Registry, Setting};
+use sway_things_core::registry::{EnvironmentMapping, Registry, Setting};
 
 use super::SettingRow;
 use super::notice::{self, Tone};
@@ -85,15 +85,34 @@ pub(crate) struct Listing {
 }
 
 impl Listing {
-    /// The listing for the settings of `model`.
-    pub fn of(model: &Model) -> Self {
-        let Some(state) = model.state() else {
-            return Self::default();
-        };
-        let ours = environment::variables(Registry::builtin(), &state);
-        let lines = DIRS
-            .with(|dirs| dirs.as_ref().map(|dirs| files::of_session(dirs, &ours)))
-            .unwrap_or_default();
+    /// Reads the listing for the settings of `model` off the main context and hands it to
+    /// `show`, unless a later read with the same `turn` started meanwhile: what is shown is
+    /// always the newest.
+    pub fn load(model: &Model, turn: &Rc<Cell<u64>>, show: impl FnOnce(Self) + 'static) {
+        let started = turn.get().wrapping_add(1);
+        turn.set(started);
+        let ours = model
+            .state()
+            .map(|state| environment::variables(Registry::builtin(), &state));
+        let dirs = DIRS.with(Clone::clone);
+        let turn = Rc::clone(turn);
+        glib::spawn_future_local(async move {
+            let lines = match (ours, dirs) {
+                (Some(ours), Some(dirs)) => {
+                    gtk::gio::spawn_blocking(move || files::of_session(&dirs, &ours))
+                        .await
+                        .unwrap_or_default()
+                }
+                _ => Vec::new(),
+            };
+            if turn.get() == started {
+                show(Self::from_lines(lines));
+            }
+        });
+    }
+
+    /// The listing of `lines`: which replaces which, and their values expanded.
+    fn from_lines(lines: Vec<Line>) -> Self {
         let overridden_by = files::overridden_by(&lines);
         let expanded = BASE.with(|base| files::expanded(&lines, &base.borrow()));
         Self {
@@ -217,34 +236,46 @@ pub fn below(model: &Model, row: &SettingRow) -> Vec<gtk::Widget> {
     };
     note.connect_parent_notify(sync);
     note.connect_visible_notify(sync);
+    let turn = Rc::new(Cell::new(0));
     let follow = glib::clone!(
         #[weak]
         note,
         #[weak]
         label,
         move |model: &Model| {
-            let listing = Listing::of(model);
-            let said: Vec<String> = listing
-                .lines
-                .iter()
-                .enumerate()
-                .filter(|(_, line)| line.origin == Origin::Ours && mapping.owns(&line.name))
-                .filter_map(|(index, line)| {
-                    let by = listing.overridden_by.get(index).copied().flatten()?;
-                    let later = listing.lines.get(by)?;
-                    Some(trf(
-                        SET_AGAIN,
-                        &[("name", &line.name), ("place", &Listing::place(later))],
-                    ))
-                })
-                .collect();
-            label.set_text(&said.join("\n"));
-            note.set_visible(!said.is_empty());
+            Listing::load(model, &turn, move |listing| {
+                show_set_again(&note, &label, &listing, &mapping);
+            });
         }
     );
     follow(model);
     model.connect_changed(follow);
     vec![note.upcast()]
+}
+
+/// The note below a setting's row on the variables of `mapping` that a later file sets again.
+fn show_set_again(
+    note: &gtk::Box,
+    label: &gtk::Label,
+    listing: &Listing,
+    mapping: &EnvironmentMapping,
+) {
+    let said: Vec<String> = listing
+        .lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| line.origin == Origin::Ours && mapping.owns(&line.name))
+        .filter_map(|(index, line)| {
+            let by = listing.overridden_by.get(index).copied().flatten()?;
+            let later = listing.lines.get(by)?;
+            Some(trf(
+                SET_AGAIN,
+                &[("name", &line.name), ("place", &Listing::place(later))],
+            ))
+        })
+        .collect();
+    label.set_text(&said.join("\n"));
+    note.set_visible(!said.is_empty());
 }
 
 /// The names of the variables of Sway Things' file the session didn't get, although the file is

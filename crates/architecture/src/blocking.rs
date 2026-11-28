@@ -29,8 +29,9 @@
 //! that parse as expressions (`format!`, `glib::clone!`) count.
 //!
 //! A function **blocks** when its body uses a primitive or calls a function that blocks. What runs
-//! in the closure (or the function) given to `gio::spawn_blocking` or `std::thread::spawn` runs on
-//! another thread and doesn't count; closures given to anything else run as part of the body.
+//! in the closure (or the function) given to `gio::spawn_blocking`, `blocking::unblock` or
+//! `std::thread::spawn` runs on another thread and doesn't count; closures given to anything else
+//! run as part of the body.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -102,7 +103,7 @@ pub struct Use {
     pub target: Target,
     /// Its line.
     pub line: usize,
-    /// Whether it is inside what is given to `spawn_blocking` or `thread::spawn`.
+    /// Whether it is inside what is given to `spawn_blocking`, `unblock` or `thread::spawn`.
     pub off_thread: bool,
 }
 
@@ -493,6 +494,7 @@ impl Body<'_> {
         let expanded = self.graph.expand(self.module, &path_segments(path));
         let tail: Vec<&str> = expanded.iter().map(String::as_str).collect();
         tail.ends_with(&["gio", "spawn_blocking"])
+            || tail == ["blocking", "unblock"]
             || tail == ["std", "thread", "spawn"]
             || tail == ["thread", "spawn"]
     }

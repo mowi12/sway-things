@@ -61,10 +61,6 @@ impl<V: Validate> Applier<V> {
     /// chosen on the page, and never where mako runs with a config of its own (`-c`) or a
     /// system-wide one exists. When a file changed, the daemon that runs reads its config again.
     /// Best effort: a problem is kept for [`Applier::take_daemon_problem`].
-    ///
-    /// # Blocking
-    ///
-    /// Waits for `swaync --version`.
     pub(super) async fn keep_daemon_files(&mut self) {
         let Some(daemon) = self.daemon.clone() else {
             return;
@@ -116,7 +112,8 @@ impl<V: Validate> Applier<V> {
                 Some(server) if server.daemon == Daemon::Swaync => {
                     swaync::Gtk::of_version(&server.version)
                 }
-                _ => swaync::Gtk::installed(),
+                // Asks `swaync --version` the first time: off the executor.
+                _ => blocking::unblock(swaync::Gtk::installed).await,
             };
             match files.write_swaync(&config, &swaync::style(&stored, gtk)) {
                 Ok(changed) => written |= changed,
@@ -141,10 +138,6 @@ impl<V: Validate> Applier<V> {
     /// chosen is ended first only if our hook started it ([`notifications::started_by_us`]);
     /// one the user started (a line of their config, a systemd unit, D-Bus activation) is left
     /// alone, and the returned text says how to switch.
-    ///
-    /// # Blocking
-    ///
-    /// Waits for `kill` to end the daemon our hook started.
     async fn switch_daemon(
         &mut self,
         bus: &Notifications,
@@ -172,12 +165,13 @@ impl<V: Validate> Applier<V> {
                     .arg("chosen", chosen.title()),
                 );
             };
-            let _ = std::process::Command::new("kill")
+            let _ = async_process::Command::new("kill")
                 .arg(pid.to_string())
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status();
+                .stdin(async_process::Stdio::null())
+                .stdout(async_process::Stdio::null())
+                .stderr(async_process::Stdio::null())
+                .status()
+                .await;
             // It gives up the name as it ends.
             for _ in 0..30 {
                 if matches!(bus.server().await, Ok(None)) {

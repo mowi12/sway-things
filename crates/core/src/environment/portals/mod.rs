@@ -521,13 +521,11 @@ pub fn session_variables<S: std::hash::BuildHasher>(
     (set("WAYLAND_DISPLAY"), set("XDG_CURRENT_DESKTOP"))
 }
 
-/// Every step: [`look`], then the user manager's environment and the session bus.
-///
-/// # Blocking
-///
-/// Reads the directories of the portal backends.
+/// Every step: [`look`] on a thread of the blocking pool, then the user manager's environment and
+/// the session bus.
 pub async fn check(dirs: &Dirs) -> Check {
-    let mut check = look(dirs);
+    let owned = dirs.clone();
+    let mut check = blocking::unblock(move || look(&owned)).await;
     check.session_variables = super::files::user_manager()
         .await
         .map(|environment| session_variables(&environment));

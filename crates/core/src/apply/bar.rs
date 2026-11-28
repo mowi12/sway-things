@@ -95,10 +95,6 @@ impl<V: Validate> Applier<V> {
     }
 
     /// [`process::reload`], with what went wrong noted.
-    ///
-    /// # Blocking
-    ///
-    /// Waits for `kill` and, if waybar ended, for `setsid` to start it again.
     async fn reload_waybar(&mut self, files: &WaybarFiles) {
         match process::reload(files).await {
             Ok(process::Reloaded::Restarted) => {
@@ -119,17 +115,13 @@ impl<V: Validate> Applier<V> {
     }
 
     /// How waybar is started outside Sway Things' files, as the user's sway config and the
-    /// running processes say.
-    ///
-    /// # Blocking
-    ///
-    /// Reads `/proc` for the running waybar processes.
-    pub fn bar_starter(&self) -> Starter {
+    /// running processes say; `/proc` is read on the blocking pool.
+    pub async fn bar_starter(&self) -> Starter {
         let (Some(config), Some(files)) = (self.bar.sway.as_ref(), self.waybar_files()) else {
             return Starter::Nothing;
         };
         let running = if self.bar.processes {
-            process::running()
+            process::running_unblocked().await
         } else {
             Vec::new()
         };
@@ -139,10 +131,6 @@ impl<V: Validate> Applier<V> {
     /// Sets up the bar as the settings say: see the module's description. What runs is looked
     /// at each time, not remembered, so a change from the command line or the first one after
     /// the app started hands the bar back as well.
-    ///
-    /// # Blocking
-    ///
-    /// Reads `/proc` and waits for `kill` and `setsid` to end or start waybar.
     pub(crate) async fn keep_bar(&mut self, access: &WriteAccess) {
         let backend = Backend::of(&self.state);
         let Some(files) = self.waybar_files() else {
@@ -151,9 +139,9 @@ impl<V: Validate> Applier<V> {
         if backend == Backend::Waybar {
             self.keep_waybar(&files, access).await;
             self.note_waybar_hold().await;
-        } else if self.bar.processes && !self.bar_starter().is_elsewhere() {
+        } else if self.bar.processes && !self.bar_starter().await.is_elsewhere() {
             // Handed back: a waybar of ours that our include started ends.
-            if let Err(error) = process::stop(&files) {
+            if let Err(error) = process::stop_async(&files).await {
                 self.bar.problem = Some(error.text());
             }
         }
@@ -241,10 +229,6 @@ impl<V: Validate> Applier<V> {
     }
 
     /// Writes waybar's files and has ours read them, or has sway start it through the hook.
-    ///
-    /// # Blocking
-    ///
-    /// Reads `/proc` and waits for `kill` and `setsid` to end or start waybar.
     async fn keep_waybar(&mut self, files: &WaybarFiles, access: &WriteAccess) {
         let modules = match self.bar_modules() {
             Ok(modules) => modules,
@@ -261,7 +245,9 @@ impl<V: Validate> Applier<V> {
         if !self.bar.processes || self.bar.started || self.client.is_none() {
             return;
         }
-        if !process::ours(files).is_empty() || self.bar_starter().is_elsewhere() {
+        if !process::ours_unblocked(files).await.is_empty()
+            || self.bar_starter().await.is_elsewhere()
+        {
             return;
         }
         if !process::installed() {

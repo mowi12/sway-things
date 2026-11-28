@@ -94,6 +94,8 @@ pub struct Status {
     waybar_reload: Rc<Cell<Reload>>,
     /// The reload of sway the page started, for the handover.
     sway_reload: Rc<Cell<Reload>>,
+    /// Counts the reads of the running waybars, so only the newest is shown.
+    turn: Rc<Cell<u64>>,
 }
 
 impl std::fmt::Debug for Status {
@@ -116,6 +118,7 @@ impl Status {
             told: Rc::new(RefCell::new(None)),
             waybar_reload: Rc::new(Cell::new(Reload::Idle)),
             sway_reload: Rc::new(Cell::new(Reload::Idle)),
+            turn: Rc::new(Cell::new(0)),
         };
         let shown = status.clone();
         super::follow(
@@ -188,9 +191,28 @@ impl Status {
         self.lines.first_child().is_none()
     }
 
-    /// Shows how the bar runs now, and tells the state in one line.
+    /// Shows how the bar runs now, once the running waybars are read off the main context, and
+    /// tells the state in one line; only the newest read is shown.
     pub fn update(&self, model: &Model) {
-        let (state, missing) = self.fill(model);
+        let started = self.turn.get().wrapping_add(1);
+        self.turn.set(started);
+        let shown = self.clone();
+        let model = model.downgrade();
+        glib::spawn_future_local(async move {
+            let running = gtk::gio::spawn_blocking(process::running)
+                .await
+                .unwrap_or_default();
+            if let Some(model) = model.upgrade() {
+                if shown.turn.get() == started {
+                    shown.show(&model, &running);
+                }
+            }
+        });
+    }
+
+    /// Shows how the bar runs with the waybars `running`, and tells the state in one line.
+    fn show(&self, model: &Model, running: &[process::Waybar]) {
+        let (state, missing) = self.fill(model, running);
         let warned = self.attention.get();
         if let Some(tell) = self.told.borrow().as_ref() {
             tell(&state, warned || missing, warned);
@@ -198,7 +220,7 @@ impl Status {
     }
 
     /// Fills the box; the state in one line, and whether the bar program isn't installed.
-    fn fill(&self, model: &Model) -> (String, bool) {
+    fn fill(&self, model: &Model, running: &[process::Waybar]) -> (String, bool) {
         self.attention.set(false);
         while let Some(child) = self.lines.first_child() {
             self.lines.remove(&child);
@@ -257,7 +279,7 @@ impl Status {
                     false,
                 )
             }
-            Backend::Waybar => self.waybar(model, &status, &files, &generated),
+            Backend::Waybar => self.waybar(model, &status, &files, &generated, running),
         }
     }
 
@@ -273,13 +295,13 @@ impl Status {
         status: &sway_things_core::include::IncludeStatus,
         files: &WaybarFiles,
         generated: &std::path::Path,
+        running: &[process::Waybar],
     ) -> (String, bool) {
         let installed = process::installed();
         // The state line says it; the details have nothing to add.
         let missing = !installed;
-        let running = process::running();
         let ours = running.iter().any(|waybar| waybar.runs(files));
-        let starter = Starter::detect(status.config(), generated, &running, files);
+        let starter = Starter::detect(status.config(), generated, running, files);
         let takeable = sway_things_core::bar::takeover::bars(status.config(), generated)
             .iter()
             .any(sway_things_core::bar::takeover::Bar::can_take);
