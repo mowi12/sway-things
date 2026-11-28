@@ -132,6 +132,13 @@ pub fn apply(profiles: &Profiles, outputs: &Outputs) -> usize {
     started
 }
 
+/// [`apply`] on a thread of the blocking pool, so an async caller doesn't wait for `setsid` and
+/// `kill` on its executor.
+pub async fn apply_unblocked(profiles: &Profiles, outputs: &Outputs) -> usize {
+    let (profiles, outputs) = (profiles.clone(), outputs.clone());
+    blocking::unblock(move || apply(&profiles, &outputs)).await
+}
+
 /// Whether a picture the profile of the combination of `outputs` asks for doesn't run: its
 /// `wl-mirror` ended (it crashed, or its window was closed) or never started. Reads `/proc`;
 /// nothing is started.
@@ -148,10 +155,6 @@ pub fn missing(profiles: &Profiles, outputs: &Outputs) -> bool {
 /// doesn't take the focus, and a display whose picture ended shows a workspace like any other
 /// again ([`leave_ended`]). Returns how many pictures it started. Nothing happens while no
 /// combination mirrors.
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -194,12 +197,8 @@ pub async fn start(
     Ok(started)
 }
 
-/// [`apply`], with the focus given back to the workspace that had it if the window of a picture
+/// [`apply`] (off the executor), with the focus given back to the workspace that had it if the window of a picture
 /// that starts takes it ([`keep_focus`]).
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///
@@ -217,7 +216,7 @@ pub async fn apply_keeping_focus(
         .find(|open| open.focused && open.name != workspace_name(&open.output))
         .map(|open| open.name);
     let windows = pictures_shown(&client.tree().await?);
-    let started = apply(profiles, outputs);
+    let started = apply_unblocked(profiles, outputs).await;
     if started > 0 {
         if let Some(focused) = focused {
             keep_focus(client, &focused, windows + started).await?;
@@ -285,10 +284,6 @@ async fn keep_focus(
 /// for, nothing is sent and no picture of another combination is ended. Sway Things keeps
 /// nothing running to notice a picture that went: the hooks and the app call this where they
 /// run anyway. Returns how many pictures it started.
-///
-/// # Blocking
-///
-/// Waits for `setsid` and `kill` to start and end the mirrors.
 ///
 /// # Errors
 ///

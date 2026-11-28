@@ -419,27 +419,9 @@ why = "Saving the state takes the include check's `WriteAccess`; fine once `Loca
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "core::apply::Applier::forget_displays"
-to = "core::outputs::mirror::apply"
-why = "Starts and ends wl-mirror with synchronous `setsid` and `kill` inside the async apply. Repair: give `mirror::apply` an async counterpart (async_process) or run it in a thread."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::heal_mirrors"
-to = "core::outputs::mirror::heal"
-why = "Starts missing mirrors with synchronous `setsid` inside the async apply. Repair: give `mirror::heal` an async counterpart (async_process) or run it in a thread."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "core::apply::Applier::keep_bar"
 to = "core::bar::process::stop"
 why = "Ends our waybar with a synchronous `kill` and reads `/proc` inside the async apply. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::keep_daemon_files"
-to = "core::notifications::swaync::Gtk::installed"
-why = "Asks `swaync --version` synchronously (once per run, cached) inside the async apply. Repair: ask it with async_process."
 
 [[violation]]
 rule = "R5-blocking-calls"
@@ -452,18 +434,6 @@ rule = "R5-blocking-calls"
 from = "core::apply::Applier::reload_waybar"
 to = "core::bar::process::reload"
 why = "`process::reload` is async but sends `kill` and reads `/proc` synchronously. Repair: give `bar::process` async counterparts (async_process, `/proc` in a thread)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::set_mirror"
-to = "core::outputs::mirror::apply_keeping_focus"
-why = "Starts and ends wl-mirror with synchronous `setsid` and `kill` inside the async apply. Repair: give `mirror::apply` an async counterpart (async_process) or run it in a thread."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apply::Applier::switch_daemon"
-to = "std::process (synchronous)"
-why = "Ends the old notification daemon with a synchronous `kill` inside the async apply. Repair: run `kill` with async_process."
 
 [[violation]]
 rule = "R5-blocking-calls"
@@ -548,48 +518,6 @@ rule = "R5-blocking-calls"
 from = "core::outputs::hooks::connect"
 to = "core::outputs::hooks::newest_socket"
 why = "Reads $XDG_RUNTIME_DIR for sway's socket. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::hooks::mirror"
-to = "core::outputs::mirror::start"
-why = "Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::hooks::new_display"
-to = "core::outputs::hooks::remember_new_combination"
-why = "Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::hooks::remember_new_combination"
-to = "core::outputs::mirror::start"
-why = "Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::hooks::workspaces"
-to = "core::outputs::mirror::heal"
-why = "Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::mirror::apply_keeping_focus"
-to = "core::outputs::mirror::apply"
-why = "Starts and ends wl-mirror with synchronous `setsid` and `kill`; the app reaches it through Applier::set_mirror. Repair: give `mirror::apply` an async counterpart (async_process)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::mirror::heal"
-to = "core::outputs::mirror::start"
-why = "Starts wl-mirror with synchronous `setsid`; the app reaches it through Applier::heal_mirrors. Repair: give `mirror::apply` an async counterpart (async_process)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::mirror::start"
-to = "core::outputs::mirror::apply_keeping_focus"
-why = "Starts wl-mirror with synchronous `setsid` and `kill`. Repair: give `mirror::apply` an async counterpart (async_process)."
 
 [[violation]]
 rule = "R5-blocking-calls"
