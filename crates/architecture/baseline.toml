@@ -641,18 +641,6 @@ why = "Reads `/proc` for our waybar when the takeover row updates; repair: run i
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "gui::widgets::capture::confirm_clear"
-to = "core::capture::clipboard::clear"
-why = "Runs `cliphist wipe` and waits for it after the user confirms; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::capture::history_note"
-to = "core::capture::clipboard::skips_passwords"
-why = "Asks the clipboard tools for their version when the page is built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "gui::widgets::environment::Listing::of"
 to = "core::environment::files::of_session"
 why = "Reads the environment.d directories when the Environment page and the language section are built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
