@@ -539,18 +539,6 @@ why = "The doctor reads the application and autostart directories inside an asyn
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "core::doctor::environment::EnvironmentCheck::for_user"
-to = "core::environment::portals::check"
-why = "The doctor reads the portal directories inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::environment::portals::check"
-to = "core::environment::portals::look"
-why = "Reads the portal directories inside the async check that the Environment page runs on the main context. Repair: run `look` in a thread (blocking::unblock or the caller's gio::spawn_blocking) and keep only the D-Bus part async."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "core::network::agent::Agent::plugin_secrets"
 to = "core::network::vpn::find_plugin"
 why = "The secret agent reads NetworkManager's VPN plugin directories when a VPN asks for secrets. Repair: find the plugins once when the agent starts, or in a thread."
@@ -626,12 +614,6 @@ rule = "R5-blocking-calls"
 from = "gui::widgets::bar::takeover::ours_runs"
 to = "core::bar::process::ours"
 why = "Reads `/proc` for our waybar when the takeover row updates; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "gui::widgets::environment::portals::Checker::run"
-to = "core::environment::portals::check"
-why = "Awaits the portal check on the main context, which reads the portal directories synchronously; repaired with the entry for portals::check → portals::look."
 
 [[violation]]
 rule = "R5-blocking-calls"

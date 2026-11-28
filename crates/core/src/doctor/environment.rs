@@ -28,10 +28,6 @@ pub struct EnvironmentCheck {
 
 impl EnvironmentCheck {
     /// The check for this user. `None` without a home directory.
-    ///
-    /// # Blocking
-    ///
-    /// Reads the directories of the portal backends.
     pub async fn for_user() -> Option<Self> {
         let dirs = Dirs::from_env()?;
         let portals = portals::check(&dirs).await;
