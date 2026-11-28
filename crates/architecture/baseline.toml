@@ -641,12 +641,6 @@ why = "Reads `/proc` for our waybar when the takeover row updates; repair: run i
 
 [[violation]]
 rule = "R5-blocking-calls"
-from = "gui::widgets::environment::Listing::of"
-to = "core::environment::files::of_session"
-why = "Reads the environment.d directories when the Environment page and the language section are built; repair: run it in gio::spawn_blocking and hand the result back to the main context."
-
-[[violation]]
-rule = "R5-blocking-calls"
 from = "gui::widgets::environment::portals::Checker::run"
 to = "core::environment::portals::check"
 why = "Awaits the portal check on the main context, which reads the portal directories synchronously; repaired with the entry for portals::check → portals::look."
