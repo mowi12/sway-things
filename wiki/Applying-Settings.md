@@ -215,7 +215,9 @@ on numbers taken from sway's and SwayFX's own checks:
   `wordexp(3)`, which runs `$(…)` and expands variables, so the path is quoted in single quotes for `wordexp` (an inner
   `'` as `"'"`) before it is quoted as text for the target; only a leading `~/` stays outside, for `wordexp` to replace
   with the home folder. Relative paths and two spaces in a row (which sway escapes before `wordexp`) are refused. The
-  fallback color is always written: sway 1.11 and later show it for an image they can't find.
+  fallback color is always written: sway 1.11 and later show it for an image they can't find. A collection's line names
+  the link to its current picture (`wallpaper::prepare` makes it point at one); the applier lists the collections'
+  folders for that, on the blocking pool, at each persist and when a setting of the Wallpaper page changes live.
 
 A port of sway's parsing functions (`command/model.rs`, tests only) checks with property tests that every accepted value
 arrives unchanged in both targets. Fixture files generated from the builders (`ci/integration/*.conf` and `*-ipc.txt`)

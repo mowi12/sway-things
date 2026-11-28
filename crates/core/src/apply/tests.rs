@@ -2640,3 +2640,30 @@ fn swaybar_follows_its_settings_live_and_a_font_taken_away_waits_for_a_reload() 
     assert_eq!(result.effect, Effect::AfterReload);
     assert!(setup.applier.waiting().any(super::Until::Reload));
 }
+
+#[test]
+fn only_a_wallpaper_change_points_the_link_of_a_collection_at_a_picture() {
+    let pictures = tempfile::tempdir().unwrap();
+    fs::write(pictures.path().join("lake.png"), b"").unwrap();
+    let shared = format!(
+        "version = 1\n\n[wallpaper]\ncollection = \"Nature\"\n\n[collection.Nature]\npictures = \
+         [\"{}\"]\n",
+        pictures.path().display()
+    );
+    let sway = obedient(SWAY);
+    let mut setup = Setup::live(&sway, &shared);
+    let link = setup.applier.state().paths().wallpaper_link(None);
+    // Another page's change doesn't list the folders of the collections.
+    setup.set(GAPS, Value::Integer(8)).unwrap();
+    assert!(fs::symlink_metadata(&link).is_err());
+    setup
+        .set(
+            crate::registry::wallpaper::FILL,
+            Value::Choice("fit".to_owned()),
+        )
+        .unwrap();
+    assert_eq!(
+        fs::read_link(&link).unwrap(),
+        pictures.path().join("lake.png")
+    );
+}

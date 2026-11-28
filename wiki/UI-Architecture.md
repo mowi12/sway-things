@@ -141,13 +141,13 @@
   page with a "Brightness" section (`brightness::panel`), then the night light's rows from the registry with its parts
   through `page_view/parts.rs`. The panel builds a row for the screen's backlight and one for the keyboard light from
   `brightness::devices`, sends through `Logind` one request at a time (the newest value waits) and reads sysfs every
-  second while on screen, a slider moved in the last 1.5 s keeping its place. Each time it is mapped, `ddc::detect` and
-  `ddc::get` run in `gio::spawn_blocking`; a monitor's slider sends `ddc::set` 0.5 s after it stood still. The notes
-  below the night light's switch rebuild only when what they say changes, and walk the switch's list to show the rows of
-  the schedule chosen and lock them while a night light of the user's runs or no tool is installed (every three seconds
-  while on screen, and at each change of the model); the page has the tool follow the settings
-  (`night_light::sync_with`, in `gio::spawn_blocking`) once they stood still for 0.8 s. Its footer names
-  `80-hooks.conf`.
+  second while on screen, a slider moved in the last 1.5 s keeping its place; both reads run in `gio::spawn_blocking`.
+  Each time it is mapped, the look for external displays and DDC/CI access, `ddc::detect` and `ddc::get` run there too;
+  a monitor's slider sends `ddc::set` 0.5 s after it stood still. The notes below the night light's switch rebuild only
+  when what they say changes, and walk the switch's list to show the rows of the schedule chosen and lock them while a
+  night light of the user's runs or no tool is installed (every three seconds while on screen, and at each change of the
+  model); the page has the tool follow the settings (`night_light::sync_with`, in `gio::spawn_blocking`) once they stood
+  still for 0.8 s. Its footer names `80-hooks.conf`.
 - **Displays page** (`crates/gui/src/widgets/displays/`): `PageView` starts the page with an `Arrangement` section, a
   `Canvas` of toggle buttons (a tile per output, placed in `size_allocate` by the layout scaled to fit with `View`, the
   dragged one drawn last, and two guide lines as widgets in the accent) with a `GestureDrag` in the capture phase, so a
@@ -303,8 +303,10 @@
   `async_io::block_on`. No tokio. `crates/core` must not depend on a specific executor. This way the UI updates directly
   in futures without bridging threads, the dependency tree stays small, and a CLI started as a hook comes up fast.
   Blocking work (a directory listing, a synchronous process, a lock that waits) never runs on the main context: the GUI
-  calls it inside `gio::spawn_blocking` and hands the result back. A core function that blocks says so in a `# Blocking`
-  section of its docs; the [architecture test](Testing.md#architecture-tests) checks both.
+  calls it inside `gio::spawn_blocking` and hands the result back (`glib::spawn_future_local`, the widget held weakly).
+  A list that follows the model this way counts its reads and shows only the newest. Inside a core `async fn`, a
+  directory listing runs on `blocking::unblock` and a program through `async_process`. A core function that blocks says
+  so in a `# Blocking` section of its docs; the [architecture test](Testing.md#architecture-tests) checks both.
 
 ## Internationalization
 

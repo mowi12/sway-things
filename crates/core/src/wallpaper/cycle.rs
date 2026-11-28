@@ -193,6 +193,10 @@ pub fn shown_on(state: &State, output: Option<&str>) -> Option<Shown> {
 /// config names the link: a link that is missing, broken or points elsewhere moves on to the
 /// next picture. A collection without pictures is skipped.
 ///
+/// # Blocking
+///
+/// Reads the folders of the collections.
+///
 /// # Errors
 ///
 /// The first error of the operating system; the other links are made anyway.
@@ -201,7 +205,7 @@ pub fn prepare(state: &State) -> io::Result<()> {
     let mut result = Ok(());
     for shown in shown(state) {
         let link = state.paths().wallpaper_link(shown.output.as_deref());
-        let pictures = shown.collection.pictures(home.as_deref());
+        let pictures = Collection::pictures(&shown.collection, home.as_deref());
         let current = current(&link).filter(|current| pictures.contains(current));
         if current.is_some() {
             continue;
