@@ -286,16 +286,14 @@ impl Agent {
     }
 
     /// The secrets of `request` from its plugin's auth dialog.
-    ///
-    /// # Blocking
-    ///
-    /// Reads the directories of NetworkManager's VPN plugins.
     async fn plugin_secrets(
         &self,
         request: &Request,
         path: &str,
     ) -> Result<Vec<(String, String)>, AgentError> {
-        let plugin = vpn::find_plugin(&self.vpn.dirs(), &request.service);
+        // The plugin directories are listed on the blocking pool.
+        let (dirs, service) = (self.vpn.dirs(), request.service.clone());
+        let plugin = blocking::unblock(move || vpn::find_plugin(&dirs, &service)).await;
         let Some((program, plugin)) = plugin
             .as_ref()
             .and_then(|plugin| plugin.auth_dialog.clone().map(|program| (program, plugin)))

@@ -305,10 +305,6 @@ async fn refresh_kanshi(env: &HookEnv, profiles: &Profiles) -> bool {
 /// The session for a hook kanshi runs: `$SWAYSOCK`, or where kanshi was started without it (a
 /// systemd unit, say), sway's newest socket in `$XDG_RUNTIME_DIR`.
 ///
-/// # Blocking
-///
-/// Reads `$XDG_RUNTIME_DIR` for sway's sockets.
-///
 /// # Errors
 ///
 /// The error of connecting.
@@ -316,7 +312,7 @@ pub async fn connect() -> Result<Client, IpcError> {
     if std::env::var_os("SWAYSOCK").is_some() {
         return Client::connect().await;
     }
-    match newest_socket() {
+    match blocking::unblock(newest_socket).await {
         Some(socket) => Client::connect_to(socket).await,
         None => Client::connect().await,
     }

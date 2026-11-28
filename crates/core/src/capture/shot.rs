@@ -162,10 +162,6 @@ pub fn select(boxes: &[Rect]) -> Result<String, CaptureError> {
 /// What to capture for `area`: asks sway for the focused window or display, and slurp for a
 /// region (with the windows on screen to click, if sway can be asked).
 ///
-/// # Blocking
-///
-/// Waits for the program to end.
-///
 /// # Errors
 ///
 /// [`CaptureError::Canceled`], [`CaptureError::NoWindow`], [`CaptureError::NoDisplay`],
@@ -183,7 +179,10 @@ pub async fn target(area: Area, client: Option<&mut Client>) -> Result<Target, C
                     .unwrap_or_default(),
                 None => Vec::new(),
             };
-            select(&boxes).map(Target::Geometry)
+            // slurp waits for the user: on the blocking pool.
+            blocking::unblock(move || select(&boxes))
+                .await
+                .map(Target::Geometry)
         }
         Area::Window => {
             let client = client.ok_or(CaptureError::NoWindow)?;

@@ -410,10 +410,6 @@ impl Scan {
     /// Waits until it ends, telling `progress` how it goes: the files of the pages scanned, in
     /// order.
     ///
-    /// # Blocking
-    ///
-    /// Reads the directory of the scan.
-    ///
     /// # Errors
     ///
     /// [`Error::Canceled`] if it was canceled, [`Error::Failed`] if scanimage fails before a
@@ -481,7 +477,8 @@ impl Scan {
         )
         .await;
         self.cancel.pid.set(None);
-        let pages = pages_in(&self.directory, self.extension);
+        let (directory, extension) = (self.directory.clone(), self.extension);
+        let pages = blocking::unblock(move || pages_in(&directory, extension)).await;
         if self.cancel.is_canceled() {
             return Err(Error::Canceled);
         }

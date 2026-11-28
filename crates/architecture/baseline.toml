@@ -416,39 +416,3 @@ rule = "R2-module-cycles"
 from = "core::state"
 to = "core::include"
 why = "Saving the state takes the include check's `WriteAccess`; fine once `Locations` moves out of `state` (see `core::include` → `core::state`)."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::apps::launch::launch"
-to = "core::apps::installed::lookup"
-why = "Finds the desktop entry by reading the application directories inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::capture::shot::target"
-to = "core::capture::shot::select"
-why = "Waits for slurp, where the user picks a region, inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::doctor::Checkup::diagnose_with"
-to = "core::doctor::apps::findings"
-why = "The doctor reads the application and autostart directories inside an async fn. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::network::agent::Agent::plugin_secrets"
-to = "core::network::vpn::find_plugin"
-why = "The secret agent reads NetworkManager's VPN plugin directories when a VPN asks for secrets. Repair: find the plugins once when the agent starts, or in a thread."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::outputs::hooks::connect"
-to = "core::outputs::hooks::newest_socket"
-why = "Reads $XDG_RUNTIME_DIR for sway's socket. Only the command line runs this under block_on; run it in a thread or give it an async counterpart before the app calls it."
-
-[[violation]]
-rule = "R5-blocking-calls"
-from = "core::scanners::sane::Scan::finish"
-to = "core::scanners::sane::pages_in"
-why = "Lists the scanned pages after the scan ended, inside an async fn the Printers & Scanners page awaits. Repair: list them in gio::spawn_blocking or with async_fs."

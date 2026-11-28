@@ -111,16 +111,15 @@ pub fn command(dirs: &Dirs, app: &App) -> Result<(Vec<String>, Option<PathBuf>),
 /// An app without `Exec` that is `DBusActivatable` is activated over the session bus
 /// (`org.freedesktop.Application.Activate`), as the Desktop Entry Specification describes.
 ///
-/// # Blocking
-///
-/// Reads the application directories of the XDG data directories.
-///
 /// # Errors
 ///
 /// A [`LaunchError`] if there is no such app or it can't be started.
 pub async fn launch(dirs: &Dirs, id: &str) -> Result<(), LaunchError> {
     use std::os::unix::process::CommandExt;
-    let app = installed::lookup(dirs, id).map_err(|missing| match missing {
+    // The lookup lists the application directories: on the blocking pool.
+    let (read, wanted) = (dirs.clone(), id.to_owned());
+    let found = blocking::unblock(move || installed::lookup(&read, &wanted)).await;
+    let app = found.map_err(|missing| match missing {
         installed::Missing::NotFound => LaunchError::NotFound(id.to_owned()),
         installed::Missing::Hidden => LaunchError::Hidden(id.to_owned()),
         installed::Missing::TryExec(program) => LaunchError::NotInstalled(program),
