@@ -835,8 +835,8 @@ names it.
   written next to its place, then linked there, which fails if a file appeared meanwhile), one of Sway Things as it
   wrote it is replaced (through a symbolic link, like the sway files), and one no longer needed is deleted, only then (a
   link to it stays); someone else's file, a dangling link, or a file of Sway Things changed since, is left alone and
-  reported (`Persisted::others`, kept by `generate::other`). For the default apps only the chosen apps are looked up,
-  not every installed one, so a save stays cheap.
+  reported (`Persisted::others`, kept by `manifest::keep`). For the default apps only the chosen apps are looked up, not
+  every installed one, so a save stays cheap.
 
 ## Environment
 
@@ -862,16 +862,17 @@ whose settings are environment variables. The facts behind it are in the
   `_JAVA_AWT_WM_NONREPARENTING=1`, `ELECTRON_OZONE_PLATFORM_HINT=auto`. Firefox, Chromium 140 and Electron 38 need
   nothing.
 - **The user's own variables** (`environment.variables`, a list of `NAME=value`): written after the variables of every
-  other setting, as typed. `environment::syntax` reads environment.d's syntax as systemd's generator does (comments,
-  quotes only at the start of a value, backslashes, lines that go on after a `\`, invalid names and empty values
-  ignored) and expands `$NAME`, `${NAME}`, `${NAME:-default}`, `${NAME:+alternate}` and `$$`. A typed value is held to
-  more: one line, quotes closed, no `\` at its end, not empty, and every `${…}` closed and of those forms
-  (`syntax::check_value`). The name is refused where the session sets it itself (`HOME`, `USER`, `LOGNAME`, `SHELL`,
-  `XDG_RUNTIME_DIR`, `XDG_SESSION_*`, `XDG_CURRENT_DESKTOP`, `WAYLAND_DISPLAY`, `DISPLAY`, `SWAYSOCK`, `I3SOCK`,
-  `DBUS_SESSION_BUS_ADDRESS`) and where a setting owns it (a switch of the page, `LANG` and `LC_*` of Region & Time);
-  `PATH` must keep `$PATH` or `/usr/bin`. `PATH`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `XDG_CONFIG_HOME`, `XDG_DATA_DIRS`
-  and `XDG_CONFIG_DIRS` are taken with a warning. The check is the setting's `check_text`, so the CLI and a hand-edited
-  `settings.toml` are held to it too; the CLI splits a list at commas, so a value with a comma is set in the app.
+  other setting, as typed. `environment::syntax` (defined in `registry::environment::syntax`) reads environment.d's
+  syntax as systemd's generator does (comments, quotes only at the start of a value, backslashes, lines that go on after
+  a `\`, invalid names and empty values ignored) and expands `$NAME`, `${NAME}`, `${NAME:-default}`,
+  `${NAME:+alternate}` and `$$`. A typed value is held to more: one line, quotes closed, no `\` at its end, not empty,
+  and every `${…}` closed and of those forms (`syntax::check_value`). The name is refused where the session sets it
+  itself (`HOME`, `USER`, `LOGNAME`, `SHELL`, `XDG_RUNTIME_DIR`, `XDG_SESSION_*`, `XDG_CURRENT_DESKTOP`,
+  `WAYLAND_DISPLAY`, `DISPLAY`, `SWAYSOCK`, `I3SOCK`, `DBUS_SESSION_BUS_ADDRESS`) and where a setting owns it (a switch
+  of the page, `LANG` and `LC_*` of Region & Time); `PATH` must keep `$PATH` or `/usr/bin`. `PATH`, `LD_PRELOAD`,
+  `LD_LIBRARY_PATH`, `XDG_CONFIG_HOME`, `XDG_DATA_DIRS` and `XDG_CONFIG_DIRS` are taken with a warning. The check is the
+  setting's `check_text`, so the CLI and a hand-edited `settings.toml` are held to it too; the CLI splits a list at
+  commas, so a value with a comma is set in the app.
 - **Variables set elsewhere** (`environment::files`): every `.conf` file of `~/.config/environment.d`, `/etc`, `/run`,
   `/usr/local/lib` and `/usr/lib/environment.d` in systemd's order, with what Sway Things will write in place of its own
   file. For each line, the later line that replaces it (one that sets the name again without referring to it; one that

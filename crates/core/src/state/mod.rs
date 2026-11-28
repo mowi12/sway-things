@@ -32,7 +32,8 @@
 //! ```
 //! use sway_things_core::include::IncludeStatus;
 //! use sway_things_core::registry::{Registry, Value};
-//! use sway_things_core::state::{Layer, Paths, State};
+//! use sway_things_core::paths::{Layer, Paths};
+//! use sway_things_core::state::State;
 //!
 //! # let dir = tempfile::tempdir()?;
 //! # let (config_dir, state_dir) = (&dir.path().join("config"), &dir.path().join("state"));
@@ -59,7 +60,6 @@
 
 mod file;
 mod history;
-mod paths;
 #[cfg(test)]
 mod tests;
 
@@ -73,39 +73,12 @@ use crate::atomic;
 use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::msg;
+use crate::paths::{Layer, Paths};
 use crate::registry::{DeviceError, Registry, Scope, Setting, Value, ValueError, Values};
 use crate::watch::{self, WatchError, Watcher};
 use file::{FileError, SettingsFile};
 
 pub use history::Snapshot;
-pub(crate) use paths::xdg_dir;
-pub use paths::{Locations, Paths, PathsError, escape};
-
-/// One of the two settings files.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Layer {
-    /// `settings.toml`: shared between machines, e.g. in a dotfiles repository.
-    Shared,
-    /// `settings.d/<hostname>.toml`: this machine only. Wins over the shared file key by key.
-    Host,
-}
-
-impl Layer {
-    const ALL: [Self; 2] = [Self::Shared, Self::Host];
-
-    /// The file a new value of `setting` goes to unless the user chooses otherwise: values bound
-    /// to this machine's hardware go to the host overlay.
-    pub fn default_for(setting: &Setting, device: Option<&str>) -> Self {
-        if setting.host_by_default() {
-            return Self::Host;
-        }
-        match (setting.scope(), device) {
-            (Scope::Global | Scope::PerCollection, _)
-            | (Scope::PerDevice(_) | Scope::PerOutput, None) => Self::Shared,
-            (Scope::PerHost, _) | (Scope::PerDevice(_) | Scope::PerOutput, Some(_)) => Self::Host,
-        }
-    }
-}
 
 /// A stored value.
 #[derive(Debug, Clone, Copy)]

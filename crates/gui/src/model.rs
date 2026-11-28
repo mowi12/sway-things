@@ -57,8 +57,9 @@ use sway_things_core::include::{IncludeStatus, IncludeWatch, ReadOnly, WriteAcce
 use sway_things_core::ipc::Compositor;
 use sway_things_core::outputs::Outputs;
 use sway_things_core::outputs::profiles::Profiles;
+use sway_things_core::paths::Layer;
 use sway_things_core::registry::{Apply, ConfigFile, Page, Setting, Value};
-use sway_things_core::state::{Layer, State};
+use sway_things_core::state::State;
 use sway_things_core::ui_state::UiState;
 use sway_things_core::view::SettingView;
 
@@ -241,7 +242,7 @@ mod imp {
         pub(super) search_path: RefCell<Option<std::ffi::OsString>>,
         /// The files of the Apps & Autostart page that weren't written when last saved, so each
         /// is told once.
-        pub(super) other_problems: RefCell<Vec<sway_things_core::generate::other::Problem>>,
+        pub(super) other_problems: RefCell<Vec<sway_things_core::manifest::Problem>>,
     }
 
     #[glib::object_subclass]
@@ -303,7 +304,7 @@ impl Model {
                 let outdated = model.generated().await.is_some_and(|files| {
                     files.iter().any(|(file, on_disk)| {
                         on_disk.file == ConfigFile::Output
-                            && on_disk.ownership == Ok(generate::Ownership::Ours)
+                            && on_disk.ownership == Ok(sway_things_core::manifest::Ownership::Ours)
                             && on_disk.content.as_deref() != Some(file.text().as_str())
                     })
                 });
@@ -801,7 +802,7 @@ impl Model {
     /// compares keysym and keycode bindings. `None` if the settings couldn't be loaded.
     pub fn bindings(
         &self,
-        keymap: Option<&dyn sway_things_core::bindings::Keymap>,
+        keymap: Option<&dyn sway_things_core::sway_config::bindings::Keymap>,
     ) -> Option<sway_things_core::bindings::Listing> {
         let core = self.imp().core.borrow();
         let core = core.as_ref()?;

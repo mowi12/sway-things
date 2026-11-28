@@ -154,7 +154,7 @@ impl Settings {
 
     /// The settings of the user's settings files; the defaults where they can't be read.
     pub fn load() -> Self {
-        match crate::state::Paths::from_env() {
+        match crate::paths::Paths::from_env() {
             Ok(paths) => Self::of(&State::load(Registry::builtin(), paths)),
             Err(_) => Self::read(
                 |key| {

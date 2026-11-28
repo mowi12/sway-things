@@ -48,8 +48,8 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use sway_things_core::outputs;
+use sway_things_core::paths::Layer;
 use sway_things_core::registry::{Font, Setting, Value};
-use sway_things_core::state::Layer;
 
 use super::RowLayout;
 use crate::i18n::{msg, tr};

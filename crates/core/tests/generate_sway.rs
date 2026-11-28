@@ -14,8 +14,9 @@ use async_io::block_on;
 use sway_things_core::generate::{Locations, Outcome, SwayValidator, WriteError, generate, write};
 use sway_things_core::include::{IncludeStatus, WriteAccess};
 use sway_things_core::ipc::{Client, Compositor};
+use sway_things_core::paths::Paths;
 use sway_things_core::registry::{ConfigFile, Registry};
-use sway_things_core::state::{Paths, State};
+use sway_things_core::state::State;
 use sway_things_core::sway_config::Disk;
 use sway_things_core::version::SwayFxVersion;
 

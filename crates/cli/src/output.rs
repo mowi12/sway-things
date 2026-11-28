@@ -12,8 +12,8 @@ use sway_things_core::generate::InvalidLine;
 use sway_things_core::i18n::{tr, trf};
 use sway_things_core::include::IncludeStatus;
 use sway_things_core::msg;
+use sway_things_core::paths::{Layer, Paths};
 use sway_things_core::registry::{Registry, Scope, Setting, Value};
-use sway_things_core::state::{Layer, Paths};
 use sway_things_core::view::{Locked, SettingView, Source};
 
 /// A setting as `get` shows it: what a row of the app shows, and the line of the user's config

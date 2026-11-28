@@ -13,9 +13,10 @@ use super::launchers::{self, Binding, LAUNCHER, TERMINAL};
 use super::mime::{self, Kind, Source};
 use super::{Dirs, launch};
 use crate::command::{SwayCmd, SwayText, Target, model};
-use crate::generate::{HEADER, Manifest};
+use crate::manifest::{HEADER, Manifest};
+use crate::paths::Paths;
 use crate::registry::{Registry, ValueError};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 /// A home with its own XDG directories, a system data and config directory, and a `PATH`.
 struct Home {
@@ -740,7 +741,7 @@ fn terminal_and_launcher_become_bindings_of_their_keys() {
             "bindsym --no-warn Mod1+space exec \"wofi --show drun\""
         ]
     );
-    assert_eq!(file_lines[1].key(), LAUNCHER);
+    assert_eq!(crate::bindings::ours::key(&file_lines[1]), LAUNCHER);
     assert!(launchers::check_keys("$mod+Return").is_ok());
     assert_eq!(launchers::check_keys("Return"), Err(ValueError::TypingKeys));
     assert!(launchers::check_keys("F12").is_ok());

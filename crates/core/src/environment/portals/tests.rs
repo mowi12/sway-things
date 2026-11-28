@@ -6,9 +6,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::*;
-use crate::generate::HEADER;
+use crate::manifest::HEADER;
+use crate::paths::Paths;
 use crate::registry::Registry;
-use crate::state::{Paths, State};
+use crate::state::State;
 
 fn write(path: &Path, text: &str) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();

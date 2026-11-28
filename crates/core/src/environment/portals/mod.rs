@@ -27,8 +27,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::apps::Dirs;
-use crate::generate::HEADER;
-use crate::generate::other::Wanted;
+use crate::manifest::HEADER;
+use crate::manifest::Wanted;
 use crate::registry::Value;
 use crate::registry::environment::PORTAL_CONFIG;
 use crate::state::State;

@@ -4,8 +4,8 @@
 use std::path::Path;
 
 use super::{IncludeStatus, Inclusion};
+use crate::paths::Locations;
 use crate::registry::ConfigFile;
-use crate::state::Locations;
 use crate::sway_config::{DiagnosticKind, ExpandError, MemoryFiles};
 
 const MAIN: &str = "/home/me/.config/sway/config";

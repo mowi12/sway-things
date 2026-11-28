@@ -12,13 +12,13 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::keys::Modifiers;
-use super::line::{Identity, Line, LineError};
 use super::listing::sequence_of;
 use super::table::{DEFAULT_MODE, Table};
 use crate::command::SwayCmd;
 use crate::state::State;
 use crate::sway_config::Directive;
+use crate::sway_config::bindings::keys::Modifiers;
+use crate::sway_config::bindings::{Identity, Line, LineError};
 
 /// The bindings in effect in the default mode, in the order sway read them.
 fn in_effect(table: &Table) -> Vec<(Identity, &Line)> {
@@ -72,14 +72,14 @@ pub fn commands(
     for (identity, line) in &new {
         // Every option counts here, except `--no-warn`, which changes nothing in sway's list.
         let same = old_by.get(identity).is_some_and(|old| {
-            let flags = |line: &Line| super::Flags {
+            let flags = |line: &Line| crate::sway_config::bindings::Flags {
                 no_warn: false,
                 ..line.flags
             };
             old.command == line.command && flags(old) == flags(line) && old.input == line.input
         });
         if !same {
-            commands.push(SwayCmd::binding(line, Modifiers::NONE, true)?);
+            commands.push(line.sway_cmd(Modifiers::NONE, true)?);
         }
     }
     Ok(commands)
@@ -93,7 +93,7 @@ fn unbind(commands: &mut Vec<SwayCmd>, line: &Line) -> Result<(), LineError> {
         command: Some("nop".to_owned()),
         ..unbind.clone()
     };
-    commands.push(SwayCmd::binding(&placeholder, Modifiers::NONE, true)?);
-    commands.push(SwayCmd::binding(&unbind, Modifiers::NONE, false)?);
+    commands.push(placeholder.sway_cmd(Modifiers::NONE, true)?);
+    commands.push(unbind.sway_cmd(Modifiers::NONE, false)?);
     Ok(())
 }

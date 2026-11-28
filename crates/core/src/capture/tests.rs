@@ -12,8 +12,8 @@ use crate::command::Target as Render;
 use crate::generate::{self, Locations};
 use crate::include::IncludeStatus;
 use crate::ipc::types::{Node, Output};
+use crate::paths::Paths;
 use crate::registry::{ConfigFile, ValueError};
-use crate::state::Paths;
 use crate::sway_config::MemoryFiles;
 
 fn state(dir: &tempfile::TempDir, values: &[(&str, Value)]) -> State {

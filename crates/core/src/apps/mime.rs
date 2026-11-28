@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use super::Dirs;
 use super::installed::App;
-use crate::generate::HEADER;
+use crate::manifest::HEADER;
 use crate::registry::Value;
 pub use crate::registry::apps::{Kind, check_id};
 use crate::state::State;

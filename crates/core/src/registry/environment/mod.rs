@@ -18,9 +18,12 @@ use super::read::ReadError;
 use super::sway::{ConfigFile, Context, Directive, RenderError};
 use super::{Apply, Choice, Msg, Page, Registry, Setting, Value, ValueError, When};
 use crate::command::SwayCmd;
-use crate::environment::syntax::{self, SyntaxError};
 use crate::i18n::Text;
 use crate::msg;
+
+pub mod syntax;
+
+use syntax::SyntaxError;
 
 /// The key of the switch for Qt 5 apps.
 pub const QT_WAYLAND: &str = "environment.qt_wayland";
@@ -286,9 +289,19 @@ fn edited(value: &Value) -> Vec<Variable> {
         .collect()
 }
 
+/// Whether `name` can be written as `output_name`: letters, digits, `.`, `_` and `-`, as
+/// connector names are (`DP-1`, `HEADLESS-1`).
+pub fn is_output_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
 /// An output name xdg-desktop-portal-wlr can take, or empty for none.
 fn check_output(name: &str) -> Result<(), ValueError> {
-    if name.is_empty() || crate::environment::screencast::is_output_name(name) {
+    if name.is_empty() || is_output_name(name) {
         Ok(())
     } else {
         Err(ValueError::NotAnOutputName)
@@ -306,7 +319,7 @@ fn pass_session_variables(ctx: &Context<'_>) -> Result<Vec<SwayCmd>, RenderError
     let line = |words: &[&'static str]| {
         words
             .iter()
-            .chain(crate::apps::autostart::SESSION_VARIABLES.iter())
+            .chain(super::apps::SESSION_VARIABLES.iter())
             .fold(SwayCmd::new("exec"), |command, word| command.keyword(word))
     };
     Ok(vec![

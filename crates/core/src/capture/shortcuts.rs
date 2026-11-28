@@ -14,9 +14,9 @@ use super::{
     HISTORY, HISTORY_KEY, KEY_ALL, KEY_DISPLAY, KEY_REGION, KEY_WINDOW, RECORDING, RECORDING_KEY,
     SCREENSHOTS,
 };
-use crate::bindings::ours::{self, FileLine};
-use crate::bindings::{Action, Flags, Line, Origin, keys};
+use crate::registry::shortcuts::{MODIFIER, modifier};
 use crate::state::State;
+use crate::sway_config::bindings::{Action, FileLine, Flags, Line, Origin, keys};
 
 pub use crate::registry::capture::check_keys;
 
@@ -114,7 +114,7 @@ impl Shortcut {
 /// The bindings of the page's keys whose switch is on in `state`, as lines of
 /// `50-bindings.conf`.
 pub fn file_lines(state: &State) -> Vec<FileLine> {
-    let modifier = ours::modifier(state);
+    let modifier = modifier(state.get(MODIFIER, None));
     SHORTCUTS
         .into_iter()
         .filter(|shortcut| super::is_on(state, shortcut.switch))
@@ -133,8 +133,8 @@ pub fn file_lines(state: &State) -> Vec<FileLine> {
 /// without keys.
 pub fn label(state: &State, key: &str) -> String {
     let text = super::text(state, key);
-    let Some(line) =
-        Shortcut::of(key).and_then(|shortcut| shortcut.line(&text, ours::modifier(state)))
+    let Some(line) = Shortcut::of(key)
+        .and_then(|shortcut| shortcut.line(&text, modifier(state.get(MODIFIER, None))))
     else {
         return String::new();
     };

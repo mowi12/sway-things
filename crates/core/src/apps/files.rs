@@ -11,14 +11,14 @@
 //! - `$XDG_CONFIG_HOME/systemd/user/sway-things-autostart.target`: what starts systemd's
 //!   `xdg-desktop-autostart.target`.
 //!
-//! They are kept like every file of another program ([`crate::generate::other`]): only files of
+//! They are kept like every file of another program ([`crate::manifest`]): only files of
 //! Sway Things are written or deleted.
 
 use super::Dirs;
 use super::autostart::{self, Runner};
 use super::installed::{self, App};
 use super::mime::{self, Kind};
-pub use crate::generate::other::{Problem, Wanted, keep};
+pub use crate::manifest::{Problem, Wanted, keep};
 use crate::state::State;
 
 /// The files the settings in `state` want, for `dirs`.

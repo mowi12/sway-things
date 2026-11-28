@@ -16,9 +16,10 @@ use std::path::{Path, PathBuf};
 
 use crate::apps::Dirs;
 use crate::capture::tools::Program;
-use crate::generate::HEADER;
-use crate::generate::other::Wanted;
+use crate::manifest::HEADER;
+use crate::manifest::Wanted;
 use crate::registry::Value;
+pub use crate::registry::environment::is_output_name;
 use crate::registry::environment::{SCREENCAST_CHOOSER, SCREENCAST_OUTPUT};
 use crate::state::State;
 
@@ -125,16 +126,6 @@ pub fn menu(dirs: &Dirs) -> Option<Menu> {
 /// Whether slurp is installed for `dirs`.
 pub fn has_slurp(dirs: &Dirs) -> bool {
     dirs.find_program(SLURP.name).is_some()
-}
-
-/// Whether `name` can be written as `output_name`: letters, digits, `.`, `_` and `-`, as
-/// connector names are (`DP-1`, `HEADLESS-1`).
-pub fn is_output_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 64
-        && name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
 }
 
 /// The names of the files xdpw reads in a directory, in its order, for `dirs`' desktops.

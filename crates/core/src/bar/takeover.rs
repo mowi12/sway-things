@@ -24,8 +24,7 @@ use std::path::{Path, PathBuf};
 use super::WaybarFiles;
 use crate::sway_config::{Directive, SwayConfig};
 
-/// The program sway runs as a bar Sway Things took over: `sway-things`, with `-b <id>`.
-pub const LAUNCHER: &str = "sway-things";
+pub use crate::command::bar::LAUNCHER;
 
 /// The subcommands of `bar` (`sway/commands/bar.c`): a first word that isn't one is the ID.
 const SUBCOMMANDS: &[&str] = &[

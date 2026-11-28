@@ -27,6 +27,9 @@ pub const ID: &str = "sway-things";
 /// ([`waybar_hold`]).
 pub const WAYBAR_ID: &str = "sway-things-waybar";
 
+/// The program sway runs as a bar Sway Things took over: `sway-things`, with `-b <id>`.
+pub const LAUNCHER: &str = "sway-things";
+
 fn bar(subcommand: &'static str) -> SwayCmd {
     bar_of(ID, subcommand)
 }
@@ -103,7 +106,7 @@ pub fn take_over(id: &str) -> Result<SwayCmd, TextError> {
     Ok(SwayCmd::new("bar")
         .text(SwayText::new(id)?)
         .keyword("swaybar_command")
-        .keyword(crate::bar::takeover::LAUNCHER)
+        .keyword(LAUNCHER)
         .config_only())
 }
 

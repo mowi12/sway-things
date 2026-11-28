@@ -8,8 +8,9 @@ use crate::command::output::{Mode, Transform};
 use crate::devices::Lockout;
 use crate::ipc::tests::with_outputs;
 use crate::ipc::types;
+use crate::paths::Paths;
 use crate::registry::{Registry, Value};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 const LAPTOP: &str = "InfoVision Optoelectronics (Kunshan) Co.,Ltd China 0x057D Unknown";
 const LEFT: &str = "Samsung Electric Company LF27T850 H4LR303241";

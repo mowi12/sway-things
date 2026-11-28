@@ -13,14 +13,15 @@ use std::process::Stdio;
 
 use async_process::Command;
 
-use super::{GeneratedFile, Manifest, Ownership, Source};
+use super::{GeneratedFile, Source};
 use crate::atomic;
 use crate::i18n::Text;
 use crate::include::WriteAccess;
 use crate::ipc::Compositor;
+use crate::manifest::{Manifest, Ownership};
 use crate::msg;
+pub use crate::paths::Locations;
 use crate::registry::ConfigFile;
-pub use crate::state::Locations;
 
 /// An error sway found in a config file.
 #[derive(Debug, Clone, PartialEq, Eq)]

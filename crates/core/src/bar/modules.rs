@@ -143,7 +143,7 @@ impl Modules {
 
     /// The file next to the settings files of `state`.
     pub fn path_of(state: &crate::state::State) -> Option<PathBuf> {
-        let shared = state.paths().path(crate::state::Layer::Shared);
+        let shared = state.paths().path(crate::paths::Layer::Shared);
         shared.parent().map(Self::path_in)
     }
 

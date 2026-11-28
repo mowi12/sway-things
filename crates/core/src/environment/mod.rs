@@ -12,7 +12,7 @@
 //! `systemctl --user daemon-reload` after the file changed, so the user manager doesn't keep the
 //! old variables when it outlives a quick logout.
 //!
-//! The file is kept like every file of another program ([`crate::generate::other`]): created
+//! The file is kept like every file of another program ([`crate::manifest`]): created
 //! where none is, replaced while it is as Sway Things wrote it, deleted once no setting writes a
 //! variable; someone else's file is never touched. [`session`] finds out whether the session
 //! read it.
@@ -21,15 +21,15 @@ pub mod files;
 pub mod portals;
 pub mod screencast;
 pub mod session;
-pub mod syntax;
+pub use crate::registry::environment::syntax;
 #[cfg(test)]
 mod tests;
 
 use std::path::PathBuf;
 
 use crate::apps::Dirs;
-use crate::generate::HEADER;
-use crate::generate::other::Wanted;
+use crate::manifest::HEADER;
+use crate::manifest::Wanted;
 use crate::registry::environment::{VARIABLES, is_variable_name};
 use crate::registry::{Registry, Variable};
 use crate::state::State;

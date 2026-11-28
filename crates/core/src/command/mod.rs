@@ -113,18 +113,18 @@ enum Part {
     EmptyText,
     Criteria(Criteria),
     Command(Box<SwayCmd>),
-    /// A whole binding line, which renders itself ([`crate::bindings::Line`]).
+    /// A whole binding line, rendered for each target when it was made
+    /// ([`crate::sway_config::bindings::Line::sway_cmd`]).
     Binding(Box<BindingPart>),
     /// The command line of `exec` or `exec_always`, which sway runs with `sh -c`.
     ExecLine(SwayText),
 }
 
-/// A binding line with the modifier its `$mod` stands for.
+/// A binding line as a config file and an IPC message take it.
 #[derive(Debug, Clone, PartialEq)]
 struct BindingPart {
-    line: crate::bindings::Line,
-    modifier: crate::bindings::Modifiers,
-    no_warn: bool,
+    config: String,
+    ipc: String,
 }
 
 /// A sway command built from typed parts.
@@ -203,41 +203,24 @@ impl SwayCmd {
         })
     }
 
-    /// A `bindsym`, `bindcode`, `unbindsym` or `unbindcode` line, with [`crate::bindings::keys::MOD`]
-    /// in its keys standing for `modifier`. `no_warn` adds `--no-warn` to a binding.
-    ///
-    /// The command of a binding is kept by sway as it is and run like an IPC message later, so
-    /// it is rendered by [`crate::bindings::BindCommand`]: with its `$` doubled in a config line,
-    /// quoted as one argument over IPC.
-    ///
-    /// # Errors
-    ///
-    /// The [`LineError`](crate::bindings::LineError) of a line that can't be rendered for both
-    /// targets: keys or a device that would need quotes, a command with a backslash.
-    pub fn binding(
-        line: &crate::bindings::Line,
-        modifier: crate::bindings::Modifiers,
-        no_warn: bool,
-    ) -> Result<Self, crate::bindings::LineError> {
-        line.config(modifier, no_warn)?;
-        line.ipc(modifier, no_warn)?;
-        Ok(Self {
-            parts: vec![Part::Binding(Box::new(BindingPart {
-                line: line.clone(),
-                modifier,
-                no_warn,
-            }))],
+    /// A `bindsym`, `bindcode`, `unbindsym` or `unbindcode` line, rendered already as a config
+    /// file (`config`) and an IPC message (`ipc`) take it. Made only by
+    /// [`crate::sway_config::bindings::Line::sway_cmd`], which renders the line's keys and
+    /// command for both targets.
+    pub(crate) fn rendered_binding(config: String, ipc: String) -> Self {
+        Self {
+            parts: vec![Part::Binding(Box::new(BindingPart { config, ipc }))],
             availability: Availability::Anywhere,
             min_sway: SwayVersion::OLDEST_SUPPORTED,
             min_swayfx: None,
             criteria: None,
-        })
+        }
     }
 
     /// `exec <line>`: sway runs the command line `line` with `sh -c`, at once over IPC, once
     /// when it starts in a config file (`exec_always` with `always`: also at each reload).
     ///
-    /// The line is one quoted argument, as in [`crate::bindings::Action::Run`]: sway keeps the
+    /// The line is one quoted argument, as in [`crate::sway_config::bindings::Action::Run`]: sway keeps the
     /// quotes of `exec`'s arguments, replaces `$$` with `$` once (an `exec` of a config file is
     /// run later like an IPC command) and takes a single quoted argument without its quotes. So
     /// the shell gets `line` exactly, `;`, `,` and `$` included.
@@ -512,19 +495,11 @@ impl SwayCmd {
                     Rendering::Config => inner.render_as(Rendering::Ipc)?.replace('$', "$$"),
                     Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
                 },
-                Part::Binding(binding) => {
-                    let BindingPart {
-                        line,
-                        modifier,
-                        no_warn,
-                    } = binding.as_ref();
-                    match rendering {
-                        Rendering::Ipc => line.ipc(*modifier, *no_warn),
-                        Rendering::Config => line.config(*modifier, *no_warn),
-                        Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
-                    }
-                    .map_err(|_| CommandError::InvalidBinding)?
-                }
+                Part::Binding(binding) => match rendering {
+                    Rendering::Ipc => binding.ipc.clone(),
+                    Rendering::Config => binding.config.clone(),
+                    Rendering::NestedIpc => return Err(CommandError::NestedCriteria),
+                },
                 // `$` is doubled in both: the config line is read like an IPC command later.
                 Part::ExecLine(line) => match rendering {
                     Rendering::Ipc | Rendering::Config => line.render_ipc(),
@@ -609,8 +584,6 @@ pub enum CommandError {
     EmptyCriteria,
     /// The command of `for_window` or after leading criteria contains criteria or `for_window`.
     NestedCriteria,
-    /// A binding line can't be written: keys that need quotes, a command with a backslash.
-    InvalidBinding,
     /// A command whose arguments sway doesn't unquote has a text argument.
     TextKeepsQuotes {
         /// The command name.
@@ -637,7 +610,6 @@ impl CommandError {
             Self::NestedCriteria => {
                 msg!("a command after criteria can't contain criteria or for_window").into()
             }
-            Self::InvalidBinding => msg!("the binding can't be written as a sway command").into(),
             Self::TextKeepsQuotes { command } => {
                 Text::new(msg!("{command} can't take a text argument")).arg("command", command)
             }

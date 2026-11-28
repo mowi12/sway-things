@@ -311,7 +311,7 @@ pub enum ValueError {
     /// The text can't be the name of a wallpaper collection.
     NotACollectionName,
     /// The text isn't a binding line Sway Things can write (`bindsym $mod+Return exec foot`).
-    NotABinding(crate::bindings::LineErrorKind),
+    NotABinding(crate::sway_config::bindings::LineErrorKind),
     /// The text isn't keys Sway Things can bind (`Print`, `$mod+Shift+v`).
     NotAKey,
     /// The keys would type a character: a key that types needs Super, Ctrl or Alt.

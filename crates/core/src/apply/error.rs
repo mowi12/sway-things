@@ -12,8 +12,9 @@ use crate::generate::WriteError;
 use crate::i18n::Text;
 use crate::ipc::{IpcError, Unmet};
 use crate::msg;
+use crate::paths::PathsError;
 use crate::registry::{ConfigFile, RenderError};
-use crate::state::{PathsError, StateError};
+use crate::state::StateError;
 
 /// Why a change wasn't applied or persisted.
 #[derive(Debug)]

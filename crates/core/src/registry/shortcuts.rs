@@ -9,8 +9,9 @@
 //! lines ([`crate::bindings::ours`]), which the applier sends to a running sway as the
 //! difference to what it has ([`crate::bindings::live`]).
 
-use super::{Apply, Choice, Page, Setting, ValueError, When};
+use super::{Apply, Choice, Page, Setting, Value, ValueError, When};
 use crate::msg;
+use crate::sway_config::bindings::Modifiers;
 
 /// The key of the main modifier of the bindings Sway Things writes.
 pub const MODIFIER: &str = "shortcuts.modifier";
@@ -67,6 +68,22 @@ fn osd(key: &'static str, group: &'static str, subtitle: crate::i18n::Msg) -> Se
         .build()
 }
 
+/// The modifier `shortcuts.modifier` stands for, by the id of its choice.
+pub fn modifier_of(id: &str) -> Modifiers {
+    match id {
+        "alt" => Modifiers::ALT,
+        _ => Modifiers::SUPER,
+    }
+}
+
+/// The main modifier the stored value of `shortcuts.modifier` stands for (`None`: not stored).
+pub fn modifier(stored: Option<&Value>) -> Modifiers {
+    match stored {
+        Some(Value::Choice(id)) => modifier_of(id),
+        _ => Modifiers::SUPER,
+    }
+}
+
 /// The check of the items of `shortcuts.bindings`: what can be read at all. A command sway
 /// doesn't know passes here, so one typo in `settings.toml` doesn't drop every binding; its item
 /// becomes a comment of the generated file, which `doctor` reports, and `sway-things set` and the
@@ -79,7 +96,7 @@ fn osd(key: &'static str, group: &'static str, subtitle: crate::i18n::Msg) -> Se
 ///
 /// [`ValueError::NotABinding`] with the reason of [`parse`](crate::bindings::ours::parse).
 pub fn check_item(text: &str) -> Result<(), ValueError> {
-    crate::bindings::item::parse(text)
+    crate::sway_config::bindings::item::parse(text)
         .map(|_| ())
         .map_err(|error| ValueError::NotABinding(error.kind()))
 }

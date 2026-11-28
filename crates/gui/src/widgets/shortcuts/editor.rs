@@ -24,11 +24,11 @@ use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::bindings::ours::{self, BINDINGS, MODIFIER};
-use sway_things_core::bindings::{
-    Action, BindCommand, DEFAULT_MODE, Direction, Keymap, Line, Listing, MAX_WORKSPACE, Modifiers,
-    Row, RowKind, edit,
-};
+use sway_things_core::bindings::{DEFAULT_MODE, Listing, Row, RowKind, edit};
 use sway_things_core::registry::{Registry, Value};
+use sway_things_core::sway_config::bindings::{
+    Action, BindCommand, Direction, Keymap, Line, MAX_WORKSPACE, Modifiers,
+};
 
 use super::{GdkKeymap, parts};
 use crate::i18n::{Msg, msg, tr, trf};
@@ -856,7 +856,7 @@ impl Editor {
         words.push(command.as_str().to_owned());
         let line = ours::parse_item(&words.join(" ")).map_err(|error| error.text().translated())?;
         // A key that types something, bound alone, would no longer reach any app.
-        if !sway_things_core::bindings::keys::leaves_typing(&line.combo) {
+        if !sway_things_core::sway_config::bindings::keys::leaves_typing(&line.combo) {
             return Err(tr(msg!(
                 "Add a modifier like Super or Ctrl: bound alone, this key would no longer type \
                  in any app. Only keys like F1, Print or the media keys work alone."

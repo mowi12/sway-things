@@ -8,6 +8,7 @@ use std::fmt;
 
 use super::command::{BindCommand, CommandError};
 use super::keys::{self, Combo, Device, Key, KeyError, Modifiers};
+use crate::command::SwayCmd;
 use crate::i18n::Text;
 use crate::msg;
 use crate::sway_config::line::strip_quotes;
@@ -343,6 +344,23 @@ impl Line {
         }
         words.push(keys::with_mod(&self.keys, modifier));
         Ok(words)
+    }
+
+    /// The line as a command, with [`keys::MOD`] in its keys standing for `modifier`;
+    /// `no_warn` adds `--no-warn` to a binding.
+    ///
+    /// The command of a binding is kept by sway as it is and run like an IPC message later, so
+    /// it is rendered by [`BindCommand`]: with its `$` doubled in a config line, quoted as one
+    /// argument over IPC.
+    ///
+    /// # Errors
+    ///
+    /// The [`LineError`] of a line that can't be rendered for both targets: keys or a device
+    /// that would need quotes, a command with a backslash.
+    pub fn sway_cmd(&self, modifier: Modifiers, no_warn: bool) -> Result<SwayCmd, LineError> {
+        let config = self.config(modifier, no_warn)?;
+        let ipc = self.ipc(modifier, no_warn)?;
+        Ok(SwayCmd::rendered_binding(config, ipc))
     }
 
     /// The line for a generated config file. `no_warn` adds `--no-warn` to a binding.

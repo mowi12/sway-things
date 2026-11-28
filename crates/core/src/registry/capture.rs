@@ -16,8 +16,8 @@
 use gio::glib;
 
 use super::{Choice, Page, Setting, ValueError, When};
-use crate::bindings::keys;
 use crate::msg;
+use crate::sway_config::bindings::keys;
 
 /// The key of the switch of the screenshot keys.
 pub const SCREENSHOTS: &str = "screenshots.enabled";

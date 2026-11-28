@@ -9,17 +9,19 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::command::{Category, describe};
-use super::keys::{Key, Modifiers};
-use super::line::{Identity, Keymap, Kind, Line};
-use super::ours::{self, FileLine};
-use super::table::{Bound, DEFAULT_MODE, Entry, Fate, Origin, Source, Table, user_lines};
-use crate::generate::HEADER;
+use super::ours;
+use super::table::{Bound, DEFAULT_MODE, Entry, Fate, Source, Table, user_lines};
 use crate::i18n::Text;
 use crate::include::IncludeStatus;
+use crate::manifest::HEADER;
 use crate::registry::ConfigFile;
 use crate::state::State;
 use crate::sway_config::Directive;
+use crate::sway_config::bindings::FileLine;
+use crate::sway_config::bindings::Origin;
+use crate::sway_config::bindings::keys::{Key, Modifiers};
+use crate::sway_config::bindings::{Category, describe};
+use crate::sway_config::bindings::{Identity, Keymap, Kind, Line};
 
 /// What a row of the list is.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -132,7 +134,7 @@ impl Row {
             RowKind::Hand => {
                 self.mode == DEFAULT_MODE
                     && !self.source.after_ours
-                    && super::keys::is_plain(&self.line.keys)
+                    && crate::sway_config::bindings::keys::is_plain(&self.line.keys)
                     && self
                         .line
                         .unbinding()

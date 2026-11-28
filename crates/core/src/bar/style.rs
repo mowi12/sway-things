@@ -1155,7 +1155,7 @@ mod tests {
     fn state(dir: &std::path::Path) -> State {
         State::load(
             Registry::builtin(),
-            crate::state::Paths::new(&dir.join("config"), &dir.join("state"), "host").unwrap(),
+            crate::paths::Paths::new(&dir.join("config"), &dir.join("state"), "host").unwrap(),
         )
     }
 

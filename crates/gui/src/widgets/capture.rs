@@ -25,8 +25,8 @@ use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
 use sway_things_core::apps::launchers;
+use sway_things_core::bindings::RowKind;
 use sway_things_core::bindings::ours::MODIFIER;
-use sway_things_core::bindings::{Keymap, Line, Modifiers, RowKind, keys};
 use sway_things_core::capture::shortcuts::{Shortcut, check_keys};
 use sway_things_core::capture::tools::{self, Program};
 use sway_things_core::capture::{
@@ -34,6 +34,7 @@ use sway_things_core::capture::{
     SCREENSHOTS, clipboard, name, record, shot,
 };
 use sway_things_core::registry::{ConfigFile, Page, Registry, Value, ValueError};
+use sway_things_core::sway_config::bindings::{Keymap, Line, Modifiers, keys};
 
 use super::SettingRow;
 use super::shortcuts::{self, Captured, GdkKeymap};

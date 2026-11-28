@@ -16,7 +16,8 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use sway_things_core::generate::{GeneratedFile, OnDisk, Ownership};
+use sway_things_core::generate::{GeneratedFile, OnDisk};
+use sway_things_core::manifest::Ownership;
 use sway_things_core::registry::ConfigFile;
 
 use super::setting_row::tilde;

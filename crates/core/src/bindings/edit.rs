@@ -10,10 +10,10 @@
 //! of the user's has takes its place the same way, so sway never warns about a binding that
 //! replaces another.
 
-use super::line::{Keymap, Line};
 use super::listing::{Listing, Row, RowKind};
 use super::ours::{Item, item_text, resolve};
 use super::table::DEFAULT_MODE;
+use crate::sway_config::bindings::{Keymap, Line};
 
 /// `items` without the items at `indexes`.
 fn without(items: &[String], indexes: &[usize]) -> Vec<String> {

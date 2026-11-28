@@ -251,8 +251,10 @@ and re-bind without touching their file.
 
 ## Key bindings
 
-`crates/core/src/bindings/` reads every binding the way sway does and writes those of the Keyboard Shortcuts page. The
-facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
+`crates/core/src/bindings/` reads every binding the way sway does and writes those of the Keyboard Shortcuts page; a
+single line, its keys and its command are read in `crates/core/src/sway_config/bindings/` (`keys`, `Line`,
+`BindCommand`, `item`), in the sway layer. The facts behind it are in the
+[Sway Reference](Sway-Reference.md#key-bindings).
 
 - **Keys** (`keys`): a combination is split at `+` (empty parts dropped); parts that name a modifier (`Shift`, `Lock`,
   `Control`/`Ctrl`, `Mod1`/`Alt`, `Mod2`, `Mod3`, `Mod4`/`Super`, `Mod5`, without regard to case) make a bit mask, the
@@ -296,17 +298,17 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
   the programs people bind most, by their command line (volume and mute with `wpctl` or `pactl`, brightness with
   `brightnessctl`, `playerctl`, a lock screen, `grim` with or without `slurp`, `swaynag` before `swaymsg exit`); any
   other `exec` is _Run …_.
-- **Settings** (`registry/shortcuts.rs`, `bindings::ours`, `bindings::item`): `shortcuts.bindings` is a list of lines in
-  sway's syntax, as people write them (`bindsym $mod+Return exec foot`, `unbindsym Mod4+d`), each checked by
-  `ours::parse` (keys and device without quotes, a command that can be written back, no `mode` prefix). A command whose
-  first word sway (or SwayFX) doesn't know passes that check, so one typo in `settings.toml` doesn't drop every binding,
-  but `parse_strict` refuses it for the generated file (its item becomes a comment that names it, which `doctor`
-  reports), for `sway-things set` and in the app. `$mod` stands for `shortcuts.modifier` (`super` → `Mod4`, `alt` →
-  `Mod1`); it is never written as a variable, since the user's `$mod` may mean something else. A binding of the user's
-  is removed with an `unbindsym` item, and changed with a change item: the unbind, `=>` and the binding that takes its
-  place (`unbindsym Mod4+d => bindsym $mod+p exec menu`; an unbind has no command, so the separator can't be part of
-  one). Only a change item makes a row _Changed here_; an unbind next to an unrelated binding stays a removal and an
-  addition. `shortcuts.media.volume`, `….brightness` and `….player` bind fixed keys with `--locked` (`wpctl`,
+- **Settings** (`registry/shortcuts.rs`, `bindings::ours`, `sway_config::bindings::item`): `shortcuts.bindings` is a
+  list of lines in sway's syntax, as people write them (`bindsym $mod+Return exec foot`, `unbindsym Mod4+d`), each
+  checked by `ours::parse` (keys and device without quotes, a command that can be written back, no `mode` prefix). A
+  command whose first word sway (or SwayFX) doesn't know passes that check, so one typo in `settings.toml` doesn't drop
+  every binding, but `parse_strict` refuses it for the generated file (its item becomes a comment that names it, which
+  `doctor` reports), for `sway-things set` and in the app. `$mod` stands for `shortcuts.modifier` (`super` → `Mod4`,
+  `alt` → `Mod1`); it is never written as a variable, since the user's `$mod` may mean something else. A binding of the
+  user's is removed with an `unbindsym` item, and changed with a change item: the unbind, `=>` and the binding that
+  takes its place (`unbindsym Mod4+d => bindsym $mod+p exec menu`; an unbind has no command, so the separator can't be
+  part of one). Only a change item makes a row _Changed here_; an unbind next to an unrelated binding stays a removal
+  and an addition. `shortcuts.media.volume`, `….brightness` and `….player` bind fixed keys with `--locked` (`wpctl`,
   `brightnessctl`, `playerctl`; each switch needs its program). `….volume_osd`, `….brightness_osd` and `….player_osd`
   bind the same keys to `swayosd-client` instead (`Group::osd_keys`: `--output-volume raise`, `--brightness lower`,
   `--playerctl play-pause`, …), which changes the value and shows it in SwayOSD's on-screen display; they only matter
@@ -314,8 +316,7 @@ facts behind it are in the [Sway Reference](Sway-Reference.md#key-bindings).
   `swayosd-server` runs in this session (a process of that name in `/proc`, as for kanshi) or what starts it (an `exec`
   of the user's config, an enabled systemd user unit `swayosd…`); Sway Things never starts it. None of these settings
   has a sway directive. The keys and the check of the items are defined in the registry and re-exported by
-  `bindings::ours`; the check reads an item with `bindings::item`, which imports neither the registry nor the state, so
-  the registry stays the bottom layer.
+  `bindings::ours`; the check reads an item with `sway_config::bindings::item`, in the sway layer below the registry.
 - **`50-bindings.conf`** (`ours::file_lines`): first every unbind, each after a placeholder of the same identity
   (`bindsym --no-warn Mod4+d nop`, then `unbindsym Mod4+d`). sway rejects an unbind of a binding it doesn't have, and
   the file is validated on its own (with nothing bound), so a bare unbind would never pass `sway --validate`, and would

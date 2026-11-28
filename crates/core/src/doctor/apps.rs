@@ -10,9 +10,10 @@ use crate::apps::Dirs;
 use crate::apps::autostart::{self, Runner, Runners, Starts, Systemd};
 use crate::apps::files::{self, Problem};
 use crate::apps::mime::Kind;
-use crate::generate::{Locations, Manifest, Ownership};
+use crate::generate::Locations;
 use crate::i18n::Text;
 use crate::include::IncludeStatus;
+use crate::manifest::{Manifest, Ownership};
 use crate::msg;
 use crate::state::State;
 

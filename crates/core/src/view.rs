@@ -15,7 +15,8 @@
 //! use sway_things_core::include::IncludeStatus;
 //! use sway_things_core::ipc::Compositor;
 //! use sway_things_core::registry::{Registry, Value};
-//! use sway_things_core::state::{Paths, State};
+//! use sway_things_core::paths::Paths;
+//! use sway_things_core::state::State;
 //! use sway_things_core::sway_config::MemoryFiles;
 //! use sway_things_core::version::SwayVersion;
 //! use sway_things_core::view::{SettingView, Source};
@@ -47,8 +48,9 @@ use crate::i18n::Text;
 use crate::include::IncludeStatus;
 use crate::ipc::{Compositor, Unmet};
 use crate::msg;
+use crate::paths::Layer;
 use crate::registry::{Kind, Setting, Value, Values, When};
-use crate::state::{Layer, State};
+use crate::state::State;
 
 /// Where the value a row shows comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -370,8 +372,9 @@ mod tests {
     use crate::gsettings::{GSettingsStore, MemoryGSettings};
     use crate::include::IncludeStatus;
     use crate::ipc::{Compositor, Unmet};
+    use crate::paths::Layer;
     use crate::registry::{Registry, Value};
-    use crate::state::{Layer, State};
+    use crate::state::State;
     use crate::sway_config::MemoryFiles;
     use crate::version::{SwayFxVersion, SwayVersion};
 

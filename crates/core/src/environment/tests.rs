@@ -10,14 +10,15 @@ use super::session::{self, Session};
 use super::{files, syntax};
 use super::{line, path, quote, text, variables, wanted};
 use crate::apps::Dirs;
-use crate::generate::other::{Problem, keep};
-use crate::generate::{HEADER, Manifest};
+use crate::manifest::{HEADER, Manifest};
+use crate::manifest::{Problem, keep};
+use crate::paths::Paths;
 use crate::registry::environment::{
     ELECTRON_WAYLAND, JAVA_NONREPARENTING, QT_WAYLAND, SDL_WAYLAND, is_variable_name,
 };
 use crate::registry::region::{FORMAT_VARIABLES, FORMATS, LANGUAGE};
 use crate::registry::{Registry, Value, Variable};
-use crate::state::{Paths, State};
+use crate::state::State;
 
 fn load(toml: &str) -> (tempfile::TempDir, State) {
     let dir = tempfile::tempdir().unwrap();

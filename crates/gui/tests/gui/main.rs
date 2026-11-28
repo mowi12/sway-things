@@ -83,13 +83,14 @@ use sway_things_core::ipc::stand_in::{
     FakeSway, SWAY_1_10, obedient_with_inputs, with_inputs, with_outputs,
 };
 use sway_things_core::network::stand_in::{self as nm_stand_in, StandIn as NmStandIn};
+use sway_things_core::paths::Layer;
+use sway_things_core::paths::Paths;
 use sway_things_core::printers::stand_in::{FakePrinter, StandIn as CupsStandIn};
 use sway_things_core::region::Bus as RegionBus;
 use sway_things_core::region::stand_in::StandIn as RegionStandIn;
 use sway_things_core::registry::{ConfigFile, GSettingsKey, Link, Page, Registry, Value};
 use sway_things_core::sound::stand_in::StandIn as SoundStandIn;
-use sway_things_core::state::Layer;
-use sway_things_core::state::{Paths, State};
+use sway_things_core::state::State;
 use sway_things_core::sway_config::MemoryFiles;
 use sway_things_core::version::{SwayFxVersion, SwayVersion};
 use sway_things_core::view::Source;

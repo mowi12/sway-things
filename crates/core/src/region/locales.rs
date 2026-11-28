@@ -21,6 +21,8 @@ use futures_lite::FutureExt;
 
 use crate::i18n::{Iso, Text, tr_iso};
 use crate::msg;
+use crate::registry::region::is_utf8;
+pub use crate::registry::region::{Locale, is_locale_name};
 use crate::scanners::look::Family;
 
 /// Where iso-codes keeps its lists as JSON.
@@ -38,87 +40,7 @@ const PREVIEW_CATEGORIES: [&str; 5] = [
 /// How long `locale` may take.
 const TIMEOUT: Duration = Duration::from_secs(5);
 
-/// A locale's name, taken apart.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Locale {
-    /// The language, two or three lowercase letters (`de`), or `C` for the C locale.
-    pub language: String,
-    /// The territory, two uppercase letters or three digits (`DE`), if any.
-    pub territory: Option<String>,
-    /// The modifier (`latin`), if any.
-    pub modifier: Option<String>,
-}
-
 impl Locale {
-    /// The locale named `name` in any spelling glibc takes (`de_DE.utf8`, `de_DE.UTF-8@euro`,
-    /// `eo`), without regard to its codeset; `None` for a name that isn't a locale's. `C` and
-    /// `POSIX` aren't languages: only `C.UTF-8` is taken, as the C locale.
-    pub fn parse(name: &str) -> Option<Self> {
-        let (rest, modifier) = match name.split_once('@') {
-            Some((rest, modifier)) => (rest, Some(modifier)),
-            None => (name, None),
-        };
-        let (base, codeset) = match rest.split_once('.') {
-            Some((base, codeset)) => (base, Some(codeset)),
-            None => (rest, None),
-        };
-        if let Some(modifier) = modifier {
-            let valid = !modifier.is_empty()
-                && modifier.len() <= 16
-                && modifier.chars().all(|char| char.is_ascii_alphanumeric());
-            if !valid {
-                return None;
-            }
-        }
-        if let Some(codeset) = codeset {
-            let valid = !codeset.is_empty()
-                && codeset.len() <= 16
-                && codeset
-                    .chars()
-                    .all(|char| char.is_ascii_alphanumeric() || char == '-');
-            if !valid {
-                return None;
-            }
-        }
-        if base == "C" {
-            return (codeset.is_some_and(is_utf8) && modifier.is_none()).then(|| Self {
-                language: "C".to_owned(),
-                territory: None,
-                modifier: None,
-            });
-        }
-        let (language, territory) = match base.split_once('_') {
-            Some((language, territory)) => (language, Some(territory)),
-            None => (base, None),
-        };
-        let language_ok = (2..=3).contains(&language.len())
-            && language.chars().all(|char| char.is_ascii_lowercase());
-        let territory_ok = territory.is_none_or(|territory| {
-            (territory.len() == 2 && territory.chars().all(|char| char.is_ascii_uppercase()))
-                || (territory.len() == 3 && territory.chars().all(|char| char.is_ascii_digit()))
-        });
-        (language_ok && territory_ok).then(|| Self {
-            language: language.to_owned(),
-            territory: territory.map(str::to_owned),
-            modifier: modifier.map(str::to_owned),
-        })
-    }
-
-    /// The name Sway Things writes: `ll_CC.UTF-8[@modifier]`.
-    pub fn name(&self) -> String {
-        let mut name = self.language.clone();
-        if let Some(territory) = &self.territory {
-            name.push('_');
-            name.push_str(territory);
-        }
-        name.push_str(".UTF-8");
-        if let Some(modifier) = &self.modifier {
-            name.push('@');
-            name.push_str(modifier);
-        }
-        name
-    }
-
     /// The name in the user's language, from iso-codes: `German (Germany)`, `Esperanto`,
     /// `Serbian (Serbia, latin)`. A code iso-codes doesn't know stays a code.
     pub fn display_name(&self) -> String {
@@ -161,23 +83,6 @@ impl Locale {
 /// The text of `msg` in the user's language.
 fn msg_text(msg: crate::i18n::Msg) -> String {
     crate::i18n::tr(msg).to_owned()
-}
-
-/// Whether `codeset` is UTF-8 in one of its spellings (`UTF-8`, `utf8`).
-fn is_utf8(codeset: &str) -> bool {
-    codeset.replace('-', "").eq_ignore_ascii_case("utf8")
-}
-
-/// Whether `name` is a UTF-8 locale's name that Sway Things can write into its environment.d
-/// file: a language, maybe a territory, the codeset `UTF-8` (or `utf8`) and maybe a modifier
-/// (`de_DE.UTF-8`, `sr_RS.UTF-8@latin`, `eo.UTF-8`, `C.UTF-8`).
-pub fn is_locale_name(name: &str) -> bool {
-    let codeset = name
-        .split('@')
-        .next()
-        .and_then(|rest| rest.split_once('.'))
-        .map(|(_, codeset)| codeset);
-    codeset.is_some_and(is_utf8) && Locale::parse(name).is_some()
 }
 
 /// The names of the installed UTF-8 locales in `locale -a -v`'s output, as Sway Things writes

@@ -82,8 +82,8 @@ Each module starts with a doc comment that says what it is for; this map is wher
 | Crate | Module | What it is |
 | --- | --- | --- |
 | core | `registry` | every setting, defined once ([Settings registry](#settings-registry)) |
-| core | `state`, `ui_state`, `watch`, `atomic` | the settings files, the window state, the file watcher, atomic writes ([State](#state)) |
-| core | `generate`, `command`, `version` | the generated sway files, the typed sway commands, version gating ([Generated files](#generated-files-and-the-file-rule), [command builders](Applying-Settings.md#sway-command-builders)) |
+| core | `paths`, `state`, `ui_state`, `watch`, `atomic` | where Sway Things keeps its files, the settings files, the window state, the file watcher, atomic writes ([State](#state)) |
+| core | `generate`, `manifest`, `command`, `version` | the generated sway files and the record of every generated file, the typed sway commands, version gating ([Generated files](#generated-files-and-the-file-rule), [command builders](Applying-Settings.md#sway-command-builders)) |
 | core | `apply`, `view` | changing a setting end to end, and what a row shows ([Applying Settings](Applying-Settings.md)) |
 | core | `ipc`, `devices`, `sway_config`, `include`, `conflict`, `xkb`, `cursor`, `look`, `editor` | reading sway and the user's config ([Reading Sway](Reading-Sway.md)) |
 | core | `outputs` | displays, kanshi, workspace placement, mirroring ([Outputs](Outputs.md)) |
@@ -111,10 +111,10 @@ top-level module fails the test until it has a layer there and here.
 
 | Layer | Core modules |
 | --- | --- |
-| 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session` |
+| 0 foundation | `i18n`, `atomic`, `delegate`, `dbus`, `systemd`, `version`, `watch`, `session`, `manifest` |
 | 1 sway | `command`, `sway_config`, `ipc` |
 | 2 registry | `registry` |
-| 3 state | `state`, `include`, `ui_state` |
+| 3 state | `paths`, `state`, `include`, `ui_state` |
 | 4 features | `apps`, `bar`, `bindings`, `bluetooth`, `brightness`, `capture`, `conflict`, `cursor`, `devices`, `editor`, `environment`, `gsettings`, `look`, `network`, `night_light`, `notifications`, `outputs`, `packages`, `printers`, `region`, `scanners`, `sound`, `swayosd`, `system`, `theme`, `wallpaper`, `xkb` |
 | 5 assembly | `generate`, `view` |
 | 6 use cases | `apply`, `doctor` |
@@ -280,17 +280,22 @@ every edge to a higher layer. Keys and defaults other modules share with it are 
 there: `outputs::MODE` is `registry::output::MODE`, `gsettings::INTERFACE` is `registry::look::INTERFACE`, `editor::KEY`
 is `registry::app::EDITOR_COMMAND`, the editor command's word splitting is `registry::words`, and the wallpaper keys and
 the check of a collection name are `registry::wallpaper`, re-exported by `wallpaper`. The keys of Keyboard Shortcuts are
-`registry::shortcuts` (re-exported by `bindings::ours`); the check of its binding lines reads them with the binding
-reader (`bindings::item`, `line`, `keys`, `command`), which imports neither the registry nor the state, but still sits
-in the features layer: these edges are in the baseline until the reader moves down to the sway layer. The keys, defaults
-and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name` and
-`capture::shortcuts`); the check of its keys uses `bindings::keys` the same way. The keys of Apps & Autostart, the kinds
-of default apps, the autostart entries and the checks of their values are `registry::apps` (re-exported by
-`apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and launcher's
-commands and keys use the same binding reader. A key that code reads by name, in the core or a front end, is a constant
-of the registry module that defines the setting (`registry::app::SAFETY_NET_TIMEOUT`,
-`registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …), never a string literal; the architecture
-test checks it (R4).
+`registry::shortcuts` (re-exported by `bindings::ours`), with the main modifier they stand for; the check of its binding
+lines reads them with the binding reader of the sway layer (`sway_config::bindings`: `item`, `line`, `keys`, `command`,
+and who wrote a line, `Origin` and `FileLine`), which uses only `sway_config::line`, `command` and `i18n`. A `SwayCmd`
+holds a binding line as its two rendered texts (`Line::sway_cmd`), so `command` doesn't name the reader's types. The
+keys, defaults and checks of Screenshots & Clipboard are `registry::capture` (re-exported by `capture`, `capture::name`
+and `capture::shortcuts`); the check of its keys uses `sway_config::bindings::keys` the same way. The keys of Apps &
+Autostart, the kinds of default apps, the autostart entries and the checks of their values are `registry::apps`
+(re-exported by `apps::launchers`, `apps::mime`, `apps::autostart` and `apps::entry`); the checks of the terminal's and
+launcher's commands and keys use the same binding reader. The same holds for the other pure checks a value check needs:
+environment.d's syntax, the output name of xdg-desktop-portal-wlr and the variables handed to the user manager are
+`registry::environment` (re-exported by `environment::syntax`, `environment::screencast` and `apps::autostart`), a
+locale's name is `registry::region` (re-exported by `region::locales`), a module name of waybar is `registry::bar`
+(re-exported by `bar`), and the launcher of a bar taken over is `command::bar::LAUNCHER`. A key that code reads by name,
+in the core or a front end, is a constant of the registry module that defines the setting
+(`registry::app::SAFETY_NET_TIMEOUT`, `registry::windows::FOCUSED_CHILD_BORDER`, `registry::input::XKB_LAYOUT`, …),
+never a string literal; the architecture test checks it (R4).
 
 Pages that don't fit the row model are hand-written GTK widgets: the Displays canvas, the pages of the live services
 (Bluetooth, Network, Sound), the list of bindings on Keyboard Shortcuts with its dialog, the key buttons and notes of
@@ -303,7 +308,9 @@ Sway Things keeps its own settings files as the source of truth instead of readi
 report many values (client colors, gaps, the font) and can't tell a value the user chose from a sway default, and
 rewriting sway syntax in place is fragile. The CLI and the history build on the same files, and so will export and
 import (planned). The per-machine overlay exists because dotfiles are shared between machines, and some values differ
-per machine.
+per machine. Where the files are is the module `paths` (`Layer`, `Paths` for the settings files, `Locations` for the
+generated files and their manifest), below both `state` and `include`; the permission to write (`WriteAccess`) stays in
+`include`, where only an include status that found the line can make one.
 
 ```text
 $XDG_CONFIG_HOME/sway-things/
@@ -476,7 +483,9 @@ the one that starts the night light) (`20-output.conf` ends with the one that ke
   If sway rejects the file, the old one stays, and each error carries the line and the settings behind it. If sway can't
   be run, nothing is replaced.
 - **Manifest:** `manifest.toml` records the SHA-256 hash of each generated file by absolute path (the value `sha256sum`
-  prints). Before a file is replaced, its content is compared:
+  prints). The record, the header and the handling of other programs' files (`Wanted`, `keep`, `Problem`) are the
+  foundation module `manifest`, so `generate` and every feature that writes such a file share them. Before a file is
+  replaced, its content is compared:
 
   | The file on disk… | Result |
   | --- | --- |

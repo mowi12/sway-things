@@ -27,10 +27,10 @@ use super::Dirs;
 use super::entry::DesktopEntry;
 use super::installed::{shows_in, single_line};
 use crate::command::{Hook, SwayCmd, SwayText};
-use crate::generate::HEADER;
+use crate::manifest::HEADER;
 use crate::registry::Value;
 pub use crate::registry::apps::{
-    ENTRIES, Entry, HIDDEN, Item, RUNNER, RUNNERS, check_entry, check_hidden,
+    ENTRIES, Entry, HIDDEN, Item, RUNNER, RUNNERS, SESSION_VARIABLES, check_entry, check_hidden,
 };
 use crate::state::State;
 use crate::sway_config::Directive;
@@ -523,23 +523,6 @@ pub fn systemd_unit_text() -> String {
 pub fn systemd_unit_path(dirs: &Dirs) -> PathBuf {
     dirs.config_home.join("systemd/user").join(SYSTEMD_UNIT)
 }
-
-/// The variables `sway-things hook autostart` hands to systemd before it starts the entries:
-/// those of sway's own `50-systemd-user.conf` and of sway-systemd, which tell apps the display,
-/// the session, the desktop and the cursor. Nothing else: the user manager is shared by every
-/// session and service of the user, so `PATH` (which a login shell may set differently) and
-/// secrets such as `SSH_AUTH_SOCK` stay as the user manager has them. Apps started by dex, in
-/// contrast, get all of sway's environment.
-pub const SESSION_VARIABLES: [&str; 8] = [
-    "WAYLAND_DISPLAY",
-    "DISPLAY",
-    "SWAYSOCK",
-    "I3SOCK",
-    "XDG_CURRENT_DESKTOP",
-    "XDG_SESSION_TYPE",
-    "XCURSOR_THEME",
-    "XCURSOR_SIZE",
-];
 
 /// Starts the XDG autostart entries through systemd, for `sway-things hook autostart`, which
 /// runs once at each start of sway:

@@ -21,8 +21,9 @@ use crate::outputs::kanshi::{self, Inclusion, KanshiFiles};
 use crate::outputs::new_display::{self, Asked, Decision};
 use crate::outputs::profiles::{Profile, Profiles};
 use crate::outputs::{self, Outputs, mirror, workspaces};
+use crate::paths::Paths;
 use crate::registry::Registry;
-use crate::state::{Paths, State};
+use crate::state::State;
 
 /// What a hook reads besides sway: the settings files (for the placement rule and the
 /// remembered displays) and kanshi's files.

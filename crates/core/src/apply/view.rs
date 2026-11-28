@@ -106,8 +106,9 @@ impl<V: Values> Values for Tried<'_, V> {
 mod tests {
     use super::{InEffect, in_effect};
     use crate::outputs::{Outputs, SCALE};
+    use crate::paths::Paths;
     use crate::registry::{Registry, Value};
-    use crate::state::{Paths, State};
+    use crate::state::State;
     use crate::view::{SettingView, Source};
 
     const TWO: &str = r#"[

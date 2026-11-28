@@ -12,7 +12,6 @@
 //! `--no-warn`, since choosing a terminal here means taking its keys, and with the clash detection
 //! and the live apply of that page. Nothing is bound while no terminal or launcher is chosen.
 
-use crate::bindings::{Line, LineError};
 use crate::i18n::Msg;
 use crate::msg;
 use crate::registry::Value;
@@ -20,6 +19,7 @@ pub use crate::registry::apps::{
     KEYS, LAUNCHER, LAUNCHER_KEYS, TERMINAL, TERMINAL_KEYS, check_command, check_keys, line,
 };
 use crate::state::State;
+use crate::sway_config::bindings::{Line, LineError};
 
 use super::Dirs;
 use super::installed::App;

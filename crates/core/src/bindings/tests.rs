@@ -6,15 +6,17 @@ use std::path::Path;
 
 use proptest::prelude::*;
 
-use super::keys::{self, Key, Modifiers};
 use super::ours::{self, BINDINGS, MODIFIER, PLAYER, PLAYER_OSD, VOLUME, VOLUME_OSD};
 use super::*;
 use crate::command::Target;
 use crate::command::model;
 use crate::generate::Locations;
 use crate::include::IncludeStatus;
+use crate::paths::Paths;
 use crate::registry::{Registry, Value};
-use crate::state::{Paths, State};
+use crate::state::State;
+use crate::sway_config::bindings::keys::{self, Key, Modifiers};
+use crate::sway_config::bindings::*;
 use crate::sway_config::{MemoryFiles, parse};
 
 fn words(text: &str) -> Vec<String> {
@@ -626,7 +628,7 @@ fn ipc_args(message: &str) -> Vec<Vec<String>> {
 
 /// The command sway keeps for a binding line given its handler's arguments.
 fn kept(args: &[String]) -> String {
-    let start = super::line::keys_index(&args[1..]) + 2;
+    let start = crate::sway_config::bindings::keys_index(&args[1..]) + 2;
     args[start..].join(" ")
 }
 
